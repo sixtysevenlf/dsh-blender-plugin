@@ -1,0 +1,149 @@
+# DSH × Blender 直连实时插件 · 分享版
+
+> 🌐 **语言 / Language：** [English](README.md) · **简体中文（本页）**
+
+> 让 **AI 模型真正驱动 Blender**：不用人点鼠标、不截屏喂图、不装 MCP 服务端，
+> 通过一条 TCP 直连通道拿到 10 个原语：**看视口 / 改场景 / 连续观察 / 内环搜索 / 渲染优化 / 对象精简 / 无头跑重活 / 通道运维**。
+>
+> 版本 **0.4.0**（分享版）· 自带 runtime（node + python），包内路径全相对，**换机器不用改源码**。
+> 作者自用版把这些配置写死在本机路径上；分享版全部走 `runtime/config.mjs`（自动探测 + 配置文件 + 环境变量）。
+> **操作教程：[docs/操作教程.md](docs/操作教程.md) · 配置：[docs/配置参考.md](docs/配置参考.md)**
+
+---
+
+## 1. 30 秒速览：这包能干什么
+
+| 能力 | 工具 | 典型耗时 |
+|---|---|---|
+| 看一眼现在的视口 | `blender_rt_see` | 50–100 ms |
+| **从任意角度出图**（不建相机、不动用户视口） | `blender_rt_see {from, look_at, ...}` | 85–280 ms |
+| 改一步 + 立刻验证 | `blender_rt_do {see:true}` | ≈105 ms |
+| 判断"动没动 / 对不对" | `blender_rt_watch` | ≤6 帧/次 |
+| **内环搜索**（几千次迭代不花模型回合） | `blender_rt_loop` | 160 tick/s |
+| 透传 addon 任意命令 / 查命令面 | `blender_rt_cmd` / `blender_rt_commands` | 25–55 ms |
+| 渲染性能诊断与优化预设 | `blender_rt_perf` | analyze 十几秒 |
+| 对象精简（合并，几何零损失） | `blender_rt_opt` | ≈1.4 ms/对象 |
+| **无头进程**跑重渲染 / 批量几何 | `blender_rt_headless` | 冷起 0.8 s |
+| 通道体检 / 租约（多会话共存） | `blender_viewport` | 体检 70–100 ms |
+
+---
+
+## 2. 前置条件（4 条，缺一不可）
+
+1. **Blender 4.x / 5.x（GUI 模式）** —— 本通道要的是"能看见的 Blender"；后台 `-b` 只用于无头工具那条线。
+2. **Blender 里的 addon：`MCP for Blender`**（**不在本包内**，需自备）：
+   - 它在 Blender 内起一个 TCP 服务，默认监听 `127.0.0.1:9876`；
+   - 至少提供这些命令：`ping`、`get_scene_info`、`get_world_state_snapshot`、`get_object_info(name)`、`get_viewport_screenshot(max_size, filepath, format)`、`execute_code(code)`；
+   - 另有 5 个可选集成（PolyHaven / Hyper3D / Sketchfab / Poly Pizza / Hunyuan3D），开关由 addon 自己的 scene 属性控制。
+   - 装好后：3D 视图按 `N` → 找到「MCP for Blender」面板 → **Connect**。
+   - 兼容性自检：`node runtime/_probe_tools.mjs`（逐条探测命令，输出 ok / 耗时）。
+3. **Node.js ≥ 20**（跑后端与插件宿主）。
+4. **DSH（DeepSeek Harness）**：本包以 DSH 插件形态提供工具（`inject: ['tools']`）。
+   - 若你在 **WSL** 里跑 DSH、Blender 在 Windows：需要 WSL 互操作开启（默认开），这样 `spawn` 能直接起 `blender.exe`；
+   - 若 DSH 与 Blender **同在 Windows**：把 `blenderExe` 配成 `D:\...\blender.exe` 即可，路径映射自动退化。
+
+---
+
+## 3. 安装（5 步）
+
+```bash
+# ① 构建（需要指向一个 DSH 源码 checkout，用于链接 cordis/schemastery/dsh-tools）
+cd dsh-blender-plugin
+DSH_CHECKOUT=/path/to/dsh-harness bash scripts/build.sh          # 产出 lib/
+
+# ② 配置（不设也能靠自动探测跑；要改就复制样例）
+cp dsh-blender.config.example.json dsh-blender.config.json        # 见 docs/配置参考.md
+
+# ③ 注入到 DSH（dsh-super-injector 的 dev_* 工具；或按你的部署方式装配进 profile）
+#    dev_build_plugin   {"dir":"<本目录绝对路径>"}
+#    dev_inject_plugin  {"dir":"<本目录绝对路径>"}
+
+# ④ 启动 Blender → 按 N →「MCP for Blender」→ Connect（监听 127.0.0.1:9876）
+
+# ⑤ 验证（三条命令；doctor 是关键）
+curl -sS http://127.0.0.1:9877/health      # 后端活着
+curl -sS http://127.0.0.1:9877/doctor      # ⭐ 真跑一次 bpy 往返 + 打印生效配置：kind=ok 才算通
+curl -sS http://127.0.0.1:9877/who         # 租约 + 通道指标 + config
+```
+
+插件加载时会自动拉起后端（`node runtime/server.mjs`，默认 `127.0.0.1:9877`）并带 **15 秒看护**：进程被杀 / 宿主重启会自动拉起；`blender_viewport op=stop` 会暂停看护。
+
+---
+
+## 4. 第一次使用：三条命令建立信心
+
+```text
+blender_viewport(op="doctor")                                # ① 体检：通道健康 + 生效配置
+blender_rt_see(max_size=560)                                 # ② 看一帧：模型眼里的视口
+blender_rt_see(from="9,-9,6", look_at="0,0,1")               # ③ 换个角度：不打扰你正在看的视口
+```
+
+期望：① `kind=ok`（含 `roundTripMs` / `ping_ms` / `config`）；②③ 返回内联图片 + 毫秒数与 hash。
+
+---
+
+## 5. 目录结构
+
+```text
+dsh-blender-plugin/
+├── package.json                       # 插件包定义（@dsh-external/dsh-blender-plugin）
+├── dsh-blender.config.example.json    # 配置样例（复制成 dsh-blender.config.json 生效）
+├── tsconfig.json · scripts/build.sh   # 构建：链接 checkout 依赖 + tsc → lib/
+├── src/index.ts                       # host：10 个工具 + 后端看护 + 租约心跳
+├── runtime/
+│   ├── config.mjs                     # ⭐ 分享版核心：env → 配置文件 → 自动探测 → 默认
+│   ├── engine.mjs                     # 直连引擎：addon socket 客户端 + 命令目录 + view/headless
+│   ├── server.mjs                     # 后端 HTTP：/health /status /doctor /who /commands /frame.png
+│   │                                  #   /act /cmd /loop /perf /opt /view /headless /lease /release
+│   ├── runner.py                      # 内环 runner v2（timers 循环 + 限额急停 + 罚项/退火/候选表/导出）
+│   ├── perf.py                        # 渲染性能预设（降噪器自动判定）+ 对象精简
+│   ├── view.py                        # 自定义视角捕获（自建矩阵 + 离屏绘制 + 手写 PNG）
+│   └── _probe_tools.mjs               # addon 命令面兼容性自检
+├── docs/
+│   ├── 操作教程.md                    # ⭐ 从零上手：安装 → 连通 → 10 工具 → 6 配方 → 排错
+│   ├── 配置参考.md                    # ⭐ 配置文件 / 环境变量 / 路径映射 / 自动探测
+│   ├── AI实时交互Blender-通道说明.md   # 机制与踩坑（作者机器实测记录）
+│   ├── AI建模双层循环-方案.md          # 给 AI 建模的双层循环方案
+│   └── 作者自用版-README.md            # 作者自用版说明（写死本机路径的那一版，仅作对照）
+└── tests/
+    ├── README.md                      # 可复跑验证（矩阵对拍 / PNG 字节 / 租约 7 步）
+    └── png_decode.py                  # PNG 字节级反查（验色彩空间与行序）
+```
+
+---
+
+## 6. 与「作者自用版」的差异（排查问题先看这里）
+
+| 项 | 作者自用版 | 分享版（本包） |
+|---|---|---|
+| 工作目录（帧 / 脚本） | 写死 `D:\DSH\blender\tmp` ↔ `/mnt/d/DSH/blender/tmp` | `runtime/config.mjs` 自动探测（Windows `%LOCALAPPDATA%\dsh-blender-rt`）或配置覆盖 |
+| `blender.exe` | 写死 Steam 路径 | 自动扫描 `Program Files/Blender Foundation/Blender*` + Steam 常见位置 + `PATH`，或配置指定 |
+| 端口 | 9876 / 9877 写死 | 默认相同，可配置（支持两台 Blender 并存） |
+| 降噪器默认 | 固定 `OPTIX` | 按本机 `compute_device_type` 自动判（OptiX ↔ OpenImageDenoise） |
+| 路径映射 | 只按作者的 WSL / Windows 形态 | WSL 与"纯 Windows 跑 DSH"两种形态都支持 |
+| 教程文档 | 面向作者自己的工作区 | 附带 `docs/操作教程.md` + `docs/配置参考.md`（自包含） |
+
+其余**通道机制、10 个工具行为、租约语义、内环语义与本机版完全一致**。
+
+---
+
+## 7. 常见故障（详见 `docs/操作教程.md` §5）
+
+| 症状 | 先跑这个 | 多半是 |
+|---|---|---|
+| 工具报"后端不可用" | `blender_viewport op=start` | 后端进程没起来 / 端口被占 |
+| `blender-unreachable` | 看 Blender 的 N 面板 | Blender 没跑，或 addon 没 Connect |
+| `main-thread-busy` | 等它空下来，或改无头 | Blender 主线程被渲染 / 模态操作占住 |
+| `addon-thread-stuck` | 别连发，等它结束 | 上一条长命令还在跑（`blender_rt_loop op=stop` 可急停内环） |
+| 出图报路径错误 | `blender_viewport op=doctor` 看 `config.workDir` | 工作目录两端不互通（改 `workDir`） |
+| 写操作 409 `leased` | `blender_viewport op=who` | 另一会话持有写权限租约（`op=lease force=true` 可抢） |
+| `blender_rt_headless` 起不来 | 同上，看 `config.blenderExe` | 没找到 blender.exe（三种配置方式见 `docs/配置参考.md`） |
+
+---
+
+## 8. 来源与边界
+
+- 本包**不含** Blender addon 本体（`MCP for Blender`），也不含任何模型 / 贴图资源；addon 需自备并遵守其自身许可。
+- 不含人肉面板 / MJPEG 推流 / 鼠标键盘注入（作者侧已明确移除这条路线：注入输入容易把系统按键状态搞坏）。
+- 通道只监听 `127.0.0.1`（默认），不对外网开放；`execute_code` 是有意留下的"万能通道"，请只在可信环境使用。
+- 作者机器的实测数据（帧延迟、矩阵偏差、租约用例等）保留在 `docs/AI实时交互Blender-通道说明.md` 与 `tests/README.md`，可当作你环境的对照基线。

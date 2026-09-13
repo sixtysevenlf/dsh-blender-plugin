@@ -1,0 +1,16 @@
+{
+  "_comment": "复制成 dsh-blender.config.json 即生效；所有键都可省略（省略=自动探测/默认值）。详见 docs/配置参考.md",
+
+  "workDir": "C:\\Users\\<你的用户名>\\AppData\\Local\\dsh-blender-rt",
+
+  "blenderExe": "C:\\Program Files\\Blender Foundation\\Blender 5.2\\blender.exe",
+
+  "addonHost": "127.0.0.1",
+  "addonPort": 9876,
+  "httpPort": 9877,
+
+  "holder": "my-session",
+  "leaseTtlMs": 600000,
+
+  "_WSL_note": "WSL 里跑 DSH、Blender 在 Windows 时：blenderExe 写 /mnt/d/.../blender.exe，workDir 写 Windows 盘符路径（会自动映射到 /mnt/d/...）"
+}
