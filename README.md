@@ -33,8 +33,9 @@ Detailed walkthrough (Chinese, 377 lines): [`docs/操作教程.md`](docs/操作�
 1. **Blender 4.x / 5.x running in GUI mode** — this channel needs a live GUI session (`-b` is only used by the headless tool).
 2. **Blender addon `MCP for Blender`** (**not bundled**) listening on `127.0.0.1:9876`. It must provide at least:
    `ping`, `get_scene_info`, `get_world_state_snapshot`, `get_object_info(name)`, `get_viewport_screenshot(max_size, filepath, format)`, `execute_code(code)`.
+   The **harveyxiacn enhanced `blender_mcp_addon`** is also supported (different wire protocol — the plugin adapts automatically; `addonProtocol`, default `auto`, see `docs/配置参考.md` §6). That implementation has none of the five asset integrations, and the corresponding commands fail loudly instead of pretending.
    Enable it in Blender, then in a 3D viewport press `N` → **MCP for Blender** panel → **Connect**.
-   Compatibility probe: `node runtime/_probe_tools.mjs`.
+   Compatibility probe: `node runtime/_probe_tools.mjs`. Protocol self-test (no Blender needed): `node tests/protocol_selftest.mjs`.
 3. **Node.js ≥ 20**.
 4. **DSH (DeepSeek Harness)** — this package registers tools as a DSH plugin (`inject: ['tools']`).
    Works both with DSH in WSL + Blender on Windows (WSL interop is used to spawn `blender.exe`) and with DSH and Blender on the same Windows machine (path mapping degrades gracefully).
@@ -189,6 +190,7 @@ The published version only changes machine-bound parts; channel mechanics, all 1
 | `blender-unreachable` | check Blender's N panel | Blender not running, or addon not connected |
 | `main-thread-busy` | wait, or go headless | Blender's main thread is busy (render/modal op) |
 | `addon-thread-stuck` | don't spam calls | previous long command still running (`blender_rt_loop op=stop` abort) |
+| `addon-thread-stuck` + a `detected_protocol` field | set `addonProtocol` as the message says, then `blender_viewport op=restart` | the other addon implementation is installed — protocol mismatch (flat vs category/action) |
 | Frame/path errors | `doctor` → `config.workDir` | dir not shared between both ends |
 | `409 leased` on writes | `blender_viewport op=who` | another session holds the write lease (`force=true` to take over) |
 | `blender-exe-missing` | `doctor` → `config.blenderExe` | executable not found — configure it |

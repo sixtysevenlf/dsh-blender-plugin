@@ -142,6 +142,12 @@ export const CFG = {
   // 通道
   addonHost: process.env.DSH_BLENDER_ADDON_HOST || FILE.cfg.addonHost || '127.0.0.1',
   addonPort: num(process.env.DSH_BLENDER_ADDON_PORT || FILE.cfg.addonPort, 9876),
+  // Blender 侧 addon 的线上协议：auto（默认，探测一次）/ ahujasid / category-action。
+  // 见 runtime/addon-protocol.mjs；探测结果会出现在 /doctor 与 /who 里。
+  addonProtocol: (function () {
+    const v = String(process.env.DSH_BLENDER_ADDON_PROTOCOL || FILE.cfg.addonProtocol || 'auto').trim().toLowerCase();
+    return v === 'ahujasid' || v === 'category-action' ? v : 'auto';
+  })(),
   httpPort: num(process.env.DSH_BLENDER_HTTP_PORT || FILE.cfg.httpPort, 9877),
   holder: process.env.DSH_BLENDER_HOLDER || FILE.cfg.holder || ('plugin-pid-' + String(process.pid)),
   leaseTtlMs: num(process.env.DSH_BLENDER_LEASE_TTL_MS || FILE.cfg.leaseTtlMs, 600000),
@@ -169,6 +175,7 @@ export function describeConfig(over) {
     platform: process.platform,
     distro: IS_WIN ? null : DISTRO,
     addon: CFG.addonHost + ':' + String(CFG.addonPort),
+    addonProtocol: CFG.addonProtocol,
     http: '127.0.0.1:' + String(o.httpPort || CFG.httpPort),
     workDir: { win: CFG.workDirWin, wsl: CFG.workDirWsl, from: CFG.source.workDir },
     blenderExe: CFG.blenderExe,
@@ -180,6 +187,7 @@ export function describeConfig(over) {
       DSH_BLENDER_WORKDIR: process.env.DSH_BLENDER_WORKDIR || null,
       DSH_BLENDER_EXE: process.env.DSH_BLENDER_EXE || null,
       DSH_BLENDER_HTTP_PORT: process.env.DSH_BLENDER_HTTP_PORT || null,
+      DSH_BLENDER_ADDON_PROTOCOL: process.env.DSH_BLENDER_ADDON_PROTOCOL || null,
       DSH_BLENDER_CONFIG: process.env.DSH_BLENDER_CONFIG || null,
     },
   };
