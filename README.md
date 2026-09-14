@@ -292,3 +292,7 @@ dsh-blender-plugin/
 - No human-in-the-loop panel, MJPEG streaming or mouse/keyboard injection is included (that route was deliberately dropped: injecting input can leave the system stuck with a held key).
 - License: **BSD-3-Clause** (see `LICENSE`). Copyright holder is set to the repository owner — edit `LICENSE` if you need a different attribution.
 - Measured numbers in this README and in `tests/README.md` come from the author's machine and are meant as a baseline, not a guarantee.
+
+## Credits
+
+- **@lurenjia-l** — [dsh-blender-stylized-shading](https://github.com/lurenjia-l/dsh-blender-stylized-shading): their measured EEVEE pitfalls (Shader-to-RGB only sees direct light, diffuse extension darkening, gradient-group controller binding) are folded into `docs/EEVEE-工作要点.md`; their `stylized-shading` skill has been adapted to this plugin direct channel.

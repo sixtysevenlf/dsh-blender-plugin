@@ -199,3 +199,7 @@ dsh-blender-plugin/
 - 不含人肉面板 / MJPEG 推流 / 鼠标键盘注入（作者侧已明确移除这条路线：注入输入容易把系统按键状态搞坏）。
 - 通道只监听 `127.0.0.1`（默认），不对外网开放；`execute_code` 是有意留下的"万能通道"，请只在可信环境使用。
 - 作者机器的实测数据（帧延迟、矩阵偏差、租约用例等）保留在 `docs/操作教程.md` 与 `tests/README.md`，可当作你环境的对照基线。
+
+## 致谢 / Credits
+
+- **@lurenjia-l** — [dsh-blender-stylized-shading](https://github.com/lurenjia-l/dsh-blender-stylized-shading)：其 `material_pipeline.md` 的 EEVEE 实测踩坑（Shader to RGB 只含直接光、漫射拓展光源压暗、渐变组控制器绑定）已并入本插件 `docs/EEVEE-工作要点.md`；其 `stylized-shading` 技能已适配本插件直连通道（见 `~/.dsh/skills/stylized-shading/`）。

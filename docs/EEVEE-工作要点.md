@@ -56,4 +56,8 @@
 | 试参数怕改坏 | blender_rt_txn（mark → 改 → revert；大改前 snapshot） |
 | 跑长脚本 | blender_rt_do(file="//scripts/xxx.py")（支持 //rel、/mnt/...、D:/...) |
 
-> 引自 lurenjia-l/dsh-blender-stylized-shading 的 material_pipeline.md（技术要点引用）；本插件侧数字均为本机实测。
+> **致谢**：本文第 2–4 节的 EEVEE 硬限制、NPR 材质管线分工与渐变组踩坑，来自 **@lurenjia-l** 的实测记录
+> （仓库 [lurenjia-l/dsh-blender-stylized-shading](https://github.com/lurenjia-l/dsh-blender-stylized-shading) 中的 `skills/stylized-shading/material_pipeline.md`）。
+> 这份笔记把 EEVEE 上最容易白花几小时的坑写清楚了（Shader to RGB 只含直接光、漫射拓展光源当提亮器会把 214 压到 44、
+> 渐变组控制器未绑定导致恒 0 等），我们据此补进本文并改写成本插件通道的用法 —— 感谢作者愿意公开这些细节。
+> 本插件侧的数字（1.35 s / 3.13 s / 2.3 倍 / 冷首帧 16 s）均为本机实测。
