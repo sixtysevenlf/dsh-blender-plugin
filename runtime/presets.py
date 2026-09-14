@@ -70,6 +70,8 @@ def p_list(kind=None, tag=None):
     for fn in sorted(os.listdir(_dir())):
         if not fn.endswith(".json"):
             continue
+        if fn.startswith("presets_bundle"):  # 导出包不参与列出（曾污染 list）
+            continue
         try:
             with open(os.path.join(_dir(), fn), encoding="utf-8") as f:
                 r = json.load(f)
@@ -199,7 +201,9 @@ def p_export(names=None, path=None):
         if names and r.get("name") not in names:
             continue
         picked.append(r)
-    dst = path or os.path.join(_dir(), "presets_bundle_%s.json" % time.strftime("%Y%m%d_%H%M%S"))
+    exp = os.path.join(os.path.dirname(_dir()), "presets_export")
+    os.makedirs(exp, exist_ok=True)
+    dst = path or os.path.join(exp, "presets_bundle_%s.json" % time.strftime("%Y%m%d_%H%M%S"))
     with open(dst, "w", encoding="utf-8") as f:
         json.dump({"bundle": picked, "count": len(picked), "version": PRESET_VERSION}, f, ensure_ascii=False, indent=1)
     return _j({"ok": True, "count": len(picked), "path": dst, "bytes": os.path.getsize(dst)})
