@@ -198,9 +198,21 @@ const server = http.createServer(async (req, res) => {
       if (gate) { json(res, 409, gate); return; }
       const t0 = Date.now();
       try {
-        const out = await engine.act(payload.code || '', payload.timeoutMs || 120000);
+        const out = await engine.act(payload.code || '', payload.timeoutMs || 120000, payload.file || null);
         stats.acts++; stats.lastActMs = Date.now() - t0; stats.lastError = null;
-        json(res, 200, { ok: true, ms: Date.now() - t0, executed: !!(out && out.executed), stdout: String((out && out.result) || '') });
+        // engine.act() 返回 {ok,executed,ms,mainThreadMs,stdout,stderr,error,traceback,file}，
+        // host 侧（src/index.ts 的 rt_do / rt_watch）读的正是这些字段；这里按 out.result 取值会让
+        // stdout 恒为空、file 参数丢失、异常被当成成功 —— 按 engine.act 的真实形状转发，并传下 file。
+        json(res, 200, {
+          ok: !(out && out.ok === false),
+          ms: Date.now() - t0,
+          executed: !!(out && out.executed),
+          stdout: String((out && (out.stdout !== undefined ? out.stdout : out.result)) || ''),
+          stderr: String((out && out.stderr) || ''),
+          error: (out && out.error) || null,
+          traceback: (out && out.traceback) || null,
+          mainThreadMs: (out && out.mainThreadMs) || 0,
+        });
       } catch (e) {
         stats.acts++; stats.lastError = String((e && e.message) || e);
         json(res, 200, { ok: false, ms: Date.now() - t0, error: stats.lastError, diagnosis: (e && e.diagnosis) || null });
