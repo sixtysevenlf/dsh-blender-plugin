@@ -39,6 +39,10 @@ export const LIVE_PNG_WSL = PATHS.livePngWsl;
 export const RUNNER_PATH = path.join(HERE, 'runner.py');
 export const PERF_PATH = path.join(HERE, 'perf.py');
 export const VIEW_PATH = path.join(HERE, 'view.py');
+/** 契约层（S1+S2）：组件/连接注册、包络/干涉/接口校验、破坏性门控、证据账本、三态判定 */
+export const CONTRACT_PATH = path.join(HERE, 'contract.py');
+/** 规划器（S3）：对象图 → 诊断 → 编译到 bpy → 图导出 */
+export const PLANNER_PATH = path.join(HERE, 'planner.py');
 /** 自定义视角出图（默认覆盖写这个文件） */
 export const VIEW_PNG_WIN = PATHS.viewPngWin;
 export const VIEW_PNG_WSL = PATHS.viewPngWsl;
@@ -342,7 +346,8 @@ export function createEngine(opts = {}) {
     }
   };
   /** 把 Blender 侧 python 模块注入运行中的 Blender（模块自己把 API 挂到 K 上） */
-  const MODULE_ATTR = { RUNNER_READY: 'dsh_loop_api', PERF_READY: 'dsh_perf_api', VIEW_READY: 'dsh_view_api' };
+  const MODULE_ATTR = { RUNNER_READY: 'dsh_loop_api', PERF_READY: 'dsh_perf_api', VIEW_READY: 'dsh_view_api',
+                        CONTRACT_READY: 'dsh_contract_api', PLAN_READY: 'dsh_plan_api' };
   async function injectModule(file, marker, versionExpr = '1') {
     const attr = MODULE_ATTR[marker] || ('dsh_' + String(marker).toLowerCase() + '_api');
     // K 才是真相：Blender 重启后 K 会清空，仅靠本地 Set 会误判"已注入"
@@ -363,6 +368,8 @@ export function createEngine(opts = {}) {
   const ensureRunner = () => injectModule(RUNNER_PATH, 'RUNNER_READY', 'RUNNER_VERSION');
   const ensurePerf = () => injectModule(PERF_PATH, 'PERF_READY', 'PERF_VERSION');
   const ensureView = () => injectModule(VIEW_PATH, 'VIEW_READY', 'VIEW_VERSION');
+  const ensureContract = () => injectModule(CONTRACT_PATH, 'CONTRACT_READY', 'CONTRACT_VERSION');
+  const ensurePlanner = () => injectModule(PLANNER_PATH, 'PLAN_READY', 'PLAN_VERSION');
   /** perf/opt 通用调用：op 是 K.dsh_perf_api 里的函数名 */
   async function perfCall(op, payload) {
     await ensurePerf();
@@ -370,8 +377,29 @@ export function createEngine(opts = {}) {
     const body = 'import json as _json' + '\n' + 'print("LOOP " + K.dsh_perf_api[' + JSON.stringify(op) + '](' + arg + '))';
     return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\n' + body }, 300000));
   }
+  /**
+   * 契约层 / 规划器统一调用：op = 契约 op（status、register_component、check_envelope、destructive_guard、verify、flip …）
+   * 或 plan_<op>（load/validate/order/build/graph/status/help）。
+   * 两个 python 模块都提供 dispatch(op, args)，因此这里只发 {op, args}。
+   */
+  async function planCall(op, payload) {
+    const o = String(op || 'status');
+    const isPlan = o.startsWith('plan_');
+    if (o === 'evidence') await ensureView();            // 证据要出图 → 先注入 view.py
+    if (isPlan) {
+      await ensurePlanner();
+      const body = 'print("LOOP " + K.dsh_plan_api["dispatch"](' + JSON.stringify(o.slice(5)) + ', _json.dumps(_json.loads('
+        + JSON.stringify(JSON.stringify(payload || {})) + '))))';
+      return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 300000));
+    }
+    await ensureContract();
+    const body = 'print("LOOP " + K.dsh_contract_api["dispatch"](' + JSON.stringify(o) + ', _json.dumps(_json.loads('
+      + JSON.stringify(JSON.stringify(payload || {})) + '))))';
+    return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 300000));
+  }
   return {
     addon: addon,
+    plan: (op, payload) => planCall(op, payload),
     /** 通道指标快照（inflight / last_cmd / 超时计数） */
     metrics() {
       return { ...metrics, lastCmdAgeMs: metrics.lastCmdAt ? Date.now() - metrics.lastCmdAt : null };

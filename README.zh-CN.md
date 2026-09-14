@@ -5,6 +5,8 @@
 > 让 **AI 模型真正驱动 Blender**：不用人点鼠标、不截屏喂图、不装 MCP 服务端，
 > 通过一条 TCP 直连通道拿到 10 个原语：**看视口 / 改场景 / 连续观察 / 内环搜索 / 渲染优化 / 对象精简 / 无头跑重活 / 通道运维**。
 >
+> 版本 **0.5.0** —— 新增 **契约层**（假设/区间/校验/证据/破坏性门控）与 **规划器**（Component·Connection·Feature 对象图编译到 bpy），对应新工具 `blender_rt_plan`。见 §4.5。
+>
 > 版本 **0.4.1** —— 新增 **addon 协议适配**（`addonProtocol`，默认 `auto`）：扁平协议的官方 `MCP for Blender` 与 `harveyxiacn/blender-mcp` 的 category/action addon 都能用（由 [@yihefeikong-rgb](https://github.com/yihefeikong-rgb) 贡献，PR #2）。
 >
 > 版本 **0.4.0**（分享版）· 自带 runtime（node + python），包内路径全相对，**换机器不用改源码**。
@@ -26,6 +28,7 @@
 | 渲染性能诊断与优化预设 | `blender_rt_perf` | analyze 十几秒 |
 | 对象精简（合并，几何零损失） | `blender_rt_opt` | ≈1.4 ms/对象 |
 | **无头进程**跑重渲染 / 批量几何 | `blender_rt_headless` | 冷起 0.8 s |
+| **契约层 + 规划器** | **`blender_rt_plan`** | 307 对象：AABB 扫描 24 ms · BVH 0.17 ms/对 |
 | 通道体检 / 租约（多会话共存） | `blender_viewport` | 体检 70–100 ms |
 
 ---
@@ -85,6 +88,22 @@ blender_rt_see(from="9,-9,6", look_at="0,0,1")               # ③ 换个角度�
 
 ---
 
+## 4.5 契约层 + 规划器（v0.5.0）
+
+回答"白盒化"：*模型凭什么说这么建是对的？证据不够时怎么办？*
+
+- **契约 op**（`op=…`）：`register_component` / `register_connection`（候选类型、参数区间、禁止项、置信度、所需证据）/ `register_envelope`；
+  `check_envelope` / `check_interference`（AABB 扫描 + BVH 精查）/ `check_interface`；
+  `destructive_guard` —— 连接**未判别**时拦下 `boolean_union / weld / merge / apply_transform`（返回 `Unsupported Destructive Merge`）；
+  `evidence` / `ledger`（每次证据记 **md5**）/ `report`（provenance 报告）。
+- **假设生命周期**：`verify` 出三态 —— `supported` / `refuted` / **`unresolved`**（外部误差达标但决定性问题不可辨识）；`flip` / `advance` 记历史。
+- **规划器 op**（`plan_…`）：`plan_load` / `plan_validate` / `plan_order` / `plan_build`（先 `dry_run`）/ `plan_graph`（mermaid/dot）；
+  对象图 = Component（box/cylinder/sphere/mesh_copy）· Connection（候选/状态/禁止项/偏移）· Feature（array/grid/mirror）；
+  IDE 式诊断：`UnresolvedConnection` / `UnsupportedDestructiveMerge` / `MissingComponent` / `Cycle` / `ParamOutOfRange`；硬错误直接拒绝编译。
+
+**最关键的一条**：两个假设对可见证据的解释力相同时（实测残差 **184 vs 184**），判定必须是 `unresolved` **+ 还需要什么探针**，不是二选一。
+带数字的完整例子见 `docs/假设驱动建模-cookbook.md`，可在 `docs/examples/chair-backrest/` 里 3 秒复跑；自检 `tests/contract_selftest.py`（24/24）与 `tests/plan_selftest.py`（18/18）。
+
 ## 5. 目录结构
 
 ```text
@@ -100,10 +119,14 @@ dsh-blender-plugin/
 │   │                                  #   /act /cmd /loop /perf /opt /view /headless /lease /release
 │   ├── runner.py                      # 内环 runner v2（timers 循环 + 限额急停 + 罚项/退火/候选表/导出）
 │   ├── perf.py                        # 渲染性能预设（降噪器自动判定）+ 对象精简
+│   ├── contract.py                    # S1+S2：组件/连接/包络 · 校验 · 破坏性门控 · 证据账本 · 三态判定
+│   ├── planner.py                     # S3：Component·Connection·Feature 对象图 → 诊断 → 编译到 bpy
 │   ├── view.py                        # 自定义视角捕获（自建矩阵 + 离屏绘制 + 手写 PNG）
 │   └── _probe_tools.mjs               # addon 命令面兼容性自检
 ├── docs/
-│   ├── 操作教程.md                    # ⭐ 从零上手：安装 → 连通 → 10 工具 → 6 配方 → 排错
+│   ├── 操作教程.md                    # ⭐ 从零上手：安装 → 连通 → 工具 → 配方 → 排错
+│   ├── 假设驱动建模-cookbook.md       # ⭐ 假设 → 区间 → 搜索 → 证据 → 判定（S0）
+│   └── examples/chair-backrest/      # 可复跑示例 + 归档结果与证据图
 │   ├── 配置参考.md                    # ⭐ 配置文件 / 环境变量 / 路径映射 / 自动探测
 │   ├── AI实时交互Blender-通道说明.md   # 机制与踩坑（作者机器实测记录）
 │   ├── AI建模双层循环-方案.md          # 给 AI 建模的双层循环方案

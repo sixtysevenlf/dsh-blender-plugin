@@ -612,6 +612,36 @@ export function apply(ctx: any, config: Config): void {
     },
   })), '@dsh-external/dsh-blender-plugin: rt-headless')
 
+  ctx.effect(() => ctx.tools.register(defineTool({
+    name: 'blender_rt_plan',
+    description: '【契约层 + 规划器】把「假设 / 区间 / 校验 / 证据 / 门控」与「对象图编译」变成可调用 API。'
+      + '契约 op：status · help · reset · register_component · register_connection · register_envelope · '
+      + 'check_envelope · check_interference · check_interface · destructive_guard · evidence · ledger · report · '
+      + 'verify · flip · advance；规划器 op（plan_ 前缀）：plan_load · plan_validate · plan_order · plan_build · '
+      + 'plan_graph · plan_status · plan_help。判据与流程见 docs/假设驱动建模-cookbook.md（外部证据不足必须报 unresolved；'
+      + '未判别的连接上做 boolean/weld/merge 会被 destructive_guard 拦下）。',
+    parameters: {
+      op: { type: 'string', required: true, description: '契约 op 或 plan_<op>（见工具描述；op=help / plan_help 出速查）' },
+      args: { type: 'json', description: 'op 的参数对象，例如 {"cid":"joint","err":184,"tolerance":220,"identifiable":["dy"]}' },
+      path: { type: 'string', description: 'op=report 时的输出路径（Markdown）；省略则只回文本' },
+    },
+    output: { schema: ANY_SCHEMA, render: renderOne },
+    isConcurrencySafe: () => false,
+    async execute(argsIn: any) {
+      if (!(await ensureBackend(port))) return { text: '后端不可用（127.0.0.1:' + String(port) + '）。' + BACKEND_HINT }
+      const op = String((argsIn && argsIn.op) || 'status')
+      const payload: any = (argsIn && argsIn.args && typeof argsIn.args === 'object') ? { ...argsIn.args } : {}
+      if (op === 'report' && argsIn && argsIn.path) payload.path = String(argsIn.path)
+      const r = await backendPost(port, '/plan', { op: op, args: payload }, 300000)
+      const lt = leasedText(r)
+      if (lt) return { text: lt }
+      if (!r || r.ok !== true) return { text: 'PLAN ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown') }
+      const res = r.result
+      const txt = typeof res === 'string' ? res : JSON.stringify(res, null, 1)
+      return { text: 'PLAN ' + op + ' ok · ' + String(txt.length) + ' chars\n' + (txt.length > 4000 ? txt.slice(0, 4000) + '\n…(已截断)' : txt) }
+    },
+  })), '@dsh-external/dsh-blender-plugin: rt-plan')
+
   // ---------- 运维 ----------
 
   ctx.effect(() => ctx.tools.register(defineTool({

@@ -30,7 +30,7 @@ const PORT = Number(portArg >= 0 ? argv[portArg + 1] : (process.env.VIEWPORT_POR
 const HOST = '127.0.0.1';
 
 const engine = createEngine();
-const stats = { frames: 0, acts: 0, cmds: 0, loops: 0, views: 0, headless: 0, lastViewMs: null, lastHeadlessMs: null, lastFrameMs: null, lastActMs: null, lastError: null, startedAt: Date.now() };
+const stats = { frames: 0, acts: 0, cmds: 0, loops: 0, views: 0, headless: 0, plan: 0, lastPlanMs: null, lastViewMs: null, lastHeadlessMs: null, lastFrameMs: null, lastActMs: null, lastError: null, startedAt: Date.now() };
 
 /**
  * 写权限租约：多 agent / 多会话同时驱动一个 Blender 时，靠它避免互相踩。
@@ -70,7 +70,9 @@ function leaseAcquire(holder, ttlMs, force) {
   return { granted: true, lease: leaseView() };
 }
 /** 只读 op：即便别人持有租约也放行（否则连"看看现状"都会被挡） */
-const READ_ONLY_OPS = { '/perf': ['status', 'help'], '/loop': ['status', 'board', 'help'], '/opt': ['opt_analyze', 'analyze', 'help'] };
+const READ_ONLY_OPS = { '/perf': ['status', 'help'], '/loop': ['status', 'board', 'help'], '/opt': ['opt_analyze', 'analyze', 'help'],
+  '/plan': ['status', 'help', 'ledger', 'check_envelope', 'check_interference', 'check_interface',
+            'plan_status', 'plan_validate', 'plan_diag', 'plan_order', 'plan_graph'] };
 function isReadOnly(path, op) {
   const list = READ_ONLY_OPS[path];
   return !!(list && list.indexOf(String(op)) >= 0);
@@ -351,6 +353,25 @@ const server = http.createServer(async (req, res) => {
       }
       return;
     }
+    if (req.method === 'POST' && p === '/plan') {
+      // 契约层（S1+S2）与规划器（S3）统一入口：op + args
+      const raw = await readBody(req);
+      let payload = {};
+      try { payload = JSON.parse(raw); } catch (e) { payload = {}; }
+      const op = String(payload.op || 'status');
+      const gate = isReadOnly('/plan', op) ? null : leaseGate(payload);
+      if (gate) { json(res, 409, gate); return; }
+      stats.plan = (stats.plan || 0) + 1;
+      try {
+        const out2 = await engine.plan(op, payload.args || {});
+        json(res, 200, { ok: true, op: op, result: out2 });
+      } catch (e) {
+        stats.lastError = String((e && e.message) || e);
+        json(res, 200, { ok: false, op: op, error: stats.lastError, diagnosis: (e && e.diagnosis) || null });
+      }
+      return;
+    }
+
     json(res, 404, { ok: false, error: 'not found', path: p });
   } catch (e) {
     json(res, 500, { ok: false, error: String((e && e.stack) || e) });
@@ -365,7 +386,7 @@ try {
   console.error('[blender-rt] 启动时未连上 addon（Blender 未运行或 addon 未监听 9876）：' + String((e && e.message) || e));
 }
 server.listen(PORT, HOST, () => {
-  console.log('[blender-rt] http://' + HOST + ':' + String(PORT) + '/  (routes: /health /status /doctor /who /frame.png /act /view /headless /lease)');
+  console.log('[blender-rt] http://' + HOST + ':' + String(PORT) + '/  (routes: /health /status /doctor /who /frame.png /act /view /headless /plan /lease)');
 });
 process.on('SIGINT', () => { engine.stop(); server.close(); process.exit(0); });
 process.on('SIGTERM', () => { engine.stop(); server.close(); process.exit(0); });

@@ -67,6 +67,17 @@ curl -s -X POST $B/perf   -H "content-type: application/json" -d '{"op":"status"
 curl -s -X POST $B/release -H "content-type: application/json" -d '{"holder":"B"}'                                    # 7 释放
 ```
 
+## 4.5 契约层 / 规划器自检（v0.5.0）
+
+```bash
+blender -b --factory-startup --python tests/contract_selftest.py -- /tmp/contract_out   # 24 项断言
+blender -b --factory-startup --python tests/plan_selftest.py     -- /tmp/plan_out       # 18 项断言
+```
+
+期望 `{"ok":true,"passed":24,"failed":0}` 与 `{"ok":true,"passed":18,"failed":0}`。
+覆盖：未判别连接 → Boolean 被拦、不可辨识参数 → unresolved、探针达标 → supported、dry_run 不改场景、
+hidden_when 两态、ParamOutOfRange、Cycle 检测、硬错误拒绝编译、与契约层联动的包络检查。
+
 ## 5. 三条自检命令（工作区口径）
 
 ```bash

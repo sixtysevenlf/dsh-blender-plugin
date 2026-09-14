@@ -1,0 +1,327 @@
+{
+  "version": 2,
+  "spec": {
+    "seat": {
+      "x": 0.45,
+      "y": 0.45,
+      "z": 0.05,
+      "z0": 0.45
+    },
+    "plate": {
+      "x": 0.45,
+      "y": 0.03,
+      "z": 0.5
+    },
+    "joint_y": 0.225,
+    "gt": {
+      "hypothesis": "insert",
+      "tenon_len": 0.06,
+      "dy": 0.01
+    },
+    "tol_ext": 220,
+    "tol_probe_m": 0.01
+  },
+  "ranges": {
+    "attach": {
+      "dy": [
+        0.0,
+        0.03
+      ],
+      "tilt": [
+        -2.0,
+        6.0
+      ],
+      "dz": [
+        -0.02,
+        0.02
+      ],
+      "tenon_len": [
+        0.0,
+        0.0
+      ]
+    },
+    "insert": {
+      "dy": [
+        0.0,
+        0.03
+      ],
+      "tilt": [
+        -2.0,
+        6.0
+      ],
+      "dz": [
+        -0.02,
+        0.02
+      ],
+      "tenon_len": [
+        0.03,
+        0.1
+      ]
+    }
+  },
+  "forbidden": [
+    "boolean_union",
+    "weld",
+    "apply_transform"
+  ],
+  "unidentifiable_from_external_views": [
+    "tenon_len"
+  ],
+  "views": {
+    "external_side": {
+      "from": [
+        -2.6,
+        0.0,
+        0.78
+      ],
+      "look_at": [
+        0.0,
+        0.16,
+        0.66
+      ],
+      "width": 320,
+      "height": 200,
+      "lens": 50,
+      "background": false,
+      "overlays": false
+    },
+    "external_rear": {
+      "from": [
+        1.2,
+        1.2,
+        0.35
+      ],
+      "look_at": [
+        0.0,
+        0.28,
+        0.45
+      ],
+      "width": 320,
+      "height": 200,
+      "lens": 50,
+      "background": false,
+      "overlays": false
+    },
+    "probe": {
+      "from": [
+        0.75,
+        -1.45,
+        0.31
+      ],
+      "look_at": [
+        0.0,
+        0.2,
+        0.465
+      ],
+      "width": 320,
+      "height": 200,
+      "lens": 50,
+      "background": false,
+      "overlays": false
+    }
+  },
+  "outdir": "D:\\DSH\\blender\\out\\chair-backrest-example",
+  "evidence": {
+    "external_side_px": 4661,
+    "external_rear_px": 14114,
+    "probe_px": 10592,
+    "gt_probe_tenon_len_m": 0.06,
+    "files": [
+      "gt_external_side.png",
+      "gt_external_rear.png",
+      "gt_probe_no_seat.png"
+    ]
+  },
+  "hypotheses": {
+    "attach": {
+      "range": {
+        "dy": [
+          0.0,
+          0.03
+        ],
+        "tilt": [
+          -2.0,
+          6.0
+        ],
+        "dz": [
+          -0.02,
+          0.02
+        ],
+        "tenon_len": [
+          0.0,
+          0.0
+        ]
+      },
+      "best": {
+        "dy": 0.01,
+        "tilt": -2.0,
+        "dz": 0.02,
+        "tenon_len": 0.0,
+        "err_ext": 184,
+        "err_side": 97,
+        "err_rear": 87,
+        "err_probe": 642,
+        "shot_probe": "D:\\DSH\\blender\\out\\chair-backrest-example\\best_attach_probe.png"
+      },
+      "candidates_tried": 48,
+      "identifiability": {
+        "dy": {
+          "min_err_by_value": {
+            "0.0": 476,
+            "0.01": 184,
+            "0.02": 485,
+            "0.03": 974
+          },
+          "range": 790
+        },
+        "tilt": {
+          "min_err_by_value": {
+            "-2.0": 184,
+            "6.0": 495
+          },
+          "range": 311
+        },
+        "dz": {
+          "min_err_by_value": {
+            "-0.02": 186,
+            "0.02": 184
+          },
+          "range": 2
+        },
+        "tenon_len": {
+          "min_err_by_value": {
+            "0.0": 184
+          },
+          "range": 0
+        }
+      },
+      "probe_shot": "D:\\DSH\\blender\\out\\chair-backrest-example\\best_attach_probe.png",
+      "best_probe": {
+        "dy": 0.01,
+        "tilt": -2.0,
+        "dz": 0.02,
+        "tenon_len": 0.0,
+        "measured_tenon_len": 0.0,
+        "err_probe_m": 0.06,
+        "probe_shot": "D:\\DSH\\blender\\out\\chair-backrest-example\\probe_cand_attach.png"
+      },
+      "probe_candidates_tried": 1,
+      "verdict_ext": "unresolved",
+      "why_ext": "外部证据能满足（best=184 <= 220），但 tenon_len 在外部视图下不可辨识 → 需要探针",
+      "verdict_probe": "refuted",
+      "why_probe": "探针（拆解 + 深度规）：读数 0.0000 m，与真值 0.0600 m 差 0.0600 m > 0.0100 m",
+      "identifiable_params": [
+        "dy",
+        "tilt"
+      ],
+      "unidentifiable_params": [
+        "dz",
+        "tenon_len"
+      ]
+    },
+    "insert": {
+      "range": {
+        "dy": [
+          0.0,
+          0.03
+        ],
+        "tilt": [
+          -2.0,
+          6.0
+        ],
+        "dz": [
+          -0.02,
+          0.02
+        ],
+        "tenon_len": [
+          0.03,
+          0.1
+        ]
+      },
+      "best": {
+        "dy": 0.01,
+        "tilt": -2.0,
+        "dz": 0.02,
+        "tenon_len": 0.03,
+        "err_ext": 184,
+        "err_side": 97,
+        "err_rear": 87,
+        "err_probe": 458,
+        "shot_probe": "D:\\DSH\\blender\\out\\chair-backrest-example\\best_insert_probe.png"
+      },
+      "candidates_tried": 48,
+      "identifiability": {
+        "dy": {
+          "min_err_by_value": {
+            "0.0": 476,
+            "0.01": 184,
+            "0.02": 485,
+            "0.03": 974
+          },
+          "range": 790
+        },
+        "tilt": {
+          "min_err_by_value": {
+            "-2.0": 184,
+            "6.0": 495
+          },
+          "range": 311
+        },
+        "dz": {
+          "min_err_by_value": {
+            "-0.02": 186,
+            "0.02": 184
+          },
+          "range": 2
+        },
+        "tenon_len": {
+          "min_err_by_value": {
+            "0.03": 184,
+            "0.065": 184,
+            "0.1": 184
+          },
+          "range": 0
+        }
+      },
+      "probe_shot": "D:\\DSH\\blender\\out\\chair-backrest-example\\best_insert_probe.png",
+      "best_probe": {
+        "dy": 0.01,
+        "tilt": -2.0,
+        "dz": 0.02,
+        "tenon_len": 0.065,
+        "measured_tenon_len": 0.065,
+        "err_probe_m": 0.005,
+        "probe_shot": "D:\\DSH\\blender\\out\\chair-backrest-example\\probe_cand_insert.png"
+      },
+      "probe_candidates_tried": 5,
+      "verdict_ext": "unresolved",
+      "why_ext": "外部证据能满足（best=184 <= 220），但 tenon_len 在外部视图下不可辨识 → 需要探针",
+      "verdict_probe": "supported",
+      "why_probe": "探针（拆解 + 深度规）：读数 0.0650 m，与真值 0.0600 m 差 0.0050 m <= 0.0100 m",
+      "identifiable_params": [
+        "dy",
+        "tilt"
+      ],
+      "unidentifiable_params": [
+        "dz",
+        "tenon_len"
+      ]
+    }
+  },
+  "stage1_external_only": {
+    "hypotheses_not_refuted": [
+      "attach",
+      "insert"
+    ],
+    "conclusion": "外部证据不足（attach, insert 都能满足）→ 必须报 unresolved"
+  },
+  "stage2_with_probe": {
+    "supported": [
+      "insert"
+    ],
+    "conclusion": "探针后唯一支持：insert"
+  },
+  "gt_matches_supported": true,
+  "ms": 2839,
+  "preload_view_api": true
+}

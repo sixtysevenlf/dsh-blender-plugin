@@ -5,6 +5,8 @@
 > **Let an AI model actually drive Blender** — no clicking, no screenshots-into-prompt, no MCP server.
 > One direct TCP channel gives the model 10 primitives: **see the viewport / edit the scene / watch over time / run an inner search loop / profile & fix render perf / decimate objects safely / offload heavy work to a headless process / operate the channel itself.**
 >
+> Version **0.5.0** — adds a **contract layer** (hypotheses / ranges / checks / evidence / destructive-op gating) and a **planner** (Component·Connection·Feature graph compiled to bpy), exposed through the new `blender_rt_plan` tool. See §4.5.
+>
 > Version **0.4.1** — adds an **addon protocol adapter** (`addonProtocol`, default `auto`), so both the flat `MCP for Blender` addon and the `harveyxiacn/blender-mcp` category/action addon work (contributed by [@yihefeikong-rgb](https://github.com/yihefeikong-rgb), PR #2).
 >
 > Version **0.4.0** · ships its own runtime (Node + Python), all paths resolved **relative to the package**, and **nothing is hard-coded to a specific machine** (`runtime/config.mjs` does env → config file → auto-detect → defaults).
@@ -24,6 +26,7 @@
 | Render performance profiling + preset | `blender_rt_perf` | analyze ≈10–20 s |
 | Object decimation (safe join, zero geometry loss) | `blender_rt_opt` | ≈1.4 ms/object |
 | **Headless process** for heavy renders / batch geometry | `blender_rt_headless` | cold start 0.8 s |
+| **Contract layer + planner** | **`blender_rt_plan`** | AABB sweep 24 ms · BVH 0.17 ms/pair (307 objects) |
 | Channel health check / write lease | `blender_viewport` | health 70–100 ms |
 
 Detailed walkthrough (Chinese, 377 lines): [`docs/操作教程.md`](docs/操作教程.md) · configuration reference (Chinese): [`docs/配置参考.md`](docs/配置参考.md). This README covers the same ground in condensed English.
@@ -141,6 +144,22 @@ A script line `print("HEADLESS {json}")` comes back as `result`. It does not occ
 
 ---
 
+### `blender_rt_plan` — contract layer + planner
+
+Answers the white-box question: *how does the model justify what it built, and what happens when the evidence is not enough?*
+
+- **Contract ops** (`op=…`): `register_component` / `register_connection` (candidate types, parameter ranges, forbidden ops, confidence, required evidence) / `register_envelope`;
+  `check_envelope` / `check_interference` (AABB sweep + BVH refine) / `check_interface`;
+  `destructive_guard` — blocks `boolean_union / weld / merge / apply_transform` while a connection is **not resolved** (returns `Unsupported Destructive Merge`);
+  `evidence` / `ledger` — every capture recorded with path, **md5**, size, view spec; `report` — provenance report.
+- **Hypothesis lifecycle (S2)**: `verify` gives three-state verdicts — `supported` / `refuted` / **`unresolved`** (external error within tolerance but the deciding parameter is *unidentifiable*) — and `flip` / `advance` record hypothesis changes.
+- **Planner ops** (`plan_…`): `plan_load` / `plan_validate` / `plan_order` / `plan_build` (`dry_run` first) / `plan_graph` (mermaid/dot).
+  Graph = Component (box/cylinder/sphere/mesh_copy) · Connection (candidates, status, forbidden, offset) · Feature (array/grid/mirror).
+  IDE-style diagnostics: `UnresolvedConnection`, `UnsupportedDestructiveMerge`, `MissingComponent`, `Cycle`, `ParamOutOfRange`, `UnknownKind`; hard errors refuse to compile.
+
+**The rule that matters**: when two hypotheses fit the visible evidence equally well (measured residuals **184 vs 184**), the verdict is `unresolved` **plus the probe you need** — never a coin flip.
+Worked example with numbers (~3 s, headless): `docs/examples/chair-backrest/`; method: `docs/假设驱动建模-cookbook.md`. Self-tests: `tests/contract_selftest.py` (24/24) and `tests/plan_selftest.py` (18/18).
+
 ## 6. Recipes
 
 1. **Change-and-look**: `blender_rt_do(code="...", see=True)` — batch 10–30 steps, then take a wider look.
@@ -212,10 +231,14 @@ dsh-blender-plugin/
 │   ├── server.mjs              # HTTP backend on 127.0.0.1:9877 (+ lease gating)
 │   ├── runner.py               # inner-loop runner v2 (timers, limits, penalize/anneal/boards/export)
 │   ├── perf.py                 # render preset (auto denoiser) + safe object join
+│   ├── contract.py             # S1+S2: components/connections/envelopes, checks, destructive guard, evidence ledger, verdicts
+│   ├── planner.py              # S3: Component·Connection·Feature graph → diagnostics → compile to bpy
 │   ├── view.py                 # custom-view capture (matrices + offscreen + hand-written PNG)
 │   └── _probe_tools.mjs        # addon compatibility probe
 ├── docs/                       # tutorial / config reference / mechanics & pitfalls (zh)
-├── tests/                      # reproducible checks (matrix cross-check, PNG bytes, lease)
+│   ├── 假设驱动建模-cookbook.md   # hypothesis → range → search → evidence → verdict (S0)
+│   └── examples/chair-backrest/ # runnable example + recorded results & evidence images
+├── tests/                      # reproducible checks (matrix/PNG/lease + contract 24/24 + plan 18/18)
 ├── lib/                        # prebuilt host output (rebuild if your DSH differs)
 └── dsh-blender.config.example.json
 ```
@@ -227,6 +250,9 @@ dsh-blender-plugin/
 [`tests/README.md`](tests/README.md) has the full list. The key ones:
 
 1. `blender_rt_headless {preload:"view", script:"print('HEADLESS ' + K.dsh_view_api['selftest']())"}` → `ok:true`, matrix deltas ≈1e-7, `first_px == [25,153,51,255]`.
+2. `tests/contract_selftest.py` (headless) → **24/24**: registration, envelope violations, AABB+BVH interference, interface gap, destructive guard blocking, evidence md5 ledger, `unresolved → supported`, flip, report.
+3. `tests/plan_selftest.py` (headless) → **18/18**: diagnostics, topological order, dry-run vs real build, `hidden_when` both states, connection offset, `ParamOutOfRange`, `Cycle`, hard-error refusal, envelope integration.
+4. `docs/examples/chair-backrest/run.py` → **3 s**, unresolved → probe → unique support (numbers in §4.5).
 2. `tests/png_decode.py <png>` → confirms byte-exact colours (no double gamma, no vertical flip).
 3. Lease walkthrough (7 requests) against `/lease`, `/act`, `/who`, `/release`.
 4. `/health` + `/doctor` (`kind=ok`) + `/who`.
