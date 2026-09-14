@@ -198,12 +198,19 @@ const server = http.createServer(async (req, res) => {
       if (gate) { json(res, 409, gate); return; }
       const t0 = Date.now();
       try {
-        const out = await engine.act(payload.code || '', payload.timeoutMs || 120000);
+        const out = await engine.act(payload.code || '', payload.timeoutMs || 120000, payload.file || null);
         stats.acts++; stats.lastActMs = Date.now() - t0; stats.lastError = null;
-        json(res, 200, { ok: true, ms: Date.now() - t0, executed: !!(out && out.executed), stdout: String((out && out.result) || '') });
+        const o = out || {};
+        json(res, 200, { ok: o.ok !== false, ms: o.ms != null ? o.ms : (Date.now() - t0),
+                         mainThreadMs: o.mainThreadMs != null ? o.mainThreadMs : null,
+                         executed: !!o.executed, stdout: String(o.stdout || ''), stderr: String(o.stderr || ''),
+                         error: o.error || null, traceback: o.traceback || null,
+                         file: o.file || null, marker_missing: !!o.marker_missing,
+                         errorKind: o.error ? 'execution' : null });
       } catch (e) {
         stats.acts++; stats.lastError = String((e && e.message) || e);
-        json(res, 200, { ok: false, ms: Date.now() - t0, error: stats.lastError, diagnosis: (e && e.diagnosis) || null });
+        json(res, 200, { ok: false, ms: Date.now() - t0, error: stats.lastError,
+                         errorKind: (e && e.kind) || null, diagnosis: (e && e.diagnosis) || null });
       }
       return;
     }
