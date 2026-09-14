@@ -1,3 +1,58 @@
+<!--
+name: hypothesis-driven-modeling
+description: 假设驱动建模方法论：当你需要「证据不足时明确报 unresolved 而不是二选一」、需要把语言判断翻译成可执行行为区间、需要用探针翻转假设、或需要让 Agent 说清「为什么这么建模」时使用。含三层：领域方法论 / 平台原语（本插件工具）/ 交付与验收 SOP。
+-->
+
+# 假设驱动建模 cookbook（三层技能结构）
+
+> 结构说明（v0.8.x 起）：本文件按**三层技能法**组织（借鉴 lurenjia-l/dsh-blender-stylized-shading 的技能分层：领域知识 / 平台自举 / 交付 SOP）。
+> 每层都写清「**何时用 / 用什么 / 产出什么 / 怎么算过关**」，便于 AI 按触发条件取用而不是通读全文。
+
+## 层 1 · 领域方法论（为什么这么做）
+
+**何时用**：你要在「模型替你猜结构」与「让证据决定结构」之间做选择；或者已经出现「外形像但结构没依据」的情况。
+
+- 核心立场：**白盒化不是让 Agent 多解释几句**，而是「显式假设 → 翻译成行为区间 → 程序在区间内搜索与检查 → 证据翻转假设」。
+- 三态判定：`supported` / `refuted` / **`unresolved`（证据不足是一等状态）**；不允许在证据不足时二选一。
+- 可辨识性：一个参数在允许范围内变化而**外部证据完全不变**（极差≈0）→ 必须报不可辨识，并说明需要什么探针。
+- 探针优先：能拆遮挡/加辅助测量就做探针，别用置信度掩盖。
+- 破坏性操作前置门控：连接未判别时禁止 Boolean/Weld/合并。
+
+**怎么算过关**：每个几何决策都能回答「依据是什么、什么证据能推翻它」。
+
+## 层 2 · 平台原语（用什么做）
+
+**何时用**：进入执行阶段，需要具体调用。
+
+| 要做的事 | 工具 / API | 产出 |
+|---|---|---|
+| 记录假设与行为区间 | `blender_rt_plan(op="register_connection")`（candidates / params.range / forbidden / evidence_required） | 连接契约 |
+| 只读校验（不动物体） | `op="check_envelope" / "check_interference" / "check_interface"` | 越界/干涉/间隙结果 |
+| 破坏性门控 | `op="destructive_guard"` | 允许/拦截 + 阻塞明细 |
+| 区间内自动搜索 | `blender_rt_loop`（setup/step/measure + penalize/anneal/board） | 候选表 + 最优参数 |
+| 判据（客观比对） | `blender_rt_plan(op="qc_compare" / "qc_self_check" / "qc_robustness_check")` | IoU/Dice/缺多面积/边界距离 + 对照图 |
+| 翻转与判定 | `op="verify" / "flip"` | supported/refuted/unresolved + 历史 |
+| 证据与报告 | `op="evidence" / "ledger" / "report"` | 出图 + md5 + provenance 报告 |
+| 可回退实验 | `blender_rt_txn`（mark/revert；大改前 snapshot） | 回滚点 |
+| 跑长脚本 / 批量 | `blender_rt_do(file=…)` / `rt_headless` / `rt_worker` | 产物 + 日志 |
+| 看画面（不动场景） | `blender_rt_see({from, look_at, shading})` | 帧 + hash |
+
+**怎么算过关**：所有判定由程序给出（含 unresolved），不靠叙述。
+
+## 层 3 · 交付与验收 SOP（怎么交付才算完）
+
+**何时用**：收尾、交接、或要给用户一个可信结论时。
+
+1. **目标与完成标准**先写下来（做到什么算完，用什么量测）；
+2. **环境探测**（先做别猜）：`blender_viewport(op="doctor")` 通道体检、`rt_commands` 集成状态、`rt_perf(op="status")` 引擎与采样；
+3. **执行**：按层 2 的原语做，过程出图/日志留档；
+4. **自查**：`qc_self_check`（算法自检）+ `qc_robustness_check`（扰动鲁棒性）+ 关键结论的 md5 证据；
+5. **汇报**：给结论 + 判据数字 + 未判明项（unresolved 要显式列出，并写清需要什么探针）；
+6. **归档与排障**：成品进 `D:\Blender\<项目>\`，QC/探针留在工作区；排障先看 `rt_perf status` / `rt_worker status` / 日志路径。
+
+**怎么算过关**：写者 ≠ 验者（独立验证）；每个数字可复现；未判明项没有被"平均掉"。
+
+---
 # 假设驱动建模 Cookbook（S0）
 
 > 目的：把「模型直接开建 → 最后只看到结果」换成**假设 → 行为区间 → 程序搜索 → 证据判定 → 假设翻转**的可审计闭环。
