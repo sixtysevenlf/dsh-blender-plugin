@@ -5,6 +5,8 @@
 > 让 **AI 模型真正驱动 Blender**：不用人点鼠标、不截屏喂图、不装 MCP 服务端，
 > 通过一条 TCP 直连通道拿到 10 个原语：**看视口 / 改场景 / 连续观察 / 内环搜索 / 渲染优化 / 对象精简 / 无头跑重活 / 通道运维**。
 >
+> 版本 **0.6.0** —— 按外部实测反馈加固：**GPU 语义**（无头 Cycles 静默回落 CPU，实测 **15.4×**）、**热无头会话**（`blender_rt_worker`）、**长任务流式**（客户端 `fetch` 响应头超时 300 s，实测 `UND_ERR_HEADERS_TIMEOUT`）、结构化失败、产物过滤。见 §4.6。
+>
 > 版本 **0.5.0** —— 新增 **契约层**（假设/区间/校验/证据/破坏性门控）与 **规划器**（Component·Connection·Feature 对象图编译到 bpy），对应新工具 `blender_rt_plan`。见 §4.5。
 >
 > 版本 **0.4.1** —— 新增 **addon 协议适配**（`addonProtocol`，默认 `auto`）：扁平协议的官方 `MCP for Blender` 与 `harveyxiacn/blender-mcp` 的 category/action addon 都能用（由 [@yihefeikong-rgb](https://github.com/yihefeikong-rgb) 贡献，PR #2）。
@@ -29,6 +31,7 @@
 | 对象精简（合并，几何零损失） | `blender_rt_opt` | ≈1.4 ms/对象 |
 | **无头进程**跑重渲染 / 批量几何 | `blender_rt_headless` | 冷起 0.8 s |
 | **契约层 + 规划器** | **`blender_rt_plan`** | 307 对象：AABB 扫描 24 ms · BVH 0.17 ms/对 |
+| **热无头会话** | **`blender_rt_worker`** | 常驻 `blender -b` 复用（免去每次 0.9–1.2 s 冷启动；`K` 跨调用保留） |
 | 通道体检 / 租约（多会话共存） | `blender_viewport` | 体检 70–100 ms |
 
 ---
@@ -104,6 +107,19 @@ blender_rt_see(from="9,-9,6", look_at="0,0,1")               # ③ 换个角度�
 **最关键的一条**：两个假设对可见证据的解释力相同时（实测残差 **184 vs 184**），判定必须是 `unresolved` **+ 还需要什么探针**，不是二选一。
 带数字的完整例子见 `docs/假设驱动建模-cookbook.md`，可在 `docs/examples/chair-backrest/` 里 3 秒复跑；自检 `tests/contract_selftest.py`（24/24）与 `tests/plan_selftest.py`（18/18）。
 
+## 4.6 外部反馈加固（v0.6.0）
+
+来自重用户（22 轮建模、45 次流水线）的四条问题，全部复现并修掉：
+
+| 问题 | 实测 | 处置 |
+|---|---|---|
+| 无头渲染**静默跑 CPU** | 1821 对象工程 480×270/32spp：**CPU 2.78 s vs GPU 预热 0.18 s = 15.4×**；`--factory-startup` 清偏好，且 `factory_startup=false` 也没继承到 | 默认注入 **GPU 前导**（`gpu:"auto"`，OPTIX→CUDA→HIP→ONEAPI→METAL），每个结果回传 `gpu` 字段（before/after/configured/fell_back_to_cpu）；`use_user_config:true` 透传 `BLENDER_USER_CONFIG/SCRIPTS`；`gpu:"true"` 没 GPU 就 `ok=false` |
+| 没有**热无头会话** | addon 的 socket 服务在 background 直接 return，无头只能冷启动 | 新增 `runtime/worker.py` + 工具 **`blender_rt_worker`**：常驻 `blender -b`，**阻塞 accept 跑主线程**（无头下 timers 实测 0 次触发），复用**持久内核 K**（`K.n` 跨 exec 保留） |
+| 长调用 `fetch failed` | 客户端 `fetch` **响应头超时 300 s**（独立实验：延迟 330 s → `UND_ERR_HEADERS_TIMEOUT`）；且客户端断开**不会**杀掉服务端子进程（产物仍落盘） | `/headless`、`/worker` 改 **ndjson 流式**：响应头立刻返回 + 15 s 心跳 + 最后一行是结果 |
+| 失败信息不结构化 / 产物有噪音 | — | 全量 stdout/stderr 落盘（`logs.*`）、抽 `lastException` 与 `traceback`、给 `reason`；脚本里出现字面量 `\n` 时给转义提示；`outdir` 默认过滤 `__pycache__ / *.pyc / *.blend1|2 / tmp*` 并回传过滤计数 |
+
+**长任务语义**：客户端超时/断连 ≠ 任务失败（子进程继续跑完，产物在 `outdir`，日志路径在 `logs`）；超 5 分钟优先用热会话。
+
 ## 5. 目录结构
 
 ```text
@@ -121,6 +137,7 @@ dsh-blender-plugin/
 │   ├── perf.py                        # 渲染性能预设（降噪器自动判定）+ 对象精简
 │   ├── contract.py                    # S1+S2：组件/连接/包络 · 校验 · 破坏性门控 · 证据账本 · 三态判定
 │   ├── planner.py                     # S3：Component·Connection·Feature 对象图 → 诊断 → 编译到 bpy
+│   ├── worker.py                      # v0.6.0：常驻 blender -b（阻塞 accept 跑主线程）→ 热会话
 │   ├── view.py                        # 自定义视角捕获（自建矩阵 + 离屏绘制 + 手写 PNG）
 │   └── _probe_tools.mjs               # addon 命令面兼容性自检
 ├── docs/

@@ -156,6 +156,11 @@ export const CFG = {
   workDirWsl: WORK.wsl,
   // 无头进程
   blenderExe: BLENDER.exe,
+  /** 用户 Blender 配置目录（GPU 偏好所在）：无头进程默认读不到 → 要继承就设它（配合 factory_startup=false） */
+  blenderUserConfig: process.env.DSH_BLENDER_USER_CONFIG || process.env.BLENDER_USER_CONFIG || FILE.cfg.blenderUserConfig || null,
+  blenderUserScripts: process.env.DSH_BLENDER_USER_SCRIPTS || process.env.BLENDER_USER_SCRIPTS || FILE.cfg.blenderUserScripts || null,
+  /** 热无头 worker 的本地端口（与 addon 9876 / 后端 9877 区分开） */
+  workerPort: num(process.env.DSH_BLENDER_WORKER_PORT || FILE.cfg.workerPort, 9879),
   // 溯源（doctor/日志/教程排查用）
   source: { configFile: FILE.from, workDir: WORK.from, blenderExe: BLENDER.from },
 };
@@ -180,6 +185,9 @@ export function describeConfig(over) {
     workDir: { win: CFG.workDirWin, wsl: CFG.workDirWsl, from: CFG.source.workDir },
     blenderExe: CFG.blenderExe,
     blenderFrom: CFG.source.blenderExe,
+    blenderUserConfig: CFG.blenderUserConfig,
+    blenderUserScripts: CFG.blenderUserScripts,
+    workerPort: CFG.workerPort,
     configFile: CFG.source.configFile,
     holder: CFG.holder,
     leaseTtlMs: CFG.leaseTtlMs,

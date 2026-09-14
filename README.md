@@ -5,6 +5,8 @@
 > **Let an AI model actually drive Blender** — no clicking, no screenshots-into-prompt, no MCP server.
 > One direct TCP channel gives the model 10 primitives: **see the viewport / edit the scene / watch over time / run an inner search loop / profile & fix render perf / decimate objects safely / offload heavy work to a headless process / operate the channel itself.**
 >
+> Version **0.6.0** — hardening from real-world feedback: **GPU semantics** (headless Cycles silently fell back to CPU — measured **15.4×**), a **hot headless session** (`blender_rt_worker`), **streaming long calls** (client `fetch` headers timeout is 300 s — measured `UND_ERR_HEADERS_TIMEOUT`), structured failures, and artifact filtering. See §4.6.
+>
 > Version **0.5.0** — adds a **contract layer** (hypotheses / ranges / checks / evidence / destructive-op gating) and a **planner** (Component·Connection·Feature graph compiled to bpy), exposed through the new `blender_rt_plan` tool. See §4.5.
 >
 > Version **0.4.1** — adds an **addon protocol adapter** (`addonProtocol`, default `auto`), so both the flat `MCP for Blender` addon and the `harveyxiacn/blender-mcp` category/action addon work (contributed by [@yihefeikong-rgb](https://github.com/yihefeikong-rgb), PR #2).
@@ -27,6 +29,7 @@
 | Object decimation (safe join, zero geometry loss) | `blender_rt_opt` | ≈1.4 ms/object |
 | **Headless process** for heavy renders / batch geometry | `blender_rt_headless` | cold start 0.8 s |
 | **Contract layer + planner** | **`blender_rt_plan`** | AABB sweep 24 ms · BVH 0.17 ms/pair (307 objects) |
+| **Hot headless session** | **`blender_rt_worker`** | reuse one `blender -b` across calls (no 0.9–1.2 s cold start); `K` persists |
 | Channel health check / write lease | `blender_viewport` | health 70–100 ms |
 
 Detailed walkthrough (Chinese, 377 lines): [`docs/操作教程.md`](docs/操作教程.md) · configuration reference (Chinese): [`docs/配置参考.md`](docs/配置参考.md). This README covers the same ground in condensed English.
@@ -82,6 +85,19 @@ blender_rt_see(from="9,-9,6", look_at="0,0,1")         # a different angle, user
 ```
 
 ---
+
+### 4.6 Hardening from field feedback (v0.6.0)
+
+Four issues reported by a heavy user (22 modelling rounds, 45 pipelines) — all reproduced and fixed:
+
+| Issue | What we measured | What changed |
+|---|---|---|
+| Headless renders on **CPU silently** | 1821-object project, 480×270/32spp: **CPU 2.78 s vs GPU 0.18 s warm = 15.4×**; `--factory-startup` clears preferences and even `factory_startup=false` did not inherit them | `gpu:"auto"` prelude (OPTIX→CUDA→HIP→ONEAPI→METAL), explicit `gpu` field in every result (`before/after/configured/fell_back_to_cpu`), `use_user_config:true` forwards `BLENDER_USER_CONFIG/SCRIPTS`; `gpu:"true"` fails loudly when no GPU exists |
+| No **hot headless** session | the addon's socket server returns early in `background`, so headless meant a cold process every time | new `runtime/worker.py` + tool **`blender_rt_worker`**: a resident `blender -b` with a **blocking accept loop on the main thread** (timers never fire headless — measured 0 in 1.2 s) and the **persistent kernel K** (`K.n` survives across `exec` calls) |
+| Long calls die with `fetch failed` | client `fetch` **headers timeout = 300 s** (independent probe: 330 s delay → `fetch failed after 300.9s, cause=UND_ERR_HEADERS_TIMEOUT`); and a client abort does **not** kill the server-side child (artifacts still land) | `/headless` and `/worker` now stream **ndjson**: headers immediately + 15 s heartbeats + the result as the last line |
+| Opaque failures & noisy artifacts | — | full stdout/stderr written to files (`logs.*`), `lastException` + `traceback` extracted, `reason` field, a hint when a script contains a literal `\n`, and `outdir` filtering of `__pycache__ / *.pyc / *.blend1|2 / tmp*` (count reported) |
+
+**Long-task semantics**: a client timeout/abort is **not** a task failure — the server-side child keeps running, artifacts still land in `outdir` and the log paths are returned. For work beyond ~5 minutes prefer the hot worker session or write results to a file.
 
 ## 5. Tool reference
 
@@ -233,6 +249,7 @@ dsh-blender-plugin/
 │   ├── perf.py                 # render preset (auto denoiser) + safe object join
 │   ├── contract.py             # S1+S2: components/connections/envelopes, checks, destructive guard, evidence ledger, verdicts
 │   ├── planner.py              # S3: Component·Connection·Feature graph → diagnostics → compile to bpy
+│   ├── worker.py               # v0.6.0: resident `blender -b` (blocking accept on the main thread) for hot sessions
 │   ├── view.py                 # custom-view capture (matrices + offscreen + hand-written PNG)
 │   └── _probe_tools.mjs        # addon compatibility probe
 ├── docs/                       # tutorial / config reference / mechanics & pitfalls (zh)

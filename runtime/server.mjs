@@ -30,7 +30,7 @@ const PORT = Number(portArg >= 0 ? argv[portArg + 1] : (process.env.VIEWPORT_POR
 const HOST = '127.0.0.1';
 
 const engine = createEngine();
-const stats = { frames: 0, acts: 0, cmds: 0, loops: 0, views: 0, headless: 0, plan: 0, lastPlanMs: null, lastViewMs: null, lastHeadlessMs: null, lastFrameMs: null, lastActMs: null, lastError: null, startedAt: Date.now() };
+const stats = { frames: 0, acts: 0, cmds: 0, loops: 0, views: 0, headless: 0, plan: 0, worker: 0, lastPlanMs: null, lastViewMs: null, lastHeadlessMs: null, lastFrameMs: null, lastActMs: null, lastError: null, startedAt: Date.now() };
 
 /**
  * 写权限租约：多 agent / 多会话同时驱动一个 Blender 时，靠它避免互相踩。
@@ -72,7 +72,8 @@ function leaseAcquire(holder, ttlMs, force) {
 /** 只读 op：即便别人持有租约也放行（否则连"看看现状"都会被挡） */
 const READ_ONLY_OPS = { '/perf': ['status', 'help'], '/loop': ['status', 'board', 'help'], '/opt': ['opt_analyze', 'analyze', 'help'],
   '/plan': ['status', 'help', 'ledger', 'check_envelope', 'check_interference', 'check_interface',
-            'plan_status', 'plan_validate', 'plan_diag', 'plan_order', 'plan_graph'] };
+            'plan_status', 'plan_validate', 'plan_diag', 'plan_order', 'plan_graph'],
+  '/worker': ['status'] };
 function isReadOnly(path, op) {
   const list = READ_ONLY_OPS[path];
   return !!(list && list.indexOf(String(op)) >= 0);
@@ -101,6 +102,27 @@ function json(res, code, obj) {
   res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
   res.end(body);
 }
+/**
+ * 流式响应（ndjson）—— 长任务必需：客户端 fetch 的响应头超时默认 300 s（实测 UND_ERR_HEADERS_TIMEOUT），
+ * 而服务端要等子进程跑完才回包 → 长任务必然踩超时。这里立刻发响应头 + 周期心跳，最后一行才是结果。
+ */
+async function streamJson(res, producer, hbMs = 15000) {
+  const t0 = Date.now();
+  res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store', 'x-dsh-stream': '1' });
+  let done = false;
+  const hb = setInterval(() => {
+    if (done) return;
+    try { res.write(JSON.stringify({ heartbeat: true, elapsedMs: Date.now() - t0 }) + '\n'); } catch (e) { /* 客户端断了就算了 */ }
+  }, hbMs);
+  let obj;
+  try { obj = await producer(); }
+  catch (e) { obj = { ok: false, error: String((e && e.message) || e), diagnosis: (e && e.diagnosis) || null }; }
+  done = true; clearInterval(hb);
+  try { res.write(JSON.stringify(obj) + '\n'); } catch (e) { /* ignore */ }
+  res.end();
+  return obj;
+}
+
 function readBody(req, limit = 1 << 22) {
   return new Promise((resolve, reject) => {
     let n = 0; const chunks = [];
@@ -342,15 +364,17 @@ const server = http.createServer(async (req, res) => {
       const gate = leaseGate(payload);
       if (gate) { json(res, 409, gate); return; }
       const t0 = Date.now();
-      try {
-        const out = await engine.headless(payload);
-        stats.headless++; stats.lastHeadlessMs = Date.now() - t0; stats.lastError = null;
-        json(res, 200, { ok: !!out.ok, ms: out.ms, result: out });
-      } catch (e) {
-        stats.headless++;
-        stats.lastError = String((e && e.message) || e);
-        json(res, 200, { ok: false, ms: Date.now() - t0, error: stats.lastError, hint: (e && e.hint) || null, code: (e && e.code) || null });
-      }
+      stats.headless++;
+      await streamJson(res, async () => {
+        try {
+          const out = await engine.headless(payload);
+          stats.lastHeadlessMs = Date.now() - t0; stats.lastError = null;
+          return { ok: !!out.ok, ms: out.ms, result: out };
+        } catch (e) {
+          stats.lastError = String((e && e.message) || e);
+          return { ok: false, ms: Date.now() - t0, error: stats.lastError, hint: (e && e.hint) || null, code: (e && e.code) || null };
+        }
+      });
       return;
     }
     if (req.method === 'POST' && p === '/plan') {
@@ -372,6 +396,33 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'POST' && p === '/worker') {
+      // 热无头会话：start / exec / status / stop / restart（exec 走流式，长代码不会被客户端超时掐断）
+      const raw = await readBody(req);
+      let payload = {};
+      try { payload = JSON.parse(raw); } catch (e) { payload = {}; }
+      const op = String(payload.op || 'status');
+      const gate = isReadOnly('/worker', op) ? null : leaseGate(payload);
+      if (gate) { json(res, 409, gate); return; }
+      stats.worker = (stats.worker || 0) + 1;
+      await streamJson(res, async () => {
+        try {
+          if (op === 'start') return { ok: true, op: op, result: await engine.worker.start(payload) };
+          if (op === 'stop') return { ok: true, op: op, result: await engine.worker.stop() };
+          if (op === 'restart') { await engine.worker.stop(); return { ok: true, op: op, result: await engine.worker.start(payload) }; }
+          if (op === 'exec') {
+            const r = await engine.worker.exec(String(payload.code || ''), Number(payload.timeoutMs) || 120000);
+            return { ok: !!r.ok, op: op, result: r };
+          }
+          return { ok: true, op: 'status', result: await engine.worker.status() };
+        } catch (e) {
+          stats.lastError = String((e && e.message) || e);
+          return { ok: false, op: op, error: stats.lastError, hint: (e && e.hint) || null };
+        }
+      });
+      return;
+    }
+
     json(res, 404, { ok: false, error: 'not found', path: p });
   } catch (e) {
     json(res, 500, { ok: false, error: String((e && e.stack) || e) });
@@ -386,7 +437,7 @@ try {
   console.error('[blender-rt] 启动时未连上 addon（Blender 未运行或 addon 未监听 9876）：' + String((e && e.message) || e));
 }
 server.listen(PORT, HOST, () => {
-  console.log('[blender-rt] http://' + HOST + ':' + String(PORT) + '/  (routes: /health /status /doctor /who /frame.png /act /view /headless /plan /lease)');
+  console.log('[blender-rt] http://' + HOST + ':' + String(PORT) + '/  (routes: /health /status /doctor /who /frame.png /act /view /headless /plan /worker /lease)');
 });
 process.on('SIGINT', () => { engine.stop(); server.close(); process.exit(0); });
 process.on('SIGTERM', () => { engine.stop(); server.close(); process.exit(0); });

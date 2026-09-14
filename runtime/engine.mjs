@@ -43,6 +43,58 @@ export const VIEW_PATH = path.join(HERE, 'view.py');
 export const CONTRACT_PATH = path.join(HERE, 'contract.py');
 /** 规划器（S3）：对象图 → 诊断 → 编译到 bpy → 图导出 */
 export const PLANNER_PATH = path.join(HERE, 'planner.py');
+export const WORKER_PATH = path.join(HERE, 'worker.py');
+/**
+ * 用户 Blender 配置目录（GPU 偏好所在）—— 无头进程默认读不到它，Cycles 会静默回落 CPU。
+ * 分享版默认 null（用系统默认配置）；要继承某套配置就设 DSH_BLENDER_USER_CONFIG / 配置项 blenderUserConfig。
+ */
+export const USER_CONFIG_WIN = process.env.BLENDER_USER_CONFIG || CFG.blenderUserConfig || null;
+export const USER_SCRIPTS_WIN = process.env.BLENDER_USER_SCRIPTS || CFG.blenderUserScripts || null;
+/** GPU 前导：无头进程里把 Cycles 设备配好，并打印 DSH_GPU 回执（详见 README「GPU 语义」） */
+export const GPU_PRELUDE = [
+  'def _dsh_gpu_setup():',
+  '    import bpy, json',
+  '    mode = __DSH_GPU_MODE__',
+  '    info = {"mode": mode, "manual": __DSH_GPU_MANUAL__}',
+  '    try:',
+  '        prefs = bpy.context.preferences.addons["cycles"].preferences',
+  '    except Exception as e:',
+  '        info.update({"ok": False, "error": "no cycles prefs: %s" % e})',
+  '        print("DSH_GPU " + json.dumps(info, ensure_ascii=False)); return',
+  '    sc = bpy.context.scene',
+  '    def snap():',
+  '        try:   devs = [d.name for d in prefs.devices if d.use and d.type != "CPU"]',
+  '        except Exception: devs = []',
+  '        return {"device_type": prefs.compute_device_type, "scene_device": getattr(sc.cycles, "device", None), "gpu_enabled": devs}',
+  '    info["before"] = snap()',
+  '    if info["before"]["device_type"] == "NONE" or not info["before"]["gpu_enabled"]:',
+  '        chosen = None; errs = []',
+  '        for t in ["OPTIX", "CUDA", "HIP", "ONEAPI", "METAL"]:',
+  '            try:',
+  '                prefs.compute_device_type = t',
+  '                prefs.get_devices()',
+  '                gpus = [d for d in prefs.devices if d.type != "CPU"]',
+  '                if gpus:',
+  '                    for d in prefs.devices: d.use = (d.type != "CPU")',
+  '                    chosen = t; break',
+  '            except Exception as e:',
+  '                errs.append("%s: %s" % (t, e))',
+  '        info["tried"] = errs',
+  '        if chosen:',
+  '            try: sc.cycles.device = "GPU"',
+  '            except Exception: pass',
+  '            info["configured"] = chosen',
+  '        else:',
+  '            info["configured"] = None',
+  '            info["error"] = "no GPU backend available (tried OPTIX/CUDA/HIP/ONEAPI/METAL)"',
+  '    info["after"] = snap()',
+  '    a = info["after"]',
+  '    info["fell_back_to_cpu"] = bool(a["device_type"] == "NONE" or not a["gpu_enabled"])',
+  '    info["ok"] = (not info["fell_back_to_cpu"]) or (not info["manual"])',
+  '    print("DSH_GPU " + json.dumps(info, ensure_ascii=False))',
+  '_dsh_gpu_setup()',
+  'del _dsh_gpu_setup',
+].join('\n');
 /** 自定义视角出图（默认覆盖写这个文件） */
 export const VIEW_PNG_WIN = PATHS.viewPngWin;
 export const VIEW_PNG_WSL = PATHS.viewPngWsl;
@@ -322,7 +374,7 @@ export function createEngine(opts = {}) {
   const addon = new AddonClient(opts.address || ADDRESS);
   const injected = new Set();
   /** 通道侧指标：谁在写 / 忙不忙 / 队列多深（供 /status、/who 用） */
-  const metrics = { calls: 0, errors: 0, timeouts: 0, inflight: 0, lastCmd: null, lastCmdAt: null, lastOkAt: null, lastError: null, lastDiagnosis: null, views: 0, headlessRuns: 0, lastHeadlessMs: null };
+  const metrics = { calls: 0, errors: 0, timeouts: 0, inflight: 0, lastCmd: null, lastCmdAt: null, lastOkAt: null, lastError: null, lastDiagnosis: null, views: 0, headlessRuns: 0, lastHeadlessMs: null, workerStarts: 0, workerExecs: 0 };
   const rawSend = addon.send.bind(addon);
   addon.send = async (type, params, timeoutMs) => {
     metrics.calls++;
@@ -404,9 +456,107 @@ export function createEngine(opts = {}) {
       + JSON.stringify(JSON.stringify(payload || {})) + '))))';
     return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 300000));
   }
+  // ---------------------------------------------------------------- 热无头 worker
+  // 常驻 blender -b：阻塞 accept 跑在主线程（无头下 timers 不触发，主线程执行 bpy 才安全），
+  // 复用持久内核 K；一次只处理一个请求（长代码会占住 worker —— 这是"热"的代价，也是安全的来源）。
+  const WORKER_PORT = Number(process.env.DSH_BLENDER_WORKER_PORT) || CFG.workerPort || 9879;
+  let worker = { child: null, port: WORKER_PORT, ready: false, startedAt: null, gpu: null, pid: null,
+                 lastError: null, stdoutTail: '', stderrTail: '' };
+  function workerAlive() { return !!(worker.child && worker.child.exitCode === null && !worker.child.signalCode); }
+  function workerSnapshot() {
+    return { alive: workerAlive(), ready: worker.ready, pid: worker.pid, port: worker.port,
+             uptimeMs: worker.startedAt ? Date.now() - worker.startedAt : null, gpu: worker.gpu,
+             lastError: worker.lastError, stdoutTail: worker.stdoutTail ? worker.stdoutTail.slice(-1200) : null };
+  }
+  async function workerStart(opts = {}) {
+    if (workerAlive() && worker.ready) return workerSnapshot();
+    if (worker.child) { try { worker.child.kill('SIGKILL'); } catch (e) {} worker.child = null; }
+    const port = Number(opts.port) || WORKER_PORT;
+    const gpuMode = String(opts.gpu === undefined || opts.gpu === null ? 'auto' : opts.gpu);
+    const args = ['-b', '--factory-startup', '--python', wslToWin(WORKER_PATH), '--',
+                  '--port', String(port), '--gpu', gpuMode];
+    const childEnv = Object.assign({}, process.env, { PYTHONIOENCODING: 'utf-8' });
+    if (opts.useUserConfig) {
+      if (USER_CONFIG_WIN) childEnv.BLENDER_USER_CONFIG = USER_CONFIG_WIN;
+      if (USER_SCRIPTS_WIN) childEnv.BLENDER_USER_SCRIPTS = USER_SCRIPTS_WIN;
+    }
+    const child = spawn(BLENDER_EXE, args, { env: childEnv, stdio: ['ignore', 'pipe', 'pipe'] });
+    worker = { child: child, port: port, ready: false, startedAt: Date.now(), gpu: null, pid: child.pid,
+               lastError: null, stdoutTail: '', stderrTail: '' };
+    const info = await new Promise((resolve) => {
+      let so = '', se = '';
+      const t = setTimeout(() => resolve({ timedOut: true }), Math.max(20000, Number(opts.startTimeoutMs) || 90000));
+      child.stdout.on('data', (d) => {
+        so += d.toString('utf8'); worker.stdoutTail = so.slice(-4000);
+        const m = so.match(/DSH_WORKER (\{[\s\S]*?\})\s*(\r?\n|$)/);
+        if (m) { try { clearTimeout(t); resolve({ ok: JSON.parse(m[1]) }); } catch (e) { /* 继续攒 */ } }
+      });
+      child.stderr.on('data', (d) => { se += d.toString('utf8'); worker.stderrTail = se.slice(-4000); });
+      child.on('close', (code, sig) => { clearTimeout(t); resolve({ exited: true, code: code, signal: sig }); });
+      child.on('error', (e) => { clearTimeout(t); resolve({ spawnErr: e }); });
+    });
+    if (info.spawnErr) {
+      const e = new Error('worker 起不来（' + BLENDER_EXE + '）：' + String((info.spawnErr && info.spawnErr.message) || info.spawnErr));
+      e.hint = '检查 blenderExe 配置与 runtime/worker.py 是否存在';
+      throw e;
+    }
+    if (!info.ok) {
+      const e = new Error('worker 未就绪：' + JSON.stringify(info).slice(0, 200));
+      e.hint = 'worker stderr 尾部：' + String(worker.stderrTail || '').slice(-500);
+      try { child.kill('SIGKILL'); } catch (x) {}
+      throw e;
+    }
+    worker.ready = true; worker.gpu = info.ok.gpu || null; worker.pid = info.ok.pid || child.pid;
+    metrics.workerStarts++;
+    return Object.assign(workerSnapshot(), { hello: info.ok });
+  }
+  /** 与 worker 的单次请求-应答（每次新建短连接，避免残留状态） */
+  function workerCall(req, timeoutMs = 120000) {
+    return new Promise((resolve, reject) => {
+      const id = Math.floor(Math.random() * 1e9);
+      const s = net.connect({ host: '127.0.0.1', port: worker.port });
+      let buf = ''; let settled = false;
+      const fin = (fn, v) => { if (settled) return; settled = true; try { s.destroy(); } catch (e) {} fn(v); };
+      const t = setTimeout(() => fin(reject, new Error('worker 响应超时 ' + timeoutMs + 'ms（长代码会占住 worker；可 op=status 看状态）')), timeoutMs);
+      s.once('connect', () => s.write(JSON.stringify(Object.assign({ id: id }, req)) + '\n'));
+      s.once('error', (e) => { clearTimeout(t); fin(reject, e); });
+      s.on('data', (d) => {
+        buf += d.toString('utf8');
+        let nl;
+        while ((nl = buf.indexOf('\n')) >= 0) {
+          const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+          if (!line.trim()) continue;
+          let obj = null; try { obj = JSON.parse(line); } catch (e) { continue; }
+          if (obj.id !== undefined && obj.id !== null && obj.id !== id) continue;
+          clearTimeout(t); fin(resolve, obj); return;
+        }
+      });
+    });
+  }
+  async function workerExec(code, timeoutMs = 120000) {
+    if (!workerAlive() || !worker.ready) await workerStart({});
+    metrics.workerExecs++;
+    try { return await workerCall({ op: 'exec', code: String(code || '') }, timeoutMs); }
+    catch (e) { worker.lastError = String((e && e.message) || e); throw e; }
+  }
+  async function workerStatus() {
+    if (!workerAlive() || !worker.ready) return workerSnapshot();
+    try { const r = await workerCall({ op: 'status' }, 15000); return Object.assign(workerSnapshot(), { status: r.status || null }); }
+    catch (e) { worker.lastError = String((e && e.message) || e); return Object.assign(workerSnapshot(), { statusError: worker.lastError }); }
+  }
+  async function workerStop() {
+    if (!workerAlive()) { worker.ready = false; return { stopped: false, wasAlive: false }; }
+    let bye = null;
+    try { bye = await workerCall({ op: 'shutdown' }, 8000); } catch (e) { /* 直接杀 */ }
+    await new Promise((r) => setTimeout(r, 300));
+    try { if (workerAlive()) worker.child.kill('SIGKILL'); } catch (e) {}
+    worker.ready = false;
+    return { stopped: true, wasAlive: true, bye: bye };
+  }
   return {
     addon: addon,
     plan: (op, payload) => planCall(op, payload),
+    worker: { start: workerStart, exec: workerExec, status: workerStatus, stop: workerStop, snapshot: workerSnapshot },
     /** 通道指标快照（inflight / last_cmd / 超时计数） */
     metrics() {
       return { ...metrics, lastCmdAgeMs: metrics.lastCmdAt ? Date.now() - metrics.lastCmdAt : null };
@@ -575,11 +725,19 @@ export function createEngine(opts = {}) {
       metrics.lastView = { at: Date.now(), ms: info.ms, mode: info.mode, path: info.path };
       return { png: fs.readFileSync(winToWsl(info.path)), meta: info };
     },
-    /** 无头 Blender：独立进程跑脚本，不占 GUI 通道（重渲染 / 批量几何 / 校验都走它） */
+    /**
+     * 无头 Blender：独立进程跑脚本（重渲染 / 批量几何 / 校验都走它）。
+     * 语义要点（按外部反馈加固）：
+     *  - 默认注入 GPU 前导（gpu:'auto'）：无头进程读不到用户偏好，Cycles 会静默回落 CPU（实测 15.4×）
+     *  - gpu:'true' 时若确实没有 GPU 后端 → ok=false（不静默）
+     *  - use_user_config:true 时透传 BLENDER_USER_CONFIG/SCRIPTS（配合 factory_startup:false 才有意义）
+     *  - 全量 stdout/stderr 落盘（logs 路径返回）、抽 last_exception / traceback
+     *  - outdir 产物默认过滤 __pycache__ / *.pyc / *.blend1|2 / tmp*（include_noise:true 关闭过滤）
+     */
     async headless(opts = {}) {
       const t0 = Date.now();
       const script = opts.script ? String(opts.script) : '';
-      // preload: 把 runtime 里的 python 模块（view/perf/runner...）源码拼进脚本开头 → 无头进程也能直接用 K.dsh_view_api 等
+      // preload: 把 runtime 里的 python 模块（view/perf/runner/contract/planner...）源码拼进脚本开头
       let pre = '';
       const mods = Array.isArray(opts.preload) ? opts.preload : (opts.preload ? String(opts.preload).split(',') : []);
       for (const m of mods) {
@@ -589,7 +747,20 @@ export function createEngine(opts = {}) {
         if (!fs.existsSync(f)) throw new Error('preload 找不到模块：' + f);
         pre += '# ---- preload ' + name + '.py ----\n' + fs.readFileSync(f, 'utf8') + '\n';
       }
-      const body = (script || pre) ? ((opts.bootstrap === false ? '' : KERNEL_BOOTSTRAP + '\n') + pre + script) : '';
+      // ---- GPU 前导：默认 auto（没有 GPU 后端就配一个）；gpu:false/off 关闭；gpu:true 要求必须有
+      const gpuMode = String(opts.gpu === undefined || opts.gpu === null ? 'auto' : opts.gpu).toLowerCase();
+      const gpuOff = (gpuMode === 'false' || gpuMode === 'off' || gpuMode === 'none' || gpuMode === '0');
+      const gpuManual = (gpuMode === 'true' || gpuMode === 'required');
+      let gpuPre = '';
+      if (!gpuOff) {
+        gpuPre = '# ---- DSH GPU prelude ----\n' + GPU_PRELUDE
+          .replace('__DSH_GPU_MODE__', "'" + gpuMode.replace(/'/g, '') + "'")
+          .replace('__DSH_GPU_MANUAL__', gpuManual ? 'True' : 'False') + '\n';
+      }
+      const headParts = [];
+      if (opts.bootstrap !== false) headParts.push(KERNEL_BOOTSTRAP);
+      if (gpuPre) headParts.push(gpuPre);
+      const body = (script || pre || gpuPre) ? (headParts.length ? headParts.join('\n') + '\n' : '') + pre + script : '';
       const args = ['-b'];
       if (opts.file) args.push(wslToWin(String(opts.file)));
       if (opts.factoryStartup !== false) args.push('--factory-startup');
@@ -601,12 +772,18 @@ export function createEngine(opts = {}) {
       if (Array.isArray(opts.args)) args.push.apply(args, opts.args.map(String));
       const timeoutMs = Math.max(1000, Math.min(1800000, Number(opts.timeoutMs) || 180000));
       metrics.headlessRuns++;
+      // ---- 子进程环境：可选透传用户 Blender 配置（GPU 偏好在里面）
+      const childEnv = Object.assign({}, process.env, { PYTHONIOENCODING: 'utf-8' });
+      if (opts.useUserConfig) {
+        if (USER_CONFIG_WIN) childEnv.BLENDER_USER_CONFIG = USER_CONFIG_WIN;
+        if (USER_SCRIPTS_WIN) childEnv.BLENDER_USER_SCRIPTS = USER_SCRIPTS_WIN;
+      }
       const res = await new Promise((resolve) => {
         let so = '', se = '', exitCode = null, signal = null, spawnErr = null, timedOut = false;
         const CAP = 262144;
         let child = null;
         try {
-          child = spawn(BLENDER_EXE, args, { env: Object.assign({}, process.env, { PYTHONIOENCODING: 'utf-8' }), stdio: ['ignore', 'pipe', 'pipe'] });
+          child = spawn(BLENDER_EXE, args, { env: childEnv, stdio: ['ignore', 'pipe', 'pipe'] });
         } catch (e) {
           return resolve({ spawnErr: e });
         }
@@ -633,24 +810,63 @@ export function createEngine(opts = {}) {
         throw e;
       }
       const stdout = String(res.so || '');
+      const stderr = String(res.se || '');
+      // ---- 结果契约：HEADLESS <单行 JSON>（取最后一条）
       let parsed = null;
       const lines = stdout.split('\n').filter((l) => l.indexOf('HEADLESS ') === 0);
       if (lines.length) { try { parsed = JSON.parse(lines[lines.length - 1].slice('HEADLESS '.length).trim()); } catch (e) { parsed = { _parse_error: String((e && e.message) || e), raw: lines[lines.length - 1].slice(0, 300) }; } }
+      // ---- GPU 回执（前导打印 DSH_GPU）
+      let gpu = null;
+      const gl = stdout.split('\n').filter((l) => l.indexOf('DSH_GPU ') === 0);
+      if (gl.length) { try { gpu = JSON.parse(gl[gl.length - 1].slice('DSH_GPU '.length).trim()); } catch (e) { gpu = { _parse_error: String((e && e.message) || e) }; } }
+      // ---- 全量日志落盘
+      const logDirWsl = outdirWsl || winToWsl(WIN_TMP);
+      const stamp = new Date(t0).toISOString().replace(/[:.]/g, '-');
+      let logs = null;
+      try {
+        fs.mkdirSync(logDirWsl, { recursive: true });
+        const soPath = path.join(logDirWsl, 'dsh_headless_' + stamp + '.stdout.log');
+        const sePath = path.join(logDirWsl, 'dsh_headless_' + stamp + '.stderr.log');
+        fs.writeFileSync(soPath, stdout, 'utf8');
+        fs.writeFileSync(sePath, stderr, 'utf8');
+        logs = { stdout: wslToWin(soPath), stderr: wslToWin(sePath) };
+      } catch (e) { logs = null; }
+      // ---- 失败结构化：traceback 段 + 最后一条异常行 + 转义坑提示
+      let traceback = null, lastException = null, hint = null;
+      const tbIdx = stderr.lastIndexOf('Traceback (most recent call last)');
+      if (tbIdx >= 0) traceback = stderr.slice(tbIdx, tbIdx + 3000);
+      const em = stderr.match(/^[\w.]*(?:Error|Exception|Warning)\b.*$/gm);
+      if (em && em.length) lastException = em[em.length - 1].slice(0, 300);
+      if (lastException && /line continuation character|invalid syntax/i.test(lastException) && /\\n/.test(script)) {
+        hint = '脚本里出现字面量 \\n（两个字符）而不是真正换行 —— 在 JSON/TS 里请写成 \\n，或用 String.fromCharCode(10) 拼。';
+      }
+      // ---- 产物清单：默认过滤噪音
+      const isNoise = (n) => n.indexOf('__pycache__') === 0 || /\.pyc$/.test(n) || /\.blend[12]$/.test(n) || n.indexOf('tmp') === 0 || n === '.DS_Store';
       let artifacts = [];
+      let noiseFiltered = 0;
       if (outdirWsl) {
         try {
-          artifacts = fs.readdirSync(outdirWsl)
-            .map((n) => { const p = path.join(outdirWsl, n); let st = null; try { st = fs.statSync(p); } catch (e) {} return st && st.isFile() ? { name: n, bytes: st.size, mtimeMs: st.mtimeMs, fresh: st.mtimeMs >= t0 - 2000 } : null; })
-            .filter(Boolean)
-            .sort((a, b) => b.mtimeMs - a.mtimeMs)
-            .slice(0, 40);
+          const all = fs.readdirSync(outdirWsl)
+            .map((n) => { const p = path.join(outdirWsl, n); let st = null; try { st = fs.statSync(p); } catch (e) {} return st && st.isFile() ? { name: n, bytes: st.size, mtimeMs: st.mtimeMs, fresh: st.mtimeMs >= t0 - 2000, noise: isNoise(n) } : null; })
+            .filter(Boolean);
+          noiseFiltered = all.filter((a) => a.noise).length;
+          artifacts = (opts.includeNoise ? all : all.filter((a) => !a.noise))
+            .sort((a, b) => b.mtimeMs - a.mtimeMs).slice(0, 40)
+            .map((a) => ({ name: a.name, bytes: a.bytes, mtimeMs: a.mtimeMs, fresh: a.fresh }));
         } catch (e) { artifacts = []; }
       }
-      return { ok: !res.timedOut && res.exitCode === 0, exitCode: res.exitCode, signal: res.signal, timedOut: !!res.timedOut,
-        ms: ms, timeoutMs: timeoutMs, blender: BLENDER_EXE, script: sp ? sp.win : null, args: args, preload: mods.length ? mods : undefined,
-        result: parsed, stdout: stdout.slice(-8000), stderr: String(res.se || '').slice(-4000), artifacts: artifacts };
+      const gpuFailed = gpuManual && gpu && gpu.ok === false;
+      return { ok: !res.timedOut && res.exitCode === 0 && !gpuFailed,
+        exitCode: res.exitCode, signal: res.signal, timedOut: !!res.timedOut,
+        ms: ms, timeoutMs: timeoutMs, blender: BLENDER_EXE, script: sp ? sp.win : null, args: args,
+        preload: mods.length ? mods : undefined, gpu: gpu, useUserConfig: !!opts.useUserConfig,
+        logs: logs, lastException: lastException, traceback: traceback, hint: hint,
+        noiseFiltered: noiseFiltered,
+        reason: res.timedOut ? ('killed after timeout ' + timeoutMs + 'ms')
+          : (gpuFailed ? 'gpu required but unavailable' : (res.exitCode === 0 ? null : 'exit code ' + String(res.exitCode))),
+        result: parsed, stdout: stdout.slice(-8000), stderr: stderr.slice(-4000), artifacts: artifacts };
     },
     async start() { await addon.ensure(); return true; },
-    stop() { addon.close(); },
+    stop() { addon.close(); try { if (workerAlive()) worker.child.kill('SIGKILL'); } catch (e) {} },
   };
 }
