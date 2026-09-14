@@ -54,6 +54,65 @@ def _kernel_bootstrap():
     return K
 
 
+def _engine_setup(gpu_mode, engine="eevee"):
+    """v0.8.0：默认 EEVEE + 光追；engine='cycles' 走 OptiX 设备前导；'keep' 不动。"""
+    import bpy
+    info = {"engine_mode": engine, "gpu_mode": gpu_mode}
+    try:
+        import gpu
+        info["backend"] = gpu.platform.backend_type_get()
+        info["renderer"] = gpu.platform.renderer_get()
+    except Exception as e:
+        info["backend"] = "n/a: %s" % str(e)[:60]
+    sc = bpy.context.scene
+    info["before"] = {"engine": sc.render.engine}
+    if engine == "keep":
+        info["ok"] = True
+        info["skipped"] = True
+        return info
+    if engine == "cycles":
+        info.update(_gpu_setup(gpu_mode))
+        try:
+            sc.render.engine = "CYCLES"
+            if info.get("configured"):
+                sc.cycles.device = "GPU"
+        except Exception as e:
+            info["engine_set_err"] = str(e)[:80]
+        info["after"] = {"engine": sc.render.engine}
+        return info
+    ee = getattr(sc, "eevee", None)
+    try:
+        sc.render.engine = "BLENDER_EEVEE"
+        if ee is not None:
+            if hasattr(ee, "use_raytracing"):
+                ee.use_raytracing = True
+            if hasattr(ee, "ray_tracing_method"):
+                try:
+                    ee.ray_tracing_method = "SCREEN"
+                except Exception:
+                    pass
+            if hasattr(ee, "use_shadows"):
+                ee.use_shadows = True
+            for attr, val in (("shadow_ray_count", 2), ("shadow_step_count", 8)):
+                if hasattr(ee, attr):
+                    try:
+                        setattr(ee, attr, val)
+                    except Exception:
+                        pass
+            cur = getattr(ee, "taa_render_samples", 64) or 64
+            if hasattr(ee, "taa_render_samples") and cur < 64:
+                ee.taa_render_samples = 64
+        info["configured"] = "eevee-rt" if (ee is not None and getattr(ee, "use_raytracing", False)) else "eevee"
+        info["ok"] = True
+    except Exception as e:
+        info["ok"] = False
+        info["error"] = "%s: %s" % (type(e).__name__, str(e)[:120])
+    info["after"] = {"engine": sc.render.engine, "rt": getattr(ee, "use_raytracing", None),
+                     "samples": getattr(ee, "taa_render_samples", None)}
+    info["fell_back_to_cpu"] = False
+    return info
+
+
 def _gpu_setup(mode):
     """mode: auto / true / false —— 与插件侧 GPU_PRELUDE 同语义"""
     import bpy
@@ -142,8 +201,9 @@ def _status(gpu_info):
 def main():
     port = int(_arg("--port", "9879"))
     gpu_mode = _arg("--gpu", "auto")
+    engine = str(_arg("--engine", "eevee")).lower()
     host = _arg("--host", "127.0.0.1")
-    gpu_info = _gpu_setup(gpu_mode)
+    gpu_info = _engine_setup(gpu_mode, engine)
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     srv.bind((host, port))

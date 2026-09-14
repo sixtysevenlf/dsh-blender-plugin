@@ -49,7 +49,7 @@ def _snap(sc):
     }
 
 
-def dsh_perf_status():
+def _dsh_perf_status_cycles():
     sc = _sc()
     c = sc.cycles
     r = sc.render
@@ -90,6 +90,11 @@ def _pick_denoiser():
 
 
 def dsh_perf_apply(samples=1024, persistent=True, denoiser=None, denoise_gpu=None, auto_tile=False):
+    _mode0 = _dsh_perf_engine_mode()
+    if _mode0 == "eevee":
+        _r0 = _dsh_perf_apply_eevee(locals().get("args"))
+        if _r0 is not None:
+            return _r0
     """应用优化预设。denoiser / denoise_gpu 缺省 = 按本机自动判定（见 _pick_denoiser）。"""
     if denoiser is None or str(denoiser).lower() in ("", "auto"):
         denoiser, auto_gpu = _pick_denoiser()
@@ -318,3 +323,83 @@ if _K is not None:
     _K.dsh_perf_api = {"version": PERF_VERSION, "status": dsh_perf_status, "apply": dsh_perf_apply,
                        "revert": dsh_perf_revert, "analyze": dsh_perf_analyze, "help": dsh_perf_help,
                        "opt_analyze": dsh_opt_analyze, "opt_join": dsh_opt_join}
+
+
+def _dsh_perf_engine_mode():
+    sc = bpy.context.scene
+    e = str(sc.render.engine)
+    if "EEVEE" in e:
+        return "eevee"
+    if "CYCLES" in e:
+        return "cycles"
+    return "other"
+
+
+def dsh_perf_status(*a, **kw):
+    """v0.8.0：在 Cycles 状态之上补引擎信息（EEVEE 光追 / 采样 / 阴影）"""
+    import json as _json
+    raw = _dsh_perf_status_cycles(*a, **kw)
+    try:
+        d = _json.loads(raw)
+    except Exception:
+        return raw
+    sc = bpy.context.scene
+    ee = getattr(sc, "eevee", None)
+    d["engine"] = sc.render.engine
+    d["engine_mode"] = _dsh_perf_engine_mode()
+    if ee is not None:
+        d["eevee"] = {"use_raytracing": getattr(ee, "use_raytracing", None),
+                      "ray_tracing_method": str(getattr(ee, "ray_tracing_method", "")),
+                      "taa_render_samples": getattr(ee, "taa_render_samples", None),
+                      "use_shadows": getattr(ee, "use_shadows", None),
+                      "shadow_ray_count": getattr(ee, "shadow_ray_count", None),
+                      "shadow_step_count": getattr(ee, "shadow_step_count", None)}
+    return _json.dumps(d, ensure_ascii=False)
+
+
+def _dsh_perf_apply_eevee(args=None):
+    """EEVEE 预设：开光追 + 采样/阴影质量；Cycles 专属项**显式跳过**（不再静默套用）"""
+    import json as _json
+    sc = bpy.context.scene
+    ee = getattr(sc, "eevee", None)
+    if ee is None:
+        return None
+    before = {"engine": sc.render.engine, "rt": getattr(ee, "use_raytracing", None),
+              "samples": getattr(ee, "taa_render_samples", None)}
+    applied = []
+    try:
+        sc.render.engine = "BLENDER_EEVEE"
+        if hasattr(ee, "use_raytracing"):
+            ee.use_raytracing = True
+            applied.append("use_raytracing=True")
+        if hasattr(ee, "ray_tracing_method"):
+            try:
+                ee.ray_tracing_method = "SCREEN"
+                applied.append("ray_tracing_method=SCREEN")
+            except Exception:
+                pass
+        if hasattr(ee, "use_shadows"):
+            ee.use_shadows = True
+            applied.append("use_shadows=True")
+        for attr, val in (("shadow_ray_count", 2), ("shadow_step_count", 8)):
+            if hasattr(ee, attr):
+                try:
+                    setattr(ee, attr, val)
+                    applied.append("%s=%s" % (attr, val))
+                except Exception:
+                    pass
+        cur = getattr(ee, "taa_render_samples", 64) or 64
+        if hasattr(ee, "taa_render_samples") and cur < 64:
+            ee.taa_render_samples = 64
+            applied.append("taa_render_samples=64")
+    except Exception as e:
+        return _json.dumps({"ok": False, "error": "%s: %s" % (type(e).__name__, e)}, ensure_ascii=False)
+    after = {"engine": sc.render.engine, "rt": getattr(ee, "use_raytracing", None),
+             "ray_tracing_method": str(getattr(ee, "ray_tracing_method", "")),
+             "samples": getattr(ee, "taa_render_samples", None),
+             "use_shadows": getattr(ee, "use_shadows", None)}
+    return _json.dumps({"ok": True, "preset": "eevee-rt", "engine": sc.render.engine,
+                        "before": before, "after": after, "applied": applied,
+                        "skipped_cycles_only": ["persistent_data", "denoising_use_gpu(OptiX)",
+                                                "auto_tile off", "samples cap"],
+                        "note": "当前引擎是 EEVEE：Cycles 专属项不适用，已显式跳过"}, ensure_ascii=False)

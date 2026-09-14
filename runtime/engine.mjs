@@ -53,50 +53,114 @@ export const QC_PATH = path.join(HERE, 'qc.py');
  */
 export const USER_CONFIG_WIN = process.env.BLENDER_USER_CONFIG || CFG.blenderUserConfig || null;
 export const USER_SCRIPTS_WIN = process.env.BLENDER_USER_SCRIPTS || CFG.blenderUserScripts || null;
-/** GPU 前导：无头进程里把 Cycles 设备配好，并打印 DSH_GPU 回执（详见 README「GPU 语义」） */
+/**
+ * 引擎前导（v0.8.0）：默认 **EEVEE + 光追**，可选 cycles（OptiX 设备前导）/ keep（不动）。
+ * 为什么默认换 EEVEE：① 它本来就是纯 GPU 渲染，走图形后端（本机 OPENGL / RTX 4060），
+ *   **不依赖 compute_device_type 这类"偏好"** → 无头里不会像 Cycles 那样静默回落 CPU；
+ * ② 实测（360 对象 / 350 网格 / 512×512 / 64 采样）：EEVEE+RT 预热帧 **1.35 s** vs Cycles GPU **3.13 s**（2.3×）；
+ * ③ 代价：首帧着色器编译 ~16 s → 迭代请配 blender_rt_worker 热会话（编译一次，此后每帧 1.35 s）。
+ * 回执标记沿用 DSH_GPU（兼容），内含 engine / backend / renderer / rt 状态。
+ */
 export const GPU_PRELUDE = [
-  'def _dsh_gpu_setup():',
+  'def _dsh_engine_setup():',
   '    import bpy, json',
-  '    mode = __DSH_GPU_MODE__',
-  '    info = {"mode": mode, "manual": __DSH_GPU_MANUAL__}',
+  '    mode = __DSH_ENGINE__',
+  '    manual = __DSH_GPU_MANUAL__',
+  '    info = {"mode": mode, "manual": manual}',
   '    try:',
-  '        prefs = bpy.context.preferences.addons["cycles"].preferences',
+  '        import gpu',
+  '        info["backend"] = gpu.platform.backend_type_get()',
+  '        info["renderer"] = gpu.platform.renderer_get()',
   '    except Exception as e:',
-  '        info.update({"ok": False, "error": "no cycles prefs: %s" % e})',
-  '        print("DSH_GPU " + json.dumps(info, ensure_ascii=False)); return',
+  '        info["backend"] = "n/a: %s" % str(e)[:60]',
   '    sc = bpy.context.scene',
-  '    def snap():',
-  '        try:   devs = [d.name for d in prefs.devices if d.use and d.type != "CPU"]',
-  '        except Exception: devs = []',
-  '        return {"device_type": prefs.compute_device_type, "scene_device": getattr(sc.cycles, "device", None), "gpu_enabled": devs}',
-  '    info["before"] = snap()',
-  '    if info["before"]["device_type"] == "NONE" or not info["before"]["gpu_enabled"]:',
-  '        chosen = None; errs = []',
-  '        for t in ["OPTIX", "CUDA", "HIP", "ONEAPI", "METAL"]:',
+  '    info["before"] = {"engine": sc.render.engine}',
+  '    if mode == "keep":',
+  '        info["ok"] = True',
+  '        info["skipped"] = True',
+  '        info["after"] = {"engine": sc.render.engine}',
+  '        print("DSH_GPU " + json.dumps(info, ensure_ascii=False))',
+  '        return',
+  '    if mode == "cycles":',
+  '        try:',
+  '            prefs = bpy.context.preferences.addons["cycles"].preferences',
+  '        except Exception as e:',
+  '            info.update({"ok": False, "error": "no cycles prefs: %s" % e})',
+  '            print("DSH_GPU " + json.dumps(info, ensure_ascii=False))',
+  '            return',
+  '        def snap():',
   '            try:',
-  '                prefs.compute_device_type = t',
-  '                prefs.get_devices()',
-  '                gpus = [d for d in prefs.devices if d.type != "CPU"]',
-  '                if gpus:',
-  '                    for d in prefs.devices: d.use = (d.type != "CPU")',
-  '                    chosen = t; break',
-  '            except Exception as e:',
-  '                errs.append("%s: %s" % (t, e))',
-  '        info["tried"] = errs',
-  '        if chosen:',
-  '            try: sc.cycles.device = "GPU"',
-  '            except Exception: pass',
+  '                devs = [d.name for d in prefs.devices if d.use and d.type != "CPU"]',
+  '            except Exception:',
+  '                devs = []',
+  '            return {"device_type": prefs.compute_device_type, "scene_device": getattr(sc.cycles, "device", None), "gpu_enabled": devs}',
+  '        info["cycles_before"] = snap()',
+  '        if info["cycles_before"]["device_type"] == "NONE" or not info["cycles_before"]["gpu_enabled"]:',
+  '            chosen = None',
+  '            errs = []',
+  '            for t in ["OPTIX", "CUDA", "HIP", "ONEAPI", "METAL"]:',
+  '                try:',
+  '                    prefs.compute_device_type = t',
+  '                    prefs.get_devices()',
+  '                    if [d for d in prefs.devices if d.type != "CPU"]:',
+  '                        for d in prefs.devices:',
+  '                            d.use = (d.type != "CPU")',
+  '                        chosen = t',
+  '                        break',
+  '                except Exception as e:',
+  '                    errs.append("%s: %s" % (t, e))',
+  '            info["tried"] = errs',
   '            info["configured"] = chosen',
-  '        else:',
-  '            info["configured"] = None',
-  '            info["error"] = "no GPU backend available (tried OPTIX/CUDA/HIP/ONEAPI/METAL)"',
-  '    info["after"] = snap()',
-  '    a = info["after"]',
-  '    info["fell_back_to_cpu"] = bool(a["device_type"] == "NONE" or not a["gpu_enabled"])',
-  '    info["ok"] = (not info["fell_back_to_cpu"]) or (not info["manual"])',
+  '            if not chosen:',
+  '                info["error"] = "no GPU backend available (tried OPTIX/CUDA/HIP/ONEAPI/METAL)"',
+  '        try:',
+  '            sc.render.engine = "CYCLES"',
+  '            if info.get("configured"):',
+  '                sc.cycles.device = "GPU"',
+  '        except Exception as e:',
+  '            info["engine_set_err"] = str(e)[:80]',
+  '        info["cycles_after"] = snap()',
+  '        a = info["cycles_after"]',
+  '        info["fell_back_to_cpu"] = bool(a["device_type"] == "NONE" or not a["gpu_enabled"])',
+  '        info["ok"] = (not info["fell_back_to_cpu"]) or (not manual)',
+  '        info["after"] = {"engine": sc.render.engine}',
+  '        print("DSH_GPU " + json.dumps(info, ensure_ascii=False))',
+  '        return',
+  '    ee = getattr(sc, "eevee", None)',
+  '    info["before"]["rt"] = getattr(ee, "use_raytracing", None)',
+  '    info["before"]["samples"] = getattr(ee, "taa_render_samples", None)',
+  '    try:',
+  '        sc.render.engine = "BLENDER_EEVEE"',
+  '        if ee is not None:',
+  '            if hasattr(ee, "use_raytracing"):',
+  '                ee.use_raytracing = True',
+  '            if hasattr(ee, "ray_tracing_method"):',
+  '                try:',
+  '                    ee.ray_tracing_method = "SCREEN"',
+  '                except Exception:',
+  '                    pass',
+  '            if hasattr(ee, "use_shadows"):',
+  '                ee.use_shadows = True',
+  '            for attr, val in (("shadow_ray_count", 2), ("shadow_step_count", 8)):',
+  '                if hasattr(ee, attr):',
+  '                    try:',
+  '                        setattr(ee, attr, val)',
+  '                    except Exception:',
+  '                        pass',
+  '            cur = getattr(ee, "taa_render_samples", 64) or 64',
+  '            if hasattr(ee, "taa_render_samples") and cur < 64:',
+  '                ee.taa_render_samples = 64',
+  '        info["configured"] = "eevee-rt" if (ee is not None and getattr(ee, "use_raytracing", False)) else "eevee"',
+  '    except Exception as e:',
+  '        info["ok"] = False',
+  '        info["error"] = "%s: %s" % (type(e).__name__, str(e)[:120])',
+  '    info["after"] = {"engine": sc.render.engine, "rt": getattr(ee, "use_raytracing", None),',
+  '                     "ray_method": str(getattr(ee, "ray_tracing_method", "")), "samples": getattr(ee, "taa_render_samples", None)}',
+  '    info["fell_back_to_cpu"] = False',
+  '    info.setdefault("ok", True)',
   '    print("DSH_GPU " + json.dumps(info, ensure_ascii=False))',
-  '_dsh_gpu_setup()',
-  'del _dsh_gpu_setup',
+  '_dsh_engine_setup()',
+  'del _dsh_engine_setup',
 ].join('\n');
 /** 自定义视角出图（默认覆盖写这个文件） */
 export const VIEW_PNG_WIN = PATHS.viewPngWin;
@@ -578,8 +642,9 @@ export function createEngine(opts = {}) {
     if (worker.child) { try { worker.child.kill('SIGKILL'); } catch (e) {} worker.child = null; }
     const port = Number(opts.port) || WORKER_PORT;
     const gpuMode = String(opts.gpu === undefined || opts.gpu === null ? 'auto' : opts.gpu);
+    const engineMode = String(opts.engine === undefined || opts.engine === null ? 'eevee' : opts.engine);
     const args = ['-b', '--factory-startup', '--python', wslToWin(WORKER_PATH), '--',
-                  '--port', String(port), '--gpu', gpuMode];
+                  '--port', String(port), '--gpu', gpuMode, '--engine', engineMode];
     const childEnv = Object.assign({}, process.env, { PYTHONIOENCODING: 'utf-8' });
     if (opts.useUserConfig) {
       if (USER_CONFIG_WIN) childEnv.BLENDER_USER_CONFIG = USER_CONFIG_WIN;
@@ -882,15 +947,18 @@ export function createEngine(opts = {}) {
         if (!fs.existsSync(f)) throw new Error('preload 找不到模块：' + f);
         pre += '# ---- preload ' + name + '.py ----\n' + fs.readFileSync(f, 'utf8') + '\n';
       }
-      // ---- GPU 前导：默认 auto（没有 GPU 后端就配一个）；gpu:false/off 关闭；gpu:true 要求必须有
-      const gpuMode = String(opts.gpu === undefined || opts.gpu === null ? 'auto' : opts.gpu).toLowerCase();
-      const gpuOff = (gpuMode === 'false' || gpuMode === 'off' || gpuMode === 'none' || gpuMode === '0');
-      const gpuManual = (gpuMode === 'true' || gpuMode === 'required');
+      // ---- 引擎前导（v0.8.0）：默认 eevee + 光追；可选 cycles / keep（向后兼容 gpu:"false"=keep）
+      const engineMode = String(opts.engine === undefined || opts.engine === null ? 'eevee' : opts.engine).toLowerCase();
+      const legacyGpu = String(opts.gpu === undefined || opts.gpu === null ? '' : opts.gpu).toLowerCase();
+      const gpuOff = (engineMode === 'keep' || engineMode === 'off' || engineMode === 'none'
+        || legacyGpu === 'false' || legacyGpu === 'off' || legacyGpu === '0');
+      const gpuManual = (legacyGpu === 'true' || legacyGpu === 'required');
       let gpuPre = '';
       if (!gpuOff) {
-        gpuPre = '# ---- DSH GPU prelude ----\n' + GPU_PRELUDE
-          .replace('__DSH_GPU_MODE__', "'" + gpuMode.replace(/'/g, '') + "'")
-          .replace('__DSH_GPU_MANUAL__', gpuManual ? 'True' : 'False') + '\n';
+        const modeLit = (engineMode === 'cycles' || engineMode === 'cycle') ? 'cycles' : 'eevee';
+        gpuPre = '# ---- DSH engine prelude (' + modeLit + ') ----\n' + GPU_PRELUDE
+          .replace(/__DSH_ENGINE__/g, "'" + modeLit + "'")
+          .replace(/__DSH_GPU_MANUAL__/g, gpuManual ? 'True' : 'False') + '\n';
       }
       const headParts = [];
       if (opts.bootstrap !== false) headParts.push(KERNEL_BOOTSTRAP);
@@ -994,7 +1062,8 @@ export function createEngine(opts = {}) {
       return { ok: !res.timedOut && res.exitCode === 0 && !gpuFailed,
         exitCode: res.exitCode, signal: res.signal, timedOut: !!res.timedOut,
         ms: ms, timeoutMs: timeoutMs, blender: BLENDER_EXE, script: sp ? sp.win : null, args: args,
-        preload: mods.length ? mods : undefined, gpu: gpu, useUserConfig: !!opts.useUserConfig,
+        preload: mods.length ? mods : undefined, gpu: gpu, engine: (gpu && gpu.after && gpu.after.engine) || null,
+        engineMode: (gpu && gpu.mode) || null, useUserConfig: !!opts.useUserConfig,
         logs: logs, lastException: lastException, traceback: traceback, hint: hint,
         noiseFiltered: noiseFiltered,
         reason: res.timedOut ? ('killed after timeout ' + timeoutMs + 'ms')

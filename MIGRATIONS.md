@@ -15,8 +15,8 @@
 ## 环境基线文档该读哪份
 
 - 总说明：`dsh-blender-plugin/README.md`
-- 机制/踩坑：`dsh-blender-plugin/docs/AI实时交互Blender-通道说明.md`
-- 建模方案（内环）：`dsh-blender-plugin/docs/AI建模双层循环-方案.md`
+- 机制/踩坑：`dsh-blender-plugin/docs/操作教程.md`
+- 建模方案（内环）：`dsh-blender-plugin/docs/操作教程.md`
 - 工作区约定：作者工作区的 `AGENTS.md` §2（等价内容见本包 `README.md` + `docs/操作教程.md`）
 
 ## 注意（曾经踩过）

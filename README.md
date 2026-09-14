@@ -5,7 +5,7 @@
 > **Let an AI model actually drive Blender** — no clicking, no screenshots-into-prompt, no MCP server.
 > One direct TCP channel gives the model 10 primitives: **see the viewport / edit the scene / watch over time / run an inner search loop / profile & fix render perf / decimate objects safely / offload heavy work to a headless process / operate the channel itself.**
 >
-> Version **0.6.0** — hardening from real-world feedback: **GPU semantics** (headless Cycles silently fell back to CPU — measured **15.4×**), a **hot headless session** (`blender_rt_worker`), **streaming long calls** (client `fetch` headers timeout is 300 s — measured `UND_ERR_HEADERS_TIMEOUT`), structured failures, and artifact filtering. See §4.6.
+> Version **0.8.0** — default render engine is now **EEVEE + ray tracing** (GPU-only, no device-preference dependency; measured 1.35 s vs 3.13 s per warm frame against Cycles GPU). — hardening from real-world feedback: **GPU semantics** (headless Cycles silently fell back to CPU — measured **15.4×**), a **hot headless session** (`blender_rt_worker`), **streaming long calls** (client `fetch` headers timeout is 300 s — measured `UND_ERR_HEADERS_TIMEOUT`), structured failures, and artifact filtering. See §4.6.
 >
 > Version **0.5.0** — adds a **contract layer** (hypotheses / ranges / checks / evidence / destructive-op gating) and a **planner** (Component·Connection·Feature graph compiled to bpy), exposed through the new `blender_rt_plan` tool. See §4.5.
 >

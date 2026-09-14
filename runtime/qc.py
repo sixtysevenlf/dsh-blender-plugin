@@ -651,10 +651,19 @@ def qc_compare_auto(ref_path, ref_box, render_path, label="qc", out_dir=None, re
     write_png(ov_path, w, h, ov.tobytes())
     sheet, sh, sw = _hstack([ref_panel, ren_panel, ov])
     write_png(sh_path, sw, sh, sheet.tobytes())
+    _eng = None
+    try:
+        _eng = bpy.context.scene.render.engine
+        if "EEVEE" in str(_eng):
+            _eng = str(_eng) + ("+RT" if getattr(bpy.context.scene.eevee, "use_raytracing", False) else "")
+    except Exception:
+        _eng = None
     out = {"ok": True, "label": str(label), "mode": "auto" if mask_mode == "auto" else mask_mode,
            "metrics": m, "masks": {"ref": rminfo, "render": rninfo},
            "overlay": ov_path, "sheet": sh_path, "ms": int((time.perf_counter() - t0) * 1000),
-           "note": "score 建议用 iou（越高越好）；缺/多面积指出方向；boundary.mean_px 是边界平均偏差（像素）"}
+           "note": "score 建议用 iou（越高越好）；缺/多面积指出方向；boundary.mean_px 是边界平均偏差（像素）",
+           "engine_at_qc": _eng,
+           "engine_note": "判据只在同一引擎内可比（换引擎后历史分数不可直接对比）"}
     out["iou"] = m["iou"]
     out["profile"] = {"ref": pa, "render": pb, "diff": m["profile_diff"]}
     out["render_px"] = m["render_px"]
