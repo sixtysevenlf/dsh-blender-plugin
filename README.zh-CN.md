@@ -33,6 +33,7 @@
 | **契约层 + 规划器** | **`blender_rt_plan`** | 307 对象：AABB 扫描 24 ms · BVH 0.17 ms/对 |
 | **热无头会话** | **`blender_rt_worker`** |
 | **事务 / 回滚** | **`blender_rt_txn`** | 快照 96.7MB / 824ms（300 对象）· mark→revert 实测通过 | 常驻 `blender -b` 复用（免去每次 0.9–1.2 s 冷启动；`K` 跨调用保留） |
+| **配方库** | **`blender_rt_preset`** | 参数配方 save/apply/export；实测 720 → 640 生效 |
 | 通道体检 / 租约（多会话共存） | `blender_viewport` | 体检 70–100 ms |
 
 ---

@@ -47,6 +47,8 @@ export const WORKER_PATH = path.join(HERE, 'worker.py');
 export const TXN_PATH = path.join(HERE, 'txn.py');
 /** 内置 QC（v0.7.0）：掩膜 / IoU / 剖面 / 对照图 + 内环 measure 预置 */
 export const QC_PATH = path.join(HERE, 'qc.py');
+/** 配方库（v0.8.2）：参数组合的保存 / 套用 / 导出 */
+export const PRESET_PATH = path.join(HERE, 'presets.py');
 /**
  * 用户 Blender 配置目录（GPU 偏好所在）—— 无头进程默认读不到它，Cycles 会静默回落 CPU。
  * 分享版默认 null（用系统默认配置）；要继承某套配置就设 DSH_BLENDER_USER_CONFIG / 配置项 blenderUserConfig。
@@ -554,7 +556,8 @@ export function createEngine(opts = {}) {
   /** 把 Blender 侧 python 模块注入运行中的 Blender（模块自己把 API 挂到 K 上） */
   const MODULE_ATTR = { RUNNER_READY: 'dsh_loop_api', PERF_READY: 'dsh_perf_api', VIEW_READY: 'dsh_view_api',
                         CONTRACT_READY: 'dsh_contract_api', PLAN_READY: 'dsh_plan_api',
-                        TXN_READY: 'dsh_txn_api', QC_READY: 'dsh_qc_api' };
+                        TXN_READY: 'dsh_txn_api', QC_READY: 'dsh_qc_api',
+                        PRESET_READY: 'dsh_preset_api' };
   async function injectModule(file, marker, versionExpr = '1') {
     const attr = MODULE_ATTR[marker] || ('dsh_' + String(marker).toLowerCase() + '_api');
     const hashAttr = attr + '_fp';
@@ -584,6 +587,7 @@ export function createEngine(opts = {}) {
   const ensurePlanner = () => injectModule(PLANNER_PATH, 'PLAN_READY', 'PLAN_VERSION');
   const ensureTxn = () => injectModule(TXN_PATH, 'TXN_READY', 'TXN_VERSION');
   const ensureQc = () => injectModule(QC_PATH, 'QC_READY', 'QC_VERSION');
+  const ensurePreset = () => injectModule(PRESET_PATH, 'PRESET_READY', 'PRESET_VERSION');
   /** perf/opt 通用调用：op 是 K.dsh_perf_api 里的函数名 */
   async function perfCall(op, payload) {
     await ensurePerf();
@@ -730,10 +734,18 @@ export function createEngine(opts = {}) {
       + JSON.stringify(JSON.stringify(payload || {})) + '))))';
     return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 300000));
   }
+  /** 配方库：save / list / get / delete / apply / export / import / help */
+  async function presetCall(op, payload) {
+    await ensurePreset();
+    const body = 'print("LOOP " + K.dsh_preset_api["dispatch"](' + JSON.stringify(String(op || 'list')) + ', _json.dumps(_json.loads('
+      + JSON.stringify(JSON.stringify(payload || {})) + '))))';
+    return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 300000));
+  }
   return {
     addon: addon,
     plan: (op, payload) => planCall(op, payload),
     txn: (op, payload) => txnCall(op, payload),
+    preset: (op, payload) => presetCall(op, payload),
     worker: { start: workerStart, exec: workerExec, status: workerStatus, stop: workerStop, snapshot: workerSnapshot },
     /** 通道指标快照（inflight / last_cmd / 超时计数） */
     metrics() {

@@ -1,5 +1,14 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
+## v0.8.2（2026-09-14）—— 配方库（blender_rt_preset）+ 部署 SOP + 整合社区优点
+
+- **新增第 14 个工具 blender_rt_preset（配方库）**：save/list/get/apply/delete/export/import；点路径 data；targets 支持 MAT:/OBJ:/SCENE；不给 targets 只预览；export/import 走单个 bundle 便于分享。实测：场景 render.resolution_x 720 → 640 真实生效。灵感来自 lurenjia-l/dsh-blender-stylized-shading 的「配方化」优点（通用化为与领域无关的机制）。
+- **新增 docs/部署SOP.md**：目标与完成标准 → 环境探测 → 安装 → 连接 addon → 自检（doctor/qc_self_check/engine）→ 汇报 → 排障速查（格式借鉴其 AI_DEPLOY.md）。
+- **cookbook 改为三层技能结构**（领域方法论 / 平台原语 / 交付与验收 SOP，含 frontmatter 触发条件）；配置参考新增引擎索引章节。
+- README 双语新增「致谢 / Credits」，点名感谢 @lurenjia-l 的 EEVEE 实测踩坑与技能分层法。
+- 两树一致：14 工具、presets.py、部署SOP、cookbook、配置参考、EEVEE-工作要点。
+
+
 ## v0.8.1（2026-09-14）—— 修复 v0.7.0 起 /act 路由回归（Issue #4，感谢 @yihefeikong-rgb）
 
 engine.act 在 v0.7.0 改成返回结构化对象（stdout/stderr/error/traceback/mainThreadMs），但 server.mjs 的 /act 路由仍读旧的 out.result，导致：rt_do 恒无 stdout、rt_do(file=...) 静默空跑、异常被当成成功。影响 v0.7.0 与 v0.8.0 的仓库版/分享包。修复：/act 路由转发结构化字段并把 file 透传给 engine.act。本机实测：print(123) 得到 stdout=123、抛异常得到 ok=false + error + traceback、file= 的脚本真正执行。

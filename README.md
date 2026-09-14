@@ -31,6 +31,7 @@
 | **Contract layer + planner** | **`blender_rt_plan`** | AABB sweep 24 ms · BVH 0.17 ms/pair (307 objects) |
 | **Hot headless session** | **`blender_rt_worker`** |
 | **Transactions / rollback** | **`blender_rt_txn`** | snapshot 96.7 MB / 824 ms (300 objects) · mark→revert verified | reuse one `blender -b` across calls (no 0.9–1.2 s cold start); `K` persists |
+| **配方库 / Presets** | **`blender_rt_preset`** | 存/套用/导出参数配方；实测 720 → 640 真实生效 |
 | Channel health check / write lease | `blender_viewport` | health 70–100 ms |
 
 Detailed walkthrough (Chinese, 377 lines): [`docs/操作教程.md`](docs/操作教程.md) · configuration reference (Chinese): [`docs/配置参考.md`](docs/配置参考.md). This README covers the same ground in condensed English.
