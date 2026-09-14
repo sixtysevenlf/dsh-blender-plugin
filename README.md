@@ -29,7 +29,8 @@
 | Object decimation (safe join, zero geometry loss) | `blender_rt_opt` | ≈1.4 ms/object |
 | **Headless process** for heavy renders / batch geometry | `blender_rt_headless` | cold start 0.8 s |
 | **Contract layer + planner** | **`blender_rt_plan`** | AABB sweep 24 ms · BVH 0.17 ms/pair (307 objects) |
-| **Hot headless session** | **`blender_rt_worker`** | reuse one `blender -b` across calls (no 0.9–1.2 s cold start); `K` persists |
+| **Hot headless session** | **`blender_rt_worker`** |
+| **Transactions / rollback** | **`blender_rt_txn`** | snapshot 96.7 MB / 824 ms (300 objects) · mark→revert verified | reuse one `blender -b` across calls (no 0.9–1.2 s cold start); `K` persists |
 | Channel health check / write lease | `blender_viewport` | health 70–100 ms |
 
 Detailed walkthrough (Chinese, 377 lines): [`docs/操作教程.md`](docs/操作教程.md) · configuration reference (Chinese): [`docs/配置参考.md`](docs/配置参考.md). This README covers the same ground in condensed English.
@@ -98,6 +99,13 @@ Four issues reported by a heavy user (22 modelling rounds, 45 pipelines) — all
 | Opaque failures & noisy artifacts | — | full stdout/stderr written to files (`logs.*`), `lastException` + `traceback` extracted, `reason` field, a hint when a script contains a literal `\n`, and `outdir` filtering of `__pycache__ / *.pyc / *.blend1|2 / tmp*` (count reported) |
 
 **Long-task semantics**: a client timeout/abort is **not** a task failure — the server-side child keeps running, artifacts still land in `outdir` and the log paths are returned. For work beyond ~5 minutes prefer the hot worker session or write results to a file.
+
+### 4.7 Transactions, QC and observability (v0.7.0)
+
+- **Transactions** — new tool **`blender_rt_txn`**: file-level `snapshot`/`restore` (`copy=True`, so the current filepath is untouched; measured **96.7 MB / 824 ms** on a 300-object scene) and object-level `mark`/`revert` (transforms, materials, visibility, modifier flags — **no topology/UV changes**).
+- **Built-in QC** — `runtime/qc.py`, exposed as `blender_rt_plan(op="qc_compare")` (plus `qc_compare_basic`, `qc_self_check`, `qc_robustness_check`, `qc_help`). Optimized beyond the reference implementation: adaptive mask (alpha detection / border-estimated background + Otsu), centroid alignment with a scale+shift search, actionable metrics (Dice / missing / extra / boundary distance / per-band profile), and anti-gaming guards (`iou` vs `iou_fixed`, scale-drift warning, fixed alignment inside the optimizer loop). Self-check: self-IoU **1.0000**, 12 px shift still **1.0000**; a 12 px + 6% perturbation collapses the naive metric to **0.534** while the searched one holds **0.866**.
+- **Observability** — exceptions now return partial `stdout`/`stderr`/`traceback` (marker-wrapped); misleading `diagnosis` no longer attaches to execution errors; `rt_do` reports main-thread occupancy and suggests headless/worker past 1 s.
+- **Paths** — `K.win_path / K.wsl_path / K.blend_path / K.out_dir` inside Blender (both GUI and headless), plus `K.run(path, reload_modules=True)` and `blender_rt_do(file=...)`.
 
 ## 5. Tool reference
 

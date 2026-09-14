@@ -31,7 +31,8 @@
 | 对象精简（合并，几何零损失） | `blender_rt_opt` | ≈1.4 ms/对象 |
 | **无头进程**跑重渲染 / 批量几何 | `blender_rt_headless` | 冷起 0.8 s |
 | **契约层 + 规划器** | **`blender_rt_plan`** | 307 对象：AABB 扫描 24 ms · BVH 0.17 ms/对 |
-| **热无头会话** | **`blender_rt_worker`** | 常驻 `blender -b` 复用（免去每次 0.9–1.2 s 冷启动；`K` 跨调用保留） |
+| **热无头会话** | **`blender_rt_worker`** |
+| **事务 / 回滚** | **`blender_rt_txn`** | 快照 96.7MB / 824ms（300 对象）· mark→revert 实测通过 | 常驻 `blender -b` 复用（免去每次 0.9–1.2 s 冷启动；`K` 跨调用保留） |
 | 通道体检 / 租约（多会话共存） | `blender_viewport` | 体检 70–100 ms |
 
 ---
@@ -119,6 +120,13 @@ blender_rt_see(from="9,-9,6", look_at="0,0,1")               # ③ 换个角度�
 | 失败信息不结构化 / 产物有噪音 | — | 全量 stdout/stderr 落盘（`logs.*`）、抽 `lastException` 与 `traceback`、给 `reason`；脚本里出现字面量 `\n` 时给转义提示；`outdir` 默认过滤 `__pycache__ / *.pyc / *.blend1|2 / tmp*` 并回传过滤计数 |
 
 **长任务语义**：客户端超时/断连 ≠ 任务失败（子进程继续跑完，产物在 `outdir`，日志路径在 `logs`）；超 5 分钟优先用热会话。
+
+### 4.7 事务 / QC / 可观测性（v0.7.0）
+
+- **事务**：新工具 **`blender_rt_txn`** —— 文件级 `snapshot`/`restore`（`copy=True` 不动当前 filepath；300 对象工程实测 **96.7MB / 824ms**）、对象级 `mark`/`revert`（transform/材质/可见性/修改器开关；**不含拓扑/UV 改动**）。
+- **内置 QC**：`runtime/qc.py`，入口 `blender_rt_plan(op="qc_compare")`（另有 `qc_compare_basic` / `qc_self_check` / `qc_robustness_check` / `qc_help`）。相对参考实现做了优化：自适应掩膜（alpha 判定 / 边框估背景 + Otsu）、质心对齐 + 尺度平移搜索、可行动指标（Dice/缺面积/多面积/边界距离/剖面差）、防刷分（`iou` vs `iou_fixed` + 尺度漂移告警 + 内环固定对齐）。自检：自比 **1.0000**、平移 12px 仍 **1.0000**；扰动 12px+6% 时朴素比法塌到 **0.534**、搜索对齐保持 **0.866**。
+- **可观测性**：异常也回传 partial `stdout`/`stderr`/`traceback`（标记包裹）；执行类错误不再被误报为 `main-thread-busy`；`rt_do` 报告主线程占用，>1s 提示改走 headless/worker。
+- **路径**：Blender 内可用 `K.win_path / K.wsl_path / K.blend_path / K.out_dir`（GUI 与无头通用），另有 `K.run(path, reload_modules=True)` 与 `blender_rt_do(file=...)`。
 
 ## 5. 目录结构
 

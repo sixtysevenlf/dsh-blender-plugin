@@ -44,6 +44,9 @@ export const CONTRACT_PATH = path.join(HERE, 'contract.py');
 /** 规划器（S3）：对象图 → 诊断 → 编译到 bpy → 图导出 */
 export const PLANNER_PATH = path.join(HERE, 'planner.py');
 export const WORKER_PATH = path.join(HERE, 'worker.py');
+export const TXN_PATH = path.join(HERE, 'txn.py');
+/** 内置 QC（v0.7.0）：掩膜 / IoU / 剖面 / 对照图 + 内环 measure 预置 */
+export const QC_PATH = path.join(HERE, 'qc.py');
 /**
  * 用户 Blender 配置目录（GPU 偏好所在）—— 无头进程默认读不到它，Cycles 会静默回落 CPU。
  * 分享版默认 null（用系统默认配置）；要继承某套配置就设 DSH_BLENDER_USER_CONFIG / 配置项 blenderUserConfig。
@@ -109,6 +112,86 @@ export { PKG_ROOT } from './config.mjs';
  *   print(K.x + 1)  # 下次调用仍能读到
  * 同时预置 bpy / math / mathutils，省掉每次重复 import。
  */
+const PATH_HELPERS_TEMPLATE = [
+'def _dsh_slashes(p):',
+'    return str(p).replace("/", chr(92))',
+'def _dsh_blend_path(p):',
+'    """相对路径 → 相对当前 .blend 的绝对路径（Windows 形式）"""',
+'    import os as _os',
+'    s = str(p).strip()',
+'    fp = bpy.data.filepath',
+'    base = _os.path.dirname(_dsh_slashes(fp)) if fp else ""',
+'    if s.startswith("//"): s = s[2:]',
+'    if s.startswith("./"): s = s[2:]',
+'    if not s or s == ".": return base',
+'    if _os.path.isabs(s) or (len(s) > 1 and s[1] == ":"): return _dsh_slashes(s)',
+'    return _dsh_slashes(_os.path.join(base, s)) if base else s',
+'def _dsh_win_path(p):',
+'    """任何路径 → Windows 侧可用形式（/mnt/d/x → D:/x 的 Windows 形式；WSL 内部 → UNC；相对 → 相对 .blend）"""',
+'    s = str(p).strip(); b = chr(92)',
+'    if len(s) > 1 and s[1] == ":": return _dsh_slashes(s)',
+'    if s.startswith("/mnt/") and len(s) > 6: return s[5].upper() + ":" + b + s[7:].replace("/", b)',
+'    if s.startswith(b + b + "wsl"): return _dsh_slashes(s)',
+'    if s.startswith("//") or s.startswith("./") or (s and not s.startswith("/")): return _dsh_blend_path(s)',
+'    if s.startswith("/"): return b + b + "wsl.localhost" + b + __DISTRO__ + s.replace("/", b)',
+'    return s',
+'def _dsh_wsl_path(p):',
+'    """Windows / UNC 路径 → WSL 侧可用形式（D:/x → /mnt/d/x；UNC → /...）"""',
+'    s = str(p).strip(); b = chr(92)',
+'    if len(s) > 1 and s[1] == ":": return "/mnt/" + s[0].lower() + "/" + s[2:].replace(b, "/").lstrip("/")',
+'    if s.startswith(b + b + "wsl.localhost" + b):',
+'        parts = s.split(b, 4)',
+'        return "/" + (parts[4].replace(b, "/") if len(parts) > 4 else "")',
+'    if s.startswith("/mnt/"): return s',
+'    if s.startswith("//") or s.startswith("./") or (s and not s.startswith("/")): return _dsh_win_path(s)',
+'    return s',
+'def _dsh_run(path, reload_modules=True):',
+'    """跑一个 .py 文件（WSL / Windows / 相对 .blend 三种路径都收）；可选重载同目录模块"""',
+'    import os as _os',
+'    p = _dsh_win_path(path)',
+'    if not _os.path.isfile(p):',
+'        alt = _dsh_wsl_path(p)',
+'        if _os.path.isfile(alt): p = alt',
+'        else: raise FileNotFoundError("找不到脚本: %s（也试过 %s）" % (path, alt))',
+'    if reload_modules:',
+'        import importlib as _il, sys as _sy',
+'        d = _os.path.dirname(_os.path.abspath(p))',
+'        _il.invalidate_caches()',
+'        if d not in _sy.path: _sy.path.insert(0, d)',
+'        for _n, _m in list(_sy.modules.items()):',
+'            _f = getattr(_m, "__file__", None)',
+'            if _f and _os.path.dirname(_os.path.abspath(_f)) == d:',
+'                try: _il.reload(_m)',
+'                except Exception: pass',
+'    _g = globals(); _g["__file__"] = p',
+'    with open(p, encoding="utf-8") as _fh: _src = _fh.read()',
+'    exec(compile(_src, p, "exec"), _g)',
+'    return p',
+'K.dsh_distro = __DISTRO__',
+'K.win_path = _dsh_win_path',
+'K.wsl_path = _dsh_wsl_path',
+'K.blend_path = _dsh_blend_path',
+'K.run = _dsh_run',
+'K.out_dir = __OUTDIR__',
+'K.workdir = K.out_dir',
+].join('\n');
+const PATH_HELPERS = PATH_HELPERS_TEMPLATE
+  .replace(/__DISTRO__/g, JSON.stringify(process.env.WSL_DISTRO_NAME || 'Ubuntu'))
+  .replace(/__OUTDIR__/g, JSON.stringify(WIN_TMP));
+/** act 包装：异常也回传 partial stdout/stderr/traceback（v0.7.0） */
+export const ACT_WRAPPER = (src) => [
+  'import io as _dsh_io, contextlib as _dsh_ctx, traceback as _dsh_tb, json as _dsh_json',
+  '_dsh_src = _dsh_json.loads(' + JSON.stringify(JSON.stringify(src)) + ')',
+  '_dsh_o = _dsh_io.StringIO(); _dsh_e = _dsh_io.StringIO()',
+  'try:',
+  '    with _dsh_ctx.redirect_stdout(_dsh_o), _dsh_ctx.redirect_stderr(_dsh_e):',
+  '        exec(compile(_dsh_src, "<rt_do>", "exec"), globals())',
+  'except BaseException as _dsh_exc:',
+  '    print("DSH_ACT_ERR " + _dsh_json.dumps({"error": "%s: %s" % (type(_dsh_exc).__name__, _dsh_exc), "traceback": _dsh_tb.format_exc()[-6000:], "stdout": _dsh_o.getvalue()[-16000:], "stderr": _dsh_e.getvalue()[-8000:]}, ensure_ascii=False))',
+  'else:',
+  '    print("DSH_ACT_OK " + _dsh_json.dumps({"stdout": _dsh_o.getvalue()[-16000:], "stderr": _dsh_e.getvalue()[-8000:]}, ensure_ascii=False))',
+].join('\n');
+
 export const KERNEL_BOOTSTRAP = [
   'import sys as _sys, types as _types',
   'K = _sys.modules.get("dsh_rt_kernel")',
@@ -117,6 +200,7 @@ export const KERNEL_BOOTSTRAP = [
   '    _sys.modules["dsh_rt_kernel"] = K',
   'import bpy, math, mathutils',
   'Vector = mathutils.Vector',
+  '# ---- 路径辅助（v0.7.0）：GUI 与无头两侧都能用，省掉手拼 UNC 与 chr(92)\n' + PATH_HELPERS,
 ].join('\n');
 
 /** addon 命令目录：name → { d: 说明, gate: 需要的 scene 开关（null=常驻） } */
@@ -390,8 +474,14 @@ export function createEngine(opts = {}) {
       const msg = String((e && e.message) || e);
       metrics.errors++;
       metrics.lastError = msg;
-      if (/timeout|closed|ECONN|ECONNRESET/i.test(msg)) metrics.timeouts++;
-      try { e.diagnosis = await diagnose(); metrics.lastDiagnosis = e.diagnosis; } catch (x) { /* 诊断自身失败不影响原错误 */ }
+      const transport = /timeout|closed|ECONN|ECONNRESET|socket/i.test(msg);
+      if (transport) metrics.timeouts++;
+      // v0.7.0：只有**传输/超时类**错误才做三级判定；执行类错误（代码抛错/编译错）不该被误判成 main-thread-busy
+      if (transport) {
+        try { e.diagnosis = await diagnose(); metrics.lastDiagnosis = e.diagnosis; } catch (x) { /* 诊断自身失败不影响原错误 */ }
+      } else {
+        e.kind = 'execution';
+      }
       throw e;
     } finally {
       metrics.inflight--;
@@ -399,18 +489,24 @@ export function createEngine(opts = {}) {
   };
   /** 把 Blender 侧 python 模块注入运行中的 Blender（模块自己把 API 挂到 K 上） */
   const MODULE_ATTR = { RUNNER_READY: 'dsh_loop_api', PERF_READY: 'dsh_perf_api', VIEW_READY: 'dsh_view_api',
-                        CONTRACT_READY: 'dsh_contract_api', PLAN_READY: 'dsh_plan_api' };
+                        CONTRACT_READY: 'dsh_contract_api', PLAN_READY: 'dsh_plan_api',
+                        TXN_READY: 'dsh_txn_api', QC_READY: 'dsh_qc_api' };
   async function injectModule(file, marker, versionExpr = '1') {
     const attr = MODULE_ATTR[marker] || ('dsh_' + String(marker).toLowerCase() + '_api');
+    const hashAttr = attr + '_fp';
+    // 内容指纹（size + mtime）：模块文件一改，下次调用自动重新注入 —— 开发闭环必需。
+    // 注意：K 跨后端重启保留，所以"只查 hasattr"会让改了文件却不生效（v0.7.0 修）。
+    let fp = 'x';
+    try { const st = fs.statSync(file); fp = String(st.size) + '-' + String(Math.round(st.mtimeMs)); } catch (e) { fp = 'missing'; }
     // K 才是真相：Blender 重启后 K 会清空，仅靠本地 Set 会误判"已注入"
     try {
-      const chk = await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nprint("HAVE " + str(hasattr(K, "' + attr + '"))) ' }, 30000);
+      const chk = await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nprint("HAVE " + str(hasattr(K, "' + attr + '")) + " FP " + str(getattr(K, "' + hashAttr + '", "none")))' }, 30000);
       const t = (chk && typeof chk.result === 'string') ? chk.result : '';
-      if (t.includes('HAVE True')) { injected.add(file); return true; }
+      if (t.includes('HAVE True') && t.includes(fp)) { injected.add(file); return true; }
       injected.delete(file);
     } catch (e) { /* 探测失败 → 走重新注入 */ }
     const src = fs.readFileSync(file, 'utf8');
-    const tail = '\nprint("' + marker + ' v%d" % ' + versionExpr + ')';
+    const tail = '\nK.' + hashAttr + ' = ' + JSON.stringify(fp) + '\nprint("' + marker + ' v%d" % ' + versionExpr + ')';
     const out = await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\n' + src + tail }, 60000);
     const txt = (out && typeof out.result === 'string') ? out.result : '';
     if (!txt.includes(marker)) throw new Error(path.basename(file) + ' 注入失败: ' + txt.slice(0, 200));
@@ -422,6 +518,8 @@ export function createEngine(opts = {}) {
   const ensureView = () => injectModule(VIEW_PATH, 'VIEW_READY', 'VIEW_VERSION');
   const ensureContract = () => injectModule(CONTRACT_PATH, 'CONTRACT_READY', 'CONTRACT_VERSION');
   const ensurePlanner = () => injectModule(PLANNER_PATH, 'PLAN_READY', 'PLAN_VERSION');
+  const ensureTxn = () => injectModule(TXN_PATH, 'TXN_READY', 'TXN_VERSION');
+  const ensureQc = () => injectModule(QC_PATH, 'QC_READY', 'QC_VERSION');
   /** perf/opt 通用调用：op 是 K.dsh_perf_api 里的函数名 */
   async function perfCall(op, payload) {
     await ensurePerf();
@@ -448,6 +546,13 @@ export function createEngine(opts = {}) {
     if (isPlan) {
       await ensurePlanner();
       const body = 'print("LOOP " + K.dsh_plan_api["dispatch"](' + JSON.stringify(o.slice(5)) + ', _json.dumps(_json.loads('
+        + JSON.stringify(JSON.stringify(payload || {})) + '))))';
+      return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 300000));
+    }
+    if (o.indexOf('qc_') === 0) {
+      // QC 走 blender_rt_plan 的 qc_* 前缀（验证与证据同属契约层；不新增工具）
+      await ensureQc();
+      const body = 'print("LOOP " + K.dsh_qc_api["dispatch"](' + JSON.stringify(o.slice(3)) + ', _json.dumps(_json.loads('
         + JSON.stringify(JSON.stringify(payload || {})) + '))))';
       return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 300000));
     }
@@ -553,9 +658,17 @@ export function createEngine(opts = {}) {
     worker.ready = false;
     return { stopped: true, wasAlive: true, bye: bye };
   }
+  /** 事务：snapshot / restore / list / prune / mark / revert / marks / drop / help */
+  async function txnCall(op, payload) {
+    await ensureTxn();
+    const body = 'print("LOOP " + K.dsh_txn_api["dispatch"](' + JSON.stringify(String(op || 'list')) + ', _json.dumps(_json.loads('
+      + JSON.stringify(JSON.stringify(payload || {})) + '))))';
+    return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 300000));
+  }
   return {
     addon: addon,
     plan: (op, payload) => planCall(op, payload),
+    txn: (op, payload) => txnCall(op, payload),
     worker: { start: workerStart, exec: workerExec, status: workerStatus, stop: workerStop, snapshot: workerSnapshot },
     /** 通道指标快照（inflight / last_cmd / 超时计数） */
     metrics() {
@@ -594,10 +707,32 @@ export function createEngine(opts = {}) {
       const out = await addon.send('execute_code', { code: REGION_CODE });
       return { region: jsonFromStdout(out) };
     },
-    /** 执行 Python（带持久内核 K），返回 addon 的 {"executed":true,"result":"<stdout>"} */
-    async act(code, timeoutMs = 120000) {
-      const wrapped = KERNEL_BOOTSTRAP + '\n' + String(code === undefined || code === null ? '' : code);
-      return addon.send('execute_code', { code: wrapped }, timeoutMs);
+    /**
+     * 执行 Python（持久内核 K）。v0.7.0 起：异常也回传 **partial stdout / stderr / traceback**
+     * （用 DSH_ACT_OK / DSH_ACT_ERR 标记包裹；解析不到标记就回落旧行为）。
+     * file 给定时改为执行该文件（K.run，支持 WSL / Windows / 相对 .blend 三种路径）。
+     */
+    async act(code, timeoutMs = 120000, file = null) {
+      const src = file ? ('K.run(' + JSON.stringify(String(file)) + ')')
+        : (code === undefined || code === null ? '' : String(code));
+      const wrapped = KERNEL_BOOTSTRAP + '\n' + ACT_WRAPPER(src);
+      const t0 = Date.now();
+      const res = await addon.send('execute_code', { code: wrapped }, timeoutMs);
+      const raw = (res && typeof res.result === 'string') ? res.result : '';
+      const ms = Date.now() - t0;
+      const pick = (tag) => { const ls = raw.split('\n').filter((x) => x.indexOf(tag + ' ') === 0); return ls.length ? ls[ls.length - 1] : null; };
+      const errLine = pick('DSH_ACT_ERR');
+      const okLine = pick('DSH_ACT_OK');
+      let p = null;
+      try { p = JSON.parse((errLine || okLine).slice((errLine ? 'DSH_ACT_ERR ' : 'DSH_ACT_OK ').length).trim()); }
+      catch (e) { p = null; }
+      if (p) {
+        return { ok: !errLine, executed: true, ms: ms, mainThreadMs: ms,
+                 stdout: p.stdout || '', stderr: p.stderr || '',
+                 error: p.error || null, traceback: p.traceback || null, file: file || null };
+      }
+      return { ok: true, executed: true, ms: ms, mainThreadMs: ms, stdout: raw, stderr: '',
+               error: null, traceback: null, marker_missing: true, file: file || null };
     },
     /** 通用命令透传：任意 addon 命令名 + 参数（MCP 那层不暴露的也能调） */
     async cmd(name, params = {}, timeoutMs = 120000) {
