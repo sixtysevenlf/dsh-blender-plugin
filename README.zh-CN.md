@@ -5,6 +5,8 @@
 > 让 **AI 模型真正驱动 Blender**：不用人点鼠标、不截屏喂图、不装 MCP 服务端，
 > 通过一条 TCP 直连通道拿到 10 个原语：**看视口 / 改场景 / 连续观察 / 内环搜索 / 渲染优化 / 对象精简 / 无头跑重活 / 通道运维**。
 >
+> 版本 **0.4.1** —— 新增 **addon 协议适配**（`addonProtocol`，默认 `auto`）：扁平协议的官方 `MCP for Blender` 与 `harveyxiacn/blender-mcp` 的 category/action addon 都能用（由 [@yihefeikong-rgb](https://github.com/yihefeikong-rgb) 贡献，PR #2）。
+>
 > 版本 **0.4.0**（分享版）· 自带 runtime（node + python），包内路径全相对，**换机器不用改源码**。
 > 作者自用版把这些配置写死在本机路径上；分享版全部走 `runtime/config.mjs`（自动探测 + 配置文件 + 环境变量）。
 > **操作教程：[docs/操作教程.md](docs/操作教程.md) · 配置：[docs/配置参考.md](docs/配置参考.md)**

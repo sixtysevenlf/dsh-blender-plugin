@@ -5,6 +5,8 @@
 > **Let an AI model actually drive Blender** — no clicking, no screenshots-into-prompt, no MCP server.
 > One direct TCP channel gives the model 10 primitives: **see the viewport / edit the scene / watch over time / run an inner search loop / profile & fix render perf / decimate objects safely / offload heavy work to a headless process / operate the channel itself.**
 >
+> Version **0.4.1** — adds an **addon protocol adapter** (`addonProtocol`, default `auto`), so both the flat `MCP for Blender` addon and the `harveyxiacn/blender-mcp` category/action addon work (contributed by [@yihefeikong-rgb](https://github.com/yihefeikong-rgb), PR #2).
+>
 > Version **0.4.0** · ships its own runtime (Node + Python), all paths resolved **relative to the package**, and **nothing is hard-coded to a specific machine** (`runtime/config.mjs` does env → config file → auto-detect → defaults).
 
 ---
