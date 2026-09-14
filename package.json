@@ -31,7 +31,8 @@
   },
   "scripts": {
     "build": "bash scripts/build.sh",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node tests/protocol_selftest.mjs"
   },
   "exports": {
     ".": {

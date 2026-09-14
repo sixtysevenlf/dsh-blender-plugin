@@ -20,6 +20,9 @@ import os from 'node:os';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { CFG, PATHS, winToWsl, wslToWin, describeConfig, IS_WIN } from './config.mjs';
+// 协议适配层：直连通道支持两种 addon 实现（ahujasid 扁平协议 / harveyxiacn category-action），
+// 由 CFG.addonProtocol 选择，默认 auto 自动探测。差异与映射见 runtime/addon-protocol.mjs。
+import { resolveProtocol, detectProtocol, resetProtocolCache } from './addon-protocol.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -178,6 +181,8 @@ export async function tcpProbe(host = ADDRESS.host, port = ADDRESS.port, timeout
 
 export async function freshPing(host = ADDRESS.host, port = ADDRESS.port, timeoutMs = 2500) {
   const t0 = Date.now();
+  const { proto } = await resolveProtocol({ host, port, prefer: CFG.addonProtocol, timeoutMs: Math.min(timeoutMs, 1500) });
+  const plan = proto.plan("ping", {});
   return new Promise((resolve, reject) => {
     const s = net.connect({ host, port });
     let buf = "";
@@ -185,25 +190,26 @@ export async function freshPing(host = ADDRESS.host, port = ADDRESS.port, timeou
     s.once("error", (e) => { clearTimeout(t); try { s.destroy(); } catch (x) {} reject(e); });
     s.on("data", (d) => {
       buf += d.toString("utf8");
-      try {
-        const o = JSON.parse(buf);
-        clearTimeout(t);
-        try { s.destroy(); } catch (e) {}
-        if (o.status === "error") reject(new Error(o.message || "ping error"));
-        else resolve(Date.now() - t0);
-      } catch (e) { /* 继续攒 */ }
+      let r = null;
+      try { r = proto.decode(buf.trim()); } catch (e) { return; }   // 没攒够一整条 → 继续
+      clearTimeout(t);
+      try { s.destroy(); } catch (e) {}
+      if (!r.ok) reject(new Error(r.message || "ping error"));
+      else resolve(Date.now() - t0);
     });
-    s.once("connect", () => s.write(JSON.stringify({ type: "ping", params: {} })));
+    s.once("connect", () => s.write(proto.encode(plan.wire, { id: "ping", timeoutMs: timeoutMs })));
   });
 }
 
 export async function diagnose() {
+  const proto = (await resolveProtocol({ host: ADDRESS.host, port: ADDRESS.port, prefer: CFG.addonProtocol }).catch(() => null));
+  const panel = (proto && proto.proto.panelHint) || "「MCP for Blender」面板 → Connect";
   const tcp = await tcpProbe();
   if (!tcp) {
     return { kind: "blender-unreachable", tcp: false, ping: null,
       summary: "9876 端口没人监听 —— Blender 没在跑，或 addon 没连上",
-      fix: "先启动 Blender，再在 3D 视图按 N 打开侧栏 →「MCP for Blender」面板 → 勾选/点击 Connect（服务监听 127.0.0.1:" + String(CFG.addonPort) + "）",
-      hint: "TCP " + CFG.addonHost + ":" + String(CFG.addonPort) + " 不通：Blender 没在运行，或 addon 面板没连上（N →「MCP for Blender」→ Connect）" };
+      fix: "先启动 Blender，再在 3D 视图按 N 打开侧栏 → " + panel + "（服务监听 127.0.0.1:" + String(CFG.addonPort) + "）",
+      hint: "TCP " + CFG.addonHost + ":" + String(CFG.addonPort) + " 不通：Blender 没在运行，或 addon 面板没连上（N → " + panel + "）" };
   }
   try {
     const ms = await freshPing();
@@ -212,10 +218,37 @@ export async function diagnose() {
       fix: "等它空下来再调用；长渲染改走 blender_rt_headless（独立进程，不占 GUI 通道）",
       hint: "addon 活着、ping 通，但 bpy 命令超时 → Blender 主线程被占（渲染 / 模态操作 / 重活）。等它空下来，或把长渲染改用 blender_rt_headless（独立进程，不占 GUI 通道）" };
   } catch (e) {
+    // TCP 通但 ping 不回：除了"addon 线程卡住"，还有一种高频原因是**协议不匹配**
+    // （装了另一套 addon，或 addonProtocol 配错）。这里再探一次协议，把结论写进诊断。
+    const detected = await detectProtocol(ADDRESS.host, ADDRESS.port, 1200).catch(() => null);
+    const mismatch = detected && proto && detected.id !== proto.proto.id;
+    if (!detected) {
+      return { kind: "addon-thread-stuck", tcp: true, ping: false, error: String((e && e.message) || e),
+        summary: "端口通但 ping 无响应 —— addon 客户端线程卡在上一条长命令上",
+        fix: "不要连发；等它结束（agent 模式下可 blender_rt_loop op=stop 急停），仍无响应再重启 Blender。若 addon 面板显示的并不是「已连接」，先点一次 Connect",
+        hint: "TCP 通但 ping 无响应 → addon 的客户端线程卡住（通常上一次长命令仍在执行）；不要连发，等它结束或重启 Blender" };
+    }
     return { kind: "addon-thread-stuck", tcp: true, ping: false, error: String((e && e.message) || e),
-      summary: "端口通但 ping 无响应 —— addon 客户端线程卡在上一条长命令上",
-      fix: "不要连发；等它结束（agent 模式下可 blender_rt_loop op=stop 急停），仍无响应再重启 Blender",
-      hint: "TCP 通但 ping 无响应 → addon 的客户端线程卡住（通常上一次长命令仍在执行）；不要连发，等它结束或重启 Blender" };
+      detected_protocol: detected.id, configured_protocol: CFG.addonProtocol,
+      summary: mismatch
+        ? "端口通、addon 也活着，但按 " + (proto && proto.proto.id) + " 协议发 ping 没有回包 —— 协议不匹配"
+        : "端口通但 ping 无响应 —— addon 客户端线程卡在上一条长命令上",
+      fix: mismatch
+        ? "把 dsh-blender.config.json 的 addonProtocol 改成 \"" + detected.id + "\"（或设 \"auto\"）后重启后端：blender_viewport op=restart"
+        : "不要连发；等它结束，仍无响应再重启 Blender",
+      hint: mismatch
+        ? "探测到的 addon 实际讲 " + detected.id + " 协议，与当前配置不一致 → 改 addonProtocol 或设 auto"
+        : "TCP 通但 ping 无响应 → addon 的客户端线程卡住；不要连发，等它结束或重启 Blender" };
+  }
+}
+
+/** 通道运行时实际使用的协议（给 /doctor、/who、工具输出用） */
+export async function protocolInfo() {
+  try {
+    const r = await resolveProtocol({ host: ADDRESS.host, port: ADDRESS.port, prefer: CFG.addonProtocol });
+    return { id: r.proto.id, label: r.proto.label, from: r.from, detected: r.detected || null, configured: CFG.addonProtocol };
+  } catch (e) {
+    return { id: null, error: String((e && e.message) || e), configured: CFG.addonProtocol };
   }
 }
 
@@ -226,6 +259,16 @@ export class AddonClient {
     this.queue = Promise.resolve();
     this.buf = '';
     this.pending = null;
+    this.proto = null;          // 首次使用时解析（显式配置 → 直取；auto → 探测一次并缓存）
+    this.protocolInfo = null;
+    this._seq = 0;
+  }
+  async protocol() {
+    if (!this.proto) {
+      this.protocolInfo = await resolveProtocol({ host: this.addr.host, port: this.addr.port, prefer: CFG.addonProtocol });
+      this.proto = this.protocolInfo.proto;
+    }
+    return this.protocolInfo;
   }
   connect(timeoutMs = 4000) {
     return new Promise((resolve, reject) => {
@@ -240,22 +283,28 @@ export class AddonClient {
   _onData(d) {
     this.buf += d.toString('utf8');
     if (!this.pending) return;
-    let obj = null;
-    try { obj = JSON.parse(this.buf); } catch { return; }
+    const proto = this.pending.proto;
+    let r = null;
+    try { r = proto.decode(this.buf.trim()); } catch (e) { return; }   // 未收全 → 继续攒
     this.buf = '';
     const p = this.pending; this.pending = null;
     clearTimeout(p.timer);
-    if (obj.status === 'error') p.reject(new Error(obj.message || 'addon error'));
-    else p.resolve(obj.result === undefined ? {} : obj.result);
+    if (!r.ok) { p.reject(new Error(r.message)); return; }
+    try { p.resolve(p.post ? p.post(r.data) : r.data); }
+    catch (err) { p.reject(err); }
   }
   async ensure() { if (!this.sock) await this.connect(); }
   send(type, params = {}, timeoutMs = 120000) {
     const run = async () => {
+      const info = await this.protocol();
+      const proto = info.proto;
+      const plan = proto.plan(type, params);          // 可能抛：未知命令 / 缺参数
+      if (plan.local) return plan.local();            // 本地桩（遥测 / 集成 status）不占 socket
       await this.ensure();
       return new Promise((resolve, reject) => {
         const timer = setTimeout(() => { this.pending = null; this.buf = ''; reject(new Error('addon timeout: ' + type)); }, timeoutMs);
-        this.pending = { resolve: resolve, reject: reject, timer: timer };
-        this.sock.write(JSON.stringify({ type: type, params: params || {} }));
+        this.pending = { resolve: resolve, reject: reject, timer: timer, post: plan.post, proto: proto };
+        this.sock.write(proto.encode(plan.wire, { id: 'rt' + String(++this._seq), timeoutMs: timeoutMs }));
       });
     };
     const p = this.queue.then(run, run);
@@ -327,6 +376,8 @@ export function createEngine(opts = {}) {
     metrics() {
       return { ...metrics, lastCmdAgeMs: metrics.lastCmdAt ? Date.now() - metrics.lastCmdAt : null };
     },
+    /** 通道实际用的 addon 协议（显式配置 or auto 探测结果） */
+    async protocol() { return await protocolInfo(); },
     /** 现场体检：真跑一次 bpy 往返（status），通了才算 ok；不通才去三级判定 */
     async doctor() {
       const t0 = Date.now();
@@ -338,10 +389,12 @@ export function createEngine(opts = {}) {
       try {
         const s = await this.status();
         const pingMs = await freshPing().catch(() => null);
+        const pinfo = await protocolInfo();
         return {
           ok: true,
           addon: { kind: 'ok', tcp: true, ping: true, ping_ms: pingMs, roundTripMs: Date.now() - t0,
             summary: '通道健康：TCP + ping + bpy 往返都通',
+            protocol: pinfo.id, protocol_label: pinfo.label, protocol_from: pinfo.from,
             fix: '无需处理', region: s.region },
           metrics: this.metrics(),
         };

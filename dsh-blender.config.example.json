@@ -7,6 +7,7 @@
 
   "addonHost": "127.0.0.1",
   "addonPort": 9876,
+  "addonProtocol": "auto",
   "httpPort": 9877,
 
   "holder": "my-session",

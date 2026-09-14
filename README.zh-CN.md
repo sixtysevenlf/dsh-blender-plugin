@@ -35,8 +35,9 @@
    - 它在 Blender 内起一个 TCP 服务，默认监听 `127.0.0.1:9876`；
    - 至少提供这些命令：`ping`、`get_scene_info`、`get_world_state_snapshot`、`get_object_info(name)`、`get_viewport_screenshot(max_size, filepath, format)`、`execute_code(code)`；
    - 另有 5 个可选集成（PolyHaven / Hyper3D / Sketchfab / Poly Pizza / Hunyuan3D），开关由 addon 自己的 scene 属性控制。
+   - **也支持 harveyxiacn 增强版 `blender_mcp_addon`**（协议不同，插件侧自动适配，配置项 `addonProtocol`，默认 `auto`；见 `docs/配置参考.md` §6）。该实现没有上面那 5 条资产集成通道，相关命令会明确报错。
    - 装好后：3D 视图按 `N` → 找到「MCP for Blender」面板 → **Connect**。
-   - 兼容性自检：`node runtime/_probe_tools.mjs`（逐条探测命令，输出 ok / 耗时）。
+   - 兼容性自检：`node runtime/_probe_tools.mjs`（逐条探测命令，输出 ok / 耗时）；协议自检：`node tests/protocol_selftest.mjs`（不需要 Blender）。
 3. **Node.js ≥ 20**（跑后端与插件宿主）。
 4. **DSH（DeepSeek Harness）**：本包以 DSH 插件形态提供工具（`inject: ['tools']`）。
    - 若你在 **WSL** 里跑 DSH、Blender 在 Windows：需要 WSL 互操作开启（默认开），这样 `spawn` 能直接起 `blender.exe`；
@@ -135,6 +136,7 @@ dsh-blender-plugin/
 | `blender-unreachable` | 看 Blender 的 N 面板 | Blender 没跑，或 addon 没 Connect |
 | `main-thread-busy` | 等它空下来，或改无头 | Blender 主线程被渲染 / 模态操作占住 |
 | `addon-thread-stuck` | 别连发，等它结束 | 上一条长命令还在跑（`blender_rt_loop op=stop` 可急停内环） |
+| `addon-thread-stuck` 且带 `detected_protocol` | 按提示改 `addonProtocol` 后 `blender_viewport op=restart` | 装的是另一种 addon，协议不匹配（扁平 vs category/action） |
 | 出图报路径错误 | `blender_viewport op=doctor` 看 `config.workDir` | 工作目录两端不互通（改 `workDir`） |
 | 写操作 409 `leased` | `blender_viewport op=who` | 另一会话持有写权限租约（`op=lease force=true` 可抢） |
 | `blender_rt_headless` 起不来 | 同上，看 `config.blenderExe` | 没找到 blender.exe（三种配置方式见 `docs/配置参考.md`） |

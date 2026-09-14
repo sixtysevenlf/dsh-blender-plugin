@@ -2,6 +2,22 @@
 
 > 这些检查把 v0.4.0（自定义视角 / 无头 / 租约）的关键结论固定下来，换机器或升级 Blender 后**先跑它们**。
 
+## 0. addon 协议适配（不需要 Blender / DSH，最省事）
+
+```bash
+node tests/protocol_selftest.mjs      # 或 npm test
+```
+
+用两个 mock addon（扁平协议 / category-action）把适配层跑一遍，共 28 项断言：
+
+| 覆盖 | 断言要点 |
+|---|---|
+| 协议探测 | 两种 mock 各判对；死端口 → `null`；**扁平 addon 第一轮没回时按封套形状纠错**回 `ahujasid` |
+| 协议解析 | `auto` 探测出正确结果；显式 `addonProtocol` 不探测、立即返回；未知协议名报错 |
+| 两种协议下的调用 | `ping` / `get_scene_info` / `execute_code`（形状必须是 `{executed,result}`）/ 视口帧 |
+| 错误传播 | 两种协议各自把 addon 的错误变成 reject |
+| 缺能力不假装 | category-action 侧的资产集成命令明确报错；遥测类是本地桩（不占 socket） |
+
 ## 1. view.py 自检（矩阵 + 离屏 + PNG 字节）
 
 无需 GUI，走无头进程（约 1–3 s）：
