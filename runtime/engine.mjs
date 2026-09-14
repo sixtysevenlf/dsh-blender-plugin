@@ -385,7 +385,14 @@ export function createEngine(opts = {}) {
   async function planCall(op, payload) {
     const o = String(op || 'status');
     const isPlan = o.startsWith('plan_');
-    if (o === 'evidence') await ensureView();            // 证据要出图 → 先注入 view.py
+    if (o === 'evidence') {
+      await ensureView();
+      // 契约层的 evidence 需要 view.path：这里补默认工作目录下的证据文件（与 view.py 的默认出图分开）
+      const p = payload && typeof payload === 'object' ? payload : {};
+      p.view = p.view && typeof p.view === 'object' ? p.view : {};
+      if (!p.view.path) p.view.path = path.win32.join(WIN_TMP, 'dsh_evidence.png');
+      payload = p;
+    }            // 证据要出图 → 先注入 view.py
     if (isPlan) {
       await ensurePlanner();
       const body = 'print("LOOP " + K.dsh_plan_api["dispatch"](' + JSON.stringify(o.slice(5)) + ', _json.dumps(_json.loads('
