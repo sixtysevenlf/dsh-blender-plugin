@@ -14,6 +14,9 @@ import bpy
 import json
 import sys
 
+# 说明（2026-09-14）：下面的默认 spec 对应的第三方 NPR 插件已被删除且不再提供 ——
+# 因此默认探测会（按设计）报 ready=false。保留它的原因：它是本工具的现成自测样例；
+# 且万一该插件日后重新出现，探测逻辑无需改动。
 DEFAULT_SPEC = {
     "name": "stylized-shading（NPR 风格化着色）",
     "addons": ["blender_Stylized-Shading-Tools", "bl_stylized_shading", "stylized_shading"],
