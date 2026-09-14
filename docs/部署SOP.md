@@ -66,3 +66,4 @@ blender_rt_headless(script="print('HEADLESS {"ok":1}')")  # 无头通道 + 引�
 | QC 分数与历史不可比 | `engine_at_qc` | 换了引擎（EEVEE ↔ Cycles）；判据只在同引擎内可比 |
 
 > 相关文档：`docs/操作教程.md`（工具逐个上手）· `docs/配置参考.md`（配置项 + 引擎索引）· `docs/EEVEE-工作要点.md`（引擎与材质踩坑）。
+| 想跑 .py 却把路径给了 headless | 用对工具 | headless 的 file 是 .blend 工程；.py 脚本用 blender_rt_do(file=...) 或 headless(script=...) |
