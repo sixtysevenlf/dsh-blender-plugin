@@ -320,7 +320,7 @@ def dsh_perf_help():
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
 if _K is not None:
-    _K.dsh_perf_api = {"version": PERF_VERSION, "status": dsh_perf_status, "apply": dsh_perf_apply,
+    _K.dsh_perf_api = {"version": PERF_VERSION, "status": (lambda *a, **kw: dsh_perf_status(*a, **kw)), "apply": dsh_perf_apply,
                        "revert": dsh_perf_revert, "analyze": dsh_perf_analyze, "help": dsh_perf_help,
                        "opt_analyze": dsh_opt_analyze, "opt_join": dsh_opt_join}
 
