@@ -279,7 +279,11 @@ const PATH_HELPERS_TEMPLATE = [
 'K.stage = _dsh_stage',
 'K.reload_modules = _dsh_reload_modules',
 'K.out_dir = __OUTDIR__',
-'K.workdir = K.out_dir',
+  'K.workdir = K.out_dir',
+  '# v0.8.7：路径常量也注入脚本命名空间（独立模块 + exec(open()) 写法同样可用）',
+  'DSH_OUT = K.out_dir',
+  'DSH_WIN = _dsh_win_path',
+  'DSH_WSL = _dsh_wsl_path',
 ].join('\n');
 const PATH_HELPERS = PATH_HELPERS_TEMPLATE
   .replace(/__DISTRO__/g, JSON.stringify(process.env.WSL_DISTRO_NAME || 'Ubuntu'))
@@ -289,13 +293,29 @@ export const ACT_WRAPPER = (src) => [
   'import io as _dsh_io, contextlib as _dsh_ctx, traceback as _dsh_tb, json as _dsh_json',
   '_dsh_src = _dsh_json.loads(' + JSON.stringify(JSON.stringify(src)) + ')',
   '_dsh_o = _dsh_io.StringIO(); _dsh_e = _dsh_io.StringIO()',
+  'def _dsh_epoch():',
+  '    import bpy as _b',
+  '    try:',
+  '        h = 0',
+  '        for _o in _b.data.objects:',
+  '            for _c in _o.name:',
+  '                h = (h * 131 + ord(_c)) & 4294967295',
+  '            if _o.type == "MESH" and getattr(_o, "data", None) is not None:',
+  '                h = (h * 131 + len(_o.data.vertices)) & 4294967295',
+  '        return {"objects": len(_b.data.objects), "meshes": len(_b.data.meshes),',
+  '                "materials": len(_b.data.materials), "nameHash": h}',
+  '    except Exception as _e:',
+  '        return {"error": str(_e)[:60]}',
+  'def _dsh_epoch_json():',
+  '    import json as _j',
+  '    return _j.dumps(_dsh_epoch(), ensure_ascii=False)',
   'try:',
   '    with _dsh_ctx.redirect_stdout(_dsh_o), _dsh_ctx.redirect_stderr(_dsh_e):',
   '        exec(compile(_dsh_src, "<rt_do>", "exec"), globals())',
   'except BaseException as _dsh_exc:',
-  '    print("DSH_ACT_ERR " + _dsh_json.dumps({"error": "%s: %s" % (type(_dsh_exc).__name__, _dsh_exc), "traceback": _dsh_tb.format_exc()[-6000:], "stdout": _dsh_o.getvalue()[-16000:], "stderr": _dsh_e.getvalue()[-8000:]}, ensure_ascii=False))',
+  '    print("DSH_ACT_ERR " + _dsh_json.dumps({"error": "%s: %s" % (type(_dsh_exc).__name__, _dsh_exc), "traceback": _dsh_tb.format_exc()[-6000:], "stdout": _dsh_o.getvalue()[-16000:], "stderr": _dsh_e.getvalue()[-8000:], "epoch": _dsh_epoch()}, ensure_ascii=False))',
   'else:',
-  '    print("DSH_ACT_OK " + _dsh_json.dumps({"stdout": _dsh_o.getvalue()[-16000:], "stderr": _dsh_e.getvalue()[-8000:]}, ensure_ascii=False))',
+  '    print("DSH_ACT_OK " + _dsh_json.dumps({"stdout": _dsh_o.getvalue()[-16000:], "stderr": _dsh_e.getvalue()[-8000:], "epoch": _dsh_epoch()}, ensure_ascii=False))',
 ].join('\n');
 
 export const KERNEL_BOOTSTRAP = [
@@ -669,6 +689,22 @@ export function createEngine(opts = {}) {
       + JSON.stringify(JSON.stringify(payload || {})) + '))))';
     return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 300000));
   }
+  /** v0.8.7：把 Blender 侧常见坑的报错补一句可执行提示（外部反馈 #4 的 P2-3） */
+  function enrichError(msg, tb) {
+    const s = String(msg || '');
+    const t = String(tb || '');
+    const both = s + ' ' + t;
+    if (/已使用的库|in use|Cannot overwrite/i.test(both)) {
+      return s + '  ← 提示：该 .blend 在本会话被当作库加载过。可先 bpy.data.libraries.remove(<该库>) 释放，或改用 bpy.ops.wm.save_as_mainfile(filepath=..., copy=True) 写副本（copy=True 不动当前 filepath）。';
+    }
+    if (/Cannot render, no camera/i.test(both)) {
+      return s + '  ← 提示：场景没有相机（可能被清理/灯光重建循环删掉）。无头渲染前先设 scene.camera，或用 blender_rt_see 的自定义视角出图。';
+    }
+    if (/No such file or directory|无法读取/i.test(both) && /wsl\.localhost|\\\\wsl/i.test(both)) {
+      return s + '  ← 提示：UNC 路径形态问题 —— //wsl.localhost/... 会被 Blender 当成「相对 .blend」；用反斜杠 UNC，或先 K.stage(path) 拷到本地再读。';
+    }
+    return s;
+  }
   // ---------------------------------------------------------------- 作业层（v0.8.5）
   // 长任务后台化：start 立刻返回 job id（不占客户端连接）；status/collect/kill 轮询；日志与产物落在 outdir/jobs/<id>/。
   const jobs = new Map();
@@ -752,6 +788,15 @@ export function createEngine(opts = {}) {
     return jobSnapshot(j);
   }
   function jobList() { return Array.from(jobs.values()).map(jobSnapshot); }
+  /** v0.8.7：场景世代号（对象数/网格数/材质数/名字哈希）—— 用于发现「别人的重建把我的装配清掉了」 */
+  async function sceneEpoch() {
+    try {
+      const out = await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nprint("EPOCH " + _dsh_epoch_json())' }, 20000);
+      const t = (out && typeof out.result === 'string') ? out.result : '';
+      const l = t.split('\n').filter((x) => x.indexOf('EPOCH ') === 0);
+      return l.length ? JSON.parse(l[l.length - 1].slice('EPOCH '.length)) : null;
+    } catch (e) { return null; }
+  }
 
   // ---------------------------------------------------------------- 热无头 worker
   // 常驻 blender -b：阻塞 accept 跑在主线程（无头下 timers 不触发，主线程执行 bpy 才安全），
@@ -872,6 +917,7 @@ export function createEngine(opts = {}) {
     preset: (op, payload) => presetCall(op, payload),
     worker: { start: workerStart, exec: workerExec, status: workerStatus, stop: workerStop, snapshot: workerSnapshot },
     job: { start: jobStart, status: jobStatus, collect: jobCollect, kill: jobKill, list: jobList },
+    sceneEpoch: sceneEpoch,
     /** 通道指标快照（inflight / last_cmd / 超时计数） */
     metrics() {
       return { ...metrics, lastCmdAgeMs: metrics.lastCmdAt ? Date.now() - metrics.lastCmdAt : null };
@@ -931,7 +977,8 @@ export function createEngine(opts = {}) {
       if (p) {
         return { ok: !errLine, executed: true, ms: ms, mainThreadMs: ms,
                  stdout: p.stdout || '', stderr: p.stderr || '',
-                 error: p.error || null, traceback: p.traceback || null, file: file || null };
+                 error: p.error ? enrichError(p.error, p.traceback) : null, traceback: p.traceback || null,
+                 sceneEpoch: p.epoch || null, file: file || null };
       }
       return { ok: true, executed: true, ms: ms, mainThreadMs: ms, stdout: raw, stderr: '',
                error: null, traceback: null, marker_missing: true, file: file || null };
@@ -1112,6 +1159,16 @@ export function createEngine(opts = {}) {
       if (Array.isArray(opts.args)) args.push.apply(args, opts.args.map(String));
       const timeoutMs = Math.max(1000, Math.min(1800000, Number(opts.timeoutMs) || 180000));
       metrics.headlessRuns++;
+      // v0.8.7（外部反馈 #4 P0-2）：长任务自动转作业层 —— 客户端超时不再把结果丢掉。
+      // 用法：as_job=true 强制转；或给 auto_job_ms（如 120000）表示预计超过它就走作业。
+      const autoJobMs = Number(opts.autoJobMs) || 0;
+      if (opts.asJob || (autoJobMs > 0 && timeoutMs >= autoJobMs)) {
+        const j = jobStart(Object.assign({}, opts, { timeoutMs: Math.max(timeoutMs, 3600000) }));
+        return { ok: true, mode: 'job', ms: Date.now() - t0, jobId: j.id, job: j,
+                 logs: { stdout: j.stdoutLog, stderr: j.stderrLog },
+                 reason: null,
+                 hint: '已转作业层（长任务）：用 blender_rt_job(op="status"/"collect", id="' + j.id + '") 跟进，或用 jobId 轮询 /job' };
+      }
       // ---- 子进程环境：可选透传用户 Blender 配置（GPU 偏好在里面）
       const childEnv = Object.assign({}, process.env, { PYTHONIOENCODING: 'utf-8' });
       if (opts.useUserConfig) {
@@ -1176,7 +1233,7 @@ export function createEngine(opts = {}) {
       const tbIdx = stderr.lastIndexOf('Traceback (most recent call last)');
       if (tbIdx >= 0) traceback = stderr.slice(tbIdx, tbIdx + 3000);
       const em = stderr.match(/^[\w.]*(?:Error|Exception|Warning)\b.*$/gm);
-      if (em && em.length) lastException = em[em.length - 1].slice(0, 300);
+      if (em && em.length) lastException = enrichError(em[em.length - 1].slice(0, 300), traceback);
       if (lastException && /line continuation character|invalid syntax/i.test(lastException) && /\\n/.test(script)) {
         hint = '脚本里出现字面量 \\n（两个字符）而不是真正换行 —— 在 JSON/TS 里请写成 \\n，或用 String.fromCharCode(10) 拼。';
       }
