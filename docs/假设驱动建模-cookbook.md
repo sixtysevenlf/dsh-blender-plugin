@@ -247,3 +247,36 @@ best_err <= tol 但关键参数不可辨识 → unresolved + 「需要什么探�
 **配套的判据口径（v0.8.3 起）**：`qc_compare` 的 **`iou` = 固定对齐（诚实值）**；搜索对齐单独放在 **`iou_search`**（仅供参考）。**尺度漂移 >5% 会告警**，`iou_search_gain >0.05` 也会告警 —— 看到告警就别只报一个数。
 
 **auto 掩膜的适用性**：参考图前景占比 >80% 或 <2% 时 auto 会**自动回落**到阈值口径并在回执里写明 `satv-fallback` 与原因（例：满构图海报 95.9% 前景 → auto 不可信）。
+
+## 附：工具适用面（v0.8.5 —— 哪些时候别用）
+
+| 工具 | 该用 | 别用（实测出来的现实） |
+|---|---|---|
+| blender_rt_job | 长任务（大于 5 分钟）、渲染一整晚、批量出图 | 短活（小于 5 分钟）—— 用 headless 直接拿结果更省事 |
+| blender_rt_txn | 大场景 / 不可重生成 / 长构建管线（回滚比重建便宜时） | 重建成本远小于回滚时（实测：整机重建 9–20 s 比快照回滚更干净） |
+| blender_rt_loop | 目标可标量化（尺寸 / 轮廓 IoU / 剖面差）且手工调参要很多轮 | 设计驱动任务（参考图 → 反推尺寸 → 参数化生成）—— 契约层与内环没有触发条件 |
+| 看图（rt_see） | 即时反馈（55–100 ms/帧，改一步看一眼） | 需要可存档 / 可复核 / 高保真的图 —— 用 headless 或 worker 渲染到文件再读图；频繁调用会挤主线程 |
+| blender_rt_plan（契约层） | 证据不足下的假设搜索、需要 unresolved 判定、需要 provenance | 纯设计驱动、结构已确定的任务 |
+
+无窗口是特性不是缺陷：worker 是 blender -b，GUI 型 bpy.ops 不可靠 → 推荐姿势：走 bmesh 与数据 API（确定性、可复现、零 context 报错）。
+
+silhouette-fit 一键配方（把手工对齐若干比值变成一次内环搜索）：
+
+```python
+# 1) 参考图与裁切框（一次）
+ref, box = '//ref/ref_all_views.png', [9, 38, 444, 545]
+# 2) 内环：搜相机位置与焦距，使轮廓 IoU 最大（measure 用固定对齐，防刷分）
+spec = {
+  'setup':   'K.best = None',
+  'step':    'ns[cam] = 逐次扰动相机（位置/焦距）',
+  'measure': 'ns[score] = K.dsh_measure[silhouette_iou](ns[cam], ref, box)',
+  'iterations': 200, 'budget_ms': 60000, 'top_k': 5,
+}
+# blender_rt_loop(op=start, spec=spec) → op=board 取最优 → op=export 导出脚本
+```
+
+环境与路径三处澄清（依本机实测）：
+
+1. UNC 写入不是会静默失败：实测 Blender 写 UNC 路径的文本文件成功，且 WSL 侧可见（9 B）；结论依环境（Windows 版本/权限/9p 实现），不要绝对化。
+2. 双斜杠在 Blender 里是相对当前 .blend 的前缀：形如双斜杠加 wsl.localhost 的路径会被解析成 blend 目录下的子路径（读不到）。UNC 要写反斜杠形式；v0.8.4 起 K.win_path() 会自动把正斜杠 UNC 归一化，K.stage() 可做兜底拷贝。
+3. WSL 环境变量不会传进 Windows 的 blender.exe：别用 env 传参（实测会丢），改用命令行 args、模式文件或 blender_rt_preset 这类 JSON 入参。

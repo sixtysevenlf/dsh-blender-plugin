@@ -848,6 +848,56 @@ export function apply(ctx: any, config: Config): void {
     },
   })), '@dsh-external/dsh-blender-plugin: rt-preset')
 
+  ctx.effect(() => ctx.tools.register(defineTool({
+    name: 'blender_rt_job',
+    description: '【作业层】长任务后台化：start 立刻返回 job id（不占客户端连接、不会被工具超时掐断）；status/collect/kill/list 轮询。'
+      + '适合渲染一整晚、批量出图、大批量几何；子进程与 headless 同源（自动注入引擎前导），日志与产物落在 outdir/jobs/<id>/。'
+      + '与 headless 的分工：短活（小于 5 分钟）用 headless 直接拿结果；长活用 job（start 后去干别的，再 collect）。'
+      + '注意：job 的 script 不支持 preload（需要模块请用 rt_do 的 file 或 K.run）。',
+    parameters: {
+      op: { type: 'string', required: true, description: 'start | status | collect | kill | list' },
+      id: { type: 'string', description: 'status/collect/kill 的 job id' },
+      script: { type: 'string', description: 'op=start：Python 源码（print HEADLESS 加单行 JSON 作为结果回传）' },
+      file: { type: 'string', description: 'op=start：可选 .blend 工程' },
+      outdir: { type: 'string', description: 'op=start：产物目录（Windows 路径）；日志落在其 jobs/<id>/ 下' },
+      timeout_ms: { type: 'integer', description: 'op=start：作业上限毫秒（默认 3600000，上限 24 小时，到点 SIGKILL）' },
+      engine: { type: 'string', description: 'op=start：eevee（默认，含光追前导）/ cycles / keep' },
+    },
+    output: { schema: ANY_SCHEMA, render: renderOne },
+    isConcurrencySafe: () => true,
+    async execute(args: any) {
+      if (!(await ensureBackend(port))) return { text: '后端不可用（127.0.0.1:' + String(port) + '）' }
+      const op = String((args && args.op) || 'list')
+      const body: any = { op: op }
+      if (args && args.id) body.id = String(args.id)
+      if (args && args.script !== undefined) body.script = String(args.script)
+      if (args && args.file) body.file = String(args.file)
+      if (args && args.outdir) body.outdir = String(args.outdir)
+      if (args && args.engine) body.engine = String(args.engine)
+      if (args && args.timeout_ms) body.timeoutMs = Number(args.timeout_ms)
+      const r = await backendPost(port, '/job', body, 60000)
+      const lt = leasedText(r)
+      if (lt) return { text: lt }
+      if (!r || r.ok !== true) return { text: 'JOB ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown') }
+      if (op === 'list') {
+        const js: any[] = (r && r.jobs) || []
+        if (!js.length) return { text: '没有作业' }
+        return { text: '作业（' + String(js.length) + '）：' + String.fromCharCode(10) + js.map((j) => '  ' + String(j.id) + ' · ' + String(j.status) + ' · ' + String(j.ms) + 'ms · 产物 ' + String((j.artifacts || []).length) + ' 项').join(String.fromCharCode(10)) }
+      }
+      const j: any = (r && r.job) || {}
+      const parts: string[] = []
+      parts.push('JOB ' + op + ' · ' + String(j.id || '') + ' · status=' + String(j.status || ''))
+      if (op === 'start') parts.push('已后台化（pid ' + String(j.pid) + '）。用 op=status/collect id=' + String(j.id) + ' 跟进；日志目录：' + String(j.logDir || ''))
+      if (j.exitCode !== undefined && j.exitCode !== null) parts.push('exit=' + String(j.exitCode) + ' · ' + String(j.ms) + 'ms')
+      if (j.result) parts.push('result: ' + JSON.stringify(j.result).slice(0, 1500))
+      if (j.lastException) parts.push('lastException: ' + String(j.lastException))
+      if ((j.artifacts || []).length) parts.push('产物（' + String(j.artifacts.length) + '）：' + j.artifacts.slice(0, 10).map((a: any) => a.name + '(' + a.bytes + 'B)').join(' · '))
+      if (j.stdoutTail) parts.push('--- stdout 尾 ---' + String.fromCharCode(10) + String(j.stdoutTail).slice(-2000))
+      if (j.stderrTail && String(j.stderrTail).trim()) parts.push('--- stderr 尾 ---' + String.fromCharCode(10) + String(j.stderrTail).slice(-1200))
+      return { text: parts.join(String.fromCharCode(10)) }
+    },
+  })), '@dsh-external/dsh-blender-plugin: rt-job')
+
   // ---------- 运维 ----------
 
   ctx.effect(() => ctx.tools.register(defineTool({
