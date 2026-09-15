@@ -1,5 +1,17 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
+## v0.8.4（2026-09-14）—— worker 异常可见性 + 路径归一化 + K.stage
+
+来源：第三份外部反馈（设计驱动线）。已完成两条 ★★★：
+
+- **worker 异常回传（对齐 /act）**：/worker 路由把 error/traceback 提到信封层；blender_rt_worker 工具失败时读 r.result.{error,traceback,stderr,stdout}。实测 raise RuntimeError → 信封 error + traceback 齐全（此前只回 unknown）。
+- **路径形态归一化**：//wsl.localhost/... 此前被 Blender 当成「相对 .blend」（解析成 <blend目录>\wsl.localhost\...）→ 现在 K.win_path() 归一化为反斜杠 UNC。
+- **新增 K.stage(path)**：复制到本地路径作兜底，返回 {ok,src,staged,bytes,was_unc}；qc_load 读失败自动 stage 重试。实测 UNC 中文图 → D:\DSH\blender\tmp\stage\qc_front.png（437KB）→ images.load 640×640。
+
+> 运维提示：engine.mjs 在后端启动时加载（Python 模块才按内容指纹热重注入）—— 改 runtime JS 必须 blender_viewport(op="restart")。
+
+**待做（本版未含）**：blender_rt_job 作业层（★★★）· 模块热重载 K.reload_modules（★★）· QC 掩膜区间 mask_sweep（★★）· 文档四处修正（★）· 适用面与 silhouette-fit 配方（★）。
+
 ## v0.8.3（2026-09-14）—— QC 口径诚实化 + auto 掩膜守卫 + 绝对口径判据
 
 来源：行星发动机"两个版本"复查（旧 09-12 / 新 09-14 影视级重建）实测。新构建比值偏差只有 0.03%–0.29%，但总高口径差 11%（9,900 vs 11,000 m）＋成品渲染被雾/AgX 洗淡（饱和 0.2222→0.1181、雾感 0.28→0.74）→ "感觉没那么还原"。据此修三处：
