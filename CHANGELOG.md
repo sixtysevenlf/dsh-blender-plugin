@@ -1,5 +1,13 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
+## v0.8.5（2026-09-14）—— 作业层 + 模块热重载 + QC 掩膜区间（已实现并验证；工具与文档待补）
+
+- **作业层（引擎+路由已实现，验证通过）**：job start/status/collect/kill/list。实测：start 0.08 s 返回 job id；立刻 status=running；15 s 后 collect → done + result={"slept":12} + 产物 40 项 + 日志路径；kill → killed；list 正常。日志与产物落 outdir/jobs/<id>/。
+- **模块热重载（已实现，验证通过）**：内核 K.reload_modules(prefixes, root)；rt_worker exec 支持 purge_prefix（经 /worker 路由透传）。实测：改文件后不 purge 读到旧值 1，purge 后 2，purged=["pe_mod_test"]。
+- **QC 掩膜区间（已实现，验证通过）**：qc_mask_sweep 逐组 (sat,v) 固定对齐算 IoU → iou_min/median/max + spread + 推荐口径。实测海报对 0.5914 / 0.6319 / 0.9324，spread=0.341。
+
+**待补（下轮第一件事）**：① blender_rt_job 工具（第 15 个工具，暴露 op=start/status/collect/kill/list）；② 文档四项（UNC 写入改实测可写、// 语义、WSL env 不跨 exe、适用面与 silhouette-fit 配方）。
+
 ## v0.8.4（2026-09-14）—— worker 异常可见性 + 路径归一化 + K.stage
 
 来源：第三份外部反馈（设计驱动线）。已完成两条 ★★★：

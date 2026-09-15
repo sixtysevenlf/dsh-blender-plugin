@@ -720,6 +720,30 @@ def qc_robustness_check(ref_path, ref_box=None, render_path=None, dx=12, dy=-8, 
                "perturb": {"dx": dx, "dy": dy, "zoom": zoom}, "masks": {"ref": rinfo, "render": ninfo},
                "expect": "searched 应显著高于 direct（对齐搜索在补偿构图差异）"})
 
+def qc_mask_sweep(ref_path, ref_box=None, render_path=None, sats=(0.10, 0.13, 0.16), vs=(0.68, 0.74, 0.80), label="sweep"):
+    """掩膜口径敏感度扫描：固定对齐下逐组 (sat, v) 算 IoU → 给区间 + 推荐口径。"""
+    ref_srgb, _ = qc_load(ref_path)
+    ref = qc_crop(ref_srgb, ref_box) if ref_box else ref_srgb
+    ren_srgb, _a = qc_load(render_path)
+    cells = []
+    for s in sats:
+        for v in vs:
+            rm = qc_mask(ref, float(s), float(v)); rn = qc_mask(ren_srgb, float(s), float(v))
+            fx = _align_search(rm, rn, work=384, coarse=False)
+            if fx is None:
+                continue
+            iou, _i, _u = _iou_pair(fx["mask_ref"], fx["mask_render"])
+            cells.append({"sat": float(s), "v": float(v), "iou": round(float(iou), 4)})
+    if not cells:
+        return _j({"ok": False, "error": "扫描失败（图读不到或掩膜为空）"})
+    ious = sorted(c["iou"] for c in cells)
+    med = ious[len(ious) // 2]
+    best = min(cells, key=lambda c: abs(c["iou"] - med))
+    return _j({"ok": True, "label": str(label), "cells": cells, "count": len(cells),
+               "iou_min": ious[0], "iou_median": med, "iou_max": ious[-1],
+               "spread": round(ious[-1] - ious[0], 4), "mask_used": best,
+               "note": "区间 = 掩膜口径敏感度；报告应给 区间 + 推荐口径，不要只给一个数"})
+
 def qc_help():
     return _j({
         "version": QC_VERSION,
@@ -808,7 +832,7 @@ def qc_ops():
             "profile": qc_profile, "profile_diff": qc_profile_diff,
             "compare": qc_compare_auto, "compare_basic": qc_compare,
             "align_search": _align_search, "metrics": qc_metrics, "self_check": qc_self_check,
-            "robustness_check": qc_robustness_check,
+            "robustness_check": qc_robustness_check, "mask_sweep": qc_mask_sweep,
             "resize_mask": qc_resize_mask, "write_png": write_png, "help": qc_help}
 
 
@@ -817,7 +841,7 @@ _K = _sys.modules.get("dsh_rt_kernel")
 if _K is not None:
     _K.dsh_qc_api = {"version": QC_VERSION, "dispatch": qc_dispatch, "compare": qc_compare_auto,
                      "compare_basic": qc_compare, "mask_auto": qc_mask_auto, "metrics": qc_metrics,
-                     "self_check": qc_self_check, "load": qc_load, "crop": qc_crop, "mask": qc_mask,
+                     "self_check": qc_self_check, "mask_sweep": qc_mask_sweep, "load": qc_load, "crop": qc_crop, "mask": qc_mask,
                      "iou": qc_iou, "profile": qc_profile, "profile_diff": qc_profile_diff,
                      "compare": qc_compare, "resize_mask": qc_resize_mask, "write_png": write_png,
                      "help": qc_help}

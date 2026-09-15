@@ -161,6 +161,19 @@ def _gpu_setup(mode):
     return info
 
 
+def _purge_modules(prefixes):
+    """热重载：按前缀清 sys.modules（改过的用户模块在热会话里会命中旧代码）"""
+    import sys as _s, importlib as _i
+    _i.invalidate_caches()
+    pre = [str(p) for p in (prefixes or []) if str(p)]
+    purged = []
+    for _n, _m in list(_s.modules.items()):
+        if pre and any(_n == p or _n.startswith(p + ".") for p in pre) and not _n.startswith("bpy"):
+            _s.modules.pop(_n, None)
+            purged.append(_n)
+    return purged
+
+
 def _exec(code, timeout_ms=None):
     global _calls, _errors
     _calls += 1
@@ -233,7 +246,10 @@ def main():
                 elif op == "status":
                     resp = {"id": rid, "status": _status(gpu_info)}
                 elif op == "exec":
+                    _purged = _purge_modules(req.get("purgePrefixes") or [])
                     r = _exec(str(req.get("code") or ""), req.get("timeoutMs"))
+                    if _purged:
+                        r["purged"] = _purged
                     resp = {"id": rid}; resp.update(r)
                 elif op == "shutdown":
                     resp = {"id": rid, "ok": True, "bye": True}

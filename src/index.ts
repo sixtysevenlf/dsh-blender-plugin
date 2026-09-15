@@ -702,6 +702,7 @@ export function apply(ctx: any, config: Config): void {
       timeout_ms: { type: 'integer', description: 'op=exec 的响应超时，默认 120000；长代码请调大' },
       gpu: { type: 'string', description: 'op=start 时的 GPU 语义（仅 cycles 路径）：auto（默认）/ true / false' },
       engine: { type: 'string', description: 'op=start 时的渲染引擎：eevee（默认 = EEVEE + 光追）/ cycles / keep；热会话让 EEVEE 着色器编译只付一次' },
+      purge_prefix: { type: 'string', description: 'op=exec 时先清掉这些模块前缀（逗号分隔，如 "pe_geom,pe_look"）—— 热会话里改了用户模块必须清，否则 import 命中旧代码' },
     },
     output: { schema: ANY_SCHEMA, render: renderOne },
     isConcurrencySafe: () => false,
@@ -713,6 +714,7 @@ export function apply(ctx: any, config: Config): void {
       if (args && args.timeout_ms) body.timeoutMs = Number(args.timeout_ms)
       if (args && args.gpu) body.gpu = String(args.gpu)
       if (args && args.engine) body.engine = String(args.engine)
+      if (args && args.purge_prefix) body.purgePrefix = String(args.purge_prefix)
       const budget = 60000 + Number(body.timeoutMs || 120000)
       const r = await backendPost(port, '/worker', body, budget)
       const lt = leasedText(r)

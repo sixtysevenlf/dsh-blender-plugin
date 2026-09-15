@@ -1,6 +1,6 @@
 {
   "name": "@dsh-external/dsh-blender-plugin",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "description": "DSH × Blender 直连实时插件【分享版】：13 个工具（看视口 + 自定义视角 / 跑 Python 与跑文件 / 连续观察 / Blender 侧内环迭代 / addon 命令透传 / 渲染性能预设 / 对象精简 / 无头进程 / 热无头会话 / 事务回滚 / 通道运维与租约；QC 与契约层走 blender_rt_plan）；自带 runtime（node + python），配置走 runtime/config.mjs（env → 配置文件 → 自动探测），换机器不用改源码。操作教程见 docs/操作教程.md。",
   "private": false,
   "keywords": ["dsh", "blender", "ai-agent", "tooling", "bpy", "cycles"],

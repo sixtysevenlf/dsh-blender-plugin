@@ -30,7 +30,7 @@ const PORT = Number(portArg >= 0 ? argv[portArg + 1] : (process.env.VIEWPORT_POR
 const HOST = '127.0.0.1';
 
 const engine = createEngine();
-const stats = { frames: 0, acts: 0, cmds: 0, loops: 0, views: 0, headless: 0, plan: 0, worker: 0, txn: 0, preset: 0, lastPlanMs: null, lastViewMs: null, lastHeadlessMs: null, lastFrameMs: null, lastActMs: null, lastError: null, startedAt: Date.now() };
+const stats = { frames: 0, acts: 0, cmds: 0, loops: 0, views: 0, headless: 0, plan: 0, worker: 0, txn: 0, preset: 0, job: 0, lastPlanMs: null, lastViewMs: null, lastHeadlessMs: null, lastFrameMs: null, lastActMs: null, lastError: null, startedAt: Date.now() };
 
 /**
  * 写权限租约：多 agent / 多会话同时驱动一个 Blender 时，靠它避免互相踩。
@@ -75,7 +75,8 @@ const READ_ONLY_OPS = { '/perf': ['status', 'help'], '/loop': ['status', 'board'
             'plan_status', 'plan_validate', 'plan_diag', 'plan_order', 'plan_graph'],
   '/worker': ['status'],
   '/txn': ['list', 'marks', 'help'],
-  '/preset': ['list', 'get', 'help'] };
+  '/preset': ['list', 'get', 'help'],
+  '/job': ['status', 'collect', 'list'] };
 function isReadOnly(path, op) {
   const list = READ_ONLY_OPS[path];
   return !!(list && list.indexOf(String(op)) >= 0);
@@ -420,7 +421,8 @@ const server = http.createServer(async (req, res) => {
           if (op === 'stop') return { ok: true, op: op, result: await engine.worker.stop() };
           if (op === 'restart') { await engine.worker.stop(); return { ok: true, op: op, result: await engine.worker.start(payload) }; }
           if (op === 'exec') {
-            const r = await engine.worker.exec(String(payload.code || ''), Number(payload.timeoutMs) || 120000);
+            const purge = payload.purgePrefix ? String(payload.purgePrefix).split(',').map(function (x) { return x.trim(); }).filter(Boolean) : null;
+            const r = await engine.worker.exec(String(payload.code || ''), Number(payload.timeoutMs) || 120000, purge);
             // v0.8.4：错误/回溯提到信封层，避免客户端只看到 unknown
             return { ok: !!r.ok, op: op, result: r, error: (r && r.error) ? String(r.error) : null,
                      traceback: (r && r.traceback) ? String(r.traceback) : null };
@@ -472,6 +474,28 @@ const server = http.createServer(async (req, res) => {
           return { ok: false, op: op, error: stats.lastError, diagnosis: (e && e.diagnosis) || null };
         }
       });
+      return;
+    }
+
+    if (req.method === 'POST' && p === '/job') {
+      // 作业层：start / status / collect / kill / list（长任务后台化，渲染一整晚）
+      const raw = await readBody(req);
+      let payload = {};
+      try { payload = JSON.parse(raw); } catch (e) { payload = {}; }
+      const op = String(payload.op || 'list');
+      const gate = isReadOnly('/job', op) ? null : leaseGate(payload);
+      if (gate) { json(res, 409, gate); return; }
+      stats.job = (stats.job || 0) + 1;
+      try {
+        if (op === 'start') { json(res, 200, { ok: true, op: op, job: engine.job.start(payload) }); return; }
+        if (op === 'kill') { json(res, 200, { ok: true, op: op, job: engine.job.kill(payload.id) }); return; }
+        if (op === 'collect') { json(res, 200, { ok: true, op: op, job: engine.job.collect(payload.id, Number(payload.tail) || 4000) }); return; }
+        if (op === 'status') { json(res, 200, { ok: true, op: op, job: engine.job.status(payload.id) }); return; }
+        json(res, 200, { ok: true, op: 'list', jobs: engine.job.list() });
+      } catch (e) {
+        stats.lastError = String((e && e.message) || e);
+        json(res, 200, { ok: false, op: op, error: stats.lastError });
+      }
       return;
     }
 

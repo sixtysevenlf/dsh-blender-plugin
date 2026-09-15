@@ -253,12 +253,31 @@ const PATH_HELPERS_TEMPLATE = [
 '    except Exception as _e:',
 '        info["ok"] = False; info["reason"] = str(_e)[:120]; return info',
 '    info["ok"] = True; return info',
+'def _dsh_reload_modules(prefixes=None, root=None):',
+'    """热重载：清掉指定前缀/目录下的用户模块（热会话里普通 import 会命中 sys.modules 旧代码）。"""',
+'    import sys as _sys, importlib as _il, os as _os',
+'    _il.invalidate_caches()',
+'    pre = [str(p) for p in (prefixes or []) if str(p)]',
+'    root_abs = _os.path.abspath(root) if root else None',
+'    purged = []',
+'    for _n, _m in list(_sys.modules.items()):',
+'        _f = getattr(_m, "__file__", None)',
+'        _hit = bool(pre) and any(_n == p or _n.startswith(p + ".") for p in pre)',
+'        if not _hit and root_abs and _f:',
+'            try:',
+'                _hit = _os.path.abspath(_f).startswith(root_abs)',
+'            except Exception:',
+'                _hit = False',
+'        if _hit and not _n.startswith("bpy"):',
+'            _sys.modules.pop(_n, None); purged.append(_n)',
+'    return {"purged": purged, "count": len(purged), "prefixes": pre, "root": root_abs}',
 'K.dsh_distro = __DISTRO__',
 'K.win_path = _dsh_win_path',
 'K.wsl_path = _dsh_wsl_path',
 'K.blend_path = _dsh_blend_path',
 'K.run = _dsh_run',
 'K.stage = _dsh_stage',
+'K.reload_modules = _dsh_reload_modules',
 'K.out_dir = __OUTDIR__',
 'K.workdir = K.out_dir',
 ].join('\n');
@@ -650,6 +669,90 @@ export function createEngine(opts = {}) {
       + JSON.stringify(JSON.stringify(payload || {})) + '))))';
     return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 300000));
   }
+  // ---------------------------------------------------------------- 作业层（v0.8.5）
+  // 长任务后台化：start 立刻返回 job id（不占客户端连接）；status/collect/kill 轮询；日志与产物落在 outdir/jobs/<id>/。
+  const jobs = new Map();
+  function jobDir(id, outdir) {
+    const base = outdir ? winToWsl(String(outdir)) : winToWsl(WIN_TMP);
+    const d = path.join(base, 'jobs', id);
+    fs.mkdirSync(d, { recursive: true });
+    return d;
+  }
+  function jobArtifacts(j) {
+    const dir = j.outdir ? winToWsl(String(j.outdir)) : null;
+    if (!dir) return [];
+    try {
+      const isNoise = (n) => n.indexOf('__pycache__') === 0 || /\.pyc$/.test(n) || /\.blend[12]$/.test(n) || n.indexOf('tmp') === 0;
+      return fs.readdirSync(dir).map((n) => { const p = path.join(dir, n); let st = null; try { st = fs.statSync(p); } catch (e) {} return st && st.isFile() && !isNoise(n) ? { name: n, bytes: st.size, mtimeMs: st.mtimeMs } : null; })
+        .filter(Boolean).sort((a, b) => b.mtimeMs - a.mtimeMs).slice(0, 40);
+    } catch (e) { return []; }
+  }
+  function jobSnapshot(j) {
+    return { id: j.id, status: j.status, pid: j.pid, ms: Date.now() - j.startedAt, timeoutMs: j.timeoutMs,
+             outdir: j.outdir || WIN_TMP, logDir: wslToWin(j.dir),
+             stdoutLog: wslToWin(path.join(j.dir, 'stdout.log')), stderrLog: wslToWin(path.join(j.dir, 'stderr.log')),
+             exitCode: j.exitCode, signal: j.signal, engine: j.engineMode,
+             result: j.parsed || null, lastException: j.lastException || null,
+             artifacts: j.status === 'running' ? [] : jobArtifacts(j) };
+  }
+  function jobStart(opts = {}) {
+    const id = 'job-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    const dir = jobDir(id, opts.outdir);
+    const outPath = path.join(dir, 'stdout.log'), errPath = path.join(dir, 'stderr.log');
+    const engineMode = String(opts.engine === undefined || opts.engine === null ? 'eevee' : opts.engine).toLowerCase();
+    const args = ['-b'];
+    if (opts.file) args.push(wslToWin(String(opts.file)));
+    if (opts.factoryStartup !== false) args.push('--factory-startup');
+    const parts = [];
+    if (opts.bootstrap !== false) parts.push(KERNEL_BOOTSTRAP);
+    if (engineMode !== 'keep') parts.push(GPU_PRELUDE.replace(/__DSH_ENGINE__/g, "'" + (engineMode === 'cycles' ? 'cycles' : 'eevee') + "'").replace(/__DSH_GPU_MANUAL__/g, 'False'));
+    parts.push(String(opts.script || ''));
+    const sp = writeHeadlessScript(parts.join('\n'));
+    args.push('--python', sp.win, '--');
+    if (opts.outdir) args.push(String(opts.outdir));
+    if (Array.isArray(opts.args)) args.push.apply(args, opts.args.map(String));
+    const timeoutMs = Math.max(1000, Math.min(86400000, Number(opts.timeoutMs) || 3600000));
+    const so = fs.createWriteStream(outPath), se = fs.createWriteStream(errPath);
+    const child = spawn(BLENDER_EXE, args, { env: Object.assign({}, process.env, { PYTHONIOENCODING: 'utf-8' }), stdio: ['ignore', 'pipe', 'pipe'], detached: false });
+    child.stdout.pipe(so); child.stderr.pipe(se);
+    const j = { id, child, pid: child.pid, startedAt: Date.now(), status: 'running', exitCode: null, signal: null,
+                timeoutMs, outdir: opts.outdir || null, dir, engineMode, parsed: null, lastException: null, script: sp.win, args };
+    jobs.set(id, j); if (jobs.size > 20) { const k = jobs.keys().next().value; if (k !== id) jobs.delete(k); }
+    j.timer = setTimeout(() => { j.status = 'killed'; try { child.kill('SIGKILL'); } catch (e) {} }, timeoutMs);
+    child.on('close', (code, sig) => {
+      clearTimeout(j.timer); j.exitCode = code; j.signal = sig;
+      if (j.status !== 'killed') j.status = (code === 0) ? 'done' : 'failed';
+      try {
+        const txt = fs.readFileSync(outPath, 'utf8');
+        const lines = txt.split('\n').filter((l) => l.indexOf('HEADLESS ') === 0);
+        if (lines.length) { try { j.parsed = JSON.parse(lines[lines.length - 1].slice('HEADLESS '.length).trim()); } catch (e) { j.parsed = { _parse_error: String((e && e.message) || e) }; } }
+      } catch (e) {}
+      try {
+        const er = fs.readFileSync(errPath, 'utf8');
+        const m = er.match(/^[\w.]*(?:Error|Exception|Warning)\b.*$/gm);
+        if (m && m.length) j.lastException = m[m.length - 1].slice(0, 300);
+      } catch (e) {}
+    });
+    child.on('error', (e) => { j.status = 'failed'; j.lastException = String((e && e.message) || e); });
+    return jobSnapshot(j);
+  }
+  function jobStatus(id) { const j = jobs.get(String(id)); return j ? jobSnapshot(j) : { id: String(id), status: 'unknown' }; }
+  function jobCollect(id, tail = 4000) {
+    const j = jobs.get(String(id));
+    if (!j) return { id: String(id), status: 'unknown' };
+    const snap = jobSnapshot(j);
+    try { snap.stdoutTail = fs.readFileSync(path.join(j.dir, 'stdout.log'), 'utf8').slice(-tail); } catch (e) { snap.stdoutTail = ''; }
+    try { snap.stderrTail = fs.readFileSync(path.join(j.dir, 'stderr.log'), 'utf8').slice(-tail); } catch (e) { snap.stderrTail = ''; }
+    return snap;
+  }
+  function jobKill(id) {
+    const j = jobs.get(String(id));
+    if (!j) return { id: String(id), status: 'unknown' };
+    if (j.status === 'running') { j.status = 'killed'; try { j.child.kill('SIGKILL'); } catch (e) {} }
+    return jobSnapshot(j);
+  }
+  function jobList() { return Array.from(jobs.values()).map(jobSnapshot); }
+
   // ---------------------------------------------------------------- 热无头 worker
   // 常驻 blender -b：阻塞 accept 跑在主线程（无头下 timers 不触发，主线程执行 bpy 才安全），
   // 复用持久内核 K；一次只处理一个请求（长代码会占住 worker —— 这是"热"的代价，也是安全的来源）。
@@ -728,10 +831,10 @@ export function createEngine(opts = {}) {
       });
     });
   }
-  async function workerExec(code, timeoutMs = 120000) {
+  async function workerExec(code, timeoutMs = 120000, purgePrefixes = null) {
     if (!workerAlive() || !worker.ready) await workerStart({});
     metrics.workerExecs++;
-    try { return await workerCall({ op: 'exec', code: String(code || '') }, timeoutMs); }
+    try { return await workerCall({ op: 'exec', code: String(code || ''), purgePrefixes: purgePrefixes || undefined }, timeoutMs); }
     catch (e) { worker.lastError = String((e && e.message) || e); throw e; }
   }
   async function workerStatus() {
@@ -768,6 +871,7 @@ export function createEngine(opts = {}) {
     txn: (op, payload) => txnCall(op, payload),
     preset: (op, payload) => presetCall(op, payload),
     worker: { start: workerStart, exec: workerExec, status: workerStatus, stop: workerStop, snapshot: workerSnapshot },
+    job: { start: jobStart, status: jobStatus, collect: jobCollect, kill: jobKill, list: jobList },
     /** 通道指标快照（inflight / last_cmd / 超时计数） */
     metrics() {
       return { ...metrics, lastCmdAgeMs: metrics.lastCmdAt ? Date.now() - metrics.lastCmdAt : null };
