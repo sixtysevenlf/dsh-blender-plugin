@@ -421,7 +421,9 @@ const server = http.createServer(async (req, res) => {
           if (op === 'restart') { await engine.worker.stop(); return { ok: true, op: op, result: await engine.worker.start(payload) }; }
           if (op === 'exec') {
             const r = await engine.worker.exec(String(payload.code || ''), Number(payload.timeoutMs) || 120000);
-            return { ok: !!r.ok, op: op, result: r };
+            // v0.8.4：错误/回溯提到信封层，避免客户端只看到 unknown
+            return { ok: !!r.ok, op: op, result: r, error: (r && r.error) ? String(r.error) : null,
+                     traceback: (r && r.traceback) ? String(r.traceback) : null };
           }
           return { ok: true, op: 'status', result: await engine.worker.status() };
         } catch (e) {

@@ -717,7 +717,16 @@ export function apply(ctx: any, config: Config): void {
       const r = await backendPost(port, '/worker', body, budget)
       const lt = leasedText(r)
       if (lt) return { text: lt }
-      if (!r || r.ok !== true) return { text: 'WORKER ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown') + (r && r.hint ? ('\n' + String(r.hint)) : '') }
+      if (!r || r.ok !== true) {
+        const rr: any = (r && r.result) || {}
+        const bits: string[] = []
+        bits.push('WORKER ' + op + ' 失败 · ' + String((r && (r.error || rr.error)) || 'unknown'))
+        if (rr.traceback) bits.push('--- traceback ---' + String.fromCharCode(10) + String(rr.traceback).slice(0, 2000))
+        if (rr.stderr && String(rr.stderr).trim()) bits.push('stderr: ' + String(rr.stderr).trim().slice(0, 1200))
+        if (rr.stdout && String(rr.stdout).trim()) bits.push('stdout: ' + String(rr.stdout).trim().slice(0, 800))
+        if (r && r.hint) bits.push(String(r.hint))
+        return { text: bits.join(String.fromCharCode(10)) }
+      }
       const res = (r && r.result) || {}
       if (op === 'exec') {
         const parts: string[] = []

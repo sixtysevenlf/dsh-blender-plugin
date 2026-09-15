@@ -72,7 +72,20 @@ def qc_load(path):
             p = K.win_path(path)
         except Exception:
             p = path
-    img = bpy.data.images.load(p, check_existing=False)
+    try:
+        img = bpy.data.images.load(p, check_existing=False)
+    except Exception:
+        # v0.8.4：UNC/中文读不到时用 K.stage 兜底
+        _st = None
+        if K is not None and hasattr(K, "stage"):
+            try:
+                _st = K.stage(path)
+            except Exception:
+                _st = None
+        if not (_st and _st.get("ok")):
+            raise
+        p = _st["staged"]
+        img = bpy.data.images.load(p, check_existing=False)
     try:
         w, h = int(img.size[0]), int(img.size[1])
         buf = np.empty(w * h * 4, dtype=np.float32)
