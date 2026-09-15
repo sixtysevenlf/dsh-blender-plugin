@@ -1,5 +1,16 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
+## v0.8.3（2026-09-14）—— QC 口径诚实化 + auto 掩膜守卫 + 绝对口径判据
+
+来源：行星发动机"两个版本"复查（旧 09-12 / 新 09-14 影视级重建）实测。新构建比值偏差只有 0.03%–0.29%，但总高口径差 11%（9,900 vs 11,000 m）＋成品渲染被雾/AgX 洗淡（饱和 0.2222→0.1181、雾感 0.28→0.74）→ "感觉没那么还原"。据此修三处：
+
+- **`iou` 改为固定对齐（诚实值）**：搜索对齐另放 `iou_search`；`scale_drift` 告警阈值 12%→**5%**；新增 `iou_search_gain >0.05` 告警（实测一个纯 11% 尺度差曾被搜索吸收 **0.13 IoU**）。
+- **auto 掩膜守卫**：参考图前景占比 >80% 或 <2% 时自动回落到阈值口径，并在回执写明 `satv-fallback` + 原因（实测满构图海报 auto 前景 95.9% → 不可信）。
+- **`ref_box` 改为可选**（省略=整图；此前必填导致第一次调用直接失败）。
+- **新增绝对口径判据**（cookbook 层 3）：凡绝对尺寸项必须单列「绝对尺寸对照表」并标注采用哪套口径——**比值/IoU 结构上看不见绝对口径差**。
+
+同步：`tests/qc_selftest.py` 断言更新；操作教程/配置参考口径说明更新。
+
 ## v0.8.2（2026-09-14）—— 配方库（blender_rt_preset）+ 部署 SOP + 整合社区优点
 
 - **新增第 14 个工具 blender_rt_preset（配方库）**：save/list/get/apply/delete/export/import；点路径 data；targets 支持 MAT:/OBJ:/SCENE；不给 targets 只预览；export/import 走单个 bundle 便于分享。实测：场景 render.resolution_x 720 → 640 真实生效。灵感来自 lurenjia-l/dsh-blender-stylized-shading 的「配方化」优点（通用化为与领域无关的机制）。

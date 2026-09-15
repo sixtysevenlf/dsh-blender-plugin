@@ -59,7 +59,8 @@ def main():
         r = call("qc_compare", {"ref_path": ref, "ref_box": box, "render_path": render, "label": "selftest"})
         mm = r.get("metrics") or {}
         check("compare 同时给 iou 与 iou_fixed", mm.get("iou") is not None and mm.get("iou_fixed") is not None)
-        check("无搜索刷分告警", not (mm.get("warnings") or []), str(mm.get("warnings")))
+        check("无『搜索对齐刷分』告警", not any("搜索对齐比固定对齐高" in w for w in (mm.get("warnings") or [])), str(mm.get("warnings")))
+        check("iou == iou_fixed（默认固定对齐）", mm.get("iou") == mm.get("iou_fixed"), "%s vs %s" % (mm.get("iou"), mm.get("iou_fixed")))
         check("产出叠加图与三联对照图", bool(r.get("overlay")) and bool(r.get("sheet")))
     print("")
     if FAILS:

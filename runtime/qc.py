@@ -192,7 +192,7 @@ def _hstack(imgs, pad=8, bg=(15, 15, 15)):
     return out, h, total_w
 
 
-def qc_compare(ref_path, ref_box, render_path, label="qc", sat=0.13, v=0.74, bins=24, out_dir=None, render_box=None, mode="align"):
+def qc_compare(ref_path, ref_box=None, render_path=None, label="qc", sat=0.13, v=0.74, bins=24, out_dir=None, render_box=None, mode="align"):
     """参考图（+裁切框）vs 渲染图（+可选裁切框）→ IoU + 剖面差 + 对照图（ref | render | overlay）。
     注意：ref_box 用来从参考大图里裁出某个视图；渲染图通常是单视图，render_box 一般不用给。"""
     t0 = time.perf_counter()
@@ -589,7 +589,7 @@ def qc_self_check() -> str:
                "iou_scale115": round(float(scaled["iou"]), 4),
                "self_metrics": m_ok,
                "expect": "iou_self 应=1.0；shift/scale 应被对齐搜索找回高 IoU（>0.95）"})
-def qc_compare_auto(ref_path, ref_box, render_path, label="qc", out_dir=None, render_box=None,
+def qc_compare_auto(ref_path, ref_box=None, render_path=None, label="qc", out_dir=None, render_box=None,
                     search=True, work=384, bins=24, sat=0.13, v=0.74, mask_mode="auto"):
     """优化版比对（推荐默认）：
       ① 掩膜自适应（alpha 智能判定 / 背景色+Otsu，不再手调阈值）
@@ -603,6 +603,12 @@ def qc_compare_auto(ref_path, ref_box, render_path, label="qc", out_dir=None, re
     ref_srgb, ref_alpha = qc_load(ref_path)
     ref = qc_crop(ref_srgb, ref_box) if ref_box else ref_srgb
     rm, rminfo = qc_mask_auto(ref, None) if mask_mode == "auto" else (qc_mask(ref, sat, v), {"source": "satv"})
+    # v0.8.3：auto 掩膜适用性检查 —— 前景占比异常（满构图海报 / 几乎无前景）时回落阈值口径并显式标注
+    _fg = float(rm.mean())
+    if mask_mode == "auto" and (_fg > 0.8 or _fg < 0.02):
+        rm = qc_mask(ref, sat, v)
+        rminfo = {"source": "satv-fallback", "auto_fg_frac": round(_fg, 4),
+                  "reason": "auto 前景占比 %.1f%% 不可信（>80%% 或 <2%%）→ 回落阈值口径 sat=%.2f v=%.2f" % (_fg * 100, sat, v)}
     ren_srgb, ren_alpha = qc_load(render_path)
     if render_box:
         ren_srgb = qc_crop(ren_srgb, render_box)
@@ -610,30 +616,32 @@ def qc_compare_auto(ref_path, ref_box, render_path, label="qc", out_dir=None, re
     rn, rninfo = qc_mask_auto(ren_srgb, ren_alpha) if mask_mode == "auto" else (qc_mask(ren_srgb, sat, v), {"source": "satv"})
     fixed = _align_search(rm, rn, work=work, coarse=False) if True else None
     align = _align_search(rm, rn, work=work, coarse=True) if search else fixed
-    if align is not None:
+    base = fixed if fixed is not None else align
+    if base is not None:
         mref, mren = align["mask_ref"], align["mask_render"]
-        m = qc_metrics(mref, mren, align["iou"], align.get("inter"), align.get("union"))
-        m["scale"] = round(align["scale"], 4)
-        m["scale_base"] = align.get("base_scale")
-        m["shift_px"] = align.get("shift")
-        m["canvas"] = align["canvas"]
+        m = qc_metrics(mref, mren, base["iou"], base.get("inter"), base.get("union"))
+        m["scale"] = round(base["scale"], 4)
+        m["scale_base"] = base.get("base_scale")
+        m["shift_px"] = base.get("shift")
+        m["canvas"] = base["canvas"]
     else:
         H = min(rm.shape[0], rn.shape[0]); W = min(rm.shape[1], rn.shape[1])
         mref = rm[:H, :W]; mren = rn[:H, :W]
         m = qc_metrics(mref, mren)
         m["canvas"] = [H, W]
     if fixed is not None and align is not None and fixed is not align:
-        m["iou_fixed"] = round(float(fixed["iou"]), 4)
-        m["iou_search_gain"] = round(float(align["iou"] - fixed["iou"]), 4)
+        m["iou_fixed"] = m["iou"]
+        m["iou_search"] = round(float(align["iou"]), 4)
+        m["iou_search_gain"] = round(float(align["iou"]) - float(m["iou"]), 4)
     else:
         m["iou_fixed"] = m["iou"]
     warn = []
     if m.get("scale") and m.get("scale_base"):
         drift = float(m["scale"]) / max(1e-6, float(m["scale_base"]))
         m["scale_drift"] = round(drift, 4)
-        if abs(drift - 1.0) > 0.12:
+        if abs(drift - 1.0) > 0.05:
             warn.append("对齐搜索把尺度拉开 %.1f%%：可能是在补偿取景/裁切差，也可能模型比例确实不对 —— 请结合 iou_fixed 一起看" % ((drift - 1.0) * 100.0))
-    if m.get("iou_fixed") is not None and m.get("iou") is not None and (float(m["iou"]) - float(m["iou_fixed"])) > 0.10:
+    if (m.get("iou_search_gain") or 0) > 0.05:
         warn.append("搜索对齐比固定对齐高 %.3f：单看 IoU 会偏乐观，建议报告里两个都给" % (float(m["iou"]) - float(m["iou_fixed"])))
     m["warnings"] = warn
     pa = qc_profile(mref, bins)
