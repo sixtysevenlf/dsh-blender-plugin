@@ -208,6 +208,7 @@ const server = http.createServer(async (req, res) => {
                          executed: !!o.executed, stdout: String(o.stdout || ''), stderr: String(o.stderr || ''),
                          error: o.error || null, traceback: o.traceback || null,
                          file: o.file || null, marker_missing: !!o.marker_missing,
+                         sceneEpoch: o.sceneEpoch || null,
                          errorKind: o.error ? 'execution' : null });
       } catch (e) {
         stats.acts++; stats.lastError = String((e && e.message) || e);

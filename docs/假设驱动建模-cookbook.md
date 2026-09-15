@@ -280,3 +280,34 @@ spec = {
 1. UNC 写入不是会静默失败：实测 Blender 写 UNC 路径的文本文件成功，且 WSL 侧可见（9 B）；结论依环境（Windows 版本/权限/9p 实现），不要绝对化。
 2. 双斜杠在 Blender 里是相对当前 .blend 的前缀：形如双斜杠加 wsl.localhost 的路径会被解析成 blend 目录下的子路径（读不到）。UNC 要写反斜杠形式；v0.8.4 起 K.win_path() 会自动把正斜杠 UNC 归一化，K.stage() 可做兜底拷贝。
 3. WSL 环境变量不会传进 Windows 的 blender.exe：别用 env 传参（实测会丢），改用命令行 args、模式文件或 blender_rt_preset 这类 JSON 入参。
+
+## 附：Blender 语义坑两条（来自外部反馈 #4，各烧过一轮迭代）
+
+1. **`bpy.data.libraries.write` 写出的是「无场景的库文件」** —— 用 `blender -b file.blend` 打不开、也渲不了。**分件导出应改用** `bpy.ops.wm.save_as_mainfile(filepath=..., copy=True)`（`copy=True` 不会改动当前 filepath）。
+2. **`transform_apply` 不会缩放 Bevel 修改器的宽度** —— 做「等比归一」时必须**先把修改器烘进网格**（`bpy.ops.object.modifier_apply(modifier=...)`）再 `transform_apply`，否则倒角宽度不随缩放变化，成品尺寸对不上。
+
+## 附：rt_loop 建模用 measure 模板（外部反馈 #4 P2-2）
+
+目标：把「结构相似度」变成可标量化的 score，从而让内环能自动搜参数。现成 measure（`K.dsh_measure`）：
+
+| measure | 入参 | 返回 |
+|---|---|---|
+| `aabb_err` | (obj_name, target_size) | 包围盒尺寸误差（米） |
+| `silhouette_iou` | (view_spec, ref_path, ref_box) | **1 - IoU**（越小越好；固定对齐防刷分） |
+| `profile_err` | (view_spec, ref_path, ref_box, bins) | 逐层剖面平均差（像素） |
+
+内环里当 score 用：
+
+```python
+REF, BOX = "//ref/ref_all_views.png", [9, 38, 444, 545]
+measure = "ns['score'] = K.dsh_measure['silhouette_iou']({'from':[0,-6,1],'look_at':[0,0,0.5]}, REF, BOX)"
+spec = {
+  "setup":   "REF, BOX = %r, %r" % (REF, BOX),
+  "step":    "逐次扰动参数（尺寸/角度/位置）",
+  "measure": measure,
+  "iterations": 200, "budget_ms": 60000, "top_k": 5,
+}
+# blender_rt_loop(op="start", spec=spec) → op="board" 取最优 → op="export" 导出可复用脚本
+```
+
+配合纪律：**判据**用 `blender_rt_plan(op="qc_compare")` 复核（注意口径：`iou` 是固定对齐）；**试错前**留回退点 `blender_rt_txn(op="mark")`；**长活**走 `blender_rt_job`（或 `headless(as_job=true)` 自动转作业）。
