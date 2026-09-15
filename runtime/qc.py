@@ -24,7 +24,7 @@ import zlib
 
 import numpy as np
 
-QC_VERSION = 2
+QC_VERSION = 3
 PNG_MAGIC = bytes([137, 80, 78, 71, 13, 10, 26, 10])
 
 
@@ -804,6 +804,47 @@ def m_profile_err(view_spec, ref_path, ref_box, bins=24, sat=0.13, v=0.74):
     return float(res["profile"]["diff"]["mean_diff_px"])
 
 
+# ---------------------------------------------------------------- 渲染 harness 转接（v0.8.8 / P2-1）
+
+def _load_qc_render():
+    """拿 qc_render 模块的 API：优先 K.dsh_qc_render_api，其次从 K.runtime_dir 现场加载同目录 qc_render.py。
+
+    这样即使进程里只注入了 qc.py（例如 headless 只 preload 了 qc），也能用渲染 harness。
+    """
+    K = _kernel()
+    api = getattr(K, "dsh_qc_render_api", None) if K is not None else None
+    if api:
+        return api
+    d = getattr(K, "runtime_dir", None) if K is not None else None
+    if d:
+        p = os.path.join(str(d), "qc_render.py")
+        if os.path.isfile(p):
+            with open(p, encoding="utf-8") as fh:
+                src = fh.read()
+            exec(compile(src, p, "exec"), {"__name__": "dsh_qc_render", "__file__": p})
+            api = getattr(K, "dsh_qc_render_api", None)
+    return api
+
+
+def qc_render_views(**kw):
+    """qc.py 侧转接：把参数整包转给 qc_render.views（多视角渲染 harness）。
+
+    用法（工具侧）：blender_rt_plan(op="qc_render_views", args={views:["iso","front"], budget_s:60, ...})
+    """
+    api = _load_qc_render()
+    if api is None:
+        return _j({"ok": False, "error": "qc_render 模块不可用：K.dsh_qc_render_api 缺失且 K.runtime_dir 下没有 qc_render.py",
+                   "hint": "headless 用 preload='qc,qc_render'；GUI 走 blender_rt_plan(op='qc_render_views')"})
+    return api["render_views"](kw)
+
+
+def qc_render_help():
+    api = _load_qc_render()
+    if api is None:
+        return _j({"ok": False, "error": "qc_render 模块不可用"})
+    return api["help"]()
+
+
 def qc_dispatch(op, args=None):
     """统一入口：工具侧用 qc_<op> 调用（load/crop/mask/iou/profile/compare/help...）"""
     if isinstance(args, str):
@@ -833,7 +874,9 @@ def qc_ops():
             "compare": qc_compare_auto, "compare_basic": qc_compare,
             "align_search": _align_search, "metrics": qc_metrics, "self_check": qc_self_check,
             "robustness_check": qc_robustness_check, "mask_sweep": qc_mask_sweep,
-            "resize_mask": qc_resize_mask, "write_png": write_png, "help": qc_help}
+            "resize_mask": qc_resize_mask, "write_png": write_png, "help": qc_help,
+            # v0.8.8：渲染 harness（真实现在 qc_render.py，这里转接）
+            "render_views": qc_render_views, "qc_render_views": qc_render_views, "render_help": qc_render_help}
 
 
 import sys as _sys
@@ -844,6 +887,6 @@ if _K is not None:
                      "self_check": qc_self_check, "mask_sweep": qc_mask_sweep, "load": qc_load, "crop": qc_crop, "mask": qc_mask,
                      "iou": qc_iou, "profile": qc_profile, "profile_diff": qc_profile_diff,
                      "compare": qc_compare, "resize_mask": qc_resize_mask, "write_png": write_png,
-                     "help": qc_help}
+                     "render_views": qc_render_views, "help": qc_help}
     _K.dsh_measure = {"aabb_err": m_aabb_err, "silhouette_iou": m_silhouette_iou,
                       "profile_err": m_profile_err}

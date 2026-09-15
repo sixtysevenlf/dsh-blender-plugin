@@ -598,7 +598,7 @@ export function apply(ctx: any, config: Config): void {
       timeout_ms: { type: 'integer', description: '超时毫秒，默认 180000（3 min），上限 1800000（30 min）；超时 SIGKILL 掉整个进程' },
       factory_startup: { type: 'boolean', description: '默认 true = --factory-startup；false 用用户启动文件与插件（注意：其 startup 里的本插件会尝试占 9876 端口，通常无害但有报错噪音）' },
       bootstrap: { type: 'boolean', description: '默认 true = 注入持久内核 K（与 blender_rt_do 一致）；false 时脚本原样跑' },
-      preload: { type: 'string', description: '预载 runtime 里的 python 模块（逗号分隔，如 "view,perf,contract,planner"）：源码拼到脚本开头，之后可用 K.dsh_view_api / K.dsh_perf_api 等' },
+      preload: { type: 'string', description: '预载 runtime 里的 python 模块（逗号分隔，如 "view,perf,contract,planner" 或 "qc,qc_render"）：源码拼到脚本开头，之后可用 K.dsh_view_api / K.dsh_perf_api / K.dsh_qc_render_api 等' },
       engine: { type: 'string', description: '渲染引擎：eevee（默认 = EEVEE + 光追，纯 GPU、不依赖设备偏好）/ cycles（OptiX 设备前导）/ keep（保持现状）；gpu:"false" 等价于 engine:"keep"' },
       gpu: { type: 'string', description: '（仅 cycles 路径的设备语义）auto / true（必须有 GPU，否则 ok=false）/ false' },
       use_user_config: { type: 'boolean', description: '透传 BLENDER_USER_CONFIG / BLENDER_USER_SCRIPTS 给无头进程（默认 false）—— 想让无头进程继承你的偏好/插件时打开（通常配合 factory_startup=false）' },
@@ -665,7 +665,11 @@ export function apply(ctx: any, config: Config): void {
       + 'plan_graph · plan_status · plan_help。判据与流程见 docs/假设驱动建模-cookbook.md（外部证据不足必须报 unresolved；'
       + '未判别的连接上做 boolean/weld/merge 会被 destructive_guard 拦下）。'
       + '**QC 也在这里**（v0.7.0，前缀 qc_）：qc_compare（参考图 vs 渲染：IoU/Dice/缺面积/多面积/边界距离/剖面差 + 叠加图与三联对照图）、'
-      + 'qc_compare_basic（对齐逻辑照搬 plush-build 脚本，用于与历史数字对照）、qc_self_check（合成自检）、qc_robustness_check（平移/缩放鲁棒性）、qc_help。',
+      + 'qc_compare_basic（对齐逻辑照搬 plush-build 脚本，用于与历史数字对照）、qc_self_check（合成自检）、qc_robustness_check（平移/缩放鲁棒性）、qc_help。'
+      + '**多视角渲染 harness 也在这里**（v0.8.8，P2-1）：op="qc_render_views"，args={file, views[], res, samples, budget_s|thr, outdir, ref_path} —— '
+      + '按所有可见 mesh 的 AABB 自动取景（逐角解算 + margin）、临时建固定三点光（key/fill/rim，出图后删除并还原现场）、逐张 PNG + 计时 + md5、'
+      + '写 <outdir>/render_views.jsonl（每行 {view, ms, bytes, hash}）、累计超预算立即停并标 within_budget=false；'
+      + '给 ref_path 时逐张调 qc_compare（默认固定对齐）把 IoU/剖面差写进 jsonl。args 里加 asJob=true 自动转作业层（长活，无头进程天然隔离场景）。',
     parameters: {
       op: { type: 'string', required: true, description: '契约 op 或 plan_<op>（见工具描述；op=help / plan_help 出速查）' },
       args: { type: 'json', description: 'op 的参数对象，例如 {"cid":"joint","err":184,"tolerance":220,"identifiable":["dy"]}' },

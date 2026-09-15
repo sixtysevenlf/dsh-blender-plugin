@@ -47,6 +47,8 @@ export const WORKER_PATH = path.join(HERE, 'worker.py');
 export const TXN_PATH = path.join(HERE, 'txn.py');
 /** 内置 QC（v0.7.0）：掩膜 / IoU / 剖面 / 对照图 + 内环 measure 预置 */
 export const QC_PATH = path.join(HERE, 'qc.py');
+/** 渲染 harness（v0.8.8 / P2-1）：自动取景 + 固定三点光 + 逐张 jsonl 计时 + 预算判定 */
+export const QC_RENDER_PATH = path.join(HERE, 'qc_render.py');
 /** 配方库（v0.8.2）：参数组合的保存 / 套用 / 导出 */
 export const PRESET_PATH = path.join(HERE, 'presets.py');
 /**
@@ -55,6 +57,7 @@ export const PRESET_PATH = path.join(HERE, 'presets.py');
  */
 export const USER_CONFIG_WIN = process.env.BLENDER_USER_CONFIG || CFG.blenderUserConfig || null;
 export const USER_SCRIPTS_WIN = process.env.BLENDER_USER_SCRIPTS || CFG.blenderUserScripts || null;
+/** GPU 前导：无头进程里把 Cycles 设备配好，并打印 DSH_GPU 回执（详见 README「GPU 语义」） */
 /**
  * 引擎前导（v0.8.0）：默认 **EEVEE + 光追**，可选 cycles（OptiX 设备前导）/ keep（不动）。
  * 为什么默认换 EEVEE：① 它本来就是纯 GPU 渲染，走图形后端（本机 OPENGL / RTX 4060），
@@ -279,6 +282,8 @@ const PATH_HELPERS_TEMPLATE = [
 'K.stage = _dsh_stage',
 'K.reload_modules = _dsh_reload_modules',
 'K.out_dir = __OUTDIR__',
+  '# v0.8.8：runtime 目录也注入（qc.py 据此现场加载同目录模块，如 qc_render.py）',
+  'K.runtime_dir = __RUNTIME_DIR__',
   'K.workdir = K.out_dir',
   '# v0.8.7：路径常量也注入脚本命名空间（独立模块 + exec(open()) 写法同样可用）',
   'DSH_OUT = K.out_dir',
@@ -287,7 +292,8 @@ const PATH_HELPERS_TEMPLATE = [
 ].join('\n');
 const PATH_HELPERS = PATH_HELPERS_TEMPLATE
   .replace(/__DISTRO__/g, JSON.stringify(process.env.WSL_DISTRO_NAME || 'Ubuntu'))
-  .replace(/__OUTDIR__/g, JSON.stringify(WIN_TMP));
+  .replace(/__OUTDIR__/g, JSON.stringify(WIN_TMP))
+  .replace(/__RUNTIME_DIR__/g, JSON.stringify(HERE));
 /** act 包装：异常也回传 partial stdout/stderr/traceback（v0.7.0） */
 export const ACT_WRAPPER = (src) => [
   'import io as _dsh_io, contextlib as _dsh_ctx, traceback as _dsh_tb, json as _dsh_json',
@@ -617,7 +623,10 @@ export function createEngine(opts = {}) {
   const MODULE_ATTR = { RUNNER_READY: 'dsh_loop_api', PERF_READY: 'dsh_perf_api', VIEW_READY: 'dsh_view_api',
                         CONTRACT_READY: 'dsh_contract_api', PLAN_READY: 'dsh_plan_api',
                         TXN_READY: 'dsh_txn_api', QC_READY: 'dsh_qc_api',
+                        QC_RENDER_READY: 'dsh_qc_render_api',
                         PRESET_READY: 'dsh_preset_api' };
+  /** 读 runtime 下的 python 模块源码（preload / 作业脚本拼接用） */
+  const readModuleSource = (name) => fs.readFileSync(path.join(HERE, String(name).replace(/\.py$/, '') + '.py'), 'utf8');
   async function injectModule(file, marker, versionExpr = '1') {
     const attr = MODULE_ATTR[marker] || ('dsh_' + String(marker).toLowerCase() + '_api');
     const hashAttr = attr + '_fp';
@@ -647,6 +656,7 @@ export function createEngine(opts = {}) {
   const ensurePlanner = () => injectModule(PLANNER_PATH, 'PLAN_READY', 'PLAN_VERSION');
   const ensureTxn = () => injectModule(TXN_PATH, 'TXN_READY', 'TXN_VERSION');
   const ensureQc = () => injectModule(QC_PATH, 'QC_READY', 'QC_VERSION');
+  const ensureQcRender = () => injectModule(QC_RENDER_PATH, 'QC_RENDER_READY', 'QC_RENDER_VERSION');
   const ensurePreset = () => injectModule(PRESET_PATH, 'PRESET_READY', 'PRESET_VERSION');
   /** perf/opt 通用调用：op 是 K.dsh_perf_api 里的函数名 */
   async function perfCall(op, payload) {
@@ -676,6 +686,28 @@ export function createEngine(opts = {}) {
       const body = 'print("LOOP " + K.dsh_plan_api["dispatch"](' + JSON.stringify(o.slice(5)) + ', _json.dumps(_json.loads('
         + JSON.stringify(JSON.stringify(payload || {})) + '))))';
       return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 300000));
+    }
+    if (o.indexOf('qc_render') === 0) {
+      // v0.8.8（P2-1）：渲染 harness —— 自动取景 + 三点光 + 逐张 jsonl + 预算判定。
+      // 长活可 asJob=true 直接转作业层：无头进程天然隔离（不改用户场景），日志/产物落 outdir/jobs/<id>/。
+      const p = (payload && typeof payload === 'object') ? payload : {};
+      if (p.asJob) {
+        const mods = ['qc', 'qc_render'].map(readModuleSource).join(String.fromCharCode(10));
+        const driver = 'import json as _json' + String.fromCharCode(10)
+          + 'print("HEADLESS " + K.dsh_qc_render_api["render_views"](_json.loads('
+          + JSON.stringify(JSON.stringify(p)) + ')))';
+        const j = jobStart({ file: p.file, outdir: p.outdir || WIN_TMP,
+                             engine: (p.engine && String(p.engine) !== 'keep') ? String(p.engine) : 'eevee',
+                             timeoutMs: Number(p.timeoutMs) || 3600000,
+                             script: mods + String.fromCharCode(10) + driver });
+        return { ok: true, mode: 'job', jobId: j.id, ms: 0, outdir: j.outdir, logDir: j.logDir,
+                 jsonl: path.win32.join(String(p.outdir || WIN_TMP), 'render_views.jsonl'), job: j,
+                 hint: '长活已转作业层：blender_rt_job(op="status"/"collect", id="' + j.id + '") 跟进；产物与日志在 outdir/jobs/ 下' };
+      }
+      await ensureQcRender();
+      const body = 'print("LOOP " + K.dsh_qc_render_api["dispatch"](' + JSON.stringify(o.slice(3)) + ', _json.dumps(_json.loads('
+        + JSON.stringify(JSON.stringify(p)) + '))))';
+      return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 900000));
     }
     if (o.indexOf('qc_') === 0) {
       // QC 走 blender_rt_plan 的 qc_* 前缀（验证与证据同属契约层；不新增工具）
@@ -1129,7 +1161,7 @@ export function createEngine(opts = {}) {
         if (!name) continue;
         const f = path.join(HERE, name + '.py');
         if (!fs.existsSync(f)) throw new Error('preload 找不到模块：' + f);
-        pre += '# ---- preload ' + name + '.py ----\n' + fs.readFileSync(f, 'utf8') + '\n';
+        pre += '# ---- preload ' + name + '.py ----\n' + readModuleSource(name) + '\n';
       }
       // ---- 引擎前导（v0.8.0）：默认 eevee + 光追；可选 cycles / keep（向后兼容 gpu:"false"=keep）
       const engineMode = String(opts.engine === undefined || opts.engine === null ? 'eevee' : opts.engine).toLowerCase();

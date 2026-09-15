@@ -14,6 +14,8 @@
 | 首帧着色器编译 | 冷缓存约 16 s；缓存热后约 2.4 s → 迭代务必用热会话（blender_rt_worker：编译只付一次） |
 | 光追开关 | scene.eevee.use_raytracing（默认 False）；ray_tracing_method 本机枚举含 SCREEN |
 | 无头可用性 | blender -b 里 EEVEE 渲染会自行初始化 GPU 上下文（实测出图正常）；但 gpu.platform 读取需先 gpu.init()（离屏绘图才需要） |
+| 渲染 harness 实测（v0.8.8，350 可见 mesh / 512×512 / 64 采样） | 3 视角 2124 / 798 / 565 ms（首张含着色器编译）· 共 3487 ms · jsonl 3 行 · 四边余量 36 px |
+| EEVEE+RT 的可复现性 | 同一装置连渲两张：RGB 最大差 1/255（0 像素 >1/255），**alpha 通道完全相同**；换进程/换会话后差值 ≤5/255（0.05% 像素，集中在轮廓与阴影边缘）→ **几何判定看 alpha，像素级 md5 不能当判据** |
 
 ## 2. EEVEE 的硬限制与对策（社区实测，直接用）
 

@@ -1,5 +1,47 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
+## v0.8.8（2026-09-15）—— 内置多视角渲染 harness（P2-1，外部反馈 #4 最后一项）
+
+外部反馈要的形态：入参 {file, views[], res, samples, thr, outdir} → 自动按 bbox 精确取景 + 固定三点光
++ 逐张 jsonl 计时 + 不超过 budget 的判定（"这是任何建模任务都要重写一遍的东西"）。本轮把它收敛成通用能力。
+
+- **新模块 `runtime/qc_render.py`**（挂 `K.dsh_qc_render_api`），入口 `blender_rt_plan(op="qc_render_views", args={...})`；
+  也支持 `args.asJob=true` 直接转作业层（无头进程天然隔离场景）。qc.py 侧同时注册 `render_views` 转接（只注入 qc.py 也能用）。
+- **自动取景**：合并所有可见 mesh 的 AABB（`targets` 可限定）→ 逐角解算相机距离 + `margin` 留白；具名视角
+  front/back/left/right/top/bottom/iso/iso_l/iso_back/front_high/right_high，也支持 `az=35,el=20` 与显式 `from/look_at`、正交。
+- **固定三点光**：SUN 灯 key 3.2 / fill 1.0 / rim 2.4（角度固定、相对相机方位角：+35°/45°、-50°/8°、+165°/30°），
+  **只在本进程内临时建**，出图后删除并把 scene 渲染设置全部还原（GUI 实测：对象数 95、相机 1、灯 4、无残留、视口帧 hash 不变）。
+- **逐张渲染 + jsonl**：每张 PNG 记录 `{view, ms, bytes, hash, path, res, engine, samples, camera, frame{bbox,margin_px,coverage,pred_bbox_px,proj_err_px}}`，
+  写 `<outdir>/render_views.jsonl`（一行一张，预算中途停下也保留已完成的行）。
+- **预算判定**：`budget_s`（别名 `thr`）累计渲染毫秒超限立即停 → `within_budget=false` + `stopped_early` + `skipped_views`，已出的图保留。
+- **可选参考比对**：`ref_path`/ref_box（可按视角给字典）逐张调 qc.py 的 `compare`（默认固定对齐），IoU/Dice/边界距离/剖面差写进 jsonl。
+- **引擎语义**：默认 `engine="keep"` 跟随进程（无头/作业由引擎前导保证 EEVEE+光追）；`samples` 同时写 EEVEE taa_render_samples 与 Cycles samples；`view_transform` 可选。
+- 顺带：路径常量注入 `K.runtime_dir`（qc.py 据此现场加载同目录模块）；`bpy.types.Camera.calc_matrix_camera` 在 Blender 5.2 已移除，
+  改用 `bpy_extras.object_utils.world_to_camera_view` 作投影真值对拍。
+
+**实测（`D:/DSH/blender/out/preserve_scene_before_orca.blend` / 350 个可见 mesh / 512×512 / 64 采样 / EEVEE+RT）**：
+
+| 视角 | 渲染 ms | bytes | 出图 alpha bbox | 画面 margin（px） |
+|---|---|---|---|---|
+| iso（-45°,25°） | 2124（首张含着色器编译） | 154604 | [83,96,428,458] | L83 T96 R83 B53 |
+| front（-90°,0°） | 798 | 162515 | [36,36,475,475] | 36 / 36 / 36 / 36 |
+| right（0°,0°） | 565 | 192160 | [36,36,475,475] | 36 / 36 / 36 / 36 |
+
+总计 3 张 **3487 ms**（in-process 3571 ms）· jsonl 3 行 · `within_budget=true`（预算 120 s）；
+预算 1.0 s 的对照跑：只出 1 张即停、`within_budget=false`、`skipped_views=["front","right"]`、已出的图保留；
+取景对拍 `proj_err_px` 0.000009–0.000081 像素（自算矩阵 vs world_to_camera_view）；11 个具名视角 selftest 全部落在画幅内；
+手写流程同机位对照：alpha 通道逐像素完全一致（几何/机位一致），RGB 差 ≤5/255 且只在 0.046% 像素上（EEVEE+RT 随机采样噪声；
+同装置连渲两张自身就有 1/255 差异作对照）。
+
+## v0.8.7（2026-09-15）—— 外部反馈 #4 的 P0-2 / P1-1 / P1-2 / P2-2 / P2-3 / P3
+
+- **P0-2 长任务可再接句柄**：`blender_rt_headless(as_job=true)`（或 `auto_job_ms`）自动转作业层 —— 返回 `mode=job` + jobId + 日志路径，客户端超时不再丢结果。
+- **P1-1 场景世代号**：`/act` 回执带 `sceneEpoch`（objects/meshes/materials/nameHash），用于发现"别人的重建把我的装配清掉了"；`/act` 路由已透传。
+- **P1-2 路径常量进脚本命名空间**：`DSH_OUT` / `DSH_WIN(path)` / `DSH_WSL(path)`（独立模块 + `exec(open())` 写法也能用）。
+- **P2-2 rt_loop 建模 measure 模板**：cookbook 补三种 measure 的入参/返回表 + spec 模板 + 配合纪律。
+- **P2-3 错误增强**：库占用（`libraries.remove` / `copy=True`）、无相机（先设 `scene.camera`）、UNC 形态归一化或 `K.stage` 兜底。
+- **P3 Blender 语义坑两条**：`libraries.write` 会写出无场景文件；`transform_apply` 不缩放 Bevel 宽度。
+
 ## v0.8.6（2026-09-15）—— 修 blender_rt_perf 的 dsh_perf_status NameError（P0，外部反馈 #4）
 
 根因：v0.8.3 给 perf 加引擎感知时，把 dsh_perf_status 改名为 _dsh_perf_status_cycles 并把包装函数**追加到文件末尾**，而注册字典（第 323 行）在包装函数（第 338 行）之前引用了它 → 模块导入即 NameError → 整个 perf 模块注入失败（'PERF status 失败 · name dsh_perf_status is not defined'）。

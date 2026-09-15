@@ -31,6 +31,7 @@ description: 假设驱动建模方法论：当你需要「证据不足时明确�
 | 破坏性门控 | `op="destructive_guard"` | 允许/拦截 + 阻塞明细 |
 | 区间内自动搜索 | `blender_rt_loop`（setup/step/measure + penalize/anneal/board） | 候选表 + 最优参数 |
 | 判据（客观比对） | `blender_rt_plan(op="qc_compare" / "qc_self_check" / "qc_robustness_check")` | IoU/Dice/缺多面积/边界距离 + 对照图 |
+| 判据出图（多视角） | `op="qc_render_views", args={views:[…], res, samples, budget_s, outdir, ref_path?}` | N 张 PNG + `render_views.jsonl`（每行 {view, ms, bytes, hash}）+ within_budget |
 | 翻转与判定 | `op="verify" / "flip"` | supported/refuted/unresolved + 历史 |
 | 证据与报告 | `op="evidence" / "ledger" / "report"` | 出图 + md5 + provenance 报告 |
 | 可回退实验 | `blender_rt_txn`（mark/revert；大改前 snapshot） | 回滚点 |
