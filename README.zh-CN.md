@@ -131,6 +131,23 @@ blender_rt_see(from="9,-9,6", look_at="0,0,1")               # ③ 换个角度�
 - **可观测性**：异常也回传 partial `stdout`/`stderr`/`traceback`（标记包裹）；执行类错误不再被误报为 `main-thread-busy`；`rt_do` 报告主线程占用，>1s 提示改走 headless/worker。
 - **路径**：Blender 内可用 `K.win_path / K.wsl_path / K.blend_path / K.out_dir`（GUI 与无头通用），另有 `K.run(path, reload_modules=True)` 与 `blender_rt_do(file=...)`。
 
+### 4.8 装配级判据、数值化漂移与判定失效（v0.9.0）
+
+来源：对 [SpatiaOS/Procedura](https://github.com/SpatiaOS/Procedura)（MIT）逐文件精读后的移植评估 —— **只搬判据与算法，不搬技术栈**（不引 OpenSCAD / Isaac）。评估表与逐项落地状态见 `docs/Procedura-融合分析.md`。工具数不变（仍 15 个），新能力全走 `blender_rt_plan` / `blender_rt_txn` 的 op 面。
+
+- **★ 修一个真 bug**：`docs/` 一直文档化的 `blender_rt_plan(op="audit_mesh"/"audit_scene"/"audit_duplicates")` **从来没接通**（实测返回 `unknown contract op`，`audit.py` 只在 preload 通道可达）。本版把 `audit_*` 与 `montage` 正式接进引擎路由。
+- **装配级连通门**：`audit_connectivity` / `audit_gate` —— 判据是**每个分量都问「你有没有跟别的分量相接」**（不再用「最大分量=主体、其余都是浮块」，两个等大零件时那条规则会随机挑一个当浮体）。可见浮块 = 最长 bbox 边 ≥ 全模型 1%；**bbox 粗筛 + BVH 网格级复核**（多对象装配里 bbox 普遍重叠 → 间隙恒为 0，只看 bbox 会一律放行）。口径 `micro_gap_mm` 随返回回传：**0.3 mm = 单一实体/3D 打印**，带设计间隙的装配件按工艺给（1–2 mm）。实测（14 对象 / 97,438 面）：0.3 mm 口径 → **178 浮块 / 970 相接**；2 mm 口径 → 63。面数超 50 万跳过复核 → 门**降级**（`ok=null`），未确认不得读作已通过。
+- **数值化漂移**：`audit_drift` 是对称 Chamfer **形状**漂移（点到曲面）：20k 采样 **21,397 ms → 46 ms**，同网格读 **0.000000**。⚠ 归一化会消除平移与整体缩放 → 位移看 `bbox_delta.moved_mm`。另有 `audit_measure`（bbox + 逐轴间隙/重叠 mm/% + 邻居）与 `audit_snap_floaters`（默认只报告，只对「整件属于该浮块」的对象平移，不撕焊接体）。
+- **判定会过期**：`fingerprint` 绑几何摘要；`ledger` 逐条对拍标 `stale`；`verify` 记 bbox 快照，之后漂移 >10% 对角线 / >20% 尺寸 → `supported` **自动降级 unresolved**（带动画的对象跳过）。
+- **配合门与干涉**：`mate_check` 在**实际网格**上量接触面积占比 / 单边中位间隙 / 侵入深度（四档 fit：clearance 0.25 · location 0.15 · press −0.05 · snap 0.20 mm 单边），`fit_help` 读 `runtime/assembly_features.json`，`interference_report` 报深度/体积/严重度并对已注册连接豁免（超 `depth_eps` 仍报）。实测单边 **0.1498 mm**（设计 0.1500）→ supported。
+- **编辑纪律与交付**：`blender_rt_txn` 新增 `edit_begin / edit_check / edit_accept(verified) / edit_revert(why) / edit_status`（接受必须有复核 + 一句说明；撤销免预算但有上限 + 防抖）；`deliver_export / deliver_verify`（单位盒归一化 + 多组 OBJ/MTL + manifest md5，改一字节必 FAIL）。
+- **渲染 harness 三件**：`mode="parts_color"`（逐部件配色 + 图例 + 出图后逐项还原）、jsonl 每行**实测 `device`**（防 Cycles 静默回落 CPU ≈7×）、`qc_render_catalog`（22 视角 / 别名 / 未知名回传，不再静默当 iso 渲）。
+- **机构**：`motion_*` —— 关节轴/锚点**实测**（旋转对称 + 接触带两条独立证据，冲突一律 unresolved 并把两条轴都报出来）、**扫掠验证**（运动学+BVH，不是物理仿真；零干涉且确实位移 → supported，撞上就点名）、URDF/USDA 导出（单树合成、退化关节降级并告警、结构自检）。自检 25/25。
+- **生成器（代码化建模轻量版）**：`generator_save / generator_run / generator_list|get|diff` —— 程序即形状 + **全新无头进程复现当编译门** + 源码 hash 缓存 + 源码一变回执过期。（本机两侧都没装 OpenSCAD；真接它需要 Manifold 后端。）
+- **可追溯**：每次顶层调用写 `<工作目录>/trajectory/blender_rt-<日期>.jsonl`（route/op/ms/ok/参数摘要，超 16MB 轮转；`DSH_TRAJ=0` 关）。
+- **顺带修的基础设施问题**：preload 多模块互相覆写 helper（engine 改为各占命名空间）；headless `ok:true/exit=0` ≠ 脚本成功（Blender 异常时退出码仍 0）；源码注入通道没有 `__file__`。
+- 自检：contract **33/33** · mate **57/57** · txn **55/55** · deliver **53/53** · motion **25/25** · qc_render **14+15** · 另有 audit / generator 合成自检。
+
 ## 5. 目录结构
 
 ```text

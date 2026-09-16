@@ -72,9 +72,16 @@ function leaseAcquire(holder, ttlMs, force) {
 /** 只读 op：即便别人持有租约也放行（否则连"看看现状"都会被挡） */
 const READ_ONLY_OPS = { '/perf': ['status', 'help'], '/loop': ['status', 'board', 'help'], '/opt': ['opt_analyze', 'analyze', 'help'],
   '/plan': ['status', 'help', 'ledger', 'check_envelope', 'check_interference', 'check_interface',
-            'plan_status', 'plan_validate', 'plan_diag', 'plan_order', 'plan_graph'],
+            'plan_status', 'plan_validate', 'plan_diag', 'plan_order', 'plan_graph',
+            // v0.9.0：网格体检 + 装配门（只读：不改场景、不动物体变换）
+            // 注意 audit_snap_floaters 会动物体变换 → 明确不算只读，不列进来
+            'audit_mesh', 'audit_scene', 'audit_duplicates', 'audit_help',
+            'audit_connectivity', 'audit_drift', 'audit_measure', 'audit_gate', 'montage',
+            // v0.9.0：机构/交付的只读 op（motion_measure 会临时驱动对象→不算只读，不列）
+            'motion_status', 'motion_help', 'motion_joints', 'deliver_help', 'deliver_verify',
+            'generator_list', 'generator_get', 'generator_diff', 'generator_help'],
   '/worker': ['status'],
-  '/txn': ['list', 'marks', 'help'],
+  '/txn': ['list', 'marks', 'help', 'edit_status'],
   '/preset': ['list', 'get', 'help'],
   '/job': ['status', 'collect', 'list'] };
 function isReadOnly(path, op) {

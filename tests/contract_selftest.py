@@ -133,6 +133,51 @@ def main():
     r = json.loads(api["flip"]("joint", "nonsense"))
     check("非法候选被拒", r.get("ok") is False)
 
+    # --- V0.9：#7 几何指纹 + 证据随改动失效；#8 判定漂移自动降级
+    fp0 = json.loads(api["fingerprint"](["Seat", "Backrest"]))
+    check("指纹可取（对象/面数/bbox + 12 位 digest）",
+          fp0.get("ok") and len(fp0["fingerprint"]["digest"]) == 12 and fp0["fingerprint"]["objects"] == 2, fp0)
+    r = json.loads(api["verify"]("joint", probe_err=0.005, probe_tolerance=0.01, note="建立 bbox 快照"))
+    check("verify 记录 bbox 快照", (r.get("bbox_snapshot") or {}).get("diagonal") is not None
+          and r.get("verdict") == "supported", r)
+    st0 = json.loads(api["status"]())
+    check("无漂移时不降级", st0.get("demoted_now") == [], st0.get("demoted_now"))
+    ob_b = bpy.data.objects.get("Backrest")
+    loc_before = tuple(ob_b.location)
+    ob_b.location = (loc_before[0], loc_before[1] + 1.2, loc_before[2])   # 远超 10% 对角线
+    bpy.context.view_layer.update()
+    st1 = json.loads(api["status"]())
+    check("几何漂移 → supported 自动降级 unresolved", "joint" in (st1.get("demoted_now") or []), st1.get("demoted_now"))
+    d1 = (st1.get("detail") or {}).get("joint") or {}
+    check("降级理由留在 verdict.demoted", bool(((d1.get("verdict") or {}).get("demoted") or {}).get("reason")),
+          d1.get("verdict"))
+    check("降级后 status 变 unresolved", d1.get("status") == "unresolved", d1.get("status"))
+    ob_b.location = loc_before
+    bpy.context.view_layer.update()
+
+    if hasattr(K, "dsh_view_api"):
+        r = json.loads(api["evidence"]("stale_probe", {"from": [-2.6, 0.0, 0.78], "look_at": [0.0, 0.16, 0.66],
+                                                        "width": 200, "height": 120, "background": False,
+                                                        "overlays": False,
+                                                        "path": os.path.join(outdir, "stale_probe.png")},
+                                       "指纹绑定探针", ["Backrest"]))
+        check("证据绑指纹（fp_objects 记名）", r.get("ok") and r["evidence"].get("fp_objects") == ["Backrest"],
+              r.get("error") or r)
+        led0 = json.loads(api["ledger"]())
+        hit0 = [e for e in led0["evidence"] if e["label"] == "stale_probe"]
+        check("未改动时证据不 stale", bool(hit0) and hit0[0].get("stale") is False, hit0[:1])
+        ob_b.scale = (ob_b.scale[0], ob_b.scale[1], ob_b.scale[2] * 1.5)   # 改源
+        bpy.context.view_layer.update()
+        led1 = json.loads(api["ledger"]())
+        hit1 = [e for e in led1["evidence"] if e["label"] == "stale_probe"]
+        check("源一变 → 证据自动 stale", bool(hit1) and hit1[0].get("stale") is True
+              and led1.get("stale_evidence", 0) >= 1 and "stale_probe" in (led1.get("stale_labels") or []),
+              {"stale": hit1[0].get("stale") if hit1 else None, "count": led1.get("stale_evidence")})
+        ob_b.scale = (ob_b.scale[0], ob_b.scale[1], ob_b.scale[2] / 1.5)
+        bpy.context.view_layer.update()
+    else:
+        print("  skip 证据 staleness（没有 K.dsh_view_api；用 preload=view,contract 可测）")
+
     # --- 报告
     p = os.path.join(outdir, "contract_report.md")
     r = json.loads(api["report"](p))

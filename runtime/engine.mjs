@@ -67,6 +67,17 @@ export const QC_PATH = path.join(HERE, 'qc.py');
 export const QC_RENDER_PATH = path.join(HERE, 'qc_render.py');
 /** 配方库（v0.8.2）：参数组合的保存 / 套用 / 导出 */
 export const PRESET_PATH = path.join(HERE, 'presets.py');
+/** 网格体检（v0.9.0 接通）：audit_* 前缀 op 走这里。
+ *  此前 audit.py 只存在于 preload 通道，docs 里文档化的 blender_rt_plan(op="audit_mesh") 其实没有路由。 */
+export const AUDIT_PATH = path.join(HERE, 'audit.py');
+/** 拼图（v0.9.0 接通）：montage op 走这里（证据分级 L2：裁切拼图给眼看的少数格） */
+export const MONTAGE_PATH = path.join(HERE, 'montage.py');
+/** 铰接/机构（v0.9.0）：关节实测 + 扫掠验证 + URDF/USDA 导出（motion_* 前缀 op） */
+export const MOTION_PATH = path.join(HERE, 'motion.py');
+/** 交付导出（v0.9.0）：单位盒归一化 + 多组 OBJ/MTL + manifest(md5)（deliver_* 前缀 op） */
+export const DELIVER_PATH = path.join(HERE, 'deliver.py');
+/** 生成器注册表（v0.9.0 · #18 代码化建模通道的 Blender 原生轻量版）：程序即形状 + 编译门 + 缓存 + diff */
+export const GENERATOR_PATH = path.join(HERE, 'generator.py');
 /**
  * 用户 Blender 配置目录（GPU 偏好所在）—— 无头进程默认读不到它，Cycles 会静默回落 CPU。
  * 分享版默认 null（用系统默认配置）；要继承某套配置就设 DSH_BLENDER_USER_CONFIG / 配置项 blenderUserConfig。
@@ -647,9 +658,31 @@ export function createEngine(opts = {}) {
                         CONTRACT_READY: 'dsh_contract_api', PLAN_READY: 'dsh_plan_api',
                         TXN_READY: 'dsh_txn_api', QC_READY: 'dsh_qc_api',
                         QC_RENDER_READY: 'dsh_qc_render_api',
-                        PRESET_READY: 'dsh_preset_api' };
+                        PRESET_READY: 'dsh_preset_api',
+                        AUDIT_READY: 'dsh_audit_api', MONTAGE_READY: 'dsh_montage_api',
+                        MOTION_READY: 'dsh_motion_api', DELIVER_READY: 'dsh_deliver_api',
+                        GENERATOR_READY: 'dsh_generator_api' };
   /** 读 runtime 下的 python 模块源码（preload / 作业脚本拼接用） */
   const readModuleSource = (name) => fs.readFileSync(path.join(HERE, String(name).replace(/\.py$/, '') + '.py'), 'utf8');
+  /**
+   * v0.9.0：preload 多个模块必须各占一个命名空间。
+   * 旧实现把多个模块源码**拼进同一个 globals**，而每个 runtime 模块都定义 _j/_kernel/_store/_now →
+   * 后一个模块把前一个的 helper 顶掉。实测 `preload="txn,deliver"` 直接把 txn 打崩（KeyError: 'marks'）。
+   * 做法：每个模块 exec 到自己的 dict；私有名（_ 开头）不外泄，公开名与常用 import 照旧拷回 globals
+   * （向后兼容：以前直接调 `dsh_loop_start` / `audit_mesh` 这类公开函数的写法仍然可用）。
+   * 模块尾部 `K.dsh_x_api = {...}` 走的是真实的 dsh_rt_kernel 模块对象 → API 照旧落在 K 上。
+   */
+  function preloadChunk(name) {
+    const clean = String(name).trim().replace(/\.py$/, '');
+    const src = readModuleSource(clean);
+    const ns = '__dsh_ns_' + clean.replace(/[^A-Za-z0-9_]/g, '_');
+    return [
+      '# ---- preload ' + clean + '.py（独立命名空间：私有 helper 不互相覆写）----',
+      ns + ' = {"__name__": ' + JSON.stringify(clean) + '}',
+      'exec(compile(' + JSON.stringify(src) + ', ' + JSON.stringify(clean + '.py') + ', "exec"), ' + ns + ')',
+      'globals().update({k: v for k, v in ' + ns + '.items() if not k.startswith("_")})',
+    ].join(String.fromCharCode(10));
+  }
   async function injectModule(file, marker, versionExpr = '1') {
     const attr = MODULE_ATTR[marker] || ('dsh_' + String(marker).toLowerCase() + '_api');
     const hashAttr = attr + '_fp';
@@ -681,6 +714,16 @@ export function createEngine(opts = {}) {
   const ensureQc = () => injectModule(QC_PATH, 'QC_READY', 'QC_VERSION');
   const ensureQcRender = () => injectModule(QC_RENDER_PATH, 'QC_RENDER_READY', 'QC_RENDER_VERSION');
   const ensurePreset = () => injectModule(PRESET_PATH, 'PRESET_READY', 'PRESET_VERSION');
+  const ensureAudit = () => injectModule(AUDIT_PATH, 'AUDIT_READY', 'AUDIT_VERSION');
+  const ensureMontage = () => injectModule(MONTAGE_PATH, 'MONTAGE_READY', 'MONTAGE_VERSION');
+  /** 新模块（motion/deliver）在开发期可能还没落盘 —— 给一条清楚的错，而不是 ENOENT */
+  const needFile = (f, what) => {
+    if (!fs.existsSync(f)) throw new Error(what + ' 模块还没就位：' + path.basename(f) + '（v0.9.0 开发中）');
+    return f;
+  };
+  const ensureMotion = () => injectModule(needFile(MOTION_PATH, 'motion'), 'MOTION_READY', 'MOTION_VERSION');
+  const ensureDeliver = () => injectModule(needFile(DELIVER_PATH, 'deliver'), 'DELIVER_READY', 'DELIVER_VERSION');
+  const ensureGenerator = () => injectModule(needFile(GENERATOR_PATH, 'generator'), 'GENERATOR_READY', 'GENERATOR_VERSION');
   /** perf/opt 通用调用：op 是 K.dsh_perf_api 里的函数名 */
   async function perfCall(op, payload) {
     await ensurePerf();
@@ -738,6 +781,54 @@ export function createEngine(opts = {}) {
       const body = 'print("LOOP " + K.dsh_qc_api["dispatch"](' + JSON.stringify(o.slice(3)) + ', _json.dumps(_json.loads('
         + JSON.stringify(JSON.stringify(payload || {})) + '))))';
       return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 300000));
+    }
+    if (o.indexOf('audit_') === 0) {
+      // v0.9.0：网格体检接通。此前 audit.py 只在 preload 通道可达，docs 里文档化的
+      // blender_rt_plan(op="audit_mesh") 会掉进契约层报 unknown contract op。
+      await ensureAudit();
+      const body = 'print("LOOP " + K.dsh_audit_api["dispatch"](' + JSON.stringify(o.slice(6)) + ', _json.dumps(_json.loads('
+        + JSON.stringify(JSON.stringify(payload || {})) + '))))';
+      return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 600000));
+    }
+    if (o.indexOf('montage') === 0) {
+      // v0.9.0：拼图接通（证据分级 L2：异常只给 3 个最大偏差区域）
+      await ensureMontage();
+      const body = 'print("LOOP " + K.dsh_montage_api["montage"](_json.loads('
+        + JSON.stringify(JSON.stringify(payload || {})) + ')))';
+      return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 300000));
+    }
+    if (o.indexOf('motion_') === 0) {
+      // v0.9.0（#17）：铰接/机构 —— 关节实测 + 扫掠验证 + URDF/USDA 导出
+      await ensureMotion();
+      const name = o.slice(7);
+      const body = [
+        'import json as _json',
+        'A = K.dsh_motion_api',
+        'P = _json.loads(' + JSON.stringify(JSON.stringify(payload || {})) + ')',
+        'if isinstance(P, dict) and isinstance(P.get("args"), dict): P = P["args"]',
+        'print("LOOP " + (A["dispatch"](' + JSON.stringify(name) + ', _json.dumps(P)) if A.get("dispatch") else A[' + JSON.stringify(name) + '](**P)))',
+      ].join(String.fromCharCode(10));
+      return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\n' + body }, 900000));
+    }
+    if (o.indexOf('deliver_') === 0) {
+      // v0.9.0（#13）：交付导出 —— 单位盒 + 多组 OBJ/MTL + manifest(md5)
+      await ensureDeliver();
+      const name = o.slice(8);
+      const body = [
+        'import json as _json',
+        'A = K.dsh_deliver_api',
+        'P = _json.loads(' + JSON.stringify(JSON.stringify(payload || {})) + ')',
+        'if isinstance(P, dict) and isinstance(P.get("args"), dict): P = P["args"]',
+        'print("LOOP " + (A["dispatch"](' + JSON.stringify(name) + ', _json.dumps(P)) if A.get("dispatch") else A[' + JSON.stringify(name) + '](**P)))',
+      ].join(String.fromCharCode(10));
+      return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\n' + body }, 300000));
+    }
+    if (o.indexOf('generator_') === 0) {
+      // v0.9.0（#18）：生成器注册表 —— 程序即形状 + 编译门（全新无头进程复现）+ 缓存 + diff
+      await ensureGenerator();
+      const body = 'print("LOOP " + K.dsh_generator_api["dispatch"](' + JSON.stringify(o.slice(10)) + ', _json.dumps(_json.loads('
+        + JSON.stringify(JSON.stringify(payload || {})) + '))))';
+      return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 600000));
     }
     await ensureContract();
     const body = 'print("LOOP " + K.dsh_contract_api["dispatch"](' + JSON.stringify(o) + ', _json.dumps(_json.loads('
@@ -812,7 +903,7 @@ export function createEngine(opts = {}) {
       if (!name) continue;
       const f = path.join(HERE, name + '.py');
       if (!fs.existsSync(f)) throw new Error('preload 找不到模块：' + f);
-      parts.push('# ---- preload ' + name + '.py ----\n' + readModuleSource(name));
+      parts.push(preloadChunk(name));
     }
     parts.push(String(opts.script || ''));
     const sp = writeHeadlessScript(parts.join('\n'));
@@ -1036,7 +1127,70 @@ export function createEngine(opts = {}) {
       + JSON.stringify(JSON.stringify(payload || {})) + '))))';
     return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 300000));
   }
-  return {
+  // ---- v0.9.0（Procedura 融合 #15）：轨迹 JSONL ----
+  // 每次顶层调用记一行（route / op / ms / ok / 参数摘要）→ 复盘、对照、审计都有底账。
+  // 默认不记全量参数（代码可能几 MB）：只记字节数 + 摘要 + 前 300 字符；DSH_TRAJ_FULL=1 记前 8000。
+  // DSH_TRAJ=0 关闭。轨迹写盘失败绝不影响主流程（按天一个文件，超 16 MB 自动改名轮转）。
+  const TRAJ_DIR = path.join(winToWsl(WIN_TMP), 'trajectory');
+  const TRAJ_OFF = process.env.DSH_TRAJ === '0' || process.env.DSH_TRAJ === 'false';
+  const TRAJ_FULL = process.env.DSH_TRAJ_FULL === '1';
+  const TRAJ_MAX_BYTES = Number(process.env.DSH_TRAJ_MAX_BYTES || 16000000);
+  const TRAJ_SKIP = new Set(['metrics', 'status', 'protocol', 'sceneEpoch']);
+  function trajShortHash(s) {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+    return (h >>> 0).toString(16).padStart(8, '0');
+  }
+  function trajRecord(route, op, args, ms, ok, err) {
+    if (TRAJ_OFF) return;
+    try {
+      fs.mkdirSync(TRAJ_DIR, { recursive: true });
+      const d = new Date();
+      const key = String(d.getFullYear()) + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+      const f = path.join(TRAJ_DIR, 'blender_rt-' + key + '.jsonl');
+      try {
+        const st = fs.statSync(f);
+        if (st.size > TRAJ_MAX_BYTES) fs.renameSync(f, path.join(TRAJ_DIR, 'blender_rt-' + key + '-' + Date.now() + '.jsonl'));
+      } catch (e) { /* 首次写 */ }
+      const s = args === undefined || args === null ? '' : (typeof args === 'string' ? args : JSON.stringify(args));
+      fs.appendFileSync(f, JSON.stringify({
+        t: d.toISOString(), route: route, op: op === undefined || op === null ? null : String(op),
+        ms: ms, ok: !!ok, err: err ? String(err).slice(0, 300) : null,
+        args_bytes: s.length, args_digest: trajShortHash(s),
+        args_head: s ? s.slice(0, TRAJ_FULL ? 8000 : 300) : null,
+      }) + String.fromCharCode(10), 'utf8');
+    } catch (e) { /* 轨迹是旁路：出错就丢这一行 */ }
+  }
+  /** 给返回对象裹一层记录：this 仍指向原对象（内部 this.xxx() 不会重复记账） */
+  function withTrajectory(obj) {
+    const out = {};
+    for (const k of Object.keys(obj)) {
+      const v = obj[k];
+      if (typeof v === 'function') {
+        out[k] = function (...a) {
+          const t0 = Date.now();
+          const rawOp = a.length ? a[0] : null;
+          const opArg = (typeof rawOp === 'string' || typeof rawOp === 'number') ? rawOp : null;
+          const argsArg = a.length > 1 ? a[1] : a[0];
+          const rec = (ok, err) => { if (!TRAJ_SKIP.has(k)) trajRecord(k, opArg, argsArg, Date.now() - t0, ok, err); };
+          let r;
+          try { r = v.apply(obj, a); } catch (e) { rec(false, e && e.message); throw e; }
+          if (r && typeof r.then === 'function') {
+            return r.then((x) => { rec(true, null); return x; },
+                          (e) => { rec(false, e && e.message); throw e; });
+          }
+          rec(true, null);
+          return r;
+        };
+      } else if (v && typeof v === 'object' && !Array.isArray(v)) {
+        out[k] = withTrajectory(v);
+      } else {
+        out[k] = v;
+      }
+    }
+    return out;
+  }
+  return withTrajectory({
     addon: addon,
     plan: (op, payload) => planCall(op, payload),
     txn: (op, payload) => txnCall(op, payload),
@@ -1082,6 +1236,8 @@ export function createEngine(opts = {}) {
       // v0.8.10（A0/D4）：状态里带插件版本 + runtime 指纹 + 最近运行台账
       return { region: jsonFromStdout(out),
                plugin: { version: PLUGIN_VERSION, runtimeDir: wslToWin(HERE), runtime: runtimeFingerprint() },
+               trajectory: { dir: wslToWin(TRAJ_DIR), off: TRAJ_OFF, full: TRAJ_FULL,
+                             note: 'v0.9.0（#15）：每次顶层调用一行 JSONL（route/op/ms/ok/参数摘要）；DSH_TRAJ=0 关，DSH_TRAJ_FULL=1 记更多参数' },
                runs: Array.from(runs.values()).slice(-5).map(runSnapshot),
                jobs: Array.from(jobs.values()).slice(-5).map(jobSnapshot),
                ledger: { path: wslToWin(LEDGER), recent: ledgerList(5).map((x) => ({ id: x.id, kind: x.kind || 'job', status: x.status, startedAt: x.startedAt, ms: x.ms })) } };
@@ -1260,7 +1416,7 @@ export function createEngine(opts = {}) {
         if (!name) continue;
         const f = path.join(HERE, name + '.py');
         if (!fs.existsSync(f)) throw new Error('preload 找不到模块：' + f);
-        pre += '# ---- preload ' + name + '.py ----\n' + readModuleSource(name) + '\n';
+        pre += preloadChunk(name) + '\n';
       }
       // ---- 引擎前导（v0.8.0）：默认 eevee + 光追；可选 cycles / keep（向后兼容 gpu:"false"=keep）
       const engineMode = String(opts.engine === undefined || opts.engine === null ? 'eevee' : opts.engine).toLowerCase();
@@ -1456,5 +1612,5 @@ export function createEngine(opts = {}) {
     },
     async start() { await addon.ensure(); return true; },
     stop() { addon.close(); try { if (workerAlive()) worker.child.kill('SIGKILL'); } catch (e) {} },
-  };
+  });
 }

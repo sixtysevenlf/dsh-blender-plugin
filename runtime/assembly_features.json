@@ -1,0 +1,226 @@
+{
+  "schema": "dsh-assembly-features/1",
+  "title": "DSH 装配特征库（配合特征 9 个 + 公差四档 + 导向倒角 + ISO 273 间隙孔）",
+  "units": "mm",
+  "length_unit_note": "本文件里所有长度都是**毫米**；Blender 侧几何单位 → 毫米的换算走场景 unit_settings.scale_length（contract.py 的 _units()），本文件不做单位换算。",
+  "source": "SpatiaOS/Procedura (MIT) lib/assembly.scad —— 模块结构、公式与数值原样搬运，禁止二次发明；ISO 273 间隙孔为源码自带的经验偏移表（见 iso273_clearance_diameter.series_note）。",
+  "why_this_file": "配合件对不上的头号原因不是公差选错，而是公母两处各写了一个字面量（改一处忘一处）。把它做成数据文件是为了让 mate_check / fit_help / 生成器读**同一份**数值，而不是各自抄一遍。",
+
+  "shared_nominal_rule": {
+    "rule": "公件按 nominal 造，母件按 nominal + 2×asm_fit(cls) 造 —— 两侧必须来自同一个 nominal 变量；禁止母件的孔写死一个独立数字。",
+    "why": "两个独立字面量在改动时必然漂移：要么母孔没跟着放大（压死/焊死），要么放多了（晃）。这是 assembly.scad 明文写下的第一条纪律。",
+    "check_by": "mate_check(conn_id, fit=…)：量实测单边中位间隙，落在 nominal ± tol 之外就是这条纪律被破了；check_interface 只有 bbox 口径，看不住 0.15 mm 级的偏差。",
+    "sign_convention": "asm_fit 是**单边**读数：正 = 让料（有缝），负 = 过盈（压配）。母件孔径 = nominal + 2×fit（双侧各让一次）。"
+  },
+
+  "fits": {
+    "_comment": "asm_fit(cls) 四档原样搬运；per_side_mm 是**单边**间隙。cls 传未知值 → 源码回落 0.15（location）。",
+    "clearance": {
+      "per_side_mm": 0.25,
+      "sign": "positive",
+      "purpose": "自由滑动/转动配合（导轨、要转的轴、可拆插销）",
+      "when": "零件之间要相对运动，或要能徒手插拔",
+      "blender": "孔 = nominal + 0.5；销/轴 = nominal"
+    },
+    "location": {
+      "per_side_mm": 0.15,
+      "sign": "positive",
+      "purpose": "手压定位配合（定位销/榫头、拼缝、需要重复拆装的对位）",
+      "when": "要定位准、又不至于插不进；3D 打印件的默认档",
+      "blender": "孔 = nominal + 0.3；销/轴 = nominal"
+    },
+    "press": {
+      "per_side_mm": -0.05,
+      "sign": "negative",
+      "purpose": "过盈压配（木榫、热熔铜螺母、免胶压入衬套）",
+      "when": "要永久固定、靠摩擦传力；需要敲/加热",
+      "blender": "孔 = nominal - 0.1（比公件小）；母件在 Blender 里仍造得比公件小，实机靠变形吃进去"
+    },
+    "snap": {
+      "per_side_mm": 0.20,
+      "sign": "positive",
+      "purpose": "卡扣工作间隙（悬臂要能先让开、再卡住）",
+      "when": "snap_tab 穿过 snap_window 时要无干涉通过",
+      "blender": "窗 = tab + 0.4；单边 0.2"
+    }
+  },
+  "fit_default_cls": "location",
+  "fit_unknown_fallback_mm": 0.15,
+  "fit_tolerance_note": "四档之间的最小间距只有 0.05 mm（location 0.15 ↔ snap 0.20）。网格实测的噪声底（三角化弦差 + 采样稀疏）在这个量级，所以 mate_check 的默认 tol_mm=0.15 **不是**用来分辨档位的，而是「测量 + 工艺」带；要分辨档位必须显式传更小的 tol_mm。",
+
+  "lead_chamfer": {
+    "formula": "asm_lead(d) = max(0.6, 0.15 * d)",
+    "min_mm": 0.6,
+    "frac_of_d": 0.15,
+    "d_means": "被倒角处的直径：母件口部用 bore = nominal + 2*fit，公件尖端用 d",
+    "why": "所有公件尖端/母件口部都要有导向倒角，零件才会自己找正坐进去 —— 「让生成件真的能装」里最便宜的一条。原文：Keep it; do not model bare cylinders.",
+    "blender": "母件口部：cone（radius1=bore/2, radius2=(bore+2*lead)/2）与孔一起并进 cutter 再一次 Boolean DIFFERENCE；公件尖端：cone（radius1=d/2, radius2=max(0.2,d-2*lead)/2）join 到销上"
+  },
+
+  "iso273_clearance_diameter": {
+    "formula": "asm_bolt_clear_d(m) = m<=2 ? m+0.4 : m<=3 ? m+0.6 : m<=6 ? m+0.8 : m<=12 ? m+1.0 : m+1.5",
+    "branches": [
+      { "m_le": 2, "offset_mm": 0.4 },
+      { "m_le": 3, "offset_mm": 0.6 },
+      { "m_le": 6, "offset_mm": 0.8 },
+      { "m_le": 12, "offset_mm": 1.0 },
+      { "m_le": null, "offset_mm": 1.5 }
+    ],
+    "m_means": "公制螺纹标称直径 M<m>（mm）",
+    "series_note": "标称上属 ISO 273 间隙孔，但源码这套偏移**不是**逐档同一系列：M3=3.6 / M4=4.8 / M5=5.8 / M6=6.8 / M8=9.0 与 ISO 273 coarse（粗装配）对得上，M12 处 m+1.0=13.0 落的是 fine 档。以源码为准 —— 别拿 ISO 表去「纠正」它，否则和上游生成件就不一致了。",
+    "examples": { "M2": 2.4, "M3": 3.6, "M4": 4.8, "M5": 5.8, "M6": 6.8, "M8": 9.0, "M10": 11.0, "M12": 13.0 }
+  },
+
+  "features": [
+    {
+      "name": "peg",
+      "kind": "male",
+      "cn": "销 / 轴（公）",
+      "purpose": "定位销、转轴、榫头：从原点沿 +Z 长出的实心圆柱，尖端带自动找正倒角。",
+      "key_dims": { "d": "直径（= 共享 nominal）", "len": "总长（含倒角段）" },
+      "formula": "lead = asm_lead(d)；主体 = cylinder(h = max(0.01, len - lead), d = d)；尖端 = cylinder(h = lead, d1 = d, d2 = max(0.2, d - 2*lead))，位于 z = len - lead",
+      "pairs_with": "socket(d 相同)、bolt_hole（作轴穿过时）",
+      "ops": "union 到自己的零件上",
+      "blender": "primitive_cylinder_add(vertices=48, radius=d/2, depth=len-lead) + primitive_cone_add(radius1=d/2, radius2=(d-2*lead)/2, depth=lead) 摆到 z=len-lead，然后 join 成一个对象",
+      "cautions": [
+        "别做裸圆柱：没有 lead 的销插不进孔（这是原文点名的第一件事）。",
+        "d 必须与 socket 的 nominal 是**同一个数值来源**。",
+        "尖端 d2 下限 0.2 mm —— 细销不要给过大的倒角，否则尖端变针。"
+      ]
+    },
+    {
+      "name": "socket",
+      "kind": "female",
+      "cn": "承孔 / 座孔（母）",
+      "purpose": "与 peg 配对的下沉盲孔：孔径按 fit 档让料，口部外张做导向。",
+      "key_dims": { "d": "公件 nominal", "depth": "孔深（母件顶面在 z = depth 时向下钻）", "cls": "fit 档，默认 location" },
+      "formula": "bore = d + 2*asm_fit(cls)；lead = asm_lead(bore)；主体 = cylinder(h = depth + 0.02, d = bore) 位于 z = -0.01；口部 = cylinder(h = lead + 0.01, d1 = bore, d2 = bore + 2*lead) 位于 z = depth - lead",
+      "pairs_with": "peg（同一 d）",
+      "ops": "作为负形体 subtract：difference() { 母体; socket(...); }",
+      "blender": "两个 cutter（cylinder + cone）先 join 成一个 cutter 对象，再对母件加一个 BOOLEAN/DIFFERENCE 修改器 —— 一次布尔比两次快得多，也少一处中间态。",
+      "cautions": [
+        "口部漏斗要朝装配方向（+Z，朝外），别做在孔底。",
+        "深度 +0.02 mm 过切：避免孔底与母件底面共面导致布尔留面。",
+        "bore 里已经含了 fit，别再给公件加余量（双侧让料会变成 2 倍间隙）。"
+      ]
+    },
+    {
+      "name": "bolt_hole",
+      "kind": "female",
+      "cn": "螺钉过孔（母）",
+      "purpose": "单颗公制螺钉的间隙孔：按 ISO 273 偏移量给孔径，入口带漏斗，可选沉孔。",
+      "key_dims": { "m": "螺纹标称 M<m>", "depth": "孔深", "cbore": "是否要沉孔（杯头螺钉）", "cbore_d / cbore_depth": "沉孔直径/深（0 = 自动取 cd+m / m）" },
+      "formula": "cd = asm_bolt_clear_d(m)；lead = 0.6；cbd = cbore_d > 0 ? cbore_d : cd + m；cbh = cbore_depth > 0 ? cbore_depth : m；孔 = cylinder(h = depth + 0.02, d = cd) 位于 z = -depth；漏斗 = cylinder(h = lead + 0.01, d1 = cd, d2 = cd + 2*lead) 位于 z = -lead；沉孔 = cylinder(h = cbh + 0.02, d = cbd) 位于 z = -cbh",
+      "pairs_with": "bolt_circle（阵列）、boss（对侧螺纹台）",
+      "ops": "作为负形体 subtract",
+      "blender": "cylinder(radius=cd/2, depth=depth) + cone 入口漏斗（+ 可选 cylinder 沉孔）join 成 cutter → BOOLEAN/DIFFERENCE",
+      "cautions": [
+        "漏斗只在入口侧（z ≈ 0 那面），孔底不要倒角。",
+        "沉孔默认 cbd = cd + m、cbh = m 是经验值：杯头 M3 头径 5.5 mm，cd+m = 6.6 够放。",
+        "过孔别照抄螺纹小径（M3 用 2.5 就装不进了）—— 用 asm_bolt_clear_d。"
+      ]
+    },
+    {
+      "name": "bolt_circle",
+      "kind": "female",
+      "cn": "螺栓圆阵列（母）",
+      "purpose": "节圆上均布的 count 个间隙孔（法兰/端盖）。",
+      "key_dims": { "bcd": "**节圆直径**（不是半径）", "count": "孔数", "m": "螺纹标称", "depth": "孔深", "phase": "起始相位角（度）" },
+      "formula": "for i in [0 : max(1,count)-1]：rotate_z(phase + i*360/max(1,count)) then translate_x(bcd/2) then bolt_hole(m, depth, cbore)",
+      "pairs_with": "bolt_hole（单孔）、boss",
+      "ops": "作为负形体 subtract（整组一次减）",
+      "blender": "for 循环建 count 个 cutter（cylinder+cone）→ 全 join 成一个 cutter → 一次 BOOLEAN/DIFFERENCE；也可以用 Array 修改器绕 Empty 做圆周阵列，但要 Apply 后再减。",
+      "cautions": [
+        "bcd 是直径：写半径会让孔挤在中心（原文参数名就叫 Bolt Circle Diameter）。",
+        "count 下限 1（源码 max(1, count)）—— 传 0 不会崩，但那是「没有孔」，不是「无限孔」。",
+        "逐个 boolean 会慢一个量级：先 join 再减。"
+      ]
+    },
+    {
+      "name": "boss",
+      "kind": "male_with_female",
+      "cn": "螺柱台 / 支撑柱（公，自带螺纹底孔）",
+      "purpose": "壁上凸起的圆柱台，中心带一个press 档的螺钉底孔（自攻/热熔铜螺母）。",
+      "key_dims": { "od": "外径", "screw_d": "螺钉标称/底孔 nominal", "height": "高度", "cls": "fit 档，默认 press", "fillet": "根部圆角环宽（默认 1）" },
+      "formula": "外 = cylinder(h = height, d = od) ∪ cylinder(h = fillet, d1 = od + 2*fillet, d2 = od)（根部圆角环）；底孔 = cylinder(h = height + 0.02, d = screw_d + 2*asm_fit(cls)) 位于 z = -0.01；结果 = difference(外, 底孔)",
+      "pairs_with": "bolt_hole（对侧过孔）",
+      "ops": "外 union 到零件；底孔 subtract",
+      "blender": "cylinder(od/2, height) + cone(radius1=(od+2*fillet)/2, radius2=od/2, depth=fillet) 做根部环 → join → 减去底孔 cylinder（一次 DIFFERENCE）",
+      "cautions": [
+        "底孔默认 press 档（负公差）—— 这是给自攻钉/热熔铜螺母的；要过孔就用 bolt_hole，别把这里改成正公差。",
+        "fillet 环是「圆角」的廉价格：真倒角用 Bevel 修改器，但打印件上这个锥环更稳。"
+      ]
+    },
+    {
+      "name": "snap_tab",
+      "kind": "male",
+      "cn": "卡扣悬臂（公）",
+      "purpose": "悬臂梁 + 钩子：插入时被斜坡顶开，到位后卡在窗沿上。",
+      "key_dims": { "width": "悬臂宽（Z 向挤出高度）", "length": "悬臂长（+Y）", "thick": "根部厚（X）", "hook": "钩子凸出量（默认 1.2）" },
+      "formula": "linear_extrude(height = width) 多边形：[(0,0), (thick,0), (thick, length-2*hook), (thick+hook, length-hook), (thick, length), (0, length)]",
+      "pairs_with": "snap_window（+snap 档间隙）",
+      "ops": "union 到自己的零件上",
+      "blender": "别用 cube 硬凑：mesh.from_pydata 直接建这 6 个顶点、建面、再 Solidify/Extrude 到 width —— 钩子的斜坡是插入导向，削平就插不进去了。",
+      "cautions": [
+        "倒数第二个点 (thick+hook, length-hook) 是卡住窗沿的台阶，最后一个点 (thick, length) 是斜坡尖端 —— 两点顺序反了会变成倒钩。",
+        "根部不要倒角/缺口（应力集中点）。",
+        "hook 默认 1.2 是 FDM 经验值：太小卡不住，太大拆不下来。"
+      ]
+    },
+    {
+      "name": "snap_window",
+      "kind": "female",
+      "cn": "卡扣让位窗（母）",
+      "purpose": "给卡扣钩子穿过的通透窗口，四周都留让位量，插入时钩子才能通过。",
+      "key_dims": { "width / length / thick": "对应 snap_tab 的宽/长/厚", "gap": "**单边**让位量，默认 0.3" },
+      "formula": "cube([thick + 2*gap, length + 2*gap, width + 2*gap])，起点 (-gap, -gap, -gap)",
+      "pairs_with": "snap_tab",
+      "ops": "作为负形体 subtract",
+      "blender": "primitive_cube_add(size=1) + scale = (thick+2gap, length+2gap, width+2gap)，摆到 (-gap,-gap,-gap) → BOOLEAN/DIFFERENCE",
+      "cautions": [
+        "gap 是**单边**：三个方向都要 ×2，漏一个方向就会把钩子卡死。",
+        "窗口要通透（贯穿壁厚），半通窗会让钩子顶住底。",
+        "裂口/拆件方向要考虑：窗口壁太薄时打印会毛边。"
+      ]
+    },
+    {
+      "name": "tab",
+      "kind": "male",
+      "cn": "定位舌（公）",
+      "purpose": "矩形定位舌，尖端倒角自动找正进槽，防转动/定角度。",
+      "key_dims": { "width": "X 宽", "thick": "Y 厚", "length": "Z 长", "chamfer": "尖端倒角（默认 0.8）" },
+      "formula": "ch = min(chamfer, min(width, thick)/2 - 0.05)；hull(linear_extrude(0.01) square(width, thick), translate(ch, ch, length-0.01) linear_extrude(0.01) square(width-2ch, thick-2ch))",
+      "pairs_with": "slot（同 width/thick，默认 location 档）",
+      "ops": "union 到自己的零件上",
+      "blender": "cube 缩放到 (width, thick, length) + Bevel 修改器（limit=TOP 边）近似倒角；或两个 cube hull —— Blender 里可用「底 cube + 顶小 cube + 缩放的 cone」逼近。",
+      "cautions": [
+        "chamfer 会被 min(..., min(width,thick)/2-0.05) 夹住：小舌头上给 0.8 会被自动削减（不是 bug）。",
+        "单个矩形舌只约束 2 个方向：要防转要成对（互成 90°）或改用 peg+socket。"
+      ]
+    },
+    {
+      "name": "slot",
+      "kind": "female",
+      "cn": "定位槽（母）",
+      "purpose": "与 tab 配对的矩形槽，尺寸 = tab + fit，口部漏斗。",
+      "key_dims": { "width / thick": "对应 tab 的宽/厚", "depth": "槽深", "cls": "fit 档，默认 location" },
+      "formula": "g = asm_fit(cls)；lead = 0.6；主体 = translate(-g,-g,-0.01) cube(width+2g, thick+2g, depth+0.02)；口部 = translate(0,0,depth-lead) hull(底面 square(width+2g, thick+2g), 顶面 translate(-lead,-lead,lead) square(width+2g+2lead, thick+2g+2lead))",
+      "pairs_with": "tab",
+      "ops": "作为负形体 subtract",
+      "blender": "cube(width+2g, thick+2g, depth) + 口部用一个四棱台（cone with vertices=4 或缩放的 cube）—— 两者 join 成 cutter 再一次 BOOLEAN/DIFFERENCE",
+      "cautions": [
+        "槽口漏斗朝装配方向；做反了就变成「越插越紧」。",
+        "g 是单边，四周都要让（和 snap_window 一样容易漏）。",
+        "槽深 +0.02 过切，避免与底面共面。"
+      ]
+    }
+  ],
+
+  "blender_general": {
+    "male_ops": "union（公件 join 到本体；或 BOOLEAN/UNION，但 join 更快且几何零损失）",
+    "female_ops": "subtract（多个 cutter 先 join 成**一个** cutter 对象，再一次 BOOLEAN/DIFFERENCE）",
+    "manual_booleans": "bpy.ops 的布尔要上下文：bpy.context.view_layer.objects.active = 母件; 母件.select_set(True)；修改器 object=Cutter; operation='DIFFERENCE'; 之后 modifier_apply",
+    "evaluated_mesh": "带 Boolean 修改器未 Apply 时，ob.data 里**没有孔**。量几何一律走 evaluated_get(depsgraph).to_mesh()（contract.py 的 _mesh_data 就是这么做的），否则会把「销已穿模」读成「销悬空」。",
+    "verify": "mate_check(conn_id, fit=…) 量实测间隙；interference_report 量计划外干涉。"
+  }
+}

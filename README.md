@@ -183,9 +183,14 @@ Answers the white-box question: *how does the model justify what it built, and w
 - **Planner ops** (`plan_…`): `plan_load` / `plan_validate` / `plan_order` / `plan_build` (`dry_run` first) / `plan_graph` (mermaid/dot).
   Graph = Component (box/cylinder/sphere/mesh_copy) · Connection (candidates, status, forbidden, offset) · Feature (array/grid/mirror).
   IDE-style diagnostics: `UnresolvedConnection`, `UnsupportedDestructiveMerge`, `MissingComponent`, `Cycle`, `ParamOutOfRange`, `UnknownKind`; hard errors refuse to compile.
+- **Assembly-level gates (v0.9.0)**: `audit_connectivity` / `audit_gate` — every component is asked *"are you attached to anything else?"* (bbox pre-screen + **BVH mesh confirmation**; visible floater = longest bbox edge ≥ 1% of the model; the `micro_gap_mm` caliber is reported back, 0.3 mm = single-solid/3D-print, use 1–2 mm for assemblies designed with clearance), `audit_drift` (symmetric Chamfer **shape** drift, point-to-surface: translation/scale-invariant by design, `bbox_delta` carries the movement), `audit_measure`, `audit_snap_floaters` (report-only by default; never rips a welded part). `audit_scene` / `audit_mesh` / `audit_duplicates` and `montage` are **actually routed** now — they were documented but had never been wired (v0.9.0 fixes that).
+- **Verdicts that expire (v0.9.0)**: `fingerprint` binds evidence and verdicts to geometry digests, `ledger` marks entries `stale`, and `verify` stores a bbox snapshot so a `supported` verdict **auto-demotes to `unresolved`** once geometry drifts (>10% diagonal or >20% size; animated objects are skipped).
+- **Fits and interference (v0.9.0)**: `mate_check` measures contact-area fraction / median single-side gap / penetration depth **on the actual mesh** (`fit` classes: clearance 0.25 · location 0.15 · press −0.05 · snap 0.20 mm per side), `fit_help` serves `runtime/assembly_features.json` (9 features + ISO 273 + the shared-nominal rule), `interference_report` adds depth/volume/severity and a `declared` exemption for registered joints.
+- **Mechanisms (v0.9.0)**: `motion_joint` / `motion_infer_axis` (two independent evidence paths — rotational symmetry and contact strip; conflicting evidence ⇒ `unresolved`, never a pick) / `motion_measure` (sweep = kinematic+BVH evidence, **not** physics) / `motion_export_urdf` / `motion_export_usda` (single tree, degenerate joints reported as `fixed`, SI units, structural self-check).
+- **Generators (v0.9.0)**: `generator_save` / `generator_run` — the program is the shape: reproduce it in a **fresh headless Blender process** (compile gate), compare against `expect` (three-state) and cache by source hash; `generator_list|get|diff` — change the source and the previous receipt is void.
 
 **The rule that matters**: when two hypotheses fit the visible evidence equally well (measured residuals **184 vs 184**), the verdict is `unresolved` **plus the probe you need** — never a coin flip.
-Worked example with numbers (~3 s, headless): `docs/examples/chair-backrest/`; method: `docs/假设驱动建模-cookbook.md`. Self-tests: `tests/contract_selftest.py` (24/24) and `tests/plan_selftest.py` (18/18).
+Worked example with numbers (~3 s, headless): `docs/examples/chair-backrest/`; method: `docs/假设驱动建模-cookbook.md`. Self-tests: `tests/contract_selftest.py` (**33/33** — 24 baseline + 9 v0.9.0) and `tests/plan_selftest.py` (18/18).
 
 ## 6. Recipes
 
@@ -278,8 +283,12 @@ dsh-blender-plugin/
 [`tests/README.md`](tests/README.md) has the full list. The key ones:
 
 1. `blender_rt_headless {preload:"view", script:"print('HEADLESS ' + K.dsh_view_api['selftest']())"}` → `ok:true`, matrix deltas ≈1e-7, `first_px == [25,153,51,255]`.
-2. `tests/contract_selftest.py` (headless) → **24/24**: registration, envelope violations, AABB+BVH interference, interface gap, destructive guard blocking, evidence md5 ledger, `unresolved → supported`, flip, report.
+2. `tests/contract_selftest.py` (headless) → **33/33**: registration, envelope violations, AABB+BVH interference, interface gap, destructive guard blocking, evidence md5 ledger, `unresolved → supported`, flip, report — plus v0.9.0: geometry fingerprint, evidence going `stale` after an edit, verdict auto-demotion on drift.
 3. `tests/plan_selftest.py` (headless) → **18/18**: diagnostics, topological order, dry-run vs real build, `hidden_when` both states, connection offset, `ParamOutOfRange`, `Cycle`, hard-error refusal, envelope integration.
+4. `tests/mate_selftest.py` (headless) → **57/57**: fit gate (0.1498 mm measured vs 0.1500 designed), "not attached at all" refutation, deep-penetration refutation, `samples=2 → unresolved`, interference severity + declared exemption, BVH vs pure-numpy cross-check.
+5. `tests/txn_selftest.py` → **55/55** (pending-edit protocol: accept requires a check + a non-empty `verified`, revert is budget-free but capped, dither guard) · `tests/deliver_selftest.py` → **53/53** (unit-box normalize, multi-group OBJ+MTL, manifest md5; one byte or one face of tampering must FAIL).
+6. `tests/motion_selftest.py` → **25/25**: axis inference (0.00° vs the true axis), 8-phase sweep `supported` when clean and `refuted` + offender named when a blocker is placed in the path, per-object `matrix_world` restore, URDF/USDA structural self-check.
+7. `blender_rt_plan(op="qc_render_selftest")` → **14 assertions** (parts-color restore, per-line `device`, view catalog/aliases, projection cross-check) · `audit_gate_selftest` → assembly-gate synthetic check · `generator_selftest` → compile gate + cache + expiry.
 4. `docs/examples/chair-backrest/run.py` → **3 s**, unresolved → probe → unique support (numbers in §4.5).
 2. `tests/png_decode.py <png>` → confirms byte-exact colours (no double gamma, no vertical flip).
 3. Lease walkthrough (7 requests) against `/lease`, `/act`, `/who`, `/release`.

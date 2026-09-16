@@ -1,5 +1,91 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
+## v0.9.0（2026-09-17）—— Procedura 融合：装配级判据 + 数值化改动度量 + 判定随几何失效
+
+来源：对 [SpatiaOS/Procedura](https://github.com/SpatiaOS/Procedura)（MIT，Agentic 3D Modeling with Procedural Control）逐文件精读后的移植评估
+（分析表：`docs/Procedura-融合分析.md`）。**只搬判据与算法，不搬技术栈**（不引 OpenSCAD / Isaac / 它的 TS 运行时）。
+全量回归：9 个自检各自独立进程全绿（下面逐条给实测数字）。
+
+- **★ 先修一个真 bug：`audit_*` 从来没接通**。`docs/` 里一直文档化的 `blender_rt_plan(op="audit_mesh" / "audit_scene" / "audit_duplicates")`
+  实际会掉进契约层报 `unknown contract op`（实测 `audit_help` 返回 `"unknown contract op"`）—— audit.py 只在 preload 通道可达。
+  本版把 `audit_*`、`montage` 正式接进引擎路由（`engine.mjs` + `server.mjs` 只读名单），并补上 `motion_* / deliver_* / generator_*` 三条新路由。
+
+- **装配级连通门 `audit_connectivity` / `audit_gate`**：连通分量 + 浮块归因 + 微隙分级。
+  判据：可见浮块 = 最长 bbox 边 ≥ 全模型最长边 **1%**；相接口径 `micro_gap_mm`（默认 0.3）。
+  **与上游两处有意分歧**（都写进返回体，不藏）：
+  ① 不再用「最大体积分量=主体、其余都是浮块」—— 两个等大零件时那条规则会随便挑一个当浮体（自检抓到过，A/C 体积都是 1.0）；
+     改成**每个分量都问「你有没有跟别的分量相接」**（`attached` 三分类：floaters / tolerated / unconfirmed）。
+  ② 上游靠 bbox 间隙判 micro（单网格够用；**多对象装配里 bbox 普遍重叠 → 间隙恒为 0 → 一律放行**），本版补**网格级复核**：
+     BVH `find_nearest_range` + **面上采样**（≤400 点，取顶点会漏 —— 大平面间的 0.2mm 缝顶点可能相距几米）。
+     自检用例 F（bbox 与 A 重叠、面到面 1.32 mm）被判浮块；用例 C（0.2 mm 缝）判真 micro。
+  大网格（>50 万三角面）跳过网格复核 → `attached=None` → 门**降级 ok=null**，未确认不得读作已通过。
+  口径与分布随返回回传（`gate_caliber` / `gap_histogram` / `floater_gap_range_mm`）。
+  **真机实测（COCKPIT_DELIVERY，14 对象 / 97,438 面）**：0.3 mm 口径 → 178 个可见浮块（与最近邻相距 0.33–1.14 mm）+ 970 个确认相接；
+  2.0 mm 口径 → 63 个浮块。说明该模型是「贴着不接触」的装配件，不是单一实体 —— 口径该给多少取决于你要什么。
+
+- **网格漂移度量 `audit_drift`**：对称 Chamfer 距离 = **形状漂移**（不是倒角！）。上游口径是「各自归一化 → 点到最近采样点」，
+  本版换成 **BVHTree 点到曲面**：20k 采样 **21,397 ms → 46 ms（460×）**，且同网格读 **0.000000**（上游口径的采样噪音底是 0.017）。
+  ⚠ 语义：归一化会消除平移与整体缩放 → 它回答「形状改了多远」，不回答「挪了多远」；位移另由 `bbox_delta.moved_mm` 报（自检把这两条都钉住）。
+  band：≤0.01 基本未变 / 0.01–0.05 轻微（≤最长边 2.5%）/ >0.05 明显；grid 兜底口径系统性偏大，返回里标 `metric`。
+
+- **测量包 `audit_measure` / 浮块贴合 `audit_snap_floaters`**：世界 bbox + 逐轴间隙/重叠（mm 与 %）+ 邻居（契约图 + 空间最近 K）；
+  snap 默认只报告，且**只对「整件属于该浮块」的对象平移**（焊接体一块不撕 —— 上游 v3 snap 的翻车点），
+  bbox 读成 0 时自动改走**网格级最近点对**。
+
+- **证据随改动失效 + 判定漂移自动降级（契约层）**：新增 `fingerprint`（对象/面数/点数/世界 bbox + 12 位 digest）；
+  证据与判定都绑指纹，`ledger` 逐条对拍标 `stale`；`verify` 记 bbox 快照，之后几何漂移 > 10% 对角线（或尺寸 > 20%）
+  → `supported` 在 status/ledger 读取时**自动降级 unresolved**（带动画数据的对象跳过）。契约自检 24 → **33 项**。
+
+- **渲染 harness 三件（qc_render v2）**：`mode="parts_color"`（12 色逐部件配色 + `parts_color_meta.txt` 图例 + 出图后逐项还原，
+  共享 mesh 会先复制隔离，否则串色）、jsonl 每行**实测 `device`**（防 Cycles 静默回落 CPU ≈7×；拿不到就 `null` + 点名，不猜）、
+  `qc_render_catalog`（22 视角 / 4 组 / 别名归一：`iso-FR-top`/`isometric`/`isoright` → `iso`；**未知名不再静默当 iso 渲**）。
+  顺带修两个既有问题：`op="qc_render_help"` 过去一直落到 unknown（engine 会剥 3 个字符前缀，已补 `render_*` 别名）；
+  `_set_engine` 在取景失败早退时会把引擎改掉不还原。自检 14 条 + 边界 15 条全绿。
+
+- **配合门 + 装配特征库 + 干涉升级（契约层 v3）**：`mate_check` 在**实际网格**上量接触面积占比 / 单边间隙中位值 / 侵入深度
+  （接触距离 = 1.5% 合并对角线；采样 ≤4000；双向面积占比取 max；fit 四档 clearance 0.25 / location 0.15 / press −0.05 / snap 0.20）；
+  `fit_help` 读 `runtime/assembly_features.json`（9 特征 + 四档 + 导向倒角 + ISO 273 + 共享标称纪律）；
+  `interference_report` 逐对报深度/体积占比/严重度，把已注册连接的两端标 `declared`（计划内接触默认豁免，超 `depth_eps` 默认 0.2 mm 仍报）；
+  `check_interface` 做**加法升级**（老 bbox 字段逐字不变 + 新增 `mesh` 块）。
+  实测：正常配合单边中位间隙 **0.1498 mm**（设计 0.1500）→ supported；挪远 5 mm → refuted 且点名「完全没搭上」；
+  深穿模 depth_max **3.000 mm** > 0.2 → refuted；`samples=2` → unresolved；过盈档实测 0.0499（设计 0.05）→ supported。
+  自检 33 → **57 项**。
+
+- **待定编辑事务 + 交付导出（txn v3 + 新模块 deliver.py）**：`edit_begin / edit_check / edit_accept(verified) / edit_revert(why) / edit_status`
+  ——同一时间一个 pending；接受必须「有复核 + 一句 verified（空串拒）」；撤销免预算但有上限 `max(2, 累计步数)` 且防抖（同 label 连续 revert 拒）；
+  `deliver_export / deliver_verify`：单位盒归一化 + 多组 OBJ/MTL + manifest（md5/字节/单位换算/归一化三件套），
+  改一字节或加一个面必须 FAIL。txn 自检 **55 项**、deliver 自检 **53 项**。
+
+- **轨迹 JSONL**：每次顶层调用写 `<工作目录>/trajectory/blender_rt-<日期>.jsonl`（route/op/ms/ok/参数摘要/摘要 hash），
+  超 16 MB 轮转；`DSH_TRAJ=0` 关、`DSH_TRAJ_FULL=1` 记更多参数；`engine.status()` 里给路径。
+
+- **铰接/机构 `motion_*`（新模块 motion.py）**：关节轴/锚点**实测**（旋转对称 + 接触带两条独立证据，冲突时报 unresolved 而不是二选一）、
+  **扫掠验证**（替代 Isaac：多相位驱动 + BVH 干涉，零干涉且确实位移 → supported；撞上就 refuted 并点名，实测点名 `MS_Blocker`，最深 0.019 m）、
+  URDF/USDA 导出（单树合成、退化关节降级 fixed 并报 warning、结构自检：XML 可解析 / 名字唯一 / 端点存在 / 无环 / mesh 文件在）。
+  扫掠后**所有对象 matrix_world 逐项对拍还原**（max_delta 0.0）。自检 25/25（另一条证据通路：铰链沿 Y + 无销的接触带定轴 + prismatic 滑块）。
+  **过程中修掉三个真坑**：① `%.9f` 会把 mm 级质量 8.6e-11 静默写成 `0`（改 `%.9g` 并加断言）；
+  ② `meters_per_unit` 默认 0.001 在米制场景会给出荒谬量级 → 新增 `meters_per_unit="scene"`（读 scale_length）+ 单位可疑警告；
+  ③ 同一对象被两个关节组认领会在 URDF/USDA 里重复计入几何与质量 → 现在 `ok:false` 并列出 conflicts。
+  边界（`motion_help` 里写明）：是运动学+BVH 扫掠，不是物理验证；零干涉需至少一个旁观者对象，否则 unresolved；
+  轴推断只对可辨识几何有效（薄平板 → unresolved）；USDA 是最小可用 ASCII，不是完整 UsdPhysics schema；本机没有 URDF/USD 消费者可做端到端加载验证，只有结构自检。
+
+- **生成器 `generator_*`（新模块 generator.py）—— #18 代码化建模通道的 Blender 原生轻量版**。
+  本机两侧都没装 OpenSCAD（真接它要 Manifold 后端：同一 `hull()` CGAL 1774 s vs Manifold 1.77 s），所以把那四件事用 Blender 原生方式拿到：
+  **程序即形状**（注册一段 python 生成器）+ **编译门**（在全新无头进程里从零复现）+ **模块级缓存**（源码 hash + 参数 hash 都没变就不重跑）
+  + **源码一变回执过期**。自检实测：3 个方块 supported（805 ms）→ 再跑命中缓存（ms=0）→ expect 不符 refuted → 没给 expect unresolved →
+  改源码后 diff.changed=true/verdict=refuted → 坏脚本 refuted。
+
+**顺带修掉的两个基础设施问题（都来自本版实测）**：
+- **preload 多模块互相覆写 helper**：engine 把多个模块源码拼进**同一 globals**，而每个 runtime 模块都定义 `_j/_kernel/_store/_now` →
+  实测 `preload="txn,deliver"` 直接把 txn 打崩（`KeyError: 'marks'`）。现在每个模块 exec 到**自己的命名空间**
+  （私有名不外泄，公开名与常用 import 照旧拷回 globals → 向后兼容），两个路径（headless / 作业层）都改。
+- **两条通道语义坑**（已写进各自的 scope/help）：① headless 的 `ok:true / exit=0` **不等于**脚本成功 —— Blender 的 `--python`
+  抛异常时退出码仍是 0（生成器自检抓到），判定必须看回执/异常标记；② 源码注入通道里**没有 `__file__`**（读同目录数据文件要用 `K.runtime_dir` 兜底，
+  见 `contract._features_path()`）。
+
+---
+
+
 ## v0.8.9（2026-09-16）—— 修「>15 s 的调用静默失败」等 6 条（外部会话反馈，批次 1）
 
 来源：另一会话使用插件的复盘（通道卡点 5 条）。逐条回代码核对后，**1 条是真 bug、4 条是小缺口**，本版全部修掉。
