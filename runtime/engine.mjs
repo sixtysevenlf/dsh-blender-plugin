@@ -763,7 +763,8 @@ export function createEngine(opts = {}) {
     } catch (e) { return []; }
   }
   function jobSnapshot(j) {
-    return { id: j.id, status: j.status, pid: j.pid, ms: Date.now() - j.startedAt, timeoutMs: j.timeoutMs,
+    // v0.8.9：作业结束后 ms 必须冻结（旧版用 Date.now()，done 的作业放一会儿再看会显示成分钟级）
+    return { id: j.id, status: j.status, pid: j.pid, ms: (j.finishedAt || Date.now()) - j.startedAt, timeoutMs: j.timeoutMs,
              outdir: j.outdir || WIN_TMP, logDir: wslToWin(j.dir),
              stdoutLog: wslToWin(path.join(j.dir, 'stdout.log')), stderrLog: wslToWin(path.join(j.dir, 'stderr.log')),
              exitCode: j.exitCode, signal: j.signal, engine: j.engineMode,
@@ -804,7 +805,7 @@ export function createEngine(opts = {}) {
     jobs.set(id, j); if (jobs.size > 20) { const k = jobs.keys().next().value; if (k !== id) jobs.delete(k); }
     j.timer = setTimeout(() => { j.status = 'killed'; try { child.kill('SIGKILL'); } catch (e) {} }, timeoutMs);
     child.on('close', (code, sig) => {
-      clearTimeout(j.timer); j.exitCode = code; j.signal = sig;
+      clearTimeout(j.timer); j.exitCode = code; j.signal = sig; j.finishedAt = Date.now();
       if (j.status !== 'killed') j.status = (code === 0) ? 'done' : 'failed';
       try {
         const txt = fs.readFileSync(outPath, 'utf8');
