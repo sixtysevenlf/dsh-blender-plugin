@@ -17,6 +17,7 @@ API 挂 K.dsh_qc_api；内环 measure 预置挂 K.dsh_measure。
 """
 import bpy
 import json
+import math
 import os
 import struct
 import time
@@ -24,7 +25,7 @@ import zlib
 
 import numpy as np
 
-QC_VERSION = 4
+QC_VERSION = 5
 PNG_MAGIC = bytes([137, 80, 78, 71, 13, 10, 26, 10])
 
 
@@ -59,6 +60,145 @@ def write_png(path, w, h, rgb_bytes):
     with open(path, "wb") as f:
         f.write(png)
     return path
+
+
+
+# ---------------------------------------------------------------- v0.8.10（C6）纯 Python GIF 解码
+def _gif_lzw(min_code, data, expected):
+    """GIF LZW 解码（返回索引序列）。"""
+    clear = 1 << min_code
+    end = clear + 1
+    code_size = min_code + 1
+    table = [bytes([i]) for i in range(clear)] + [b"", b""]
+    out = bytearray()
+    prev = None
+    bitpos = 0
+    total = len(data) * 8
+    while bitpos + code_size <= total:
+        byte_i = bitpos >> 3
+        chunk = int.from_bytes(data[byte_i:byte_i + 3].ljust(3, b"\x00"), "little")
+        code = (chunk >> (bitpos & 7)) & ((1 << code_size) - 1)
+        bitpos += code_size
+        if code == clear:
+            table = [bytes([i]) for i in range(clear)] + [b"", b""]
+            code_size = min_code + 1
+            prev = None
+            continue
+        if code == end:
+            break
+        if prev is None:
+            entry = table[code]
+        elif code < len(table):
+            entry = table[code]
+            table.append(prev + entry[:1])
+        else:
+            entry = prev + prev[:1]
+            table.append(entry)
+        out += entry
+        if prev is not None and len(table) < 4096 and code_size < 12 and len(table) >= (1 << code_size):
+            code_size += 1
+        prev = entry
+        if expected and len(out) >= expected:
+            break
+    return bytes(out[:expected]) if expected else bytes(out)
+
+
+def _wp(path):
+    """路径归一化（WSL→Windows / 反斜杠 UNC），Blender 侧 open() 才能用。"""
+    K = _kernel()
+    if K is not None and hasattr(K, "win_path"):
+        try:
+            return K.win_path(path)
+        except Exception:
+            pass
+    return str(path)
+
+
+def _gif_first_frame(path):
+    """GIF 首帧 → (h, w, 4) uint8 RGBA。只支持常见情形（GCT/LCT、隔行、透明索引）。"""
+    path = _wp(path)
+    with open(path, "rb") as f:
+        data = f.read()
+    if data[:6] not in (b"GIF87a", b"GIF89a"):
+        raise RuntimeError("不是 GIF 文件")
+    i = 6
+    w, h = struct.unpack("<HH", data[i:i + 4]); i += 4
+    flags, _bg, _asp = data[i], data[i + 1], data[i + 2]; i += 3
+    gct = None
+    if flags & 0x80:
+        n = 1 << ((flags & 7) + 1)
+        gct = np.frombuffer(data[i:i + n * 3], dtype=np.uint8).reshape(n, 3).copy(); i += n * 3
+    trans_idx = None
+    canvas = np.zeros((h, w, 4), dtype=np.uint8)
+    while i < len(data):
+        b = data[i]
+        if b == 0x3B:                                     # trailer
+            break
+        if b == 0x21:                                     # extension
+            label = data[i + 1]; i += 2
+            if label == 0xF9 and i + 6 < len(data):       # graphic control
+                # 结构：21 F9 <blockSize=4> <packed> <delay:2> <transparentIdx> 00
+                i += 1                                        # ← 旧版漏了 blockSize 这一字节，导致后面全部错位
+                packed = data[i]; i += 1
+                i += 2                                        # delay
+                tidx = data[i]; i += 1
+                if packed & 0x01:
+                    trans_idx = tidx
+                while i < len(data) and data[i]:
+                    i += 1 + data[i]
+                i += 1
+            else:
+                while i < len(data) and data[i]:
+                    i += 1 + data[i]
+                i += 1
+            continue
+        if b == 0x2C:                                     # image descriptor
+            i += 1
+            left, top, iw, ih = struct.unpack("<HHHH", data[i:i + 8]); i += 8
+            lflags = data[i]; i += 1
+            lct = gct
+            if lflags & 0x80:
+                n2 = 1 << ((lflags & 7) + 1)
+                lct = np.frombuffer(data[i:i + n2 * 3], dtype=np.uint8).reshape(n2, 3).copy(); i += n2 * 3
+            interlaced = bool(lflags & 0x40)
+            min_code = data[i]; i += 1
+            chunks = bytearray()
+            while i < len(data) and data[i]:
+                ln = data[i]; i += 1
+                chunks += data[i:i + ln]; i += ln
+            i += 1
+            idx = np.frombuffer(_gif_lzw(min_code, bytes(chunks), iw * ih), dtype=np.uint8).reshape(ih, iw)
+            if interlaced:
+                rows = np.zeros(ih, dtype=int)
+                k = 0
+                for start, step in ((0, 8), (4, 8), (2, 4), (1, 2)):
+                    for r in range(start, ih, step):
+                        rows[r] = k; k += 1
+                idx = idx[rows]
+            if lct is None:
+                raise RuntimeError("GIF 没有调色板")
+            rgb = lct[np.clip(idx.astype(int), 0, len(lct) - 1)]
+            alpha = np.full((ih, iw), 255, dtype=np.uint8)
+            if trans_idx is not None:
+                alpha[idx == trans_idx] = 0
+            y0, x0 = top, left
+            canvas[y0:y0 + ih, x0:x0 + iw, :3] = rgb[:max(0, min(ih, h - y0)), :max(0, min(iw, w - x0))]
+            canvas[y0:y0 + ih, x0:x0 + iw, 3] = alpha[:max(0, min(ih, h - y0)), :max(0, min(iw, w - x0))]
+            return canvas
+        i += 1
+    raise RuntimeError("GIF 里没有找到图像帧")
+
+
+def gif_to_png(path, out=None):
+    """GIF 首帧 → PNG（应急通道：本机没有 PIL/pip/ffmpeg 时用它把 GIF 变成可读图）。"""
+    arr = _gif_first_frame(path)
+    h, w = arr.shape[0], arr.shape[1]
+    rgb = np.ascontiguousarray(arr[:, :, :3]).tobytes()
+    out = out or (os.path.splitext(_wp(path))[0] + "_frame0.png")
+    out = out if str(out)[1:2] == ":" or str(out).startswith(chr(92) * 2) else _wp(out)
+    write_png(out, w, h, rgb)
+    return _j({"ok": True, "path": out, "size": [w, h], "bytes": os.path.getsize(out),
+               "note": "只取首帧；GIF 里其余帧没有解"})
 
 
 # ---------------------------------------------------------------- 读图 / 掩膜
@@ -96,8 +236,16 @@ def qc_load(path):
             bpy.data.images.remove(img)
         except Exception:
             pass
+        # v0.8.10（C6）：GIF 走内置纯 Python 解码兜底（本机无 PIL/pip/ffmpeg）
+        if str(p).lower().endswith(".gif"):
+            try:
+                _a = _gif_first_frame(p)
+                _srgb = np.clip(_a[:, :, :3].astype(np.float32) / 255.0, 0.0, 1.0)
+                return _srgb, _a[:, :, 3].astype(np.float32) / 255.0
+            except Exception as _e:
+                raise RuntimeError("GIF 解码失败：%s（%s）" % (str(_e)[:120], str(p)))
         raise RuntimeError("读图失败或格式不支持：%s（Blender 能解 PNG/JPEG/WebP/BMP/TGA/TIFF/EXR；"
-                           "GIF 会被静默读成 0×0）→ 先用外部工具转成 PNG 再喂进来" % str(p))
+                           "GIF 会走内置首帧解码）→ 其它格式请先转成 PNG" % str(p))
     try:
         w, h = int(img.size[0]), int(img.size[1])
         buf = np.empty(w * h * 4, dtype=np.float32)
@@ -501,6 +649,45 @@ def _align_search(ref_mask, ren_mask, work=384, coarse=True):
             "mask_ref": ref2, "mask_render": ren2}
 
 
+def _rotate_mask(m, deg):
+    """布尔掩膜绕中心旋转（最近邻）。v0.8.10（C3）：外部反馈里"同一轮廓被取向差压到 0.62 假低分"。"""
+    if abs(float(deg)) < 1e-6:
+        return m
+    h, w = m.shape
+    yy, xx = np.mgrid[0:h, 0:w]
+    cy, cx = (h - 1) / 2.0, (w - 1) / 2.0
+    a = math.radians(float(deg))
+    ca, sa = math.cos(a), math.sin(a)
+    ys = (yy - cy) * ca + (xx - cx) * sa + cy
+    xs = -(yy - cy) * sa + (xx - cx) * ca + cx
+    yi = np.clip(np.round(ys).astype(np.int32), 0, h - 1)
+    xi = np.clip(np.round(xs).astype(np.int32), 0, w - 1)
+    return m[yi, xi]                       # 注意：2D 花式索引必须成对写，m[yi][:, xi] 会变成三维
+
+
+def qc_align_rotate(ref_mask, ren_mask, angles=None, work=384, coarse=True):
+    """对齐搜索 + 角度细化：先 scale/shift，再在 ±8° 内粗扫 + ±1° 细扫，返回最优角度与 IoU。"""
+    base = _align_search(ref_mask, ren_mask, work=work, coarse=coarse)
+    if base is None:
+        return None
+    mref = base["mask_ref"]
+    mren = base["mask_render"]
+    best = {"deg": 0.0, "iou": float(base["iou"]), "mask": mren, "base": base, "searched": True}
+    coarse_angles = angles if angles is not None else [-8, -6, -4, -2, -1, 1, 2, 4, 6, 8]
+    for deg in coarse_angles:
+        iou, _i, _u = _iou_pair(mref, _rotate_mask(mren, deg))
+        if iou > best["iou"]:
+            best = {"deg": float(deg), "iou": float(iou), "mask": _rotate_mask(mren, deg), "base": base, "searched": True}
+    if abs(best["deg"]) >= 1.0:                      # 细扫一圈（±1°，步长 0.5°）
+        for d2 in [best["deg"] + x * 0.5 for x in (-2, -1, 1, 2)]:
+            iou, _i, _u = _iou_pair(mref, _rotate_mask(mren, d2))
+            if iou > best["iou"]:
+                best = {"deg": float(d2), "iou": float(iou), "mask": _rotate_mask(mren, d2), "base": base, "searched": True}
+    best["iou_gain_vs_no_rot"] = round(best["iou"] - float(base["iou"]), 4)
+    best["mask_ref"] = mref
+    return best
+
+
 def _outside_count(ref_mask, s, tx, ty, H, W):
     """参考投影后落在画布外的前景像素数 —— 它们**进不了交集、但必须进并集**，
     否则 IoU 会被系统性抬高（对自己有利的偏差，必须显式计入）。"""
@@ -615,7 +802,7 @@ def qc_self_check() -> str:
                "self_metrics": m_ok,
                "expect": "iou_self 应=1.0；shift/scale 应被对齐搜索找回高 IoU（>0.95）"})
 def qc_compare_auto(ref_path, ref_box=None, render_path=None, label="qc", out_dir=None, render_box=None,
-                    search=True, work=384, bins=24, sat=0.13, v=0.74, mask_mode="auto"):
+                    search=True, work=384, bins=24, sat=0.13, v=0.74, mask_mode="auto", rotate=False):
     """优化版比对（推荐默认）：
       ① 掩膜自适应（alpha 智能判定 / 背景色+Otsu，不再手调阈值）
       ② 对齐搜索（尺度±10% + 平移±5%，两轮细化，最大化 IoU）
@@ -627,7 +814,9 @@ def qc_compare_auto(ref_path, ref_box=None, render_path=None, label="qc", out_di
     os.makedirs(d, exist_ok=True)
     ref_srgb, ref_alpha = qc_load(ref_path)
     ref = qc_crop(ref_srgb, ref_box) if ref_box else ref_srgb
-    rm, rminfo = qc_mask_auto(ref, None) if mask_mode == "auto" else (qc_mask(ref, sat, v), {"source": "satv"})
+    # v0.8.10（C3 口径统一）：ref 也要走 alpha 判定 —— 旧版 ref 用 Otsu、render 用 alpha，
+    # 同一张图自比只有 0.565（外部反馈里"同一轮廓被掩膜口径压到 0.62 假低分"就是这个）
+    rm, rminfo = qc_mask_auto(ref, ref_alpha) if mask_mode == "auto" else (qc_mask(ref, sat, v), {"source": "satv"})
     # v0.8.3：auto 掩膜适用性检查 —— 前景占比异常（满构图海报 / 几乎无前景）时回落阈值口径并显式标注
     _fg = float(rm.mean())
     if mask_mode == "auto" and (_fg > 0.8 or _fg < 0.02):
@@ -649,6 +838,22 @@ def qc_compare_auto(ref_path, ref_box=None, render_path=None, label="qc", out_di
         m["scale_base"] = base.get("base_scale")
         m["shift_px"] = base.get("shift")
         m["canvas"] = base["canvas"]
+        # v0.8.10（C3）：可选角度细化（默认关；开了就报 rotation_deg 与增益）
+        if rotate:
+            try:
+                _rot = qc_align_rotate(rm, rn, work=work)
+                if _rot is not None:
+                    m["rotation_deg"] = round(float(_rot["deg"]), 2)
+                    m["iou_rotated"] = round(float(_rot["iou"]), 4)
+                    m["iou_rotate_gain"] = float(_rot.get("iou_gain_vs_no_rot") or 0.0)
+                    if _rot["iou"] > float(base["iou"]):
+                        mref, mren = _rot["mask_ref"], _rot["mask"]
+                        m2 = qc_metrics(mref, mren, _rot["iou"])
+                        for _k in ("iou", "dice", "inter_px", "ref_px", "render_px", "missing_px", "extra_px", "boundary"):
+                            if _k in m2 and _k in m:
+                                m[_k] = m2[_k]
+            except Exception as _e:
+                m["rotate_error"] = "%s: %s" % (type(_e).__name__, str(_e)[:100])
     else:
         H = min(rm.shape[0], rn.shape[0]); W = min(rm.shape[1], rn.shape[1])
         mref = rm[:H, :W]; mren = rn[:H, :W]
@@ -668,6 +873,18 @@ def qc_compare_auto(ref_path, ref_box=None, render_path=None, label="qc", out_di
             warn.append("对齐搜索把尺度拉开 %.1f%%：可能是在补偿取景/裁切差，也可能模型比例确实不对 —— 请结合 iou_fixed 一起看" % ((drift - 1.0) * 100.0))
     if (m.get("iou_search_gain") or 0) > 0.05:
         warn.append("搜索对齐比固定对齐高 %.3f：单看 IoU 会偏乐观，建议报告里两个都给" % (float(m["iou"]) - float(m["iou_fixed"])))
+    # ---- v0.8.10（B3）「太漂亮」守卫：IoU 恒等 1.0000 / 面积完全相同 → 疑似同一张图或参数没生效
+    try:
+        _iou = float(m.get("iou") or 0)
+        _a, _b = m.get("a_px"), m.get("b_px")
+        if _iou >= 0.9999:
+            warn.append("IoU ≥ 0.9999（%.4f）：疑似两张图是同一份、或参数没生效 —— 请核对输入路径/取景参数" % _iou)
+        if _iou > 0.999 and _a and _b and int(_a) == int(_b):
+            warn.append("掩膜面积完全相同（%s px）且 IoU≈1：强烈怀疑参考图与渲染图是同一张" % _a)
+        if _iou >= 0.999 and abs(float(m.get("scale", 1.0)) - 1.0) < 1e-6 and abs(float(m.get("shift_px", [0, 0])[0] or 0)) < 0.01:
+            warn.append("尺度/平移都是零位移却 IoU≈1：典型的「两个 view 其实渲了同一张图」")
+    except Exception:
+        pass
     m["warnings"] = warn
     pa = qc_profile(mref, bins)
     pb = qc_profile(mren, bins)
@@ -884,7 +1101,8 @@ def qc_ops():
     return {"load": qc_load, "crop": qc_crop, "mask": qc_mask, "mask_auto": qc_mask_auto, "iou": qc_iou,
             "profile": qc_profile, "profile_diff": qc_profile_diff,
             "compare": qc_compare_auto, "compare_basic": qc_compare,
-            "align_search": _align_search, "metrics": qc_metrics, "self_check": qc_self_check,
+            "align_search": _align_search, "align_rotate": qc_align_rotate, "rotate_mask": _rotate_mask,
+            "gif_to_png": gif_to_png, "metrics": qc_metrics, "self_check": qc_self_check,
             "robustness_check": qc_robustness_check, "mask_sweep": qc_mask_sweep,
             "resize_mask": qc_resize_mask, "write_png": write_png, "help": qc_help,
             # v0.8.8：渲染 harness（真实现在 qc_render.py，这里转接）
@@ -898,7 +1116,10 @@ if _K is not None:
                      "compare_basic": qc_compare, "mask_auto": qc_mask_auto, "metrics": qc_metrics,
                      "self_check": qc_self_check, "mask_sweep": qc_mask_sweep, "load": qc_load, "crop": qc_crop, "mask": qc_mask,
                      "iou": qc_iou, "profile": qc_profile, "profile_diff": qc_profile_diff,
-                     "compare": qc_compare, "resize_mask": qc_resize_mask, "write_png": write_png,
-                     "render_views": qc_render_views, "help": qc_help}
+                     "compare_basic": qc_compare, "resize_mask": qc_resize_mask, "write_png": write_png,
+                     "render_views": qc_render_views, "align_search": _align_search, "iou_pair": _iou_pair,
+                     "align_rotate": qc_align_rotate, "rotate_mask": _rotate_mask,
+                     "gif_first_frame": _gif_first_frame, "gif_to_png": gif_to_png,
+                     "help": qc_help}
     _K.dsh_measure = {"aabb_err": m_aabb_err, "silhouette_iou": m_silhouette_iou,
                       "profile_err": m_profile_err}

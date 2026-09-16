@@ -228,13 +228,138 @@ def p_import(path, overwrite=False):
     return _j({"ok": True, "added": added, "skipped": skipped, "dir": _dir()})
 
 
+# ---------------------------------------------------------------- v0.8.10（D3）：玻璃 / 光学配方
+# 外部反馈：EEVEE 默认不把玻璃渲透明 —— 要自己开 use_ssr_refraction / use_raytracing_refraction
+# + 材质侧标志 + Principled 的 Transmission/Alpha，而且 **4.x/5.x 输入名不一样**（白渲一轮磨砂塑料才发现）。
+
+_PRINCIPLED_ALIASES = {
+    "transmission": ["Transmission Weight", "Transmission"],
+    "ior": ["IOR"],
+    "roughness": ["Roughness"],
+    "alpha": ["Alpha"],
+    "base_color": ["Base Color"],
+    "specular": ["Specular IOR Level", "Specular"],
+    "coat": ["Coat Weight", "Clearcoat"],
+}
+
+
+def _set_input(node, key, value):
+    """按 4.x/5.x 别名表找 Principled 的输入名；成功返回真实输入名，失败返回 None。"""
+    for name in _PRINCIPLED_ALIASES.get(key, []):
+        if name in node.inputs:
+            try:
+                node.inputs[name].default_value = value
+                return name
+            except Exception:
+                pass
+    return None
+
+
+def preset_glass(targets=None, ior=1.45, transmission=1.0, roughness=0.03, alpha=0.35,
+                 base_color=(0.86, 0.93, 0.96, 1.0), use_alpha=False, scene_flags=True):
+    """一条调用把「EEVEE 真透玻璃」配好：引擎开关 + 材质侧标志 + Principled 输入名映射（4.x/5.x 通吃）。
+
+    targets：逗号分隔 MAT:名字 / OBJ:名字（OBJ 会取其所有材质槽）；省略则对所有材质应用。
+    """
+    rep = {"ok": True, "scene": {}, "materials": [], "warnings": []}
+    sc = bpy.context.scene
+    if scene_flags:
+        ee = getattr(sc, "eevee", None)
+        if ee is not None:
+            for attr, val in (("use_raytracing", True), ("use_ssr_refraction", True), ("use_raytracing_refraction", True)):
+                if hasattr(ee, attr):
+                    try:
+                        setattr(ee, attr, val)
+                        rep["scene"][attr] = val
+                    except Exception as e:
+                        rep["warnings"].append("%s: %s" % (attr, str(e)[:60]))
+                else:
+                    rep["warnings"].append("本引擎没有 %s（版本差异）" % attr)
+    # 选材质
+    mats = []
+    if targets:
+        names = [t.strip() for t in str(targets).replace(";", ",").split(",") if t.strip()]
+        for n in names:
+            if n.upper().startswith("MAT:"):
+                m = bpy.data.materials.get(n.split(":", 1)[1])
+                if m:
+                    mats.append(m)
+                else:
+                    rep["warnings"].append("材质不存在：%s" % n)
+            elif n.upper().startswith("OBJ:"):
+                ob = bpy.data.objects.get(n.split(":", 1)[1])
+                if not ob:
+                    rep["warnings"].append("对象不存在：%s" % n)
+                    continue
+                for slot in ob.material_slots:
+                    if slot.material and slot.material not in mats:
+                        mats.append(slot.material)
+            else:
+                rep["warnings"].append("target 形态不认（用 MAT:名 / OBJ:名）：%s" % n)
+    else:
+        mats = [m for m in bpy.data.materials if m.users > 0]
+    for m in mats:
+        item = {"name": m.name, "set": {}, "missing": []}
+        try:
+            if hasattr(m, "use_screen_refraction"):
+                m.use_screen_refraction = True
+                item["set"]["use_screen_refraction"] = True
+            if hasattr(m, "use_raytrace_refraction"):
+                m.use_raytrace_refraction = True
+                item["set"]["use_raytrace_refraction"] = True
+            # 5.x：surface_render_method='BLENDED'；4.x：blend_method='BLEND'
+            for attr, val in (("surface_render_method", "BLENDED"), ("blend_method", "BLEND")):
+                if hasattr(m, attr):
+                    try:
+                        setattr(m, attr, val)
+                        item["set"][attr] = val
+                    except Exception:
+                        pass
+            if hasattr(m, "show_transparent_back"):
+                m.show_transparent_back = False
+            nt = getattr(m, "node_tree", None)
+            node = None
+            if nt is not None:
+                for nd in nt.nodes:
+                    if nd.type == "BSDF_PRINCIPLED":
+                        node = nd
+                        break
+            if node is None:
+                item["missing"].append("没有 Principled BSDF 节点")
+            else:
+                for key, val in (("transmission", float(transmission)), ("ior", float(ior)),
+                                 ("roughness", float(roughness)),
+                                 ("alpha", float(alpha) if use_alpha else 1.0),
+                                 ("base_color", tuple(base_color))):
+                    got = _set_input(node, key, val)
+                    if got:
+                        item["set"]["inputs." + got] = val
+                    else:
+                        item["missing"].append(key)
+        except Exception as e:
+            item["error"] = "%s: %s" % (type(e).__name__, str(e)[:100])
+        if item["missing"]:
+            rep["warnings"].append("%s 缺少：%s" % (m.name, ", ".join(item["missing"])))
+        rep["materials"].append(item)
+    rep["count"] = len(rep["materials"])
+    rep["note"] = ("EEVEE 真透明三件套：引擎 use_raytracing+use_ssr_refraction+use_raytracing_refraction、"
+                   "材质 use_screen_refraction/use_raytrace_refraction、Principled 的 Transmission/Alpha；"
+                   "输入名 4.x(Transmission Weight)/3.x(Transmission) 已自动映射。不透明塑料就别开 use_alpha。")
+    if not rep["materials"]:
+        rep["ok"] = False
+        rep["error"] = "没有可应用的材质（检查 targets 或场景里是否有材质）"
+    return _j(rep)
+
+
 def p_help():
     return _j({"version": PRESET_VERSION, "dir": _dir(),
                "ops": {"save": "save(name, data, kind, tags, note, mapping, overwrite=true)",
                        "list": "list(kind=None, tag=None)", "get": "get(name)", "delete": "delete(name)",
                        "apply": "apply(name, targets=[MAT:x/OBJ:y/SCENE], dry_run=false)",
                        "export": "export(names=None, path=None) → 单个 bundle 文件（可分发）",
-                       "import": "import(path, overwrite=false)"},
+                       "import": "import(path, overwrite=false)",
+                       "glass": "glass(targets='MAT:x,OBJ:y', ior, transmission, roughness, alpha, use_alpha) "
+                                "→ 一条调用配好 EEVEE 真透明玻璃（v0.8.10 D3）"},
                "data_format": "点路径 dict：{\"inputs.Base Color\": [1,0,0,1]} 或 {\"nodes.Principled BSDF.inputs.Roughness\": 0.4} 或 {\"location\": [0,0,1]}",
                "why": "把风格/参数配方变成资产：可保存、可套用、可导出分享；与领域无关（材质/对象/场景/自定义都行）"})
 
@@ -246,9 +371,10 @@ def p_dispatch(op, args=None):
         except Exception:
             args = {}
     fn = {"save": p_save, "list": p_list, "get": p_get, "delete": p_delete, "apply": p_apply,
-          "export": p_export, "import": p_import, "help": p_help}.get(str(op))
+          "export": p_export, "import": p_import, "glass": preset_glass, "help": p_help}.get(str(op))
     if fn is None:
-        return _j({"ok": False, "error": "unknown preset op", "op": op, "ops": ["save", "list", "get", "delete", "apply", "export", "import", "help"]})
+        return _j({"ok": False, "error": "unknown preset op", "op": op,
+                   "ops": ["save", "list", "get", "delete", "apply", "export", "import", "glass", "help"]})
     try:
         return fn(**(args or {}))
     except TypeError as e:
@@ -260,4 +386,4 @@ _K = _sys.modules.get("dsh_rt_kernel")
 if _K is not None:
     _K.dsh_preset_api = {"version": PRESET_VERSION, "dispatch": p_dispatch, "save": p_save, "list": p_list,
                          "get": p_get, "delete": p_delete, "apply": p_apply, "export": p_export,
-                         "import": p_import, "help": p_help}
+                         "import": p_import, "glass": preset_glass, "help": p_help}

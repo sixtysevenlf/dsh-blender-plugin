@@ -19,12 +19,28 @@ import path from 'node:path';
 import os from 'node:os';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { CFG, PATHS, winToWsl, wslToWin, describeConfig, IS_WIN } from './config.mjs';
+import { CFG, PATHS, winToWsl, wslToWin, describeConfig, IS_WIN, PKG_ROOT } from './config.mjs';
 // 协议适配层：直连通道支持两种 addon 实现（ahujasid 扁平协议 / harveyxiacn category-action），
 // 由 CFG.addonProtocol 选择，默认 auto 自动探测。差异与映射见 runtime/addon-protocol.mjs。
 import { resolveProtocol, detectProtocol, resetProtocolCache } from './addon-protocol.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+
+/** v0.8.10（A0 版本自证）：插件版本 + runtime 模块指纹 —— 让"进程内跑的是哪一代"一眼可查 */
+const PLUGIN_VERSION = (() => {
+  try { return JSON.parse(fs.readFileSync(path.join(PKG_ROOT, 'package.json'), 'utf8')).version; } catch (e) { return null; }
+})();
+function runtimeFingerprint() {
+  const out = {};
+  try {
+    for (const f of fs.readdirSync(HERE)) {
+      if (!/\.(py|mjs)$/.test(f)) continue;
+      const st = fs.statSync(path.join(HERE, f));
+      out[f] = String(st.size) + '-' + String(Math.round(st.mtimeMs));
+    }
+  } catch (e) { /* ignore */ }
+  return out;
+}
 
 // 分享版：端口 / 工作目录 / blender.exe 全部来自 config.mjs（env → 配置文件 → 自动探测）。
 // 本机版曾把这些写死在这里；现在换机器只需改 dsh-blender.config.json 或设 DSH_BLENDER_* 环境变量。
@@ -415,6 +431,13 @@ function jsonFromStdout(out) {
 /** 路径映射见 config.mjs：winToWsl / wslToWin（Windows 上原样返回） */
 
 /** 无头运行用的 python 脚本落到 Windows 可见目录；/mnt 不可写时退回包内 tmp + UNC */
+/** v0.8.10（A3）：长输出"头+尾+省略标记"—— 旧版只回尾部，长 JSON 的头被吃掉 */
+function clipMiddle(s, head, tail) {
+  const t = String(s == null ? '' : s);
+  if (t.length <= head + tail) return t;
+  return t.slice(0, head) + '\n…[省略 ' + String(t.length - head - tail) + ' 字符；全文见 logs 路径]…\n' + t.slice(-tail);
+}
+
 function writeHeadlessScript(code) {
   const name = 'dsh_headless_' + Date.now().toString(36) + '.py';
   const cands = [
@@ -803,6 +826,9 @@ export function createEngine(opts = {}) {
     const j = { id, child, pid: child.pid, startedAt: Date.now(), status: 'running', exitCode: null, signal: null,
                 timeoutMs, outdir: opts.outdir || null, dir, engineMode, parsed: null, lastException: null, script: sp.win, args };
     jobs.set(id, j); if (jobs.size > 20) { const k = jobs.keys().next().value; if (k !== id) jobs.delete(k); }
+    j.startedAt = j.startedAt || Date.now();
+    ledgerAppend({ id: id, kind: 'job', status: 'running', startedAt: j.startedAt, pid: j.pid, script: sp.win,
+                   outdir: opts.outdir || WIN_TMP, engine: engineMode, timeoutMs: timeoutMs });
     j.timer = setTimeout(() => { j.status = 'killed'; try { child.kill('SIGKILL'); } catch (e) {} }, timeoutMs);
     child.on('close', (code, sig) => {
       clearTimeout(j.timer); j.exitCode = code; j.signal = sig; j.finishedAt = Date.now();
@@ -817,11 +843,57 @@ export function createEngine(opts = {}) {
         const m = er.match(/^[\w.]*(?:Error|Exception|Warning)\b.*$/gm);
         if (m && m.length) j.lastException = m[m.length - 1].slice(0, 300);
       } catch (e) {}
+      // v0.8.10（D4）：终态摘要落盘 + 台账追加（后端重启后仍可查）
+      try {
+        const arts = jobArtifacts(j).slice(0, 20);
+        const summary = { id: id, kind: 'job', status: j.status, exitCode: j.exitCode, signal: j.signal,
+                          startedAt: j.startedAt, finishedAt: Date.now(), ms: Date.now() - j.startedAt,
+                          outdir: j.outdir || WIN_TMP, script: sp.win, engine: engineMode,
+                          artifacts: arts.map((a) => a.name + '(' + a.bytes + 'B)'),
+                          resultSummary: j.parsed ? JSON.stringify(j.parsed).slice(0, 400) : null,
+                          lastException: j.lastException || null, pluginVersion: PLUGIN_VERSION };
+        try { fs.writeFileSync(path.join(j.dir, 'summary.json'), JSON.stringify(summary, null, 1), 'utf8'); } catch (e) {}
+        ledgerAppend(Object.assign({}, summary, { artifacts: arts.slice(0, 8).map((a) => a.name) }));
+      } catch (e) { /* ignore */ }
     });
     child.on('error', (e) => { j.status = 'failed'; j.lastException = String((e && e.message) || e); });
     return jobSnapshot(j);
   }
-  function jobStatus(id) { const j = jobs.get(String(id)); return j ? jobSnapshot(j) : { id: String(id), status: 'unknown' }; }
+  // ---- v0.8.10（A2/D4）：无头运行台账 + 磁盘台账（后端重启后仍可查）
+  const runs = new Map();
+  const LEDGER = path.join(winToWsl(WIN_TMP), 'jobs', 'index.jsonl');
+  function ledgerAppend(rec) {
+    try {
+      fs.mkdirSync(path.dirname(LEDGER), { recursive: true });
+      fs.appendFileSync(LEDGER, JSON.stringify(Object.assign({ pluginVersion: PLUGIN_VERSION, at: Date.now() }, rec)) + String.fromCharCode(10), 'utf8');
+    } catch (e) { /* ignore */ }
+  }
+  function ledgerList(limit = 40) {
+    try {
+      const lines = fs.readFileSync(LEDGER, 'utf8').trim().split(String.fromCharCode(10)).filter(Boolean).slice(-limit * 4);
+      const by = new Map();
+      for (const l of lines) {
+        try { const o = JSON.parse(l); by.set(o.id, Object.assign(by.get(o.id) || {}, o)); } catch (e) { /* skip */ }
+      }
+      return Array.from(by.values()).sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0)).slice(0, limit);
+    } catch (e) { return []; }
+  }
+  function runSnapshot(r) {
+    return { id: r.id, kind: 'headless', status: r.status, pid: r.pid,
+             ms: (r.finishedAt || Date.now()) - r.startedAt, outdir: r.outdir || WIN_TMP,
+             logs: r.logs || null, script: r.script || null, exitCode: r.exitCode, timedOut: r.timedOut || false,
+             artifacts: r.artifacts || [], artifactCount: (r.artifacts || []).length,
+             expect: r.expect || null, pluginVersion: PLUGIN_VERSION,
+             hint: '这是 blender_rt_headless 的运行台账：产物在 outdir，日志见 logs' };
+  }
+  function jobStatus(id) {
+    const j = jobs.get(String(id));
+    if (j) return jobSnapshot(j);
+    const r = runs.get(String(id));
+    if (r) return runSnapshot(r);
+    const led = ledgerList(200).find((x) => x.id === String(id));
+    return led || { id: String(id), status: 'unknown' };
+  }
   function jobCollect(id, tail = 4000) {
     const j = jobs.get(String(id));
     if (!j) return { id: String(id), status: 'unknown' };
@@ -836,7 +908,12 @@ export function createEngine(opts = {}) {
     if (j.status === 'running') { j.status = 'killed'; try { j.child.kill('SIGKILL'); } catch (e) {} }
     return jobSnapshot(j);
   }
-  function jobList() { return Array.from(jobs.values()).map(jobSnapshot); }
+  function jobList() {
+    const mem = Array.from(jobs.values()).map(jobSnapshot).concat(Array.from(runs.values()).map(runSnapshot));
+    const ids = new Set(mem.map((x) => x.id));
+    const disk = ledgerList(60).filter((x) => !ids.has(x.id));      // v0.8.10（D4）：后端重启后仍能列出历史作业
+    return mem.concat(disk);
+  }
   /** v0.8.7：场景世代号（对象数/网格数/材质数/名字哈希）—— 用于发现「别人的重建把我的装配清掉了」 */
   async function sceneEpoch() {
     try {
@@ -1002,7 +1079,12 @@ export function createEngine(opts = {}) {
     /** 3D 视口区域 rect / 窗口尺寸 / 着色模式 */
     async status() {
       const out = await addon.send('execute_code', { code: REGION_CODE });
-      return { region: jsonFromStdout(out) };
+      // v0.8.10（A0/D4）：状态里带插件版本 + runtime 指纹 + 最近运行台账
+      return { region: jsonFromStdout(out),
+               plugin: { version: PLUGIN_VERSION, runtimeDir: wslToWin(HERE), runtime: runtimeFingerprint() },
+               runs: Array.from(runs.values()).slice(-5).map(runSnapshot),
+               jobs: Array.from(jobs.values()).slice(-5).map(jobSnapshot),
+               ledger: { path: wslToWin(LEDGER), recent: ledgerList(5).map((x) => ({ id: x.id, kind: x.kind || 'job', status: x.status, startedAt: x.startedAt, ms: x.ms })) } };
     },
     /**
      * 执行 Python（持久内核 K）。v0.7.0 起：异常也回传 **partial stdout / stderr / traceback**
@@ -1196,7 +1278,27 @@ export function createEngine(opts = {}) {
       const headParts = [];
       if (opts.bootstrap !== false) headParts.push(KERNEL_BOOTSTRAP);
       if (gpuPre) headParts.push(gpuPre);
-      const body = (script || pre || gpuPre) ? (headParts.length ? headParts.join('\n') + '\n' : '') + pre + script : '';
+      // v0.8.10（D2）：workdir → 脚本内 chdir + sys.path 首位（Blender 是 Windows 进程，必须过 K.win_path）
+      if (opts.workdir) {
+        headParts.push(['# ---- DSH workdir ----',
+          'try:',
+          '    import os as _os, sys as _sys',
+          '    _wd = K.win_path(' + JSON.stringify(String(opts.workdir)) + ')',
+          '    _os.chdir(_wd)',
+          '    if _wd not in _sys.path: _sys.path.insert(0, _wd)',
+          '    print("DSH_WORKDIR " + _wd)',
+          'except Exception as _e:',
+          '    print("DSH_WORKDIR_ERR " + str(_e)[:120])'].join(String.fromCharCode(10)));
+      }
+      // v0.8.10（B2）：expect 前后哨兵 —— "build 返回空却不抛异常"必须被判失败
+      const exp = (opts.expect && typeof opts.expect === 'object') ? opts.expect : null;
+      const expectPre = exp ? ['# ---- DSH expect: before ----', 'import json as _dsh_ejson',
+        '_DSH_EXP0 = {"objects": len(bpy.data.objects), "meshes": len(bpy.data.meshes), "materials": len(bpy.data.materials)}'].join(String.fromCharCode(10)) : '';
+      const expectPost = exp ? ['# ---- DSH expect: after ----', 'try:',
+        '    _DSH_EXP1 = {"objects": len(bpy.data.objects), "meshes": len(bpy.data.meshes), "materials": len(bpy.data.materials)}',
+        '    print("DSH_EXPECT " + _dsh_ejson.dumps({"before": _DSH_EXP0, "after": _DSH_EXP1, "delta": {k: _DSH_EXP1[k] - _DSH_EXP0[k] for k in _DSH_EXP1}}))',
+        'except Exception as _e:', '    print("DSH_EXPECT " + _dsh_ejson.dumps({"error": str(_e)[:160]}))'].join(String.fromCharCode(10)) : '';
+      const body = (script || pre || gpuPre) ? (headParts.length ? headParts.join('\n') + '\n' : '') + (expectPre ? expectPre + String.fromCharCode(10) : '') + pre + script + (expectPost ? String.fromCharCode(10) + expectPost : '') : '';
       const args = ['-b'];
       if (opts.file) args.push(wslToWin(String(opts.file)));
       if (opts.factoryStartup !== false) args.push('--factory-startup');
@@ -1208,6 +1310,15 @@ export function createEngine(opts = {}) {
       if (Array.isArray(opts.args)) args.push.apply(args, opts.args.map(String));
       const timeoutMs = Math.max(1000, Math.min(1800000, Number(opts.timeoutMs) || 180000));
       metrics.headlessRuns++;
+      // v0.8.10（A2/D4）：每次无头运行都登记成可查台账（id 与作业同空间：blender_rt_job op=status id=run-…）
+      const runId = 'run-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+      const runRec = { id: runId, child: null, pid: null, startedAt: t0, status: 'running',
+                       outdir: opts.outdir || WIN_TMP, logs: null, script: sp ? sp.win : null,
+                       exitCode: null, timedOut: false, artifacts: [], expect: exp, workdir: opts.workdir || null };
+      runs.set(runId, runRec);
+      if (runs.size > 20) { const k = runs.keys().next().value; if (k !== runId) runs.delete(k); }
+      ledgerAppend({ id: runId, kind: 'headless', status: 'running', startedAt: t0, script: runRec.script,
+                     outdir: runRec.outdir, timeoutMs: timeoutMs });
       // v0.8.7（外部反馈 #4 P0-2）：长任务自动转作业层 —— 客户端超时不再把结果丢掉。
       // 用法：as_job=true 强制转；或给 auto_job_ms（如 120000）表示预计超过它就走作业。
       const autoJobMs = Number(opts.autoJobMs) || 0;
@@ -1230,6 +1341,7 @@ export function createEngine(opts = {}) {
         let child = null;
         try {
           child = spawn(BLENDER_EXE, args, { env: childEnv, stdio: ['ignore', 'pipe', 'pipe'] });
+          runRec.child = child; runRec.pid = child.pid;
         } catch (e) {
           return resolve({ spawnErr: e });
         }
@@ -1302,7 +1414,36 @@ export function createEngine(opts = {}) {
         } catch (e) { artifacts = []; }
       }
       const gpuFailed = gpuManual && gpu && gpu.ok === false;
-      return { ok: !res.timedOut && res.exitCode === 0 && !gpuFailed,
+      // ---- v0.8.10（B2）：expect 判定（"0 对象却 ok=true"这类静默空产出必须失败）
+      let expectEval = null;
+      if (exp) {
+        let observed = null;
+        const el = stdout.split('\n').filter((l) => l.indexOf('DSH_EXPECT ') === 0);
+        if (el.length) { try { observed = JSON.parse(el[el.length - 1].slice('DSH_EXPECT '.length).trim()); } catch (e) { observed = null; } }
+        expectEval = { spec: exp, observed: observed, ok: true, warnings: [] };
+        const minNew = Number(exp.minNewObjects !== undefined ? exp.minNewObjects : exp.min_new_objects);
+        if (!observed || observed.error) {
+          expectEval.ok = false;
+          expectEval.warnings.push('expect 观测失败：' + ((observed && observed.error) || '没有 DSH_EXPECT 行'));
+        } else if (Number.isFinite(minNew) && Number(observed.delta && observed.delta.objects || 0) < minNew) {
+          expectEval.ok = false;
+          expectEval.warnings.push('对象数未达预期：before=' + observed.before.objects + ' → after=' + observed.after.objects +
+                                   '（要求新增 ≥' + minNew + '）—— 典型的 build 空跑');
+        }
+      }
+      const runOk = !res.timedOut && res.exitCode === 0 && !gpuFailed && (!expectEval || expectEval.ok);
+      // ---- v0.8.10（A2/D4）：台账终态
+      try {
+        runRec.status = res.timedOut ? 'killed' : (res.exitCode === 0 ? 'done' : 'failed');
+        runRec.exitCode = res.exitCode; runRec.timedOut = !!res.timedOut; runRec.finishedAt = Date.now();
+        runRec.artifacts = artifacts.slice(0, 20).map((a) => a.name);
+        runRec.logs = logs; runRec.expect = expectEval;
+        ledgerAppend({ id: runId, kind: 'headless', status: runRec.status, exitCode: res.exitCode,
+                       ms: runRec.finishedAt - runRec.startedAt, outdir: runRec.outdir, script: runRec.script,
+                       artifacts: runRec.artifacts.slice(0, 8), expectOk: (expectEval ? expectEval.ok : null) });
+      } catch (e) { /* ignore */ }
+      return { ok: runOk, runId: runId, pluginVersion: PLUGIN_VERSION, expect: expectEval,
+               stdoutTruncated: stdout.length > 8000,
         exitCode: res.exitCode, signal: res.signal, timedOut: !!res.timedOut,
         ms: ms, timeoutMs: timeoutMs, blender: BLENDER_EXE, script: sp ? sp.win : null, args: args,
         preload: mods.length ? mods : undefined, gpu: gpu, engine: (gpu && gpu.after && gpu.after.engine) || null,
@@ -1311,7 +1452,7 @@ export function createEngine(opts = {}) {
         noiseFiltered: noiseFiltered,
         reason: res.timedOut ? ('killed after timeout ' + timeoutMs + 'ms')
           : (gpuFailed ? 'gpu required but unavailable' : (res.exitCode === 0 ? null : 'exit code ' + String(res.exitCode))),
-        result: parsed, stdout: stdout.slice(-8000), stderr: stderr.slice(-4000), artifacts: artifacts };
+        result: parsed, stdout: clipMiddle(stdout, 4000, 4000), stderr: clipMiddle(stderr, 2000, 2000), artifacts: artifacts };
     },
     async start() { await addon.ensure(); return true; },
     stop() { addon.close(); try { if (workerAlive()) worker.child.kill('SIGKILL'); } catch (e) {} },

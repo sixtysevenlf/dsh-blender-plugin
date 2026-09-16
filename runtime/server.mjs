@@ -158,7 +158,9 @@ const server = http.createServer(async (req, res) => {
       try {
         const s = await engine.status();
         const m = engine.metrics();
-        json(res, 200, { ok: true, region: s.region, stats: stats, metrics: m, diagnosis: m.lastError && m.lastDiagnosis ? m.lastDiagnosis : null });
+        json(res, 200, { ok: true, region: s.region, plugin: s.plugin || null, runs: s.runs || [],
+                         jobs: s.jobs || [], ledger: s.ledger || null,
+                         stats: stats, metrics: m, diagnosis: m.lastError && m.lastDiagnosis ? m.lastDiagnosis : null });
       } catch (e) {
         json(res, 200, { ok: false, error: String((e && e.message) || e), stats: stats, metrics: engine.metrics(), diagnosis: (e && e.diagnosis) || engine.metrics().lastDiagnosis || null });
       }
@@ -205,7 +207,7 @@ const server = http.createServer(async (req, res) => {
         const o = out || {};
         json(res, 200, { ok: o.ok !== false, ms: o.ms != null ? o.ms : (Date.now() - t0),
                          mainThreadMs: o.mainThreadMs != null ? o.mainThreadMs : null,
-                         executed: !!o.executed, stdout: String(o.stdout || ''), stderr: String(o.stderr || ''),
+                         executed: !!o.executed, stdout: String(o.stdout || ""), stderr: String(o.stderr || ""),
                          error: o.error || null, traceback: o.traceback || null,
                          file: o.file || null, marker_missing: !!o.marker_missing,
                          sceneEpoch: o.sceneEpoch || null,
@@ -459,6 +461,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && p === '/preset') {
+      // 配方库：save / list / get / delete / apply / export / import / help
       const raw = await readBody(req);
       let payload = {};
       try { payload = JSON.parse(raw); } catch (e) { payload = {}; }

@@ -26,6 +26,11 @@ API 挂 K.dsh_qc_render_api。入口两条：
     margin      取景余量（默认 1.12；越大留白越多）
     engine      "keep"（默认，跟随进程当前引擎）| "eevee"（EEVEE+光追）| "cycles"
     view_transform  色彩变换（默认 null = 保留场景设置；给 "Standard" 可去掉 AgX 洗淡）
+    warmup      默认 true：先渲一帧预热（EEVEE 着色器编译）**不计时、不进 jsonl、不占预算** —— 单张耗时才是干净数
+    ladder      降质阶梯（v0.8.10）：[{"samples":64,"scale":1.0},{"samples":32,"scale":0.75},…]；
+                配 per_view_budget_s 时，某张超过预算就自动降一档重渲并逐级留痕（后续视角沿用该档）
+    aabb/focus  世界坐标框选（v0.8.10）：aabb=[x0,y0,z0,x1,y1,z1] 或 focus="x,y,z,r"（顶层或按视角给）
+    sheet       >1 时把已出的图拼成 N 宫格接触表（需 montage 模块；结果里给 sheet 路径与每格指标）
     tag         输出文件名前缀（默认 "views"）；jsonl 默认 <outdir>/render_views.jsonl
 
 产物：<outdir>/<tag>_<view>.png × N + <outdir>/render_views.jsonl（每行 {view, ms, bytes, hash, ...}）
@@ -283,6 +288,100 @@ def _project_px(cam, points, w, h):
 
 # ---------------------------------------------------------------- 灯光
 
+# ---- v0.8.10（C5）：世界坐标框选（aabb=[x0,y0,z0,x1,y1,z1] / focus="x,y,z,r"）
+def _focus_box(spec):
+    """focus="x,y,z,r"（球心+半径，按外接立方取景）或 [x0,y0,z0,x1,y1,z1] → (min,max)；非法返回 None。"""
+    if not spec:
+        return None
+    try:
+        if isinstance(spec, (list, tuple)):
+            v = [float(x) for x in spec]
+            if len(v) == 6:
+                mn = Vector((min(v[0], v[3]), min(v[1], v[4]), min(v[2], v[5])))
+                mx = Vector((max(v[0], v[3]), max(v[1], v[4]), max(v[2], v[5])))
+                return mn, mx
+            if len(v) == 4:                       # x,y,z,r
+                c = Vector((v[0], v[1], v[2]))
+                r = abs(v[3])
+                return c - Vector((r, r, r)), c + Vector((r, r, r))
+            return None
+        if isinstance(spec, dict):
+            if "mn" in spec and "mx" in spec:
+                return Vector([float(x) for x in spec["mn"]]), Vector([float(x) for x in spec["mx"]])
+            if "center" in spec and "radius" in spec:
+                c = Vector([float(x) for x in spec["center"]])
+                r = abs(float(spec["radius"]))
+                return c - Vector((r, r, r)), c + Vector((r, r, r))
+            return None
+        s = str(spec).strip()
+        if not s:
+            return None
+        v = [float(x) for x in s.replace(" ", "").split(",")]
+        return _focus_box(v)
+    except Exception:
+        return None
+
+
+def _apply_step(rs, ladder, step_i, w, h):
+    """按降质档设置分辨率/采样（v0.8.10 C2 的降质阶梯）。返回 (w_eff, h_eff, step_used)。"""
+    if not ladder:
+        rs.resolution_x, rs.resolution_y = w, h
+        return w, h, None
+    step_i = max(0, min(int(step_i), len(ladder) - 1))
+    step = ladder[step_i] or {}
+    sc_ = float(step.get("scale", 1.0) or 1.0)
+    w_eff = max(16, int(round(w * sc_)))
+    h_eff = max(16, int(round(h * sc_)))
+    rs.resolution_x, rs.resolution_y = w_eff, h_eff
+    n = step.get("samples")
+    if n:
+        scn = bpy.context.scene
+        ee = getattr(scn, "eevee", None)
+        if ee is not None and hasattr(ee, "taa_render_samples"):
+            try:
+                ee.taa_render_samples = int(n)
+            except Exception:
+                pass
+        if hasattr(scn, "cycles"):
+            try:
+                scn.cycles.samples = int(n)
+            except Exception:
+                pass
+    return w_eff, h_eff, step
+
+
+def _db_counts():
+    """datablock 计数（v0.8.10 D1：临时资源泄漏自检）。"""
+    out = {}
+    for k in ("objects", "meshes", "materials", "lights", "cameras", "images", "collections"):
+        try:
+            out[k] = len(getattr(bpy.data, k))
+        except Exception:
+            out[k] = None
+    try:
+        out["orphans"] = len([d for d in bpy.data.lights if d.users == 0]) + len([d for d in bpy.data.cameras if d.users == 0])
+    except Exception:
+        out["orphans"] = None
+    return out
+
+
+def _montage_api():
+    """拿 montage 模块（拼图）：K.dsh_montage_api → 否则从 K.runtime_dir 现场加载 montage.py。"""
+    K = _kernel()
+    api = getattr(K, "dsh_montage_api", None) if K is not None else None
+    if api:
+        return api
+    d = getattr(K, "runtime_dir", None) if K is not None else None
+    if d:
+        p = os.path.join(str(d), "montage.py")
+        if os.path.isfile(p):
+            with open(p, encoding="utf-8") as fh:
+                src = fh.read()
+            exec(compile(src, p, "exec"), {"__name__": "dsh_montage", "__file__": p})
+            api = getattr(K, "dsh_montage_api", None)
+    return api
+
+
 def _add_rig(az, energies):
     made = []
     for key in ("key", "fill", "rim"):
@@ -409,6 +508,31 @@ def qc_render_views(args=None):
         merged.update((k, v) for k, v in a.items() if k != "args")
         a = merged
 
+    # ---- v0.8.10（B1）：参数作用域强校验 —— "只认顶层的键"若出现在子字典里，必须报出来（本项目 234 张假证据的根因）
+    TOP_KEYS = set(["file", "views", "res", "samples", "budget_s", "thr", "outdir", "jsonl", "ref_path", "ref_box",
+                    "ref_search", "lights", "lights_mode", "margin", "engine", "view_transform", "tag", "targets",
+                    "allow_open_file", "film_transparent", "lens", "sensor_width", "warmup", "ladder",
+                    "per_view_budget_s", "aabb", "focus", "sheet", "sheet_cols", "sheet_tile", "chunk",
+                    "sheet_grid", "sheet_scale_m", "args"])
+    VIEW_KEYS = set(["name", "az", "el", "from", "loc", "location", "look_at", "target", "to", "lens", "sensor",
+                     "sensor_fit", "ortho", "ortho_scale", "res", "margin", "path", "ref_path", "ref_box",
+                     "aabb", "focus", "samples"])
+    scope_warnings = []
+    for k in sorted(a.keys()):
+        if k not in TOP_KEYS:
+            scope_warnings.append("未知顶层参数 %s（已忽略；可用参数见 qc_render_help）" % k)
+    _views_raw = a.get("views")
+    if isinstance(_views_raw, list):
+        for _i, _v in enumerate(_views_raw):
+            if not isinstance(_v, dict):
+                continue
+            for _k in _v.keys():
+                if _k in TOP_KEYS and _k not in VIEW_KEYS:
+                    scope_warnings.append("views[%d] 里的 %s **只在顶层生效，已被忽略**；实际生效值 = %r（把它挪到 args 顶层）"
+                                          % (_i, _k, a.get(_k)))
+                elif _k not in VIEW_KEYS:
+                    scope_warnings.append("views[%d] 未知键 %s（已忽略）" % (_i, _k))
+
     # ---- 输出目录与 jsonl
     outdir = _win(a.get("outdir") or _out_dir())
     try:
@@ -447,8 +571,9 @@ def qc_render_views(args=None):
     samples = int(a.get("samples") or 64)
     samp_before = _apply_samples(samples)
 
-    # ---- 目标与 AABB
-    objs, skipped = _collect_objs(a.get("targets"))
+    # ---- 目标与 AABB（+ v0.8.10 B1：把"实际生效的筛选集"回显出来）
+    _t_req = a.get("targets")
+    objs, skipped = _collect_objs(_t_req)
     try:
         bpy.context.view_layer.update()
     except Exception:
@@ -457,6 +582,14 @@ def qc_render_views(args=None):
     if nobj == 0 or mn is None:
         return _j({"ok": False, "error": "取景失败：没有任何可见 mesh（可传 targets=[名字] 指定）",
                    "file": bpy.data.filepath, "skipped": skipped})
+    targets_resolved = {"requested": ([str(x) for x in _t_req] if isinstance(_t_req, (list, tuple)) else None),
+                        "resolved": [ob.name for ob in objs], "count": len(objs),
+                        "missing": list(skipped.get("missing") or []), "skipped_hidden": int(skipped.get("hidden") or 0)}
+    if targets_resolved["missing"]:
+        scope_warnings.append("targets 里这些名字不存在（已忽略）：%s" % ", ".join(targets_resolved["missing"]))
+    if targets_resolved["requested"] and len(objs) < len(targets_resolved["requested"]):
+        scope_warnings.append("targets 请求 %d 个、实际参与取景 %d 个（差集见 targets_resolved.missing）"
+                              % (len(targets_resolved["requested"]), len(objs)))
     center = (mn + mx) * 0.5
     size = mx - mn
     corners = _corners(mn, mx)
@@ -496,6 +629,18 @@ def qc_render_views(args=None):
         s.setdefault("res", base_res)
         vlist.append(s)
 
+    # ---- v0.8.10（C7 分片）：chunk=[i,n] → 只渲第 i 份（1-based），大活可切多份并行/续跑
+    _chunk = a.get("chunk")
+    if isinstance(_chunk, (list, tuple)) and len(_chunk) == 2:
+        try:
+            _ci, _cn = int(_chunk[0]), max(1, int(_chunk[1]))
+            _sel = [v for _idx, v in enumerate(vlist) if (_idx % _cn) == (_ci - 1)]
+            if _sel:
+                vlist = _sel
+                scope_warnings.append("分片模式：chunk=[%d,%d] → 本次只渲 %d/%d 张" % (_ci, _cn, len(vlist), _cn))
+        except Exception as e:
+            scope_warnings.append("chunk 参数不认（应为 [i,n]）：%s" % str(e)[:80])
+
     budget_s = a.get("budget_s", a.get("thr"))
     try:
         budget_ms = int(round(float(budget_s) * 1000.0)) if budget_s not in (None, "", 0, "0") else 0
@@ -528,6 +673,8 @@ def qc_render_views(args=None):
         "fmt": str(rs.image_settings.file_format), "color_mode": str(rs.image_settings.color_mode),
         "film_transparent": bool(rs.film_transparent),
     }
+    db_before = _db_counts()          # v0.8.10（D1）：临时资源泄漏自检的基线
+    db_after = None
     hidden_lights = []
     made_cam = None
     rig = []
@@ -536,6 +683,14 @@ def qc_render_views(args=None):
     stopped_early = False
     spent_ms = 0
     err = None
+    # v0.8.10：即使中途异常，结果字典也必须有这些字段（否则 except 之后会 NameError）
+    warmup_info = None
+    ladder = None
+    ladder_idx = 0
+    per_view_budget_ms = 0
+    engine_check = None
+    sheet_path = None
+    sheet_metrics = None
     try:
         # 三点光（只在本进程内临时建）
         if lights_cfg and lights_mode != "off":
@@ -569,6 +724,25 @@ def qc_render_views(args=None):
                 pass
 
         lines = []
+        # ---- v0.8.10（C2）：预热帧（不计时/不进预算/不进 jsonl）+ 降质阶梯状态
+        do_warmup = bool(a.get("warmup", True))
+        warmup_info = None
+        ladder = a.get("ladder")
+        if isinstance(ladder, dict):
+            ladder = [ladder]
+        elif isinstance(ladder, str):
+            try:
+                ladder = json.loads(ladder)
+            except Exception:
+                ladder = None
+        if not isinstance(ladder, list):
+            ladder = None
+        ladder_idx = 0
+        try:
+            per_view_budget_ms = int(round(float(a.get("per_view_budget_s")) * 1000)) if a.get("per_view_budget_s") \
+                else int(a.get("per_view_budget_ms") or 0)
+        except Exception:
+            per_view_budget_ms = 0
         for idx, v in enumerate(vlist):
             if budget_ms and spent_ms >= budget_ms:
                 stopped_early = True
@@ -583,6 +757,7 @@ def qc_render_views(args=None):
             vmargin = float(v.get("margin", margin))
             nm = _safe(v.get("name"))
             path = _win(v.get("path") or os.path.join(outdir, "%s_%s.png" % (tag, nm)))
+            corners_used = corners
             frm = v.get("from") or v.get("loc")
             look = v.get("look_at") or v.get("target")
             if frm and look:
@@ -596,8 +771,17 @@ def qc_render_views(args=None):
             else:
                 az = float(v.get("az", NAMED_VIEWS["iso"][0]))
                 el = float(v.get("el", NAMED_VIEWS["iso"][1]))
-                loc, d, oscale, stats = _solve_view(center, corners, az, el, w, h, lens, sensor_def, vmargin,
-                                                    ortho=ortho, ortho_scale=v.get("ortho_scale"))
+                # v0.8.10（C5）：世界坐标框选 —— aabb=[...] / focus="x,y,z,r"（按视角优先，其次顶层）
+                _frame = _focus_box(v.get("aabb")) or _focus_box(v.get("focus")) or _focus_box(a.get("aabb")) or _focus_box(a.get("focus"))
+                if _frame:
+                    corners_used = _corners(_frame[0], _frame[1])
+                    _fc = (_frame[0] + _frame[1]) * 0.5
+                    loc, d, oscale, stats = _solve_view(_fc, corners_used, az, el, w, h, lens, sensor_def, vmargin,
+                                                        ortho=ortho, ortho_scale=v.get("ortho_scale"))
+                    stats["framed_by"] = "aabb/focus"
+                else:
+                    loc, d, oscale, stats = _solve_view(center, corners, az, el, w, h, lens, sensor_def, vmargin,
+                                                        ortho=ortho, ortho_scale=v.get("ortho_scale"))
             made_cam.location = loc
             made_cam.rotation_quaternion = d.to_track_quat("-Z", "Y")
             cam_data.lens = lens
@@ -617,18 +801,44 @@ def qc_render_views(args=None):
                 bpy.context.view_layer.update()
             except Exception:
                 pass
-            pred, pm_src, pm_err = _project_px(made_cam, corners, w, h)
-            # ---- 渲染
-            t1 = time.perf_counter()
-            bpy.ops.render.render(write_still=True)
-            ms = int(round((time.perf_counter() - t1) * 1000.0))
+            # ---- v0.8.10（C2）预热帧：首帧 EEVEE 着色器编译不计时、不进预算、不进 jsonl
+            if do_warmup and idx == 0 and warmup_info is None:
+                try:
+                    rs.filepath = _win(os.path.join(outdir, "_warmup.png"))
+                    tw = time.perf_counter()
+                    bpy.ops.render.render(write_still=True)
+                    warmup_info = {"ms": int(round((time.perf_counter() - tw) * 1000.0)),
+                                   "path": _win(os.path.join(outdir, "_warmup.png")), "counted": False}
+                except Exception as e:
+                    warmup_info = {"error": str(e)[:120], "counted": False}
+                rs.filepath = path
+            # ---- 渲染（降质阶梯：超 per_view_budget_s 且还有更粗档 → 降一档重渲，逐级留痕）
+            step_i = ladder_idx
+            ms_hist = []
+            while True:
+                w_eff, h_eff, step_used = _apply_step(rs, ladder, step_i, w, h)
+                t1 = time.perf_counter()
+                bpy.ops.render.render(write_still=True)
+                ms = int(round((time.perf_counter() - t1) * 1000.0))
+                ms_hist.append(ms)
+                if per_view_budget_ms and ms > per_view_budget_ms and ladder and step_i + 1 < len(ladder):
+                    step_i += 1
+                    continue
+                break
+            if ladder and step_i != ladder_idx:
+                ladder_idx = step_i      # 后续视角沿用更粗的档（逐级留痕见 ladder_trace）
+            ladder_used = (ladder[step_i] if ladder else None)
             spent_ms += ms
+            # 投影对拍按**实际**渲染分辨率（阶梯降质后分辨率会变）
+            pred, pm_src, pm_err = _project_px(made_cam, corners_used, w_eff, h_eff)
             got = os.path.isfile(path)
             nbytes = int(os.path.getsize(path)) if got else 0
             if not got:
                 raise RuntimeError("渲染没有产出文件：%s" % path)
             entry = {"view": str(v.get("name")), "ms": ms, "bytes": nbytes, "hash": _md5(path),
-                     "path": path, "res": [w, h], "engine": _engine_label(), "samples": samples,
+                     "path": path, "res": [w_eff, h_eff], "engine": _engine_label(), "samples": samples,
+                     "warmup": bool(do_warmup and idx == 0), "step": (step_i if ladder else 0),
+                     "step_cfg": ladder_used, "ms_history": ms_hist,
                      "camera": {"az": round(az, 3), "el": round(el, 3), "lens": lens, "ortho": ortho,
                                 "loc": [round(float(x), 4) for x in loc],
                                 "look_at": [round(float(x), 4) for x in (loc + d)],
@@ -674,6 +884,36 @@ def qc_render_views(args=None):
                 stopped_early = True
                 skipped_views = [str(x.get("name")) for x in vlist[idx + 1:]]
                 break
+
+        # ---- v0.8.10（C2）引擎回读校验：判据必须自带"当时是什么引擎"
+        _eng_now = _engine_label()
+        engine_check = {"requested": eng_mode, "configured_at_start": eng_after, "actual": _eng_now,
+                        "rt": bool("+RT" in _eng_now), "samples": samples, "ok": True, "warnings": []}
+        if str(eng_mode).lower() in ("eevee", "eevee_rt", "e") and "+RT" not in _eng_now:
+            engine_check["ok"] = False
+            engine_check["warnings"].append("请求 EEVEE+光追但回读没有 RT —— 玻璃/折射类材质不会正确")
+        elif "+RT" not in _eng_now:
+            engine_check["warnings"].append("本次引擎未开光追（%s）：与 EEVEE+RT 的历史分数不可直接比较" % _eng_now)
+
+        # ---- v0.8.10（C5）N 宫格接触表（拼图 + 每格指标）
+        sheet_path, sheet_metrics = None, None
+        if int(a.get("sheet") or 0) > 1 and entries:
+            try:
+                mapi = _montage_api()
+                if mapi is None:
+                    scope_warnings.append("sheet 需要 montage 模块（runtime/montage.py）—— 未找到，已跳过拼图")
+                else:
+                    _sp = _win(os.path.join(outdir, "%s_sheet.png" % tag))
+                    _r = mapi["montage"]([e["path"] for e in entries], int(a.get("sheet_cols") or 0) or None,
+                                         int(a.get("sheet_tile") or 420), _sp, [e["view"] for e in entries],
+                                         a.get("sheet_grid"), a.get("sheet_scale_m"))
+                    if isinstance(_r, dict):
+                        sheet_path = _r.get("path") or _sp
+                        sheet_metrics = _r.get("tiles")
+                    else:
+                        sheet_path = _r or _sp
+            except Exception as e:
+                scope_warnings.append("拼图失败：%s" % str(e)[:140])
     except BaseException as e:
         import traceback
         err = {"error": "%s: %s" % (type(e).__name__, str(e)[:300]), "traceback": traceback.format_exc()[-2000:]}
@@ -682,7 +922,14 @@ def qc_render_views(args=None):
         try:
             for ob in rig:
                 try:
+                    _ld = ob.data if ob.type == "LIGHT" else None
                     bpy.data.objects.remove(ob, do_unlink=True)
+                    if _ld is not None:
+                        # v0.8.10（D1）：灯的 datablock 必须一起删 —— 旧版只删 object，一轮下来会攒出几十个孤儿灯
+                        try:
+                            bpy.data.lights.remove(_ld, do_unlink=True)
+                        except Exception:
+                            pass
                 except Exception:
                     pass
             if made_cam is not None:
@@ -727,10 +974,23 @@ def qc_render_views(args=None):
                     css.view_transform = vt_before
                 except Exception:
                     pass
+            db_after = _db_counts()
         except Exception as e2:
             if err is None:
                 err = {"error": "还原现场失败: %s" % str(e2)[:200]}
 
+    # ---- v0.8.10（D1）：临时资源泄漏自检
+    db_delta = {}
+    try:
+        if db_before and db_after:
+            for k, v0 in db_before.items():
+                v1 = db_after.get(k)
+                if isinstance(v0, int) and isinstance(v1, int) and v1 != v0:
+                    db_delta[k] = v1 - v0
+        if db_delta:
+            scope_warnings.append("临时资源计数未回到基线：%s（灯/相机泄漏会拖慢后续渲染）" % db_delta)
+    except Exception:
+        pass
     total_ms = int(round((time.perf_counter() - t0) * 1000.0))
     within = (not stopped_early) if budget_ms else True
     out = {"ok": err is None and len(entries) > 0,
@@ -749,6 +1009,12 @@ def qc_render_views(args=None):
            "skipped_objects": skipped, "lights": {"mode": lights_mode, "config": lights_cfg,
                                                   "angles_deg": LIGHT_ANGLES, "relative_to": "camera azimuth"},
            "margin": margin,
+           "warmup": warmup_info, "per_view_budget_ms": per_view_budget_ms,
+           "ladder": ladder, "ladder_final_step": (ladder_idx if ladder else None),
+           "engine_check": engine_check,
+           "scope_warnings": scope_warnings, "targets_resolved": targets_resolved,
+           "datablocks": {"before": db_before, "after": db_after, "delta": db_delta},
+           "sheet": sheet_path, "sheet_tiles": sheet_metrics,
            "note": "每行 jsonl = 一张图；ms 是单张渲染耗时（首张含 EEVEE 着色器编译）；"
                    "within_budget=false 表示累计超预算已停（已出的图保留）"}
     if err is not None:

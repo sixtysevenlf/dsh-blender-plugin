@@ -22,9 +22,6 @@
 - **错误提示补两条 Blender 语义坑**：`StructRNA of type ... has been removed`（→ 换文件前抓的 Object/Collection 引用全部作废，open 后重新取）
   与 `context is incorrect`（→ 重设 active/select，或 `temp_override`，或拆成两次调用）。两条均实测触发并回显提示。
 - **长活边界写进工具输出**：headless 单次 >60 s 时提示"下次直接 `as_job:true` / 走 blender_rt_job"。
-- **顺带修一个诊断 bug（本轮回读作业列表时发现）**：作业结束后 `ms` 仍在增长 —— 旧快照用 `Date.now() - startedAt`，
-  8 s 的作业放一会儿再看会显示成 `374328ms`。现在 close 时记 `finishedAt`，`ms` 冻结。
-  实测：6 s 作业 `done · exit=0 · 7346ms`，隔 5 s 再看仍是 `7346ms`。
 
 ## v0.8.8（2026-09-15）—— 内置多视角渲染 harness（P2-1，外部反馈 #4 最后一项）
 
