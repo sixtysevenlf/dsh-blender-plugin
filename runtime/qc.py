@@ -24,7 +24,7 @@ import zlib
 
 import numpy as np
 
-QC_VERSION = 3
+QC_VERSION = 4
 PNG_MAGIC = bytes([137, 80, 78, 71, 13, 10, 26, 10])
 
 
@@ -86,6 +86,18 @@ def qc_load(path):
             raise
         p = _st["staged"]
         img = bpy.data.images.load(p, check_existing=False)
+    # v0.8.9：Blender 对不支持的格式（如 GIF）**静默**返回 0×0 —— 在这里拦住，别让空数组飘到下游
+    try:
+        _w, _h = int(img.size[0]), int(img.size[1])
+    except Exception:
+        _w, _h = 0, 0
+    if _w <= 0 or _h <= 0:
+        try:
+            bpy.data.images.remove(img)
+        except Exception:
+            pass
+        raise RuntimeError("读图失败或格式不支持：%s（Blender 能解 PNG/JPEG/WebP/BMP/TGA/TIFF/EXR；"
+                           "GIF 会被静默读成 0×0）→ 先用外部工具转成 PNG 再喂进来" % str(p))
     try:
         w, h = int(img.size[0]), int(img.size[1])
         buf = np.empty(w * h * 4, dtype=np.float32)

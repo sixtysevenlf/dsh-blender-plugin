@@ -158,6 +158,37 @@ async function backendJson(port: number, path: string, timeoutMs = 20000, init?:
 /** 本会话在写通道上的身份（租约 holder）；跨会话共用同一个后端时用它区分 */
 const HOLDER = process.env.DSH_BLENDER_HOLDER || ('plugin-pid-' + String(process.pid))
 
+/**
+ * 解析后端响应（v0.8.9 修）：后端有两种形态 ——
+ *   ① 普通路由：整段就是一个 JSON；
+ *   ② 流式路由（/headless /worker /txn /preset）：NDJSON，**每 15 s 先写一行** {"heartbeat":true,...}，最后一行才是结果。
+ * 旧实现整段 JSON.parse，于是任何 **超过 15 s** 的调用都会抛 Extra data → 调用方只看到 exit=undefined（子进程其实跑完了）。
+ * 现在：解析失败就按行往前找最后一条非心跳 JSON；同时把心跳条数记进 __heartbeats 供工具层提示。
+ */
+function parseBackendBody(text: string): any {
+  const t = String(text == null ? '' : text)
+  try {
+    const o = JSON.parse(t)
+    if (o && typeof o === 'object') return o
+  } catch (e) { /* 流式响应，往下走 */ }
+  const lines = t.split('\n').map((s) => s.trim()).filter(Boolean)
+  let last: any = null
+  let beats = 0
+  for (let i = lines.length - 1; i >= 0; i--) {
+    let o: any = null
+    try { o = JSON.parse(lines[i]) } catch (e) { continue }
+    if (!o || typeof o !== 'object') continue
+    if (o.heartbeat === true) continue
+    last = o
+    break
+  }
+  for (let i = 0; i < lines.length; i++) {
+    try { const o = JSON.parse(lines[i]); if (o && o.heartbeat === true) beats++ } catch (e) { /* 非 JSON 行 */ }
+  }
+  if (last) { last.__heartbeats = beats; last.__streamLines = lines.length; return last }
+  return { ok: false, raw: t.slice(-500), streamLines: lines.length, parseError: 'no JSON line found' }
+}
+
 /** 写操作统一走它：自动带 holder（租约门禁用），并保留 HTTP 状态码便于识别 409 */
 async function backendPost(port: number, path: string, body: any, timeoutMs = 60000): Promise<any> {
   const r = await withTimeout(base(port) + path, {
@@ -166,10 +197,26 @@ async function backendPost(port: number, path: string, body: any, timeoutMs = 60
     body: JSON.stringify({ ...(body || {}), holder: HOLDER }),
   }, timeoutMs)
   const text = await r.text()
-  let j: any = null
-  try { j = JSON.parse(text) } catch (e) { j = { ok: false, raw: text.slice(0, 500) } }
+  const j: any = parseBackendBody(text)
   j.__status = r.status
   return j
+}
+
+/** 把 "‑‑flag \"a b\" c" 这样的字符串切成 argv（引号成对时不当分隔符；v0.8.9 修 headless 的 args 引号问题） */
+function splitArgs(s: any): string[] {
+  const str = String(s == null ? '' : s)
+  const out: string[] = []
+  let cur = ''
+  let q: string | null = null
+  for (let i = 0; i < str.length; i++) {
+    const c = str[i]
+    if (q) { if (c === q) q = null; else cur += c; continue }
+    if (c === '"' || c === "'") { q = c; continue }
+    if (/\s/.test(c)) { if (cur) { out.push(cur); cur = '' } continue }
+    cur += c
+  }
+  if (cur) out.push(cur)
+  return out
 }
 
 /** 409 leased → 给模型一句能照着做的话（而不是丢一段 JSON） */
@@ -621,7 +668,7 @@ export function apply(ctx: any, config: Config): void {
         useUserConfig: !!(args && args.use_user_config),
         includeNoise: !!(args && args.include_noise),
       }
-      if (args && args.args) body.args = String(args.args).split(/\s+/).filter(Boolean)
+      if (args && args.args) body.args = splitArgs(args.args)   // v0.8.9：引号成对时不当分隔符（旧版把 --flag="a b" 切碎）
       const budget = 60000 + Number(body.timeoutMs || 180000)
       const r = await backendPost(port, '/headless', body, budget)
       const lt = leasedText(r)
@@ -652,6 +699,12 @@ export function apply(ctx: any, config: Config): void {
       if (res.noiseFiltered) parts.push('（已过滤 ' + String(res.noiseFiltered) + ' 个噪音产物：__pycache__/*.pyc/*.blend1|2/tmp*）')
       if (res.hint) parts.push('提示：' + String(res.hint))
       if (res.traceback) parts.push('--- traceback ---' + String.fromCharCode(10) + String(res.traceback).slice(0, 1200))
+      // v0.8.9：两条边界提示 —— ① 本次走了流式回执（>15 s，心跳 N 条）；② 长活下次直接转作业层
+      const beats = Number((r && r.__heartbeats) || 0)
+      if (beats > 0) parts.push('（本次耗时 > 15 s，后端走了流式回执：' + String(beats) + ' 条心跳后收到结果 —— v0.8.9 起客户端按行取末条，不再出现 exit=undefined）')
+      if (!res.error && Number(res.ms) > 60000) {
+        parts.push('提示：本次 ' + String(Math.round(Number(res.ms) / 1000)) + ' s。更长的活（批量出图 / 整晚渲染）建议直接 as_job:true（或 blender_rt_job op=start）：立刻返回 jobId，不受调用窗口限制，中途还能 collect 看进展。')
+      }
       return { text: parts.join('\n') }
     },
   })), '@dsh-external/dsh-blender-plugin: rt-headless')
@@ -857,7 +910,7 @@ export function apply(ctx: any, config: Config): void {
     description: '【作业层】长任务后台化：start 立刻返回 job id（不占客户端连接、不会被工具超时掐断）；status/collect/kill/list 轮询。'
       + '适合渲染一整晚、批量出图、大批量几何；子进程与 headless 同源（自动注入引擎前导），日志与产物落在 outdir/jobs/<id>/。'
       + '与 headless 的分工：短活（小于 5 分钟）用 headless 直接拿结果；长活用 job（start 后去干别的，再 collect）。'
-      + '注意：job 的 script 不支持 preload（需要模块请用 rt_do 的 file 或 K.run）。',
+      + 'v0.8.9 起 op=start 也支持 preload（与 headless 同一套，如 preload:"qc,qc_render"）：长活里直接用 K.dsh_qc_render_api / K.dsh_view_api；脚本里 print("HEADLESS {json}") 仍是结果契约。',
     parameters: {
       op: { type: 'string', required: true, description: 'start | status | collect | kill | list' },
       id: { type: 'string', description: 'status/collect/kill 的 job id' },
@@ -866,6 +919,7 @@ export function apply(ctx: any, config: Config): void {
       outdir: { type: 'string', description: 'op=start：产物目录（Windows 路径）；日志落在其 jobs/<id>/ 下' },
       timeout_ms: { type: 'integer', description: 'op=start：作业上限毫秒（默认 3600000，上限 24 小时，到点 SIGKILL）' },
       engine: { type: 'string', description: 'op=start：eevee（默认，含光追前导）/ cycles / keep' },
+      preload: { type: 'string', description: 'op=start：预载 runtime 里的 python 模块（逗号分隔，如 "qc,qc_render" 或 "view,perf"）—— v0.8.9 起作业层也支持，源码拼到脚本开头' },
     },
     output: { schema: ANY_SCHEMA, render: renderOne },
     isConcurrencySafe: () => true,
@@ -878,6 +932,7 @@ export function apply(ctx: any, config: Config): void {
       if (args && args.file) body.file = String(args.file)
       if (args && args.outdir) body.outdir = String(args.outdir)
       if (args && args.engine) body.engine = String(args.engine)
+      if (args && args.preload) body.preload = String(args.preload)
       if (args && args.timeout_ms) body.timeoutMs = Number(args.timeout_ms)
       const r = await backendPost(port, '/job', body, 60000)
       const lt = leasedText(r)

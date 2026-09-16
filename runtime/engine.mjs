@@ -732,6 +732,13 @@ export function createEngine(opts = {}) {
     if (/Cannot render, no camera/i.test(both)) {
       return s + '  ← 提示：场景没有相机（可能被清理/灯光重建循环删掉）。无头渲染前先设 scene.camera，或用 blender_rt_see 的自定义视角出图。';
     }
+    // v0.8.9（外部会话反馈）：open_mainfile 之后旧引用全失效 + GUI 上下文指针失效
+    if (/StructRNA of type .* has been removed|ReferenceError: StructRNA/i.test(both)) {
+      return s + '  ← 提示：这是一枚「失效引用」—— bpy.ops.wm.open_mainfile() 会重建 bpy.data，换文件前抓到的 Object/Collection/材质引用全部作废。修法：open 之后重新从 bpy.data.objects[...] / bpy.context.scene 取对象，别复用旧变量。';
+    }
+    if (/context is incorrect/i.test(both)) {
+      return s + '  ← 提示：bpy.ops 的上下文不满足。换过文件/换过模式后：先 bpy.context.view_layer.objects.active = obj、obj.select_set(True)，再调 op；仍报错就用 with bpy.context.temp_override(view_layer=vl, active_object=obj, selected_objects=[obj]): bpy.ops....（实测 open 后 temp_override 可正常 join）；实在不行拆成两次 rt_do 调用（每次调用都是新命名空间 = 重新取上下文）。';
+    }
     if (/No such file or directory|无法读取/i.test(both) && /wsl\.localhost|\\\\wsl/i.test(both)) {
       return s + '  ← 提示：UNC 路径形态问题 —— //wsl.localhost/... 会被 Blender 当成「相对 .blend」；用反斜杠 UNC，或先 K.stage(path) 拷到本地再读。';
     }
@@ -774,6 +781,15 @@ export function createEngine(opts = {}) {
     const parts = [];
     if (opts.bootstrap !== false) parts.push(KERNEL_BOOTSTRAP);
     if (engineMode !== 'keep') parts.push(GPU_PRELUDE.replace(/__DSH_ENGINE__/g, "'" + (engineMode === 'cycles' ? 'cycles' : 'eevee') + "'").replace(/__DSH_GPU_MANUAL__/g, 'False'));
+    // v0.8.9：作业层也支持 preload（与 headless 同一套：把 runtime/<name>.py 源码拼到脚本开头）
+    const jobMods = Array.isArray(opts.preload) ? opts.preload : (opts.preload ? String(opts.preload).split(',') : []);
+    for (const m of jobMods) {
+      const name = String(m).trim().replace(/\.py$/, '');
+      if (!name) continue;
+      const f = path.join(HERE, name + '.py');
+      if (!fs.existsSync(f)) throw new Error('preload 找不到模块：' + f);
+      parts.push('# ---- preload ' + name + '.py ----\n' + readModuleSource(name));
+    }
     parts.push(String(opts.script || ''));
     const sp = writeHeadlessScript(parts.join('\n'));
     args.push('--python', sp.win, '--');

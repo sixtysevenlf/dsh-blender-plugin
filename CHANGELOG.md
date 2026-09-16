@@ -1,5 +1,28 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
+## v0.8.9（2026-09-16）—— 修「>15 s 的调用静默失败」等 6 条（外部会话反馈，批次 1）
+
+来源：另一会话使用插件的复盘（通道卡点 5 条）。逐条回代码核对后，**1 条是真 bug、4 条是小缺口**，本版全部修掉。
+
+- **★ 真 bug：超过 15 s 的 headless / worker / txn / preset 调用"静默失败"**。根因：这四个路由走
+  `streamJson(res, producer, hbMs=15000)` —— **每 15 s 先写一行心跳** `{"heartbeat":true,...}`，最后一行才是结果；
+  而客户端 `backendPost` 是 `await r.text()` + **整段 `JSON.parse`** → 多行就抛 `Extra data: line 2 column 1` →
+  降级成 `{ok:false, raw:...}` → 工具层只打印 `HEADLESS 失败 · exit=undefined · undefinedms`（没有 result、没有日志、没有 hint），
+  **而服务端子进程其实已 exitCode=0 跑完**。
+  修法：解析失败时按行从后往前取**最后一条非心跳 JSON**，并把心跳条数记进 `__heartbeats`；工具层在 >15 s 时显式提示"本次走了流式回执 N 条心跳"。
+  实测：20 s 脚本 修前 `HEADLESS 失败 · exit=undefined · undefinedms`（21477 ms）→ 修后 `HEADLESS ok · exit=0 · 21406 ms` + `result: {"slept":20}` + 日志路径；
+  `blender_rt_worker exec`（sleep 20）修后 `WORKER exec ok · 20000ms` + `result: {"worker_slept":20}`。
+- **作业层支持 preload**（原来只有 headless 有）：`blender_rt_job(op=start, preload="qc,qc_render")` 把 runtime 模块源码拼进作业脚本。
+  实测：作业内 `K.dsh_qc_render_api.version = 1`、API 面 `["dispatch","help","render_views","selftest","version"]`（job-mu45mi7xip4，done/exit=0/8019 ms）。
+- **headless 的 `args` 支持引号**：旧实现 `split(/\s+/)` 把 `--flag="a b"` 切成两个 token；现在是引号成对时不当分隔符。
+  实测：`args='--alpha "a b" --x=1 plain'` → `["--alpha","a b","--x=1","plain"]`。
+- **读图零尺寸守卫**（qc.py，QC_VERSION=4）：Blender 对不支持的格式（如 GIF）**静默**返回 0×0，不抛异常 → 现在直接报
+  `读图失败或格式不支持：<path>（Blender 能解 PNG/JPEG/WebP/BMP/TGA/TIFF/EXR；GIF 会被静默读成 0×0）→ 先用外部工具转成 PNG`。
+  实测：加载 2×2 GIF → 修前 `size=[0,0], has_data=false`（静默）→ 修后上面这条明确报错。
+- **错误提示补两条 Blender 语义坑**：`StructRNA of type ... has been removed`（→ 换文件前抓的 Object/Collection 引用全部作废，open 后重新取）
+  与 `context is incorrect`（→ 重设 active/select，或 `temp_override`，或拆成两次调用）。两条均实测触发并回显提示。
+- **长活边界写进工具输出**：headless 单次 >60 s 时提示"下次直接 `as_job:true` / 走 blender_rt_job"。
+
 ## v0.8.8（2026-09-15）—— 内置多视角渲染 harness（P2-1，外部反馈 #4 最后一项）
 
 外部反馈要的形态：入参 {file, views[], res, samples, thr, outdir} → 自动按 bbox 精确取景 + 固定三点光
