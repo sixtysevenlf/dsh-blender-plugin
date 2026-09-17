@@ -312,6 +312,17 @@ const PATH_HELPERS_TEMPLATE = [
   '# v0.8.8：runtime 目录也注入（qc.py 据此现场加载同目录模块，如 qc_render.py）',
   'K.runtime_dir = __RUNTIME_DIR__',
   'K.workdir = K.out_dir',
+  // v0.9.1（93-B4）：参数/环境契约 —— 子进程里 K.args / K.env / K.run_id 直接可读，
+  // 不必再靠"把参数挤进 argv"或全局变量传参（headless 注入了 DSH_ARGS/DSH_OUTDIR/DSH_RUN_ID/DSH_SESSION）。
+  'try:',
+  '    import os as _os_env, json as _json_env',
+  '    K.env = _os_env.environ',
+  '    K.run_id = _os_env.environ.get("DSH_RUN_ID")',
+  '    K.session = _os_env.environ.get("DSH_SESSION")',
+  '    K.outdir_env = _os_env.environ.get("DSH_OUTDIR")',
+  '    K.args = _json_env.loads(_os_env.environ.get("DSH_ARGS") or "[]")',
+  'except Exception:',
+  '    K.env = {}; K.args = []; K.run_id = None; K.session = None; K.outdir_env = None',
   '# v0.8.7：路径常量也注入脚本命名空间（独立模块 + exec(open()) 写法同样可用）',
   'DSH_OUT = K.out_dir',
   'DSH_WIN = _dsh_win_path',
@@ -665,6 +676,31 @@ export function createEngine(opts = {}) {
   /** 读 runtime 下的 python 模块源码（preload / 作业脚本拼接用） */
   const readModuleSource = (name) => fs.readFileSync(path.join(HERE, String(name).replace(/\.py$/, '') + '.py'), 'utf8');
   /**
+   * v0.9.1（93-B3）：脚本路径解析。headless 的 `file=` 语义是 **.blend**（老成员误传 .py 会拿到
+   * `File format is not supported`），现在：显式 `scriptFile=` 收 .py；`file=` 传 .py 时自动改当脚本并给提示。
+   * Windows 路径（D:\ 或 \\wsl.localhost\）与 WSL 路径（/home/...）都能收。
+   */
+  function readScriptPath(p) {
+    const s = String(p);
+    const isWin = /^[A-Za-z]:[\\/]/.test(s) || s.slice(0, 2) === '\\\\';
+    return { win: isWin ? s : wslToWin(s), wsl: isWin ? winToWsl(s) : s };
+  }
+  /** 会话名：默认进程级（多会话/多成员并存时用来隔离默认产物名），可用 DSH_SESSION 覆盖 */
+  const SESSION_NAME = String(process.env.DSH_SESSION || ('plugin-pid-' + process.pid));
+  /** 大结果落盘目录（v0.9.1 93-A3）：结构化结果不再只能从 stdout 里切片 */
+  const RESULTS_DIR = path.join(winToWsl(WIN_TMP), 'results');
+  function dumpResult(obj, runId2) {
+    try {
+      const s = JSON.stringify(obj);
+      fs.mkdirSync(RESULTS_DIR, { recursive: true });
+      const f = path.join(RESULTS_DIR, String(runId2 || ('r-' + Date.now().toString(36))) + '.json');
+      fs.writeFileSync(f, s, 'utf8');
+      return { path: wslToWin(f), bytes: s.length };
+    } catch (e) {
+      return { path: null, bytes: 0, error: String((e && e.message) || e).slice(0, 200) };
+    }
+  }
+  /**
    * v0.9.0：preload 多个模块必须各占一个命名空间。
    * 旧实现把多个模块源码**拼进同一个 globals**，而每个 runtime 模块都定义 _j/_kernel/_store/_now →
    * 后一个模块把前一个的 helper 顶掉。实测 `preload="txn,deliver"` 直接把 txn 打崩（KeyError: 'marks'）。
@@ -744,7 +780,7 @@ export function createEngine(opts = {}) {
       // 契约层的 evidence 需要 view.path：这里补默认工作目录下的证据文件（与 view.py 的默认出图分开）
       const p = payload && typeof payload === 'object' ? payload : {};
       p.view = p.view && typeof p.view === 'object' ? p.view : {};
-      if (!p.view.path) p.view.path = path.win32.join(WIN_TMP, 'dsh_evidence.png');
+      if (!p.view.path) p.view.path = path.win32.join(WIN_TMP, 'dsh_evidence_' + SESSION_NAME.replace(/[^A-Za-z0-9_.-]/g, '_') + '.png');
       payload = p;
     }            // 证据要出图 → 先注入 view.py
     if (isPlan) {
@@ -829,6 +865,21 @@ export function createEngine(opts = {}) {
       const body = 'print("LOOP " + K.dsh_generator_api["dispatch"](' + JSON.stringify(o.slice(10)) + ', _json.dumps(_json.loads('
         + JSON.stringify(JSON.stringify(payload || {})) + '))))';
       return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 600000));
+    }
+    if (o.indexOf('gui_') === 0) {
+      // v0.9.1（93-D1）：GUI 原语 —— rt_do 里 bpy.context.screen 为 None，这几条 op 由插件侧在真 UI 上下文执行
+      await ensureView();
+      const name = o.slice(4);
+      const body = 'print("LOOP " + K.dsh_view_api[' + JSON.stringify('gui_' + name) + '](**_json.loads('
+        + JSON.stringify(JSON.stringify(payload || {})) + ')))';
+      return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 120000));
+    }
+    if (o.indexOf('render_') === 0) {
+      // v0.9.1（93-E1）：渲染锁/队列（render_lock / render_status…）—— 落在 qc_render 模块，跨进程文件锁
+      await ensureQcRender();
+      const body = 'print("LOOP " + K.dsh_qc_render_api["dispatch"](' + JSON.stringify(o.slice(7)) + ', _json.dumps(_json.loads('
+        + JSON.stringify(JSON.stringify(payload || {})) + '))))';
+      return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 900000));
     }
     await ensureContract();
     const body = 'print("LOOP " + K.dsh_contract_api["dispatch"](' + JSON.stringify(o) + ', _json.dumps(_json.loads('
@@ -1236,6 +1287,9 @@ export function createEngine(opts = {}) {
       // v0.8.10（A0/D4）：状态里带插件版本 + runtime 指纹 + 最近运行台账
       return { region: jsonFromStdout(out),
                plugin: { version: PLUGIN_VERSION, runtimeDir: wslToWin(HERE), runtime: runtimeFingerprint() },
+               // v0.9.1（93-E2）：会话名 —— 多会话/多成员并存时，默认产物名与 evidence 路径按它隔离
+               session: SESSION_NAME,
+               resultsDir: wslToWin(RESULTS_DIR),
                trajectory: { dir: wslToWin(TRAJ_DIR), off: TRAJ_OFF, full: TRAJ_FULL,
                              note: 'v0.9.0（#15）：每次顶层调用一行 JSONL（route/op/ms/ok/参数摘要）；DSH_TRAJ=0 关，DSH_TRAJ_FULL=1 记更多参数' },
                runs: Array.from(runs.values()).slice(-5).map(runSnapshot),
@@ -1407,7 +1461,22 @@ export function createEngine(opts = {}) {
      */
     async headless(opts = {}) {
       const t0 = Date.now();
-      const script = opts.script ? String(opts.script) : '';
+      // v0.9.1（93-B3）：scriptFile= 显式收 .py；file= 传 .py 时自动改当脚本（老语义 file= 仍是 .blend）
+      let scriptFileInfo = null;
+      let script = opts.script ? String(opts.script) : '';
+      const fileLooksPython = !!(opts.file && /\.py$/i.test(String(opts.file)));
+      if (opts.scriptFile || fileLooksPython) {
+        const given = String(opts.scriptFile || opts.file);
+        try {
+          const rp = readScriptPath(given);
+          script = fs.readFileSync(rp.wsl, 'utf8');
+          scriptFileInfo = { given: given, resolved: rp.win, bytes: script.length,
+                             auto_from_file: !opts.scriptFile && fileLooksPython };
+        } catch (e) {
+          throw Object.assign(new Error('读不到脚本文件：' + given + ' —— ' + String((e && e.message) || e).slice(0, 160)),
+                              { hint: 'scriptFile 用 .py 路径（Windows D:\\… 或 WSL /home/… 都行）；file= 是 .blend' });
+        }
+      }
       // preload: 把 runtime 里的 python 模块（view/perf/runner/contract/planner...）源码拼进脚本开头
       let pre = '';
       const mods = Array.isArray(opts.preload) ? opts.preload : (opts.preload ? String(opts.preload).split(',') : []);
@@ -1432,6 +1501,18 @@ export function createEngine(opts = {}) {
           .replace(/__DSH_GPU_MANUAL__/g, gpuManual ? 'True' : 'False') + '\n';
       }
       const headParts = [];
+      // ---- v0.9.1（93-B4）：env 注入必须在 K 内核之前 —— PATH_HELPERS 里的 K.args/K.run_id 是从 os.environ 读的，
+      // 而 WSL→Windows 的 env 跨界不可靠（实测 DSH_* 会被吃掉）→ 直接在脚本里 setdefault 一遍。
+      const envPairsPreRunId = 'run-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+      const envPairs = {
+        DSH_RUN_ID: envPairsPreRunId, DSH_OUTDIR: String(opts.outdir || WIN_TMP), DSH_SESSION: SESSION_NAME,
+        DSH_PLUGIN_VERSION: PLUGIN_VERSION,
+        DSH_ARGS: JSON.stringify(Array.isArray(opts.args) ? opts.args.map(String) : []),
+      };
+      if (opts.env && typeof opts.env === 'object') for (const k of Object.keys(opts.env)) envPairs[String(k)] = String(opts.env[k]);
+      headParts.push(['# ---- DSH env prelude（子进程内可见；绕开 WSL interop 的 env 过滤）----', 'try:',
+        '    import os as _os_pre', '    _os_pre.environ.update(' + JSON.stringify(envPairs) + ')',
+        'except Exception:', '    pass'].join(String.fromCharCode(10)));
       if (opts.bootstrap !== false) headParts.push(KERNEL_BOOTSTRAP);
       if (gpuPre) headParts.push(gpuPre);
       // v0.8.10（D2）：workdir → 脚本内 chdir + sys.path 首位（Blender 是 Windows 进程，必须过 K.win_path）
@@ -1456,7 +1537,7 @@ export function createEngine(opts = {}) {
         'except Exception as _e:', '    print("DSH_EXPECT " + _dsh_ejson.dumps({"error": str(_e)[:160]}))'].join(String.fromCharCode(10)) : '';
       const body = (script || pre || gpuPre) ? (headParts.length ? headParts.join('\n') + '\n' : '') + (expectPre ? expectPre + String.fromCharCode(10) : '') + pre + script + (expectPost ? String.fromCharCode(10) + expectPost : '') : '';
       const args = ['-b'];
-      if (opts.file) args.push(wslToWin(String(opts.file)));
+      if (opts.file && !fileLooksPython) args.push(wslToWin(String(opts.file)));
       if (opts.factoryStartup !== false) args.push('--factory-startup');
       let sp = null;
       if (body) { sp = writeHeadlessScript(body); args.push('--python', sp.win); }
@@ -1467,7 +1548,7 @@ export function createEngine(opts = {}) {
       const timeoutMs = Math.max(1000, Math.min(1800000, Number(opts.timeoutMs) || 180000));
       metrics.headlessRuns++;
       // v0.8.10（A2/D4）：每次无头运行都登记成可查台账（id 与作业同空间：blender_rt_job op=status id=run-…）
-      const runId = 'run-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+      const runId = envPairsPreRunId;
       const runRec = { id: runId, child: null, pid: null, startedAt: t0, status: 'running',
                        outdir: opts.outdir || WIN_TMP, logs: null, script: sp ? sp.win : null,
                        exitCode: null, timedOut: false, artifacts: [], expect: exp, workdir: opts.workdir || null };
@@ -1486,7 +1567,26 @@ export function createEngine(opts = {}) {
                  hint: '已转作业层（长任务）：用 blender_rt_job(op="status"/"collect", id="' + j.id + '") 跟进，或用 jobId 轮询 /job' };
       }
       // ---- 子进程环境：可选透传用户 Blender 配置（GPU 偏好在里面）
-      const childEnv = Object.assign({}, process.env, { PYTHONIOENCODING: 'utf-8' });
+      // v0.9.1（93-B4）：显式 env 入参 + 插件注入的契约变量 —— 参数不必再挤 argv（DSH_ARGS/DSH_OUTDIR/DSH_RUN_ID）
+      const childEnv = Object.assign({}, process.env, {
+        PYTHONIOENCODING: 'utf-8',
+        DSH_RUN_ID: runId,
+        DSH_OUTDIR: String(opts.outdir || WIN_TMP),
+        DSH_ARGS: JSON.stringify(Array.isArray(opts.args) ? opts.args.map(String) : []),
+        DSH_SESSION: SESSION_NAME,
+        DSH_PLUGIN_VERSION: PLUGIN_VERSION,
+      });
+      if (opts.env && typeof opts.env === 'object') {
+        for (const k of Object.keys(opts.env)) childEnv[String(k)] = String(opts.env[k]);
+      }
+      // ⚠ 实测坑（v0.9.1）：从 WSL 侧 spawn Windows 的 blender.exe 时，**env 不会自动跨界** ——
+      // Node 把 DSH_* 传给了 spawn，但子进程 os.environ 里一个都看不到（要靠 WSLENV 声明）。
+      // 这里自动声明；同时脚本里还会再注入一次（双保险，见 DSH_ENV_PRELUDE）。
+      try {
+        const pass = Object.keys(childEnv).filter((k) => k.indexOf('DSH_') === 0 || (opts.env && Object.prototype.hasOwnProperty.call(opts.env, k)));
+        const spec = pass.map((k) => k + '/w').join(':');
+        childEnv.WSLENV = childEnv.WSLENV ? (childEnv.WSLENV + ':' + spec) : spec;
+      } catch (e) { /* WSLENV 拼不出来就算了，脚本内注入是主路径 */ }
       if (opts.useUserConfig) {
         if (USER_CONFIG_WIN) childEnv.BLENDER_USER_CONFIG = USER_CONFIG_WIN;
         if (USER_SCRIPTS_WIN) childEnv.BLENDER_USER_SCRIPTS = USER_SCRIPTS_WIN;
@@ -1588,6 +1688,35 @@ export function createEngine(opts = {}) {
         }
       }
       const runOk = !res.timedOut && res.exitCode === 0 && !gpuFailed && (!expectEval || expectEval.ok);
+      // ---- v0.9.1（93-A4）：失败语义分档 —— "客户端超时"不等于"任务失败"，且要能按 runId 回收
+      const failureClass = res.spawnErr ? 'blender_exe_missing'
+        : res.timedOut ? 'timeout'
+          : gpuFailed ? 'gpu_required_missing'
+            : (res.exitCode !== 0 ? 'blender_error' : (lastException ? 'script_error' : 'finished'));
+      const FAIL_HINT = {
+        finished: null,
+        script_error: '脚本抛异常了（退出码可能仍是 0）—— 看 traceback/lastException 指的那一行；结构化结果可能不存在',
+        blender_error: 'Blender 进程退出码非 0（崩溃/参数错）—— 看 stderr 尾巴与日志路径',
+        timeout: '超时被 SIGKILL：脚本没跑完。改小批量、或 asJob=true 转作业层（不占客户端连接）',
+        gpu_required_missing: '要求 GPU 但设备不可用（gpu="true"/engine="cycles" 时）—— 见 gpu 段回执',
+        blender_exe_missing: '起不来 Blender 进程：先配 blenderExe / DSH_BLENDER_EXE',
+      }[failureClass] || null;
+      // ---- v0.9.1（93-A3）：结构化结果落盘（>4KB 自动落，或 outJson= 指定路径）—— 不必再从 stdout 里 indexOf 切片
+      let outJsonInfo = { path: null, bytes: 0 };
+      try {
+        if (parsed !== null && parsed !== undefined) {
+          const s = JSON.stringify(parsed);
+          outJsonInfo.bytes = s.length;
+          if (opts.outJson) {
+            const t = readScriptPath(String(opts.outJson));
+            fs.mkdirSync(path.dirname(t.wsl), { recursive: true });
+            fs.writeFileSync(t.wsl, s, 'utf8');
+            outJsonInfo.path = t.win;
+          } else if (s.length > 4000) {
+            outJsonInfo = Object.assign(outJsonInfo, dumpResult(parsed, runId));
+          }
+        }
+      } catch (e) { /* 落盘失败不影响主结果 */ }
       // ---- v0.8.10（A2/D4）：台账终态
       try {
         runRec.status = res.timedOut ? 'killed' : (res.exitCode === 0 ? 'done' : 'failed');
@@ -1600,6 +1729,14 @@ export function createEngine(opts = {}) {
       } catch (e) { /* ignore */ }
       return { ok: runOk, runId: runId, pluginVersion: PLUGIN_VERSION, expect: expectEval,
                stdoutTruncated: stdout.length > 8000,
+        status: failureClass, resumable: true, session: SESSION_NAME,
+        failure_hint: FAIL_HINT,
+        how_to_recover: '客户端超时/断连不代表失败：这是独立子进程。用 blender_rt_job(op="status"|"collect", id="' + runId +
+                        '") 按 runId 回收结果与产物（台账：' + wslToWin(LEDGER) + '）',
+        scriptFile: scriptFileInfo,
+        outJson: outJsonInfo.path, resultBytes: outJsonInfo.bytes,
+        resultPath: outJsonInfo.path,
+        childEnvKeys: Object.keys(childEnv).filter((k) => k.indexOf('DSH_') === 0),
         exitCode: res.exitCode, signal: res.signal, timedOut: !!res.timedOut,
         ms: ms, timeoutMs: timeoutMs, blender: BLENDER_EXE, script: sp ? sp.win : null, args: args,
         preload: mods.length ? mods : undefined, gpu: gpu, engine: (gpu && gpu.after && gpu.after.engine) || null,

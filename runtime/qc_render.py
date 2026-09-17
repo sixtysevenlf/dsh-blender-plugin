@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""DSH 内置渲染 harness（v0.8.11：Procedura 融合 —— 逐部件配色 / 实测设备行 / 视角目录）—— 一次调用出多视角 QC 图。
+"""DSH 内置渲染 harness（v0.9.1：93 反馈 A1/A2/E1/B1-B2 —— 未知名硬失败 / QC 默认 Standard / 渲染锁 / 可调用 API）
+—— 一次调用出多视角 QC 图。
 
 外部反馈原话：入参 {file, views[], res, samples, thr, outdir} → 自动按 bbox 精确取景
 + 固定三点光 + 逐张 jsonl 计时 + 不超过 budget 的判定 —— "这是任何建模任务都要重写一遍的东西"。
@@ -15,6 +16,41 @@ v0.8.11 从 SpatiaOS/Procedura（MIT；本地镜像 .procedura-ref/，评估见 
      → 22 个具名视角收成 4 组目录 + 别名容错 + 未知名原样回传
        （旧版会把认不出的名字**静默**当成 iso 渲：出图正常、但渲的不是点名的角，报告里查不出来）。
 
+v0.9.1 来自上线项目 rifle-build《93 反馈》—— 两条 P0（A1/A2，静默失败污染证据链）+ 一条 P2（E1）+ API 形态（B1/B2）：
+  A1. **未知名视角不再静默替换**（v0.8.11 行为：4 个名字一个都认不出 → 仍 ok:true 并静默渲
+      iso/front/right/top 四张 —— 文件名对、角度错、调用方看不出来）：
+        · views **非空且一个都没解析成功** → **ok:false**，返回 unknown_views（原始拼写）/
+          available_views（22 个具名视角）/ view_menu（分组速查文本）/ requested_count /
+          rendered_count(=0) / hint —— **一张都不渲，也不兜底替换**；
+        · views **省略/空** → 与 v0.8.11 一致的默认 3 视角（iso/front/right，见 DEFAULT_VIEWS_LEGACY）。
+          要用 Procedura 的 4 视角集（iso/front/right/top）就**显式传** DEFAULT_VIEWS_FALLBACK 那四个名字
+          —— 补丁版不静默改默认产物集；显式传 views 的语义一个都没变；
+        · 部分未知名 → 已知名照渲，但返回体**必有** requested_count / rendered_count / unknown_count
+          三个数字（成员踩过"12 个名字只渲 8 张，不报错"）；
+        · 补**纯拼写**别名（side_left / left_view / topdown … → 规范名，见 VIEW_ALIASES）；
+          语义模糊的一律不猜 —— `*_end`（muzzle_end / breech_end）**永不映射**（VIEW_NO_GUESS_SUFFIXES），
+          进 unknown_views 由调用方按目录显式映射（枪械语境 muzzle_end→front 是调用方的判断，插件不替它猜）。
+  A2. **QC 渲染默认 view_transform="Standard"**（v0.8.11 默认 null = 沿用场景；Blender 5.x 出厂 AgX 把
+      纯白底压到 ≈0.85，凡"按亮度阈值裁参考/算剪影"的分析整轮失效）：
+        · 缺省 = "Standard"（QC 口径：去掉 AgX/Filmic 洗淡，阈值判读才可靠）；
+        · "scene" = 沿用场景设置（旧行为，给 beauty 图用）；具体名（"AgX"/"Filmic"/"Standard"）= 用那个；
+        · 出图后**必须还原**场景 view_settings.view_transform（逐项对拍；没还原 → ok:false，
+          与 parts_color 还原同款纪律：改了场景没还干净比少出一张图严重得多）；
+        · 返回体与**每行 jsonl** 都给 view_transform（实际生效的那个）；传 "scene" 而场景不是 Standard
+          时给 scope_warnings："当前是 AgX，阈值判读需自行校正"；名字写错/本机没有 → 渲染前就 ok:false
+          （不许静默用别的色彩变换出图）。
+  E1. **内置渲染锁**（替代各成员自造的 render_lock.py：多进程并发跑 EEVEE 抢同一块 GPU，实测有人等锁 48s）：
+        · render_lock(action="acquire"|"release"|"status", holder, ttl_s, wait_s, note)；
+          锁文件 <workdir>/locks/render.lock（workdir = K.workdir / K.out_dir，即各进程共享的工作目录），
+          内容 JSON {holder, pid, acquired_at, ttl_s, note}；**过期判定只认时间戳**（跨进程唯一可靠判据，
+          不能靠进程存活）；过期锁被打破时返回 stale_broken:true 并记录 warning；
+        · qc_render_views 渲染前**自动 acquire**（lock_wait_s 默认 120s；lock=false 关掉），
+          finally 里 release（异常也放；holder 匹配才删）；等不到锁 → ok:false（不静默渲一堆虚高的计时）；
+        · 返回体与每行 jsonl 给 lock {holder, waited_ms, acquired, stale_broken, path} —— 计时口径可审计。
+  B1/B2. K.dsh_qc_render_api 是 **dict 子类**（_DshApi）：既能 api["render_views"]（老写法，返回 str），
+      也能 api("render_views", {...}) / api({...})（返回**已解析的 dict**）；api["dispatch"](op, json_str)
+      仍返回 **str**（引擎契约不变）。
+
 API 挂 K.dsh_qc_render_api。入口两条：
     blender_rt_plan(op="qc_render_views", args={...})                    # 走 qc_render 模块（engine 路由）
     blender_rt_headless(file=..., preload="qc,qc_render", script=...)    # 无头/作业层（长活、天然隔离）
@@ -23,8 +59,10 @@ API 挂 K.dsh_qc_render_api。入口两条：
     file        .blend 路径。与当前文件不同时：后台 -b 直接打开；GUI 默认拒绝（会顶掉用户场景），
                 需要 allow_open_file=true 才开
     views       ["front","iso","top"] 或 [{"name","az","el","from","look_at","lens","ortho","res","margin"}]
-                具名视角：front/back/left/right/top/bottom/iso/iso_l/iso_back/front_high
-                也可写 "az=35,el=20"；默认 ["iso","front","right"]
+                具名视角：front/back/left/right/top/bottom/iso/iso_l/iso_back/front_high（全 22 名见
+                qc_render_catalog / view_menu）；也可写 "az=35,el=20"；省略/空 = ["iso","front","right"]
+                （与 v0.8.11 一致；要 4 视角集就显式传 iso/front/right/top）。
+                v0.9.1（A1）：**一个名字都认不出**时 ok:false 且一张都不渲（不再静默兜底）
     res         [w,h] 或单个数（默认 [512,512]）
     samples     采样数（EEVEE=taa_render_samples / Cycles=samples，默认 64）
     budget_s    累计渲染秒数上限（别名 thr）。超了立即停：已出的图与 jsonl 行保留，within_budget=false
@@ -36,7 +74,9 @@ API 挂 K.dsh_qc_render_api。入口两条：
     lights_mode "add"（默认）| "only"（临时屏蔽场景里其它灯，出图后还原）
     margin      取景余量（默认 1.12；越大留白越多）
     engine      "keep"（默认，跟随进程当前引擎）| "eevee"（EEVEE+光追）| "cycles"
-    view_transform  色彩变换（默认 null = 保留场景设置；给 "Standard" 可去掉 AgX 洗淡）
+    view_transform  色彩变换（v0.9.1 起**缺省 = "Standard"**：QC 口径去掉 AgX/Filmic 洗淡，阈值判读才可靠；
+                "scene" = 沿用场景设置（v0.8.11 的旧行为，给 beauty 图用）；具体名 = 用那个（如 "AgX"）。
+                无论哪种，出图后都还原场景设置；返回体与每行 jsonl 都记实际生效值）
     warmup      默认 true：先渲一帧预热（EEVEE 着色器编译）**不计时、不进 jsonl、不占预算** —— 单张耗时才是干净数
     ladder      降质阶梯（v0.8.10）：[{"samples":64,"scale":1.0},{"samples":32,"scale":0.75},…]；
                 配 per_view_budget_s 时，某张超过预算就自动降一档重渲并逐级留痕（后续视角沿用该档）
@@ -56,6 +96,15 @@ v0.8.11 新增参数（老参数一个都没动）：
     view_order  "catalog"（默认：字符串具名视角按目录顺序 + 去重后渲染）| "request"（严格按请求顺序）
     strict_views  默认 false：未知视角名进 unknown_views 并跳过（已知视角照常渲）；true = 有未知名就 ok:false
 
+v0.9.1 新增参数（老参数一个都没动）：
+    lock        默认 true：渲染前自动取渲染锁（跨进程串行化，计时口径才可审计）；false/0/"off" = 关掉
+    lock_wait_s 等锁上限秒数（默认 120）；等不到 → ok:false（不静默渲一批虚高的计时）
+    lock_dir    锁的工作目录（默认 K.workdir / K.out_dir）→ 锁文件 <lock_dir>/locks/render.lock
+                锁原语也可直接调：K.dsh_qc_render_api("render_lock", {"action": "status"})
+    lock_holder 持有者名（默认 DSH_SESSION → DSH_RUN_ID → pid-<pid>）；**同一会话里并发跑多个渲染进程时
+                必须显式给不同名字** —— 否则同名 holder 无法区分"谁持有"，极端情况（TTL 过期被打破后
+                原进程才回来放锁）会误删别人的锁
+
 产物：<outdir>/<tag>_<view>.png × N + <outdir>/render_views.jsonl（每行 {view, ms, bytes, hash, device, ...}）
       parts_color 模式另出 <outdir>/parts_color_meta.txt（图例：每行 `名字<TAB>R,G,B<TAB>面数`，
       纯数据行、行数 == 部件数，方便 `wc -l` 对拍）+ 同名 .json（调色板/分组/还原自检等细节）
@@ -67,6 +116,8 @@ v0.8.11 新增参数（老参数一个都没动）：
   · v0.8.11：parts_color 覆盖的材质槽 / 临时材质 / 链接副本 mesh **全部还原并逐项核对**，
     核对不过直接 ok:false（改了场景没还原干净，比少出一张图严重得多 —— 这是本项目的历史教训）；
   · v0.8.11：视角名容错但**不猜**：未知名原样进 unknown_views，绝不静默替换成 iso。
+  · v0.9.1：**认不出就失败**（一个都没认出来 → ok:false + 一张不渲）；渲染前取锁、finally 放锁；
+    色彩变换出图后逐项核对还原，没还原 → ok:false。
 """
 import bpy
 import hashlib
@@ -79,7 +130,7 @@ import time
 import numpy as np
 from mathutils import Vector
 
-QC_RENDER_VERSION = 2
+QC_RENDER_VERSION = 3      # v0.9.1：A1 未知名硬失败 / A2 QC 默认 Standard / E1 渲染锁 / B1-B2 可调用 API
 DEFAULT_RES = (512, 512)
 # 固定三点光（强度 W/m² 级的 SUN，与场景尺度无关）：key 3.2 / fill 1.0 / rim 2.4
 DEFAULT_LIGHTS = {"key": 3.2, "fill": 1.0, "rim": 2.4}
@@ -138,17 +189,37 @@ VIEW_GROUP_OF = dict((v["name"], str(v["group"])) for v in VIEW_CATALOG)
 LEGACY_NAMED_VIEWS = {"front": (-90.0, 0.0), "back": (90.0, 0.0), "right": (0.0, 0.0), "left": (180.0, 0.0),
                       "top": (0.0, 90.0), "bottom": (0.0, -90.0), "iso": (-45.0, 25.0), "iso_l": (-135.0, 25.0),
                       "iso_back": (135.0, 25.0), "front_high": (-90.0, 35.0), "right_high": (0.0, 35.0)}
-# 别名（键已归一：小写 + 去空格/下划线/连字符）→ 规范名。只做拼写容错，不做语义猜测。
-VIEW_ALIASES = {"isometric": "iso", "isofrtop": "iso", "isoright": "iso", "isofrontright": "iso",
-                "isofltop": "iso_l", "isofrontleft": "iso_l",
-                "isobrtop": "iso_br", "isobackright": "iso_br",
+# 别名（键已归一：小写 + 去空格/下划线/连字符）→ 规范名。只做**拼写**容错，不做语义猜测。
+# v0.9.1（93 反馈 A1-4）补两类：
+#   ① 纯拼写同义词（side_left / left_view / topdown / front_view …）—— 语义无歧义才收；
+#   ② 修正两条历史错映射：isoright / isobackright 原来都指到 iso（前右上）与 iso_back（后左上），
+#      但目录里 iso_br 的 desc 就是 "iso-BR-top"（后右上）→ 全部收敛到 iso_br（与 isobrtop 一致）。
+# 语义模糊的**不猜**（side / muzzle / breech / 任何 `*_end`）：见 VIEW_NO_GUESS_SUFFIXES 与
+# qc_render_catalog.no_guess —— 调用方要按自己项目的目录显式映射（如枪械 muzzle_end → front）。
+VIEW_ALIASES = {"isometric": "iso", "isofrtop": "iso", "isofrontright": "iso",
+                "isoright": "iso_br", "isobrtop": "iso_br", "isobackright": "iso_br",
+                "isofltop": "iso_l", "isofrontleft": "iso_l", "isoleft": "iso_l",
                 "isobltop": "iso_back", "isobackleft": "iso_back",
                 "isofrbot": "iso_fr_bot", "isoflbot": "iso_fl_bot",
-                "isobrbot": "iso_br_bot", "isoblbot": "iso_bl_bot"}
-# v0.8.11：views 一个有效的都没有时的兜底 4 视角（Procedura DEFAULT_VIEWS 口径）
-DEFAULT_VIEWS_FALLBACK = ["iso", "front", "right", "top"]
-# views 参数**缺省**时的老默认（v0.8.8 行为：三点就三点，一个都不许变）
+                "isobrbot": "iso_br_bot", "isoblbot": "iso_bl_bot",
+                # —— v0.9.1 拼接/词序类拼写容错（只此三种写法，不做语义联想）——
+                "sideleft": "left", "leftside": "left", "leftview": "left",
+                "sideright": "right", "rightside": "right", "rightview": "right",
+                "frontview": "front", "backview": "back",
+                "topview": "top", "topdown": "top", "bottomview": "bottom"}
+# v0.9.1（A1）：**不猜**纪律 —— 归一化后以这些后缀结尾的名字永不映射（哪怕将来有人往别名表里加）。
+# 为什么单独列：`muzzle_end` / `breech_end` 看着像"某个端面"，但映射到哪个正交面是**项目语义**
+# （枪口朝哪、哪边算 front），插件替调用方猜一次，就会在报告里留下一张"文件名对、角度错"的图。
+VIEW_NO_GUESS_SUFFIXES = ("end",)
+VIEW_NO_GUESS_NOTE = ("后缀 *_end（muzzle_end / breech_end …）与语义模糊名（side / muzzle …）一律不猜："
+                      "原样进 unknown_views，请调用方按本项目的视角目录显式映射（如 muzzle_end → front）")
+
+# v0.9.1（A1）定稿：**省略/空 views 仍走 v0.8.11 的老默认（3 张）** —— 补丁版不静默改默认产物集。
 DEFAULT_VIEWS_LEGACY = ["iso", "front", "right"]
+# Procedura 口径的 4 视角集（iso/front/right/top）：保留导出，调用方**显式**要就用它。
+# 注意：v0.9.0 曾把"全部未知名"兜底到它，v0.9.1 起那种情况直接 ok:false（A1），所以它现在只是"推荐的一组视角"。
+DEFAULT_VIEWS_FALLBACK = ["iso", "front", "right", "top"]
+
 
 
 def _j(o):
@@ -180,13 +251,25 @@ _NORM2CANON = dict((_norm_view_name(n), n) for n in VIEW_ORDER)
 
 
 def _canon_view(name):
-    """拼写 → 规范名；不命中返回 None（**不猜**：交给调用方报 unknown_views）。"""
+    """拼写 → 规范名；不命中返回 None（**不猜**：交给调用方报 unknown_views）。
+
+    v0.9.1（A1）：先过**不猜**纪律 —— 归一化后以 `*_end` 结尾的名字直接 None（不进别名表兜底）。
+    """
     k = _norm_view_name(name)
     if not k:
         return None
+    if k.endswith(VIEW_NO_GUESS_SUFFIXES):
+        return None                       # 不猜：muzzle_end / breech_end … 由调用方按目录显式映射
     if k in _NORM2CANON:
         return _NORM2CANON[k]
     return VIEW_ALIASES.get(k)
+
+
+def _no_guess_hit(name):
+    """这个名字是不是被**不猜纪律**挡下的（用于返回体里区分"没这个名"与"故意不猜"）。"""
+    k = _norm_view_name(name)
+    return bool(k) and k.endswith(VIEW_NO_GUESS_SUFFIXES)
+
 
 
 def _is_azel_spec(s):
@@ -196,12 +279,15 @@ def _is_azel_spec(s):
 
 
 def resolve_view_names(names):
-    """字符串视角名列表 → {"names": 规范名[目录顺序+去重], "unknown": 原始拼写, "aliases": 命中记录, "deduped": 重复项}。
+    """字符串视角名列表 → {"names": 规范名[目录顺序+去重], "unknown": 原始拼写, "aliases": 命中记录,
+    "deduped": 重复项, "no_guess": 被不猜纪律挡下的原始拼写}。
 
     Procedura 口径（src/render/views.ts resolveViews）：先归一到规范名，未知名**原样留下**由调用方报警，
-    已知名按**目录顺序**输出 —— 顺序固定，跨次/跨会话才可比。全部无效时由调用方回落 DEFAULT_VIEWS_FALLBACK。
+    已知名按**目录顺序**输出 —— 顺序固定，跨次/跨会话才可比。
+    v0.9.1（A1）：这里**不再**说"全部无效时回落 DEFAULT_VIEWS_FALLBACK" —— 由 qc_render_views 判
+    "非空且一个都没认出来 = ok:false"（空/省略才用默认）；resolve 本身只做纯函数归一，不替调用方兜底。
     """
-    want, unknown, aliases, deduped = [], [], [], []
+    want, unknown, aliases, deduped, no_guess = [], [], [], [], []
     seen = set()
     for raw in (names or []):
         s = str(raw).strip()
@@ -210,6 +296,8 @@ def resolve_view_names(names):
         canon = _canon_view(s)
         if canon is None:
             unknown.append(str(raw))          # 保留**用户原始拼写**，不是归一后的
+            if _no_guess_hit(s):
+                no_guess.append(str(raw))
             continue
         if _norm_view_name(s) != _norm_view_name(canon):
             aliases.append({"requested": str(raw), "resolved": canon})
@@ -219,7 +307,7 @@ def resolve_view_names(names):
         seen.add(canon)
         want.append(canon)
     return {"names": [n for n in VIEW_ORDER if n in seen], "unknown": unknown,
-            "aliases": aliases, "deduped": deduped}
+            "aliases": aliases, "deduped": deduped, "no_guess": no_guess}
 
 
 def view_menu_text():
@@ -231,6 +319,14 @@ def view_menu_text():
     return "\n".join(lines)
 
 
+def view_menu_full_text():
+    """view_menu_text() + 别名表 + **不猜**纪律（v0.9.1 A1）：给"名字写错了该怎么办"一个就地答案。"""
+    return (view_menu_text()
+            + "\n  别名（纯拼写容错）：" + ", ".join("%s→%s" % (k, v) for k, v in sorted(VIEW_ALIASES.items()))
+            + "\n  不猜：" + VIEW_NO_GUESS_NOTE)
+
+
+
 def qc_render_view_catalog():
     """视角目录（机器可读）：分组 / az,el / ortho 语义 / 人类可读描述 / 别名 / 兜底视角。"""
     return _j({"ok": True, "version": QC_RENDER_VERSION,
@@ -238,10 +334,24 @@ def qc_render_view_catalog():
                            "views": [dict(v) for v in VIEW_CATALOG if str(v["group"]) == g]}
                           for g, label in VIEW_GROUPS],
                "order": list(VIEW_ORDER), "aliases": dict(VIEW_ALIASES),
+               "alias_note": "别名只做**拼写**容错（大小写/下划线/连字符/词序都不敏感），不做语义猜测；"
+                             "v0.9.1 修正：isoright / isobackright → iso_br（目录里 iso-BR-top = 后右上）",
+               "no_guess": {"suffix": list(VIEW_NO_GUESS_SUFFIXES), "note": VIEW_NO_GUESS_NOTE,
+                            "examples": ["muzzle_end", "breech_end"]},
+               "default_views": list(DEFAULT_VIEWS_LEGACY),
                "default_views_fallback": list(DEFAULT_VIEWS_FALLBACK),
                "default_views_legacy": list(DEFAULT_VIEWS_LEGACY),
+               "default_views_note": "views 省略/空 = default_views_legacy（3 张，与 v0.8.11 一致）；要 4 视角集就显式传 default_views_fallback 那四个名字",
+               "view_transform_default": "Standard",
+               "view_transform_note": "QC 口径默认 Standard（AgX/Filmic 会把白底压到 ≈0.85，阈值判读失效）；"
+                                      "传 \"scene\" 沿用场景设置；出图后一律还原",
+               "unknown_views_policy": "views 非空且一个都没认出来 → ok:false（一张不渲、不兜底替换）；"
+                                       "部分未知名 → 已知名照渲 + requested_count/rendered_count/unknown_count",
+               "lock": {"op": "render_lock", "path": "<workdir>/locks/render.lock",
+                        "actions": ["acquire", "release", "status"],
+                        "note": "跨进程渲染锁（时间戳判过期）；qc_render_views 渲染前自动 acquire、finally release"},
                "legacy_named_views": dict(LEGACY_NAMED_VIEWS),
-               "menu_text": view_menu_text(),
+               "menu_text": view_menu_full_text(),
                "ortho_note": "目录里的 ortho 是语义标注；实际投影默认按老口径（透视），"
                              "要按目录投影传 catalog_ortho=true"})
 
@@ -269,6 +379,328 @@ def _out_dir():
     K = _kernel()
     d = getattr(K, "out_dir", None) if K is not None else None
     return d or os.path.join(tempfile.gettempdir(), "dsh_qc_render")
+
+
+def _work_dir():
+    """**工作目录**（不是单次调用的 outdir）：v0.9.1（E1）渲染锁的基址。
+
+    取 K.workdir（engine 注入 = K.out_dir，同一启动器下的 GUI/无头/worker 进程**共享同一个**工作目录，
+    所以锁是跨进程可见的 —— 并发方各自是独立无头进程，只有共享文件系统能协调），
+    再退到 K.out_dir、DSH_OUTDIR 环境变量、临时目录。
+    """
+    K = _kernel()
+    for attr in ("workdir", "out_dir"):
+        d = getattr(K, attr, None) if K is not None else None
+        if d:
+            return str(d)
+    return os.environ.get("DSH_OUTDIR") or os.path.join(tempfile.gettempdir(), "dsh_qc_render")
+
+
+# ---------------------------------------------------------------- v0.9.1（A2）：本机可用的色彩变换清单
+# 为什么不用 bl_rna 的 enum_items：Blender 5.x 的 view_transform 是 OCIO **动态枚举**，实测
+# `bl_rna.properties["view_transform"].enum_items` 只回 ['NONE']（拿不到完整清单）；"逐个试写 + 读回"
+# 是唯一可靠判据（名字本机没有时赋值会抛 enum not found），用完把原值写回去。
+VT_PROBE_CANDIDATES = ("Standard", "AgX", "Filmic", "Filmic Log", "Khronos PBR Neutral", "Raw",
+                       "False Color", "Linear", "Linear Rec.709", "sRGB", "None")
+
+
+def _vt_options():
+    """实测本机可用的 view_transform 名单（试写 + 读回，最后**还原原值**）。"""
+    vs = getattr(bpy.context.scene, "view_settings", None)
+    if vs is None:
+        return []
+    cur = str(getattr(vs, "view_transform", "") or "")
+    opts = []
+    try:
+        for c in VT_PROBE_CANDIDATES:
+            try:
+                vs.view_transform = c
+                if str(getattr(vs, "view_transform", "")) == c and c not in opts:
+                    opts.append(c)
+            except Exception:
+                pass
+    finally:
+        if cur:
+            try:
+                vs.view_transform = cur
+            except Exception:
+                pass
+    return opts
+
+
+# ---------------------------------------------------------------- v0.9.1（E1）：跨进程渲染锁
+# 为什么在 python 侧做（93 反馈 E1）：并发方各自是**独立无头进程**，没有共享内存，只有共享文件系统；
+# 实测多进程同抢一块 GPU 时单张耗时虚高（有人等锁 48s），成员只能自造 render_lock.py。
+# 判过期的**唯一可靠判据是锁文件里的时间戳**（跨进程不能靠"进程还活着吗"：进程可能被 kill -9、
+# 可能是另一台容器里的同名 pid、也可能正在无响应地跑渲染）；所以 TTL 一律按 acquired_at 算，
+# 读不到 acquired_at 就退到文件 mtime（并把 age_source 标出来，不假装知道）。
+LOCK_POLL_S = 0.25
+LOCK_DEFAULT_TTL_S = 600.0
+
+
+def _lock_holder_default():
+    """holder 缺省：`DSH_SESSION#<pid>` → `DSH_RUN_ID#<pid>` → `pid-<pid>`。
+
+    为什么带 pid（v0.9.1 定稿）：同一 DSH 会话里**并发起多个无头进程**是常见用法
+    （batch / 多成员），只用会话名会让它们同名 → 互相误放锁。带上 pid 后同会话内也彼此唯一。
+    """
+    h = os.environ.get("DSH_SESSION") or os.environ.get("DSH_RUN_ID")
+    return ("%s#%d" % (h, os.getpid())) if h else ("pid-%d" % os.getpid())
+
+
+def _lock_base(override=None):
+    return str(override) if override else _work_dir()
+
+
+def _lock_path(base=None):
+    """锁文件路径：<base>/locks/render.lock（base 默认 _work_dir()；WSL 路径自动转 Windows 侧）。"""
+    return _win(os.path.join(_lock_base(base), "locks", "render.lock"))
+
+
+def _lock_read(path):
+    """读锁文件 → (info|None, err)。
+
+    err == "missing" 表示锁不存在（调用方按"无人持有"处理，不是错误）；
+    解析不了时返回 {"_unparsable": True, "_mtime": ..., "_raw": ...} —— 不猜持有者，只按 mtime 判年龄。
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            raw = f.read()
+    except FileNotFoundError:
+        return None, "missing"
+    except Exception as e:
+        return None, "%s: %s" % (type(e).__name__, str(e)[:120])
+    try:
+        info = json.loads(raw)
+        if not isinstance(info, dict):
+            raise ValueError("不是 JSON 对象")
+        return info, None
+    except Exception as e:
+        mt = None
+        try:
+            mt = float(os.path.getmtime(path))
+        except Exception:
+            pass
+        return {"_unparsable": True, "_mtime": mt, "_raw": str(raw)[:200]}, "解析失败：%s" % str(e)[:120]
+
+
+def _lock_age(info, path):
+    """锁的年龄（秒）+ 判据来源（"acquired_at" | "mtime" | None）。**只认时间戳**，不看进程存活。"""
+    if isinstance(info, dict) and info.get("acquired_at") not in (None, ""):
+        try:
+            return max(0.0, time.time() - float(info["acquired_at"])), "acquired_at"
+        except Exception:
+            pass
+    try:
+        return max(0.0, time.time() - float(os.path.getmtime(path))), "mtime"
+    except Exception:
+        return None, None
+
+
+def _lock_holder_of(info):
+    if not isinstance(info, dict) or info.get("_unparsable"):
+        return None
+    h = info.get("holder")
+    return str(h) if h not in (None, "") else None
+
+
+def _lock_line(res):
+    """锁结果 → 返回体/jsonl 里的统一 lock 行（计时口径可审计：等了多久、谁持有、有没有打破过期锁）。"""
+    if not res:
+        return {"enabled": False, "holder": None, "waited_ms": 0, "acquired": False,
+                "stale_broken": False, "path": None, "reason": "lock=false"}
+    return {"enabled": True, "holder": res.get("holder"), "waited_ms": int(res.get("waited_ms") or 0),
+            "acquired": bool(res.get("acquired")), "stale_broken": bool(res.get("stale_broken")),
+            "path": res.get("path")}
+
+
+def _lock_acquire(path, holder, ttl_s, wait_s=0.0, note=""):
+    """原子取锁（O_CREAT|O_EXCL）；被占则**按时间戳判 TTL**：过期就打破（记 stale_broken），否则轮询 wait_s。"""
+    t0 = time.perf_counter()
+    ttl = float(ttl_s) if ttl_s else LOCK_DEFAULT_TTL_S
+    wait = max(0.0, float(wait_s or 0.0))
+    deadline = t0 + wait
+    stale_broken, stale_note = False, None
+    parse_err = None
+    while True:
+        try:
+            d = os.path.dirname(path)
+            if d:
+                os.makedirs(d, exist_ok=True)
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            fd = None
+        except Exception as e:
+            return {"ok": False, "action": "acquire", "acquired": False, "holder": holder, "path": path,
+                    "waited_ms": int(round((time.perf_counter() - t0) * 1000.0)),
+                    "error": "锁文件建不出来：%s: %s" % (type(e).__name__, str(e)[:160])}
+        if fd is not None:
+            payload = {"holder": str(holder), "pid": os.getpid(), "acquired_at": time.time(),
+                       "ttl_s": ttl, "note": str(note or "")}
+            try:
+                os.write(fd, _j(payload).encode("utf-8"))
+                try:
+                    os.fsync(fd)          # 落盘：别的进程读到的必须是完整 JSON（不是写了一半的）
+                except Exception:
+                    pass
+            finally:
+                try:
+                    os.close(fd)
+                except Exception:
+                    pass
+            return {"ok": True, "action": "acquire", "acquired": True, "holder": str(holder),
+                    "pid": os.getpid(), "acquired_at": payload["acquired_at"], "ttl_s": ttl,
+                    "path": path, "waited_ms": int(round((time.perf_counter() - t0) * 1000.0)),
+                    "stale_broken": stale_broken, "stale_note": stale_note, "parse_error": parse_err,
+                    "note": str(note or ""),
+                    "hint": "渲染完务必 release：render_lock(action=\"release\", holder=%r%s)"
+                            % (str(holder), (", dir=%r" % os.path.dirname(os.path.dirname(path))) if path else "")}
+        # ---- 已被占：读它、按**时间戳**判过期
+        info, err = _lock_read(path)
+        age, age_src = _lock_age(info, path)
+        if err is not None and err != "missing":
+            parse_err = err
+        cur_holder = _lock_holder_of(info)
+        stale = (err == "missing") or (age is not None and age > ttl)
+        if stale:
+            try:
+                os.remove(path)
+                stale_broken = True
+                stale_note = ("过期锁被打破：holder=%s age=%.1fs(%s) > ttl=%.1fs%s"
+                              % (cur_holder or "?", (age if age is not None else -1.0), age_src or "?",
+                                 ttl, ("；锁文件解析失败：%s" % parse_err) if parse_err else ""))
+            except FileNotFoundError:
+                stale_broken = True          # 别的进程先打破了：下一轮 O_EXCL 自己建
+                stale_note = "锁在读取后被别的进程打破/释放（race；本轮直接重试创建）"
+            except Exception as e:
+                return {"ok": False, "action": "acquire", "acquired": False, "holder": holder, "path": path,
+                        "waited_ms": int(round((time.perf_counter() - t0) * 1000.0)),
+                        "stale_broken": stale_broken,
+                        "error": "锁过期了但删不掉：%s: %s（权限/占用？）" % (type(e).__name__, str(e)[:160])}
+            continue                         # 立刻重试 O_EXCL（不 sleep）
+        if time.perf_counter() >= deadline:
+            return {"ok": False, "action": "acquire", "acquired": False, "holder": holder,
+                    "current_holder": cur_holder, "path": path, "ttl_s": ttl,
+                    "holder_age_s": (round(age, 1) if age is not None else None),
+                    "holder_age_source": age_src, "parse_error": parse_err,
+                    # 还要等多久对方才过期（拿不到年龄时 null，不猜）：wait_s 小于它就别死等
+                    "holder_ttl_remaining_s": (round(max(0.0, ttl - age), 1) if age is not None else None),
+                    "waited_ms": int(round((time.perf_counter() - t0) * 1000.0)),
+                    "stale_broken": stale_broken, "stale_note": stale_note,
+                    "error": "渲染锁被占用：等满 wait_s=%.1fs 仍未取得（当前 holder=%s%s）"
+                             % (wait, cur_holder or "?",
+                                ("，已持有 %.1fs" % age) if age is not None else "，持有时间读不到"),
+                    "hint": "调大 wait_s（或 qc_render_views 的 lock_wait_s）；查持有者 render_lock(action=\"status\")；"
+                            "确认对方进程已死可 render_lock(action=\"release\", holder=<holder>) 或等 TTL 过期"
+                            "（holder_ttl_remaining_s 是还要等多久）"}
+        time.sleep(min(LOCK_POLL_S, max(0.0, deadline - time.perf_counter())))
+
+
+def _lock_release(path, holder):
+    """释放锁：**只有 holder 匹配才删**（不匹配 → ok:false 并报当前持有者，绝不误删别人的锁）。"""
+    info, err = _lock_read(path)
+    if err == "missing":
+        return {"ok": True, "action": "release", "released": False, "holder": str(holder), "path": path,
+                "reason": "锁文件不存在（从未取得 / 已被释放 / 已过期被打破）"}
+    if err is not None or info.get("_unparsable"):
+        return {"ok": False, "action": "release", "released": False, "holder": str(holder), "path": path,
+                "current_holder": None, "parse_error": err,
+                "error": "锁文件解析不了，无法确认持有者 → 拒绝删除（防误删别人的锁）",
+                "hint": "等 TTL 过期后会被下一个 acquire 打破；或人工确认后删 %s" % path}
+    cur = _lock_holder_of(info)
+    if cur != str(holder):
+        return {"ok": False, "action": "release", "released": False, "holder": str(holder), "path": path,
+                "current_holder": cur,
+                "error": "holder 不匹配，拒绝释放（当前持有者=%s）" % (cur or "?")}
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        return {"ok": True, "action": "release", "released": False, "holder": str(holder), "path": path,
+                "reason": "锁在释放前已被别的进程打破/释放（幂等，不算失败）"}
+    except Exception as e:
+        return {"ok": False, "action": "release", "released": False, "holder": str(holder), "path": path,
+                "error": "删锁失败：%s: %s" % (type(e).__name__, str(e)[:160])}
+    return {"ok": True, "action": "release", "released": True, "holder": str(holder), "path": path,
+            "held_ms": (int(round((time.time() - float(info.get("acquired_at"))) * 1000.0))
+                        if info.get("acquired_at") else None)}
+
+
+def _lock_status(path, ttl_s=None):
+    """查锁：当前持有者 / 已持有多久 / 剩余 TTL / 是否已过期（只读，不改任何东西）。"""
+    info, err = _lock_read(path)
+    if err == "missing":
+        return {"ok": True, "action": "status", "path": path, "held": False, "holder": None,
+                "hint": "当前没有锁（可以 acquire）"}
+    age, age_src = _lock_age(info, path)
+    if info.get("_unparsable"):
+        ttl = float(ttl_s or LOCK_DEFAULT_TTL_S)
+        return {"ok": True, "action": "status", "path": path, "held": True, "holder": None,
+                "parse_error": err, "raw": info.get("_raw"), "ttl_s": ttl,
+                "age_s": (round(age, 1) if age is not None else None), "age_source": age_src,
+                "remaining_s": (max(0.0, ttl - age) if age is not None else None),
+                "stale": (age is not None and age > ttl),
+                "note": "锁文件解析不了：持有者未知（不猜），过期判定退到文件 mtime"}
+    ttl = float(ttl_s or info.get("ttl_s") or LOCK_DEFAULT_TTL_S)
+    return {"ok": True, "action": "status", "path": path, "held": True,
+            "holder": _lock_holder_of(info), "pid": info.get("pid"), "ttl_s": ttl,
+            "acquired_at": info.get("acquired_at"), "age_s": (round(age, 1) if age is not None else None),
+            "age_source": age_src, "remaining_s": (max(0.0, ttl - age) if age is not None else None),
+            "stale": (age is not None and age > ttl), "note": info.get("note") or ""}
+
+
+def render_lock(args=None):
+    """跨进程渲染锁原语（v0.9.1 E1）：action="acquire" | "release" | "status"。
+
+    blender_rt_plan(op="qc_render_lock", args={"action": "acquire", "holder": "me"})   # 或 plan(op="render_lock")
+    K.dsh_qc_render_api("render_lock", {"action": "status"})
+
+    参数：
+      action  acquire（默认 status）| release | status
+      holder  持有者名（缺省 = DSH_SESSION → DSH_RUN_ID → pid-<pid>）
+      ttl_s   租约秒数（默认 600）：**过期判定只认锁文件里的 acquired_at 时间戳**
+      wait_s  取不到时的等待上限秒数（默认 0 = 立即返回 ok:false；轮询间隔 0.25s）
+      note    备注（写进锁文件，便于别人看出你在跑什么）
+      dir     锁基址目录（默认 _work_dir()）→ 锁文件 <dir>/locks/render.lock
+    """
+    a = _unpack_args(args)
+    action = str(a.get("action") or a.get("op") or "status").strip().lower()
+    holder = str(a.get("holder") or _lock_holder_default())
+    note = str(a.get("note") or "")
+    base = a.get("dir") or a.get("lock_dir") or a.get("lock_base")
+    path = _lock_path(base)
+    try:
+        ttl_s = float(a.get("ttl_s") if a.get("ttl_s") is not None else LOCK_DEFAULT_TTL_S)
+        wait_s = float(a.get("wait_s") or 0.0)
+    except Exception as e:
+        return _j({"ok": False, "action": action, "error": "ttl_s/wait_s 不是数字：%s" % str(e)[:120],
+                   "path": path})
+    warnings = []
+    if ttl_s <= 0:
+        warnings.append("ttl_s=%r ≤ 0：已按默认 %.0fs 处理（TTL≤0 会让锁一写下就被判过期，等于没有锁）"
+                        % (a.get("ttl_s"), LOCK_DEFAULT_TTL_S))
+        ttl_s = LOCK_DEFAULT_TTL_S
+    if wait_s < 0:
+        warnings.append("wait_s=%r < 0：已按 0 处理" % (a.get("wait_s"),))
+        wait_s = 0.0
+    if action in ("acquire", "acquire_lock", "get", "lock"):
+        res = _lock_acquire(path, holder, ttl_s, wait_s, note)
+    elif action in ("release", "unlock", "free"):
+        res = _lock_release(path, holder)
+    elif action in ("status", "state", "check"):
+        res = _lock_status(path, ttl_s)
+    else:
+        return _j({"ok": False, "action": action, "path": path,
+                   "error": "action 不认（只认 acquire/release/status）",
+                   "actions": ["acquire", "release", "status"]})
+    out = dict(res)
+    out["version"] = QC_RENDER_VERSION
+    out["lock_dir"] = os.path.dirname(os.path.dirname(path))
+    out["holder_default"] = (str(holder) == _lock_holder_default())
+    if warnings:
+        out["warnings"] = warnings
+    if out.get("stale_broken"):
+        out.setdefault("warnings", []).append(out.get("stale_note") or "打破了过期锁")
+    return _j(out)
 
 
 def _safe(name):
@@ -643,6 +1075,42 @@ def _set_engine(mode):
     elif m in ("cycles", "c"):
         sc.render.engine = "CYCLES"
     return before, sc.render.engine
+
+
+def _restore_engine_samples(sc, eng_engine, samp_before):
+    """把引擎/采样写回并**逐项核对**（v0.9.1：拿不到渲染锁的早退路径也必须有这一步）。
+
+    为什么单独拎出来：qc_render_views 里 `_set_engine`/`_apply_samples` 在 try 之前执行，
+    早退（例如等锁超时）不会走 finally —— 实测踩到：一次锁超时的自检把 eevee.taa_render_samples
+    从 64 留成了 16（自检 E2 快照对拍抓到）。改了渲染设置就必须还，早退路径也不例外。
+    """
+    out = {"ok": True, "engine": None, "samples": {}, "errors": []}
+    try:
+        if eng_engine:
+            sc.render.engine = str(eng_engine)
+        out["engine"] = str(sc.render.engine)
+        if eng_engine and str(sc.render.engine) != str(eng_engine):
+            out["ok"] = False
+            out["errors"].append("engine 回读是 %r（期望 %r）" % (str(sc.render.engine), str(eng_engine)))
+    except Exception as e:
+        out["ok"] = False
+        out["errors"].append("engine: %s: %s" % (type(e).__name__, str(e)[:100]))
+    ee = getattr(sc, "eevee", None)
+    if ee is not None and "eevee.taa_render_samples" in (samp_before or {}):
+        try:
+            ee.taa_render_samples = int(samp_before["eevee.taa_render_samples"])
+            out["samples"]["eevee.taa_render_samples"] = int(ee.taa_render_samples)
+        except Exception as e:
+            out["ok"] = False
+            out["errors"].append("eevee: %s: %s" % (type(e).__name__, str(e)[:100]))
+    if "cycles.samples" in (samp_before or {}):
+        try:
+            sc.cycles.samples = int(samp_before["cycles.samples"])
+            out["samples"]["cycles.samples"] = int(sc.cycles.samples)
+        except Exception as e:
+            out["ok"] = False
+            out["errors"].append("cycles: %s: %s" % (type(e).__name__, str(e)[:100]))
+    return out
 
 
 def _engine_label():
@@ -1141,7 +1609,9 @@ def qc_render_views(args=None):
                     "sheet_grid", "sheet_scale_m", "args",
                     # v0.8.11（Procedura 融合：parts_color / 视角目录 / 设备）
                     "mode", "parts_color", "parts_group_by", "parts_flat", "parts_palette", "parts_legend",
-                    "catalog_ortho", "view_order", "strict_views"])
+                    "catalog_ortho", "view_order", "strict_views",
+                    # v0.9.1（93 反馈 E1：渲染锁）
+                    "lock", "lock_wait_s", "lock_dir", "lock_holder"])
     VIEW_KEYS = set(["name", "az", "el", "from", "loc", "location", "look_at", "target", "to", "lens", "sensor",
                      "sensor_fit", "ortho", "ortho_scale", "res", "margin", "path", "ref_path", "ref_box",
                      "aabb", "focus", "samples"])
@@ -1224,14 +1694,18 @@ def qc_render_views(args=None):
     corners = _corners(mn, mx)
 
     # ---- 视角归一化（v0.8.11：走目录 + 别名；未知名原样回传，绝不静默替换）
+    # v0.9.1（A1）：**认不出来就失败** —— 非空 views 且一个都没解析成功 → ok:false 且一张不渲；
+    # 只有"省略/空"才走默认（默认 = 兜底 4 视角；v0.8.11 及以前是 3 视角，见 DEFAULT_VIEWS_LEGACY）。
     views = a.get("views")
     views_from = "default_legacy"
-    if not views:                                   # None / "" / [] 都按老口径取默认三点（行为不变）
+    if not views:                                   # None / "" / [] → v0.8.11 的老默认（3 张；补丁版不改默认产物集）
         views = list(DEFAULT_VIEWS_LEGACY)
     else:
         views_from = "request"
     if isinstance(views, str):
         views = [v.strip() for v in views.split(",") if v.strip()]
+    requested_count = len([v for v in views
+                           if (isinstance(v, str) and v.strip()) or isinstance(v, dict)])
     base_res = a.get("res") or DEFAULT_RES
     if isinstance(base_res, (int, float)):
         base_res = [int(base_res), int(base_res)]
@@ -1242,6 +1716,7 @@ def qc_render_views(args=None):
     named_req = [v for v in views if isinstance(v, str) and not _is_azel_spec(v)]
     rv = resolve_view_names(named_req)
     canon_order, unknown_views, alias_applied, deduped_views = rv["names"], rv["unknown"], rv["aliases"], rv["deduped"]
+    no_guess_views = rv.get("no_guess") or []
     explicit_specs, spec_err = [], None
     # 显式视角（dict / az=el 字符串）保持请求顺序，且**不受**目录排序与去重影响（老参数原样可用的关键）
     for i, v in enumerate(views):
@@ -1269,24 +1744,53 @@ def qc_render_views(args=None):
             return _j({"ok": False, "error": "views[%d] 类型不支持：%r" % (i, v)})
     if spec_err:
         return _j({"ok": False, "error": spec_err, "views": [str(x) for x in views]})
-    fallback_used = False
+    fallback_used = (views_from in ("default_legacy", "default_fallback"))
+    if views_from == "default_legacy":
+        scope_warnings.append("views 省略/空 → 默认 %s（与 v0.8.11 一致；要 Procedura 的 4 视角集就显式传 %s）"
+                              % (",".join(DEFAULT_VIEWS_LEGACY), ",".join(DEFAULT_VIEWS_FALLBACK)))
     if not canon_order and not explicit_specs:
-        # 一个有效的都没有（或给的全是未知名）→ 兜底 4 视角（Procedura DEFAULT_VIEWS 口径）
-        canon_order = list(DEFAULT_VIEWS_FALLBACK)
-        fallback_used = True
-        scope_warnings.append("views 里没有一个认得出来的视角名 → 回落到默认 4 视角 %s；你给的 %s 原样保留在 "
-                              "unknown_views（不是静默替换）"
-                              % (",".join(DEFAULT_VIEWS_FALLBACK), unknown_views or [str(x) for x in views]))
+        # v0.9.1（A1）**硬失败**：views 非空、一个都没解析成功 —— 这里以前会静默回落 4 视角（93 反馈：
+        # 产物文件名对、角度错、ok:true，调用方看不出来）。现在**一张都不渲**，把可选名清单直接给回去。
+        _requested_raw = [str(x) for x in views]
+        scope_warnings.append("views 里 %d 个名字一个都认不出来 → 一张都没渲（未知名绝不猜、也不兜底替换）"
+                              % requested_count)
+        return _j({"ok": False,
+                   "version": QC_RENDER_VERSION,
+                   "error": "views 里没有一个认得出来的视角名：%s（已按 A1 纪律硬失败：一张都不渲，"
+                            "不再静默替换成 iso/front/right/top）" % ", ".join(_requested_raw),
+                   "unknown_views": unknown_views, "unknown_count": len(unknown_views),
+                   "no_guess_views": no_guess_views,
+                   "requested_count": requested_count, "rendered_count": 0, "count": 0,
+                   "views_requested": _requested_raw, "views_from": views_from,
+                   "available_views": list(VIEW_ORDER),
+                   "view_menu": view_menu_full_text(),
+                   "view_aliases": dict(VIEW_ALIASES),
+                   "hint": "未知名不会猜；要么用目录里的名（available_views / view_menu），要么用别名；"
+                           "枪械语境请自己映射 muzzle_end→front 之类（*_end 一律不猜，由调用方按本项目目录显式映射）",
+                   "file": bpy.data.filepath, "outdir": outdir,
+                   "scope_warnings": scope_warnings,
+                   "note": "这是**空产出**：rendered_count=0、没有任何 PNG（含兜底图）；"
+                           "拿到 unknown_views 后改名字重跑即可"})
     if unknown_views:
-        scope_warnings.append("未知视角名 %s 已跳过（原样返回在 unknown_views；具名表见 qc_render_help.view_menu）"
-                              % ", ".join(unknown_views))
+        scope_warnings.append("未知视角名 %s 已跳过（%d/%d 张可渲；原样返回在 unknown_views；具名表见 "
+                              "qc_render_help.view_menu）"
+                              % (", ".join(unknown_views), len(canon_order) + len(explicit_specs), requested_count))
+        if no_guess_views:
+            scope_warnings.append("其中 %s 命中**不猜**纪律（%s）" % (", ".join(no_guess_views), VIEW_NO_GUESS_NOTE))
     if deduped_views:
         scope_warnings.append("重复视角 %s 已去重（同一规范名只渲一次；要渲两次请用 dict 视角显式指定 path）"
                               % ", ".join(deduped_views))
     if strict_views and unknown_views:
-        return _j({"ok": False, "error": "views 里有认不出来的名字，strict_views=true 时不许带病交付",
-                   "unknown_views": unknown_views, "known_views": canon_order,
-                   "view_menu": view_menu_text()})
+        return _j({"ok": False, "version": QC_RENDER_VERSION,
+                   "error": "views 里有认不出来的名字，strict_views=true 时不许带病交付",
+                   "unknown_views": unknown_views, "unknown_count": len(unknown_views),
+                   "no_guess_views": no_guess_views,
+                   "requested_count": requested_count, "rendered_count": 0, "count": 0,
+                   "known_views": canon_order,
+                   "available_views": list(VIEW_ORDER), "view_menu": view_menu_full_text(),
+                   "hint": "去掉未知名或改成目录里的名（available_views）；strict_views=false 时会渲已知名并把未知名报在 unknown_views",
+                   "file": bpy.data.filepath, "outdir": outdir, "views_from": views_from,
+                   "scope_warnings": scope_warnings})
     named_specs = {}
     req_spelling = {}
     for raw in named_req:                       # 别名/大小写容错时记下用户原始拼写（结果里可追溯）
@@ -1423,18 +1927,37 @@ def qc_render_views(args=None):
     margin = float(a.get("margin", 1.12))
     lens_def = float(a.get("lens", 50.0))
     sensor_def = float(a.get("sensor_width", 36.0))
-    view_transform = a.get("view_transform")
-    # v0.8.11（A）：parts_color + flat（Emission）时默认 Standard 色彩变换 ——
-    # 默认的 AgX/Filmic 会把纯色洗淡，图例与图上颜色就对不上了；用户显式传了 view_transform 就听用户的。
-    if parts_enabled and parts_flat and not view_transform:
-        view_transform = "Standard"
+    # ---- v0.9.1（A2）：色彩变换三态（**缺省 = "Standard"**）
+    # 93 反馈原话：EEVEE 无头渲染下 AgX 把纯白底压到 ≈0.85，凡是"按亮度阈值裁参考/算剪影"的分析整轮失效。
+    # 三态：
+    #   省略/空/"Standard" 等具体名 → 用那个（缺省 = Standard：QC 口径）
+    #   "scene"                    → 沿用场景设置（v0.8.11 的旧行为，beauty 图用）；场景非 Standard 时给 warning
+    vt_raw = a.get("view_transform")
+    vt_arg = None if vt_raw is None else str(vt_raw).strip()
+    if not vt_arg:
+        vt_mode, vt_target = "default_standard", "Standard"
+    elif vt_arg.lower() == "scene":
+        vt_mode, vt_target = "scene", None
+    else:
+        vt_mode, vt_target = "explicit", vt_arg
+    view_transform = vt_target                 # 老变量名沿用：值 = 要写进 css 的名字（scene 时为 None）
+    if parts_enabled and parts_flat and vt_mode == "default_standard":
+        # v0.8.11 的老键保留（parts_color+flat 的色彩变换也是 Standard，现在是缺省口径的顺带结果）
         parts_info["view_transform_defaulted"] = "Standard"
         scope_warnings.append("parts_color+parts_flat：未指定 view_transform，已默认 Standard"
                               "（AgX/Filmic 会把图例色洗淡；出图后还原原设置）")
+    if vt_mode == "scene":
+        scope_warnings.append("view_transform=\"scene\"：沿用场景设置（旧行为）；若场景不是 Standard，"
+                              "阈值判读需自行校正")
 
     # ---- 现场保存
     css = getattr(sc, "view_settings", None)
     vt_before = getattr(css, "view_transform", None) if css is not None else None
+    if vt_mode == "scene" and vt_before is not None and str(vt_before) != "Standard":
+        scope_warnings.append("当前场景色彩变换是 %s（非 Standard）：本次出图沿用场景设置，"
+                              "按亮度阈值裁参考/算剪影的分析需自行校正（要 QC 口径传 view_transform=\"Standard\"）"
+                              % str(vt_before))
+    vt_used = str(vt_target) if vt_target is not None else (str(vt_before) if vt_before is not None else None)
     rs = sc.render
     saved = {
         "camera": sc.camera, "engine": eng_before,
@@ -1463,11 +1986,60 @@ def qc_render_views(args=None):
     sheet_metrics = None
     # v0.8.11（A/B）：parts_color 现场状态 + 设备复核 + 图例产物
     pc_state, pc_mats, pc_restore = [], {}, None
+    # v0.9.1（A2）：色彩变换还原核对结果（finally 里填；异常路径也要有值）
+    vt_restore = None
     pc_legend_json = None
     pc_err = None
     dev_after = None
     device_check = None
     device_used = dev_batch      # 顶部汇总：渲染完成后换成"渲完之后"的实测回读
+    # ---- v0.9.1（E1）：渲染锁 —— 渲染前自动 acquire（放在所有"不渲染的早退"之后，避免空占锁；
+    # 也放在这个 try 之前，这样下面的 finally 一定能 release）
+    lock_on = a.get("lock", True)
+    if isinstance(lock_on, str):
+        lock_on = lock_on.strip().lower() not in ("0", "false", "off", "no", "")
+    lock_enabled = bool(lock_on)
+    lock_holder = str(a.get("lock_holder") or _lock_holder_default())
+    lock_base = a.get("lock_dir")
+    lock_path = _lock_path(lock_base)
+    lock_res, lock_line = None, _lock_line(None)
+    if lock_enabled:
+        try:
+            lock_wait_s = float(a.get("lock_wait_s") if a.get("lock_wait_s") is not None else 120.0)
+        except Exception as e:
+            scope_warnings.append("lock_wait_s=%r 不是数字（%s）→ 按 0 处理" % (a.get("lock_wait_s"), str(e)[:80]))
+            lock_wait_s = 0.0
+        if lock_wait_s < 0:
+            scope_warnings.append("lock_wait_s=%r < 0 → 按 0 处理" % (a.get("lock_wait_s"),))
+            lock_wait_s = 0.0
+        lock_res = _lock_acquire(lock_path, lock_holder, LOCK_DEFAULT_TTL_S, lock_wait_s,
+                                 note="qc_render_views tag=%s views=%s" % (tag, ",".join([str(v.get("name"))
+                                                                                          for v in vlist[:8]])))
+        lock_line = _lock_line(lock_res)
+        if lock_res.get("stale_broken"):
+            scope_warnings.append(lock_res.get("stale_note") or "打破了过期锁")
+        if lock_res.get("parse_error"):
+            scope_warnings.append("锁文件解析失败（已按 mtime 判年龄）：%s" % lock_res["parse_error"])
+        if not lock_res.get("ok"):
+            # 等不到锁 → **不渲**（渲染了也是虚高的计时，等于把不可比的数写进证据链）。
+            # v0.9.1：engine/samples 在这之前已经改过（它们在 try 之外），早退不走 finally →
+            # 这里必须自己写回并核对，否则"锁失败"会顺手污染调用方的场景（自检 E2 快照抓到过）。
+            _pre = _restore_engine_samples(sc, eng_before, samp_before)
+            if not _pre.get("ok"):
+                scope_warnings.append("锁超时早退时引擎/采样回滚**没通过核对**：%s" % _j(_pre))
+            return _j({"ok": False, "version": QC_RENDER_VERSION,
+                       "error": lock_res.get("error"), "hint": lock_res.get("hint"),
+                       "lock": lock_line, "lock_dir": os.path.dirname(os.path.dirname(lock_path)),
+                       "current_holder": lock_res.get("current_holder"),
+                       "holder_age_s": lock_res.get("holder_age_s"),
+                       "holder_ttl_remaining_s": lock_res.get("holder_ttl_remaining_s"),
+                       "prelock_restore": _pre,
+                       "rendered_count": 0, "count": 0, "requested_count": requested_count,
+                       "file": bpy.data.filepath, "outdir": outdir, "tag": tag,
+                       "views_requested": [str(v.get("name")) for v in vlist],
+                       "scope_warnings": scope_warnings,
+                       "note": "一张都没渲：拿不到渲染锁就不出图（lock=false 可显式跳过锁，自行承担计时口径）；"
+                               "已把引擎/采样写回原值（prelock_restore 逐项核对）"})
     try:
         # ---- v0.8.11（A）：逐部件配色 —— 覆盖材质槽（放在三点光之前：万一覆盖就失败，灯还没建）
         if parts_enabled:
@@ -1503,11 +2075,25 @@ def qc_render_views(args=None):
         rs.resolution_percentage = 100
         rs.use_file_extension = False
         sc.camera = made_cam
-        if view_transform and css is not None:
-            try:
-                css.view_transform = str(view_transform)
-            except Exception:
-                pass
+        # ---- v0.9.1（A2）：色彩变换实际写入 + **读回核对**（写不进去/名字本机没有 → 不许带病出图）
+        vt_apply_err = None
+        if vt_mode != "scene":
+            if css is None:
+                vt_apply_err = "场景没有 view_settings，无法保证色彩变换"
+            else:
+                try:
+                    css.view_transform = str(vt_target)
+                except Exception as e:
+                    vt_apply_err = "%s: %s" % (type(e).__name__, str(e)[:160])
+                vt_now = str(getattr(css, "view_transform", None))
+                if vt_apply_err is None and vt_now != str(vt_target):
+                    vt_apply_err = "写入后回读是 %r（请求 %r）" % (vt_now, str(vt_target))
+                if vt_apply_err is None:
+                    vt_used = vt_now
+        if vt_apply_err is not None:
+            raise RuntimeError("view_transform=%r 没能生效：%s（可用的名字：%s；"
+                               "要沿用场景设置请传 \"scene\"）"
+                               % (str(vt_target), vt_apply_err, ", ".join(_vt_options()) or "读不到清单"))
 
         lines = []
         # ---- v0.8.10（C2）：预热帧（不计时/不进预算/不进 jsonl）+ 降质阶梯状态
@@ -1647,6 +2233,10 @@ def qc_render_views(args=None):
                 entry["legend_path"] = legend_txt
                 entry["parts"] = len(parts_rows)
                 entry["parts_flat"] = bool(parts_flat)
+            # ---- v0.9.1（A2/E1）：每行 jsonl 都记"这张图实际用的色彩变换"与"这一批的锁口径"
+            # （A2：调用方的分析脚本可据此自适应；E1：waited_ms/holder 让"计时口径"可审计）
+            entry["view_transform"] = vt_used
+            entry["lock"] = dict(lock_line)
             try:
                 entry["frame"].update(_alpha_stats(path))
             except Exception as e:
@@ -1712,7 +2302,7 @@ def qc_render_views(args=None):
                     {"version": QC_RENDER_VERSION, "kind": "parts_color_legend",
                      "scene_file": bpy.data.filepath, "outdir": outdir, "tag": tag,
                      "group_by": parts_group_by, "flat": bool(parts_flat),
-                     "view_transform": (str(view_transform) if view_transform else None),
+                     "view_transform": vt_used,
                      "palette_size": len(parts_palette),
                      "palette_srgb": [[int(c[0]), int(c[1]), int(c[2])] for c in parts_palette],
                      "color_space_note": "R,G,B 是 sRGB 0-255（图例色）；材质里写的是同色的线性值"
@@ -1823,12 +2413,40 @@ def qc_render_views(args=None):
                     sc.cycles.samples = samp_before["cycles.samples"]
                 except Exception:
                     pass
-            if view_transform and css is not None and vt_before is not None:
+            # ---- v0.9.1（A2）：色彩变换还原 + **逐项对拍**（改了没还回去 = 污染场景，比少出一张图严重）
+            if vt_mode != "scene" and css is not None and vt_before is not None:
+                vt_restore_err = None
                 try:
                     css.view_transform = vt_before
-                except Exception:
-                    pass
+                except Exception as e:
+                    vt_restore_err = "%s: %s" % (type(e).__name__, str(e)[:160])
+                vt_after_back = str(getattr(css, "view_transform", None))
+                vt_restore = {"mode": vt_mode, "assigned": (str(vt_target) if vt_target is not None else None),
+                              "scene_before": str(vt_before), "scene_after": vt_after_back,
+                              "ok": (vt_after_back == str(vt_before) and vt_restore_err is None)}
+                if vt_restore_err:
+                    vt_restore["error"] = vt_restore_err
+                if not vt_restore["ok"]:
+                    scope_warnings.append("view_transform 还原**没通过核对**：before=%r after=%r%s"
+                                          % (str(vt_before), vt_after_back,
+                                             ("（%s）" % vt_restore_err) if vt_restore_err else ""))
             db_after = _db_counts()
+            # ---- v0.9.1（E1）：放锁（异常路径也走到这里；holder 匹配才删，绝不误删别人的锁）
+            if lock_res and lock_res.get("acquired"):
+                try:
+                    _rel = _lock_release(lock_path, lock_holder)
+                    lock_res["release"] = _rel
+                    lock_res["released"] = bool(_rel.get("released"))
+                    if _rel.get("held_ms") is not None:
+                        lock_res["held_ms"] = _rel.get("held_ms")
+                    if not _rel.get("ok"):
+                        scope_warnings.append("渲染锁释放失败：%s" % _rel.get("error"))
+                    elif not _rel.get("released"):
+                        scope_warnings.append("渲染锁释放：%s" % _rel.get("reason"))
+                except Exception as e:
+                    lock_res["released"] = False
+                    scope_warnings.append("渲染锁释放抛错：%s: %s（TTL=%ss 到期后会被下一个进程打破）"
+                                          % (type(e).__name__, str(e)[:160], LOCK_DEFAULT_TTL_S))
         except Exception as e2:
             if err is None:
                 err = {"error": "还原现场失败: %s" % str(e2)[:200]}
@@ -1854,8 +2472,17 @@ def qc_render_views(args=None):
                 err = {"error": "parts_color 还原核对失败（场景材质槽可能与渲染前不同，务必先检查再继续出图）",
                        "restore": pc_restore}
         parts_info["restore"] = pc_restore
+    # ---- v0.9.1（A2）：色彩变换没还原回去 = 场景被污染 → 同样不静默成功
+    if vt_restore is not None and not vt_restore.get("ok"):
+        if err is None:
+            err = {"error": "view_transform 还原核对失败（场景色彩变换与渲染前不同，先检查再继续出图）",
+                   "view_transform_restore": vt_restore}
     total_ms = int(round((time.perf_counter() - t0) * 1000.0))
     within = (not stopped_early) if budget_ms else True
+    # v0.9.1（E1）：返回体里的 lock 带上"放锁结果"（jsonl 行是取锁当时写的，不含 released/held_ms）
+    if lock_res is not None and lock_res.get("acquired"):
+        lock_line = dict(lock_line, released=bool(lock_res.get("released")),
+                         held_ms=lock_res.get("held_ms"), release=lock_res.get("release"))
     out = {"ok": err is None and len(entries) > 0,
            "version": QC_RENDER_VERSION,
            "file": bpy.data.filepath, "opened_file": opened,
@@ -1877,6 +2504,18 @@ def qc_render_views(args=None):
            "views_from": views_from, "render_order": [str(v.get("name")) for v in vlist],
            "unknown_views": unknown_views, "view_aliases_applied": alias_applied,
            "deduped_views": deduped_views, "default_views_fallback": (list(DEFAULT_VIEWS_FALLBACK) if fallback_used else None),
+           # ---- v0.9.1（A1）：三个计数（"12 个名字只渲 8 张"这类必须一眼看出来）
+           "requested_count": requested_count, "rendered_count": len(entries),
+           "unknown_count": len(unknown_views), "no_guess_views": no_guess_views,
+           "available_views": list(VIEW_ORDER),
+           # ---- v0.9.1（A2）：色彩变换（实际生效值 + 请求值 + 三态 + 还原核对）
+           "view_transform": vt_used, "view_transform_mode": vt_mode,
+           "view_transform_requested": (str(vt_raw) if vt_raw is not None else None),
+           "view_transform_assigned": (str(vt_target) if vt_target is not None else None),
+           "view_transform_scene": (str(vt_before) if vt_before is not None else None),
+           "view_transform_restore": vt_restore,
+           # ---- v0.9.1（E1）：渲染锁（holder/waited_ms/acquired/stale_broken/path —— 计时口径可审计）
+           "lock": lock_line, "lock_dir": os.path.dirname(os.path.dirname(lock_path)),
            "view_group_of": dict((str(v.get("name")), VIEW_GROUP_OF.get(str(v.get("name")))) for v in vlist
                                  if str(v.get("name")) in VIEW_GROUP_OF),
            "parts_color": parts_info,
@@ -1922,24 +2561,60 @@ def qc_render_help():
                  "parts_legend": "图例 .txt 路径（默认 <outdir>/parts_color_meta.txt，另写同名 .json）",
                  "catalog_ortho": "true = 具名视角按目录投影（六面正交）；默认 false 走老口径（透视）",
                  "view_order": "catalog（默认，按目录顺序+去重）| request（严格按请求顺序）",
-                 "strict_views": "true = 有未知视角名就 ok:false（默认只跳过并报 unknown_views）"},
+                 "strict_views": "true = 有未知视角名就 ok:false（默认只跳过并报 unknown_views）",
+                 # ---- v0.9.1 ----
+                 "view_transform": "\"Standard\"（默认，QC 口径）| \"scene\"（沿用场景设置，旧行为）| 具体名（AgX/Filmic/…）",
+                 "lock": "默认 true：渲染前自动取渲染锁（跨进程串行化）；false 关掉",
+                 "lock_wait_s": "等锁上限秒数（默认 120）；等不到 → ok:false 且一张不渲",
+                 "lock_dir": "锁基址目录（默认 K.workdir）→ 锁文件 <lock_dir>/locks/render.lock",
+                 "lock_holder": "持有者名（默认 DSH_SESSION→DSH_RUN_ID→pid-<pid>）；**同一会话并发多进程**要各自显式给唯一名字"},
+        "views_policy": {
+            "default": list(DEFAULT_VIEWS_FALLBACK),
+            "default_note": "views 省略/空 = 默认 4 视角；v0.8.11 及以前是 %s（要老口径就显式传它）"
+                            % ",".join(DEFAULT_VIEWS_LEGACY),
+            "unknown_policy": "**非空且一个都没解析成功 → ok:false + 一张都不渲**（不兜底、不静默替换）；"
+                              "部分未知名 → 已知名照渲 + requested_count/rendered_count/unknown_count",
+            "counts": "返回体恒有 requested_count / rendered_count / unknown_count / no_guess_views / available_views",
+            "hint": "未知名不会猜：用 22 个具名之一，或走别名表；*_end（muzzle_end/breech_end）一律不猜",
+        },
         "named_views": NAMED_VIEWS,
         "view_groups": dict(VIEW_GROUPS),
         "view_menu": view_menu_text(),
+        "view_menu_full": view_menu_full_text(),
         "view_aliases": dict(VIEW_ALIASES),
+        "view_alias_note": "别名只做拼写容错（大小写/下划线/连字符/词序）；不做语义猜测。"
+                           "v0.9.1 修正：isoright / isobackright → iso_br（后右上，与目录 desc 的 iso-BR-top 一致）",
+        "no_guess": {"suffix": list(VIEW_NO_GUESS_SUFFIXES), "note": VIEW_NO_GUESS_NOTE,
+                     "examples": ["muzzle_end", "breech_end", "side"]},
+        "view_transform_note": "QC 默认 Standard（AgX/Filmic 把白底压到 ≈0.85，亮度阈值判读会整轮失效）；"
+                               "\"scene\" = 旧行为；出图后一律还原并逐项核对；"
+                               "返回体与每行 jsonl 都有 view_transform（实际生效值）",
+        "lock": {"op": "render_lock / qc_render_lock",
+                 "actions": {"acquire": "取锁（O_EXCL 原子创建；过期锁按**时间戳**打破 → stale_broken）",
+                             "release": "放锁（holder 不匹配 → ok:false，绝不误删别人的锁）",
+                             "status": "查持有者 / 已持有多久 / 剩余 TTL / 是否过期（只读）"},
+                 "args": {"holder": "持有者名（默认 DSH_SESSION → DSH_RUN_ID → pid-<pid>）",
+                          "ttl_s": "租约秒数（默认 600；过期判定只认 acquired_at 时间戳）",
+                          "wait_s": "取不到时的等待上限（默认 0 = 立即失败；轮询 0.25s）",
+                          "dir": "锁基址（默认 _work_dir()）→ <dir>/locks/render.lock"},
+                 "auto": "qc_render_views 渲染前自动 acquire（lock_wait_s），finally release；"
+                         "返回体与每行 jsonl 的 lock = {holder, waited_ms, acquired, stale_broken, path}"},
         "default_views_legacy": list(DEFAULT_VIEWS_LEGACY),
         "default_views_fallback": list(DEFAULT_VIEWS_FALLBACK),
         "parts_palette": [[int(c[0]), int(c[1]), int(c[2])] for c in PARTS_PALETTE],
         "device": "每行 jsonl 的 device = **实测**渲染设备（Cycles 静默回落 CPU 是 ≈7× 慢且无症状的坑）；"
                   "拿不到就 null + device_source，绝不猜。返回体顶部另有 device 汇总 + device_line 一行版",
         "outputs": ["<outdir>/<tag>_<view>.png",
-                    "<outdir>/render_views.jsonl（每行 {view, ms, bytes, hash, device, ...}）",
+                    "<outdir>/render_views.jsonl（每行 {view, ms, bytes, hash, device, view_transform, lock, ...}）",
                     "parts_color 模式：<outdir>/parts_color_meta.txt（每行 `名字<TAB>R,G,B<TAB>面数`，"
-                    "行数 == 部件数）+ 同名 .json"],
+                    "行数 == 部件数）+ 同名 .json",
+                    "<lock_dir>/locks/render.lock（渲染锁文件，JSON: holder/pid/acquired_at/ttl_s/note）"],
         "guarantees": ["相机/三点光只在进程内临时建，finally 删除", "渲染设置全部还原",
                        "parts_color 覆盖的材质槽/临时材质/链接副本 mesh 全部还原并**逐项核对**，"
                        "核对不过直接 ok:false",
-                       "未知名视角原样进 unknown_views（绝不静默替换成 iso）",
+                       "未知名视角原样进 unknown_views（绝不静默替换成 iso）；一个都没认出来 → ok:false + 空产出",
+                       "view_settings.view_transform 出图后还原并**逐项核对**（没还回去 → ok:false）",
+                       "渲染锁 finally release（异常也放；holder 匹配才删）",
                        "GUI 不打开别的 .blend", "预算超了立即停、已出的图保留"],
     })
 
@@ -2094,7 +2769,7 @@ def _st_box_mesh(name, size=1.0, loc=(0.0, 0.0, 0.0)):
 
 
 def qc_render_selftest(args=None):
-    """渲染 harness 自检（v0.8.11 扩展）：投影对拍（老内容）+ Procedura 融合三项能力的**断言**。
+    """渲染 harness 自检（v0.9.1 扩展）：投影对拍（老内容）+ Procedura 融合（v0.8.11）+ 93 反馈 A1/A2/E1/B1-B2。
 
     **必须在无头隔离进程里跑**（会临时建对象、覆盖材质槽、出图；虽然全部还原，但你在看着的场景不该被碰）：
         blender_rt_headless(preload="qc,qc_render", engine="eevee", factory_startup=True, timeout_ms=300000,
@@ -2108,11 +2783,26 @@ def qc_render_selftest(args=None):
       A1 parts_color 出图（≥1 张、字节 > 0）                A2 渲后场景**逐项还原**（对象数/材质槽/引擎/分辨率/采样/色彩变换）
       A3 图例存在且行数 == 部件数                            A4 flat 图上能找到每一个部件的图例色（颜色编码没写错）
       B1 jsonl 每行都有 device 键（值可为 null）             B2 device 是实测：给出 engine/device 或 null+出处
-      C1 未知名进 unknown_views，已知视角照常渲              C2 别名归一（iso-FR-top/isometric/isoright → iso）
+      C1 未知名进 unknown_views，已知视角照常渲              C2 别名归一（iso-FR-top/isometric/isofrontright → iso）
       C3 老具名视角角度逐项未变（LEGACY_NAMED_VIEWS）        C4 目录顺序 + 去重生效（catalog 口径）
       D1 投影对拍 proj_err_px ≈ 0（老自检内容）
       E1 材质覆盖确实进了渲染（同视角 plain vs parts_color 的 hash 不同）
       E2 自检对象清理干净（场景回到进入自检前的快照）
+      —— v0.9.1（93 反馈）新增 ——
+      F1 A1：views 全未知名 → ok:false 且**一张都没渲**（outdir 里没有任何 PNG，无兜底图）
+      F2 A1：views 省略 → 与 v0.8.11 一致的默认 3 视角（iso/front/right）；requested_count == rendered_count == 3
+      F3 A1：部分未知名 → rendered_count < requested_count 且三个计数逐个正确
+      F4 A1：拼写别名生效（side_left→left、iso_right→iso_br），muzzle_end 仍进 unknown（命中不猜纪律）
+      F5 A1：显式 3 视角仍渲 3 张（老参数形态没失效）
+      F6 A2：缺省 view_transform 实测 == "Standard"，jsonl 每行都有；出图后场景 transform 逐项还原
+      F7 A2：view_transform="scene" → 沿用场景值（非 Standard 时给 warning），且与 Standard 那张 hash 不同
+      F8 B：api("render_views", {...}) 返回 dict、api({...}) 等价、api["dispatch"] 仍返回 str、api("help") 可用
+      G1 E1：A 持有 → B wait_s=1 超时被拒（给出 holder + waited_ms ≥ 900）
+      G2 E1：holder 不匹配的 release 被拒；A release 后 B 能拿到
+      G3 E1：伪造过期锁 → 被打破且 stale_broken=true，新持有者拿到
+      G4 E1：jsonl 每行都有 lock{holder, waited_ms, acquired, stale_broken, path}（自动锁写进了产物）
+      G5 E1：engine 路由拼写（lock / render_lock / status / render_status）都能 dispatch 且仍返回 str
+      G6 E1 回归：拿不到锁 → 空产出 ok:false，且引擎/采样已写回（早退路径不污染场景）
     """
     a = _unpack_args(args)
     assertions = []
@@ -2140,6 +2830,9 @@ def qc_render_selftest(args=None):
         return _j({"ok": False, "error": "outdir 建不出来: %s (%s)" % (outdir, e)})
     sc = bpy.context.scene
     snap0 = _scene_snapshot()
+    # v0.9.1（E1）：自检**全程用隔离锁目录**（<outdir>/selftest_lock），绝不与线上渲染抢真锁
+    # —— 实测踩到：自检头两批没传 lock_dir，撞上真锁后等满 120s 失败，硬把 9 条老断言判红。
+    lock_dir = os.path.join(outdir, "selftest_lock")
     made_objs, made_meshes, made_mats = [], [], []
     batch1 = batch2 = proj = None
     parts_n = legend_lines = None
@@ -2183,7 +2876,8 @@ def qc_render_selftest(args=None):
         r1 = json.loads(qc_render_views({
             "mode": "parts_color", "parts_flat": True, "views": b1_views, "res": res, "samples": samples,
             "outdir": outdir, "tag": "selftest_pc", "warmup": True, "budget_s": 240,
-            "jsonl": os.path.join(outdir, "selftest_pc.jsonl"), "lights_mode": "only"}))
+            "jsonl": os.path.join(outdir, "selftest_pc.jsonl"), "lights_mode": "only",
+            "lock_dir": lock_dir}))
         snap2 = _scene_snapshot()
         restore_diffs = _snap_diff(snap1, snap2)
         files = [e.get("path") for e in (r1.get("views") or [])]
@@ -2245,8 +2939,10 @@ def qc_render_selftest(args=None):
              "unknown_views=%s render_order=%s（目录顺序）count=%s"
              % (_j(r1.get("unknown_views")), known, r1.get("count")))
         # C2/C3/C4：纯函数口径（不渲染，快）
-        rr = resolve_view_names(["iso-FR-top", "isometric", "isoright", "front-left", "ISO_L"])
-        _chk("C2 别名归一（iso-FR-top/isometric/isoright → iso；front-left/ISO_L 直接命中目录）",
+        # v0.9.1：isoright 从"→ iso"**修正**为"→ iso_br"（目录 desc 明写 iso-BR-top = 后右上），
+        # 所以这条老断言改用 isofrontright 继续守"等轴测拼写 → iso"的老契约。
+        rr = resolve_view_names(["iso-FR-top", "isometric", "isofrontright", "front-left", "ISO_L"])
+        _chk("C2 别名归一（iso-FR-top/isometric/isofrontright → iso；front-left/ISO_L 直接命中目录）",
              rr["names"] == ["iso", "iso_l", "front_left"] and not rr["unknown"]
              and len(rr["aliases"]) == 3 and [x["resolved"] for x in rr["aliases"]] == ["iso"] * 3,
              "names=%s aliases=%s unknown=%s" % (_j(rr["names"]), _j(rr["aliases"]), _j(rr["unknown"])))
@@ -2261,7 +2957,8 @@ def qc_render_selftest(args=None):
         r2 = json.loads(qc_render_views({
             "views": ["iso"], "res": res, "samples": samples, "outdir": outdir, "tag": "selftest_plain",
             "warmup": False, "view_transform": "Standard",
-            "jsonl": os.path.join(outdir, "selftest_plain.jsonl"), "lights_mode": "only"}))
+            "jsonl": os.path.join(outdir, "selftest_plain.jsonl"), "lights_mode": "only",
+            "lock_dir": lock_dir}))
         h_pc = None
         for e in (r1.get("views") or []):
             if str(e.get("view")) == "iso":
@@ -2273,6 +2970,279 @@ def qc_render_selftest(args=None):
         snap3 = _scene_snapshot()
         d3 = _snap_diff(snap1, snap3)
         _chk("E1b 第二批复用同一现场也还原（plain 批次）", not d3, ("逐项相等" if not d3 else "差异：%s" % d3[:6]))
+
+        # ================================================================ v0.9.1（93 反馈 A1/A2/E1/B1-B2）
+        def _read_jsonl(p):
+            rows = []
+            if p and os.path.isfile(p):
+                with open(p, encoding="utf-8") as f:
+                    for ln in f:
+                        if ln.strip():
+                            rows.append(json.loads(ln))
+            return rows
+
+        # ---- F1（A1）：views 全未知名 → ok:false 且**一张都不渲**（也检查产物目录里没有兜底 PNG / jsonl）
+        # 注意：这里必须用**真·未知名**（不含别名可命中的拼写）—— "side_left/side_right" 在 v0.9.1 已收进
+        # 别名表（A1-4），拿它们当"全未知名"会被别名解析成功 → 那是 F1b 的"部分未知名"场景。
+        a1_dir = os.path.join(outdir, "selftest_a1_unknown", time.strftime("%Y%m%d-%H%M%S"))
+        r3 = json.loads(qc_render_views({
+            "views": ["muzzle_end", "breech_end", "flux_capacitor", "side"],
+            "res": res, "samples": samples, "outdir": a1_dir, "tag": "selftest_a1",
+            "jsonl": os.path.join(a1_dir, "selftest_a1.jsonl"), "lock_dir": lock_dir}))
+        a1_files = sorted(os.listdir(a1_dir)) if os.path.isdir(a1_dir) else []
+        a1_pngs = [n for n in a1_files if n.lower().endswith(".png")]
+        a1_jsonls = [n for n in a1_files if n.lower().endswith(".jsonl")]
+        _chk("F1 A1 全未知名 → ok:false 且一张都没渲（无兜底图 / 无 jsonl / 无 PNG）",
+             (r3.get("ok") is False) and r3.get("rendered_count") == 0 and r3.get("count") == 0
+             and r3.get("unknown_count") == 4
+             and r3.get("unknown_views") == ["muzzle_end", "breech_end", "flux_capacitor", "side"]
+             and r3.get("no_guess_views") == ["muzzle_end", "breech_end"]
+             and bool(r3.get("available_views")) and len(r3.get("available_views") or []) == len(VIEW_CATALOG)
+             and bool(r3.get("hint")) and bool(r3.get("view_menu")) and not a1_pngs and not a1_jsonls,
+             "ok=%s rendered_count=%s unknown_count=%s no_guess=%s outdir=%s 文件=%s available_views=%d hint=%s"
+             % (r3.get("ok"), r3.get("rendered_count"), r3.get("unknown_count"), _j(r3.get("no_guess_views")),
+                a1_dir, _j(a1_files), len(r3.get("available_views") or []), str(r3.get("hint"))[:80]))
+
+        # ---- F1b（A1）：93 反馈里的**原始复现名单**（side_left/side_right/muzzle_end/breech_end）——
+        # A1-4 收进拼写别名后，前者解析成 left/right、后者仍不猜 → 这次是"部分未知名"：渲 2 张、
+        # 计数 2/4/2 一眼可见；**关键判据是产物里没有 iso/top/front 兜底图**（v0.8.11 会静默渲这 4 张）。
+        a1b_dir = os.path.join(outdir, "selftest_a1_repro", time.strftime("%Y%m%d-%H%M%S"))
+        r3b = json.loads(qc_render_views({
+            "views": ["side_left", "side_right", "muzzle_end", "breech_end"], "warmup": False,
+            "res": res, "samples": samples, "outdir": a1b_dir, "tag": "selftest_a1b",
+            "jsonl": os.path.join(a1b_dir, "selftest_a1b.jsonl"), "lights_mode": "only", "lock_dir": lock_dir}))
+        a1b_pngs = sorted([n for n in os.listdir(a1b_dir)
+                           if n.lower().endswith(".png")]) if os.path.isdir(a1b_dir) else []
+        _chk("F1b A1 93 反馈原始名单 → 别名 2 张 + 未知名 2 个（计数 2/4/2），且**没有 iso/front/top 兜底图**",
+             bool(r3b.get("ok")) and r3b.get("requested_count") == 4 and r3b.get("rendered_count") == 2
+             and r3b.get("unknown_count") == 2 and r3b.get("count") == 2
+             and set(a1b_pngs) == set(["selftest_a1b_left.png", "selftest_a1b_right.png"])
+             and not [n for n in a1b_pngs if n.endswith(("_iso.png", "_top.png", "_front.png"))],
+             "requested/rendered/unknown=%s/%s/%s 产物=%s（应为 left/right 两张，无兜底）"
+             % (r3b.get("requested_count"), r3b.get("rendered_count"), r3b.get("unknown_count"), _j(a1b_pngs)))
+
+        # ---- F2/F6（A1 默认 / A2 缺省 Standard）：views 省略 → 默认 3 视角（v0.8.11 口径）；jsonl 每行有 view_transform
+        vt_scene_before = str(getattr(getattr(sc, "view_settings", None), "view_transform", None))
+        r4 = json.loads(qc_render_views({
+            "res": res, "samples": samples, "outdir": outdir, "tag": "selftest_default4",
+            "warmup": False, "jsonl": os.path.join(outdir, "selftest_default4.jsonl"),
+            "lights_mode": "only", "lock_dir": lock_dir}))
+        d4_names = [str(e.get("view")) for e in (r4.get("views") or [])]
+        vt_scene_after = str(getattr(getattr(sc, "view_settings", None), "view_transform", None))
+        _chk("F2 A1 views 省略 → 默认 3 视角（iso/front/right，与 v0.8.11 一致）+ 计数一致",
+             bool(r4.get("ok")) and d4_names == ["front", "right", "iso"] and r4.get("count") == 3
+             and r4.get("requested_count") == 3 and r4.get("rendered_count") == 3
+             and r4.get("views_from") == "default_legacy" and r4.get("unknown_count") == 0,
+             "render_order=%s requested_count=%s rendered_count=%s views_from=%s"
+             % (_j(d4_names), r4.get("requested_count"), r4.get("rendered_count"), r4.get("views_from")))
+        lines4 = _read_jsonl(r4.get("jsonl"))
+        vt_lines4 = [ln.get("view_transform") for ln in lines4]
+        vtr = r4.get("view_transform_restore") or {}
+        _chk("F6 A2 缺省 view_transform 实测 Standard + jsonl 每行都有 + 出图后场景逐项还原",
+             r4.get("view_transform") == "Standard" and r4.get("view_transform_mode") == "default_standard"
+             and bool(lines4) and all(v == "Standard" for v in vt_lines4)
+             and bool(vtr.get("ok")) and vtr.get("scene_before") == vt_scene_before
+             and vtr.get("scene_after") == vt_scene_before and vt_scene_after == vt_scene_before,
+             "view_transform=%s mode=%s jsonl 行数=%d 逐行值=%s；场景 before=%r after(还原后)=%r 快照=%s"
+             % (r4.get("view_transform"), r4.get("view_transform_mode"), len(lines4), _j(set(vt_lines4)),
+                vt_scene_before, vt_scene_after, _j(vtr)))
+
+        # ---- F3/F4（A1 部分未知名 / 别名）：requested/rendered/unknown 计数 + 别名生效 + *_end 不猜
+        r5 = json.loads(qc_render_views({
+            "views": ["side_left", "iso_right", "muzzle_end"], "res": res, "samples": samples,
+            "outdir": outdir, "tag": "selftest_alias", "warmup": False,
+            "jsonl": os.path.join(outdir, "selftest_alias.jsonl"), "lights_mode": "only", "lock_dir": lock_dir}))
+        n5 = [str(e.get("view")) for e in (r5.get("views") or [])]
+        _chk("F3 A1 部分未知名 → 三个计数正确（rendered_count < requested_count）",
+             bool(r5.get("ok")) and r5.get("requested_count") == 3 and r5.get("rendered_count") == 2
+             and r5.get("unknown_count") == 1 and r5.get("count") == 2
+             and r5.get("unknown_views") == ["muzzle_end"],
+             "requested_count=%s rendered_count=%s unknown_count=%s unknown_views=%s"
+             % (r5.get("requested_count"), r5.get("rendered_count"), r5.get("unknown_count"),
+                _j(r5.get("unknown_views"))))
+        _chk("F4 A1 拼写别名 side_left→left / iso_right→iso_br 生效；muzzle_end 仍进 unknown（不猜）",
+             n5 == ["left", "iso_br"]
+             and sorted([(x.get("requested"), x.get("resolved")) for x in (r5.get("view_aliases_applied") or [])])
+                 == [("iso_right", "iso_br"), ("side_left", "left")]
+             and r5.get("no_guess_views") == ["muzzle_end"] and r5.get("unknown_views") == ["muzzle_end"],
+             "render_order=%s aliases=%s no_guess=%s" % (_j(n5), _j(r5.get("view_aliases_applied")),
+                                                         _j(r5.get("no_guess_views"))))
+
+        # ---- F5（A1 老形态不失效）：显式 3 视角仍渲 3 张
+        r5b = json.loads(qc_render_views({
+            "views": ["iso", "front", "right"], "res": res, "samples": samples, "outdir": outdir,
+            "tag": "selftest_explicit3", "warmup": False,
+            "jsonl": os.path.join(outdir, "selftest_explicit3.jsonl"), "lights_mode": "only",
+            "lock_dir": lock_dir}))
+        _chk("F5 A1 显式 3 视角仍渲 3 张（老 parameters 形态没失效）",
+             bool(r5b.get("ok")) and r5b.get("count") == 3
+             and [str(e.get("view")) for e in (r5b.get("views") or [])] == ["front", "right", "iso"]
+             and r5b.get("requested_count") == 3 and r5b.get("rendered_count") == 3,
+             "render_order=%s count=%s requested_count=%s"
+             % (_j([str(e.get("view")) for e in (r5b.get("views") or [])]), r5b.get("count"),
+                r5b.get("requested_count")))
+
+        # ---- F7（A2 "scene" 三态）：沿用场景值（非 Standard → warning），且 hash 与 Standard 那张不同
+        vt_orig = str(getattr(getattr(sc, "view_settings", None), "view_transform", None))
+        vt_nonstd = None
+        for _cand in ("AgX", "Filmic", "Khronos PBR Neutral", "Filmic Log", "Raw"):
+            try:
+                sc.view_settings.view_transform = _cand
+                if str(sc.view_settings.view_transform) == _cand:
+                    vt_nonstd = _cand
+                    break
+            except Exception:
+                pass
+        r6 = None
+        if vt_nonstd is None:
+            # 本机 OCIO 里没有非 Standard 选项 → **明确标 untested**（不假装测过这条分支）
+            assertions.append({"name": "F7 A2 view_transform=\"scene\" 沿用场景值（非 Standard 给 warning）",
+                               "pass": False, "untested": True,
+                               "detail": "本机 view_transform 只有 Standard 可选，无法实测「非 Standard + warning」分支"})
+        else:
+            r6 = json.loads(qc_render_views({
+                "views": ["front"], "res": res, "samples": samples, "outdir": outdir, "tag": "selftest_scene",
+                "warmup": False, "view_transform": "scene",
+                "jsonl": os.path.join(outdir, "selftest_scene.jsonl"), "lights_mode": "only",
+                "lock_dir": lock_dir}))
+            sc_after6 = str(getattr(getattr(sc, "view_settings", None), "view_transform", None))
+            lines6 = _read_jsonl(r6.get("jsonl"))
+            warn6 = " ".join([str(w) for w in (r6.get("scope_warnings") or [])])
+            h_std = [e.get("hash") for e in (r4.get("views") or []) if str(e.get("view")) == "front"]
+            h_scn = [e.get("hash") for e in (r6.get("views") or []) if str(e.get("view")) == "front"]
+            _chk("F7 A2 view_transform=\"scene\" 沿用场景 %s（非 Standard 给 warning；hash 与 Standard 不同）" % vt_nonstd,
+                 bool(r6.get("ok")) and r6.get("view_transform") == vt_nonstd
+                 and r6.get("view_transform_mode") == "scene" and r6.get("view_transform_assigned") is None
+                 and ("阈值判读需自行校正" in warn6) and sc_after6 == vt_nonstd
+                 and bool(lines6) and all(ln.get("view_transform") == vt_nonstd for ln in lines6)
+                 and bool(h_std) and bool(h_scn) and h_std[0] != h_scn[0],
+                 "view_transform=%s jsonl=%s warning=%s 场景 before/after=%s/%s；"
+                 "Standard.front=%s scene.front=%s（不同才对）"
+                 % (r6.get("view_transform"), _j([ln.get("view_transform") for ln in lines6]),
+                    ("有" if "阈值判读需自行校正" in warn6 else "无"), vt_nonstd, sc_after6,
+                    (h_std or [None])[0], (h_scn or [None])[0]))
+        try:
+            sc.view_settings.view_transform = vt_orig          # 还原自检自己动过的场景设置（E2 会再兜一次）
+        except Exception:
+            pass
+
+        # ---- F8（B1/B2）：可调用 API
+        _Kapi = getattr(_kernel(), "dsh_qc_render_api", None) if _kernel() is not None else None
+        api_res = api_res2 = api_str = api_help = None
+        api_err = None
+        if _Kapi is None:
+            api_err = "K.dsh_qc_render_api 不存在（kernel 未注入？）"
+        else:
+            try:
+                _unk = {"views": ["not_a_real_view_name"], "res": res, "outdir": outdir, "lock_dir": lock_dir}
+                api_res = _Kapi("render_views", _unk)      # 位置参形态
+                api_res2 = _Kapi(_unk)                     # 只给 dict（等价 render_views）
+                api_str = _Kapi["dispatch"]("render_catalog", "{}")   # 老契约：仍是 str
+                api_help = _Kapi("help")
+            except Exception as e:
+                api_err = "%s: %s" % (type(e).__name__, str(e)[:160])
+        _chk("F8 B1/B2 api(...) 返回 dict、api({...}) 等价、api[\"dispatch\"] 仍返回 str、api(\"help\") 可用",
+             (api_err is None) and callable(_Kapi) and isinstance(api_res, dict) and isinstance(api_res2, dict)
+             and isinstance(api_str, str) and isinstance(api_help, dict)
+             and api_res.get("ok") is False and api_res.get("rendered_count") == 0
+             and api_res2.get("unknown_views") == ["not_a_real_view_name"]
+             and api_help.get("version") == QC_RENDER_VERSION,
+             "callable=%s api(...)=%s api({...})=%s dispatch=%s help=%s err=%s"
+             % (callable(_Kapi), type(api_res).__name__, type(api_res2).__name__, type(api_str).__name__,
+                type(api_help).__name__, api_err))
+
+        # ---- G1/G2/G3（E1）：锁原语（自检专用目录）
+        def _lk(**kw):
+            return json.loads(render_lock(dict({"dir": lock_dir}, **kw)))
+
+        g1a = _lk(action="acquire", holder="selftest-A", ttl_s=600)
+        g1b = _lk(action="acquire", holder="selftest-B", wait_s=1)
+        _chk("G1 E1 A 持有 → B wait_s=1 超时被拒（报 holder + waited_ms ≥ 900）",
+             bool(g1a.get("ok")) and bool(g1a.get("acquired")) and (g1b.get("ok") is False)
+             and g1b.get("current_holder") == "selftest-A" and int(g1b.get("waited_ms") or 0) >= 900
+             and os.path.isfile(_lock_path(lock_dir)) and bool(g1b.get("hint")),
+             "A=%s；B ok=%s holder=%s waited_ms=%s path=%s"
+             % (_j({k: g1a.get(k) for k in ("ok", "acquired", "holder", "waited_ms", "stale_broken")}),
+                g1b.get("ok"), g1b.get("current_holder"), g1b.get("waited_ms"), _lock_path(lock_dir)))
+        g2a = _lk(action="release", holder="selftest-B")        # holder 不匹配 → 必须被拒
+        g2b = _lk(action="release", holder="selftest-A")        # 真持有者 → 放掉
+        g2c = _lk(action="acquire", holder="selftest-B", wait_s=0)
+        g2s = _lk(action="status")
+        _chk("G2 E1 holder 不匹配的 release 被拒；A release 后 B 能拿到（status 报 B）",
+             (g2a.get("ok") is False) and g2a.get("current_holder") == "selftest-A"
+             and bool(g2b.get("ok")) and bool(g2b.get("released"))
+             and bool(g2c.get("ok")) and bool(g2c.get("acquired")) and g2s.get("holder") == "selftest-B",
+             "B 释放被拒=%s（当前 %s）；A 释放=%s；B 再取=%s；status holder=%s remaining_s=%s"
+             % (g2a.get("ok"), g2a.get("current_holder"), g2b.get("released"), g2c.get("acquired"),
+                g2s.get("holder"), g2s.get("remaining_s")))
+        g2d = _lk(action="release", holder="selftest-B")
+        # G3：伪造一把"过期锁"（acquired_at 是很久以前的时间戳）→ acquire 必须按时间戳判过期并打破
+        _lp = _lock_path(lock_dir)
+        os.makedirs(os.path.dirname(_lp), exist_ok=True)
+        with open(_lp, "w", encoding="utf-8") as f:
+            f.write(_j({"holder": "selftest-stale", "pid": 0, "acquired_at": time.time() - 9999.0,
+                        "ttl_s": 600.0, "note": "自检伪造的过期锁"}))
+        g3 = _lk(action="acquire", holder="selftest-C", ttl_s=600, wait_s=0)
+        g3r = _lk(action="release", holder="selftest-C")
+        _chk("G3 E1 伪造过期锁 → 被打破且 stale_broken=true，新持有者拿到",
+             bool(g3.get("ok")) and bool(g3.get("acquired")) and bool(g3.get("stale_broken"))
+             and g3.get("holder") == "selftest-C" and bool(g3r.get("ok"))
+             and bool(g3.get("stale_note")),
+             "stale_broken=%s holder=%s waited_ms=%s note=%s" % (g3.get("stale_broken"), g3.get("holder"),
+                                                                 g3.get("waited_ms"), g3.get("stale_note")))
+        # G4：自动锁写进了产物（每行 jsonl 的 lock）
+        lock_paths4 = [((ln.get("lock") or {}).get("path")) for ln in lines4]
+        lock_ok4 = all(isinstance(ln.get("lock"), dict) and (ln["lock"].get("acquired") is True)
+                       and bool(ln["lock"].get("holder")) and ("waited_ms" in ln["lock"])
+                       and ("stale_broken" in ln["lock"]) and bool(ln["lock"].get("path")) for ln in lines4)
+        _chk("G4 E1 jsonl 每行都有 lock{holder, waited_ms, acquired, stale_broken, path}（自动锁）",
+             bool(lines4) and lock_ok4 and all(p == _lock_path(lock_dir) for p in lock_paths4)
+             and (r4.get("lock") or {}).get("released") is True,
+             "行数=%d lock[0]=%s 路径全等=%s 返回体 lock.released=%s"
+             % (len(lines4), _j(lines4[0].get("lock")) if lines4 else None,
+                all(p == _lock_path(lock_dir) for p in lock_paths4), (r4.get("lock") or {}).get("released")))
+
+        # ---- G5（E1/B2）：engine 的**两条路由拼写**都落到实处（plan 通道真实会发的 op）
+        # engine.mjs：op="render_lock" → dispatch("lock")（render_* 分支 slice(7)）；
+        #             op="render_status" → dispatch("status")；op="qc_render_lock" → dispatch("render_lock")。
+        g5, g5_err = {}, None
+        if _Kapi is not None:
+            try:
+                for _op in ("lock", "render_lock", "status", "render_status"):
+                    _s = _Kapi["dispatch"](_op, _j({"action": "status", "dir": lock_dir}))
+                    g5[_op] = [isinstance(_s, str), bool(json.loads(_s).get("ok"))]
+            except Exception as e:
+                g5_err = "%s: %s" % (type(e).__name__, str(e)[:160])
+        _chk("G5 E1 engine 路由拼写（lock / render_lock / status / render_status）都能 dispatch 且仍返回 str",
+             bool(g5) and g5_err is None and all(v[0] and v[1] for v in g5.values()),
+             "各拼写=[返回 str, ok]=%s err=%s" % (_j(g5), g5_err))
+
+        # ---- G6（E1 回归）：拿不到锁 → **空产出 ok:false**，而且引擎/采样必须已写回（早退不污染场景）
+        # 为什么有它：实测踩到过一次 —— 锁超时的早退路径不走 finally，把 eevee.taa_render_samples
+        # 从 64 留成了 16（E2 快照对拍抓出来的）。这条断言专门守住这个回归。
+        _hold = _lk(action="acquire", holder="selftest-HOLD", ttl_s=600)
+        _eng0 = str(sc.render.engine)
+        _ee0 = int(getattr(getattr(sc, "eevee", None), "taa_render_samples", -1))
+        _cy0 = int(sc.cycles.samples) if hasattr(sc, "cycles") else -1
+        r7 = json.loads(qc_render_views({
+            "views": ["front"], "res": res, "samples": 8, "outdir": outdir, "tag": "selftest_lockfail",
+            "warmup": False, "lock_wait_s": 0, "lock_dir": lock_dir, "lights_mode": "only"}))
+        _eng1 = str(sc.render.engine)
+        _ee1 = int(getattr(getattr(sc, "eevee", None), "taa_render_samples", -1))
+        _cy1 = int(sc.cycles.samples) if hasattr(sc, "cycles") else -1
+        _pre = r7.get("prelock_restore") or {}
+        _chk("G6 E1 拿不到锁 → 空产出 ok:false，且引擎/采样已写回（早退不污染场景）",
+             bool(_hold.get("ok")) and (r7.get("ok") is False) and r7.get("count") == 0
+             and r7.get("rendered_count") == 0
+             and (r7.get("lock") or {}).get("acquired") is False
+             and r7.get("current_holder") == "selftest-HOLD"
+             and r7.get("holder_ttl_remaining_s") is not None
+             and bool(_pre.get("ok")) and _eng1 == _eng0 and _ee1 == _ee0 and _cy1 == _cy0,
+             "ok=%s holder=%s remaining_s=%s；engine %s→%s · eevee %s→%s · cycles %s→%s · prelock=%s"
+             % (r7.get("ok"), r7.get("current_holder"), r7.get("holder_ttl_remaining_s"),
+                _eng0, _eng1, _ee0, _ee1, _cy0, _cy1, _j(_pre)))
+        _lk(action="release", holder="selftest-HOLD")
+
         batch1, batch2 = r1, r2
     finally:
         for ob in made_objs:
@@ -2293,6 +3263,13 @@ def qc_render_selftest(args=None):
                 pass
         try:
             bpy.context.view_layer.update()
+        except Exception:
+            pass
+        # v0.9.1：锁文件也清掉（自检专用目录；真用户的锁在 K.workdir/locks 下，绝不碰）
+        try:
+            _lp_clean = _lock_path(os.path.join(outdir, "selftest_lock"))
+            if os.path.isfile(_lp_clean):
+                os.remove(_lp_clean)
         except Exception:
             pass
         cleanup_diffs = _snap_diff(snap0, _scene_snapshot())
@@ -2330,8 +3307,42 @@ def qc_render_selftest(args=None):
            "device_line": (batch1.get("device_line") if batch1 else None),
            "views": ({"unknown_views": batch1.get("unknown_views"), "render_order": batch1.get("render_order"),
                       "aliases": batch1.get("view_aliases_applied"), "menu": view_menu_text()} if batch1 else None),
+           # ---- v0.9.1（93 反馈）：A1/A2/E1/B 的实测快照（自检报告要能被人复核，不只靠开头那几行）
+           "v091": {"a1_unknown": ({"ok": r3.get("ok"), "rendered_count": r3.get("rendered_count"),
+                                    "unknown_views": r3.get("unknown_views"),
+                                    "no_guess_views": r3.get("no_guess_views"), "outdir": a1_dir,
+                                    "png_in_outdir": a1_pngs, "jsonl_in_outdir": a1_jsonls} if r3 else None),
+                    "a1_repro_93": ({"ok": r3b.get("ok"), "requested_count": r3b.get("requested_count"),
+                                     "rendered_count": r3b.get("rendered_count"),
+                                     "unknown_count": r3b.get("unknown_count"),
+                                     "png": a1b_pngs, "outdir": a1b_dir} if r3b else None),
+                    "default4": ({"ok": r4.get("ok"), "render_order": d4_names,
+                                  "requested_count": r4.get("requested_count"),
+                                  "rendered_count": r4.get("rendered_count"), "views_from": r4.get("views_from"),
+                                  "view_transform": r4.get("view_transform"),
+                                  "view_transform_restore": r4.get("view_transform_restore"),
+                                  "lock": r4.get("lock")} if r4 else None),
+                    "partial_unknown": ({"ok": r5.get("ok"), "requested_count": r5.get("requested_count"),
+                                         "rendered_count": r5.get("rendered_count"),
+                                         "unknown_count": r5.get("unknown_count"),
+                                         "render_order": n5,
+                                         "aliases": r5.get("view_aliases_applied")} if r5 else None),
+                    "explicit3": ({"ok": r5b.get("ok"), "count": r5b.get("count"),
+                                   "render_order": [str(e.get("view")) for e in (r5b.get("views") or [])]}
+                                  if r5b else None),
+                    "scene_transform": ({"ok": r6.get("ok"), "view_transform": r6.get("view_transform"),
+                                         "mode": r6.get("view_transform_mode"),
+                                         "warnings": r6.get("scope_warnings")} if r6 else {"tested": False,
+                                                                                            "reason": "本机无非 Standard 选项"}),
+                    "api": {"callable": bool(api_err is None), "call_returns": type(api_res).__name__,
+                            "dict_arg_returns": type(api_res2).__name__,
+                            "dispatch_returns": type(api_str).__name__, "error": api_err},
+                    "lock": {"g1_waited_ms": g1b.get("waited_ms"), "g1_holder": g1b.get("current_holder"),
+                             "g3_stale_broken": g3.get("stale_broken"), "path": _lock_path(lock_dir),
+                             "dir": lock_dir}},
            "projection": proj,
-           "expect": "ok=true 表示 A1-A4/B1-B2/C1-C4/D1/E1-E2 全过；任一不过 → ok=false 且 failed 里点名"}
+           "expect": "ok=true 表示 A1-A4/B1-B2/C1-C4/D1/E1-E2 + v0.9.1 的 F1-F8/G1-G6 全过；"
+                     "任一不过 → ok=false 且 failed 里点名"}
     # 自检报告落盘：证据要能被人和其他会话复核（工具返回值会被日志截断，磁盘上的不会）
     try:
         rp = _win(a.get("report") or os.path.join(outdir, "qc_render_selftest.json"))
@@ -2363,11 +3374,13 @@ def qc_render_dispatch(op, args=None):
         blender_rt_plan(op="qc_render_selftest", args={...})  → dispatch("render_selftest")
         blender_rt_plan(op="qc_render_catalog")               → dispatch("render_catalog")
         blender_rt_plan(op="qc_render_device_info")           → dispatch("render_device_info")
+        blender_rt_plan(op="qc_render_lock", args={...})      → dispatch("render_lock")   # v0.9.1 E1
 
     坑（v0.8.11 修）：老 dict 里只登记了 "render_views"，所以 docs/操作教程.md 里写的
     `op="qc_render_help"` 其实一直落到 unknown op（实际收到的是 "render_help"）—— 这里把
     render_* 别名补齐，老拼写（views/render_views/qc_render_views）一个不动。
     参数容忍 JSON 字符串 / {"args": {...}} 再包一层（照抄 qc_render_views 的既有解包口径）。
+    v0.9.1（B1/B2）：dispatch **仍然返回 str**（引擎契约不变）；要 dict 走 _DshApi 调用（api("render_views", {...})）。
     """
     import inspect
     ops = {"views": qc_render_views, "render_views": qc_render_views, "qc_render_views": qc_render_views,
@@ -2376,7 +3389,12 @@ def qc_render_dispatch(op, args=None):
            "catalog": qc_render_view_catalog, "views_catalog": qc_render_view_catalog,
            "render_catalog": qc_render_view_catalog, "render_views_catalog": qc_render_view_catalog,
            "view_menu": qc_render_view_menu, "render_view_menu": qc_render_view_menu,
-           "device_info": qc_render_device_info, "render_device_info": qc_render_device_info}
+           "device_info": qc_render_device_info, "render_device_info": qc_render_device_info,
+           # ---- v0.9.1（E1）：渲染锁（render_lock / lock / qc_render_lock 三种拼写都认）
+           # engine.mjs 的 render_* 分支是 dispatch(op.slice(7))，所以 op="render_lock"→"lock"、
+           # op="render_status"→"status"、op="qc_render_lock"→"render_lock" 都要有落点。
+           "render_lock": render_lock, "lock": render_lock, "qc_render_lock": render_lock,
+           "status": render_lock, "render_status": render_lock}
     fn = ops.get(str(op))
     if fn is None:
         return _j({"ok": False, "error": "unknown qc_render op", "op": op, "ops": sorted(ops)})
@@ -2394,13 +3412,42 @@ def qc_render_dispatch(op, args=None):
         return _j({"ok": False, "error": "%s: %s" % (type(e).__name__, str(e)[:200]), "op": op})
 
 
+class _DshApi(dict):
+    """既可当 dict 用（api["render_views"]），也可直接调用（api("render_views", {...}) → 已解析的 dict）。
+
+    为什么有它（93 反馈 B1/B2）：`K.dsh_qc_render_api(args)` 原来是
+    `TypeError: 'dict' object is not callable`（成员为此改 3 轮）；进程内直调又要自己 json.loads。
+    这里保持**引擎契约不变**：`api["dispatch"](op, json_str)` 以及各函数键仍返回 **str**；只有
+    调用形态（`api(...)` / `api.call(...)`）返回 **dict**（解析失败时返回 {"ok": False, "error": ...}，
+    绝不把裸字符串丢给调用方）。
+    """
+
+    def __call__(self, op=None, args=None, **kw):
+        if op is None or isinstance(op, dict):
+            args, op = (op if isinstance(op, dict) else args), "render_views"
+        payload = args if isinstance(args, str) else _j(dict(args or {}, **kw))
+        try:
+            return json.loads(self["dispatch"](str(op), payload))
+        except Exception as e:                       # dispatch 自身崩了也要给结构化结果（不许裸异常/裸 str）
+            return {"ok": False, "error": "%s: %s" % (type(e).__name__, str(e)[:200]), "op": str(op)}
+
+    def call(self, op, args=None, **kw):
+        return self(op, args, **kw)
+
+
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
 if _K is not None:
-    _K.dsh_qc_render_api = {"version": QC_RENDER_VERSION, "dispatch": qc_render_dispatch,
+    _K.dsh_qc_render_api = _DshApi({
+                            "version": QC_RENDER_VERSION, "dispatch": qc_render_dispatch,
                             "render_views": qc_render_views, "help": qc_render_help,
                             "selftest": qc_render_selftest,
                             # v0.8.11 新增（只加不改）：
                             "view_catalog": qc_render_view_catalog, "view_menu_text": view_menu_text,
                             "view_menu": qc_render_view_menu, "resolve_view_names": resolve_view_names,
-                            "device_info": qc_render_device_info, "parts_palette": PARTS_PALETTE}
+                            "device_info": qc_render_device_info, "parts_palette": PARTS_PALETTE,
+                            # v0.9.1 新增（只加不改）：
+                            "render_lock": render_lock, "lock": render_lock,
+                            "view_menu_full_text": view_menu_full_text, "vt_options": _vt_options,
+                            "default_views_fallback": list(DEFAULT_VIEWS_FALLBACK),
+                            "default_views_legacy": list(DEFAULT_VIEWS_LEGACY)})

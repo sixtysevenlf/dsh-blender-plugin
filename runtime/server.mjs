@@ -79,7 +79,9 @@ const READ_ONLY_OPS = { '/perf': ['status', 'help'], '/loop': ['status', 'board'
             'audit_connectivity', 'audit_drift', 'audit_measure', 'audit_gate', 'montage',
             // v0.9.0：机构/交付的只读 op（motion_measure 会临时驱动对象→不算只读，不列）
             'motion_status', 'motion_help', 'motion_joints', 'deliver_help', 'deliver_verify',
-            'generator_list', 'generator_get', 'generator_diff', 'generator_help'],
+            'generator_list', 'generator_get', 'generator_diff', 'generator_help',
+            // v0.9.1（93-D1/E1）：GUI 取景/着色与渲染锁状态都是视图级只读；gui_open 会换文件 → 不算只读
+            'gui_frame', 'gui_shading', 'gui_help', 'render_status', 'render_lock_status'],
   '/worker': ['status'],
   '/txn': ['list', 'marks', 'help', 'edit_status'],
   '/preset': ['list', 'get', 'help'],
@@ -368,7 +370,15 @@ const server = http.createServer(async (req, res) => {
         stats.views++; stats.lastViewMs = Date.now() - t0; stats.lastError = null;
         if (payload.asJson) { json(res, 200, { ok: true, ms: Date.now() - t0, meta: out.meta }); return; }
         res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store',
-          'x-dsh-view': JSON.stringify({ mode: out.meta.mode, ms: out.meta.ms, path: out.meta.path, width: out.meta.width, height: out.meta.height }).slice(0, 500) });
+          // ⚠ 实测坑（v0.9.1）：HTTP 头值不能含非 ASCII —— warning 里有中文，直接塞会 502 "Invalid character in header content"。
+          // 所以整段 URL 编码后再放头里（客户端 decodeURIComponent 还原）。
+          'x-dsh-view': encodeURIComponent(JSON.stringify({
+            mode: out.meta.mode, ms: out.meta.ms, path: out.meta.path, width: out.meta.width, height: out.meta.height,
+            coverage_estimate: out.meta.coverage_estimate, objects_in_frame: out.meta.objects_in_frame,
+            min_margin_px: out.meta.min_margin_px, scene_bbox: out.meta.scene_bbox,
+            warning: out.meta.warning, fallback_from: out.meta.fallback_from,
+            region: (out.meta.meta || {}).region || null,
+          }).slice(0, 6000)) });
         res.end(out.png);
       } catch (e) {
         stats.lastError = String((e && e.message) || e);

@@ -110,6 +110,43 @@ Four issues reported by a heavy user (22 modelling rounds, 45 pipelines) — all
 - **Observability** — exceptions now return partial `stdout`/`stderr`/`traceback` (marker-wrapped); misleading `diagnosis` no longer attaches to execution errors; `rt_do` reports main-thread occupancy and suggests headless/worker past 1 s.
 - **Paths** — `K.win_path / K.wsl_path / K.blend_path / K.out_dir` inside Blender (both GUI and headless), plus `K.run(path, reload_modules=True)` and `blender_rt_do(file=...)`.
 
+### 4.8 Fixes from field feedback (v0.9.1) — rifle-build《93 report》, 14 items
+
+All four P0 "silent failure" reports were reproduced and fixed; D2 (empty custom-view frame) was **not** reproduced — it was an *aiming* mistake
+(`from`/`look_at` pointing where no geometry is), so the fix is a self-diagnosing capture instead of a camera change.
+
+- **A1 unknown views are no longer substituted silently** (`qc_render` v3): a non-empty `views` list where *nothing* resolves → `ok:false` + `unknown_views` +
+  `available_views` (22-name catalog) + `hint`, and **no image is written**. Counts are always reported (`requested_count / rendered_count / unknown_count`).
+  Spelling aliases added (`side_left → left`, `iso_right → iso_br`, …); genuinely ambiguous names (`muzzle_end`, `breech_end`) are **never guessed**.
+  Omitting `views` keeps the v0.8.11 default of **3** views (iso/front/right) — this patch does not silently change your default artifact set.
+- **A2 headless QC now defaults to `view_transform="Standard"`** (AgX/Filmic washing-out made threshold reads useless). Pass `"scene"` for beauty renders;
+  the actually-used transform is echoed in the response **and in every jsonl line**, and the scene's original transform is restored (verified: returns Standard, scene stays AgX).
+- **A3 structured results no longer live only in stdout**: `blender_rt_headless(out_json=<path>)`; results >4 KB are auto-dumped to `<workdir>/results/<runId>.json`
+  (`resultPath` / `resultBytes`); the `result` shown in the tool text went 2 KB → 6 KB; the plan channel went 4 KB → 12 KB.
+- **A4 fake failures are classified**: response `status` ∈ `finished / script_error / blender_error / timeout / gpu_required_missing / blender_exe_missing`
+  + `failure_hint`. Blender's exit code stays **0** when a `--python` script raises (measured), so `status` is derived from the receipt plus stderr markers.
+  Every run carries a `runId` — a client timeout is not a task failure: recover with `blender_rt_job(op="status"/"collect", id=runId)`.
+- **B1/B2 callable APIs**: `K.dsh_*_api("op", {…})` → parsed **dict** (`api.call` alias); `api["dispatch"](op, json_str)` still returns a string.
+- **B3 `script_file=<.py>`** on `blender_rt_headless` (and `file=` now auto-detects `.py`), so scripts no longer have to be written → read → passed as strings.
+- **B4 env contract**: `env={…}` plus auto-injected `DSH_RUN_ID / DSH_OUTDIR / DSH_ARGS / DSH_SESSION / DSH_PLUGIN_VERSION`, readable as
+  `K.args / K.run_id / K.session / K.env` inside the script. (Measured trap: env does **not** cross the WSL→Windows spawn boundary — `WSLENV` is now set and the values are injected in-script too.)
+- **C1/C2 file-level operators** (`audit` v4): `audit_overlap(file_a, obj_a, file_b, obj_b)` (BVH face pairs + real intersection segments + bbox) and
+  `audit_interference(...)` (intersection **volume estimate in mm³ with a 95% CI** and a three-state verdict; Monte-Carlo ray-parity, sampling only inside the
+  intersection of the two world AABBs; open/non-manifold meshes → `unresolved`, never a plausible-looking wrong number).
+  `audit_connectivity / audit_gate / audit_measure` now take `file=` (temporary load → same pipeline → cleanup either way, reported in `cleanup`).
+- **D1 GUI primitives** (`view` v2): `gui_frame(object=…) / gui_shading(mode=…) / gui_open(path=…) / gui_help()` run in a **real UI context**
+  (inside `rt_do` `bpy.context.screen` is `None`). Measured: `gui_frame(object="Cube")` → `framed:"Cube", mode:"selected"`.
+- **D2 self-diagnosing custom view**: `coverage_estimate` (background taken as the modal colour, so `background=true` cannot fool it), `objects_in_frame`
+  (projects each bbox), `scene_bbox`, and when nothing is in frame a `warning{code:"frame_looks_empty", suggest:{from,look_at,lens}}` —
+  following the suggestion took coverage from **0.00% → 68.11%** without pressing Home. Also fixed: the `x-dsh-view` header carried only 5 fields and crashed on non-ASCII (502).
+- **E1 render queue/lock** (replaces members' hand-rolled `render_lock.py`): cross-process file lock `<workdir>/locks/render.lock`
+  (`op="render_lock"` acquire/release/status; `qc_render_views` acquires automatically and reports `waited_ms`/holder/stale in the response and every jsonl line).
+  Measured: second holder with `wait_s=1` → refused with `waited_ms=1001`; wrong-holder release refused; a stale lock (2 h old, TTL 60 s) is broken with `stale_broken:true`.
+- **E2 session-scoped defaults**: `DSH_SESSION` (default `plugin-pid-<pid>`) names the default evidence file (`dsh_evidence_<session>.png`) and appears in `status` with `resultsDir`.
+- Tool-layer bugs found and fixed while integrating: the plan tool could **silently drop `args`** (the harness sometimes delivers a JSON *string*) and still return `ok:true`;
+  `args` arrays were stringified into `"[delta]"`; `perf`/`opt` sent `{}` to zero-arg ops (python got an extra positional argument).
+- New regression harnesses: `tests/engine_probe.sh` (**16/16**) and `tests/view_diag_selftest.py` (**16/16**); `qc_render` selftest **29/29**.
+
 ## 5. Tool reference
 
 ### `blender_rt_see` — look

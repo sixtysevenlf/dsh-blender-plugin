@@ -21,7 +21,7 @@
 """
 import bpy, json, math, time, os, struct, zlib, tempfile
 
-VIEW_VERSION = 1
+VIEW_VERSION = 2
 
 # 默认输出到 Blender 本机临时目录（分享版不假设固定路径；正常调用时引擎会传
 # path = 配置里的工作目录，这里只是兜底）。
@@ -313,6 +313,194 @@ def _capture_render(s):
     return None, {"method": "render.opengl", "engine": s["engine"], "output": s["path"]}
 
 
+# ---------------------------------------------------------------- v0.9.1（93-D1/D2）：GUI 原语 + 自定义视角自诊断
+
+def _win_path(p):
+    """把 WSL 路径换成 Blender（Windows）能用的形态：优先用内核里的 K.win_path。"""
+    K = _kernel()
+    try:
+        if K is not None and hasattr(K, "win_path"):
+            return K.win_path(str(p))
+    except Exception:
+        pass
+    return str(p)
+
+
+def _scene_bbox():
+    """当前场景可见 mesh 的世界 bbox + 最长边（给"瞄空"自诊断建议用）。"""
+    from mathutils import Vector
+    import numpy as np
+    meshes = [o for o in bpy.context.scene.objects if o.type == "MESH" and not (o.hide_render or o.hide_viewport)]
+    if not meshes:
+        return None
+    pts = []
+    for o in meshes:
+        for c in o.bound_box:
+            p = o.matrix_world @ Vector(c)
+            pts.append((p.x, p.y, p.z))
+    A = np.asarray(pts, dtype=float)
+    mn, mx = A.min(axis=0), A.max(axis=0)
+    size = mx - mn
+    return {"min": [round(float(x), 4) for x in mn], "max": [round(float(x), 4) for x in mx],
+            "center": [round(float(x), 4) for x in (mn + mx) / 2.0],
+            "span": round(float(size.max()), 4), "objects": len(meshes)}
+
+
+def _coverage(rgba, w, h, clear=None, stride=4):
+    """画面里"非底色像素"占比（0..1）——判"自定义视角是不是瞄空了"。子采样（约 1/16 像素）。"""
+    try:
+        import numpy as np
+        A = np.frombuffer(rgba, dtype="uint8").reshape(h, w, 4)[::stride, ::stride, :3].astype("int16")
+        if clear and len(clear) >= 3:
+            ref = np.asarray([int(round(float(c) * 255.0)) for c in clear[:3]], dtype="int16")
+            return float((np.abs(A - ref).max(axis=2) > 8).mean())
+        flat = A.reshape(-1, 3)
+        if len(flat) == 0:
+            return 0.0
+        uniq, cnt = np.unique(flat, axis=0, return_counts=True)
+        ref = uniq[int(np.argmax(cnt))]
+        return float((np.abs(flat - ref).max(axis=1) > 8).mean())
+    except Exception:
+        try:
+            n = len(rgba) // 4
+            if n == 0:
+                return 0.0
+            base = tuple(int(round(float(c) * 255.0)) for c in (clear or [0, 0, 0])[:3])
+            step = int(max(1, stride))
+            diff = total = 0
+            for i in range(0, n, step):
+                j = i * 4
+                total += 1
+                if ((rgba[j] - base[0]) ** 2 + (rgba[j + 1] - base[1]) ** 2 + (rgba[j + 2] - base[2]) ** 2) > 64:
+                    diff += 1
+            return diff / max(1, total)
+        except Exception:
+            return 0.0
+
+
+def _objects_in_frame(s):
+    """按相机矩阵把每个可见对象的 bbox 投到画面里：返回 (in_frame_names, min_margin_px)。
+    比"数非底色像素"可靠 —— background=true 时世界底色也算像素，纯覆盖率判不出"瞄空"。
+    注意：mathutils.Matrix 只能跟 mathutils.Vector 乘（跟 numpy 数组会 TypeError，自检抓到过）。"""
+    from mathutils import Vector
+    vm = make_view_matrix(s["from"], s["look_at"])
+    pm = make_proj_matrix(s["width"], s["height"], s["lens"], s["sensor"], s["clip_start"], s["clip_end"],
+                          s["sensor_fit"], s["ortho"], s["ortho_scale"], s["shift_x"], s["shift_y"])
+    vpm = pm @ vm
+    w, h = float(s["width"]), float(s["height"])
+    names, best = [], None
+    for o in bpy.context.scene.objects:
+        if o.type != "MESH" or o.hide_render or o.hide_viewport:
+            continue
+        inside = False
+        for c in o.bound_box:
+            p = o.matrix_world @ Vector((c[0], c[1], c[2]))
+            clip = vpm @ Vector((p.x, p.y, p.z, 1.0))
+            if clip[3] <= 1e-9:
+                continue                      # 在相机背后
+            ndc = clip.xyz / clip[3]          # mathutils：切片 [:3] 会退化成 tuple，用 .xyz 才拿到 Vector
+            x = (ndc[0] + 1.0) * 0.5 * w
+            y = (ndc[1] + 1.0) * 0.5 * h
+            if -0.1 * w <= x <= 1.1 * w and -0.1 * h <= y <= 1.1 * h:
+                inside = True
+                mx = min(x, w - x, y, h - y)
+                best = mx if best is None else min(best, mx)
+        if inside:
+            names.append(o.name)
+    return names, (None if best is None else round(float(best), 4))
+
+
+def _empty_frame_note(cov, bbox, s, in_frame=None):
+    """画面几乎为空时的可执行告警（而不是让用户自己去按 Home）。"""
+    empty = (in_frame is not None and len(in_frame) == 0)
+    if not empty and (cov is None or cov > 0.004):
+        return None
+    sug = None
+    if bbox:
+        import math as _m
+        c = bbox["center"]
+        span = max(float(bbox["span"]), 1e-6)
+        v = [float(s["from"][i]) - c[i] for i in range(3)]
+        n = _m.sqrt(sum(x * x for x in v)) or 1.0
+        d = 2.2 * span
+        sug = {"look_at": c, "from": [round(c[i] + v[i] / n * d, 4) for i in range(3)], "lens": s["lens"]}
+    return {"code": "frame_looks_empty", "coverage": round(float(cov or 0.0), 6), "scene_bbox": bbox, "suggest": sug,
+            "objects_in_frame": list(in_frame or []),
+            "why": "画面里没有可见几何 —— 自定义视角瞄空（from/look_at 与场景不在同一处）"
+                   if in_frame is not None else "画面里几乎只剩底色 —— 自定义视角多半瞄空",
+            "hint": ("用返回的 scene_bbox.center 当 look_at；或直接用 suggest 里那组 from/look_at 再出一次"
+                     if sug else "当前场景没有可见 mesh —— 自定义视角当然只有底色")}
+
+
+def gui_frame(object=None, area=None, all=False):
+    """GUI 原语（93-D1）：在真 UI 上下文里框选对象/全场景（rt_do 里 bpy.context.screen 为 None，做不到这件事）。"""
+    win, ar, reg, space = _find_view3d(area)
+    prev_sel = [o.name for o in bpy.context.selected_objects][:20]
+    got = None
+    try:
+        with bpy.context.temp_override(window=win, screen=win.screen, area=ar, region=reg):
+            if object:
+                ob = bpy.data.objects.get(str(object))
+                if ob is None:
+                    return _j({"ok": False, "error": "对象不存在：%s" % object,
+                               "hint": "先在 K 里看 bpy.data.objects 的名字"})
+                ob.select_set(True)
+                bpy.context.view_layer.objects.active = ob
+                bpy.ops.view3d.view_selected(use_all_regions=False)
+                got = ob.name
+            else:
+                bpy.ops.view3d.view_all(center=bool(all))
+    except Exception as e:
+        import traceback
+        return _j({"ok": False, "error": "%s: %s" % (type(e).__name__, str(e)[:200]),
+                   "traceback": traceback.format_exc()[-500:],
+                   "hint": "需要 GUI 的 3D 视口；无头 -b 模式没有 UI 上下文（用 view.py 的 capture 代替）"})
+    return _j({"ok": True, "framed": got, "mode": "all" if not object else "selected",
+               "area": [ar.x, ar.y, ar.width, ar.height], "prev_selected": prev_sel,
+               "note": "只动视口取景；场景数据未改"})
+
+
+def gui_shading(mode="SOLID", color_type=None, area=None):
+    """GUI 原语（93-D1）：切视口着色（WIREFRAME/SOLID/MATERIAL/RENDERED）+ 可选 color_type。"""
+    win, ar, reg, space = _find_view3d(area)
+    before = {"shading": space.shading.type, "color_type": getattr(space.shading, "color_type", None)}
+    modes = ("WIREFRAME", "SOLID", "MATERIAL", "RENDERED")
+    m = str(mode).upper()
+    if m not in modes:
+        return _j({"ok": False, "error": "未知 shading：%s" % mode, "allowed": list(modes)})
+    try:
+        space.shading.type = m
+        if color_type:
+            space.shading.color_type = str(color_type).upper()
+    except Exception as e:
+        return _j({"ok": False, "error": "%s: %s" % (type(e).__name__, str(e)[:200])})
+    return _j({"ok": True, "shading": space.shading.type, "color_type": getattr(space.shading, "color_type", None),
+               "before": before, "note": "只改视口显示；渲染设置未动"})
+
+
+def gui_open(path):
+    """GUI 原语（93-D1）：在 GUI 里打开 .blend（⚠ 替换当前文件；打开后旧引用全部失效）。"""
+    if not path:
+        return _j({"ok": False, "error": "path 必填"})
+    wp = _win_path(path)
+    try:
+        bpy.ops.wm.open_mainfile(filepath=wp)
+    except Exception as e:
+        return _j({"ok": False, "error": "%s: %s" % (type(e).__name__, str(e)[:200]), "path": wp})
+    return _j({"ok": True, "opened": wp, "file": bpy.data.filepath, "objects": len(bpy.data.objects),
+               "warning": "open_mainfile 会重建 bpy.data：之前抓到的 Object/Collection/材质引用全部作废，重新取一次",
+               "note": "这是本会话当前文件；要写盘请显式 bpy.ops.wm.save_as_mainfile(filepath=...)"})
+
+
+def gui_help():
+    return _j({"version": VIEW_VERSION,
+               "ops": {"gui_frame": "object=<名>|省略=全场景（真 UI 上下文 view_selected / view_all）",
+                       "gui_shading": "mode=WIREFRAME|SOLID|MATERIAL|RENDERED，color_type 可选",
+                       "gui_open": "path=<.blend>（⚠ 替换当前文件，旧引用失效）"},
+               "why": "rt_do 的 execute_code 上下文没有 screen/area（实测 bpy.context.screen is None）→ 这三条由插件侧在真 UI 上下文执行",
+               "read_only_note": "gui_frame / gui_shading 只动视口显示；gui_open 会换文件，属写操作"})
+
+
 def capture(spec_json):
     """出图主入口：按 spec 出一帧 PNG，返回 JSON（含路径/尺寸/矩阵/耗时）。"""
     t0 = time.perf_counter()
@@ -339,14 +527,26 @@ def capture(spec_json):
         size = os.path.getsize(path)
         return _j({"ok": True, "mode": mode, "path": path, "bytes": size,
                    "width": s["width"], "height": s["height"], "fallback_from": err,
+                   "coverage_estimate": None, "scene_bbox": _scene_bbox(),
+                   "warning": None if _scene_bbox() else _empty_frame_note(0.0, None, s),
                    "matrix": {"view": [[round(v, 6) for v in r] for r in make_view_matrix(s["from"], s["look_at"])],
                               "proj": [[round(v, 6) for v in r] for r in make_proj_matrix(
                                   s["width"], s["height"], s["lens"], s["sensor"], s["clip_start"], s["clip_end"],
                                   s["sensor_fit"], s["ortho"], s["ortho_scale"], s["shift_x"], s["shift_y"])]},
                    "meta": meta, "ms": int((time.perf_counter() - t0) * 1000), "spec": s})
     n = write_png(path, s["width"], s["height"], rgba)
+    # v0.9.1（93-D2）：自定义视角自诊断 —— 画面几乎只剩底色时直接告警并给"该怎么瞄"
+    cov = _coverage(rgba, s["width"], s["height"], None)   # 底色取众数（background=true 时世界底色也算像素）
+    bbox = _scene_bbox()
+    try:
+        in_frame, margin_px = _objects_in_frame(s)
+    except Exception:
+        in_frame, margin_px = None, None
+    warn = _empty_frame_note(cov, bbox, s, in_frame)
     return _j({"ok": True, "mode": "viewport", "path": path, "bytes": n,
                "width": s["width"], "height": s["height"], "fallback_from": err,
+               "coverage_estimate": round(float(cov), 6), "scene_bbox": bbox,
+               "objects_in_frame": in_frame, "min_margin_px": margin_px, "warning": warn,
                "matrix": {"view": [[round(v, 6) for v in r] for r in make_view_matrix(s["from"], s["look_at"])],
                           "proj": [[round(v, 6) for v in r] for r in make_proj_matrix(
                               s["width"], s["height"], s["lens"], s["sensor"], s["clip_start"], s["clip_end"],
@@ -424,7 +624,15 @@ def help():
             "background": "默认 true（画世界背景）",
             "path": "输出 PNG 的路径（Blender 侧可见；默认取配置的工作目录，兜底用系统临时目录）",
         },
-        "others": {"matrices": "只算矩阵不出图", "targets": "列出可用的 3D 视口", "selftest": "无 GUI 自检"},
+        "others": {"matrices": "只算矩阵不出图", "targets": "列出可用的 3D 视口", "selftest": "无 GUI 自检",
+                   "gui_frame": "GUI 原语：框选对象/全场景（rt_do 里 screen 为 None 做不到）",
+                   "gui_shading": "GUI 原语：切视口着色 WIREFRAME/SOLID/MATERIAL/RENDERED",
+                   "gui_open": "GUI 原语：打开 .blend（⚠ 替换当前文件）", "gui_help": "GUI 原语速查"},
+        "diagnostics_v2": {
+            "coverage_estimate": "画面里非底色像素占比（子采样）—— 用来判'自定义视角是不是瞄空了'",
+            "scene_bbox": "当前场景可见 mesh 的世界 bbox（center/span）—— 瞄空时按它重设 look_at",
+            "warning": "coverage ≤ 0.004 时给 {code:'frame_looks_empty', suggest:{from,look_at,lens}}，直接照它再出一次",
+        },
         "notes": "viewport 模式完全不改场景（物体/相机/选择都不动）；render 模式临时加相机，结束即删并逐项还原渲染设置",
     })
 
@@ -433,4 +641,11 @@ import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
 if _K is not None:
     _K.dsh_view_api = {"version": VIEW_VERSION, "capture": capture, "matrices": matrices_json,
-                       "targets": targets, "selftest": selftest, "help": help}
+                       "targets": targets, "selftest": selftest, "help": help,
+                       "gui_frame": gui_frame, "gui_shading": gui_shading, "gui_open": gui_open,
+                       "gui_help": gui_help,
+                       # v0.9.1：诊断原语正式暴露（私有名在 preload 的命名空间隔离下不外泄，
+                       # 所以"能被复用/被自检调用"的东西必须挂到 API 上）
+                       "diagnostics": {"scene_bbox": _scene_bbox, "coverage": _coverage,
+                                       "objects_in_frame": _objects_in_frame,
+                                       "empty_frame_note": _empty_frame_note}}

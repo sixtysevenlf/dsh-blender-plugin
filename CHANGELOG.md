@@ -1,5 +1,102 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
+## v0.9.1（2026-09-18）—— 修 rifle-build《93 反馈》：静默失败（P0）×4 + API 一致性 + 文件级算子 + GUI 原语 + 渲染队列
+
+来源：rifle-build（QBZ47-5.8 影视级建模）全员 14 条实测反馈（lead + 5 名子代理，逐条带现象/复现/证据路径）。
+**逐条回代码核实 + 实证复现**：A1/A2/A3/B3 四条**已复现**；D2（自定义视角回空帧）**未能复现** —— 那是瞄空
+（from/look_at 与几何不在同一处：我用正确坐标时画面正中就是模型），但这恰恰说明它不该"静默给一张空图"，
+本版给它加了自诊断（见 D2）。
+
+### P0-A1 未知名视角不再静默替换（qc_render v3）
+- `views` 非空且**一个都没解析成功** → `ok:false` + `unknown_views` + `available_views`（22 名目录）+ `hint`；
+  **一张都不渲**（旧行为：静默兜底渲 4 视角且 `ok:true` → "文件名对、角度错"的图混进证据链）。
+- `views` 省略/空 → 与 v0.8.11 一致的默认 **3 视角**（iso/front/right）。要 Procedura 的 4 视角集就显式传那四个名字
+  —— 补丁版不静默改默认产物集。
+- 返回体新增 `requested_count / rendered_count / unknown_count`（成员踩过"12 个名字只渲 8 张不报错"）。
+- 补**拼写类**别名：`side_left/left_side/left_view → left`、`side_right/right_side/right_view → right`、`front_view → front`、
+  `back_view → back`、`top_view/topdown/top_down → top`、`bottom_view → bottom`、`iso_left → iso_l`、
+  `iso_right/isoright/iso_back_right → iso_br`；**语义模糊的一律不猜**（`muzzle_end`/`breech_end`/`*_end` 仍进 `unknown_views`）。
+  实测：`["front","totally_bogus","side_left"]` → 3/2/1，实际渲 `front`+`left`。
+
+### P0-A2 无头 QC 默认 `view_transform="Standard"`（qc_render v3）
+- 缺省 = `"Standard"`（去掉 AgX/Filmic 洗淡，阈值判读才可靠）；传 `"scene"` = 沿用场景（旧行为，beauty 图用）；传具体名 = 用那个。
+- 返回体与**每行 jsonl** 都带实际用的 `view_transform`；出图后**逐项还原**场景（实测：缺省返回 Standard 而场景仍是 AgX）。
+- ⚠ 行为变更：依赖"跟随场景色彩变换"的老调用请显式传 `view_transform="scene"`。
+
+### P0-A3 结构化结果不再只能从 stdout 切片
+- `blender_rt_headless` 新增 `out_json=<path>`；**>4KB 的结果自动落到工作目录 `results/<runId>.json`**（返回体 `resultPath`/`resultBytes`）。
+- 工具文本里 `result` 显示上限 2 KB → **6 KB**；已有结构化结果时 stdout 块只留头尾（不再重复放大）。
+- plan 通道结果上限 **4 KB → 12 KB**（量测表/探针输出不再被砍）。
+
+### P0/P1-A4 假失败分档 + 按 runId 回收
+- 返回体新增 `status`（`finished / script_error / blender_error / timeout / gpu_required_missing / blender_exe_missing`）+ `failure_hint`。
+  **实测坑**：脚本 `raise ValueError("boom")` 时 Blender **退出码仍是 0**，旧判据只看 exit 会漏判 → 现在按"回执缺失 + stderr 异常标记"判 `script_error`。
+- `runId` + `how_to_recover` 进返回体：客户端断连**不代表失败**，用 `blender_rt_job(op="status"/"collect", id=runId)` 回收。
+
+### P1-B1/B2 API 一致性
+- `K.dsh_*_api` 从普通 dict 换成**可调用 dict 子类**：`api("op", {…})` / `api({…})` → **已解析的 dict**；`api.call(...)` 同义；
+  `api["dispatch"](op, json_str)` **仍返回 str**（引擎契约不变）。覆盖 audit / contract / txn / deliver / generator / motion / planner / presets / perf / runner + qc_render + view。
+- 顺带记一个坑：`dict` 是静态类型，`instance.__class__ = 子类` 会 `TypeError`（实测）→ 实现改成"换成新实例"。
+
+### P1-B3 headless 收脚本文件
+- 新增 `script_file=<.py>`（Windows `D:\…` 与 WSL `/home/…` 都收）；`file=` 传 `.py` 时**自动识别为脚本**并标 `auto_from_file:true`
+  （旧版直接 `File format is not supported in file "…py"` —— 实测复现）。
+
+### P1-B4 参数/环境契约
+- 新增 `env={…}` 入参；插件自动注入 `DSH_RUN_ID / DSH_OUTDIR / DSH_ARGS / DSH_SESSION / DSH_PLUGIN_VERSION`，
+  脚本里可读 `K.args / K.run_id / K.session / K.outdir_env / K.env`。
+- **实测坑**：从 WSL 侧 spawn Windows 的 blender.exe 时 **env 不自动跨界**（Node 传了 6 个 DSH_*，子进程 `os.environ` 一个都看不到）
+  → 自动声明 `WSLENV` **并**在脚本里再注入一次（双保险）。实测 `K.args == ["delta","echo"]` 且脚本内能看到 `DSH_*`。
+
+### P2-C1 文件级干涉/重叠算子（audit v3：AUDIT_VERSION 2→3）
+- `audit_overlap(file_a, obj_a, file_b, obj_b)`：BVH 三角面对 + **真交线段长度** + 交叠 bbox（场景单位与 mm 都给）；
+  两端都可以是"当前会话对象"或"另一个 .blend 文件"，不必先 `register_component`。
+- `audit_interference(...)`：**交集体积估计（mm³）+ 95% 置信区间 + 三态**（supported / refuted / unresolved）；
+  口径写清：蒙特卡洛射线奇偶校验、只在交叠区域采样、**不是精确布尔**；开放网格/非流形 → `unresolved`（不给看着很准的假数）。
+  实测（1×1×1 立方体 vs 沿 X 平移 0.5，解析交集体 5×10⁸ mm³）：`audit_overlap` pair_count=8 / 交叠 bbox 与解析盒精确一致 / 真交线段 500 mm / 18 ms；
+  `audit_interference` **496,620,000 mm³ vs 解析 500,000,000 → 相对误差 0.676%**（95% CI 0.623%）→ `supported`；不相交 → `refuted`（上界 1 mm³）；开放网格 → `unresolved` 且 `volume=null`。
+  自检 `tests/audit_file_selftest.py` → **50/50**。R2 自检还抓出并修掉三个真 bug：射线推进 eps 必须 > float32 几何分辨率（否则 0.92% 系统性偏差 → 体积少 10%）、
+  `_ray_limit` 漏除方向分量（斜射线提前 1.73× 截断）、双文件加载时两侧 cleanup 互相删对方对象。
+  ⚠ 误差口径修正：我 brief 里那句"n=200k、占比 10% 时约 ±0.4%"偏乐观，正确值 **±1.31%**（公式已写进返回体 `error_caliber`）。
+
+### P2-C2 audit 类 op 支持 `file=`
+- `audit_connectivity / audit_gate / audit_measure` 都接受 `file=<.blend>`：临时加载 → 同一分析链路 → **无论成败都清理**；
+  返回体带 `source: "file:<path>"` 与 `cleanup` 明细（实测 file= 结果与会话侧 objects/tris/bbox 逐项相等，对象名保持文件原名）。
+
+### P3-D1 GUI 原语（view v2）
+- `gui_frame(object=…)` / `gui_shading(mode=…)` / `gui_open(path=…)` / `gui_help()` —— 由插件侧在**真 UI 上下文**执行
+  （`rt_do` 里 `bpy.context.screen` 是 None）。实测 `gui_frame(object="Cube")` → `framed:"Cube", mode:"selected"`。
+
+### P3-D2 自定义视角自诊断（view v2）
+- 返回体带 `coverage_estimate`（底色取**众数**，`background=true` 也不会误判）与 `objects_in_frame`（把物体 bbox 投到画面里数）+ `scene_bbox`；
+  数不到几何时给 `warning{code:"frame_looks_empty", scene_bbox, suggest:{from,look_at,lens}}`。
+  实测：瞄空帧 → 覆盖 0.00% + 告警 + suggest；照 suggest 再出一次 → **覆盖 68.11%**（不必自己按 Home）。
+- 顺带修：`x-dsh-view` 头过去只带 5 个字段且截 500 字符；**非 ASCII（中文告警）直接 502 "Invalid character in header content"** → 头值改 URL 编码。
+
+### P2-E1 渲染队列/锁（qc_render v3）—— 替代成员自建的 `render_lock.py`
+- 跨进程文件锁 `<工作目录>/locks/render.lock`（TTL + 持有者 + 等待毫秒）：`blender_rt_plan(op="render_lock", args={action:"acquire"|"release"|"status"})`；
+  `qc_render_views` 渲染前后**自动** acquire/release（`lock=false` 可关），`waited_ms` / holder / stale 写进返回体与每行 jsonl（**计时口径可审计**）。
+- holder 缺省 `DSH_SESSION#<pid>`（同一会话里并发多进程也彼此唯一）；断锁**只认 `acquired_at` 时间戳 + TTL**，不看进程存活。
+- 实测：第二个持有者 `wait_s=1` → 拒绝并回报 `waited_ms=1001` + 当前 holder；错误 holder release 被拒；**过期锁被打破**（伪造 2 小时前的锁 + TTL 60s → `stale_broken:true`）；
+  线上真锁现场：一个被掐掉的进程留下锁 → 600s TTL 到期后被下一个 acquire 打破。
+
+### P3-E2 默认产物路径带会话
+- 会话名 `DSH_SESSION`（缺省 `plugin-pid-<pid>`）：evidence 默认路径 → `dsh_evidence_<session>.png`（实测）；`status` 里给 `session` / `resultsDir`。
+
+### 顺带修掉的工具层真 bug（本轮实测发现）
+- **plan 工具的 `args` 会被静默丢弃**：harness 的 `type:"json"` 有时把对象给成**字符串**，旧代码 `typeof x === 'object'` 判空 →
+  **任何 plan op 的参数被无声忽略却返回 `ok:true`**（本轮 `gui_frame` / `gui_shading` 踩到；给 `bogus_key` 也不报"参数不匹配"）。
+  现在 `jsonPayload()` 容错解析（对象/JSON 字符串都收），非法 JSON 明确报错。
+- `args` 传数组被 `String()` 变成 `"[delta]"` → 数组直传。
+- `perf`/`opt` 无参 op 传了 `{}` → python 侧多收一个位置参数（实测 `_dsh_perf_status_cycles() takes 0 positional arguments but 1 was given`）→ 空参回退 `undefined`。
+
+### 自检与回归
+- 新增 `tests/engine_probe.sh`（**16 项**后端 HTTP 探针）→ **16/16**；新增 `tests/view_diag_selftest.py`（**16 项**）→ **16/16**；
+  `qc_render` 自检 → **29/29**（v3）；`tests/audit_file_selftest.py` → 见下；既有 9 个自检全部复跑。
+
+---
+
+
 ## v0.9.0（2026-09-17）—— Procedura 融合：装配级判据 + 数值化改动度量 + 判定随几何失效
 
 来源：对 [SpatiaOS/Procedura](https://github.com/SpatiaOS/Procedura)（MIT，Agentic 3D Modeling with Procedural Control）逐文件精读后的移植评估

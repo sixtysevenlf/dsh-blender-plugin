@@ -148,6 +148,38 @@ blender_rt_see(from="9,-9,6", look_at="0,0,1")               # ③ 换个角度�
 - **顺带修的基础设施问题**：preload 多模块互相覆写 helper（engine 改为各占命名空间）；headless `ok:true/exit=0` ≠ 脚本成功（Blender 异常时退出码仍 0）；源码注入通道没有 `__file__`。
 - 自检：contract **33/33** · mate **57/57** · txn **55/55** · deliver **53/53** · motion **25/25** · qc_render **14+15** · 另有 audit / generator 合成自检。
 
+### 4.9 现场反馈修复（v0.9.1）—— rifle-build《93 反馈》14 条
+
+四条 P0「静默失败」全部复现并修掉；D2（自定义视角回空帧）**未能复现** —— 那是瞄空（`from`/`look_at` 指到了没有几何的地方），
+所以修法不是改相机，而是让出图**自诊断**。
+
+- **A1 未知名视角不再静默替换**：`views` 非空且一个都认不出 → `ok:false` + `unknown_views` + `available_views`（22 名目录）+ `hint`，**一张都不渲**；
+  计数（`requested_count/rendered_count/unknown_count`）总会给。补拼写别名（`side_left → left`、`iso_right → iso_br`…），
+  **语义模糊的一律不猜**（`muzzle_end`/`breech_end`）。省略 `views` 仍是 v0.8.11 的 **3 视角**（iso/front/right）——补丁版不静默改默认产物集。
+- **A2 无头 QC 默认 `view_transform="Standard"`**（AgX 洗淡会让阈值判读整轮报废）；beauty 图传 `"scene"` 沿用场景。
+  实际值在返回体**和每行 jsonl**都有，出图后场景逐项还原（实测：返回 Standard、场景仍是 AgX）。
+- **A3 结构化结果不再只能从 stdout 切片**：`blender_rt_headless(out_json=<path>)`；>4KB 自动落 `<workdir>/results/<runId>.json`（`resultPath`/`resultBytes`）；
+  工具文本里 `result` 2KB→6KB；plan 通道 4KB→12KB。
+- **A4 假失败分档**：`status ∈ finished / script_error / blender_error / timeout / gpu_required_missing / blender_exe_missing` + `failure_hint`。
+  实测：`--python` 脚本抛异常时 Blender **退出码仍是 0**，所以不能只看 exit。每次都有 `runId` —— 客户端超时 ≠ 任务失败，按 id 回收。
+- **B1/B2 API 一致性**：`K.dsh_*_api("op", {…})` → **dict**；`api["dispatch"](op, json_str)` 仍是 str。
+- **B3 `script_file=<.py>`**（`file=` 传 `.py` 也会自动识别），不必再"写盘→读回→当字符串传"。
+- **B4 参数/环境契约**：`env={…}` + 自动注入 `DSH_RUN_ID/DSH_OUTDIR/DSH_ARGS/DSH_SESSION/DSH_PLUGIN_VERSION`，脚本内 `K.args/K.run_id/K.session/K.env` 可读。
+  （实测坑：WSL→Windows 的 env 不过界 → 自动设 `WSLENV` + 脚本内再注入一次。）
+- **C1/C2 文件级算子**：`audit_overlap(file_a,obj_a,file_b,obj_b)`（BVH 面对 + 真交线段 + 交叠 bbox）、
+  `audit_interference(...)`（交集体积 **mm³ + 95% 置信区间 + 三态**；蒙特卡洛射线奇偶校验，只在两侧 AABB 交盒里采样；开放/非流形 → `unresolved` 不给假数）；
+  `audit_connectivity/audit_gate/audit_measure` 都支持 `file=`（临时加载 → 同一链路 → 无论成败都清理，`cleanup` 明细可查）。
+- **D1 GUI 原语**：`gui_frame(object=…) / gui_shading(mode=…) / gui_open(path=…) / gui_help()` 在**真 UI 上下文**执行
+  （`rt_do` 里 `bpy.context.screen` 是 None）。实测 `gui_frame(object="Cube")` → `framed:"Cube"`。
+- **D2 自定义视角自诊断**：`coverage_estimate`（底色取众数，`background=true` 骗不过）+ `objects_in_frame` + `scene_bbox`；
+  数不到几何时给 `warning{code:"frame_looks_empty", suggest:{from,look_at,lens}}` —— 实测照 suggest 再出一次，覆盖 **0.00% → 68.11%**（不必按 Home）。
+  顺带修：`x-dsh-view` 头只带 5 字段、非 ASCII 会 502 → 改 URL 编码。
+- **E1 渲染队列/锁**（替代成员自建的 `render_lock.py`）：跨进程文件锁 `<workdir>/locks/render.lock`；
+  `qc_render_views` 自动 acquire/release，`waited_ms`/holder/stale 进返回体与每行 jsonl。实测：第二个持有者 `wait_s=1` → 拒绝 + `waited_ms=1001`；过期锁被打破。
+- **E2 产物路径带会话**：`DSH_SESSION`（缺省 `plugin-pid-<pid>`）→ evidence 默认 `dsh_evidence_<session>.png`；`status` 里给 `session`/`resultsDir`。
+- 集成时还修了三个工具层真 bug：plan 工具的 `args` 会被**静默丢弃**（有时是 JSON 字符串却判成空，`ok:true` 但参数没生效）、`args` 数组被 `String()` 变成 `"[delta]"`、`perf`/`opt` 无参 op 多传 `{}`。
+- 新增回归：`tests/engine_probe.sh`（**16/16**）· `tests/view_diag_selftest.py`（**16/16**）· `qc_render` 自检 **29/29**。
+
 ## 5. 目录结构
 
 ```text
