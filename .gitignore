@@ -2,6 +2,7 @@ node_modules/
 __pycache__/
 *.pyc
 tmp/
+.scratch/
 dsh-blender.config.json
 *.tgz
 *.zip

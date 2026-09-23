@@ -2,6 +2,20 @@
 
 > 这些检查把 v0.4.0（自定义视角 / 无头 / 租约）的关键结论固定下来，换机器或升级 Blender 后**先跑它们**。
 
+## DSH 更新后先跑这三条（v0.9.2 起）
+
+工具是用 `defineTool`（来自宿主的 `@deepseek-ai/dsh-tools`）声明的，所以 **DSH 每次升级都要先验"工具契约"**：
+失败方式是 `fiber failed → 15 个工具整体消失`，而 Blender 与插件包看起来都没坏。
+
+```bash
+node tests/protocol_selftest.mjs              # ① addon 协议层：28 项，不需要 Blender / DSH
+node tests/dsh_api_compat_probe.mjs           # ② 工具契约：15 个工具 + 15 个 timeoutMs + 0 报错
+node tests/dsh_api_compat_probe.mjs --version 0.1.7-alpha.2 --json /tmp/base.json   # ③ 对"待升级版本"预演
+```
+
+跑完在会话里再点一次 `blender_viewport(op="doctor")`，它现在会打印 `宿主 API：dsh-tools@<版本> @ <路径>`
+—— 这条自证用来区分"插件/宿主 API 坏了"和"Blender 没起"。工具描述前缀 `[v0.9.2]` 则是"跑的是这一代 lib"的自证。
+
 ## 0. addon 协议适配（不需要 Blender / DSH，最省事）
 
 ```bash

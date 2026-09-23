@@ -1,5 +1,48 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
+## v0.9.2（2026-09-23）—— DSH 更新适配：取消/超时契约 + 宿主 API 自证 + 图片静默失败 + bundle 声明
+
+来源：对「DSH 更新后本插件会不会坏」做的一次逐包 diff + 实测核查（宿主 0.1.6-alpha.1 ↔ npm 最新
+0.1.7-alpha.2）。结论是**工具定义契约零漂移**（15 个工具在 0.1.5-rc.2 / 0.1.6-a1 / 0.1.6-a2 /
+0.1.7-a1 / 0.1.7-a2 五个 dsh-tools 版本下全部注册成功、参数 schema 逐字节一致），
+本版修的是**契约之外的四个面**：
+
+### R3 宿主取消/截止信号贯通（曾经会"假死"）
+- 新增 `EXEC_CTX`（AsyncLocalStorage）+ `execSignal()`：`vTool()` 统一把宿主的 `exec` 放进
+  异步上下文，`withTimeout()` 用 `AbortSignal.any` 合并 `exec.signal` —— **15 个工具体一行没改**。
+- 取消时的措辞固定为 `ABORT_HINT`（只说"等待被取消"，不谎称任务失败；提示长任务按 `runId` 回收）。
+  实测：已 abort 的信号下 `blender_viewport(op=status)` **20 ms** 返回可读错误（旧版会一直等到内部超时）。
+- **每个工具补静态 `timeoutMs`**（常量 `T`）：一律取"内部最长超时 + 余量"，保证内部超时先触发。
+  背景：宿主 `@deepseek-ai/dsh-tool-call-timeout-policy` **只在工具自己声明 timeoutMs 时才设截止**，
+  不声明 = 上游一旦给默认值，就会出现"Blender 侧还在跑、工具已被判超时"的静默错位。
+
+### R2 宿主 API 自证（解析链是活的，不是副本）
+- 本机解析链：插件 `node_modules/@deepseek-ai/dsh-tools` → `~/dsh-harness`（fake checkout 软链）→
+  `/usr/lib/node_modules` 的**全局安装**。好处是与宿主同版本（无陈旧副本），代价是全局安装位置一变
+  就在载入期 `ERR_MODULE_NOT_FOUND`（15 个工具全消失，看不出原因）。
+- 新增 `HOST_API` 自证：`blender_viewport op=doctor` 打印 `宿主 API：dsh-tools@<版本> @ <路径>`；
+  `op=status` 的 JSON 增加 `hostApi` / `toolVersion` 字段。
+
+### R8 图片回传不再静默（`toAttachment`）
+- 旧行为：附件服务不可用/超限一律 `catch → undefined`，模型只看到纯文本、没有任何告警。
+- 新行为：返回 `{ref}` 或 `{why}`；`rt_see`（视口/自定义视角）、`rt_do`、`rt_watch` 在未回传时把
+  `⚠ 图片未回传：<原因>` 写进工具文本。
+
+### R5/R1 按 `dsh.bundle` 约定声明 bundle，并**实际切到 bundle 式装配**（2026-09-23）
+- `package.json` 加 `dsh.bundle.patch = ./cordis.patch.yml`；新增 `cordis.patch.yml`（insert 自己的行）。
+  `@deepseek-ai/dsh-plugin-manager` 用该字段判定"能否作为 profile layer 管理/装配"，没有它只能靠
+  super-injector 运行时注入（注入器一坏，插件整体消失）。
+- 本机已完成切换：插件列进 profile 的 `dsh.profile.bundles`，**`dsh-super-injector` 被卸载并删除**
+  （源码 / 状态目录 / junction / 分发产物 / .gitmodules 条目全清）。同批把另外两个只靠注入活着的插件
+  （`dsh-coc-dice`、`dsh-session-list-cache`）也迁到 bundle 式 —— 否则拆掉注入器会把它们一起弄丢。
+- 装配变更记录、迁移表、回滚与新自检命令见 `docs/DSH-更新适配.md §4`。
+
+### 可复跑回归
+- 新增 `tests/dsh_api_compat_probe.mjs`（`npm run test:dsh-api`）：用宿主或**指定版本**的 dsh-tools
+  跑一遍注册，断言 15 工具 / 15 timeoutMs / 0 报错，可输出基线 JSON 供跨版本 diff；`--smoke` 还会
+  用已 abort 的信号真调一次 `blender_viewport`，验证取消链路。
+- `tests/README.md` 顶部加「DSH 更新后先跑这三条」。
+
 ## v0.9.1（2026-09-18）—— 修 rifle-build《93 反馈》：静默失败（P0）×4 + API 一致性 + 文件级算子 + GUI 原语 + 渲染队列
 
 来源：rifle-build（QBZ47-5.8 影视级建模）全员 14 条实测反馈（lead + 5 名子代理，逐条带现象/复现/证据路径）。

@@ -65,9 +65,11 @@ DSH_CHECKOUT=/path/to/dsh-harness bash scripts/build.sh          # 产出 lib/
 # ② 配置（不设也能靠自动探测跑；要改就复制样例）
 cp dsh-blender.config.example.json dsh-blender.config.json        # 见 docs/配置参考.md
 
-# ③ 注入到 DSH（dsh-super-injector 的 dev_* 工具；或按你的部署方式装配进 profile）
-#    dev_build_plugin   {"dir":"<本目录绝对路径>"}
-#    dev_inject_plugin  {"dir":"<本目录绝对路径>"}
+# ③ 装到 DSH（本包已声明 dsh.bundle → 走官方 bundle 装配）
+#    a) 软链进 <profile>/node_modules/@dsh-external/dsh-blender-plugin
+#    b) profile package.json：dependencies 加 "link:<本目录绝对路径>"，
+#       dsh.profile.bundles 加 "@dsh-external/dsh-blender-plugin"
+#    c) 预演：dsh --profile <profile> --dump-config → 重启 DSH
 
 # ④ 启动 Blender → 按 N →「MCP for Blender」→ Connect（监听 127.0.0.1:9876）
 

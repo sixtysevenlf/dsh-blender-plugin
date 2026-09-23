@@ -62,9 +62,11 @@ DSH_CHECKOUT=/path/to/dsh-harness bash scripts/build.sh     # produces lib/
 # 2) (optional) configure — auto-detection usually just works
 cp dsh-blender.config.example.json dsh-blender.config.json
 
-# 3) Inject into DSH (dsh-super-injector dev tools; or wire it into your profile bundles)
-#    dev_build_plugin   {"dir":"<absolute path to this package>"}
-#    dev_inject_plugin  {"dir":"<absolute path to this package>"}
+# 3) Install into DSH as a profile bundle (this package declares dsh.bundle):
+#    a) symlink into <profile>/node_modules/@dsh-external/dsh-blender-plugin
+#    b) in the profile package.json add "link:<abs path>" to dependencies and
+#       "@dsh-external/dsh-blender-plugin" to dsh.profile.bundles
+#    c) dry-run: dsh --profile <profile> --dump-config   then restart DSH
 
 # 4) Start Blender → press N → "MCP for Blender" → Connect (127.0.0.1:9876)
 

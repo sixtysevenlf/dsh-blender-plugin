@@ -31,7 +31,9 @@ cd <插件目录>          # 解包后的 dsh-blender-plugin/
 bash scripts/build.sh  # 链接依赖 + 编译 lib/（需要 bash + node/npm 在 PATH）
 ```
 
-然后在 DSH 里加载该目录（本机走 profile 的 link 装配；会话内可用 dev_inject_plugin 临时注入）。
+然后按 bundle 方式装进 profile：`node_modules/@dsh-external/dsh-blender-plugin` 建软链 →
+profile 的 `package.json` 里 `dependencies`（`link:`）+ `dsh.profile.bundles` 各加一行 →
+`dsh --profile <profile> --dump-config` 预演 → 重启 DSH。
 
 ## 3. 连接 Blender addon（人工一步）
 
