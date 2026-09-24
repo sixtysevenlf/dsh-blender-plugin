@@ -5,7 +5,17 @@
 > 让 **AI 模型真正驱动 Blender**：不用人点鼠标、不截屏喂图、不装 MCP 服务端，
 > 通过一条 TCP 直连通道拿到 10 个原语：**看视口 / 改场景 / 连续观察 / 内环搜索 / 渲染优化 / 对象精简 / 无头跑重活 / 通道运维**。
 >
-> 版本 **0.8.0** —— 默认渲染引擎改为 **EEVEE + 光追**（纯 GPU、不依赖设备偏好；实测迭代帧 1.35 s vs Cycles GPU 3.13 s = 2.3×，Cycles 仍可选）。 —— 按外部实测反馈加固：**GPU 语义**（无头 Cycles 静默回落 CPU，实测 **15.4×**）、**热无头会话**（`blender_rt_worker`）、**长任务流式**（客户端 `fetch` 响应头超时 300 s，实测 `UND_ERR_HEADERS_TIMEOUT`）、结构化失败、产物过滤。见 §4.6。
+> 版本 **0.9.3** —— 按外部反馈《[插件改进交接-2026-09-24](docs/feedback/插件改进交接-2026-09-24.md)》落地（[落地记录](docs/feedback/改进落地记录-2026-09-24.md)）：
+> **① 路线决定：headless 批处理 = 第一路径**（[决策文档](docs/headless优先-路线决定.md)；GUI 直连降为「改一步看一眼」的增益，不删工具）。
+> **② 超时不再吞结果**：headless 的客户端等待窗口（`DSH_HEADLESS_WAIT_MS`，默认 100 s）到点回 `{kind:"promoted", jobId:"run-…"}`，用 `blender_rt_job(op="collect"|"wait", id=…)` 收；预期 >100 s 请直接 `as_job=true`。
+> **③ 回执结构化**：第 1 个 text block 是单行 JSON 信封（可直接 `JSON.parse`：`status/resultJson/resultPath/resultTruncated/stdoutTail/inputFile/shots/pathWarnings/…`），第 2 个是人读摘要 —— 不必再手写正则。
+> **④ 长任务可观测**：三处 spawn 注入 `PYTHONUNBUFFERED=1`；脚本里 `dsh_stage("building")` 打心跳，`op=status` 回 `stage/idleMs/lines/logBytes/pidAlive`。
+> **⑤ 路径**：`outdir/out_json/file` 收 WSL 路径并回传两种真实路径；`shots=[…]` 一次出多视角（带 `coverage_estimate` 与 <5% 告警）。
+> **⑥ 作业层**：`op=start` 与 headless 同形参（`script_file/args/env/…`），新增 `op=wait`，run 与 job 同一 id 空间，stale 不再谎报 running。
+> 验收：`npm run test:acceptance`（62 条断言 / 真机 Blender 5.2.2）。
+>
+> 版本 **0.9.2** —— DSH 更新适配（取消/超时契约 + 宿主 API 自证 + 图片静默失败 + bundle 声明）。见 [docs/DSH-更新适配.md](docs/DSH-更新适配.md)。
+>> 版本 **0.8.0** —— 默认渲染引擎改为 **EEVEE + 光追**（纯 GPU、不依赖设备偏好；实测迭代帧 1.35 s vs Cycles GPU 3.13 s = 2.3×，Cycles 仍可选）。 —— 按外部实测反馈加固：**GPU 语义**（无头 Cycles 静默回落 CPU，实测 **15.4×**）、**热无头会话**（`blender_rt_worker`）、**长任务流式**（客户端 `fetch` 响应头超时 300 s，实测 `UND_ERR_HEADERS_TIMEOUT`）、结构化失败、产物过滤。见 §4.6。
 >
 > 版本 **0.5.0** —— 新增 **契约层**（假设/区间/校验/证据/破坏性门控）与 **规划器**（Component·Connection·Feature 对象图编译到 bpy），对应新工具 `blender_rt_plan`。见 §4.5。
 >

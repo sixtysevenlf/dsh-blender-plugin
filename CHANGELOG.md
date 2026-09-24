@@ -1,5 +1,76 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
+## v0.9.3（2026-09-24）—— 外部反馈《插件改进交接-2026-09-24》落地：超时不丢结果 + 结构化回执 + 可观测 + 路径空间
+
+来源：`docs/feedback/插件改进交接-2026-09-24.md`（7 名协作者 / 约 120 次工具调用 / 全部在 headless 完成）。
+本版把 §2 的两条 P0、§3 的 D2/D3（一次重构）、D4/D5/D6、§4 的 F1/F2/F3/F4/F5/F6 与 §5 的路线决定全部落地，
+并逐条补上 §8 的验收测试（`tests/acceptance_v093.mjs`，62 条断言 / 真机 Blender 5.2.2）。
+
+### 路线决定（§5）：**headless 批处理 = 第一路径**，直连 GUI = 交互式增益
+- 证据：7/7 协作者全程 headless、9876 addon 从未 Connect、`rt_do/rt_see/rt_watch/rt_cmd` 0 调用；
+  而 `audit_*/qc_*/deliver_*` 本来就能在 headless 直调（`preload=` 通道），只是描述里没写。
+- 落地：见 `docs/headless优先-路线决定.md`（含 17 行 op→preload 对照表 + 5 段 copy-paste + 任务模板）；
+  工具描述改写（`blender_rt_headless` 明写「第一路径」、`preload` 明写 audit/qc/deliver 可直调）。
+- **不删任何工具**：GUI 工具仍是「改一步看一眼」的增益，只是不再是默认入口。
+
+### P0-1 · D1/F3：超时不再吞结果（promoted 语义）
+- **客户端等待窗口**（`DSH_HEADLESS_WAIT_MS`，默认 100 s）：到点或宿主取消 → 回
+  `{kind:"promoted", jobId:"run-…"}`，服务端子进程照跑，`blender_rt_job(op="collect"|"wait", id=…)` 收结果。
+- **runId 由客户端生成**并随请求下发 → 窗口到点时**立刻**有可用句柄（旧版只能去猜 /status 里的最近一条）。
+- **关键修复**：`withTimeout` 过去只覆盖「等响应头」——流式路由（`/headless` 立刻发头 + 每 15 s 心跳）
+  之后 `await r.text()` 是无限期的，于是等待窗口形同虚设、外层 deadline 一到整段丢结果。
+  现在计时器活到 body 读完（同一个 AbortController）。
+- 新增 `as_job` / `wait_s`（F3）：`as_job=true` 直接后台化，`wait_s=N` 最多再等 N 秒，没完就回 jobId；
+  另有 `DSH_HEADLESS_AUTO_JOB_MS`（默认 0=关）把「预计预算 ≥ 阈值」的调用直接后台化。
+
+### P0-2 · D5：长任务可观测（PYTHONUNBUFFERED + stage 心跳）
+- 三处 spawn（headless / job / worker）统一走 `baseChildEnv()` → 注入 **`PYTHONUNBUFFERED=1`**；
+  实测：job 的 `stdout.log` 在**运行期**就有增量（旧版全程 0 字节，退出才落盘）。
+- 新增 stage 心跳契约：脚本里 `dsh_stage("building")` / `K.progress("building", i=3)` →
+  打印 `DSH_STAGE {单行 JSON}`；引擎自动打 `boot / engine-prelude / preload-done / script-start / script-end / done`。
+- `op=status` 新增 `stage / stageName / stageAt / stageAgoMs / lastOutputAt / idleMs / lines / logBytes / pidAlive`。
+
+### D2/D3 · 回执结构化（一次重构）
+- 工具返回**两个 text block**：block 0 = 单行 JSON 信封（可直接 `JSON.parse`），block 1 = 人读摘要。
+  信封字段：`kind/status/ok/runId/jobId/resultJson/resultTruncated/resultPath/resultPathWsl/resultBytes/`
+  `resultParseError/stdoutTail/stderrTail/logs/artifacts/shots/inputFile/pathWarnings/stage/...`。
+  （宿主只透传 ContentBlock[]，没有 json block；而每个 text block 在 provider 侧是独立 part → 第一块纯 JSON 即可解析。）
+- **末行非 JSON 不再顶掉真实输出**：解析失败降级为 `resultParseError`，`stdoutTail`/日志保留原文（旧版回 `{_parse_error, raw}`）。
+- 大结果：>4 KB 自动落盘并给 `resultPath` + `resultPathWsl`（`resultTruncated=true`）；`out_json=` 显式指定亦可。
+
+### D6 · 作业层接口补齐
+- `op=start` 与 headless 同形参：`script_file` / `args` / `env` / `factory_startup` / `bootstrap` / `workdir` / `include_noise` / `out_json`。
+- 新增 **`op=wait`**（阻塞到完成或超时，默认 120 s/次、上限 600 s，服务端走流式心跳）——
+  不必再连发 `op=status`（会撞外层 harness 的重复调用检测）。
+- **run 与 job 同一 id 空间**：`status/collect/wait/kill` 都收 `run-…`；`collect` 对 run 也能 tail 日志。
+- 状态对账：后端重启后磁盘台账里 `running` + pid 不存在 → 收敛为 **`stale`** 并给 `staleReason`（不再谎报 running）；
+  `op=kill` 对未知 id **不抛错**（回「已结束/不存在」+ `alreadyFinished`）。
+- 租约门禁：`wait` / `kill` 不再受**写租约**阻塞（它们是读/终止自己的作业，不碰 live 场景）。
+
+### D4/F4/F6 · 路径空间与指纹
+- `outdir` / `out_json` / `file` 收 WSL 路径（`/home/…` → `\\wsl.localhost\<distro>\home\…`），回执给 Windows + WSL 两种真实路径。
+- **`winToWsl()` 补 UNC 分支**（`\\wsl.localhost\…` → `/…`）：旧版原样返回 → workDir 用 WSL 路径时台账/results/trajectory 全落在一个 Node 打不开的串上（实测）。
+- 路径体检（`pathWarnings`）：脚本把 POSIX 绝对路径交给 Windows API（`scene.render.filepath` / 日志里 `Saved: 'C:home…'`）会被抓出来并给 `K.win_path()` 修法。
+  *口径说明*：D4.3 原文建议「显式报错」；这里落成**可审计的告警 + hint**（不中断脚本）—— 因为脚本中途硬失败会让「已经渲好的图」一起丢掉。
+- `inputFile`（F6）：`file=` 回执带 `{path,size,mtimeMs,mtime,md5}`（>512 MB 只哈希前 64 MB 并标 `md5Partial`）。
+
+### F1/F2 · 多视角渲染一体化 + 取景自诊断
+- `blender_rt_headless(shots=[{name, from, look_at, lens, res, samples, ortho, ortho_scale, margin}], outdir=…)`：
+  走 `qc_render.py` 的 `qc_render_views`（自动三点光 / 渲染锁 / 逐张 md5 / 设备回读），回执 `res.shots =
+  [{name, path, ms, bytes, md5, coverage_estimate, warning?}]`；主体占画面 <5% → `warning.code="subject_too_small"`。
+- `shots` 也支持对象形态 `{views:[…], res, samples, tag, warmup, margin}`；与 `script` 可同给（先跑脚本再出图）；`as_job=true` 同样有效。
+
+### 顺手修掉的静默失败（验收过程中实测发现）
+- **`blender_viewport(op=status)` 在 addon 未连接时也能用**：旧版第一句 `addon.send` 就 throw → 本地信息
+  （版本自证 / 台账 / workDir 可写性）全都看不到，而这恰恰是最需要它们的时候。
+- **workDir 可写性自证**：`status.ledger` 增 `writable / workDir{wsl,win} / lastError / hint`，`doctor` 直接打印「工作目录：…（⚠️ 不可写 …）」+ 修法；
+  `op=status` 顶层增 `workDir / workDirWritable / workDirWarning`。
+- `jobStart` 的引擎前导与 headless 对齐（`engine="none"` 不再被塞进 EEVEE 前导）。
+
+### 验收
+- 新增 `tests/acceptance_v093.mjs`（`npm run test:acceptance`）：**62 条断言全绿**（真机 Blender 5.2.2 / EEVEE），
+  逐条对应 §8：D1/D2/D3/D4/D5/D6/D6-stale/F1/F6/F5-doc。
+- 回归：`npm test`（协议自检 28 项）全绿。
 ## v0.9.2（2026-09-23）—— DSH 更新适配：取消/超时契约 + 宿主 API 自证 + 图片静默失败 + bundle 声明
 
 来源：对「DSH 更新后本插件会不会坏」做的一次逐包 diff + 实测核查（宿主 0.1.6-alpha.1 ↔ npm 最新

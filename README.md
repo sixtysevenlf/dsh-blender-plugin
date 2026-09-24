@@ -5,7 +5,15 @@
 > **Let an AI model actually drive Blender** — no clicking, no screenshots-into-prompt, no MCP server.
 > One direct TCP channel gives the model 10 primitives: **see the viewport / edit the scene / watch over time / run an inner search loop / profile & fix render perf / decimate objects safely / offload heavy work to a headless process / operate the channel itself.**
 >
-> Version **0.8.0** — default render engine is now **EEVEE + ray tracing** (GPU-only, no device-preference dependency; measured 1.35 s vs 3.13 s per warm frame against Cycles GPU). — hardening from real-world feedback: **GPU semantics** (headless Cycles silently fell back to CPU — measured **15.4×**), a **hot headless session** (`blender_rt_worker`), **streaming long calls** (client `fetch` headers timeout is 300 s — measured `UND_ERR_HEADERS_TIMEOUT`), structured failures, and artifact filtering. See §4.6.
+> Version **0.9.3** — lands the external feedback in [docs/feedback/插件改进交接-2026-09-24.md](docs/feedback/插件改进交接-2026-09-24.md) ([landing record](docs/feedback/改进落地记录-2026-09-24.md)):
+> **① Route decision: headless batching is the first path** ([decision doc](docs/headless优先-路线决定.md)); the live-GUI channel stays as an interactive add-on (no tool removed).
+> **② Timeouts never swallow results**: the headless client wait window (`DSH_HEADLESS_WAIT_MS`, 100 s) returns `{kind:"promoted", jobId:"run-…"}`; collect with `blender_rt_job(op="collect"|"wait", id=…)`. Expecting >100 s? Pass `as_job=true`.
+> **③ Structured receipts**: text block 0 is a single-line JSON envelope (`status/resultJson/resultPath/resultTruncated/stdoutTail/inputFile/shots/pathWarnings/…`), block 1 is the human summary — no more hand-written regexes.
+> **④ Observable long jobs**: all three spawn sites inject `PYTHONUNBUFFERED=1`; scripts emit `dsh_stage("building")` heartbeats, and `op=status` reports `stage/idleMs/lines/logBytes/pidAlive`.
+> **⑤ Paths**: `outdir/out_json/file` accept WSL paths and echo both real forms; `shots=[…]` renders multiple views in one call (with `coverage_estimate` and a <5% warning).
+> **⑥ Job layer**: `op=start` mirrors headless (`script_file/args/env/…`), new `op=wait`, runs and jobs share one id space, stale entries no longer claim to be running.
+> Acceptance: `npm run test:acceptance` (62 assertions, real Blender 5.2.2).
+>> Version **0.8.0** — default render engine is now **EEVEE + ray tracing** (GPU-only, no device-preference dependency; measured 1.35 s vs 3.13 s per warm frame against Cycles GPU). — hardening from real-world feedback: **GPU semantics** (headless Cycles silently fell back to CPU — measured **15.4×**), a **hot headless session** (`blender_rt_worker`), **streaming long calls** (client `fetch` headers timeout is 300 s — measured `UND_ERR_HEADERS_TIMEOUT`), structured failures, and artifact filtering. See §4.6.
 >
 > Version **0.5.0** — adds a **contract layer** (hypotheses / ranges / checks / evidence / destructive-op gating) and a **planner** (Component·Connection·Feature graph compiled to bpy), exposed through the new `blender_rt_plan` tool. See §4.5.
 >

@@ -85,7 +85,9 @@ const READ_ONLY_OPS = { '/perf': ['status', 'help'], '/loop': ['status', 'board'
   '/worker': ['status'],
   '/txn': ['list', 'marks', 'help', 'edit_status'],
   '/preset': ['list', 'get', 'help'],
-  '/job': ['status', 'collect', 'list'] };
+  // v0.9.3（D6）：wait 只是"阻塞读"，kill 只作用于作业自己的子进程（不碰 live 场景）——
+  // 它们不该被别的会话的写租约挡住（否则"我的作业我收不回来"）。
+  '/job': ['status', 'collect', 'list', 'wait', 'kill'] };
 function isReadOnly(path, op) {
   const list = READ_ONLY_OPS[path];
   return !!(list && list.indexOf(String(op)) >= 0);
@@ -507,6 +509,19 @@ const server = http.createServer(async (req, res) => {
       const gate = isReadOnly('/job', op) ? null : leaseGate(payload);
       if (gate) { json(res, 409, gate); return; }
       stats.job = (stats.job || 0) + 1;
+      // v0.9.3（D6.2）：op=wait 会阻塞到终态/超时 → 走流式回执（每 15 s 一行心跳，客户端不会被判超时）
+      if (op === 'wait') {
+        await streamJson(res, async () => {
+          try {
+            const j = await engine.job.wait(payload.id, Number(payload.timeoutMs) || Number(payload.timeout_ms) || 120000);
+            return { ok: true, op: op, job: j };
+          } catch (e) {
+            stats.lastError = String((e && e.message) || e);
+            return { ok: false, op: op, error: stats.lastError };
+          }
+        });
+        return;
+      }
       try {
         if (op === 'start') { json(res, 200, { ok: true, op: op, job: engine.job.start(payload) }); return; }
         if (op === 'kill') { json(res, 200, { ok: true, op: op, job: engine.job.kill(payload.id) }); return; }

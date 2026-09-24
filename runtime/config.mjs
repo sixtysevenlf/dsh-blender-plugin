@@ -43,12 +43,17 @@ function loadFileConfig() {
 
 const FILE = loadFileConfig();
 
-/** Windows 路径 → WSL 路径（D:\a\b → /mnt/d/a/b；Windows 上原样返回） */
+/** Windows 路径 → WSL 路径（D:\a\b → /mnt/d/a/b；UNC → /…；Windows 上原样返回） */
 export function winToWsl(p) {
   const s = String(p || '');
   if (IS_WIN) return s;
   const m = s.match(/^([A-Za-z]):[\\/](.*)$/);
   if (m) return '/mnt/' + m[1].toLowerCase() + '/' + m[2].replace(/\\/g, '/');
+  // v0.9.3（D4）：UNC 形态（\\wsl.localhost\<distro>\home\… 或 \\wsl$\…）→ WSL 可见的 /home/…
+  // 旧版**原样返回** → 一旦 workDir 是 WSL 路径（wslToWin 先转成 UNC），台账 / results / trajectory
+  // 就全落在一个 Node 打不开的 UNC 串上（实测：stale 对账查不到台账）。
+  const u = s.match(/^\\\\wsl(?:\.localhost)?\\[^\\]+\\(.*)$/i);
+  if (u) return '/' + u[1].replace(/\\/g, '/');
   return s;
 }
 
