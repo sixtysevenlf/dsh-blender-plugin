@@ -188,6 +188,26 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+// v0.9.4（外部反馈《M1A1 分件建模》P1）：一键拉起 GUI Blender 并自动 Connect addon。
+    // 不加租约门：**Blender 没起来 / addon 没连** 恰恰是"还没有任何会话持有写权限"的状态，
+    // 这时如果先要求租约，agent 就永远卡在第一步（反馈里 agent 只能自己拼 PowerShell 绕过去）。
+    if (req.method === 'POST' && p === '/launch') {
+      const raw = await readBody(req);
+      let payload = {};
+      try { payload = JSON.parse(raw); } catch (e) { payload = {}; }
+      const t0 = Date.now();
+      try {
+        const out = await engine.launchBlender(payload);
+        stats.launches = (stats.launches || 0) + 1;
+        stats.lastLaunchMs = Date.now() - t0;
+        const doc = out.ok && (out.launched || out.already) ? await engine.doctor().catch(() => null) : null;
+        json(res, out.ok ? 200 : 200, Object.assign({ ok: !!out.ok, ms: Date.now() - t0, launches: stats.launches }, out, { doctor: doc }));
+      } catch (e) {
+        json(res, 500, { ok: false, ms: Date.now() - t0, error: String((e && e.message) || e), hint: '看后端日志；也可用 exe/path 显式指定 blender.exe' });
+      }
+      return;
+    }
+
     if (req.method === 'GET' && p === '/frame.png') {
       const size = Math.max(120, Math.min(1600, Number(url.searchParams.get('size') || 560)));
       const full = url.searchParams.get('full') === '1';

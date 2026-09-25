@@ -81,7 +81,9 @@ cp dsh-blender.config.example.json dsh-blender.config.json        # 见 docs/配
 #       dsh.profile.bundles 加 "@dsh-external/dsh-blender-plugin"
 #    c) 预演：dsh --profile <profile> --dump-config → 重启 DSH
 
-# ④ 启动 Blender → 按 N →「MCP for Blender」→ Connect（监听 127.0.0.1:9876）
+# ④ 启动 Blender + Connect addon —— 两条路：
+#    agent / 无人值守：blender_viewport(op="launch")   ← v0.9.4：写 boot 脚本 + spawn + 轮询 9876，幂等
+#    人工：启动 Blender → 按 N →「MCP for Blender」→ Connect（监听 127.0.0.1:9876）
 
 # ⑤ 验证（三条命令；doctor 是关键）
 curl -sS http://127.0.0.1:9877/health      # 后端活着
@@ -192,6 +194,23 @@ blender_rt_see(from="9,-9,6", look_at="0,0,1")               # ③ 换个角度�
 - 集成时还修了三个工具层真 bug：plan 工具的 `args` 会被**静默丢弃**（有时是 JSON 字符串却判成空，`ok:true` 但参数没生效）、`args` 数组被 `String()` 变成 `"[delta]"`、`perf`/`opt` 无参 op 多传 `{}`。
 - 新增回归：`tests/engine_probe.sh`（**16/16**）· `tests/view_diag_selftest.py`（**16/16**）· `qc_render` 自检 **29/29**。
 
+### 4.10 返回通道修复 + 一键启动（v0.9.4）
+
+- **P0 · 回执必须过宿主的 lossless-JSON 门**。宿主校验器 `dsh-util-values/walkJsonValue` 拒收
+  **undefined 值 / NaN / ±Infinity / -0 / Date / Map / Set / 类实例 / 循环引用**（比 `JSON.stringify` 严：
+  stringify 会把 undefined 键丢掉，所以肉眼看不出来）。v0.9.3 的回执里有一个 `promoted: undefined`，
+  直接把 `blender_rt_headless` 与 `blender_rt_job` 的 status/collect/wait 全部打死
+  （"任务能交出去但收不回来"）。v0.9.4：
+  ① 该字段改"有才给键"；② **所有工具出口统一 `losslessSanitize()`**（undefined→丢键、非有限数→null、-0→0…），
+  且**改动不静默**（回执里追加 `⚠️ 回执已消毒 N 处…`）。
+  回归门：`npm run test:lossless`（离线 40 断言）/ `npm run test:lossless:live`（真机 47 断言），
+  用的是**宿主的真校验器**。
+- **P1 · `blender_viewport(op="launch")`**：agent 没有人手点"N 面板 → Connect"，这条把
+  "启动 GUI Blender + 让 addon 起 socket server"固化成一个调用：写 boot 脚本 → detached spawn →
+  **轮询 9876**（唯一可信判据）→ 顺手 doctor。幂等；支持 `wait_ms / file / exe / addon_module / addon_file / dry_run`；
+  boot 结论落盘 `launch-status.json`。
+- ⚠ 插件是 DSH 启动时加载的模块：**升级后要重启 DSH** 才会在当前会话生效。
+
 ## 5. 目录结构
 
 ```text
@@ -247,13 +266,15 @@ dsh-blender-plugin/
 | 症状 | 先跑这个 | 多半是 |
 |---|---|---|
 | 工具报"后端不可用" | `blender_viewport op=start` | 后端进程没起来 / 端口被占 |
-| `blender-unreachable` | 看 Blender 的 N 面板 | Blender 没跑，或 addon 没 Connect |
+| `blender-unreachable` | `blender_viewport op=launch`（v0.9.4 一键拉起 GUI + 自动 Connect） | Blender 没跑，或 addon 没 Connect |
 | `main-thread-busy` | 等它空下来，或改无头 | Blender 主线程被渲染 / 模态操作占住 |
 | `addon-thread-stuck` | 别连发，等它结束 | 上一条长命令还在跑（`blender_rt_loop op=stop` 可急停内环） |
 | `addon-thread-stuck` 且带 `detected_protocol` | 按提示改 `addonProtocol` 后 `blender_viewport op=restart` | 装的是另一种 addon，协议不匹配（扁平 vs category/action） |
 | 出图报路径错误 | `blender_viewport op=doctor` 看 `config.workDir` | 工作目录两端不互通（改 `workDir`） |
 | 写操作 409 `leased` | `blender_viewport op=who` | 另一会话持有写权限租约（`op=lease force=true` 可抢） |
 | `blender_rt_headless` 起不来 | 同上，看 `config.blenderExe` | 没找到 blender.exe（三种配置方式见 `docs/配置参考.md`） |
+| 工具返回 `value is not lossless JSON` | 升级到 **v0.9.4** 并**重启 DSH** | v0.9.3 的回执里有无 undefined 值（宿主门拒收）→ 已修，见 `CHANGELOG.md` v0.9.4 |
+| `blender_viewport op=launch` 等不到端口 | 读回执里的 `statusFile`（`launch-status.json` 的 boot 结论） | addon 没被扫到（试 `addon_module` / `addon_file`）/ exe 路径不对 |
 
 ---
 

@@ -1,5 +1,63 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
+## v0.9.4（2026-09-25）—— 返回通道修复（P0）+ 一键启动器（P1）+ skill v2
+
+来源：另一会话《M1A1 分件建模》体感清单（500 对象 / 7 agent / 全程 headless / 主战场是自写 `tools/bl.sh`）。
+回执：`docs/feedback/改进落地记录-2026-09-25.md`。
+
+### P0 · `value is not lossless JSON` 根因（headless/job 全线不可用）
+
+- **现象**：`blender_rt_headless` **每次**失败（连最简脚本都挂），`blender_rt_job(op=start)` 能提交但
+  `status/collect/wait` 全部失败 —— "任务能交出去但收不回来"。反馈当时的猜测是"harness 拒绝非有限数"。
+- **真因**：v0.9.3 `receiptEnvelope()` 里有 `promoted: ctx.mode === 'promoted' ? true : undefined`。
+  宿主 `dsh-util-values` 的 lossless-JSON 门（`walkJsonValue`）**拒收值为 undefined 的自有可枚举键**，
+  而 `JSON.stringify` 会把这个键**丢掉** → 回执在日志/单测里看起来完全正常，宿主却直接判
+  `tool "…" returned invalid output: value is not lossless JSON`。
+  该函数是 headless(sync) / headless(job 完成) / rt_job status·collect·wait 的**共同出口** → 正好对上现象。
+- **同类第二处**（回归测试抓到的）：`gpu: { fell_back_to_cpu: r.gpu.fell_back_to_cpu }`（后端没给该字段即 undefined）。
+- **修法**：① envelope 改「有才给键」；② `!!r.gpu.fell_back_to_cpu`；
+  ③ **中央消毒器 `losslessSanitize()` 收口在 `vTool` 出口**（所有工具唯一出口）：
+  undefined→丢键（数组元素→null）· NaN/±Infinity→null · -0→0 · bigint→number/string · Date→ISO ·
+  Map/Set→数组 · 类实例→自有可枚举键 · 二进制→`{bytes:N}` · 循环→`[Circular]`；
+  **改动不静默**：逐处记进 `fixes` 并追加到回执文本（`⚠️ 回执已消毒 N 处…`）+ `console.warn`。
+- **回归门**：`tests/lossless_guard.mjs`（`npm run test:lossless`）—— 用**宿主的真校验器**
+  （`dsh-util-values` 的 `snapshotJsonValue`，自动探测安装位置）断言"本插件任何回执都过得了门"；
+  含控制组（§3 证明校验器确实严）、消毒器、四条回执构造器；`--live` 追加真机三项
+  （真跑 headless + `rt_job(op="status")`）。**离线 40 / 真机 47 断言全绿**。
+- ⚠ **生效范围**：插件在 DSH 启动时加载 → **正在运行的那个会话仍跑旧模块**（实测依旧报同一条错），
+  **重启 DSH 后生效**；新会话 / `dsh` CLI 立即生效。
+
+### P1 · 启动器：agent 自己点亮 GUI（反馈建议的 `blender_rt_launch(autoconnect=true)`）
+
+- 落地为 **`blender_viewport(op="launch")`**（不新增第 16 个工具面：`doctor` / `blender-unreachable` 的修法直接指向它）。
+- 语义：写 boot 脚本（GUI 里 `addon_utils.enable` 名字带 mcp 的模块；不行就 `importlib` 直接载入
+  `$BLENDER_USER_SCRIPTS/addons/*mcp*.py` + `register()`）→ detached `spawn blender.exe` →
+  **轮询 9876**（唯一可信判据）→ 端口开了顺手 doctor。
+- **幂等**（已在监听回 `already:true`，不堆第二个 Blender）· `dry_run` · `exe` / `addon_module` / `addon_file` 可覆盖 ·
+  boot 结论落盘 `launch-status.json`（GUI 进程 stdout 拿不到）· 回执给 `bootScript` 可手工复跑。
+- **自检抓到的真 bug**：`spawn` 不存在的 exe **不抛**而是异步 emit `'error'` → 不挂 handler 会把
+  **整个后端进程**打挂（自检第一版就这么挂的）；已修 + 路径存在性预检。
+- **回归**：`tests/launch_selftest.mjs`（24 断言）—— 用**假 blender** + 独立后端/端口/工作目录，
+  **不碰用户正在开的 Blender**；覆盖 spawn → 端口判据 → 幂等 → dryRun → 失败可读。
+
+### 文档 / skill
+
+- `docs/feedback/改进落地记录-2026-09-25.md`（回执：根因、修法、验收、没做的）。
+- `docs/操作教程.md`：`blender-unreachable` 一行改为"一键 `op=launch`"优先 + 新增第 8 节启动器。
+- **skill `blender-modeling` v2**（`~/.dsh/skills/blender-modeling/SKILL.md`，v1 已备份）：
+  新增 §0.5 多 Agent 分工范式、§0.6 参考图驱动的形体还原、坑四（headless 慎用 bpy.ops）、
+  坑五（法线是一切穿模判据的前提）、坑六（预览装置默认看得清板缝）；配方 2 拆 2a 分面 / 2b 光滑；
+  新增 3b（bmesh）、6b（参数化精确节距）、9（装配审计门）、10（双证据验收）；§6 清理清单升级为数值门清单。
+  ⚠ 改 skill 必须保留 YAML frontmatter，否则技能会从目录里消失（已踩）。
+- `npm test` 现在 = `protocol_selftest` + `lossless_guard`；新增 `test:lossless` / `test:lossless:live`。
+
+### 未做（下一轮建议）
+
+1. **法线体检变成代码门**：`audit_mesh` 增 `normal_consistency` / `signed_volume`，
+   `audit_interference` / `audit_overlap` 判据前自动跑并把"前提：法线朝外（已验/未验）"写进回执。
+2. `qc_render_views` 增 `mode="inspection"`（中性灰 + 单侧硬阴影 + 双机位），把坑六从纪律变成默认装置。
+3. 读图量测原语（上一轮 D7）仍未实现。
+
 ## v0.9.3（2026-09-24）—— 外部反馈《插件改进交接-2026-09-24》落地：超时不丢结果 + 结构化回执 + 可观测 + 路径空间
 
 来源：`docs/feedback/插件改进交接-2026-09-24.md`（7 名协作者 / 约 120 次工具调用 / 全部在 headless 完成）。
