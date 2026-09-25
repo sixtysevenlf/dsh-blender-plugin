@@ -1,11 +1,22 @@
 # DSH × Blender 直连实时插件 · 分享版
 
 > 🌐 **语言 / Language：** [English](README.md) · **简体中文（本页）**
+>
+> 🧩 **配套 skill：[blender-modeling](https://github.com/sixtysevenlf/dsh-skill-blender-modeling)** —— 建模 / 装配的流程与判据（多 Agent 分工范式、参考图形体还原、六条坑、数值门装配审计）。
+> 插件管"通道"，skill 管"怎么建、怎么验收"，两个一起用才完整。
 
 > 让 **AI 模型真正驱动 Blender**：不用人点鼠标、不截屏喂图、不装 MCP 服务端，
 > 通过一条 TCP 直连通道拿到 10 个原语：**看视口 / 改场景 / 连续观察 / 内环搜索 / 渲染优化 / 对象精简 / 无头跑重活 / 通道运维**。
 >
-> 版本 **0.9.3** —— 按外部反馈《[插件改进交接-2026-09-24](docs/feedback/插件改进交接-2026-09-24.md)》落地（[落地记录](docs/feedback/改进落地记录-2026-09-24.md)）：
+> 版本 **0.9.4** —— 修返回通道（P0）+ 一键拉起 Blender + 死会话租约回收（[落地记录](docs/feedback/改进落地记录-2026-09-25.md)）：
+> **⓪ 返回通道 P0**：v0.9.3 的回执里有一个 `promoted: undefined`，被宿主的 lossless-JSON 门拒收 →
+> `blender_rt_headless` **每次都失败**、`rt_job` 的 status/collect/wait 全部收不回结果（**不是非有限数**）；
+> 现在所有工具出口统一消毒（undefined→丢键 · NaN/±Infinity→null · -0→0），且改动**不静默**。
+> **⑦ 一键启动**：`blender_viewport(op="launch")` —— agent 没有人手点「N 面板 → Connect」，这条把
+> "启动 GUI Blender + 让 addon 起 server"固化成一个幂等调用（写 boot 脚本 → spawn → 轮询 9876 → 顺手 doctor）。
+> **⑧ 死会话租约自动回收**：会话崩掉后它的写租约不再把别人的写通道挡到 TTL 结束（按 `plugin-pid-<pid>` 探活，判死即回收）。
+>
+> 0.9.3 的内容（headless 第一路径等）：
 > **① 路线决定：headless 批处理 = 第一路径**（[决策文档](docs/headless优先-路线决定.md)；GUI 直连降为「改一步看一眼」的增益，不删工具）。
 > **② 超时不再吞结果**：headless 的客户端等待窗口（`DSH_HEADLESS_WAIT_MS`，默认 100 s）到点回 `{kind:"promoted", jobId:"run-…"}`，用 `blender_rt_job(op="collect"|"wait", id=…)` 收；预期 >100 s 请直接 `as_job=true`。
 > **③ 回执结构化**：第 1 个 text block 是单行 JSON 信封（可直接 `JSON.parse`：`status/resultJson/resultPath/resultTruncated/stdoutTail/inputFile/shots/pathWarnings/…`），第 2 个是人读摘要 —— 不必再手写正则。

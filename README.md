@@ -1,11 +1,18 @@
 # DSH × Blender — Direct Realtime Plugin (Shareable Edition)
 
 > 🌐 **Language:** **English (this page)** · [简体中文](README.zh-CN.md)
+>
+> 🧩 **Companion skill: [blender-modeling](https://github.com/sixtysevenlf/dsh-skill-blender-modeling)** — the process and the acceptance criteria for modeling / assembly (multi-agent division of labour, reference-image-driven shapes, six pitfalls, numeric assembly gates). The plugin owns the *channel*; the skill owns *how to build and how to verify*.
 
 > **Let an AI model actually drive Blender** — no clicking, no screenshots-into-prompt, no MCP server.
 > One direct TCP channel gives the model 10 primitives: **see the viewport / edit the scene / watch over time / run an inner search loop / profile & fix render perf / decimate objects safely / offload heavy work to a headless process / operate the channel itself.**
 >
-> Version **0.9.3** — lands the external feedback in [docs/feedback/插件改进交接-2026-09-24.md](docs/feedback/插件改进交接-2026-09-24.md) ([landing record](docs/feedback/改进落地记录-2026-09-24.md)):
+> Version **0.9.4** — receipt channel fixed (P0) + one-call Blender launch + stale-lease reclaim ([landing record](docs/feedback/改进落地记录-2026-09-25.md)):
+> **⓪ Receipt channel P0**: a single `promoted: undefined` in the v0.9.3 receipt was rejected by the host's lossless-JSON gate, so `blender_rt_headless` failed **every time** and `rt_job` status/collect/wait could never return results (it was *not* about non-finite numbers). Every tool now sanitises at the exit (undefined→dropped · NaN/±Infinity→null · -0→0) and reports what it changed.
+> **⑦ One-call launch**: `blender_viewport(op="launch")` — writes a boot script, spawns Blender, polls port 9876, then runs doctor; idempotent.
+> **⑧ Stale-lease reclaim**: a crashed session's write lease no longer blocks everyone until TTL expires (liveness probe on `plugin-pid-<pid>`).
+>
+> What 0.9.3 brought (headless as first path):
 > **① Route decision: headless batching is the first path** ([decision doc](docs/headless优先-路线决定.md)); the live-GUI channel stays as an interactive add-on (no tool removed).
 > **② Timeouts never swallow results**: the headless client wait window (`DSH_HEADLESS_WAIT_MS`, 100 s) returns `{kind:"promoted", jobId:"run-…"}`; collect with `blender_rt_job(op="collect"|"wait", id=…)`. Expecting >100 s? Pass `as_job=true`.
 > **③ Structured receipts**: text block 0 is a single-line JSON envelope (`status/resultJson/resultPath/resultTruncated/stdoutTail/inputFile/shots/pathWarnings/…`), block 1 is the human summary — no more hand-written regexes.
