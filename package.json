@@ -47,7 +47,8 @@
   "scripts": {
     "build": "bash scripts/build.sh",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node tests/protocol_selftest.mjs && node tests/lossless_guard.mjs",
+    "test": "node tests/protocol_selftest.mjs && node tests/lossless_guard.mjs && node tests/lease_stale_selftest.mjs",
+    "test:lease": "node tests/lease_stale_selftest.mjs",
     "test:lossless": "node tests/lossless_guard.mjs",
     "test:lossless:live": "node tests/lossless_guard.mjs --live",
     "test:acceptance": "node tests/acceptance_v093.mjs",

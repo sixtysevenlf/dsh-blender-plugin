@@ -209,7 +209,12 @@ blender_rt_see(from="9,-9,6", look_at="0,0,1")               # ③ 换个角度�
   "启动 GUI Blender + 让 addon 起 socket server"固化成一个调用：写 boot 脚本 → detached spawn →
   **轮询 9876**（唯一可信判据）→ 顺手 doctor。幂等；支持 `wait_ms / file / exe / addon_module / addon_file / dry_run`；
   boot 结论落盘 `launch-status.json`。
-- ⚠ 插件是 DSH 启动时加载的模块：**升级后要重启 DSH** 才会在当前会话生效。
+- **P1+ · 死会话的写租约自动回收**：holder 命名是 `plugin-pid-<pid>`（与后端同机）→ 写请求到达时按
+  `process.kill(pid, 0)` 探活，**判死即回收**（否则会话崩掉后它的租约会把别人的写通道挡到 TTL 结束，实测 57 min）。
+  `/who` `/health` 的 `lease.holderAlive` 给三态：`true` / `false` / `null`（判不了 → 保守挡，不误抢）。
+  回归：`node tests/lease_stale_selftest.mjs`（16 断言）。
+- ⚠ 插件是 DSH 启动时加载的模块：**升级后要重启 DSH** 才会在当前会话生效
+  （**后端那次改动只需 `blender_viewport op=restart`**）。
 
 ## 5. 目录结构
 

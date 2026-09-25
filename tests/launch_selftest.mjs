@@ -9,7 +9,7 @@
  *
  * 用法：node tests/launch_selftest.mjs
  */
-import { spawn } from 'node:child_process'
+import { execSync, spawn } from 'node:child_process'
 import fs from 'node:fs'
 import net from 'node:net'
 import os from 'node:os'
@@ -18,8 +18,12 @@ import { fileURLToPath } from 'node:url'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const PKG = path.join(HERE, '..')
-const HTTP_PORT = Number(process.env.DSH_SELFTEST_HTTP_PORT || 9891)
-const ADDON_PORT = Number(process.env.DSH_SELFTEST_ADDON_PORT || 9892)
+// ⚠ 端口要每次不同：启动器是 detached 起假 blender 的，上一轮残留会占着端口 →
+// 下一轮第一次 launch 就直接 already:true，用例全错（本测试第一版就踩了这个，在总回归里暴露）。
+const HTTP_PORT = Number(process.env.DSH_SELFTEST_HTTP_PORT || (21000 + Math.floor(Math.random() * 20000)))
+const ADDON_PORT = Number(process.env.DSH_SELFTEST_ADDON_PORT || (HTTP_PORT + 1))
+/** 本轮 spawn 出来的假 blender（detached，必须显式收尾，否则会一直占着 addon 端口） */
+const spawnedPids = []
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-launch-selftest-'))
 const MOCK = path.join(TMP, 'fake-blender.sh')
 const MOCK_ARGS = path.join(TMP, 'mock-args.txt')
@@ -86,6 +90,13 @@ backend.stderr.on('data', (d) => { backendLog += d.toString('utf8') })
 
 function cleanup() {
   try { backend.kill('SIGKILL') } catch (e) {}
+  for (const pid of spawnedPids) { try { process.kill(pid, 'SIGKILL') } catch (e) {} }
+  // 兜底：任何还挂在 addon 端口上的子进程都清掉（本轮端口是随机的，不会伤到别的东西）
+  try {
+    const out = execSync('ss -ltnp 2>/dev/null | grep ":' + String(ADDON_PORT) + '" || true').toString()
+    const m = /pid=(\d+)/.exec(out)
+    if (m) { try { process.kill(Number(m[1]), 'SIGKILL') } catch (e) {} }
+  } catch (e) { /* ignore */ }
 }
 process.on('exit', cleanup)
 
@@ -97,6 +108,7 @@ if (!up) { console.log('\n后端没起来，后续用例跳过'); process.exit(1
 
 // ① 正常启动：假 blender 起来 + 端口开 → ok
 const r1 = await post(HTTP_PORT, { addonPort: ADDON_PORT, waitMs: 20000 }, 40000)
+if (r1 && r1.pid) spawnedPids.push(r1.pid)
 ok('launch ok=true', r1 && r1.ok === true, JSON.stringify(r1).slice(0, 400))
 ok('launch launched=true（真的 spawn 了）', !!r1 && r1.launched === true)
 ok('launch 报告了 pid', !!r1 && r1.pid > 0, 'pid=' + String(r1 && r1.pid))

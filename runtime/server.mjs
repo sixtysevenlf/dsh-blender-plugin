@@ -38,6 +38,20 @@ const stats = { frames: 0, acts: 0, cmds: 0, loops: 0, views: 0, headless: 0, pl
  * 过期即自动失效（TTL，默认 10 min，每次写操作自动续期）。
  */
 const LEASE = { holder: null, token: null, acquiredAt: null, expiresAt: null, ttlMs: CFG.leaseTtlMs, renewals: 0 };
+/**
+ * v0.9.4：租约持有者**是否还活着**（实测踩到：DSH 会话崩了/被关掉之后，它的租约在内存里
+ * 继续生效到 TTL（默认 1 h），把别的会话的写通道整段挡死 —— 而那个会话早就不存在了）。
+ * holder 约定是 `plugin-pid-<pid>`（插件前端 HOLDER，见 src/index.ts），后端与它同机 → 能直接探活。
+ * 返回 true/false；**查不出来返回 null**（按"活着"处理，绝不误抢别人的租约）。
+ */
+function holderAlive(holder) {
+  const m = /^plugin-pid-(\d+)$/.exec(String(holder || ''));
+  if (!m) return null;
+  const pid = Number(m[1]);
+  if (!Number.isInteger(pid) || pid < 2 || pid > 4194304) return null;
+  try { process.kill(pid, 0); return true; }
+  catch (e) { return (e && e.code === 'EPERM') ? true : false; }   // EPERM：存在但无权限 → 活着
+}
 function leaseView() {
   const now = Date.now();
   const active = !!(LEASE.holder && LEASE.expiresAt && LEASE.expiresAt > now);
@@ -48,7 +62,19 @@ function leaseView() {
     ttlMs: LEASE.ttlMs,
     since: LEASE.acquiredAt,
     renewals: LEASE.renewals,
+    holderAlive: active ? holderAlive(LEASE.holder) : null,   // null = 无法判断 / 非本机约定命名
+    staleReclaimed: stats.staleLeasesReclaimed || 0,
   };
+}
+/** 死会话的租约 → 立刻回收（返回被回收的 holder；没得回收返回 null）。不改租约语义，只补一个"持有者不存在"的出口。 */
+function releaseStaleLease(why) {
+  const v = leaseView();
+  if (!v.active || v.holderAlive !== false) return null;
+  const dead = v.holder;
+  LEASE.holder = null; LEASE.token = null; LEASE.expiresAt = null; LEASE.acquiredAt = null; LEASE.renewals = 0;
+  stats.staleLeasesReclaimed = (stats.staleLeasesReclaimed || 0) + 1;
+  stats.lastLeaseNote = '已回收死会话的写租约（holder=' + dead + '，' + String(why || '') + '）';
+  return dead;
 }
 function leaseAcquire(holder, ttlMs, force) {
   const now = Date.now();
@@ -97,9 +123,11 @@ function isReadOnly(path, op) {
 function leaseGate(payload) {
   const h = String((payload && (payload.holder || payload.lease)) || '');
   const force = !!(payload && payload.force);
+  // v0.9.4：先回收"持有者进程已经不存在"的租约（否则会话崩了会把写通道挡到 TTL 结束）
+  const reclaimed = releaseStaleLease('写请求到达时按 plugin-pid-<pid> 探活发现进程不存在');
   const v = leaseView();
   if (v.active && v.holder !== h && !force) {
-    return { ok: false, error: 'leased', holder: v.holder, expiresInMs: v.expiresInMs,
+    return { ok: false, error: 'leased', holder: v.holder, expiresInMs: v.expiresInMs, holderAlive: v.holderAlive,
       hint: '另一个会话正在驱动这个 Blender。要么等它（剩余 ' + Math.round(v.expiresInMs / 1000) + 's），要么 body 加 force:true 抢占，或 blender_viewport op=lease force=true' };
   }
   // 放行时顺手续期：holder 匹配或无人持有时自动接管
@@ -347,6 +375,7 @@ const server = http.createServer(async (req, res) => {
       let payload = {};
       try { payload = JSON.parse(raw); } catch (e) { payload = {}; }
       const holder = String(payload.holder || 'anonymous');
+      releaseStaleLease('op=lease 到达时探活发现持有者进程不存在');   // v0.9.4
       if (payload.renewOnly) {
         // 心跳：只有本来就持有租约时才续期 —— 不在空闲时抢占，避免多会话互相锁死
         const v = leaseView();

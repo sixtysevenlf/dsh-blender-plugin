@@ -40,6 +40,20 @@
 - **回归**：`tests/launch_selftest.mjs`（24 断言）—— 用**假 blender** + 独立后端/端口/工作目录，
   **不碰用户正在开的 Blender**；覆盖 spawn → 端口判据 → 幂等 → dryRun → 失败可读。
 
+### P1+ · **死会话的写租约自动回收**（本机实测踩到，非反馈条目）
+
+- 现场：一个 DSH 会话崩掉/被关掉之后，它的写租约仍留在后端内存里**继续生效到 TTL（默认 1 h）**，
+  把别的会话的写通道整段挡死 —— 而那个会话早已不存在（本机实测：holder=@@plugin-pid-816309@@
+  已无该进程，仍剩 57 min，headless 直接被 409 挡回）。
+- 修法：holder 约定是 @@plugin-pid-<pid>@@（插件前端生成、与后端同机）→ 后端在**写请求到达时**与
+  @@op=lease@@ 时按 @@process.kill(pid, 0)@@ 探活；**判死即回收**并记 @@stats.staleLeasesReclaimed@@ +
+  @@lastLeaseNote@@（不静默）。@@/who@@ / @@/health@@ 的 @@lease.holderAlive@@ 给三态：
+  @@true@@ / @@false@@ / **@@null@@ = 判不了（非约定命名 → 保守地继续挡，绝不误抢）**。
+- 回归：@@tests/lease_stale_selftest.mjs@@（16 断言）—— 独立后端；覆盖"活持有者照样挡 / 死持有者自动回收 /
+  无法判活时保守挡 / 真实写路由不再 409"。
+- 活体验证（真后端）：埋入死租约 → @@holderAlive:false@@ → 本会话一次 headless **不带 force 直接放行** →
+  @@staleReclaimed:1@@ + 可读 note。
+
 ### 文档 / skill
 
 - `docs/feedback/改进落地记录-2026-09-25.md`（回执：根因、修法、验收、没做的）。
