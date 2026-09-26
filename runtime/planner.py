@@ -36,10 +36,13 @@ import bpy, json, math, os, time
 PLAN_VERSION = 1
 
 
-def _j(o):
-    return json.dumps(o, ensure_ascii=False, default=str)
+import sys as _sys_kit
+_KIT = getattr(_sys_kit.modules.get("dsh_rt_kernel"), "dsh_kit", None)
+if _KIT is None:
+    raise RuntimeError("planner 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
+_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
 def _kernel():
     import sys
     return sys.modules.get("dsh_rt_kernel")
@@ -414,9 +417,9 @@ def p_ops():
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
 if _K is not None:
-    _K.dsh_plan_api = {"version": PLAN_VERSION, "dispatch": p_dispatch,
+    _K.dsh_plan_api = _KIT.Api({"version": PLAN_VERSION, "dispatch": p_dispatch,
                        "load": p_load, "diag": p_diag, "order": p_order,
-                       "build": p_build, "graph": p_graph, "status": p_status, "help": p_help}
+                       "build": p_build, "graph": p_graph, "status": p_status, "help": p_help})
     # 给契约层补一个"规划器诊断"入口（S1 与 S3 联动）
     if hasattr(_K, "dsh_contract_api"):
         _K.dsh_contract_api["plan_diag"] = p_diag
@@ -426,23 +429,7 @@ if _K is not None:
 # 且 dispatch 返回 JSON 字符串，调用方还得自己 json.loads。
 # 现在：api("op", {…}) 或 api({…}) → dict；api["dispatch"](op, json_str) 仍返回 str（引擎契约不变）。
 # 注意：dict 是静态类型，不能对已有实例做 __class__ 赋值（实测 TypeError），所以换成一个新实例。
-class _DshApi(dict):
-    _DEFAULT_OP = "status"
-
-    def __init__(self, base=None):
-        dict.__init__(self, base or {})
-
-    def __call__(self, op=None, args=None, **kw):
-        if op is None or isinstance(op, dict):
-            args, op = (op if isinstance(op, dict) else args), self._DEFAULT_OP
-        payload = args if isinstance(args, str) else json.dumps(dict(args or {}, **kw),
-                                                               ensure_ascii=False, default=str)
-        return json.loads(self["dispatch"](str(op), payload))
-
-    def call(self, op, args=None, **kw):
-        return self(op, args, **kw)
-
-
+_DshApi = _KIT.Api  # 共享内核（尾部注册行无需改）
 import sys as _sys_api
 _K_api = _sys_api.modules.get("dsh_rt_kernel")
 if _K_api is not None and isinstance(getattr(_K_api, "dsh_planner_api", None), dict) \

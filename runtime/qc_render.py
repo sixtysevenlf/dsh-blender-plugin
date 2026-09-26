@@ -222,10 +222,13 @@ DEFAULT_VIEWS_FALLBACK = ["iso", "front", "right", "top"]
 
 
 
-def _j(o):
-    return json.dumps(o, ensure_ascii=False, default=str)
+import sys as _sys_kit
+_KIT = getattr(_sys_kit.modules.get("dsh_rt_kernel"), "dsh_kit", None)
+if _KIT is None:
+    raise RuntimeError("qc_render 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
+_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
 def _unpack_args(args):
     """args 解包（dispatch 与 qc_render_views 共用同一口径）：
     JSON 字符串 / None / {"args": {...}} 再包一层 → dict（照抄 v0.8.8 的包一层解包写法）。"""
@@ -3412,29 +3415,7 @@ def qc_render_dispatch(op, args=None):
         return _j({"ok": False, "error": "%s: %s" % (type(e).__name__, str(e)[:200]), "op": op})
 
 
-class _DshApi(dict):
-    """既可当 dict 用（api["render_views"]），也可直接调用（api("render_views", {...}) → 已解析的 dict）。
-
-    为什么有它（93 反馈 B1/B2）：`K.dsh_qc_render_api(args)` 原来是
-    `TypeError: 'dict' object is not callable`（成员为此改 3 轮）；进程内直调又要自己 json.loads。
-    这里保持**引擎契约不变**：`api["dispatch"](op, json_str)` 以及各函数键仍返回 **str**；只有
-    调用形态（`api(...)` / `api.call(...)`）返回 **dict**（解析失败时返回 {"ok": False, "error": ...}，
-    绝不把裸字符串丢给调用方）。
-    """
-
-    def __call__(self, op=None, args=None, **kw):
-        if op is None or isinstance(op, dict):
-            args, op = (op if isinstance(op, dict) else args), "render_views"
-        payload = args if isinstance(args, str) else _j(dict(args or {}, **kw))
-        try:
-            return json.loads(self["dispatch"](str(op), payload))
-        except Exception as e:                       # dispatch 自身崩了也要给结构化结果（不许裸异常/裸 str）
-            return {"ok": False, "error": "%s: %s" % (type(e).__name__, str(e)[:200]), "op": str(op)}
-
-    def call(self, op, args=None, **kw):
-        return self(op, args, **kw)
-
-
+_DshApi = _KIT.Api  # 共享内核（尾部注册行无需改）
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
 if _K is not None:

@@ -35,10 +35,13 @@ EMPTY_PNG_BYTES = 8000
 WIN_DEFAULT = os.path.join(tempfile.gettempdir(), "dsh_view_capture.png")
 
 
-def _j(o):
-    return json.dumps(o, ensure_ascii=False, default=str)
+import sys as _sys_kit
+_KIT = getattr(_sys_kit.modules.get("dsh_rt_kernel"), "dsh_kit", None)
+if _KIT is None:
+    raise RuntimeError("view 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
+_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
 def _kernel():
     import sys
     return sys.modules.get("dsh_rt_kernel")
@@ -665,7 +668,7 @@ def help():
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
 if _K is not None:
-    _K.dsh_view_api = {"version": VIEW_VERSION, "capture": capture, "matrices": matrices_json,
+    _K.dsh_view_api = _KIT.Api({"version": VIEW_VERSION, "capture": capture, "matrices": matrices_json,
                        "targets": targets, "selftest": selftest, "help": help,
                        "gui_frame": gui_frame, "gui_shading": gui_shading, "gui_open": gui_open,
                        "gui_help": gui_help,
@@ -676,4 +679,4 @@ if _K is not None:
                                        "empty_frame_note": _empty_frame_note,
                                        # v0.9.4（P0-1）：把"什么时候会自动跑诊断"的阈值一并暴露，
                                        # 自检才能对"diagnostics 标志 == (显式要求 or 字节数 < 阈值)"做机械断言
-                                       "empty_png_bytes": EMPTY_PNG_BYTES}}
+                                       "empty_png_bytes": EMPTY_PNG_BYTES}})

@@ -28,10 +28,13 @@ import bpy, json, math, random, time, traceback
 RUNNER_VERSION = 3
 
 
-def _j(obj):
-    return json.dumps(obj, ensure_ascii=False, default=str)
+import sys as _sys_kit
+_KIT = getattr(_sys_kit.modules.get("dsh_rt_kernel"), "dsh_kit", None)
+if _KIT is None:
+    raise RuntimeError("runner 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
+_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
 def _clean(v):
     """把 ns 里的值转成可 JSON 化的形态（numpy 标量/数组、Vector 等）"""
     try:
@@ -454,32 +457,16 @@ def dsh_loop_bench(iterations=5000):
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
 if _K is not None:
-    _K.dsh_loop_api = {"version": RUNNER_VERSION, "start": dsh_loop_start, "status": dsh_loop_status,
+    _K.dsh_loop_api = _KIT.Api({"version": RUNNER_VERSION, "start": dsh_loop_start, "status": dsh_loop_status,
                        "stop": dsh_loop_stop, "board": dsh_loop_board, "export": dsh_loop_export,
-                       "help": dsh_loop_help, "bench": dsh_loop_bench}
+                       "help": dsh_loop_help, "bench": dsh_loop_bench})
 
 # ---- v0.9.1（93-B1/B2）：API 可调用化（换成 dict 子类实例，返回已解析对象）----
 # 背景：K.dsh_x_api 原来是普通 dict → 进程内 api(args) 报 TypeError: 'dict' object is not callable；
 # 且 dispatch 返回 JSON 字符串，调用方还得自己 json.loads。
 # 现在：api("op", {…}) 或 api({…}) → dict；api["dispatch"](op, json_str) 仍返回 str（引擎契约不变）。
 # 注意：dict 是静态类型，不能对已有实例做 __class__ 赋值（实测 TypeError），所以换成一个新实例。
-class _DshApi(dict):
-    _DEFAULT_OP = "status"
-
-    def __init__(self, base=None):
-        dict.__init__(self, base or {})
-
-    def __call__(self, op=None, args=None, **kw):
-        if op is None or isinstance(op, dict):
-            args, op = (op if isinstance(op, dict) else args), self._DEFAULT_OP
-        payload = args if isinstance(args, str) else json.dumps(dict(args or {}, **kw),
-                                                               ensure_ascii=False, default=str)
-        return json.loads(self["dispatch"](str(op), payload))
-
-    def call(self, op, args=None, **kw):
-        return self(op, args, **kw)
-
-
+_DshApi = _KIT.Api  # 共享内核（尾部注册行无需改）
 import sys as _sys_api
 _K_api = _sys_api.modules.get("dsh_rt_kernel")
 if _K_api is not None and isinstance(getattr(_K_api, "dsh_runner_api", None), dict) \

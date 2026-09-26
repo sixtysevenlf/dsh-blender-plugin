@@ -52,10 +52,13 @@ FONT = {
 }
 
 
-def _j(o):
-    return json.dumps(o, ensure_ascii=False, default=str)
+import sys as _sys_kit
+_KIT = getattr(_sys_kit.modules.get("dsh_rt_kernel"), "dsh_kit", None)
+if _KIT is None:
+    raise RuntimeError("montage 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
+_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
 def _kernel():
     import sys
     return sys.modules.get("dsh_rt_kernel")
@@ -245,4 +248,4 @@ def montage_help():
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
 if _K is not None:
-    _K.dsh_montage_api = {"version": MONTAGE_VERSION, "montage": montage, "help": montage_help}
+    _K.dsh_montage_api = _KIT.Api({"version": MONTAGE_VERSION, "montage": montage, "help": montage_help})

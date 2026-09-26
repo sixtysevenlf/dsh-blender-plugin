@@ -59,6 +59,12 @@ _TXN_REVERT_FLOOR = 2
 _TXN_CHECK_KINDS = ("audit", "qc", "measure", "render", "read", "compare", "other")
 
 
+import sys as _sys_kit
+_KIT = getattr(_sys_kit.modules.get("dsh_rt_kernel"), "dsh_kit", None)
+if _KIT is None:
+    raise RuntimeError("txn 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
+
+
 def _txn_j(o):
     return json.dumps(o, ensure_ascii=False, default=str)
 
@@ -519,34 +525,18 @@ def t_ops():
 import sys as _sys
 _txn_K = _sys.modules.get("dsh_rt_kernel")
 if _txn_K is not None:
-    _txn_K.dsh_txn_api = {"version": TXN_VERSION, "dispatch": t_dispatch, "snapshot": t_snapshot, "restore": t_restore,
+    _txn_K.dsh_txn_api = _KIT.Api({"version": TXN_VERSION, "dispatch": t_dispatch, "snapshot": t_snapshot, "restore": t_restore,
                       "list": t_list, "prune": t_prune, "mark": t_mark, "revert": t_revert,
                       "marks": t_marks, "drop": t_drop, "help": t_help,
                       "edit_begin": t_edit_begin, "edit_check": t_edit_check, "edit_accept": t_edit_accept,
-                      "edit_revert": t_edit_revert, "edit_status": t_edit_status}
+                      "edit_revert": t_edit_revert, "edit_status": t_edit_status})
 
 # ---- v0.9.1（93-B1/B2）：API 可调用化（换成 dict 子类实例，返回已解析对象）----
 # 背景：K.dsh_x_api 原来是普通 dict → 进程内 api(args) 报 TypeError: 'dict' object is not callable；
 # 且 dispatch 返回 JSON 字符串，调用方还得自己 json.loads。
 # 现在：api("op", {…}) 或 api({…}) → dict；api["dispatch"](op, json_str) 仍返回 str（引擎契约不变）。
 # 注意：dict 是静态类型，不能对已有实例做 __class__ 赋值（实测 TypeError），所以换成一个新实例。
-class _DshApi(dict):
-    _DEFAULT_OP = "list"
-
-    def __init__(self, base=None):
-        dict.__init__(self, base or {})
-
-    def __call__(self, op=None, args=None, **kw):
-        if op is None or isinstance(op, dict):
-            args, op = (op if isinstance(op, dict) else args), self._DEFAULT_OP
-        payload = args if isinstance(args, str) else json.dumps(dict(args or {}, **kw),
-                                                               ensure_ascii=False, default=str)
-        return json.loads(self["dispatch"](str(op), payload))
-
-    def call(self, op, args=None, **kw):
-        return self(op, args, **kw)
-
-
+_DshApi = _KIT.Api  # 共享内核（尾部注册行无需改）
 import sys as _sys_api
 _K_api = _sys_api.modules.get("dsh_rt_kernel")
 if _K_api is not None and isinstance(getattr(_K_api, "dsh_txn_api", None), dict) \

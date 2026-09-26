@@ -29,10 +29,13 @@ QC_VERSION = 5
 PNG_MAGIC = bytes([137, 80, 78, 71, 13, 10, 26, 10])
 
 
-def _j(o):
-    return json.dumps(o, ensure_ascii=False, default=str)
+import sys as _sys_kit
+_KIT = getattr(_sys_kit.modules.get("dsh_rt_kernel"), "dsh_kit", None)
+if _KIT is None:
+    raise RuntimeError("qc 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
+_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
 def _kernel():
     import sys
     return sys.modules.get("dsh_rt_kernel")
@@ -1115,7 +1118,7 @@ def qc_ops():
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
 if _K is not None:
-    _K.dsh_qc_api = {"version": QC_VERSION, "dispatch": qc_dispatch, "compare": qc_compare_auto,
+    _K.dsh_qc_api = _KIT.Api({"version": QC_VERSION, "dispatch": qc_dispatch, "compare": qc_compare_auto,
                      "compare_basic": qc_compare, "mask_auto": qc_mask_auto, "metrics": qc_metrics,
                      "self_check": qc_self_check, "mask_sweep": qc_mask_sweep, "load": qc_load, "crop": qc_crop, "mask": qc_mask,
                      "iou": qc_iou, "profile": qc_profile, "profile_diff": qc_profile_diff,
@@ -1123,6 +1126,6 @@ if _K is not None:
                      "render_views": qc_render_views, "align_search": _align_search, "iou_pair": _iou_pair,
                      "align_rotate": qc_align_rotate, "rotate_mask": _rotate_mask,
                      "gif_first_frame": _gif_first_frame, "gif_to_png": gif_to_png,
-                     "help": qc_help}
+                     "help": qc_help})
     _K.dsh_measure = {"aabb_err": m_aabb_err, "silhouette_iou": m_silhouette_iou,
                       "profile_err": m_profile_err}

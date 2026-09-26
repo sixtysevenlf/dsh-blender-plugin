@@ -926,8 +926,8 @@ def d_ops():
 import sys as _sys
 _dv_K = _sys.modules.get("dsh_rt_kernel")
 if _dv_K is not None:
-    _dv_K.dsh_deliver_api = {"version": DELIVER_VERSION, "dispatch": d_dispatch,
-                          "export": deliver_export, "verify": deliver_verify, "help": deliver_help}
+    _dv_K.dsh_deliver_api = _KIT.Api({"version": DELIVER_VERSION, "dispatch": d_dispatch,
+                          "export": deliver_export, "verify": deliver_verify, "help": deliver_help})
 
 # ---- v0.9.1（93-B1/B2）：API 可调用化（换成 dict 子类实例，返回已解析对象）----
 # 背景：K.dsh_x_api 原来是普通 dict → 进程内 api(args) 报 TypeError: 'dict' object is not callable；

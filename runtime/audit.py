@@ -34,10 +34,13 @@ from mathutils import Vector
 AUDIT_VERSION = 3
 
 
-def _j(o):
-    return json.dumps(o, ensure_ascii=False, default=str)
+import sys as _sys_kit
+_KIT = getattr(_sys_kit.modules.get("dsh_rt_kernel"), "dsh_kit", None)
+if _KIT is None:
+    raise RuntimeError("audit 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
+_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
 def _kernel():
     import sys
     return sys.modules.get("dsh_rt_kernel")
@@ -3131,21 +3134,7 @@ def audit_dispatch(op, args=None):
         return _j({"ok": False, "error": "参数不匹配: %s" % str(e)[:200], "op": op, "help": audit_help()})
 
 
-class _DshApi(dict):
-    """K.dsh_audit_api：老用法一字不改（api["dispatch"](op, json_str) 仍返回 str → 引擎契约不变），
-    v0.9.1 起**可调用**：api("connectivity", {...}) / api.call("connectivity", {...}) → 已解析的 dict。
-    """
-
-    def __call__(self, op=None, args=None, **kw):
-        if op is None or isinstance(op, dict):
-            args, op = (op if isinstance(op, dict) else args), "help"
-        payload = args if isinstance(args, str) else _j(dict(args or {}, **kw))
-        return json.loads(self["dispatch"](str(op), payload))
-
-    def call(self, op, args=None, **kw):
-        return self(op, args, **kw)
-
-
+_DshApi = _KIT.Api  # 共享内核（尾部注册行无需改）
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
 if _K is not None:
