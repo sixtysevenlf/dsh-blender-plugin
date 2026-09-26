@@ -95,8 +95,12 @@ export const KERNEL_BOOTSTRAP = [
   'import bpy, math, mathutils',
   'Vector = mathutils.Vector',
   '# ---- 路径辅助（v0.7.0）：GUI 与无头两侧都能用，省掉手拼 UNC 与 chr(92)\n' + PATH_HELPERS,
-  '# ---- 共享内核 kit（唯一实现；K.dsh_kit 供所有模块与自写脚本使用）----',
-  KIT_SRC,
+  '# ---- 共享内核 kit（唯一实现）：**按需执行** ----',
+  '# 实测：kit 10.7KB，每次 execute_code 都 exec 一遍要 8.4ms（= 往返 163ms 的 5%）。',
+  '# 改成条件执行：K 上已有 dsh_kit 就跳过（持久内核下只在第一次真跑）。',
+  '# 传输量不变（本地 socket 可忽略），换来零风险：任何路径都保证 kit 在。',
+  'if getattr(K, "dsh_kit", None) is None:',
+  ...KIT_SRC.split('\n').map((l) => (l ? '    ' + l : l)),
 ].join('\n');
 
 /** addon 命令目录：name → { d: 说明, gate: 需要的 scene 开关（null=常驻） } */
@@ -1174,7 +1178,10 @@ export function createEngine(opts = {}) {
     if (o.indexOf('render_') === 0) {
       // v0.9.1（93-E1）：渲染锁/队列（render_lock / render_status…）—— 落在 qc_render 模块，跨进程文件锁
       await ensureQcRender();
-      const body = 'print("LOOP " + K.dsh_qc_render_api["dispatch"](' + JSON.stringify(o.slice(7)) + ', _json.dumps(_json.loads('
+      // 路由契约测试发现：render_lock_status 直切会变成 qc_render 不认识的 lock_status（白名单里却算只读）。
+      // qc_render 的锁查询 op 就叫 status（render_status 就是这么通的）=> 别名显式归一。
+      const _rsub = o.slice(7) === 'lock_status' ? 'status' : o.slice(7);
+      const body = 'print("LOOP " + K.dsh_qc_render_api["dispatch"](' + JSON.stringify(_rsub) + ', _json.dumps(_json.loads('
         + JSON.stringify(JSON.stringify(payload || {})) + '))))';
       return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body }, 900000));
     }

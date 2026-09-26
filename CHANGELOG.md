@@ -172,6 +172,41 @@ GUI 通道（`npm run test:gui`，需真机 + addon）—— **11/11 通过**：
 无头整合自检 **23 → 34 断言**（新增材质链路与 guard 的 install/mark/clear）。
 ⚠ 生效时机：catalog 与 guard 在后端（重启即生效）；工具描述在 `lib/index.js`（下次 DSH 启动）。
 
+### D22 · 路由契约测试（拆 createEngine 的前置条件，已抓到一个真 bug）
+
+现有 263 条断言偏「领域正确性」，不覆盖「每个 op 都能被路由到」——这几轮实际撞过两次（目录漏列 `vehicle_loft`、`perf` 模块没有 dispatch）。
+新增 `tests/route_contract_selftest.mjs`（`npm run test:routes`），两层：
+
+1. **静态**：读 `PLAN_CATALOG`，断言 28 个 family 的前缀在 `engine.mjs` 里都有路由（认 `p: 'x_'` / `indexOf('x_') === 0` / `startsWith('x_')` 三种写法；空前缀家族走 plan/契约兜底）；
+2. **真机**：把 `/plan` 只读白名单（70 个 op）**逐个空参调用**，只判「路由是否接上」——`ok:false` / 参数校验报错都算正常（要证的是「接上了」，不是「空参也能跑」）。
+
+**首次运行就抓到一个真 bug**：`render_lock_status`（白名单里的只读 op）被直切成 `lock_status` 发给 `qc_render`，模块不认识 ⇒ `unknown qc_render op`。
+对照实测：`render_status` 反而通（`qc_render` 的锁查询 op 就叫 `status`）⇒ 别名为 `status` 并归一，问题消失。
+
+现在：**静态 28/28 · 真机 70/70 可路由**（正常回执 47 · 空参被拒 22 · degraded 1）。
+后端/Blender 不在时**跳过**（exit 0），不阻塞离线 `npm test`。
+
+
+### D23 · kit 按需执行：每次调用省 7.45ms（实测）
+
+`kit.py`（10.7KB）原本嵌在 `KERNEL_BOOTSTRAP` 里**每次 execute_code 都 exec 一遍**。在 Blender 里直接量：
+
+```
+kit 全量 exec      7.451 ms/次
+条件执行（已注入） 0.0006 ms/次     => 省 7.45 ms/次（往返 163ms 的 ~5%）
+```
+
+改法（**零风险**）：源码照传（本地 socket 传输可忽略），但包进条件：
+
+```python
+if getattr(K, "dsh_kit", None) is None:
+    <kit.py 全量，统一缩进 4 空格>
+```
+
+于是持久内核（GUI 侧 plan/act 全部路径）只在**第一次**真跑，`K` 被清空（Blender 重启）后自动重建；无头/作业路径（`blender.exe -b`，K 每次都是新的）行为不变 —— 不需要任何状态标志或额外往返。
+
+实测：`rt_do` 往返 163ms → **97ms**（含此次会话的其它变化，保守口径以「in-Blender exec 7.45ms」为准）· Blender 侧 263 断言全绿 · 路由契约 4/4。
+
 ### D21 · S5-b：@引用进单发 op（不再局限于 pipe_run）
 
 此前 `@工件` 只在 `pipe_run` 内解析 —— 单发 `blender_rt_plan(op="vehicle_loft", args={"stations":"@sec.stations"})` 会把字符串当参数用。本批让它**在单步调用里也能用**。
