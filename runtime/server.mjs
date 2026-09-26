@@ -21,7 +21,7 @@
  * 启动：node server.mjs [--port 9877]（缺省端口取 config.mjs：DSH_BLENDER_HTTP_PORT / 配置文件 / 9877）
  */
 import http from 'node:http';
-import { createEngine } from './engine.mjs';
+import { createEngine, engineProvenance } from './engine.mjs';
 import { CFG, describeConfig } from './config.mjs';
 
 const argv = process.argv.slice(2);
@@ -31,6 +31,33 @@ const HOST = '127.0.0.1';
 
 const engine = createEngine();
 const stats = { frames: 0, acts: 0, cmds: 0, loops: 0, views: 0, headless: 0, plan: 0, worker: 0, txn: 0, preset: 0, job: 0, lastPlanMs: null, lastViewMs: null, lastHeadlessMs: null, lastFrameMs: null, lastActMs: null, lastError: null, startedAt: Date.now() };
+
+/**
+ * v0.9.4（P2-1）：各路由最近 20 次耗时的 p50/p95 —— **只观测，不自动重启**。
+ * 为什么：看护已经有（15 s 探活 + 掉线自动拉起），但"Blender 是不是在变慢"在 /health 里查不到
+ * —— lastXxxMs 只有一条样本，看不出趋势。诊断要的是分布，不是单点。
+ * 为什么**不做**"预测性重启"：误杀一次 20 分钟渲染的代价远大于省下的重启时间；
+ * 自动拉起仍然只在"端口/PID 明确死亡"这一确定态发生。
+ */
+const RTT_N = 20;
+const RTT = { frame: [], act: [], view: [], headless: [], plan: [], worker: [], job: [] };
+function pushRtt(kind, ms) {
+  const a = RTT[kind];
+  if (!a) return;
+  const v = Number(ms);
+  a.push(Number.isFinite(v) ? Math.round(v) : 0);
+  if (a.length > RTT_N) a.shift();
+}
+function rttView() {
+  const out = {};
+  for (const k of Object.keys(RTT)) {
+    const raw = RTT[k];
+    const sorted = raw.slice().sort((x, y) => x - y);
+    const q = (p) => (sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))] : null);
+    out[k] = { last: raw.length ? raw[raw.length - 1] : null, p50: q(0.5), p95: q(0.95), n: raw.length };
+  }
+  return out;
+}
 
 /**
  * 写权限租约：多 agent / 多会话同时驱动一个 Blender 时，靠它避免互相踩。
@@ -106,9 +133,28 @@ const READ_ONLY_OPS = { '/perf': ['status', 'help'], '/loop': ['status', 'board'
             // v0.9.0：机构/交付的只读 op（motion_measure 会临时驱动对象→不算只读，不列）
             'motion_status', 'motion_help', 'motion_joints', 'deliver_help', 'deliver_verify',
             'generator_list', 'generator_get', 'generator_diff', 'generator_help',
+            // v0.9.6（上游整合 A1–A5）：只读面 —— 体检/帮助/UV 统计/制造检查/路径弯折分析都不动场景。
+            // 注意 sculpt_apply/setup/filter/mask/remesh、fix_repair/fix_decimate、uv_* 的写 op、
+            // sweep_build 都会改场景 → 明确不列进来（要过写租约）。
+            // v0.9.6（D1 · 可发现性）：目录查询在插件本地直出，不碰 Blender → 任何租约下都该能问
+            'catalog', 'catalog_help', 'help_all',
+            // v0.9.6（A6/A7）：材质体检与渲染状态都只读；bake/apply/install 会改场景或注册 handler → 不列
+            'material_scan', 'material_help',
+            'gate_plan', 'gate_help',
+            'img_scan', 'img_help', 'calib_help',
+            'face_ratios', 'face_compare', 'face_help',
+            'gltf_validate',
+            'clear_check', 'clear_help', 'vehicle_package', 'vehicle_spec', 'vehicle_help',
+            'shape_plan', 'shape_help', 'shape_sections', 'shape_revolve',
+            'render_state', 'render_wait',
+            'sculpt_scan', 'sculpt_help',
+            'fix_help',
+            'uv_stats', 'uv_help',
+            'print_walls', 'print_overhang', 'print_report', 'print_help',
+            'sweep_analyze', 'sweep_help',
             // v0.9.1（93-D1/E1）：GUI 取景/着色与渲染锁状态都是视图级只读；gui_open 会换文件 → 不算只读
             'gui_frame', 'gui_shading', 'gui_help', 'render_status', 'render_lock_status'],
-  '/worker': ['status'],
+  '/worker': ['status', 'list'],
   '/txn': ['list', 'marks', 'help', 'edit_status'],
   '/preset': ['list', 'get', 'help'],
   // v0.9.3（D6）：wait 只是"阻塞读"，kill 只作用于作业自己的子进程（不碰 live 场景）——
@@ -179,7 +225,18 @@ const server = http.createServer(async (req, res) => {
   const p = url.pathname;
   bump(p);
   try {
-    if (req.method === 'GET' && p === '/health') { json(res, 200, { ok: true, stats: stats, lease: leaseView(), requests: Object.fromEntries(reqCounts) }); return; }
+    if (req.method === 'GET' && p === '/health') {
+      json(res, 200, { ok: true, stats: stats, lease: leaseView(), requests: Object.fromEntries(reqCounts),
+                       // v0.9.4（P2-1）：分布 + 后端自身内存。⚠ 不含 blender.exe 的 RSS ——
+                       // 它在 Windows 侧，取一次要起 tasklist（~百 ms 级），不该塞进健康探针的热路径。
+                       rtt: rttView(),
+                       // v0.9.6（D3）：加载版本自证（内容哈希，不是 mtime）——"要不要重启后端"在这里一眼可见。
+                       // 只做本地读+哈希（~0.5 ms），不 spawn 干净进程；强对拍走 /plan op=catalog args={verify:true}。
+                       provenance: (() => { try { return engineProvenance({}); } catch (e) { return { verdict: 'unknown', error: String((e && e.message) || e) }; } })(),
+                       backend: { pid: process.pid, rssMB: Math.round(process.memoryUsage().rss / 1048576),
+                                  uptimeMs: Date.now() - stats.startedAt } });
+      return;
+    }
 
     // 已移除的"人肉面板"路由：明确告知 410，而不是让人对着坏掉的图猜
     if (p === '/' || p === '/index.html' || p === '/stream.mjpg' || p === '/input' || p === '/frame') {
@@ -243,7 +300,7 @@ const server = http.createServer(async (req, res) => {
       const t0 = Date.now();
       try {
         const out = full ? await engine.frameArea(areaIndex) : await engine.frame(size);
-        stats.frames++; stats.lastFrameMs = Date.now() - t0; stats.lastError = null;
+        stats.frames++; stats.lastFrameMs = Date.now() - t0; pushRtt('frame', stats.lastFrameMs); stats.lastError = null;
         res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store' });
         res.end(out.png);
       } catch (e) {
@@ -262,7 +319,7 @@ const server = http.createServer(async (req, res) => {
       const t0 = Date.now();
       try {
         const out = await engine.act(payload.code || '', payload.timeoutMs || 120000, payload.file || null);
-        stats.acts++; stats.lastActMs = Date.now() - t0; stats.lastError = null;
+        stats.acts++; stats.lastActMs = Date.now() - t0; pushRtt('act', stats.lastActMs); stats.lastError = null;
         const o = out || {};
         json(res, 200, { ok: o.ok !== false, ms: o.ms != null ? o.ms : (Date.now() - t0),
                          mainThreadMs: o.mainThreadMs != null ? o.mainThreadMs : null,
@@ -418,7 +475,7 @@ const server = http.createServer(async (req, res) => {
       const t0 = Date.now();
       try {
         const out = await engine.view(payload);
-        stats.views++; stats.lastViewMs = Date.now() - t0; stats.lastError = null;
+        stats.views++; stats.lastViewMs = Date.now() - t0; pushRtt('view', stats.lastViewMs); stats.lastError = null;
         if (payload.asJson) { json(res, 200, { ok: true, ms: Date.now() - t0, meta: out.meta }); return; }
         res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store',
           // ⚠ 实测坑（v0.9.1）：HTTP 头值不能含非 ASCII —— warning 里有中文，直接塞会 502 "Invalid character in header content"。
@@ -449,7 +506,7 @@ const server = http.createServer(async (req, res) => {
       await streamJson(res, async () => {
         try {
           const out = await engine.headless(payload);
-          stats.lastHeadlessMs = Date.now() - t0; stats.lastError = null;
+          stats.lastHeadlessMs = Date.now() - t0; pushRtt('headless', stats.lastHeadlessMs); stats.lastError = null;
           return { ok: !!out.ok, ms: out.ms, result: out };
         } catch (e) {
           stats.lastError = String((e && e.message) || e);
@@ -467,8 +524,10 @@ const server = http.createServer(async (req, res) => {
       const gate = isReadOnly('/plan', op) ? null : leaseGate(payload);
       if (gate) { json(res, 409, gate); return; }
       stats.plan = (stats.plan || 0) + 1;
+      const t0p = Date.now();
       try {
         const out2 = await engine.plan(op, payload.args || {});
+        stats.lastPlanMs = Date.now() - t0p; pushRtt('plan', stats.lastPlanMs);
         json(res, 200, { ok: true, op: op, result: out2 });
       } catch (e) {
         stats.lastError = String((e && e.message) || e);
@@ -488,17 +547,19 @@ const server = http.createServer(async (req, res) => {
       stats.worker = (stats.worker || 0) + 1;
       await streamJson(res, async () => {
         try {
-          if (op === 'start') return { ok: true, op: op, result: await engine.worker.start(payload) };
-          if (op === 'stop') return { ok: true, op: op, result: await engine.worker.stop() };
-          if (op === 'restart') { await engine.worker.stop(); return { ok: true, op: op, result: await engine.worker.start(payload) }; }
+          // v0.9.4（P1-1）：全部按 name 走（缺省 = 'default'，与老调用逐字节同义）
+          if (op === 'start') return { ok: true, op: op, result: await engine.worker.start(payload, payload && payload.name) };
+          if (op === 'stop') return { ok: true, op: op, result: await engine.worker.stop(payload && payload.name) };
+          if (op === 'restart') return { ok: true, op: op, result: await engine.worker.restart(payload && payload.name, payload) };
+          if (op === 'list') return { ok: true, op: op, result: { ok: true, workers: engine.worker.list() } };
           if (op === 'exec') {
             const purge = payload.purgePrefix ? String(payload.purgePrefix).split(',').map(function (x) { return x.trim(); }).filter(Boolean) : null;
-            const r = await engine.worker.exec(String(payload.code || ''), Number(payload.timeoutMs) || 120000, purge);
+            const r = await engine.worker.exec(String(payload.code || ''), Number(payload.timeoutMs) || 120000, purge, payload && payload.name);
             // v0.8.4：错误/回溯提到信封层，避免客户端只看到 unknown
             return { ok: !!r.ok, op: op, result: r, error: (r && r.error) ? String(r.error) : null,
                      traceback: (r && r.traceback) ? String(r.traceback) : null };
           }
-          return { ok: true, op: 'status', result: await engine.worker.status() };
+          return { ok: true, op: 'status', result: await engine.worker.status(payload && payload.name) };
         } catch (e) {
           stats.lastError = String((e && e.message) || e);
           return { ok: false, op: op, error: stats.lastError, hint: (e && e.hint) || null };
@@ -571,6 +632,7 @@ const server = http.createServer(async (req, res) => {
         });
         return;
       }
+      const t0j = Date.now();      // v0.9.4（P2-1）：作业路由耗时进 rtt 分布（P2-2 那种"偶发卡住"要看出趋势）
       try {
         if (op === 'start') { json(res, 200, { ok: true, op: op, job: engine.job.start(payload) }); return; }
         if (op === 'kill') { json(res, 200, { ok: true, op: op, job: engine.job.kill(payload.id) }); return; }
@@ -580,6 +642,8 @@ const server = http.createServer(async (req, res) => {
       } catch (e) {
         stats.lastError = String((e && e.message) || e);
         json(res, 200, { ok: false, op: op, error: stats.lastError });
+      } finally {
+        pushRtt('job', Date.now() - t0j);
       }
       return;
     }

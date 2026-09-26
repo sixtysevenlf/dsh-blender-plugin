@@ -20,20 +20,21 @@ declare function losslessSanitize(root: any): {
     value: any;
     fixes: string[];
 };
-import type zt from '@deepseek-ai/schemastery';
 export declare const name = "@dsh-external/dsh-blender-plugin";
 export declare const inject: string[];
 export interface Config {
     port: number;
     autoStart: boolean;
 }
-export declare const Config: zt<Schemastery.ObjectS<NoInfer<{
-    port: zt<number, number, "defined">;
-    autoStart: zt<boolean, boolean, "defined">;
-}>>, Schemastery.ObjectT<NoInfer<{
-    port: zt<number, number, "defined">;
-    autoStart: zt<boolean, boolean, "defined">;
-}>>, "plain">;
+export declare const Config: any;
+/** 纯决策：命中 ⇒ dup=true 且计数 +1；未命中 ⇒ 记下新 hash。force=true 一律当未命中处理并重置。 */
+export declare function frameDedupe(key: string, hash: string, force?: boolean): {
+    dup: boolean;
+    repeats: number;
+    firstAt: number;
+};
+/** 测试用：清空去重缓存 */
+export declare function resetFrameCache(): void;
 /** 结构化信封（block 0）：稳定字段 + 有界大小（大结果只给 resultPath） */
 declare function receiptEnvelope(res: any, ctx: any): any;
 /** 无头回执（sync / 作业层完成）：{text, envelope} —— 两个 text block 的来源 */
@@ -45,6 +46,8 @@ declare function headlessReceipt(res: any, ctx: any): any;
 declare function promotedReceipt(job: any, jobId: string, why: string): any;
 export declare function apply(ctx: any, config: Config): void;
 export declare const __internals: {
+    frameDedupe: typeof frameDedupe;
+    resetFrameCache: typeof resetFrameCache;
     losslessSanitize: typeof losslessSanitize;
     receiptEnvelope: typeof receiptEnvelope;
     headlessReceipt: typeof headlessReceipt;

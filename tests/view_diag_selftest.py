@@ -41,7 +41,7 @@ def main():
     bpy.context.view_layer.update()
 
     try:
-        check("VIEW_VERSION = 2（v0.9.1）", api.get("version") == 2, api.get("version"))
+        check("VIEW_VERSION = 3（v0.9.4：诊断惰性化）", api.get("version") == 3, api.get("version"))
         for k in ("gui_frame", "gui_shading", "gui_open", "gui_help"):
             check("GUI 原语已注册：%s" % k, callable(api.get(k)))
 
@@ -94,6 +94,42 @@ def main():
             names_sug, _ = _objects_in_frame(spec_sug)
             check("suggest 的 from/look_at 真能看到对象（照它再出一次即可）",
                   "DSH_VIEW_SELFTEST" in names_sug, names_sug)
+
+        # ── v0.9.4（P0-1）诊断惰性化：不变量 = "跑了诊断 ⟺ 显式要求 or 帧字节数 < 阈值" ──
+        # 不去赌某一帧的具体字节数（那会随场景/引擎变），而是断言**判据本身**：
+        #   · diagnostics=false ⇒ coverage/scene_bbox/objects_in_frame 一律 None（省掉 45–490 ms）
+        #   · diagnostics=true  ⇒ 三项必须真算出来（且与直接调 _coverage 的结果一致）
+        thr = diag.get("empty_png_bytes")
+        check("阈值已暴露给自检（empty_png_bytes）", isinstance(thr, int) and thr > 0, thr)
+        p_lean = os.path.join(os.path.dirname(api["capture"] and __file__ or __file__), "dsh_view_diag_lean.png")
+        import tempfile as _tf
+        p_lean = os.path.join(_tf.gettempdir(), "dsh_view_diag_lean.png")
+        r_lean = json.loads(api["capture"](json.dumps({"from": [2.5, 2.5, 2.5], "look_at": [0, 0, 0],
+                                                       "width": 160, "height": 90, "path": p_lean})))
+        want_diag = bool(r_lean.get("bytes", 0) < thr)
+        check("默认（未显式要求）：diagnostics 标志 == (字节数 < 阈值)",
+              bool(r_lean.get("diagnostics")) == want_diag, {"bytes": r_lean.get("bytes"), "thr": thr, "flag": r_lean.get("diagnostics")})
+        if not want_diag:
+            check("默认路径：三项诊断全部为 None（这就是省下来的成本）",
+                  r_lean.get("coverage_estimate") is None and r_lean.get("scene_bbox") is None
+                  and r_lean.get("objects_in_frame") is None and r_lean.get("warning") is None, r_lean.get("coverage_estimate"))
+        r_forced = json.loads(api["capture"](json.dumps({"from": [2.5, 2.5, 2.5], "look_at": [0, 0, 0],
+                                                         "width": 160, "height": 90, "path": p_lean,
+                                                         "diagnostics": True})))
+        check("显式 diagnostics=true：三项必须真算出来（语义与 v0.9.1 一致）",
+              r_forced.get("diagnostics") is True and isinstance(r_forced.get("coverage_estimate"), float)
+              and isinstance(r_forced.get("scene_bbox"), dict) and r_forced.get("objects_in_frame") is not None,
+              {"diag": r_forced.get("diagnostics"), "cov": r_forced.get("coverage_estimate")})
+        r_far = json.loads(api["capture"](json.dumps({"from": [500, 500, 500], "look_at": [900, 900, 900],
+                                                      "width": 160, "height": 90, "path": p_lean,
+                                                      "diagnostics": True})))
+        check("强制诊断 + 瞄空 ⇒ frame_looks_empty 告警照旧（自动补跑那条路也一样）",
+              (r_far.get("warning") or {}).get("code") == "frame_looks_empty"
+              and bool((r_far.get("warning") or {}).get("suggest")), r_far.get("warning"))
+        h = json.loads(api["help"]())
+        check("help 里写明诊断的触发条件（默认不跑/近空补跑/可强制）",
+              "diagnostics_v3" in h and "默认不跑" in json.dumps(h.get("diagnostics_v3") or {}, ensure_ascii=False),
+              list(h.keys())[:8])
 
         # 视口着色：headless 没有真 UI → 必须**明确报错**，不许假装成功
         # 实测：headless(factory-startup) 里 Blender 仍有一个最小 window/screen，gui_shading 居然能生效；

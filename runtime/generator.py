@@ -410,9 +410,9 @@ def generator_run(name, args=None, dir=None, expect=None, engine="none", factory
 
 def generator_help():
     return _j({"version": GENERATOR_VERSION,
-               "ops": {"save": "name, code, params, note, dir, overwrite → 写 <root>/<name>.py + sidecar",
-                       "run": "name, args, expect{objects|names|min_objects|max_objects|max_tris}, "
-                              "engine, use_cache, timeout_ms, factory_startup → 全新无头进程复现 + 对拍",
+               "ops": {"save": "name, code(**源码字符串**，不是 script), params, note, dir, overwrite → 写 <root>/<name>.py + sidecar",
+                       "run": "name, args(**生成器 PARAMS 的 dict**，嵌套一层，不会被摊平), "
+                              "expect{objects|names|min_objects|max_objects|max_tris}, engine, use_cache, timeout_ms, factory_startup → 全新无头进程复现 + 对拍",
                        "list": "dir → 全部生成器 + stale（源码在最后一次运行后被改过）",
                        "get": "name → 源码 + sidecar", "diff": "name → 源码 vs 上次运行时（变了 → 回执过期）",
                        "selftest": "generator_selftest()"},
@@ -498,26 +498,47 @@ def generator_selftest():
 
 
 def generator_dispatch(op, args=None):
+    """统一入口：工具侧发 {"op": …, "args": {…}}（信封已由引擎剥掉，这里再做一次兜底）。
+
+    v0.9.6 修：旧实现把 payload 里的 `args` 键**无条件摊平**成 kwargs：
+
+        for k, v in (args or {}).items():
+            if k == "args" and isinstance(v, dict):
+                kw.update(v)      # ← 这里
+
+    对别的 op 没问题（它们没有叫 args 的参数），但 `generator_run(name, args, …)` 的
+    **args 就是生成器的 PARAMS**：一次 `{"name":"x","args":{"n":3}}` 会被摊成
+    `generator_run(name="x", n=3)` —— args 消失（PARAMS 变空 {}），n 变成未知参数，
+    要么 TypeError、要么静默拿空参数跑出"能跑通但不对"的结果。现场就是这么踩的。
+
+    现在的语义（两条，都不丢信息）：
+      · op == "run"      → `args` 是**真参数**，原样传下去，绝不摊平；
+      · 其它 op          → 仅当 `args` 是**唯一的键**时按信封拆开（兼容旧调用），
+                           有别的键就保持原样（宁可回"参数不匹配 + help"，也不猜）。
+    """
     if isinstance(args, str):
         try:
             args = json.loads(args) if args.strip() else {}
         except Exception:
             args = {}
-    kw = {}
-    for k, v in (args or {}).items():
-        if k == "args" and isinstance(v, dict):
-            kw.update(v)
-        else:
-            kw[k] = v
+    raw = dict(args or {}) if isinstance(args, dict) else {}
+    opname = str(op)
+    if opname != "run" and set(raw.keys()) == {"args"} and isinstance(raw.get("args"), dict):
+        raw = dict(raw["args"])
     ops = {"save": generator_save, "run": generator_run, "list": generator_list, "get": generator_get,
            "diff": generator_diff, "help": generator_help, "selftest": generator_selftest}
-    fn = ops.get(str(op))
+    fn = ops.get(opname)
     if fn is None:
         return _j({"ok": False, "error": "unknown generator op", "op": op, "ops": sorted(ops)})
     try:
-        return fn(**kw)
+        return fn(**raw)
     except TypeError as e:
-        return _j({"ok": False, "error": "参数不匹配: %s" % str(e)[:200], "op": op, "help": generator_help()})
+        return _j({"ok": False, "error": "参数不匹配: %s" % str(e)[:200], "op": opname,
+                   "expected": {"save": "name, code, params, note, dir, overwrite",
+                                "run": "name, args(=生成器 PARAMS 的 dict), expect, dir, engine, use_cache, timeout_ms",
+                                "list": "dir", "get": "name, dir", "diff": "name, dir"}.get(opname),
+                   "note": "generator_run 的参数名是 args（嵌套一层），不是把 PARAMS 摊平到顶层",
+                   "help": generator_help()})
 
 
 import sys as _sys

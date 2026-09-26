@@ -8,3 +8,8 @@ dsh-blender.config.json
 *.zip
 *.log
 .DS_Store
+
+# Python 虚拟环境（open3d 等大依赖，1.2G，绝不入库；用 runtime/ext/README 里的安装说明重建）
+venv/
+runtime/ext/venv/
+.venv/
