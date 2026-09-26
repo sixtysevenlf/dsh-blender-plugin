@@ -34,6 +34,14 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     port: z<number, number, "defined">;
     autoStart: z<boolean, boolean, "defined">;
 }>>, "plain">;
+/** 纯决策：命中 ⇒ dup=true 且计数 +1；未命中 ⇒ 记下新 hash。force=true 一律当未命中处理并重置。 */
+export declare function frameDedupe(key: string, hash: string, force?: boolean): {
+    dup: boolean;
+    repeats: number;
+    firstAt: number;
+};
+/** 测试用：清空去重缓存 */
+export declare function resetFrameCache(): void;
 /** 结构化信封（block 0）：稳定字段 + 有界大小（大结果只给 resultPath） */
 declare function receiptEnvelope(res: any, ctx: any): any;
 /** 无头回执（sync / 作业层完成）：{text, envelope} —— 两个 text block 的来源 */
@@ -45,6 +53,8 @@ declare function headlessReceipt(res: any, ctx: any): any;
 declare function promotedReceipt(job: any, jobId: string, why: string): any;
 export declare function apply(ctx: any, config: Config): void;
 export declare const __internals: {
+    frameDedupe: typeof frameDedupe;
+    resetFrameCache: typeof resetFrameCache;
     losslessSanitize: typeof losslessSanitize;
     receiptEnvelope: typeof receiptEnvelope;
     headlessReceipt: typeof headlessReceipt;

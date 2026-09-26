@@ -67,6 +67,59 @@ export function wslToWin(p) {
   return s;
 }
 
+/**
+ * v0.9.6（D3 · workDir 共享性自证）：这个 WSL 路径，Windows 侧的 Blender 到底看不看得见？
+ *
+ * 为什么需要它（现场实测 2026-09-26，租约自检 D2 失败）：
+ *   自检把隔离工作目录设在 os.tmpdir()（WSL 的 /tmp）。Node 侧写脚本**成功**，
+ *   但 Windows 的 blender.exe 打不开，报
+ *     OSError: Python file "\\wsl.localhost\Ubuntu\tmp\…\dsh_headless_*.py" could not be opened
+ *   → 无头回执 resultJson=null，看起来像"租约把写通道锁死了"，其实根因是**工作目录不共享**。
+ *   Node 侧 `fs.existsSync` 永远说"在"，因为它在 WSL 命名空间里看；能判定的只有挂载归属。
+ *
+ * 判据（读 /proc/self/mounts，不猜、不看 mtime）：
+ *   · /mnt/<盘>/…                       → Windows 侧是 X:\…，共享（drvfs）
+ *   · 与 "/" 同 source 的挂载（发行版根文件系统，本机 /dev/sdd）→ \\wsl.localhost\<distro>\…，共享
+ *   · 其它独立挂载（tmpfs / overlay / …）→ **不能保证** Windows 可见 → false（保守：宁可换目录）
+ * 三态：true（共享）/ false（不可保证共享）/ null（判不了：Windows 平台、相对路径、无挂载表）。
+ */
+let _mountEntries;
+function mountEntries() {
+  if (_mountEntries !== undefined) return _mountEntries;
+  _mountEntries = [];
+  try {
+    const oct = (s) => String(s).replace(/\\(040|011|012|134)/g, (m, o) => String.fromCharCode(parseInt(o, 8)));
+    for (const line of fs.readFileSync('/proc/self/mounts', 'utf8').split('\n')) {
+      const f = line.trim().split(' ');
+      if (f.length < 3) continue;
+      _mountEntries.push({ source: oct(f[0]), target: oct(f[1]), fstype: oct(f[2]) });
+    }
+  } catch (e) { _mountEntries = []; }
+  return _mountEntries;
+}
+
+export function wslPathShared(p) {
+  const s = String(p || '');
+  if (IS_WIN) return { shared: true, why: 'windows' };
+  if (s.charAt(0) !== '/') return { shared: null, why: 'not-absolute' };
+  if (/^\/mnt\/[a-z](\/|$)/i.test(s)) return { shared: true, why: 'drvfs-drive' };
+  const ms = mountEntries();
+  if (!ms.length) return { shared: null, why: 'no-mount-table' };
+  const root = ms.find((m) => m.target === '/');
+  let best = null;
+  for (const m of ms) {
+    const t = m.target === '/' ? '/' : m.target.replace(/\/+$/, '');
+    const hit = (t === '/') ? (s.charAt(0) === '/') : (s === t || s.indexOf(t + '/') === 0);
+    if (hit && (!best || t.length > best.target.length)) best = m;
+  }
+  if (!best) return { shared: null, why: 'no-mount-match' };
+  if (root && best.source === root.source) {
+    return { shared: true, why: 'distro-root-fs', source: best.source, fstype: best.fstype, mount: best.target };
+  }
+  return { shared: false, why: 'separate-mount-not-guaranteed-windows-visible',
+           source: best.source, fstype: best.fstype, mount: best.target };
+}
+
 /** 在 WSL 里问 Windows 要 %LOCALAPPDATA%（没有互操作时返回 null） */
 let _lad;
 function winLocalAppData() {
@@ -187,7 +240,9 @@ export function describeConfig(over) {
     addon: CFG.addonHost + ':' + String(CFG.addonPort),
     addonProtocol: CFG.addonProtocol,
     http: '127.0.0.1:' + String(o.httpPort || CFG.httpPort),
-    workDir: { win: CFG.workDirWin, wsl: CFG.workDirWsl, from: CFG.source.workDir },
+    workDir: { win: CFG.workDirWin, wsl: CFG.workDirWsl, from: CFG.source.workDir,
+               // v0.9.6（D3）：这个工作目录 Windows 侧看不看得见（false = 无头脚本会打不开，必须换目录）
+               shared: wslPathShared(CFG.workDirWsl) },
     blenderExe: CFG.blenderExe,
     blenderFrom: CFG.source.blenderExe,
     blenderUserConfig: CFG.blenderUserConfig,

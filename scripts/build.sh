@@ -19,11 +19,17 @@ if [ -z "$CHECKOUT" ] || [ ! -d "$CHECKOUT/packages" ]; then
   exit 1
 fi
 
-TSC="$CHECKOUT/node_modules/.bin/tsc"
-if [ ! -x "$TSC" ] && [ ! -f "$TSC.cmd" ]; then
-  echo "build: tsc not found at $TSC" >&2
+# tsc：与 `npm run typecheck` 共用**同一套**解析（scripts/typecheck.mjs）——
+# 不在这里写死宿主绝对路径，也让"找不到编译器"只有一份带修法的诊断。
+# （这里仍用 DSH_CHECKOUT 指路，因为下面 link_pkg 也要它来定位源码树）
+export DSH_CHECKOUT="$CHECKOUT"
+TSC="$(node "$ROOT/scripts/typecheck.mjs" --print 2>/dev/null || true)"
+if [ -z "$TSC" ]; then
+  echo "build: 找不到 tsc —— 下面是 scripts/typecheck.mjs 的逐候选诊断（与 npm run typecheck 同源）：" >&2
+  node "$ROOT/scripts/typecheck.mjs" --print >/dev/null || true
   exit 1
 fi
+echo "build: tsc = $TSC"
 
 link_pkg() {
   local target="$CHECKOUT/$2"

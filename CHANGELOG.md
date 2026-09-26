@@ -1,5 +1,541 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
+## v0.9.6（2026-09-26）—— 上游整合 A1–A5（雕刻/修复/UV/制造/扫掠）+ addon 升 v1.7 + D1 工具可发现性
+
+来源：`docs/上游整合评估-mcp-for-blender与blend-ai.md`（对 ahujasid/mcp-for-blender 与 HoldMyBeer-gg/blend-ai 的实测盘点）。
+一句话：**把上游两家缺的那半补上**——上游都做不到"程序化雕刻"（blend-ai README 自述不能模拟笔触），
+本插件用 numpy 位移笔刷 + 拓扑准备把它做成可复算的几何操作；顺手补掉旧 runtime 里 uv/thin-wall/sweep 三块空白。
+
+新增 5 个 runtime 模块（21 个 op，全部走 `blender_rt_plan`，不新增工具）：
+
+| 模块 | op | 说明 |
+|---|---|---|
+| `sculpt.py` | scan / setup / apply / filter / mask / remesh / selftest / help | **numpy 位移笔刷**（draw·inflate·pinch·flatten·smooth·crease）+ 体素/multires/subdiv/dyntopo + 遮罩 + GUI 滤镜 |
+| `mesh_fix.py` | repair / decimate / selftest / help | audit 只诊断，这里负责治：合并重复点 / 消零面积面 / 删孤立点 / 重算法线 / 可选封洞 |
+| `uv_tools.py` | stats / smart_project / unwrap / project / pack / selftest / help | UV 四件套；枚举从算子 RNA 读，不写死 |
+| `printcheck.py` | walls / overhang / report / selftest / help | BVH 射线测壁厚 + 法线锥测悬垂（不依赖 3D Print Toolbox 插件） |
+| `sweep.py` | analyze / build / selftest / help | 平行移动标架扫掠（拐弯不扭转）+ 弯折半径先算后建 |
+
+### 实测数字（本机 Blender 5.2.2 LTS）
+
+- **雕刻**：体素重构 1986 → 12148 顶点 **0.084 s**；单笔 1986 顶点、257 顶点受影响 **6 ms**；
+  `sculpt_selftest` 在临时球体上跑 apply+remesh+mask+scan，实测 affected=65 / max_delta=0.223 / remesh 3120 顶点。
+- **修复**：`fix_selftest` 合成缺陷网格（7 boundary / 1 degenerate / 1 loose）→ 修复后 degenerate=0、loose=0，真非流形=0。
+- **制造检查**：200×200×5 mm 薄板（面 4 mm）@min_mm=10 → min=median=5 mm、thin=5000、**无警告**（正例）；
+  体素球（面 47 mm）@min_mm=5 → min=1686 mm、thin=0，并明确警告"min_mm 低于测量分辨率，结论不可信"（不给假结论）。
+- **扫掠**：直管 3 站 12 边形 = 38 顶点 / 48 面；直角路径 min_radius=0.424 vs 需要 0.05 → 放行；
+  过紧路径 min_radius=0.014 < 0.2 → **拒绝**并指出是第几个点。
+
+### 关键结论（写进工具描述与 skill，避免后人重复踩）
+
+- **`bpy.ops.sculpt.brush_stroke` 在 Blender 5.2 上 Python 走不通**：上下文已经解决
+  （`temp_override` 后 poll()=True），但 `stroke` 集合在 RNA 侧拒绝 dict（6 种格式全失败），
+  `OperatorStrokeElement` 也无法实例化。所以雕刻走"位移笔刷"这条路，别再花时间构造 stroke。
+- 对称镜像必须**各自独立成笔触**（开发期实测抓到：把镜像点串进同一条折线会让 1 个点插值成 39 个 dab，把表面拖花）。
+- 壁厚测量有**分辨率下限 = 本地面尺寸**：体素重构出的 60 mm 面测不了 5 mm 壁厚 —— 回执必须给 `resolution_mm`。
+
+### 顺带修掉的既有缺陷
+
+- `audit.py`：空网格（0 边）会 `me.edges[0]` IndexError 崩掉体检 → 现在报 `empty` 并把
+  `empty_objects` 计入 `clean=false`（"建了对象没填面"不再伪装成健康）。
+
+### 接线与文档
+
+- `engine.mjs`：5 条新前缀路由（sculpt_/fix_/uv_/print_/sweep_）+ 模块注入（needFile 兜底）；`server.mjs`：
+  11 个只读 op 进白名单（scan/help/stats/walls/overhang/report/analyze…），写 op 照旧过租约。
+- `lib/index.js`：`blender_rt_plan` 工具描述补齐 5 个能力面的参数与硬规则（**下次 DSH 启动生效**）。
+- skill `blender-modeling`：新增 Recipe 11–14（雕刻 / 修复+UV / 制造检查 / 扫掠），并改掉决策树里
+  "笔触式雕刻不适合文本驱动"的旧说法（现在给的是 API 层实测结论）。
+
+### addon 升级：v1.6（protocol 5）→ v1.7（protocol 11）
+
+- **落地**：替换 @@C:\Users\<用户>\AppData\Roaming\Blender Foundation\Blender\5.2\scripts\addons\blender_mcp.py@@
+  （模块名保持 @@blender_mcp@@ 不变 ⇒ Blender 偏好设置里不会出现重复条目），源文件取自 PyPI sdist
+  @@mcp-for-blender-2.1.0@@ 的 @@src/blender_mcp/bundled/addon.py@@（sha 校验一致）。
+- **回退点**（两份，md5 已对拍 @@50dfd58290e5eb34c2a2fd9fae3f6f23@@）：
+  同目录 @@blender_mcp.py.v16.bak@@ 与 @@dsh-blender-plugin/tmp/backup/blender_mcp_v16.py@@。
+- **重启**：@@Stop-Process blender -Force@@ → @@blender_viewport(op="launch")@@（5.7 s 起监听 9876、doctor 随即健康）。
+  ⚠ 升级后必须**完全重启 Blender**（脚本 reload 会留下旧 socket 线程），与上游说明一致。
+- **新增能力（实测）**：@@get_addon_info@@ 回 @@addon_version":[1,7],"protocol_version":11@@、capabilities 9 → 11 条；
+  @@rt_commands@@ 可用命令 15 → **19** 条（新增 @@describe_node_type@@ / @@bpy_api_lookup@@ / @@export_scene@@ / @@get_tripo_status@@，
+  已补进 @@COMMAND_CATALOG@@）。三条新命令都现场跑通：
+  @@describe_node_type("ShaderNodeTexNoise")@@ 回 3307 字符的属性表；@@bpy_api_lookup("bpy.ops.mesh.primitive_uv_sphere_add")@@
+  回算子签名；@@export_scene(filepath=..., format="glb")@@ 导出 1936 B（Cube/Light/Camera）。
+- **协议层**：扁平协议未变（@@{type, params} → {status, result}@@），插件 @@addonProtocol=auto@@ 无需改动；
+  @@addon-protocol.mjs@@ 的协议标签已去掉写死的 "v1.6"（改成"实测 v1.6/protocol5 与 v1.7/protocol11 都通"），
+  @@protocol_selftest@@ 28/28 仍绿。
+- **升级后回归**：五个模块 selftest 全绿、@@rt_do@@ 通、@@audit_mesh(Cube)@@ clean、@@qc_render_views@@ 出图正常、@@rt_see@@ 161 ms。
+
+### D1 · 工具可发现性（被实测数据逼出来的）
+
+- **证据**（插件自带 trajectory 日志，10 天 8,116 次调用）：plan 通道只占 **1.6%**（剔掉自检），
+  `sculpt_* / fix_* / uv_* / print_* / sweep_*` 五族**真实使用 0 次**；111 条失败里 **68% 是超时**，
+  真正的"选错通道/参数"只有 3 条 ⇒ 瓶颈是"**不知道有**"，不是"报错"。
+- **`op="catalog"`**：16 family / 117 op 的"什么时候用 / 什么时候别用 / 最小 args 骨架 / 要点"，
+  **插件本地直出**（不占 Blender 往返，任何租约下都能问）；`args={family:"sculpt"}` 单族展开（约 600 字符）、
+  `args={full:true}` 才给结构化明细。默认文本 5.1k 字符（≈1.3k tokens，按需取，不是常驻）。
+- **描述压缩**：`rt_plan` 的 description **4,708 → 1,496 字符**（全部 15 个工具的 schema 24,028 → 20,816 ≈ **每轮省 ~800 tokens**），
+  长尾语义搬进 catalog（渐进披露：描述=索引 → catalog=判据 → `<family>_help`=算子细节）。
+- **错误即纠正**：未知 op 回 `did_you_mean`（最近邻 + 骨架，实测 `audti_mesh→audit_mesh`、`sculpt_appli→sculpt_apply`）；
+  把 plan op 当 addon 命令发给 `rt_cmd` 回 `CMD_HINT` 并在**本地**拦下（实测真实发生过 `qc_render_catalog` 走错通道）。
+- **轨迹加字段** `family` / `args_keys` / `hint_shown`：用来做"家族覆盖率"与"意图→工具"周报（不改参数值，只记键名）。
+- **AGENTS.md（全局 + 工作区）加"意图→调用"表 + 三条协议**：① 开工先 `doctor`；② 不确定先 `op="catalog"`；
+  ③ 看到 `did_you_mean`/纠正提示就直接照做。表里明确"**>1 min 的重活走 `rt_job`**"（对着 68% 超时那条）。
+- **回归**：`tests/discoverability_selftest.mjs` **26 项全绿**（catalog 体量/单族/最近邻/跨通道纠错/描述预算/真 HTTP 路由），
+  已并入 `npm test`；`npm run test:discover` 可单跑。
+
+### D2 · 描述预算（15 个工具的 schema 从 17,147 → 11,213 字符）
+
+- **同口径实测**（只量真正发给模型的 `description + parameters`）：v0.9.1 13,671（最大工具 2,829）→
+  v0.9.4 17,147（最大 **4,020**，rt_headless）→ 现在 **11,213**（最大 1,437）≈ **每轮省 ~1,480 tokens**。
+- **做法**：重工具的描述只留"索引"（用途 + 3 条硬规则 + 指路），参数各留一句；把超时语义/路径语义/shots/
+  preload/env/回执字段/常见坑等长尾搬进 `blender_rt_plan(op="catalog", args={tool:"rt_headless"})`
+  （后端本地直出；7 个重工具：rt_headless / rt_job / rt_worker / rt_see / rt_loop / viewport / rt_plan）。
+  三级渐进披露：工具索引 → family → 算子细节，全部按需取、不常驻。
+- **防膨胀门**：`tests/discoverability_selftest.mjs` 新增 4 条预算断言（单工具 < 1600 字符、合计 <= 12000、
+  rt_headless < 1600、重工具都有细节条目），**35 项全绿**，已并入 `npm test`。
+- ⚠ 生效时机：描述在 `lib/index.js` 里，**下次 DSH 启动**才对模型可见（catalog/纠错/细节是后端侧，重启后端即生效）。
+
+### A6/A7 · 材质节点图 + 渲染状态跟踪（对着真实用量做的两块）
+
+**A6 材质（material_*，6 个 op）** —— 实测动机：工作区 7,182 个脚本里 `nodes.new()/ShaderNode` 命中
+**2,732 次 / 204 个文件**，每个 build 脚本都各自手写一遍 TexCoord→Mapping→Noise→ColorRamp→Principled；
+且 OBJ/MTL 交付会丢程序化节点。
+- `material_build`：10 个 preset（metal_brushed / metal_paint / rust / plastic / glass / fabric / wood /
+  concrete / emission / hologram / unlit），一次调用建图并连线，参数可覆盖（base_color / scale / bump / ior…）
+- `material_scan`（只读）：节点数/类型分布/贴图依赖/procedural/needs_uv/被谁用
+- `material_apply`：按对象或集合套用（replace / append 两种语义）
+- `material_bake`：**把程序化材质烘成 PNG**（Cycles：DIFFUSE/ROUGHNESS/NORMAL/AO/EMIT/COMBINED），
+  结束自动还原引擎 —— 这就是"程序化材质 → 可交付纹理"的桥，接 deliver_export 即可带材质交付
+- 实测：`material_selftest` 绿（build 7 节点/7 连线 → apply → scan 认 procedural+needs_uv → AO 128px 落盘 473 B）；
+  真机 E2E：rust preset @256px DIFFUSE 烘出 **58,466 B** PNG
+
+**A7 渲染状态跟踪（render_state / render_wait / render_reset / render_guard_install / render_guard_selftest）**
+—— 实测动机：111 条失败里 **76 条是超时**，渲染占满主线程是主因之一；工作区 `render.render` 362 次 / 334 个文件。
+- **设计**：不"问 Blender"（渲染时问了也排队），改由 `bpy.app.handlers`（render_init / render_complete /
+  render_cancel / load_post）在渲染开始时**写磁盘标记**、结束时删；后端（Node）读文件即可**秒判** busy
+- **行为**：渲染中主线程写命令**秒回 `BUSY_RENDER`** 并给出"用 render_wait 或改走 rt_job"的下一步
+  （ping 不在拦截范围：它走 addon 服务器线程，渲染中照样可用 → doctor 仍能判 main-thread-busy）
+- 实测：真机排一次 720×480/256 samples 的 EEVEE 渲染 → busy 在 **1.29 s** 被观测到、**2.30 s** 清除；
+  **渲染中发 rt_do ⇒ 71 ms 被拒**（此前会排队到超时）；`render_wait` 真等待路径等了 **9,392 ms** 到渲染结束
+- 兜底：陈标记 15 min 自动判 stale 放行（`DSH_RENDER_STALE_MS` 可调）；load_post 清标记；`render_reset` 手动清
+
+**接线**：目录 16 → **18 family / 117 → 128 op**；只读白名单 +6（material_scan/help、render_state/wait…）；
+无头整合自检 **23 → 34 断言**（新增材质链路与 guard 的 install/mark/clear）。
+⚠ 生效时机：catalog 与 guard 在后端（重启即生效）；工具描述在 `lib/index.js`（下次 DSH 启动）。
+
+### D18 · P4.2：截面通路写进类别协议（选路不再靠读 CHANGELOG）
+
+`shape_plan` 的每类协议现在直接带 **`section_path`**（该类用哪条截面通路），并随协议返回 **5 条决策规则**：
+
+1. 轴对称（瓶/罐/轮毂/花瓶/喷口）=> `shape_revolve`，**不要**放样
+2. 左右对称 + 前视有轮廓 => `section_shape`
+3. 有弯度 / 左右不对称 / 要精确控制截面（翼型、机匣、异形件）=> `section_outline`
+4. 只有一条侧视轮廓、截面随长度基本不变（板件/型材）=> 超椭圆 `section_pts` + 特征线
+5. 多体量 => `shape_regions` / `shape_revolve(parts=[...])`，装配后 `clear_check` 验间隙
+
+类别侧重点：**aircraft 明确给 section_outline（翼型，必选）**（镜像对称那条路表达不了弯度）、
+**rotational 明确给 shape_revolve（不是放样）**、furniture 指向 `section_outline` + `sweep_build`、hull 提示水线上下分别给站表。
+
+`shape_selftest` 增加两条硬检查：**每类都必须有 `section_path`**（防以后加类别漏配）+ 决策规则 >=4 条。
+目录不变（27 family / 176 op）；无头整合自检 112 -> **116 断言**。
+
+### D17 · P4.1：通用还原扩展（翼型/非对称截面 · 旋转体多体量 · G2 圆角）+ 账目校正
+
+**A. workdir 测试前提修正（账目校正）**：`tests/workdir_shared_selftest.mjs` 原先把「`/tmp` 不与 Windows 共享 ⇒ 必须被替换」写死，
+但本机 `/tmp` 就在 WSL 根文件系统上（可经 `\\wsl.localhost\Ubuntu\tmp\…` 访问）⇒ 插件判 `shared=true` 是**正确**的，测试却失败 4 项。
+改法（环境无关）：A1 改判「**判定自洽**」（`shared=true ⇒ why=distro-root-fs`；`false ⇒ why 点名独立挂载）；
+C 段按 `requestedShared` **分支验替换契约**；探针目录**动态选到真正的非共享挂载**（本机 `/dev/shm`）⇒ 替换分支照样真跑到。
+实测 **10/4 → 14/0**。
+
+**B. 验收文档补「现状口径」**（`docs/插件与技能优化验收.md` §-1）：本机口径 = Blender 侧 237 断言全绿（107+78+52）+ Node 侧全绿（workdir 14/14）；
+并说明「npm test 197 通过」是**另一套挂载配置**下的数字；U1/U2（新能力是否到模型手上）已由真机复核解决。
+
+**C. 能力扩展三件**：
+
+- **自定义/非对称截面 `section_outline`**：`vehicle_loft`/`shape_loft` 接受显式闭合轮廓 `[[y_mm, z_mm], …]`，
+  按站点归一（y 按半宽、z 按站高）⇒ **翼型（有弯度）、侧挂不对称件**都能表达；`section_source: custom_outline`。
+  实测：NACA 风格 40 点轮廓 → 4264×1304×551mm，`ymin −408.2 / ymax +895.9`（**确实左右不对称**）。
+- **旋转体多体量装配 `shape_revolve(parts=[…])`**：一次给多个 `{profile, at:[x,y,z]_mm, name}` ⇒ 轮毂+轮胎、瓶身+瓶盖、喷口阵列。
+  实测 2 件各自落点（`hub@[0,0,0]`、`tire@[200,0,0]mm` → `location.x=0.2`）。
+- **圆角 G2 控制**：`crease_lines` 加 `profile`（0.5 正圆 / >0.5 偏方更接近 G2 平顺 / <0.5 偏凹），回执回显 `bevel.profile`。实测 profile 0.75。
+
+目录不变（27 family / 176 op）；无头整合自检 107 → **112 断言**，全绿；`npm test` 全绿（含修好的 workdir 14/14）。
+
+### D16 · P4：把还原方法通用化（`shape_*` 家族 + SOP）
+
+车辆那套"包络 → 站表 → 截面 → 特征线 → IoU"**本身与类别无关**（几何机制不依赖"车"的假设），
+本轮把它抽成独立的方法层：新模块 `runtime/shapegen.py`（`shape_*` 9 个 op），**几何全部委托** `img_*`/`vehicle_*`，
+自己只负责"**按对象类别给协议**"。
+
+- **`shape_plan(object_class=…)`**：10 个类别协议 —— vehicle / humanoid / creature / headwear / furniture / hull /
+  aircraft / rotational / weapon / generic，每类给「要哪些视图 · 盯哪些比例 · 配哪些算子 · 验收门 · 已知坑」。
+- **`shape_sections` / `shape_loft` / `shape_fit` / `shape_regions` / `shape_panels`**：通用量具/放样/拟合/分件（委托实现，回执带 `layer`）。
+- **`shape_revolve`**：**轴对称**通路（瓶/罐/轮毂/花瓶）—— 这类物体**不该用放样**，要绕轴旋转单条母线。实测 60×60×100mm / 146 顶点。
+- **SOP**：`dsh-skill-blender-modeling/references/参考图通用还原SOP.md` —— 八步流程、十类协议表、三个决定性细节、验收纪律。
+
+**实测**：`shape_selftest` ok（10 类协议无缺项 + 旋转体通路）；目录 **26 → 27 family / 167 → 176 op**；
+无头整合自检 100 → **107 断言**，全绿；`npm test` 全绿。
+
+### D15 · P3.6：圆角特征线（真半径，G1/G2 过渡）
+
+特征线从"硬折线"扩展到"**带半径的圆角**"：`crease_lines` 的条目加 `radius_mm` + `segments`，
+走 **Bevel 权重属性 + Bevel 修改器**（`limit_method=WEIGHT`、`affect=EDGES`、`profile=0.5` 正圆）——
+**不是**用折痕权重去近似半径，而是生成真正的圆弧过渡几何。
+
+```python
+crease_lines=[{"frac":0.55,"radius_mm":6.0,"segments":3},   # 腰线：R6 圆角（3 段圆弧）
+               {"x_mm":1500,"radius_mm":4.0,"segments":2}]   # 横向分缝：R4
+```
+
+**实测**：硬折线版 762 顶点 → R6 圆角版 **1244 顶点**（真加了圆角几何）；回执 `bevel={radius_mm:6.0, segments:3, edges:30}`；
+修改器全部落地（对象栈不残留）；同带宽度 868.45（硬）→ 883.64（R6）—— 圆角把尖角换成圆角后外轮廓略外扩，符合预期。
+
+实现细节：① 折痕标记函数参数化为 `attr_name`（`crease_edge` / `bevel_weight_edge`）+ `default_w`，两条路共用同一套环索引逻辑；
+② Bevel 修改器插在 Subsurf **之前**（先圆角后细分 = 硬表面标准栈）；③ 没开 subsurf 时也要单独应用 bevel，否则圆角只挂在栈上、几何没变。
+
+目录不变（26 family / 167 op）；无头整合自检 96 → **100 断言**，全绿。
+
+### D14 · P3.5：特征线层（面感参数化）
+
+`vehicle_loft` 新增 `crease_lines`（SubD 折痕 = 硬折线）与 `inset_lines`（几何折面/凹槽），两者都按**高度或位置 + 区间**指定：
+
+```python
+crease_lines=[{"frac":0.55,"weight":0.8},                    # 按各环高度比例（腰线，推荐）
+               {"z_mm":560,"x_mm":[400,3900],"weight":0.85}, # 绝对高度的纵向线
+               {"x_mm":1500,"weight":1.0}]                   # 横向分缝（自动插站）
+inset_lines=[{"z_mm":470,"band_mm":60,"inset_mm":12,"x_mm":[500,3800]}]   # 门线凹槽/折面
+```
+
+**实测**：肩线折痕 10 条环边 · 横向分缝 20 条边（整圈）· 凹陷 A/B 同带宽度 **868.9 → 850.2mm（−18.7mm）**。
+
+**两个必须记下的坑**：① **不能按 z 带匹配边** —— 环上顶点是离散的，目标高度上常常根本没有边（实测 `frac=0.55` 标到 **0 条**）；
+改用**环索引**标记（纵向线 = 各环最近点的连线）后稳定命中；② 横向特征线要求那个 x **有站位**，否则同样 0 条 —— 
+现在 `vehicle_loft` 会在横向线处**自动插站**（实测 `stations_inserted: 1`，边数 0 → 24）。
+
+诚实口径：`z_mm` 只在几何确实存在该高度处中标（数量偏少是正常的）；要一条连续的腰线请用 `frac`。
+目录不变（26 family / 167 op）；无头整合自检 92 → **95 断言**。
+
+### D13 · P3.4：更强的形状族（折线闭合剖面）+ 照片透视校正
+
+- **① 折线族 `profile_pts`**：`vehicle_spec` 接受显式控制点 `[[x,z_top,z_bottom]…]`（三点 = **闭合剖面**，上下轮廓都来自参考图）⇒
+  `_profile_points` 用它直接建多边形，能表达 cargen 族**表达不了**的形状（方箱 / 皮卡 / 装甲 / 科幻）。
+  拟合器加 `family="polyline"` + `control_points` **K 扫描**（K 越少 spec 越简单）：
+  实测同一轮廓 —— cargen 族 0.637 → 0.667（240 次）；折线族 K=6 **0.754**、K=10 **0.781**、K=16 **0.821**（各 200 次）。
+  即**天花板从 0.67 抬到 0.82**，并给出 K↔IoU 取舍曲线（挑"够用就好"的控制点数）。
+- **② `img_rectify`（照片透视校正）**：四角点 → 矩形的**单应校正**（4 点 DLT 解 8 参数 + 双线性采样），
+  **纯 numpy，不依赖 OpenCV**；给 `known_w_mm` 时直接回 `mm_per_px`，校正后的图再喂 `vehicle_sections`/`img_scan` 才准。
+
+**踩坑记录（两个都是"改了会让结果静默归零"的）**：① 把 `_profile_points` 拆成 cargen/折线两条路时，
+`L/H/ride` 三行留在了被切走的头部 ⇒ `_profile_cargen` 抛 NameError ⇒ **cargen 拟合 IoU 归零**；
+② `_load` 返回 `(arr, path)` 而不是裸数组 ⇒ `img_rectify` 报 tuple 无 shape。都已修并有断言兜。
+
+目录 26 family / **166 → 167 op**；无头整合自检 89 → **92 断言**，全绿；`npm test` 全绿。
+
+### D12 · P3.3：外壳还原三件套（截面轮廓 / 多区域 / IoU 闭环）
+
+- **③ 前视截面轮廓**：`vehicle_sections` 从**前视图逐行宽度**提取归一化形状 `section_shape[{z_frac, hw_frac}]`（20 点）；
+  `vehicle_loft(section_shape=…)` 用它造环（`section_source: front_view_shape`）—— 截面性格不再靠超椭圆公式猜。
+  **顺带修掉一个失真**：只有侧+前视图时 `half_w_mm` 缺失会让车身窄成 460mm ⇒ 加「前视最大宽 × 平面收放假设」回填
+  （`half_width_source: front_view_taper_assumed`），实测宽度恢复 **1850.0mm**。
+- **② `vehicle_regions`**：把参考图按 x 区间切成多块，**每块一个独立体量**（卡车驾驶室+货箱、装甲车体+炮塔、科幻主体+吊舱）。
+  实测 3 区域 → `DBG_R_nose/cabin/tail` 三件，各自有尺寸。
+- **① `vehicle_fit`：站表 → IoU 拟合闭环**（纯 2D 梯形积分，**不需要渲染**，比走 `rt_loop` 快一个量级）。
+  目标轮廓 = 量出来的站表；候选 = 15 参数剖面公式；目标函数 = 两区域 IoU；搜索 = **解析反推初值 + 多起点 + 坐标下降**。
+  实测：默认初值 IoU 0.456 → **解析反推初值 0.637** → 精修 **0.667**（迭代 240 次）。
+  踩坑记录：解析初值把 `height_mm` 改成量到的值后，默认轮径 340mm 触发「轮径 > 0.65×车高」校验 ⇒ 候选全废弃、**IoU 归零**；
+  加**参数自洽化守卫**（轮径/轴距/轮距随测量值等比收缩）后恢复正常。
+
+**诚实边界（写进文档）**：`vehicle_fit` 拟合的是 **cargen 那 15 参数形状族**——
+如果参考轮廓不在这个族里（例如方箱式），IoU 会停在 ~0.67 上不去；**要精确复刻就用站表直放样路径**（构造上就等于轮廓）。
+两者分工：`vehicle_fit` 给「可复用、可改参数的 spec」，`vehicle_loft(stations=…)` 给「贴着参考图的壳」。
+
+目录 26 family / **164 → 166 op**；无头整合自检 83 → **89 断言**，全绿；`npm test` 全绿。
+
+### D11 · P3.2：外壳还原（三视图 → 站表 → 参数化放样 → 缝 → IoU）
+
+承接 D10：`vehicle_base` 的 15 参数只能表达"单体积车"，复杂/跑车外形表达不了 ⇒ 升级为**站表驱动**。
+
+- **`img_scan` 补 `col_top/col_bottom/col_fill`**（逐列上下边界）——站表的原料（此前只有逐行宽度）。
+- **`vehicle_sections`**：侧视图（必需）+ 俯视/前视图（可选）→ 站表 + 截面参数 + 包络数字：
+  侧视逐列给 z_top(x)/z_bottom(x)；俯视给 half_w(x)；前视给腰线高度 / 侧倾 tumblehome / 下裙内收。
+  轮轴 x 用**轮廓底部低洼段聚类**自动定位（轮子与车身在填充轮廓里连成一片，不能用"贴地几像素"判 —— 实测只识别出 1 段）；
+  阈值自适应（z_min + 0.35×(中位底边 − z_min)）。实测：合成跑车侧视（1px=10mm）⇒ 车长 **4300** 精确、
+  轴距 **2687.5**（真值 2600，误差 3.4%）、前轴 860（真值 900）。
+- **`vehicle_loft`**：站表 → 逐站超椭圆环 → 放样；截面性格由 `n_top/n_bot/tumblehome/beltline_frac/
+  shoulder_inset/sill_tuck` 控制；`flare_mm` 做轮眉外扩（默认落在**底边被抬起**的站位 = 轮拱）；
+  `crease_shoulder` 给腰线环边加 SubD 折痕（面感来源）。**折痕走 Blender 4+ 的 `crease_edge` attribute**
+  （`e.crease_weight` 已不存在 —— 实测第一次 crease_edges=0）。实测：41 站 → 4295×611×723mm、3242 顶点、**134 条折痕**。
+- **`vehicle_panels`**：在给定 x 处**减去薄板**（缝宽 = 真几何）并可 `separate(type=LOOSE)` 成多件。
+  实测：两刀 ⇒ 3 件、缝宽量到 **3.9999mm**、零互穿。
+
+**已知边界**（写进 Recipe 18）：没俯视图 ⇒ `half_w_mm` 缺失、车身偏窄（实测 611 vs 应 1850mm）；
+轮径无法从填充轮廓反推（需 `wheel_r_px` 或已知规格）；照片参考必须先透视校正；
+最后 20% 面感靠折痕位置与曲面张力微调。
+
+目录 26 family / **161 → 164 op**；无头整合自检 78 → **83 断言**，全绿；真机四件套（sections/loft/panels/clear_check）跑通。
+技能补 **Recipe 18**（并写明：这套"包络→站表→截面→特征线"对**凡有明确外轮廓的物体**通用；不适用布料/流体与内部结构定义的件）。
+
+### D10 · P3：车辆外壳（参考图 → 剖面数字 → 放样）+ 成对间隙门
+
+问题（用户原话）：车辆建模完全不像参考图、还各种穿模。诊断：**车壳必须由剖面参数放样，不能靠雕曲面**。
+
+参考实现（GitHub）：**fpagerie/cargen**（Blender 插件，从参数生成车壳：长宽高 / 轴距 / 前轴到车头 / 轮+胎半径 /
+轮宽 / 轮陷入地板比例 / 格栅高 / 引擎盖角·长 / 风挡角 / 车顶长·角 / 后窗角·高 / 后备箱角；米 + 度，角度从水平量）；
+**vehicle-design 技能**的 Proportion-First 协议（人眼对车比例极敏感，表面细节救不了错比例）。
+
+**新家族 vehicle（5 op）**：
+
+- `vehicle_package`：比例门 —— WBR（轮径/车高）、轴距/车长、高/长、轮距/车宽、前后悬、离地间隙，逐项给区间与判定。
+  WBR 区间按**真车标定**（911(992) 1300/680 ⇒ 52% · Corolla 1435/632 ⇒ 44% · Range Rover 1870/781 ⇒ 42%）；
+  vehicle-design 技能的 35-45% 是另一套口径（相对车身而非总高），代码里写明了基准避免拿错。
+- `vehicle_base`：纵向剖面 → 逐站超椭圆截面 → 放样成壳；**站位在轮缘处加密**（46 站 = 28 均匀 + 18 加密）；
+  **布尔扣精确轮眉**（半径 r + arch_clear 的圆柱）；四轮（轴沿 Y）+ 车轴/车头/车尾标记。
+  实测：4300×1850×1140mm、1101 顶点、4 轮在 x=900/3500、z=289、r=340。
+- `vehicle_spec` / `vehicle_selftest` / `vehicle_help`。
+
+**新家族 clearance（3 op）**：`clear_check` 规则表驱动的成对间隙/互穿判定（`min_mm` 管间隙、`allow_overlap` 管板件互插）。
+实测：10mm 间隙过 · 2mm 挂 · 互穿挂 · 允许互插过；**轮与壳零互穿（间隙 10.51mm）**。
+
+**过程中抓到的三个真问题（都是先量后修）**：① 轮子转轴转错（绕 Y ⇒ 轴朝车头，轮子横着长进壳里，78 对面相交）；
+② 轮眉解析式在轮缘处断崖 + 站位过粗 ⇒ 弦切进轮子（58 → 20 对面相交）⇒ 改布尔扣；
+③ `vehicle_spec` 返回 dict 而 API 层期望 JSON 字符串（`KeyError/TypeError`）⇒ 已修，并在 6 个模块的 API 层加了防御。
+
+目录 24 → **26 family / 153 → 161 op**；无头整合自检 71 → **78 断言**，全绿。
+
+### D9 · 整合方案 P2：零素材人形（human 家族）
+
+素材路线（MPFB2）在 Blender 5.2 上走不通（源码树只有 fake_bl_info；重启后加载器仍不扫目录型 legacy 插件，
+报「The package does not name an extension」），且用户不想下载 GB 级素材包 ⇒ 改走**零素材**参数化路线。
+
+**新家族 human（5 个 op）**：
+
+- `human_base`：只填数字（身高 mm / 头身比 / 肩宽 / 姿势）→ 骨架线 + Skin + Subsurf → 素体；
+  回 `heads_measured`（**几何量出来**，不是拿 spec 复述）/ `head_mm` / `shoulder_over_head` / 19 个关节空物体。
+  实测（1750mm / 7.5 头身）：高度 **1750.00mm 误差 0**、头身比 **7.546**、肩宽 350mm、肩/头 **1.51**、58,181 顶点。
+- `human_measure`：优先读建模时写入的对象属性（head_mm/heads），退回关节标记几何。
+- `human_spec`：参考图轮廓 → 像素比（height/head_w/shoulder/waist + 每行前景宽度 profile）。
+- `human_head`：9 点 landmark → 参数化头型（颅椭球 + 下颌楔）+ 五官定位标记；
+  实测 head_mm=233 → 三围 171.7×206.0×238.4mm，landmark_fracs 眼线 0.50 / 鼻底 0.725 / 嘴线 0.825。
+- `human_selftest` / `human_help`。
+
+**踩到并修掉的三个真坑（都是实测）**：
+
+1. **Skin 修改器必须标 `use_root`** —— 不标则生成**零宽**几何（实测三组测试尺寸全是 [0,0,0.6]）；
+2. **Skin 的末端大球不成立** —— 头中心会算到网格顶之上（头高量出 26mm 而非 233mm）⇒ 头改成**精确椭球**同网格合并；
+3. 收敛方向写反过（应乘 实测/目标），且量测前没更新 depsgraph（新建空物体读到 0）。
+
+**接进现有流程**：gate 的 OP_MAP 加了 4 个人形 op，`ensureGate` 链路带上 human ⇒ 门里可直接判「人形比例」；
+实测 `gate_run` 一个三门的包 → **verdict=pass**（body 高度误差 0 · props 头身比 7.546/肩头比 1.51 · head 头高 233mm）。
+技能补 **Recipe 15（人形素体）/ Recipe 16（人脸头型 + 遮住策略）**。
+目录 23 → **24 family / 147 → 153 op**；无头整合自检 63 → **71 断言**，全绿。
+
+### D8 · 整合方案 P1-③：资产门 + 第二自交通路（已落地）
+
+- gltf_validate（Khronos glTF-Validator 2.0.0-dev.3.10）：绕过 npm 故障（直取 registry tarball → runtime/ext/node_modules）。
+  真机 GLB 实测 ok=true / errors=0 / warnings=0；回执给 messages[].code，规则码可直接进 gate spec 的 pass_if。
+- ext_mesh_check（open3d 0.20.0）：独立 venv（绕 PEP 668）+ apt 补 libusb-1.0-0，装在插件自己的 runtime/ext/ 下。
+  A/B 实测：完好件 watertight=true / edge_manifold=true / 12 面；删一面后 watertight=false / 10 面
+  —— 与插件内 audit 的结论一致，这就是换一条独立通路的意义。
+- 两个 op 都在本地 spawn（不占 Blender 往返），候选命令按平台排序（后端实测跑在 WSL）；回执带 used / tried，
+  失败时给确切安装命令。
+- 实测坑：给 open3d 导出用 PLY/STL，不要用 OBJ —— Blender 5.2 的 OBJ 被判成 non-triangle primitive 读成 0 面。
+- 目录 22 → 23 family / 145 → 147 op（ext 家族），只读白名单加 gltf_validate。
+
+### D7 · 整合方案 P0：门标定套件 + 参考图量具（并把门的 4 个真 bug 挖出来）
+
+对着"flash 上限 = 外部通路覆盖面"这条结论落的两件工具：
+
+**① 门标定套件 `calib_run`（8 类缺陷 + 健康基线对照）** —— 回答"你的门到底抓得住什么"：
+注入 8 类已知缺陷（删面 / 反转法线 / 孤立点 / 自交 / 平移脱开 / 浮块 / 薄壁 / 同名分叉资源），
+每类判 caught，并跑一次**健康基线**（4 条门必须全过，否则标定作废 —— 假阳性对照）。
+**最终：baseline_pass=true、capture_rate=1.0（8/8）、missed=[]**。
+但它第一次跑出来的是 **7/8**，并且顺着 `thin_wall` 这条漏网查出了 **4 个真 bug**：
+
+| # | bug | 症状 | 修法 |
+|---|---|---|---|
+| 1 | `print_walls` 射线起点偏移 `0.25×面尺寸` | 40×30×**0.3mm** 板采样为 0，报 30mm、thin=0（薄板根本测不到） | 起点只避开本面片（`1e-3×面尺寸`） |
+| 2 | 同一表面片的判定用"距离阈值" | 体素重构球出现 26% 假薄壁（此前用面尺寸阈值压着，一改就复现） | 改用**命中面法线**区分同片（同向）/对壁（反向），8 次重试 |
+| 3 | `_scale_avg(ob)` 用于各向异性缩放 | 底板 z 缩 0.1（3mm→0.3mm）被算成 2.1mm ⇒ 薄壁漏判 | 命中点与面心都用 `matrix_world` 变换后量**世界距离** |
+| 4 | gate 的 `pass_if` 优先级 | 子 op `ok=false`（如 print_report 的"某件悬垂不过"）压过显式判据，判据为真也判 fail | **写了 `pass_if` 就以它为准**，只有 degraded 例外（不许把降级读成通过） |
+
+— 顺手：`print_report` 增加门友好顶层字段（`walls_ok / overhang_ok / thin_samples_total / worst_min_mm /
+**worst_p05_mm**`）；门判据改用**稳健分位 p05**（实测体素球有 0.05% 近零离群样本，判 min 会假报薄壁）。
+
+**② 参考图量具 `img_scan / img_crop / img_annotate / img_diff`** —— 把"看不清"变成"不用看"：
+- `img_scan`：轮廓 bbox / 长宽比 / 填充率 / 主轴角 / 主要直线角度 / ROI 前景率 / 指定点取色（Otsu 自分割，
+  并给 `mask_warning`：前景 >95% 就明说"没分出背景，数字不可信"）
+- `img_crop`：ROI 裁剪 + 最近邻上采样落盘（**中央凹式看图**：一次一块，尽量占满视觉输入）
+- `img_annotate`：线/框/十字/网格画回图（图上看颜色、数字看 legend）
+- `img_diff`：两图轮廓差分 → **IoU + a_only/b_only + 各轴剖面差 + 红蓝叠加图**（对"哪里多/少"远比"像不像"敏感）
+- 自检（合成已知几何）：bbox 精确 `[20,30,80,60]`、长宽比 1.3333、放大 2× → 160×120、对齐 IoU=1.0、不对齐 0.6 ⇒ **全绿**
+  （自检过程中修掉 Otsu 的并列平台 bug：双峰图上 `argmax` 落到 0 ⇒ 阈值 0 ⇒ 掩膜全空）
+
+**接线**：目录 19 → **21 family / 132 → 141 op**；只读白名单 +3；两者都能用 plan op 直接调
+（`img_selftest` / `calib_run` / `calib_selftest` 真机验证通过）。
+
+### D6 · 相贴误报收口 + 灯组可发现性
+
+- **修 · "正好相贴"被误报成浮块**（D5 里标"待决策"的那条）：根因是 `_components()` 会按 precision
+  把**坐标重合的顶点焊接** —— 两块正好相贴的壳因此并成 **1 个连通分量**，而分类逻辑接着问"这个分量跟别的分量相接吗"，
+  没有别的分量 ⇒ 判成可见浮块。**判据修正在语义层**：整个范围只有 1 个连通分量时，`"与其它分量不相接"` 这条判据
+  无从成立 ⇒ `attached=True`、`evidence="single-body"`，并在 `confirm_note` 里指路
+  `audit_mesh(island_split=true)` 查内部壳贴合。
+- **三种相邻关系回归**（各 1 单位立方体两块，同一 mesh）：
+  | 关系 | 修前 | 修后 |
+  |---|---|---|
+  | 互插 0.1（工艺要求） | pass（micro 容忍 2） | **pass**（不变） |
+  | **正好相贴 gap=0.00 mm** | **fail（误报 1 个可见浮块）** | **pass**（可见浮块 0） |
+  | 相距 5 单位（真孤立块） | fail | **fail**（不变） |
+- **② 灯组可发现性**：`qc_render_views` 的 `lights={key,fill,rim}` / `lights=false` /
+  `lights_mode="add"|"only"` 一直支持，但 qc 家族目录里没提（现场为此自己补了一盏背光）。已补进家族条目。
+- 回归：无头整合自检 **61 → 63 断言**（新增"相贴 ⇒ pass 且可见浮块=0""孤立块仍 fail"）；`npm test` 全绿。
+
+### D5 · 现场反馈 ③①②（规格驱动门包 / 自交分岛 / 逐对象三态）
+
+来自同一次 95 对象装配反馈的三条真缺口，一次做完（无头整合自检 51 → **61 断言**，全绿）。
+
+**③ 规格驱动门包（`gate_plan / gate_run / gate_selftest / gate_help`）** —— 现场为这三个门自写了
+interference / redcheck / selfint_diag ≈600 行，现在由插件执行与取证：
+- spec 三形态：.json / .py 模块（`SPEC` 或 `NAME/UNITS/TOLERANCE_MM/GATES`）/ 内联 dict，另带 3 个 preset
+  （assembly / print / delivery）
+- **三态显式**：每门 pass/fail/degraded/error；整包 `verdict` = 任一 fail → fail，否则任一 degraded → degraded，
+  否则 pass；`ok` 只在 pass 时为 true —— 现场"降级长得太像绿"这条从字段层面堵死
+- `pass_if` 是**受限表达式**（ast 白名单：比较/布尔/算术/属性 + min·max·len·abs·round·all·any·sum），
+  **回执只回 pass_if 用到的字段**（自带瘦身）；引用了不存在的字段 ⇒ 该门判 error 并列出可用字段
+- 实测：`gate_plan(preset="assembly")` 955 字符列出 3 门与各自 reads；`gate_selftest` 绿；
+  真机跑包 738 字符；子 op 报错时**端上它的原话**（原先会误报成 "pass_if 求值失败"）
+- 插曲：真机验证顺带发现你当前场景是 **103 个对象 / 0 个 mesh**（audit_scene 如实拒绝："场景里 0 个 mesh"）
+
+**① `audit_mesh` 自交分岛（`island_split` / `min_island_verts`）** —— 现场手工做过的归因实验内置：
+- 边连接并查集 → 连通岛；自交对分**同岛 / 跨岛**；`min_island_verts=N` 滤掉"任一侧面属于 <N 顶点小岛"的相交
+- 新字段：`islands{count, small_islands}` / `self_intersections_same_island` / `_cross_island` /
+  `_filtered_small_island` / `_kept`，进 `summary_only` 白名单
+- 自检：宿主(细分立方体)+铆钉(小立方体) ⇒ 认 2 岛、跨岛>0 同岛=0；`min_island_verts` 一开 ⇒ 全滤掉、kept=0；
+  一条边把两块壳连起来 ⇒ 认 1 岛且记同岛自交（**真互穿 vs 良性压入**从此可分开读数）
+
+**② 连通性逐对象 + verdict（`per_object=true`）** —— 3 M 面整体只能 bbox-only 的那个坑有正解了：
+- `audit_connectivity(per_object=true)` 逐件跑，每件通常在上限内 ⇒ 拿回 mesh(BVH) 级结论，
+  回 `objects[{object,state,verdict,tris,mesh_mode,real_floaters,reason}]` + `"failed_objects"/"degraded_objects"`
+- `_gate_from` 与 `audit_gate` 都补 `verdict`；degraded 一定带 `warn: "DEGRADED ≠ 通过…"`
+- 实测三种相邻关系（各 1 单位立方体两块）：**互插 0.1 ⇒ pass**（micro 容忍 2）；**正好相贴 gap=0.00 mm ⇒ fail**
+  （报成 1 个可见浮块）；**相距 1.2 单位 ⇒ fail 真浮块 2**。
+  ⚠ **待决策**：第二条是**误报**——间隙恰好 0 时三角级复核没把它算作"贴而未重合"。默认单位下 1 unit = 1 m，
+  0.3 mm 口径＝0.0003 unit，所以第三条不是 bug（200 mm 间隙本就该挂）；只有"正好相贴"这一种要修。
+
+**顺手修**：`PATH_GUARD` 的 hint 里 `C:\home` 转义漏了一层 ⇒ 每次无头运行都刷
+`SyntaxWarning: invalid escape sequence '\h'`（已修，重启后端后验证消失）。
+
+### D4 · 现场反馈第一批（MK1 大件实测 · 已修 + 已核对）
+
+来自一次 95 对象 / 3.05 M 面 的真实装配建模，逐条对到代码后的结论：
+
+- **✅ 修 · script_file 的上下文（反馈 #4）**：script_file 是**内联**执行的（拷进 `D:\DSH\blender\tmp\dsh_headless_*.py`），
+  以前 `__file__` 指向那个临时包装文件、脚本目录也不在 sys.path ⇒ 多文件工程第一行 `import spec` 就
+  `ModuleNotFoundError`。现在注入 `DSH_SCRIPT_FILE` + 把 `__file__` 指回原脚本 + 脚本目录插入 `sys.path[0]`。
+  复现验证：`tmp/sfprobe/{spec.py,main.py}` 不传 workdir 直接跑通（之前必挂）。
+- **✅ 修 · WSL 路径"二次前缀"**：`"home/…/DSH/测试/x.py"`（漏了开头 `/`）会被当相对路径接到 cwd 后面 →
+  `…\DSH\home\sixtyseven67\DSH\测试\x.py`。现在 `slipFixPath()` 判"补 `/` 后确实存在"即纠正，并写后端 stderr；
+  覆盖 script_file / file / outdir / out_json / workdir 五处入口。复现验证：同一条调用传漏 `/` 的路径直接跑通。
+- **✅ 记 · 路径语义进说明第一行**：schema 描述首段加警示；19 个参数的长尾（含超时/路径/回执语义）在
+  `blender_rt_plan(op="catalog", args={tool:"rt_headless"})`。**注意**：第一版加长了描述被**预算门拦下**
+  （rt_headless 1,690 > 1,600 字符），压缩文案后 38/38 通过 —— 门按设计工作。
+- **🔎 反馈 #5"自定义灯组"其实早已支持**：`qc_render_views(lights={key,fill,rim}, lights_mode="add"|"only")`
+  —— 现场"出背面全黑"是因为没用它（属**可发现性**问题，不是缺功能；待办：qc 家族条目补提示）。
+- **⏳ 待决策**：反馈 #1（`audit_mesh` 自交**按连通岛分栏** + 小岛过滤）、#2（连通/gate 支持**逐对象或分块**
+  且 `degraded` 不能长得像绿）、#3（**spec 驱动的一键门包**：现场自写 interference / redcheck / selfint_diag 约 600 行）
+  —— 三条都是真缺口，等排期（成本从低到高：#2 < #1 < #3，价值从高到低：#3 > #1 > #2）。
+
+### D3 · 验证者成本：清单外置 + 回执瘦身（B 档，低风险可逆）
+
+**归因（先量后改）**：起一个"干净验证子代理"的固定成本 ≈ 工具 schema 2.8k + **SKILL.md 全文 ≈16–22k** +
+AGENTS 3.7k ≈ **23–29k tokens**，而且**每轮重付**；真正的门调用（10 天日志里 audit_gate 21 次、audit_mesh 17 次…）
+反而便宜。⇒ 要省的是**加载外围**，不是判据。
+
+- **① 清单外置**：`dsh-skill-blender-modeling/references/验收清单.md`（**2,249 字符 ≈ 0.8–1.2k tokens**）：
+  验证者任务模板（固定输入 + 固定 4 行输出）+ 数值门判据表（audit / print / deliver / uv 各一条命令与阈值）+
+  **反 Goodhart"换一条计算通路"的判据**（构建用 `Object.dimensions` ⇒ 验证必须用 `matrix_world @ v.co`…）+
+  跑偏自查。**单次验证固定开销 ≈23–29k → ≈7.3–7.7k**（省 ≈16–21k/次 × 轮数）。
+- **② 回执瘦身**（默认**全关**，显式传参才生效，完全可逆）：`audit_scene(summary_only, top_k)`、
+  `audit_mesh(summary_only)`、`audit_duplicates(top_k)`。实测 40 对象场景（1/4 带缺陷）：
+  **9,176 → 1,148 字符（−87%）**、`top_k=2` → **773（−92%）**，而 `clean` 与 `totals` **判定完全一致**
+  （验证强度不变）；`audit_mesh` 瘦身去掉 `self_intersection_pairs` 等明细、判据字段全留。
+- **③ 顺手修一个静默失效**：`audit_duplicates(limit=30)` 收了参数从来没用过 —— 现在真正生效，
+  截断时回 `materials_total` / `meshes_total` 与 `slim`（"跑过了"不再伪装成"查全了"）。
+- **④ 回归**：无头整合自检 **34 → 42 断言**（判定不变、top_k 生效、瘦身 ≥70% 字符、mesh 明细被去掉、duplicates 有 slim）。
+- **⑤ 指路**：SKILL.md 首屏 + 两份 AGENTS.md 各加一条"验证子代理只读清单"；`op="catalog"` 的 audit 家族条目
+  补上 `summary_only / top_k` 提示（`audit_mesh` 回执 >6k 字符时会自动给 `hint`）。
+
+### 许可
+
+接口形状与判据参考上游，**代码为本插件自有实现**（blend-ai 是 AGPL-3.0，不复制其代码；mcp-for-blender 是 MIT）。
+
+## v0.9.5（2026-09-26）—— 实测驱动的三项性能修复 + 多实例热会话 + 健康分布指标
+
+来源：本机实测（方案与全部原始数字见 `DSH/blender/实测驱动的通道+Skill优化方案-2026-09-26.md`）。
+一句话：**把力气从"看起来更聪明的新机制"挪到实测出来的三个大头**——诊断探针、重复帧、小作业固定开销。
+
+### P0-1 · `rt_see` 诊断惰性化（自定义视角路径 −39~40%）
+
+- **实测**（403 物体 / 128k tris）：`capture()` 里三项诊断（coverage / scene_bbox / objects_in_frame）
+  每次都要 63 ms（560px）、137 ms（1120px）、488 ms（2240px）；而真正的 `draw_view3d` + 显存读回只有 ~22 ms。
+- **改法**：`_spec()` 增 `diagnostics`（默认 **false**）；正常帧只回图/hash/ms/矩阵。
+  **近空帧自动补跑**（PNG < `EMPTY_PNG_BYTES`=8000 字节）⇒ `frame_looks_empty` 告警照旧；
+  显式 `diagnostics=true` 可强制每次都跑。顺手修掉渲染兜底分支里**连着调两次** `_scene_bbox()` 的浪费。
+- **实测收益**：560×315 从 **146.3 → 88.6 ms**；1120×630 从 **301.3 → 179.4 ms**；强制诊断路径不变（161 ms，语义与 v0.9.1 一致）。
+- **回归**：`tests/view_diag_selftest.py` 新增 5 项断言（不变量 = "跑了诊断 ⟺ 显式要求 or 字节数 < 阈值"），
+  21/21 全绿；`npm run test:diag` 把"怎么跑"固化成命令（需要后端 9877；会按 `DSH_LEASE_HOLDER`/ `GET /who` 找 holder，**不 force 抢租约**）。`VIEW_VERSION` 2 → 3。
+
+### P0-2 · 帧去重：同一画面不重复附图（省的是模型侧 token）
+
+- **实测**：同一画面连发 5 次 hash 全等（`038c7439`），单帧 116,870 B —— 重复附图只烧视觉 token。
+- **改法**：hash 早已算好（`fetchFrame`/`fetchView` 的 PNG md5 前 8 位），新增 `frameDedupe(key,hash,force)`：
+  同键同 hash ⇒ 回执写明"与上一张完全相同（第 N 次）⇒ 未重复附图；要重发传 force:true"；
+  键按通道隔离（`viewport:<size>` / `area:<n>` / `view:<视角签名>` / `do-see:<size>`）；**空 hash 永不判重**（宁多发一张，不静默丢图）。
+  `blender_rt_see` 与 `blender_rt_do` 各增 `force` 参数。
+- **回归**：`tests/frame_dedupe_selftest.mjs` 15/15（已并入 `npm test`）。
+- ⚠ **生效范围**：这一段在 host 侧（`lib/index.js`），**重启 DSH 后生效**（同 v0.9.4 的说明）。
+
+### P0-3 · `rt_loop` 平台期早停（默认关）
+
+- **实测**：空转 176 tps（5.7 ms/tick = timer 地板，没有"无效空转"可省）；measure 重（~72 ms/次）时 12.4 tps（measure 占 ~90%）；
+  同一 measure + `measure_every=20` ⇒ 96.8 tps ⇒ **频率旋钮本来就存在**，所以本版**不做**"动态调频率"。
+- **改法**：spec 增 `patience`（0 = 关，默认关）：连续 patience 次 measure 没刷新 best ⇒ `stop_reason="plateau"`，
+  status/回执带 `patience` / `last_improve_i`。只在"已经有 best"时判，避免 measure 一直不给 score 的循环被误杀。
+- **实测**：patience=0 跑满 200 迭代（与旧行为逐字节同）；patience=10 + 30 次后不再变好 ⇒ **i=41 停**（`last_improve_i=31`）；
+  持续变好的 loop 不早停。`RUNNER_VERSION` 2 → 3。
+
+### P1-1 · 多实例热会话（小作业固定开销 2.7 s → ~0）
+
+- **实测**：空脚本冷启动 **1000–1257 ms**（开 2.5 MB 工程 1287 ms / 11 MB 1386 ms）；小渲染作业（512²/16spp/2 帧）
+  总 3098 ms 里**首帧着色器编译就占 1640 ms** ⇒ 固定开销 ≈2.7 s = 85%；而 2 并发只慢 ~10%（GPU 有余量）。
+- **改法**：`blender_rt_worker` 从"单例"变**按 name 的多实例**（`op=start name=w1` / `exec name=w1` / `status` / `stop` / `restart` / **新增 list**），
+  端口按 name 顺延（配置端口起）；缺省名 `default` ⇒ 老调用逐字节不变；`/worker` 路由与 `/health` 的 `rtt.worker` 同步。
+- **实测收益**：同一句脚本，**热会话 40–60 ms** vs **冷启动 1257 ms**（≈20–30×）；批量小活不再每次 spawn。
+- ⚠ **权衡写进描述**：复用 = 主动放弃"无头进程隔离"（同实例共享场景与 K）⇒ 脏了用 `restart`，要干净场景仍用 `headless`。
+
+### P2-1 · `/health` 增分布指标（**只观测，不自动重启**）
+
+- 新增 `rtt`（frame/act/view/headless/plan/worker/job 各留最近 20 次样本的 `last/p50/p95/n`）与
+  `backend{pid,rssMB,uptimeMs}`。**不包含 blender.exe 的 RSS**（Windows 侧，取一次要起 tasklist，百毫秒级，不塞热路径）。
+- 为什么不做"预测性重启"：误杀一次 20 分钟渲染的代价远大于省下的重启时间；自动拉起仍只在"端口/PID 明确死亡"这一确定态发生。
+
+### P2-2 · `rt_job op=list` 偶发 abort（登记，未复现）
+
+- 现象：本次会话中 `op=list` 连续两次 `This operation was aborted`，同一时刻 `/health` 2.7 ms 正常、无残留进程。
+- 复现尝试：**重启后端后同一调用 116 ms 正常返回**（60 条台账 + 内存句柄都在）。⇒ 判为**瞬时态**，未找到可复现缺陷；
+  已给 `/job` 路由加 `rtt.job` 埋点（P2-1），下次再现时先看分布与 `inflight`，再谈修。
+
+### 验证
+
+- `npm test`：protocol / lossless / lease / **frame-dedupe 15/15** 全绿。
+- `npm run test:acceptance`：**62 通过 / 0 失败**（44 s）。
+- `npm run test:diag`：**21/21**（含 P0-1 的 5 项新断言）。
+- 真机数字：见上文各条（同一脚本改前/改后对拍）。
+- ⚠ **生效范围**：`runtime/*.py`（view / runner）改完即生效（注入按 size+mtime 指纹自动重注）；
+  `runtime/server.mjs` + `engine.mjs` 需**重启后端**（`blender_viewport op=restart`）；
+  `lib/index.js`（工具层：force / patience 文档 / worker name / list）需**重启 DSH**。
+
 ## v0.9.4（2026-09-25）—— 返回通道修复（P0）+ 一键启动器（P1）+ skill v2
 
 来源：另一会话《M1A1 分件建模》体感清单（500 对象 / 7 agent / 全程 headless / 主战场是自写 `tools/bl.sh`）。

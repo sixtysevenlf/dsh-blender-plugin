@@ -98,8 +98,242 @@ def _pick(objects=None, scope=None):
     return objs, [], None
 
 
+def _box_relation(a, b, tol):
+    """两个 AABB 的关系：apart / a_in_b / b_in_a / same / cross。"""
+    if any(a[1][k] < b[0][k] - tol or b[1][k] < a[0][k] - tol for k in range(3)):
+        return 'apart'
+    a_in_b = all(a[0][k] >= b[0][k] - tol and a[1][k] <= b[1][k] + tol for k in range(3))
+    b_in_a = all(b[0][k] >= a[0][k] - tol and b[1][k] <= a[1][k] + tol for k in range(3))
+    if a_in_b and b_in_a:
+        return 'same'
+    if a_in_b:
+        return 'a_in_b'
+    if b_in_a:
+        return 'b_in_a'
+    return 'cross'
+
+
+def _shell_bvh(shell, cache, key):
+    """壳内面的 BVH（包含性确认用）。建不出来返回 None —— 调用方必须降级，不许当通过。"""
+    if key in cache:
+        return cache[key]
+    from mathutils.bvhtree import BVHTree
+    verts, idx, polys = [], {}, []
+    for f in shell['_faces']:
+        loop = []
+        for v in f.verts:
+            i = idx.get(v)
+            if i is None:
+                i = len(verts)
+                idx[v] = i
+                verts.append(v.co.copy())
+            loop.append(i)
+        if len(loop) >= 3:
+            polys.append(loop)
+    bvh = BVHTree.FromPolygons(verts, polys, all_triangles=False, epsilon=0.0) if polys else None
+    cache[key] = bvh
+    return bvh
+
+
+def _ray_parity_inside(bvh, point):
+    """射线奇偶判点是否在壳内：三个轴向各投一条，多数票。返回 True/False（票数平分算 False）。"""
+    votes = 0
+    for d in (Vector((1.0, 0.0, 0.0)), Vector((0.0, 1.0, 0.0)), Vector((0.0, 0.0, 1.0))):
+        o = point.copy()
+        hits = 0
+        for _ in range(512):
+            loc = bvh.ray_cast(o, d)[0]
+            if loc is None:
+                break
+            hits += 1
+            o = loc + d * 1e-6
+        if hits % 2 == 1:
+            votes += 1
+    return votes >= 2
+
+
+def _shell_contains(outer, inner, cache, key, max_points=6):
+    """包含性确认：inner 壳的若干个采样点是否**都**在 outer 壳内部。
+
+    返回 True（确证嵌套）/ False（确证不是嵌套 —— 两壳表面互穿或只是 AABB 相交）。
+    异常向上抛，由 _shell_normals 统一降级为 unknown。
+    """
+    bvh = _shell_bvh(outer, cache, key)
+    if bvh is None:
+        return False
+    lo, hi = inner['bounds']
+    pts = [Vector([(lo[k] + hi[k]) * 0.5 for k in range(3)])]     # AABB 中心
+    # 只在这里才去收集顶点（嵌套候选是少数；热路径上不建顶点表）
+    vs = {}
+    for f in inner['_faces']:
+        for v in f.verts:
+            vs[v.index] = v.co
+    idx = sorted(vs)
+    step = max(1, len(idx) // max(1, int(max_points)))
+    for i in idx[::step][:int(max_points)]:
+        pts.append(vs[i])
+    return all(_ray_parity_inside(bvh, p) for p in pts)
+
+
+SHELL_MAX_FACES = 300000         # 逐壳朝向分析的面上限（env DSH_SHELL_MAX_FACES 可覆盖）
+# 实测（Blender 5.2，本机）：155k 面 ≈ 0.67 s，618k 面 ≈ 11 s（连通分组 3.5 s + 逐面度量 7.7 s）。
+# 超上限 ⇒ 一律 unknown/degraded（"未分析 ≠ 通过"），绝不静默拖住大场景；要强行分析就设 env。
+
+
+def _shell_max_faces():
+    import os
+    try:
+        v = int(os.environ.get("DSH_SHELL_MAX_FACES", "") or 0)
+        return v if v > 0 else SHELL_MAX_FACES
+    except Exception:
+        return SHELL_MAX_FACES
+
+
+def _shell_normals(bm):
+    """逐连通壳判朝向（v0.9.6 复审修复）。
+
+    为什么不能只看整体有符号体积：`bm.calc_volume(signed=True)` 把所有壳**相加** ——
+    一个大的正向壳（+8）配一个分离的小反向壳（−1），总和仍是 +7 > 0，于是"法线朝外"被误报为真。
+    这里改成**逐壳**判，只有"可确证是独立实体"的壳才下结论：
+
+      * 壳 = 边连通的面集合；各自算有符号体积 / 闭合性 / 绕向一致性 / AABB。
+      * AABB 互相**分离**的壳 ⇒ 独立实体：闭合 + 绕向一致 + 体积 ≤ 0 ⇒ **确定朝内（fail）**。
+      * AABB **互相包含**的壳 ⇒ 疑似嵌套（合法空腔 / 壳内独立件）：射线奇偶**确认**真的在里面；
+        确证 ⇒ 嵌套壳豁免（合法空腔不许误报成反向）；确认不成立 ⇒ unknown。
+      * AABB 相交但互不包含（互穿 / 部分重叠 / 重合副本）⇒ 光靠朝向分不出 ⇒ unknown。
+
+    不确定一律 unknown（→ audit_mesh 判 verdict=degraded），**绝不猜成 pass**。
+    返回 (normals_outward, state, shells, reason)：outward ∈ {True, False, None}。
+    """
+    nf = len(bm.faces)
+    cap = _shell_max_faces()
+    if nf > cap:
+        # 大网格直接降级（与 connectivity 的 max_tris 同一纪律：未分析 ≠ 通过，也绝不阻塞大场景）
+        return None, 'unknown', [], ("面数 %d 超过逐壳朝向分析上限 %d（env DSH_SHELL_MAX_FACES 可调）"
+                                     "—— 未做逐壳分析，不给通过结论" % (nf, cap))
+    pending = set(bm.faces)
+    shells = []
+    while pending:
+        seed = pending.pop()
+        faces, stack = [seed], [seed]
+        while stack:
+            for edge in stack.pop().edges:
+                for face in edge.link_faces:
+                    if face in pending:
+                        pending.remove(face)
+                        faces.append(face)
+                        stack.append(face)
+        # 热路径（v0.9.6 复审）：**不要**为每个壳建 verts/edges 的 set 再三次遍历 —— 实测 155k 面
+        # 时那种写法比 audit_mesh 原有的全部 O(F) 计数还慢一个数量级（832ms vs 84ms）。这里一趟走完：
+        #   体积用散度定理的面形式  Σ (A/3)·n̂·(c−o) （与 bm.calc_volume(signed=True) 同号同值，逐面 C 调用）
+        #   闭合/绕向一致性直接在面上查边；AABB 直接吃面上的顶点
+        origin = faces[0].verts[0].co
+        vol = 0.0
+        closed = True
+        consistent = True
+        lo = [float("inf")] * 3
+        hi = [float("-inf")] * 3
+        for f in faces:
+            vol += (f.calc_area() / 3.0) * f.normal.dot(f.calc_center_median() - origin)
+            for e in f.edges:
+                if len(e.link_faces) != 2:
+                    closed = False
+                elif not e.is_contiguous:
+                    consistent = False
+            for v in f.verts:
+                co = v.co
+                for k in range(3):
+                    if co[k] < lo[k]:
+                        lo[k] = co[k]
+                    if co[k] > hi[k]:
+                        hi[k] = co[k]
+        eps = max(max(hi[i] - lo[i] for i in range(3)) ** 3 * 1e-12, 1e-30)
+        shells.append(dict(faces=len(faces), signed_volume=vol, closed=closed,
+                           winding_consistent=bool(closed and consistent), bounds=[lo, hi], eps=eps,
+                           nested=False, relation='', state=('unknown' if not closed or abs(vol) <= eps else
+                                                             'pass' if consistent and vol > 0 else 'fail'),
+                           _faces=faces))
+    if not shells:
+        return None, 'unknown', shells, 'no faces'
+    # Bound quadratic work: unresolved is preferable to blocking a large scene.
+    if len(shells) > 256:
+        return None, 'unknown', shells, 'shell_count exceeds 256; containment not analyzed'
+    dims = [max(s['bounds'][1][k] - s['bounds'][0][k] for k in range(3)) for s in shells]
+    tol = max(dims) * 1e-9 if dims else 0.0
+    ambiguous = set()
+    cache, budget = {}, 64                      # 包含性确认的射线预算（超了 → unknown，不猜）
+    for i, a in enumerate(shells):
+        for j in range(i):
+            b = shells[j]
+            rel = _box_relation(a['bounds'], b['bounds'], tol)
+            if rel == 'apart':
+                continue
+            if rel == 'same' or rel == 'cross':
+                shells[i]['relation'] = shells[j]['relation'] = rel
+                ambiguous.update((i, j))
+                continue
+            # rel='a_in_b' ⇒ a（shells[i]）在 b（shells[j]）里面 ⇒ inner=i, outer=j
+            inner_i, outer_j = (i, j) if rel == 'a_in_b' else (j, i)
+            if budget <= 0:
+                ambiguous.update((i, j))
+                continue
+            budget -= 1
+            if _shell_contains(shells[outer_j], shells[inner_i], cache, outer_j):
+                shells[inner_i]['nested'] = True
+                shells[inner_i]['relation'] = 'nested'
+            else:
+                shells[i]['relation'] = shells[j]['relation'] = 'overlap-unconfirmed'
+                ambiguous.update((i, j))
+    for i in ambiguous:
+        shells[i]['state'] = 'unknown'
+    fails = [i for i, s in enumerate(shells)
+             if i not in ambiguous and not s['nested'] and s['closed'] and s['winding_consistent']
+             and s['signed_volume'] < -s['eps']]
+    if fails:
+        for i in fails:
+            shells[i]['state'] = 'fail'
+        worst = sorted((i for i in fails), key=lambda i: shells[i]['signed_volume'])[:6]
+        return False, 'fail', shells, ("非嵌套壳整体朝内（signed_volume<0）：%s —— 聚合有符号体积会被"
+                                       "「大正向壳 + 小反向壳」抵消成正数，所以这里逐壳判"
+                                       % ", ".join("shell#%d(vol=%.6g, faces=%d)"
+                                                   % (i, shells[i]['signed_volume'], shells[i]['faces'])
+                                                   for i in worst))
+    if ambiguous:
+        return None, 'unknown', shells, ("%d 组壳的 AABB 相交但无法确证嵌套/空腔（互穿、部分重叠或重合副本）"
+                                         "—— 朝向语义 unresolved，不给通过结论" % len(ambiguous))
+    # 没有确定的反向壳、也没有歧义：只剩"闭合性/绕向/零体积"判不出来的壳
+    unknown = [i for i, s in enumerate(shells)
+               if not s['closed'] or not s['winding_consistent'] or abs(s['signed_volume']) <= s['eps']]
+    if unknown:
+        for i in unknown:
+            shells[i]['state'] = 'unknown'
+        return None, 'unknown', shells, ("壳闭合性/绕向/体积无法判定：%s"
+                                         % ", ".join("shell#%d" % i for i in unknown[:6]))
+    for s in shells:
+        # 嵌套壳（合法空腔 / 壳内独立件）不是缺陷：标注 'nested'，不参与 fail
+        s['state'] = 'nested' if s['nested'] else 'pass'
+    return True, 'pass', shells, ''
+
+
+def _shells_brief(shells, limit=12):
+    """把壳明细压成回执里的小块（去掉内部字段 _faces/_verts）。"""
+    rows = []
+    for i, s in enumerate(shells or []):
+        if i >= int(limit):
+            break
+        rows.append({"shell": i, "faces": s.get("faces"), "signed_volume": round(float(s.get("signed_volume") or 0.0), 6),
+                     "closed": bool(s.get("closed")), "winding_consistent": bool(s.get("winding_consistent")),
+                     "nested": bool(s.get("nested")), "relation": s.get("relation") or "",
+                     "state": s.get("state")})
+    return rows
+
+
 def audit_mesh(objects=None, scope=None, envelope=None, eps_area=1e-9, self_intersect=True,
-               max_issues=20, min_dist=1e-6):
+               max_issues=20, min_dist=1e-6, summary_only=False,
+               island_split=False, min_island_verts=0):
+    """v0.9.6（现场反馈 #1）：island_split=true 时把自交按**连通岛**分栏（同岛/跨岛），
+    min_island_verts=N 时忽略"任一侧面属于 <N 顶点小岛"的相交 —— 铆钉/小五金按工艺压入宿主
+    必然相交，那是良性的；这一栏就是现场手工做过的归因实验（肩甲 1640 对里大部分是这种）。"""
     """单对象/一组对象的网格体检。envelope=[x0,y0,z0,x1,y1,z1] 时给 out_of_bounds。"""
     objs, missing, err = _pick(objects, scope)
     if err:
@@ -116,16 +350,28 @@ def audit_mesh(objects=None, scope=None, envelope=None, eps_area=1e-9, self_inte
             e = [float(x) for x in envelope]
             env = (Vector((min(e[0], e[3]), min(e[1], e[4]), min(e[2], e[5]))),
                    Vector((max(e[0], e[3]), max(e[1], e[4]), max(e[2], e[5]))))
-        except Exception:
-            env = None
+        except Exception as exc:
+            return _j({"ok": False, "clean": False, "state": "error", "analyzed": False,
+                       "error": "invalid envelope: %s" % exc})
 
     parts = []
     total = {"objects": 0, "tris": 0, "boundary_edges": 0, "nonmanifold_edges": 0, "degenerate_faces": 0,
-             "loose_verts": 0, "self_intersections": 0, "normals_inverted": 0, "out_of_bounds": 0}
+             "loose_verts": 0, "self_intersections": 0, "normals_inverted": 0, "out_of_bounds": 0,
+             "empty_objects": 0, "loose_edges": 0, "normals_unknown": 0, "normals_checked": 0,
+             "analysis_incomplete": 0}
     for ob in objs:
         me = ob.data
+        # 空网格（0 边）会让 me.edges[0] 直接 IndexError —— 建了对象还没填面的常见状态，
+        # 不该让体检崩掉，而该报"empty"（v0.9.6 修）。
+        _n_edges = len(me.edges)
+        if _n_edges == 0:
+            _loose_edges = 0
+        elif hasattr(me.edges[0], "link_faces"):
+            _loose_edges = int(sum(1 for e in me.edges if not e.link_faces))
+        else:
+            _loose_edges = None
         info = {"name": ob.name, "verts": len(me.vertices), "polys": len(me.polygons), "tris": _tris(me),
-                "loose_edges": int(sum(1 for e in me.edges if not e.link_faces)) if hasattr(me.edges[0], "link_faces") else None}
+                "loose_edges": _loose_edges, "empty": bool(len(me.vertices) == 0)}
         bm = bmesh.new()
         try:
             bm.from_mesh(me)
@@ -135,15 +381,37 @@ def audit_mesh(objects=None, scope=None, envelope=None, eps_area=1e-9, self_inte
             info["nonmanifold_edges"] = int(sum(1 for e in bm.edges if not e.is_manifold))
             info["degenerate_faces"] = int(sum(1 for f in bm.faces if f.calc_area() <= float(eps_area)))
             info["loose_verts"] = int(sum(1 for v in bm.verts if not v.link_edges))
+            # v0.9.6（复审修复）：Blender 5.2 的 MeshEdge **没有** link_faces（上面 hasattr 永远假）⇒
+            # loose_edges 恒为 None、汇总恒为 0（"没查"被当成"没有"）。改从 bmesh 实算。
+            if info["loose_edges"] is None:
+                info["loose_edges"] = int(sum(1 for e in bm.edges if not e.link_faces))
             try:
                 vol = float(bm.calc_volume(signed=True))
             except Exception:
                 vol = None
             info["signed_volume"] = (round(vol, 6) if vol is not None else None)
             info["closed"] = bool(info["boundary_edges"] == 0 and info["nonmanifold_edges"] == 0)
-            info["normals_outward"] = (None if vol is None or not info["closed"] else bool(vol > 0))
+            # v0.9.6（复审修复）：逐连通壳判朝向。原来 `normals_outward = vol > 0` 用的是**全体壳体积之和**，
+            # 「同对象里大正向壳 + 分离的小反向壳」总和仍为正 ⇒ 反向壳被吞掉、误报 normals_outward=true。
+            try:
+                _out, _nstate, _shells, _nreason = _shell_normals(bm)
+            except Exception as _ne:
+                _out, _nstate, _shells = None, "unknown", []
+                _nreason = "壳朝向分析异常（%s: %s）⇒ unknown，不给通过结论" % (type(_ne).__name__, str(_ne)[:90])
+            if not info["closed"]:
+                _out, _nstate = None, "n/a"        # 开放网格：整体朝向无意义
+                _nreason = ""
+            info["normals_state"] = _nstate
+            info["normals_outward"] = _out
+            info["normals_shell_count"] = len(_shells or [])
+            info["normals_reason"] = _nreason or ""
+            if _nstate != "n/a":
+                info["normals_shells"] = _shells_brief(_shells)
             info["self_intersections"] = 0
             info["self_intersection_pairs"] = []
+            info["self_intersections_analyzed"] = False
+            info["self_intersections_state"] = "skipped"      # 未请求 / 异常 / pass / fail
+            info["self_intersection_error"] = None
             if self_intersect and len(bm.faces) > 0:
                 try:
                     from mathutils.bvhtree import BVHTree
@@ -167,8 +435,64 @@ def audit_mesh(objects=None, scope=None, envelope=None, eps_area=1e-9, self_inte
                         hit.append([a, b, [round(x, 4) for x in fa.calc_center_median()]])
                     info["self_intersections"] = len(hit)
                     info["self_intersection_pairs"] = hit[:int(max_issues)]
+                    info["self_intersections_analyzed"] = True
+                    info["self_intersections_state"] = "fail" if hit else "pass"
+                    if island_split or int(min_island_verts or 0) > 0:
+                        # 连通岛：边连接的顶点并查集（一个"岛"= 一块连通的壳；铆钉/小五金各自成岛）
+                        nv = len(bm.verts)
+                        par = list(range(nv))
+                        def _find(x):
+                            while par[x] != x:
+                                par[x] = par[par[x]]
+                                x = par[x]
+                            return x
+                        for e in bm.edges:
+                            a0, b0 = e.verts[0].index, e.verts[1].index
+                            ra, rb = _find(a0), _find(b0)
+                            if ra != rb:
+                                par[rb] = ra
+                        size = {}
+                        for i in range(nv):
+                            r = _find(i)
+                            size[r] = size.get(r, 0) + 1
+                        isl_of_face = {}
+                        for f in bm.faces:
+                            isl_of_face[f.index] = _find(f.verts[0].index)
+                        thr = int(min_island_verts or 0)
+                        same = cross = filt = small_isl = 0
+                        for rr in size.values():
+                            if thr and rr < thr:
+                                small_isl += 1
+                        kept = []
+                        for rec in hit:
+                            ia = isl_of_face.get(rec[0])
+                            ib = isl_of_face.get(rec[1])
+                            sza = size.get(ia, 0)
+                            szb = size.get(ib, 0)
+                            is_same = (ia == ib)
+                            if is_same:
+                                same += 1
+                            else:
+                                cross += 1
+                            drop = bool(thr and (sza < thr or szb < thr))
+                            if drop:
+                                filt += 1
+                            else:
+                                kept.append(rec + [bool(is_same), int(sza), int(szb)])
+                        info["islands"] = {"count": len(size), "small_islands": small_isl,
+                                           "min_island_verts": thr}
+                        info["self_intersections_same_island"] = same
+                        info["self_intersections_cross_island"] = cross
+                        info["self_intersections_filtered_small_island"] = filt
+                        info["self_intersections_kept"] = len(kept)
+                        info["self_intersection_pairs"] = kept[:int(max_issues)] if max_issues else []
+                        info["island_note"] = ("同岛自交=同一块壳自己扎自己（往往是建模事故）；跨岛=两块壳互穿"
+                                               "（铆钉压入宿主属这一类，按工艺可能是良性的）")
                 except Exception as e:
+                    # 自交检查**异常**不得读成"没有自交"（原来是静默 0 ⇒ clean=true 的假通过）
                     info["self_intersect_error"] = "%s: %s" % (type(e).__name__, str(e)[:100])
+                    info["self_intersections_analyzed"] = False
+                    info["self_intersections_state"] = "error"
         finally:
             bm.free()
         # 世界 AABB / 越界
@@ -185,47 +509,149 @@ def audit_mesh(objects=None, scope=None, envelope=None, eps_area=1e-9, self_inte
             info["out_of_bounds_axes"] = out
             if out:
                 total["out_of_bounds"] += 1
+        # 逐对象三态：fail（确有缺陷）/ degraded（没查完或判不出来）/ pass
+        _incomplete = (not info.get("self_intersections_analyzed")) or info.get("normals_state") == "unknown"
+        info["analysis_incomplete"] = bool(_incomplete)
+        if any(info.get(k) for k in ("boundary_edges", "nonmanifold_edges", "degenerate_faces", "loose_verts",
+                                     "loose_edges", "self_intersections", "empty")):
+            info["state"] = "fail"
+        elif info.get("normals_outward") is False:
+            info["state"] = "fail"
+        elif _incomplete:
+            info["state"] = "degraded"
+        else:
+            info["state"] = "pass"
         # 汇总
         total["objects"] += 1
         total["tris"] += info["tris"]
-        for k in ("boundary_edges", "nonmanifold_edges", "degenerate_faces", "loose_verts", "self_intersections"):
+        for k in ("boundary_edges", "nonmanifold_edges", "degenerate_faces", "loose_verts", "loose_edges",
+                  "self_intersections"):
             total[k] += int(info.get(k) or 0)
         if info.get("normals_outward") is False:
             total["normals_inverted"] += 1
+        if info.get("normals_state") == "unknown":
+            total["normals_unknown"] += 1
+        if info.get("normals_state") in ("pass", "fail"):
+            total["normals_checked"] += 1
+        if info.get("analysis_incomplete"):
+            total["analysis_incomplete"] += 1
+        if info.get("empty"):
+            total["empty_objects"] += 1
         parts.append(info)
 
+    # v0.9.6（复审修复）：
+    #   ① loose_verts / loose_edges 也是缺陷 —— 原来 loose_verts 不计入 bad ⇒ 「孤立点 > 0 但 clean=true」。
+    #   ② clean 的含义收紧为"**查完了而且没缺陷**"：自交检查被跳过/抛异常、或壳朝向判不出来（unknown）时，
+    #      clean=false + state=degraded —— "没查"和"查了没有"必须是两个结论（不再假通过）。
     bad = (total["boundary_edges"] or total["nonmanifold_edges"] or total["degenerate_faces"]
-           or total["self_intersections"] or total["normals_inverted"] or total["out_of_bounds"])
+           or total["loose_verts"] or total["loose_edges"] or total["self_intersections"]
+           or total["normals_inverted"] or total["out_of_bounds"] or total["empty_objects"])
+    _incomplete = int(total.get("analysis_incomplete") or 0)
+    if bad:
+        state, reason = "fail", "确有缺陷（见 totals 里非 0 的计数字段）"
+    elif _incomplete:
+        state, reason = "degraded", ("有 %d 个对象没查完/判不出来（自交检查被跳过或抛异常、壳朝向 unknown）"
+                                     "—— 未分析不得读作通过" % _incomplete)
+    else:
+        state, reason = "pass", ""
     mn, mx = _bounds(objs)
-    return _j({"ok": True, "clean": (not bad), "count": len(objs), "missing": missing,
+    # v0.9.6（D3 · 瘦身）：summary_only=true 只回判据字段（去掉明细列表），供验证者/门用
+    if summary_only:
+        _keep = ("name", "verts", "polys", "tris", "boundary_edges", "nonmanifold_edges",
+                 "degenerate_faces", "loose_verts", "loose_edges", "closed", "normals_outward", "normals_state",
+                 "normals_shell_count", "self_intersections", "self_intersections_analyzed",
+                 "self_intersections_state", "self_intersections_same_island", "self_intersections_cross_island",
+                 "self_intersections_filtered_small_island", "self_intersections_kept", "islands",
+                 "signed_volume", "empty", "out_of_bounds", "state")
+        parts = [{k: v for k, v in p.items() if k in _keep} for p in parts]
+    payload = {"ok": True, "clean": bool(not bad and state == "pass"), "state": state, "verdict": state,
+               "reason": reason, "count": len(objs), "missing": missing,
                "totals": total, "objects": parts,
+               "analysis": {"self_intersections": ("analyzed" if self_intersect else "skipped"),
+                            "normals": ("unknown" if total.get("normals_unknown") else
+                                        ("checked" if total.get("normals_checked") else "n/a")),
+                            "incomplete_objects": _incomplete},
                "aabb": ({"min": [round(float(x), 4) for x in mn], "max": [round(float(x), 4) for x in mx]} if mn else None),
                "envelope": ([[round(float(x), 4) for x in env[0]], [round(float(x), 4) for x in env[1]]] if env else None),
-               "note": "判据：boundary/nonmanifold/degenerate/self_intersections/normals_inverted/out_of_bounds "
-                       "任一非 0 → clean=false；normals_outward 只对闭合网格有意义（closed=true 时才给）"})
+               "note": "判据：boundary/nonmanifold/degenerate/loose_verts/loose_edges/self_intersections/"
+                       "normals_inverted/out_of_bounds/empty 任一非 0 → clean=false 且 state=fail；"
+                       "normals_outward 逐**连通壳**判（聚合有符号体积会被大正向壳+小反向壳抵消成正数），"
+                       "只对闭合网格有意义（closed=true 时才给），判不出来时给 normals_state=unknown；"
+                       "自交检查被跳过（self_intersect=false）或抛异常 ⇒ state=degraded，clean=false —— 不假通过"}
+    if state == "degraded":
+        payload["warn"] = "DEGRADED ≠ 通过：" + reason
+        if not self_intersect:
+            payload["hint"] = "要完整结论请用 self_intersect=true 重跑（本门的自交检查被显式跳过）"
+    if summary_only:
+        payload["slim"] = {"summary_only": True}
+    elif len(_j(payload)) > 6000:
+        payload["hint"] = ("回执较大（%d 字符）：要精简用 summary_only=true（只回判据字段），"
+                           "或 audit_scene(top_k=N) 只看最脏的几个" % len(_j(payload)))
+    return _j(payload)
 
 
-def audit_scene(envelope=None, limit=40, eps_area=1e-9):
-    """全场景体检：先给你"哪几个对象最脏"，再按需 audit_mesh 深挖。"""
+def audit_scene(envelope=None, limit=40, eps_area=1e-9, summary_only=False, top_k=None,
+                self_intersect=False):
+    """全场景体检：先给你"哪几个对象最脏"，再按需 audit_mesh 深挖。
+
+    v0.9.6（D3 · 瘦身）：summary_only=true 只回判据字段；top_k=N 只回最脏的 N 个（默认沿用 limit）。
+    v0.9.6（复审修复）：自交检查**默认不跑**（保持"一次便宜的初筛"这个性能契约），但这时结论只能是
+        **degraded**（clean=false）——"跳过检查"不许读成"没问题"。要一条能当门用的完整结论，
+        传 self_intersect=true（全场景逐对象跑一遍 BVH 自交，代价按面数走）。
+    """
     objs = [o for o in bpy.context.scene.objects if o.type == "MESH"]
     if not objs:
         return _j({"ok": False, "error": "场景里 0 个 mesh（build 空跑？）"})
     rows = []
     r = json.loads(audit_mesh(objects=[o.name for o in objs], envelope=envelope, eps_area=eps_area,
-                              self_intersect=False, max_issues=0))
+                              self_intersect=bool(self_intersect), max_issues=0))
     tot = r.get("totals", {})
     for info in r.get("objects", []):
         score = (info.get("boundary_edges") or 0) + 3 * (info.get("nonmanifold_edges") or 0) + \
-                2 * (info.get("degenerate_faces") or 0)
+                2 * (info.get("degenerate_faces") or 0) + 2 * (info.get("self_intersections") or 0) + \
+                (info.get("loose_verts") or 0) + (info.get("loose_edges") or 0)
         rows.append({"name": info["name"], "tris": info["tris"], "boundary_edges": info.get("boundary_edges"),
                      "nonmanifold_edges": info.get("nonmanifold_edges"),
                      "degenerate_faces": info.get("degenerate_faces"), "closed": info.get("closed"),
-                     "normals_outward": info.get("normals_outward"), "score": score,
-                     "aabb": info.get("aabb")})
+                     "loose_verts": info.get("loose_verts"), "loose_edges": info.get("loose_edges"),
+                     "self_intersections": info.get("self_intersections"),
+                     "normals_outward": info.get("normals_outward"), "normals_state": info.get("normals_state"),
+                     "state": info.get("state"), "score": score, "aabb": info.get("aabb")})
     rows.sort(key=lambda x: -x["score"])
-    return _j({"ok": True, "count": len(objs), "totals": tot, "worst": rows[:int(limit)],
-               "clean": bool(r.get("clean")), "aabb": r.get("aabb"),
-               "note": "worst 按 score=boundary+3*nonmanifold+2*degenerate 排序；深挖用 audit_mesh(objects=[...])"})
+    k = int(top_k) if top_k is not None else int(limit)
+    rows_out = rows[:max(0, k)]
+    # 场景级三态：任何对象 fail ⇒ fail；否则任何"降级"（含主动跳过自交检查）⇒ degraded；否则 pass
+    states = [x.get("state") for x in rows]
+    if r.get("state") == "fail" or "fail" in states:
+        state = "fail"
+    elif (not self_intersect) or r.get("state") == "degraded" or "degraded" in states:
+        state = "degraded"
+    else:
+        state = "pass"
+    if summary_only:
+        _keep = ("name", "score", "boundary_edges", "nonmanifold_edges", "degenerate_faces",
+                 "loose_verts", "loose_edges", "self_intersections", "normals_outward", "normals_state",
+                 "state", "tris", "closed")
+        rows_out = [{kk: vv for kk, vv in row.items() if kk in _keep} for row in rows_out]
+    reason = ""
+    if state == "degraded":
+        reason = ("初筛跳过了自交检查" if not self_intersect else "") + \
+                 ("；" if not self_intersect else "") + \
+                 ("%d 个对象判不出来（见 worst[].normals_state/state）" % len([x for x in states if x == "degraded"])
+                  if any(x == "degraded" for x in states) else "")
+        reason = reason or "未查完"
+    payload = {"ok": True, "count": len(objs), "totals": tot, "worst": rows_out,
+               "clean": bool(r.get("clean") and state == "pass" and self_intersect),
+               "state": state, "verdict": state, "reason": reason,
+               "self_intersections_analyzed": bool(self_intersect), "aabb": r.get("aabb"),
+               "slim": {"summary_only": bool(summary_only), "top_k": k, "rows_returned": len(rows_out)},
+               "note": "worst 按 score=boundary+3*nonmanifold+2*degenerate+2*selfint+loose 排序；"
+                       "深挖用 audit_mesh(objects=[...])；"
+                       "本 op 默认**不跑自交检查** ⇒ verdict=degraded（clean=false）——"
+                       "要能当门用的完整结论请传 self_intersect=true；回执太大时加 summary_only=true / top_k=N"}
+    if state == "degraded":
+        payload["warn"] = "DEGRADED ≠ 通过：" + reason
+    return _j(payload)
 
 
 def _mat_sig(ob):
@@ -253,8 +679,9 @@ def _mat_sig(ob):
         return "err"
 
 
-def audit_duplicates(limit=30):
+def audit_duplicates(limit=30, top_k=None):
     """同名资源审计（D7）：把 Foo / Foo.001 这类分叉分组，并比较内容是否不同。"""
+    k = int(top_k) if top_k is not None else int(limit)
     import hashlib
     out = {"ok": True, "materials": [], "meshes": [],
            "note": "同名分叉多为「先到先得」覆盖造成；若内容不同，说明有两份不一样的资源在混用"}
@@ -289,6 +716,12 @@ def audit_duplicates(limit=30):
         out["meshes"].append({"base": base, "variants": [m.name for m in items], "distinct_signatures": len(sigs),
                               "users": [int(m.users) for m in items]})
     out["count"] = {"materials": len(out["materials"]), "meshes": len(out["meshes"])}
+    # v0.9.6（D3）：limit/top_k 原来收了参数却没用（静默失效）—— 现在真正生效并回报被截断的总数
+    for _key in ("materials", "meshes"):
+        if len(out[_key]) > k:
+            out[_key + "_total"] = len(out[_key])
+            out[_key] = out[_key][:k]
+    out["slim"] = {"top_k": k, "materials": len(out["materials"]), "meshes": len(out["meshes"])}
     out["ok"] = True
     return _j(out)
 
@@ -940,6 +1373,16 @@ def _conn_analyze(objs, precision=5, visible_frac=VISIBLE_SPAN_FRACTION, micro_g
     mesh_mode = "mesh(BVH)" if len(tris) <= BVH_MAX_TRIS else "bbox-only"
     tree_cache = {}
     for s in stats:
+        if ncomp == 1:
+            # v0.9.6（现场反馈 #2 收口）：浮块的定义是"这个分量与其它分量都不相接"——
+            # 整个范围**只有 1 个连通分量**时这条判据无从成立（内含的壳要么共享顶点、要么**正好相贴**
+            # 被 _components 按 precision 焊接在一起）。原先会把"整体焊成一块"误报成 1 个可见浮块：
+            # 实测两块正好相贴（gap=0.00 mm）⇒ 旧逻辑 fail；现在是 pass。
+            s["attached"] = True
+            s["evidence"] = "single-body"
+            s["confirm_note"] = ("范围内只有 1 个连通分量（%d 三角面）→ 不存在「与其它分量不相接」，不判浮块；"
+                                 "要查内部壳是否贴合，用 audit_mesh(island_split=true)" % len(tris))
+            continue
         if not s["bbox_micro"]:
             s["attached"] = False
             s["evidence"] = "bbox"
@@ -1020,7 +1463,8 @@ def _conn_analyze(objs, precision=5, visible_frac=VISIBLE_SPAN_FRACTION, micro_g
 
 
 def audit_connectivity(objects=None, scope=None, include_hidden=False, visible_frac=VISIBLE_SPAN_FRACTION,
-                       micro_gap_mm=MICRO_GAP_MM, precision=5, limit=24, max_tris=None, file=None):
+                       micro_gap_mm=MICRO_GAP_MM, precision=5, limit=24, max_tris=None, file=None,
+                       per_object=False):
     """连通分量体检：这堆对象到底连成几块？哪几块是"看得见的浮块"？归因到哪个对象？
 
     v0.9.1（C2）：新增 file=<.blend 路径> —— 把该文件里的对象**临时**追加进会话，跑同一条分析链路，
@@ -1029,6 +1473,38 @@ def audit_connectivity(objects=None, scope=None, include_hidden=False, visible_f
     报告里的对象名一律是**文件里的原名**（重名追加时 Blender 会加 .001，用 object_names 核对）。
     老签名与老返回键一个没动，只做加法。
     """
+    if per_object and not file:
+        # v0.9.6（现场反馈 #2）：整体 3M 面 ⇒ 全局只能 bbox-only（degraded）。逐对象跑，每件通常
+        # 在 BVH_MAX_TRIS 之内，于是拿得回 mesh(BVH) 级结论，而不是一句"降级"。
+        objs0, missing0, err0 = _pick(objects, scope)
+        if err0:
+            return _j({"ok": False, "error": err0, "missing": missing0})
+        rows = []
+        for ob in objs0:
+            if ob.type != "MESH":
+                continue
+            sub = json.loads(audit_connectivity(objects=[ob.name], include_hidden=include_hidden,
+                                                visible_frac=visible_frac, micro_gap_mm=micro_gap_mm,
+                                                precision=precision, limit=limit, max_tris=max_tris))
+            g = _gate_from(sub)
+            rows.append({"object": ob.name, "state": g.get("state"), "ok": g.get("ok"),
+                         "verdict": g.get("verdict"), "tris": sub.get("tris"),
+                         "mesh_mode": sub.get("micro_confirm"),
+                         "visible_floaters": g.get("visible_floater_count"),
+                         "real_floaters": g.get("real_floater_count"),
+                         "reason": (g.get("reason") or "")[:200]})
+        if not rows:
+            return _j({"ok": False, "error": "范围内没有 mesh 对象", "missing": missing0})
+        states = [r["state"] for r in rows]
+        verdict = ("fail" if "fail" in states else ("degraded" if any(x != "pass" for x in states) else "pass"))
+        payload = {"ok": verdict == "pass", "verdict": verdict, "per_object": True, "count": len(rows),
+                   "objects": rows,
+                   "failed_objects": [r["object"] for r in rows if r["state"] == "fail"],
+                   "degraded_objects": [r["object"] for r in rows if r["state"] == "degraded"],
+                   "note": "逐对象复核：整体面数超 BVH 上限时用它；verdict 三态，degraded ≠ 通过"}
+        if verdict == "degraded":
+            payload["warn"] = "DEGRADED ≠ 通过：有对象未给出通过结论（看 objects[].reason）"
+        return _j(payload)
     S = _objs_with_optional_file(objects, scope, include_hidden, file)
     objs, missing, err, name_of = S["objs"], S["missing"], S["err"], S["name_of"]
     try:
@@ -1091,24 +1567,36 @@ def audit_connectivity(objects=None, scope=None, include_hidden=False, visible_f
     return _j(_file_extras(res, S, crep))
 
 
+def _verdict_of(ok, state):
+    """v0.9.6（现场反馈 #2）：三态**显式**成一个字段，消费方永远读 verdict，别读 ok/state 再自己推。"""
+    if ok is True or state == "pass":
+        return {"verdict": "pass"}
+    if ok is None or state == "degraded":
+        return {"verdict": "degraded",
+                "warn": "DEGRADED ≠ 通过：未分析 / 未确认 / 超出复核能力 —— 这一门没有给出通过结论"}
+    return {"verdict": "fail"}
+
+
 def _gate_from(a):
     """连通门：只看"可见且网格复核确认非贴合"的浮块。未分析/未确认 → ok=null（degraded）。"""
     if not a.get("analyzed"):
-        return {"ok": None, "state": "degraded", "reason": a.get("reason") or "未分析",
-                "note": "未分析不得读作已连通"}
+        return dict({"ok": None, "state": "degraded", "reason": a.get("reason") or "未分析",
+                     "note": "未分析不得读作已连通"}, **_verdict_of(None, "degraded"))
     real = a.get("real_floater_count", 0)          # 可见且与任何分量都不相接
     micro = a.get("micro_floater_count", 0)        # 可见但已确认相接（贴而未重合/互穿）
     unconf = a.get("unconfirmed_floater_count", 0)
     if real == 0 and unconf > 0:
-        return {"ok": None, "state": "degraded", "visible_floater_count": a.get("visible_floater_count"),
+        return dict({"ok": None, "state": "degraded", "visible_floater_count": a.get("visible_floater_count"),
                 "unconfirmed_floater_count": unconf, "micro_tolerated": micro,
                 "reason": "%d 个可见分量无法确认是否相接（%s）→ 降级，不给通过结论" % (unconf, a.get("micro_confirm")),
-                "note": "上游在单网格里可以 fail-open；多对象装配不行 —— 未确认就是未确认"}
+                "note": "上游在单网格里可以 fail-open；多对象装配不行 —— 未确认就是未确认"}, **_verdict_of(None, "degraded"))
     if real == 0:
-        return {"ok": True, "state": "pass", "visible_floater_count": 0, "micro_tolerated": micro,
-                "reason": "" if micro == 0 else "%d 个可见分量经网格确认与邻居相接（贴而未重合/互穿）→ 容忍" % micro}
+        return dict({"ok": True, "state": "pass", "visible_floater_count": 0, "real_floater_count": 0,
+                "unconfirmed_floater_count": 0, "micro_tolerated": micro,
+                "reason": "" if micro == 0 else "%d 个可见分量经网格确认与邻居相接（贴而未重合/互穿）→ 容忍" % micro},
+                    **_verdict_of(True, "pass"))
     worst = [s for s in a.get("floaters", []) if s.get("visible")][:6]
-    return {"ok": False, "state": "fail", "visible_floater_count": a.get("visible_floater_count"),
+    return dict({"ok": False, "state": "fail", "visible_floater_count": a.get("visible_floater_count"),
             "real_floater_count": real, "micro_tolerated": micro, "unconfirmed_floater_count": unconf,
             "offenders": [{"rank": s["rank"], "span_fraction": s["span_fraction"], "gap_mm": s["gap_mm"],
                            "true_gap_units": s.get("true_gap_units"), "evidence": s.get("evidence"),
@@ -1116,7 +1604,7 @@ def _gate_from(a):
             "reason": "%d 个可见浮块：与任何其它分量都不相接（口径 %.2f mm 内找不到邻居%s）" % (
                 real, MICRO_GAP_MM if not a.get("gate_caliber") else a["gate_caliber"].get("micro_gap_mm", MICRO_GAP_MM),
                 ("；最近 %.2f–%.2f mm" % (a["floater_gap_range_mm"][0], a["floater_gap_range_mm"][1]))
-                if a.get("floater_gap_range_mm") else "")}
+                if a.get("floater_gap_range_mm") else "")}, **_verdict_of(False, "fail"))
 
 
 def _verdict_line(a, visible_frac, micro_gap_mm):
@@ -1186,13 +1674,14 @@ def audit_gate(objects=None, scope=None, include_hidden=False, envelope=None, vi
                 verdicts["envelope"] = {"ok": good, "violations": len(bad), "objects": bad[:20]}
                 if ok is True and not good:
                     ok = False
-            res = {"ok": True, "ship_ok": ok,
+            res = dict({"ok": True, "ship_ok": ok,
                    "state": ("pass" if ok is True else ("degraded" if ok is None else "fail")),
                    "verdicts": verdicts, "units": a["units"], "objects": len(objs),
                    "object_names": a.get("object_names"), "tris": a.get("tris"), "analyzed": a.get("analyzed"),
                    "aabb": a.get("aabb"),
                    "verdict_line": _verdict_line(a, visible_frac, micro_gap_mm),
-                   "note": "ok=true 表示分析都跑完了（不是门通过）；门结论看 ship_ok/state"}
+                   "note": "ok=true 表示分析都跑完了（不是门通过）；门结论看 verdict（ship_ok 保留兼容）"},
+                   **_verdict_of(ok, "pass" if ok is True else ("degraded" if ok is None else "fail")))
     except Exception as e:
         res = _exc_body(e, "gate")
     finally:
@@ -2596,8 +3085,12 @@ def audit_help():
                             "新造孤儿数据/库条目），返回体给 source / file_load / cleanup；此时 objects/scope "
                             "当**文件内的对象名**筛选（append 不带集合成员关系）。"
                             "overlap / interference 两端都可以走 file_a/file_b（a/b 直接给 .blend 路径也认）。",
-               "fields": "boundary_edges / nonmanifold_edges / degenerate_faces / loose_verts / "
+               "fields": "boundary_edges / nonmanifold_edges / degenerate_faces / loose_verts / loose_edges / "
                          "self_intersections / normals_outward / closed / tris / aabb / out_of_bounds；"
+                         "mesh 侧三态：state(=verdict) / reason / analysis{self_intersections,normals,incomplete_objects} / "
+                         "normals_state{pass|fail|unknown|n/a} / normals_shells[{shell,signed_volume,closed,"
+                         "winding_consistent,nested,relation,state}] / self_intersections_analyzed / "
+                         "self_intersections_state{pass|fail|skipped|error}；"
                          "装配侧：components / floaters[{span_fraction, gap_mm, bbox_micro, mesh_confirmed, true_gap_units, attribution}] / "
                          "tolerated[]（确认相接）/ unconfirmed[]（未确认→降级）/ gap_histogram / gate{state,offenders}；"
                          "跨件侧：pair_count / pairs[{tri_a,tri_b,point,segment_len_mm}] / intersection_bbox / "

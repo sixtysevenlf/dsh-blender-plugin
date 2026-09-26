@@ -31,7 +31,7 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
  * description 由**已加载的那份 lib** 生成 → 会话里一眼能看出自己跑的是哪一代，
  * 不会再出现「读的是新源码、跑的是旧 lib」那种排查事故（外部反馈 j20-build 的元教训）。
  */
-const PLUGIN_VERSION = '0.9.4'
+const PLUGIN_VERSION = '0.9.6'
 // 注意：必须**先加前缀、再交给 defineTool** —— defineTool 负责校验与规范化，
 // 自己 spread 一个成品对象会绕过它（实测：spread 版本会让插件 fiber 直接 failed）。
 //
@@ -498,6 +498,44 @@ function numTriple(v: any): number[] | undefined {
   return String(v).split(/[,\s]+/).filter(Boolean).map((x) => Number(x))
 }
 
+/**
+ * v0.9.4（P0-2）帧去重：**同一画面不重复附图**。
+ *
+ * 为什么：hash 已经是 PNG 字节的 md5 前 8 位（fetchFrame / fetchView 都算好了），
+ * 而重复附图只烧**模型侧视觉 token** —— 实测同一画面连发 5 次 hash 全等
+ * （`038c7439`）、单帧 116,870 B。hash 相等 ⇒ 像素逐字节相同 ⇒ 跳过附件**不丢任何信息**。
+ * 要强行重发（例如想再看一眼）传 `force:true`。
+ *
+ * 缓存按"通道"分键：默认视口帧 / 自定义视角（按视角签名）/ rt_do 的 see，互不干扰。
+ */
+const FRAME_CACHE = new Map<string, { hash: string; firstAt: number; repeats: number }>()
+
+/** 纯决策：命中 ⇒ dup=true 且计数 +1；未命中 ⇒ 记下新 hash。force=true 一律当未命中处理并重置。 */
+export function frameDedupe(key: string, hash: string, force = false): { dup: boolean; repeats: number; firstAt: number } {
+  const k = String(key || 'default')
+  const h = String(hash || '')
+  const cur = FRAME_CACHE.get(k)
+  if (!force && cur && h && cur.hash === h) {
+    cur.repeats += 1
+    return { dup: true, repeats: cur.repeats, firstAt: cur.firstAt }
+  }
+  const firstAt = Date.now()
+  FRAME_CACHE.set(k, { hash: h, firstAt, repeats: 0 })
+  if (FRAME_CACHE.size > 32) {   // 键很少（几种通道），加个硬上限防意外增长
+    const oldest = FRAME_CACHE.keys().next().value
+    if (oldest !== undefined && oldest !== k) FRAME_CACHE.delete(oldest)
+  }
+  return { dup: false, repeats: 0, firstAt }
+}
+
+/** 测试用：清空去重缓存 */
+export function resetFrameCache(): void { FRAME_CACHE.clear() }
+
+/** 去重命中时统一的措辞（写清"相同、未附图、怎么要回来"，避免 agent 误以为看过图） */
+function dedupeNote(repeats: number): string {
+  return ' · **与上一张完全相同**（第 ' + String(repeats + 1) + ' 次）⇒ 未重复附图；要重发传 force:true'
+}
+
 /** PNG → durable attachment（v0.9.2 起失败**不再静默**：返回 {ref} 或 {why}，由调用方写进工具文本） */
 async function toAttachment(ctx: any, data: Uint8Array, name: string): Promise<{ ref?: any; why?: string }> {
   try {
@@ -854,9 +892,10 @@ export function apply(ctx: any, config: Config): void {
 
   ctx.effect(() => ctx.tools.register(vTool({
     name: 'blender_rt_see',
-    description: '实时看 Blender 视口：直接向 addon socket 取一帧离屏渲染并内联返回（约 55ms，比 CLI/MCP 通道快 20 倍）。用于「改一步、看一眼」的闭环。'
-      + '**v0.9.1（93-D2）自诊断**：返回体带 `coverage_estimate`（画面里非底色像素占比）与 `scene_bbox`（可见 mesh 的世界 bbox）；'
-      + '自定义视角画面几乎全空时给 `warning{code:"frame_looks_empty", suggest:{from,look_at,lens}}` —— 照 suggest 再出一次即可，不必自己去按 Home。' + HINT_KERNEL,
+    description: '【看视口】约 55–160 ms 出一帧（比 CLI/MCP 快 20 倍）：改一步看一眼就用它。'
+      + '给 from/look_at（可配 lens / ortho / ortho_scale / view_size / shading / overlays / view_mode）走**自定义视角**：自建矩阵离屏绘制，不建相机、不改 scene.camera、不动用户视口。'
+      + 'full=true + area=N 走整窗口截图（要看 Blender UI 时用）。回执带 coverage_estimate 与 frame_looks_empty 自诊断；同画面默认不重复附图（省视觉 token），要重发传 force=true。'
+      + '参数细节见 blender_rt_plan(op="catalog", args={tool:"rt_see"})。',
     parameters: {
       max_size: { type: 'integer', description: '最长边像素，默认 560（420 更快，900 更清晰）' },
       full: { type: 'boolean', description: '整窗口/区域截图（screenshot_area 路径）：看 Blender UI 或其他编辑器时用；默认 false = 3D 视口离屏帧' },
@@ -870,6 +909,8 @@ export function apply(ctx: any, config: Config): void {
       shading: { type: 'string', description: '【自定义视角】临时切换着色 WIREFRAME/SOLID/MATERIAL/RENDERED（出图后还原）' },
       overlays: { type: 'boolean', description: '【自定义视角】临时开关覆盖物（网格/坐标轴/gizmo），出图后还原' },
       view_mode: { type: 'string', description: '【自定义视角】viewport（默认，零场景改动，就是视口看到的样子）/ render（临时相机 + Workbench 快渲）' },
+      diagnostics: { type: 'boolean', description: '【自定义视角】是否强制跑诊断三项（coverage_estimate / scene_bbox / objects_in_frame）。默认不跑（省 45–490 ms/次）；近空帧会自动补跑一次以保住 frame_looks_empty 告警。要逐张核对覆盖率时传 true' },
+      force: { type: 'boolean', description: '上一帧与本帧 hash 完全相同时默认**不重复附图**（省模型侧 token）；传 true 强制重发这张图' },
     },
     output: { schema: ANY_SCHEMA, render: renderOne },
     isConcurrencySafe: () => true,
@@ -896,8 +937,15 @@ export function apply(ctx: any, config: Config): void {
         const mm = vs.match(/^(\d+)\s*[x×]\s*(\d+)$/)
         if (mm) { spec.width = Number(mm[1]); spec.height = Number(mm[2]) }
         else { spec.width = Math.round(size * 16 / 9); spec.height = size }
+        // v0.9.4（P0-1）：diagnostics 只在显式给出时透传（不传 = view.py 的默认：正常帧不跑、近空帧自动补跑）
+        if (args && args.diagnostics !== undefined) spec.diagnostics = !!args.diagnostics
         const fv = await fetchView(port, spec)
-        const img2 = await toAttachment(ctx, fv.png, 'view-' + String(Date.now()) + '.png')
+        // v0.9.4（P0-2）：同一视角签名 + 同一 hash ⇒ 不重复附图
+        const dkey = 'view:' + JSON.stringify([spec.width, spec.height, spec.from, spec.look_at,
+          spec.lens === undefined ? null : spec.lens, !!spec.ortho,
+          spec.ortho_scale === undefined ? null : spec.ortho_scale, spec.shading || null,
+          spec.overlays === undefined ? null : !!spec.overlays, spec.mode || null])
+        const dd2 = frameDedupe(dkey, fv.hash, !!(args && args.force))
         const mt = fv.meta || {}
         const out2: any = {
           text: '自定义视角 ' + String(mt.mode || spec.mode || 'viewport') + ' · ' + String(spec.width) + 'x' + String(spec.height)
@@ -914,15 +962,26 @@ export function apply(ctx: any, config: Config): void {
             + (w.scene_bbox ? (String.fromCharCode(10) + '  场景 bbox：center=' + JSON.stringify(w.scene_bbox.center) + ' span=' + String(w.scene_bbox.span) + ' objects=' + String(w.scene_bbox.objects)) : '')
             + (w.suggest ? (String.fromCharCode(10) + '  建议照这组再出一次：from=' + JSON.stringify(w.suggest.from) + ' look_at=' + JSON.stringify(w.suggest.look_at)) : String.fromCharCode(10) + '  ' + String(w.hint || ''))
         }
-        if (img2.ref) out2.image = img2.ref
-        else out2.text += String.fromCharCode(10) + '⚠ 图片未回传：' + String(img2.why || '未知原因')
+        if (dd2.dup) {
+          out2.text += dedupeNote(dd2.repeats)
+        } else {
+          const img2 = await toAttachment(ctx, fv.png, 'view-' + String(Date.now()) + '.png')
+          if (img2.ref) out2.image = img2.ref
+          else out2.text += String.fromCharCode(10) + '⚠ 图片未回传：' + String(img2.why || '未知原因')
+        }
         return out2
       }
       const f = await fetchFrame(port, size, full, area)
-      const img = await toAttachment(ctx, f.png, (full ? 'area-' : 'viewport-') + String(Date.now()) + '.png')
+      // v0.9.4（P0-2）：默认视口帧同样去重（键含 size / area，互不串味）
+      const dd = frameDedupe(full ? ('area:' + String(area)) : ('viewport:' + String(size)), f.hash, !!(args && args.force))
       const out: any = { text: (full ? '区域截图（screenshot_area）· ' : '视口帧 ' + String(size) + 'px · ') + String(f.ms) + 'ms · ' + String(f.png.length) + 'B · hash ' + f.hash }
-      if (img.ref) out.image = img.ref
-      else out.text += String.fromCharCode(10) + '⚠ 图片未回传：' + String(img.why || '未知原因')
+      if (dd.dup) {
+        out.text += dedupeNote(dd.repeats)
+      } else {
+        const img = await toAttachment(ctx, f.png, (full ? 'area-' : 'viewport-') + String(Date.now()) + '.png')
+        if (img.ref) out.image = img.ref
+        else out.text += String.fromCharCode(10) + '⚠ 图片未回传：' + String(img.why || '未知原因')
+      }
       return out
     },
   })), '@dsh-external/dsh-blender-plugin: rt-see')
@@ -940,6 +999,7 @@ export function apply(ctx: any, config: Config): void {
       file: { type: 'string', description: '要执行的 .py 文件路径（WSL / Windows / 相对当前 .blend 均可）—— 长脚本用这个，不必塞进入参' },
       see: { type: 'boolean', description: '是否同时回一帧视口（默认 true）' },
       max_size: { type: 'integer', description: '回帧最长边像素，默认 560' },
+      force: { type: 'boolean', description: '回帧与上一帧 hash 完全相同时默认**不重复附图**；传 true 强制重发' },
     },
     output: { schema: ANY_SCHEMA, render: renderOne },
     isConcurrencySafe: () => false,
@@ -966,10 +1026,16 @@ export function apply(ctx: any, config: Config): void {
         try {
           const size = Math.max(120, Math.min(1600, Number((args && args.max_size) || 560)))
           const f = await fetchFrame(port, size)
-          const att2 = await toAttachment(ctx, f.png, 'viewport-' + String(Date.now()) + '.png')
-          image = att2.ref
-          if (!image) parts.push('⚠ 图片未回传：' + String(att2.why || '未知原因'))
-          parts.push('SEE ' + String(size) + 'px · ' + String(f.ms) + 'ms · hash ' + f.hash)
+          // v0.9.4（P0-2）：连续 rt_do 里画面没变就不重复附图（迭代回路最常见的浪费）
+          const dd3 = frameDedupe('do-see:' + String(size), f.hash, !!(args && args.force))
+          if (dd3.dup) {
+            parts.push('SEE ' + String(size) + 'px · ' + String(f.ms) + 'ms · hash ' + f.hash + dedupeNote(dd3.repeats))
+          } else {
+            const att2 = await toAttachment(ctx, f.png, 'viewport-' + String(Date.now()) + '.png')
+            image = att2.ref
+            if (!image) parts.push('⚠ 图片未回传：' + String(att2.why || '未知原因'))
+            parts.push('SEE ' + String(size) + 'px · ' + String(f.ms) + 'ms · hash ' + f.hash)
+          }
         } catch (e) {
           parts.push('SEE 失败: ' + String((e && e.message) || e))
         }
@@ -1098,7 +1164,11 @@ export function apply(ctx: any, config: Config): void {
 
   ctx.effect(() => ctx.tools.register(vTool({
     name: 'blender_rt_loop',
-    description: '【AI 建模内环】在 Blender 侧跑高频迭代（bpy.app.timers，主线程安全，迭代/时间双上限 + 急停）：模型只写目标与验收，机器跑几千次迭代。**什么时候该用它（v0.8.10，量化判定）**：要在参数空间里搜 ≥20 次、且每次都要重新出图或重新量测 —— 把"改一步看一眼"的往返交给 Blender 侧；只搜 ≤5 次、或判据不需要每次渲染 → 用 rt_do 自己循环更省事。spec={setup, step, measure, iterations, budget_ms, interval, measure_every, minimize, top_k, group_key, redraw_every}；setup 只跑一次，step/measure 共享命名空间 ns（预置 bpy/K/math/random/np/i/frac/penalize/anneal/record），measure 必须给 ns["score"]，参数写 ns["params"]，可选 ns["metrics"]/ns["violations"]。辅助：penalize(errors, violations, weights, lam) 做多目标+罚项；anneal(v0,v1,frac) 退火步长（step 里读 ns["i"]/ns["frac"]）；record(...) 手动登记候选；top_k 保留候选表，group_key（如 "obj"）按对象分组各留最优（跨对象批量）。op=help 出契约速查；op=board 取候选表；op=export 把 best 导出成可复用脚本（内嵌 setup 源码，可直接再跑）。⚠️ 内环只优化你写的目标函数：收敛后必须换**另一条**计算通路复核 + blender_rt_see 视觉确认（防 Goodhart）。',
+    description: '【内环迭代】在 Blender 主线程跑几百到几千次迭代（bpy.app.timers，主线程安全，迭代/时间双上限 + 急停）：模型只写目标与验收，机器去搜。'
+      + '**何时用（量化）**：要在参数空间搜 >=20 次、且每次都得出图或量测；只搜 <=5 次或判据不需要每次渲染 → 用 rt_do 自己循环更省事。'
+      + 'spec={setup, step, measure, iterations, budget_ms, interval, measure_every, minimize, top_k, group_key, redraw_every, patience}；measure 必须给 ns["score"]。'
+      + '**内环只优化你写的目标函数：收敛后必须换另一条计算通路复核 + rt_see 视觉确认**（防 Goodhart）。'
+      + '参数细节见 blender_rt_plan(op="catalog", args={tool:"rt_loop"})。',
     parameters: {
       op: { type: 'string', required: true, description: 'start | status | stop | board | export | help | bench' },
       spec: { type: 'json', description: 'op=start 的规格：{setup, step, measure, iterations, budget_ms, interval, measure_every, minimize, top_k, group_key, redraw_every}' },
@@ -1186,42 +1256,34 @@ export function apply(ctx: any, config: Config): void {
 
   ctx.effect(() => ctx.tools.register(vTool({
     name: 'blender_rt_headless',
-    description: '【无头 Blender · **第一路径**（v0.9.3）】独立进程跑脚本（blender.exe -b）：不占 GUI 通道、不动你正看着的场景。'
-      + '批量几何 / 数据校验 / 渲染 / 任何不需要「人在回路看视口」的活都先走这里；只有「改一步看一眼」才回 GUI 工具（rt_do/rt_see）。'
-      + '脚本里 print("HEADLESS {...}") 会被解析成 result（**必须是单行 JSON**：json.dumps(obj, separators=(",",":"))）。'
-      + '默认 --factory-startup（干净、快、不会去抢 9876 端口）；要用用户的启动文件与偏好时设 factory_startup=false + use_user_config=true。'
-      + '引擎语义（v0.8.0，默认 **EEVEE + 光追**）：默认注入引擎前导，并回传 engine/gpu 字段；可选 engine="cycles"（OptiX）/ engine="keep" / engine="none"（跳过前导）。'
-      + '**v0.9.3 关键变化（外部反馈 2026-09-24 的 P0）**：'
-      + '① **超时不再吞结果**：客户端等待窗口（默认 100 s，DSH_HEADLESS_WAIT_MS 可调）到点或宿主取消时，'
-      + '立刻回 `{kind:"promoted", jobId:"run-…"}`（bash 的 promoted 语义）—— 服务端子进程照跑，用 `blender_rt_job(op="collect"|"wait", id=…)` 收结果；'
-      + '② **预期 >100 s 的活直接 `as_job=true`**（可配 `wait_s`：后台化后最多再等几秒，没完就回 jobId）—— 别让外层 run_code 的 deadline 决定结果去向；'
-      + '③ **回执结构化**：第 1 个 text block 是**单行 JSON 信封**（可直接 JSON.parse：status/runId/jobId/resultJson/resultPath/resultTruncated/stdoutTail/artifacts/inputFile/stage/shots/pathWarnings），第 2 个是人读摘要 —— 不必再手写正则解析 "result: {...}"；'
-      + '④ **末行非 JSON 不再顶掉输出**：解析失败记在 resultParseError，stdoutTail/logs 保留原文；>4KB 的结果自动落盘并给 resultPath（也可显式 `out_json=`）；'
-      + '⑤ **路径**：outdir/out_json/file 都收 WSL 路径（/home/… 内部映射成 \\\\wsl.localhost\\<distro>\\…），回执里给 Windows + WSL 两种真实路径；脚本把 POSIX 路径交给 Windows API 会被体检出来（pathWarnings）；'
-      + '⑥ **可观测**：三处 spawn 已注入 PYTHONUNBUFFERED=1，日志运行期就有增量；脚本里 `dsh_stage("building")`（或 K.progress）会打印 DSH_STAGE 心跳，`blender_rt_job(op="status").stage/idleMs` 直接可读；'
-      + '⑦ **多视角一体化（F1/F2）**：`shots=[{name, from, look_at, lens, res, samples}]` 一次出 N 张（走内置渲染 harness：自动三点光/渲染锁/逐张 md5/实测设备），回执 res.shots 每行带 coverage_estimate，主体占画面 <5% 出 warning。'
-      + '返回：result / resultJson / status / gpu / logs（全量日志路径）/ lastException / traceback / artifacts / shots / inputFile。'
-      + '**注意**：长任务别用「连发 status 轮询」—— 用 op=wait（阻塞到完成或超时）。',
+    description: '【无头 Blender · 第一路径】独立进程跑脚本（blender.exe -b）：不占 GUI 通道、不动你在看的场景。'
+      + '⚠ 路径：cwd 是 \\\\wsl.localhost\\…\\DSH，**WSL 绝对路径必须带开头 /**；script_file 已自动给 __file__ + 脚本目录 sys.path。'
+      + '批量几何 / 校验 / 渲染 / 不需要"人在回路看视口"的活都先走这里；"看一眼"用 rt_do/rt_see。'
+      + 'print("HEADLESS " + json.dumps(obj)) 回传（**必须单行 JSON**）。'
+      + '默认 --factory-startup；默认注入 EEVEE + 光追前导（engine="cycles"|"keep"|"none" 可改）。'
+      + '**>100 s 或长渲染：直接 as_job=true**（用 rt_job op=wait/collect 收；超时 ≠ 失败）；'
+      + '否则等待窗口（默认 100 s）到点会回 {kind:"promoted", jobId} —— 结果照样收得回。'
+      + '参数细节（19 个：shots 多视角 / preload / env / out_json / 路径语义 / 超时语义）见 blender_rt_plan(op="catalog", args={tool:"rt_headless"})。',
     parameters: {
-      script: { type: 'string', description: 'Python 源码（默认已注入持久内核 K；预置 bpy/math/mathutils/Vector）。不给脚本则只起 Blender（可用于 --version 类探测）' },
-      file: { type: 'string', description: '要打开的 .blend（Windows 路径或 WSL 路径都可，自动转换）；回执会带 inputFile{size,mtime,md5} 便于确认「探的是哪一版」' },
-      outdir: { type: 'string', description: '产物目录（Windows 路径 D:\\work\\out 或 **WSL 路径 /home/… 都行**）；也是默认工作目录，跑完列出其中新文件，并把该路径追加到脚本的 sys.argv' },
-      args: { type: 'string', description: '额外命令行参数（空格分隔），追加在 -- 之后，脚本里从 sys.argv 读（也可用 K.args 读同一个数组）' },
-      timeout_ms: { type: 'integer', description: '超时毫秒，默认 180000（3 min），上限 1800000（30 min）；超时 SIGKILL 掉整个进程。注意：它只决定「服务端子进程跑多久」，不再决定「客户端拿不拿得到结果」（见 as_job / promoted）' },
-      as_job: { type: 'boolean', description: '【v0.9.3】true = 立刻后台化成作业（返回 jobId，不受调用窗口限制）；配合 wait_s 可先等一小会儿。预期 >100 s 的渲染/批量活请直接用它' },
-      wait_s: { type: 'number', description: '【v0.9.3】as_job 之后最多再等几秒（上限受 DSH_HEADLESS_WAIT_MS 约束）；到点没完就回 {kind:"promoted", jobId}。不传 = 立刻返回 jobId' },
-      shots: { type: 'json', description: '【v0.9.3 · F1】多视角渲染一体化：数组 [{name, from:[x,y,z], look_at:[x,y,z], lens, res:[w,h]或数字, samples, ortho, ortho_scale, margin}]，或对象 {views:[…], res, samples, tag, warmup, margin}。走 qc_render 的 harness（自动三点光 + 渲染锁 + 逐张 md5/设备回读），回执 res.shots=[{name,path,ms,bytes,md5,coverage_estimate,warning?}]；主体占画面 <5% 时给 warning{code:"subject_too_small"}。可与 script 同时给（先跑脚本再出图）' },
-      factory_startup: { type: 'boolean', description: '默认 true = --factory-startup；false 用用户启动文件与插件（注意：其 startup 里的本插件会尝试占 9876 端口，通常无害但有报错噪音）' },
-      bootstrap: { type: 'boolean', description: '默认 true = 注入持久内核 K（与 blender_rt_do 一致）；false 时脚本原样跑' },
-      preload: { type: 'string', description: '预载 runtime 里的 python 模块（逗号分隔，如 "view,perf,contract,planner" 或 "qc,qc_render,audit"）：源码拼到脚本开头，之后可用 K.dsh_view_api / K.dsh_qc_api / K.dsh_audit_api 等。**audit_*/qc_*/deliver_*/montage/motion_* 都能这样在 headless 直调**（不需要 addon/Connect）' },
-      engine: { type: 'string', description: '渲染引擎：eevee（默认 = EEVEE + 光追，纯 GPU、不依赖设备偏好）/ cycles（OptiX 设备前导）/ keep（保持现状）/ none（完全跳过引擎前导与 GPU 探测 —— 纯 numpy/图像类任务省 1.0-1.5 s）' },
-      gpu: { type: 'string', description: '（仅 cycles 路径的设备语义）auto / true（必须有 GPU，否则 ok=false）/ false' },
-      use_user_config: { type: 'boolean', description: '透传 BLENDER_USER_CONFIG / BLENDER_USER_SCRIPTS 给无头进程（默认 false）—— 想让无头进程继承你的偏好/插件时打开（通常配合 factory_startup=false）' },
-      include_noise: { type: 'boolean', description: '产物清单是否包含噪音文件（__pycache__ / *.pyc / *.blend1|2 / tmp*）；默认 false = 过滤掉' },
-      script_file: { type: 'string', description: '直接跑一个 .py 文件（Windows D:\\… 或 WSL /home/… 都行）—— 不必再「写盘→读回→当字符串传」。file= 的语义是 .blend；若把 .py 传给 file= 会自动识别为脚本并提示' },
-      env: { type: 'json', description: '给子进程的额外环境变量 {KEY:"VALUE"}。插件已自动注入 DSH_RUN_ID / DSH_OUTDIR / DSH_ARGS / DSH_SESSION / DSH_PLUGIN_VERSION，脚本里可读 K.args / K.run_id / K.env' },
-      out_json: { type: 'string', description: '把脚本 print 的 HEADLESS 结构化结果落盘到该路径（**WSL 路径也收**；结果 >4KB 时插件也会自动落到 results/，路径在 resultPath/resultPathWsl）。分析脚本不必再从 stdout 里 indexOf 切片' },
-      workdir: { type: 'string', description: '脚本内 chdir + sys.path 首位（Windows/WSL 路径都收，脚本内过 K.win_path 转换）' },
+      script: { type: 'string', description: 'Python 源码（已注入持久内核 K + bpy/math/mathutils/Vector）' },
+      script_file: { type: 'string', description: '直接跑一个 .py 文件（Windows/WSL 路径都行）；比 script= 省事' },
+      file: { type: 'string', description: '要打开的 .blend（回执带 inputFile{size,mtime,md5}）；传 .py 会自动当脚本' },
+      outdir: { type: 'string', description: '产物目录（WSL 路径也收）；跑完列出新文件，并追加到脚本 sys.argv' },
+      as_job: { type: 'boolean', description: 'true = 立刻后台化成作业（预期 >100 s 的活推荐直接用）' },
+      wait_s: { type: 'number', description: 'as_job 之后最多再等几秒，到点回 jobId' },
+      timeout_ms: { type: 'integer', description: '子进程上限，默认 180000，上限 1800000（到点 SIGKILL）' },
+      engine: { type: 'string', description: 'eevee（默认）| cycles | keep | none（纯 numpy/图像任务用 none 省 1–1.5 s）' },
+      preload: { type: 'string', description: '预载 runtime 模块（逗号分隔，如 "audit,qc,qc_render"）→ K.dsh_*_api' },
+      shots: { type: 'json', description: '多视角一体化出图 [{name, from, look_at, lens, res, samples}]' },
+      out_json: { type: 'string', description: '结构化结果落盘路径（>4KB 也会自动落 results/）' },
+      env: { type: 'json', description: '子进程环境变量 {KEY:"VALUE"}' },
+      args: { type: 'string', description: '追加到 -- 之后的命令行参数（脚本里读 sys.argv / K.args）' },
+      workdir: { type: 'string', description: '脚本内 chdir + sys.path 首位' },
+      factory_startup: { type: 'boolean', description: '默认 true；false = 用用户启动文件与偏好（配合 use_user_config）' },
+      use_user_config: { type: 'boolean', description: '透传 BLENDER_USER_CONFIG/SCRIPTS 给无头进程（默认 false）' },
+      bootstrap: { type: 'boolean', description: '默认 true = 注入持久内核 K' },
+      gpu: { type: 'string', description: '仅 cycles：auto | true（必须有 GPU 否则 ok=false）| false' },
+      include_noise: { type: 'boolean', description: '产物清单是否含 __pycache__/*.blend1 等噪音（默认 false）' },
     },
     output: { schema: ANY_SCHEMA, render: renderStructured },
     isConcurrencySafe: () => false,
@@ -1305,36 +1367,23 @@ export function apply(ctx: any, config: Config): void {
 
   ctx.effect(() => ctx.tools.register(vTool({
     name: 'blender_rt_plan',
-    description: '【契约层 + 规划器】把「假设 / 区间 / 校验 / 证据 / 门控」与「对象图编译」变成可调用 API。'
-      + '契约 op：status · help · reset · register_component · register_connection · register_envelope · '
-      + 'check_envelope · check_interference · check_interface · destructive_guard · evidence · ledger · report · '
-      + 'verify · flip · advance；规划器 op（plan_ 前缀）：plan_load · plan_validate · plan_order · plan_build · '
-      + 'plan_graph · plan_status · plan_help。判据与流程见 docs/假设驱动建模-cookbook.md（外部证据不足必须报 unresolved；'
-      + '未判别的连接上做 boolean/weld/merge 会被 destructive_guard 拦下）。'
-      + '**QC 也在这里**（v0.7.0，前缀 qc_）：qc_compare（参考图 vs 渲染：IoU/Dice/缺面积/多面积/边界距离/剖面差 + 叠加图与三联对照图）、'
-      + 'qc_compare_basic（对齐逻辑照搬 plush-build 脚本，用于与历史数字对照）、qc_self_check（合成自检）、qc_robustness_check（平移/缩放鲁棒性）、qc_help。'
-      + '**多视角渲染 harness 也在这里**（v0.8.8，P2-1）：op="qc_render_views"，args={file, views[], res, samples, budget_s|thr, outdir, ref_path} —— '
-      + '按所有可见 mesh 的 AABB 自动取景（逐角解算 + margin）、临时建固定三点光（key/fill/rim，出图后删除并还原现场）、逐张 PNG + 计时 + md5、'
-      + '写 <outdir>/render_views.jsonl（每行 {view, ms, bytes, hash}）、累计超预算立即停并标 within_budget=false；'
-      + '给 ref_path 时逐张调 qc_compare（默认固定对齐）把 IoU/剖面差写进 jsonl。args 里加 asJob=true 自动转作业层（长活，无头进程天然隔离场景）。'
-      + '**v0.9.0 渲染 harness 三件**：args.mode="parts_color"（逐部件配色出图 + parts_color_meta.txt 图例 + 出图后完整还原）、'
-      + 'jsonl 每行带实测 device（防 Cycles 静默回落 CPU ≈7×；device=null 时会点名）、op="qc_render_catalog"（22 视角目录/别名/未知名回传）。'
-      + '**网格体检与装配门接通（v0.9.0）**：op="audit_scene"/"audit_mesh"/"audit_duplicates"（单件网格健康）、'
-      + '"audit_connectivity"（连通分量：**每个分量问「你有没有跟别的分量相接」**，bbox 粗筛 + BVH 网格级复核；'
-      + '判据：可见浮块 = 最长 bbox 边 ≥ 全模型 1%；相接口径 micro_gap_mm 默认 0.3mm（单一实体/3D 打印口径；带设计间隙的装配件按工艺给 1–2）、'
-      + '"audit_gate"（出厂门：连通 + 包络 + 未确认即降级）、'
-      + '"audit_drift"（对称 Chamfer 距离 = 形状漂移，BVHTree 点到曲面，≈0.05 ≈ 最长边 2.5%；平移/整体缩放不进这个数，另有 bbox_delta 报位置尺寸差）、'
-      + '"audit_measure"（测量包：世界 bbox + 逐轴间隙/重叠 mm/% + 邻居）、"audit_snap_floaters"（浮块贴到最近邻，默认只报告）。'
-      + '**拼图**：op="montage"。**机构（v0.9.0）**：motion_*（关节轴/锚点实测、扫掠验证、URDF+USDA 导出）。'
-      + '**交付（v0.9.0）**：deliver_*（单位盒归一化 + 多组 OBJ/MTL + manifest md5）。'
-      + '**生成器（v0.9.0，代码化建模轻量版）**：generator_save/run/list/get/diff —— 程序即形状 + 编译门（全新无头进程复现）+ 模块级缓存 + 源码一变回执过期。'
-      + '**v0.9.1 新增（rifle-build《93 反馈》）**：'
-      + '文件级算子 `audit_interference`（两端可以是当前会话对象，也可以是**另一个 .blend 文件** → 交集体积估计 mm³ + 95% 置信区间 + 三态结论）与 `audit_overlap`（BVH 三角面对 + 交叠 bbox）；'
-      + '`audit_connectivity`/`audit_gate`/`audit_measure` 也都接受 `file=`（跨 parts/*.blend 批处理，不再要求先 register_component）；'
-      + '渲染队列 `render_lock`（跨进程文件锁：acquire/release/status，TTL + 持有者 + 等待毫秒；qc_render 出图会自动 acquire 并把 wait_ms 写进 jsonl）；'
-      + 'GUI 原语 `gui_frame` / `gui_shading` / `gui_open`（rt_do 里 bpy.context.screen 为 None，做不到"同步 GUI"—— 这三条由插件侧在真 UI 上下文执行）。'
-      + '另：plan 通道的结构化结果上限从 4KB 提到 12KB（量测表/探针输出不再被砍）。'
-      + '每次顶层调用另写轨迹 JSONL（<工作目录>/trajectory/blender_rt-<日期>.jsonl；DSH_TRAJ=0 关、DSH_TRAJ_FULL=1 记更多参数）。',
+    description: '[v' + PLUGIN_VERSION + '] 【判定 / 验收 / 导出 / 造型】27 个 family · 176 个 op 都在这一个工具里。'
+      + '**不确定用哪个就先问目录：op="catalog"**（本地直出，不占 Blender 往返；含"什么时候用 / 别用 / 最小骨架"）；'
+      + '单族展开 op="catalog", args={family:"audit"}；算子细节用各 family 自己的 <family>_help。'
+      + '常用速查：audit_scene|audit_mesh（网格体检）· audit_gate（出厂门：连通+包络）· audit_interference|audit_overlap（干涉/重叠，可跨 .blend）· '
+      + 'qc_render_views（对照图/多视角/逐部件配色；长活 asJob=true）· qc_compare（IoU/剖面差）· '
+      + 'sculpt_scan→sculpt_setup→sculpt_apply（程序化雕刻：numpy 位移笔刷，无头可跑）· fix_repair（修复闭环：合并重复点/消零面积面/删孤立点）· '
+      + 'uv_smart_project|uv_unwrap|uv_pack（贴图与交付）· print_report（薄壁+悬垂，回执带 resolution_mm）· sweep_analyze→sweep_build（管路/线缆）· '
+      + 'deliver_export|deliver_verify（OBJ/MTL + md5 清单）· motion_joints|motion_measure|motion_export_urdf（机构）· '
+      + 'generator_save|generator_run（重复件：配方即形状；**save 用 code=**，run 的参数走嵌套 **args=**）· '
+      + 'gui_frame|gui_shading（真 UI 上下文才做得到的事）· '
+      + 'material_build|material_apply|material_bake（程序化材质；bake 把节点烘成贴图供交付）· render_lock|render_status（渲染队列）· '
+      + 'render_state|render_wait（渲染中撞到卡住/超时时先看这个）。'
+      + '契约层（假设/区间/三态判定/destructive_guard/证据账本）判据见 docs/假设驱动建模-cookbook.md。'
+      + '写 op 过写租约；只读 op（catalog / audit_* / print_* / qc_* …）豁免；目录自带加载版本自证'
+      + '（怀疑旧版：op="catalog", args={verify:true}）。'
+      + 'op 名拼错回 did_you_mean（带骨架）；参数名写错回"不认识的参数"；plan op 误发 rt_cmd 会被当场纠正。',
+
     parameters: {
       op: { type: 'string', required: true, description: '契约 op 或 plan_<op>（见工具描述；op=help / plan_help 出速查）' },
       args: { type: 'json', description: 'op 的参数对象，例如 {"cid":"joint","err":184,"tolerance":220,"identifiable":["dy"]}' },
@@ -1367,21 +1416,18 @@ export function apply(ctx: any, config: Config): void {
 
   ctx.effect(() => ctx.tools.register(vTool({
     name: 'blender_rt_worker',
-    description: '【热无头会话】常驻的 blender -b 进程：start 拉起 / exec 跑代码片段（复用**持久内核 K 与同一个 Blender 会话**）/ status / stop / restart。'
-      + '**什么时候该用它（v0.8.10，量化判定）**：同一个脚本要跑 ≥3 次，或单次 >10 s 且要反复迭代 —— 每次 headless 冷启动 1.1–1.5 s + EEVEE 着色器编译最多 ~16 s，'
-      + 'worker 只付一次。反之：一次性脚本、要 GUI 上下文的 bpy.ops、要多进程并行 → 继续用 headless。'
-      + '适合"反复迭代"的工作流 —— 省掉每次冷启动（0.9–1.2 s）与重复导入/重建的成本；无头侧也能用 K.dsh_view_api（exec 里 exec(open(<包路径>/runtime/view.py, encoding="utf-8").read()) 加载即可）。'
-      + '语义与限制：① **串行** —— 一次只处理一个请求，长代码会占住 worker（可 op=status 看状态）；'
-      + '② 无窗口 —— 依赖 GUI 上下文的 bpy.ops 可能失败（用 temp_override 或改用 GUI 通道）；'
-      + '③ print("HEADLESS {json}")（单行）会作为 result 回传；异常带 traceback 返回；'
-      + '④ 与 GUI 通道**互不干扰**（独立进程、不占 9876/9877）。',
+    description: '【热无头会话】常驻 blender -b 进程：start 拉起 / exec 跑代码片段（复用**同一个 Blender 会话与持久内核 K**）/ status / stop / restart / list。'
+      + '**何时用（量化）**：同一脚本要跑 >=3 次，或单次 >10 s 且要反复迭代 —— 每次冷启动 1.1–1.5 s + EEVEE 着色器编译最多 ~16 s，worker 只付一次。'
+      + '反之（一次性脚本 / 要 GUI 上下文 / 要多进程并行）继续用 headless。串行、无窗口：依赖 GUI 的 bpy.ops 可能失败；同一实例共享场景与 K。'
+      + '参数细节见 blender_rt_plan(op="catalog", args={tool:"rt_worker"})。',
     parameters: {
-      op: { type: 'string', required: true, description: 'start | exec | status | stop | restart' },
-      code: { type: 'string', description: 'op=exec 时的 Python 源码（预置 K/bpy/math/mathutils/Vector）' },
-      timeout_ms: { type: 'integer', description: 'op=exec 的响应超时，默认 120000；长代码请调大' },
-      gpu: { type: 'string', description: 'op=start 时的 GPU 语义（仅 cycles 路径）：auto（默认）/ true / false' },
-      engine: { type: 'string', description: 'op=start 时的渲染引擎：eevee（默认 = EEVEE + 光追）/ cycles / keep；热会话让 EEVEE 着色器编译只付一次' },
-      purge_prefix: { type: 'string', description: 'op=exec 时先清掉这些模块前缀（逗号分隔，如 "pe_geom,pe_look"）—— 热会话里改了用户模块必须清，否则 import 命中旧代码' },
+      op: { type: 'string', required: true, description: 'start | exec | status | stop | restart | list' },
+      name: { type: 'string', description: '实例名（默认 default）；起多个热会话做批量小活，脏了用 restart 换新会话' },
+      code: { type: 'string', description: 'op=exec 的 Python 源码（预置 K/bpy/math/mathutils/Vector）' },
+      timeout_ms: { type: 'integer', description: 'op=exec 的响应超时，默认 120000；长代码调大' },
+      gpu: { type: 'string', description: 'op=start 的 GPU 语义（仅 cycles）：auto / true / false' },
+      engine: { type: 'string', description: 'op=start 的渲染引擎：eevee（默认）/ cycles / keep' },
+      purge_prefix: { type: 'string', description: 'op=exec 前清掉的模块前缀（逗号分隔）—— 改了用户模块必须清，否则 import 命中旧代码' },
     },
     output: { schema: ANY_SCHEMA, render: renderOne },
     isConcurrencySafe: () => false,
@@ -1395,6 +1441,7 @@ export function apply(ctx: any, config: Config): void {
       if (args && args.gpu) body.gpu = String(args.gpu)
       if (args && args.engine) body.engine = String(args.engine)
       if (args && args.purge_prefix) body.purgePrefix = String(args.purge_prefix)
+      if (args && args.name) body.name = String(args.name)
       const budget = 60000 + Number(body.timeoutMs || 120000)
       const r = await backendPost(port, '/worker', body, budget)
       const lt = leasedText(r)
@@ -1420,8 +1467,15 @@ export function apply(ctx: any, config: Config): void {
         if (res.traceback) parts.push('--- traceback ---' + String.fromCharCode(10) + String(res.traceback).slice(0, 1500))
         return { text: parts.join('\n') }
       }
+      if (op === 'list') {
+        const ws: any[] = (res && res.workers) || []
+        const lines = ws.length
+          ? ws.map((w) => '- ' + String(w.name) + (w.alive ? (w.ready ? ' · 热（pid ' + String(w.pid) + '，端口 ' + String(w.port) + '，已运行 ' + String(Math.round(Number(w.uptimeMs || 0) / 1000)) + 's）' : ' · 进程在但未就绪') : ' · 未启动（端口 ' + String(w.port) + '）'))
+          : ['- （还没有任何 worker 实例；op=start 起一个）']
+        return { text: 'WORKER list ok · ' + String(ws.length) + ' 个实例' + String.fromCharCode(10) + lines.join(String.fromCharCode(10)) }
+      }
       const parts2: string[] = []
-      parts2.push('WORKER ' + op + ' ok · ' + JSON.stringify({ alive: res.alive, ready: res.ready, pid: res.pid, port: res.port, uptimeMs: res.uptimeMs }))
+      parts2.push('WORKER ' + op + ' ok · ' + JSON.stringify({ name: res.name, alive: res.alive, ready: res.ready, pid: res.pid, port: res.port, uptimeMs: res.uptimeMs }))
       if (res.gpu) parts2.push('GPU：' + (res.gpu.fell_back_to_cpu ? '⚠️ 回落 CPU' : ('✅ ' + String((res.gpu.after || {}).device_type || ''))) + ' ' + String(((res.gpu.after || {}).gpu_enabled || []).join(',')))
       if (res.status) parts2.push('status: ' + JSON.stringify(res.status))
       if (res.lastError) parts2.push('lastError: ' + String(res.lastError))
@@ -1532,35 +1586,29 @@ export function apply(ctx: any, config: Config): void {
 
   ctx.effect(() => ctx.tools.register(vTool({
     name: 'blender_rt_job',
-    description: '【作业层】长任务后台化：start 立刻返回 job id（不占客户端连接、不会被工具超时掐断）；status/collect/**wait**/kill/list。'
-      + '适合渲染一整晚、批量出图、大批量几何；子进程与 headless 同源（自动注入引擎前导），日志与产物落在 outdir/jobs/<id>/。'
-      + '与 headless 的分工：预期 <100 s 用 headless 直接拿结果；更长 / 已知要跑很久 → as_job=true（或本工具 op=start）后台化。'
-      + '**run 与 job 同一 id 空间**：headless 的 runId（run-…）也能用 status/collect/wait/kill 收（v0.9.3 / D1）。'
-      + '**v0.9.3 变化（外部反馈 2026-09-24）**：'
-      + '① op=start 与 headless 同形参 —— `script_file` / `args` / `env` / `factory_startup` / `bootstrap` / `workdir` / `include_noise` / `out_json` 全收（旧版只认 script，靠 DSH_ARGS 取参的脚本无法复用）；'
-      + '② **op=wait**：阻塞到完成或超时（默认 120 s/次，上限 600 s），一次拿到结构化结果 —— 别再连发 op=status（会撞 harness 的重复调用检测）；'
-      + '③ 运行期可观测：三处 spawn 注入 **PYTHONUNBUFFERED=1**，stdout.log 边跑边写；`op=status` 回 **stage/stageAt/stageAgeMs/lastOutputAt/idleMs/lines/logBytes/pidAlive**，脚本里 `dsh_stage("building")` 打心跳即可；'
-      + '④ 状态与实际进程对账：后端重启后的 stale running 会收敛成 `status="stale"`（带 staleReason），不再谎报 running；`op=kill` 对未知 id **不抛错**（回「已结束/不存在」）；'
-      + '⑤ 回执结构化：第 1 个 text block 是单行 JSON 信封（status/resultJson/resultPath/stdoutTail/stage/…），第 2 个是人读摘要；>4KB 的结果自动落盘给 resultPath。'
-      + 'v0.8.9 起 op=start 也支持 preload（与 headless 同一套，如 preload:"qc,qc_render,audit"）：长活里直接用 K.dsh_qc_render_api / K.dsh_audit_api；脚本里 print("HEADLESS {json}") 仍是结果契约。',
+    description: '【作业层】长活后台化：op=start 立刻返回 jobId（不占客户端连接、不会被工具超时掐断）；status / collect / **wait** / kill / list。'
+      + '**wait 一次拿到结构化结果（默认 120 s/次，上限 600 s）—— 别再连发 status**（会撞宿主的重复调用检测）。'
+      + '与 headless 的分工：预期 <100 s 用 headless 直接拿结果；更长或已知要跑很久 → headless 的 as_job=true，或本工具 op=start。'
+      + 'run 与 job **同一 id 空间**：headless 的 runId（run-…）也能用 status/collect/wait/kill 收；日志落 <outdir>/jobs/<id>/。'
+      + '参数细节见 blender_rt_plan(op="catalog", args={tool:"rt_job"})。',
     parameters: {
       op: { type: 'string', required: true, description: 'start | status | collect | wait | kill | list' },
       id: { type: 'string', description: 'status/collect/wait/kill 的 id（job-… 或 headless 的 run-…）' },
-      script: { type: 'string', description: 'op=start：Python 源码（print HEADLESS 加单行 JSON 作为结果回传）' },
-      script_file: { type: 'string', description: '【v0.9.3】op=start：直接跑一个 .py 文件（Windows/WSL 路径都收）—— 与 headless 同一语义；file= 仍是 .blend（传 .py 会自动识别为脚本）' },
-      args: { type: 'string', description: '【v0.9.3】op=start：额外命令行参数（空格分隔；数组也可），脚本里从 sys.argv 读，同时写进 DSH_ARGS 供 K.args 读' },
-      env: { type: 'json', description: '【v0.9.3】op=start：额外环境变量 {KEY:"VALUE"}（与 headless 同）' },
-      file: { type: 'string', description: 'op=start：可选 .blend 工程（回执带 inputFile{size,mtime,md5}）' },
-      outdir: { type: 'string', description: 'op=start：产物目录（Windows 路径或 **WSL 路径**）；日志落在其 jobs/<id>/ 下' },
-      timeout_ms: { type: 'integer', description: 'op=start：作业上限毫秒（默认 3600000，上限 24 小时，到点 SIGKILL）；op=wait：本次等待上限（默认 120000，上限 600000）' },
-      engine: { type: 'string', description: 'op=start：eevee（默认，含光追前导）/ cycles / keep' },
-      preload: { type: 'string', description: 'op=start：预载 runtime 里的 python 模块（逗号分隔，如 "qc,qc_render" 或 "view,perf,audit"）' },
-      factory_startup: { type: 'boolean', description: '【v0.9.3】op=start：默认 true = --factory-startup' },
-      bootstrap: { type: 'boolean', description: '【v0.9.3】op=start：默认 true = 注入持久内核 K' },
-      workdir: { type: 'string', description: '【v0.9.3】op=start：脚本内 chdir + sys.path 首位' },
-      include_noise: { type: 'boolean', description: '【v0.9.3】op=start/collect：产物清单是否包含噪音文件（默认 false 过滤）' },
-      out_json: { type: 'string', description: '【v0.9.3】op=start：结构化结果落盘路径（>4KB 也会自动落 results/，路径在 resultPath）' },
-      tail: { type: 'integer', description: 'collect/wait：stdout/stderr 尾部取多少字符（默认 4000）' },
+      script: { type: 'string', description: 'Python 源码（与 headless 同一套前导与结果契约）' },
+      script_file: { type: 'string', description: '直接跑 .py 文件（Windows/WSL 路径都收）' },
+      args: { type: 'string', description: '命令行参数（空格分隔或数组）；脚本里读 sys.argv / K.args' },
+      env: { type: 'json', description: '额外环境变量 {KEY:"VALUE"}' },
+      file: { type: 'string', description: '要打开的 .blend（回执带 inputFile{size,mtime,md5}）' },
+      outdir: { type: 'string', description: '产物目录（WSL 路径也收）；日志在其 jobs/<id>/ 下' },
+      timeout_ms: { type: 'integer', description: '作业上限，默认 3600000，上限 24 h；wait 时是本次等待上限（默认 120000，上限 600000）' },
+      engine: { type: 'string', description: 'eevee（默认）/ cycles / keep' },
+      preload: { type: 'string', description: '预载 runtime 模块（逗号分隔）→ K.dsh_*_api' },
+      factory_startup: { type: 'boolean', description: '默认 true = --factory-startup' },
+      bootstrap: { type: 'boolean', description: '默认 true = 注入持久内核 K' },
+      workdir: { type: 'string', description: '脚本内 chdir + sys.path 首位' },
+      include_noise: { type: 'boolean', description: '产物清单是否含噪音文件（默认 false 过滤）' },
+      out_json: { type: 'string', description: '结构化结果落盘路径（>4KB 自动落 results/）' },
+      tail: { type: 'integer', description: 'collect/wait 的 stdout/stderr 尾部字符数（默认 4000）' },
     },
     output: { schema: ANY_SCHEMA, render: renderStructured },
     isConcurrencySafe: () => true,
@@ -1650,22 +1698,21 @@ export function apply(ctx: any, config: Config): void {
 
   ctx.effect(() => ctx.tools.register(vTool({
     name: 'blender_viewport',
-    description: '实时通道后端（127.0.0.1:' + String(port) + '）运维入口：status 看健康/视口区域/计数，doctor 做连通性体检（区分 Blender 未连/主线程忙/addon 线程卡死并给修法），start/stop/restart 管后端，who 看写通道租约（多会话共存时先看它）、lease 拿/抢写权限、release 释放。'
-      + '**op="launch"（v0.9.4）：一键拉起 GUI Blender 并自动 Connect addon** —— agent 没有人手去点「N 面板 → Connect」，'
-      + '所以这条把"启动 Blender + 让 addon 起 socket server"固化成一个调用：写 boot 脚本（GUI 里 enable addon → 起 server）→ detached spawn blender.exe → '
-      + '**轮询 addon 端口**（唯一可信判据，不靠进程活着）→ 端口开了顺手跑一次 doctor 回诊断；幂等（已在监听就直接返回 already=true，不会堆出第二个 Blender）。'
-      + '参数：wait_ms 等待上限（默认 90000）、file 要打开的 .blend、exe 指定 blender.exe、addon_module/addon_file 指定 addon、dry_run 只看命令不启动。',
+    description: '实时通道后端（127.0.0.1:' + String(port) + '）运维入口：**status**（健康/视口区域/计数/版本）、**doctor**（真跑一次 bpy 往返的三级体检：未连 / 主线程忙 / addon 线程卡死 + 修法）、'
+      + '**start / stop / restart**（后端进程与 15 s 看护）、**who / lease / release**（写租约；被别人持有时写路由 409，只读 op 豁免）、'
+      + '**launch**（一键拉起 GUI Blender 并自动 Connect addon：写 boot 脚本 → detached spawn → **轮询 addon 端口**（唯一可信判据）→ 顺手 doctor；幂等）。'
+      + '参数细节见 blender_rt_plan(op="catalog", args={tool:"viewport"})。',
     parameters: {
       op: { type: 'string', required: true, description: 'status | doctor | who | lease | release | start | stop | restart | launch' },
-      holder: { type: 'string', description: 'lease/release 时的持有者名（默认本插件进程 pid 标识）' },
-      ttl_ms: { type: 'integer', description: 'lease 有效期毫秒，默认 600000（10 min）；写操作会自动续期' },
-      force: { type: 'boolean', description: 'lease 时抢占别人持有的租约（默认 false，被别人占用时返回 409 提示）' },
-      wait_ms: { type: 'integer', description: '【launch】等 addon 端口打开的上限，默认 90000ms（Blender 冷启动 + addon 加载要几十秒）' },
+      holder: { type: 'string', description: 'lease/release 的持有者名（默认本插件进程 pid 标识）' },
+      ttl_ms: { type: 'integer', description: 'lease 有效期毫秒，默认 600000；写操作会自动续期' },
+      force: { type: 'boolean', description: 'lease 时抢占别人的租约（默认 false，被占用返回 409）' },
+      wait_ms: { type: 'integer', description: '【launch】等 addon 端口打开的上限，默认 90000' },
       file: { type: 'string', description: '【launch】启动时要打开的 .blend（WSL/Windows 路径都收）' },
-      exe: { type: 'string', description: '【launch】显式指定 blender.exe（覆盖配置探测；排查"探测到的 exe 不对"时用）' },
-      addon_module: { type: 'string', description: '【launch】要 enable 的 addon 模块名（逗号分隔）；默认自动扫名字里带 mcp 的模块' },
-      addon_file: { type: 'string', description: '【launch】直接按文件 import 的 addon .py 绝对路径（Blender 5.x extension 布局下 addon_utils 扫不到老 scripts/addons 时的兜底）' },
-      dry_run: { type: 'boolean', description: '【launch】true = 只回报将要执行的命令，不真的启动' },
+      exe: { type: 'string', description: '【launch】显式指定 blender.exe（覆盖配置探测）' },
+      addon_module: { type: 'string', description: '【launch】要 enable 的 addon 模块名（逗号分隔）；默认自动扫名字带 mcp 的模块' },
+      addon_file: { type: 'string', description: '【launch】按文件 import 的 addon .py 绝对路径（extension 布局兜底）' },
+      dry_run: { type: 'boolean', description: '【launch】true = 只回报将执行的命令，不真的启动' },
     },
     output: {
       schema: { type: 'string' },
@@ -1842,6 +1889,8 @@ export function apply(ctx: any, config: Config): void {
  * 这是把「返回通道」从"靠人记得别写 undefined"变成"机器每次回归都验"的唯一办法。
  * ──────────────────────────────────────────────────────────────────────────── */
 export const __internals = {
+  frameDedupe: frameDedupe,
+  resetFrameCache: resetFrameCache,
   losslessSanitize: losslessSanitize,
   receiptEnvelope: receiptEnvelope,
   headlessReceipt: headlessReceipt,

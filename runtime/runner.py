@@ -8,6 +8,10 @@ spec 字段：
     iterations / budget_ms      硬上限（必须给）
     interval                    每 tick 间隔秒（0 = 事件循环允许的最快速度）
     measure_every / minimize    测量频率 / 最小化还是最大化
+    patience                    平台期早停（v0.9.4 · P0-3）：连续这么多次 measure 没有刷新 best 就收工
+                                （0 = 关，默认关；stop_reason 记 "plateau"）。只影响"什么时候停"，
+                                不改每次迭代的行为 —— 实测 timer 地板 ≈5.7 ms/tick（176 tps），
+                                不做"动态调频率"（那个旋钮本来就是 measure_every）
     top_k                       候选表容量（0 = 关闭）；board 按 score 排序去重
     group_key                   分组维度名（如 "obj"）→ 每组各留 top_k（跨对象批量用）
     redraw_every / history_max  重绘频率（0 = 不重绘，最快）/ 指标尾迹长度
@@ -21,7 +25,7 @@ namespace 预置：bpy / K / math / random / numpy(np) / i / frac / st / penaliz
 """
 import bpy, json, math, random, time, traceback
 
-RUNNER_VERSION = 2
+RUNNER_VERSION = 3
 
 
 def _j(obj):
@@ -154,6 +158,7 @@ def _track(st, spec, entry):
     prev = st["best"]
     if prev is None or (entry["score"] < prev["score"] if minimize else entry["score"] > prev["score"]):
         st["best"] = entry
+        st["last_improve_i"] = st["i"]      # v0.9.4（P0-3）：平台期判据只看"最后一次刷新 best 的迭代"
     hist = st["history"]
     hist.append(entry["score"])
     if len(hist) > spec["history_max"]:
@@ -218,6 +223,11 @@ def _tick():
                          "t_ms": round((now - st["t0"]) * 1000.0, 1)}
                 st["last"] = entry["score"]
                 _track(st, spec, entry)
+                # v0.9.4（P0-3）：平台期早停 —— 只在"已经有 best"时判，避免 measure 一直没给 score 的循环被误杀
+                if (spec["patience"] > 0 and st["best"] is not None
+                        and (st["i"] - int(st.get("last_improve_i") or 0)) >= spec["patience"]):
+                    _finish(st, "plateau")
+                    return None
         if spec["redraw_every"] and st["i"] % spec["redraw_every"] == 0:
             _redraw()
         return spec["interval"]
@@ -245,6 +255,7 @@ def _status_dict(st, history=8, board=0):
         "iterations": spec.get("iterations"), "elapsed_ms": round(elapsed, 1), "tps": tps,
         "best": st["best"], "last": st.get("last"), "history_tail": st["history"][-int(history):],
         "error": st["error"], "stop_reason": st.get("stop_reason"),
+        "patience": spec.get("patience"), "last_improve_i": st.get("last_improve_i"),
         "board_size": len(st.get("board") or []), "board_groups": len(st.get("board_groups") or {}),
         "runner_version": RUNNER_VERSION,
     }
@@ -275,13 +286,15 @@ def dsh_loop_start(spec=None, **kw):
         "budget_ms": float(raw.get("budget_ms") or 10000),
         "interval": float(raw.get("interval") or 0.0),
         "measure_every": max(1, int(raw.get("measure_every") or 1)),
+        # v0.9.4（P0-3）平台期早停：连续 patience 次 measure 没刷新 best 就停（0 = 关，保持旧行为）
+        "patience": max(0, int(raw.get("patience") or 0)),
         "minimize": bool(raw.get("minimize", True)),
         "top_k": int(raw.get("top_k") or 0),
         "group_key": (str(raw.get("group_key")) if raw.get("group_key") else None),
         "redraw_every": int(raw.get("redraw_every", 0)),
         "history_max": int(raw.get("history_max") or 400),
     }
-    st.update({"running": True, "i": 0, "t0": time.perf_counter(), "spec": s, "ns": {},
+    st.update({"running": True, "i": 0, "t0": time.perf_counter(), "spec": s, "ns": {}, "last_improve_i": 0,
                "best": None, "history": [], "board": [], "board_groups": {}, "error": None,
                "stop": False, "done": False, "stop_reason": None, "last": None, "tps": 0.0})
     try:
@@ -310,7 +323,7 @@ def dsh_loop_start(spec=None, **kw):
     bpy.app.timers.register(_tick, first_interval=0.0, persistent=False)
     return _j({"ok": True, "started": True, "runner_version": RUNNER_VERSION,
                "limits": {"iterations": s["iterations"], "budget_ms": s["budget_ms"],
-                          "interval": s["interval"], "measure_every": s["measure_every"],
+                          "interval": s["interval"], "measure_every": s["measure_every"], "patience": s["patience"],
                           "minimize": s["minimize"], "top_k": s["top_k"], "group_key": s["group_key"]}})
 
 
@@ -412,7 +425,7 @@ def _json_key(e):
 def dsh_loop_help():
     return _j({
         "runner_version": RUNNER_VERSION,
-        "start": "dsh_loop_start(spec)：spec={setup, step, measure, iterations, budget_ms, interval, measure_every, minimize, top_k, group_key, redraw_every}",
+        "start": "dsh_loop_start(spec)：spec={setup, step, measure, iterations, budget_ms, interval, measure_every, minimize, top_k, group_key, redraw_every, patience}",
         "ns": "setup/step/measure 共享 ns；预置 bpy/K/math/random/np/i/frac/st/penalize/anneal/record",
         "measure": "必须给 ns[score] 赋值；可写 ns[params]、ns[metrics]、ns[violations]",
         "helpers": ["penalize(errors, violations, weights, lam) -> 加权误差 + λ·Σmax(0,v)",

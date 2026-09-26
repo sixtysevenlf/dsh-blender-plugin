@@ -1,6 +1,6 @@
 {
   "name": "@dsh-external/dsh-blender-plugin",
-  "version": "0.9.4",
+  "version": "0.9.6",
   "description": "DSH × Blender 直连实时插件【分享版】（**v0.9.3 = headless 优先 + 超时不丢结果**：等待窗口到点回 promoted 回执含 jobId；回执结构化=block0 单行 JSON 信封；PYTHONUNBUFFERED + dsh_stage 心跳；outdir/out_json 收 WSL 路径；shots 多视角一体化；rt_job 收 script_file/args/env + op=wait）：15 个工具（看视口 + 自定义视角 / 跑 Python 与跑文件 / 连续观察 / Blender 侧内环迭代 / addon 命令透传 / 渲染性能预设 / 对象精简 / 无头进程 / 热无头会话 / 事务回滚 / 作业层 / 通道运维与租约；QC、多视角渲染 harness 与契约层走 blender_rt_plan）；自带 runtime（node + python），配置走 runtime/config.mjs（env → 配置文件 → 自动探测），换机器不用改源码。操作教程见 docs/操作教程.md。**v0.9.2 = DSH 更新适配**：宿主 exec.signal（用户打断 / per-tool 截止）贯通到传输层、每个工具声明静态 timeoutMs、doctor/status 带宿主 dsh-tools 自证、图片回传不再静默失败、按 0.1.7 的 dsh.bundle 约定声明 bundle；见 docs/DSH-更新适配.md。",
   "private": false,
   "keywords": [
@@ -46,9 +46,15 @@
   },
   "scripts": {
     "build": "bash scripts/build.sh",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node tests/protocol_selftest.mjs && node tests/lossless_guard.mjs && node tests/lease_stale_selftest.mjs",
+    "typecheck": "node scripts/typecheck.mjs",
+    "test": "node tests/protocol_selftest.mjs && node tests/lossless_guard.mjs && node tests/lease_stale_selftest.mjs && node tests/frame_dedupe_selftest.mjs && node tests/discoverability_selftest.mjs && node tests/workdir_shared_selftest.mjs && node tests/provenance_stale_selftest.mjs && node scripts/pyrun.mjs tests/generator_dispatch_selftest.py",
+    "test:discover": "node tests/discoverability_selftest.mjs",
     "test:lease": "node tests/lease_stale_selftest.mjs",
+    "test:workdir": "node tests/workdir_shared_selftest.mjs",
+    "test:provenance": "node tests/provenance_stale_selftest.mjs",
+    "test:generator": "node scripts/pyrun.mjs tests/generator_dispatch_selftest.py",
+    "test:dedupe": "node tests/frame_dedupe_selftest.mjs",
+    "test:diag": "node tests/view_diag_selftest_runner.mjs",
     "test:lossless": "node tests/lossless_guard.mjs",
     "test:lossless:live": "node tests/lossless_guard.mjs --live",
     "test:acceptance": "node tests/acceptance_v093.mjs",

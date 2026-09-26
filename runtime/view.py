@@ -21,7 +21,14 @@
 """
 import bpy, json, math, time, os, struct, zlib, tempfile
 
-VIEW_VERSION = 2
+VIEW_VERSION = 3
+
+# 近空帧的 PNG 字节阈值（v0.9.4 · P0-1）：**低于它才自动**跑一次诊断三项。
+# 为什么要这个阈值：诊断（coverage / scene_bbox / objects_in_frame）实测 403 物体 560px 要 63 ms、
+# 1120px 137 ms、2240px 488 ms，而真正的绘制 + 显存读回只有 ~22 ms ⇒ 正常帧不该每次白付。
+# 但"瞄空"的告警不能丢：近空帧的 PNG 会压得极小（实测本机带网格线的一帧 560×315 = 37,908 B），
+# 所以用字节数当机械判据，近空帧自动补跑诊断 → frame_looks_empty 照旧触发。
+EMPTY_PNG_BYTES = 8000
 
 # 默认输出到 Blender 本机临时目录（分享版不假设固定路径；正常调用时引擎会传
 # path = 配置里的工作目录，这里只是兜底）。
@@ -159,6 +166,8 @@ def _spec(spec):
         "path": str(s.get("path") or WIN_DEFAULT),
         "area": None if s.get("area") is None else int(s.get("area")),
         "clear": s.get("clear", [0.05, 0.05, 0.05, 1.0]),
+        # v0.9.4（P0-1）：默认**不跑**诊断三项（省 45–490 ms/次）；true = 强制每次跑
+        "diagnostics": bool(s.get("diagnostics", False)),
     }
 
 
@@ -525,27 +534,40 @@ def capture(spec_json):
         if not os.path.isfile(path):
             return _j({"ok": False, "error": err or "出图失败（viewport 与 render 两条路都没产出）", "mode": mode})
         size = os.path.getsize(path)
+        # v0.9.4（P0-1）：原实现这里**连着调了两次** _scene_bbox()（每次 O(物体数)，403 物体 ~18 ms×2）；
+        #   现在只算一次，且同样只在"显式要诊断"或"近空帧"时才算。
+        need_diag_r = bool(s.get("diagnostics")) or int(size) < EMPTY_PNG_BYTES
+        bbox_r = _scene_bbox() if need_diag_r else None
         return _j({"ok": True, "mode": mode, "path": path, "bytes": size,
                    "width": s["width"], "height": s["height"], "fallback_from": err,
-                   "coverage_estimate": None, "scene_bbox": _scene_bbox(),
-                   "warning": None if _scene_bbox() else _empty_frame_note(0.0, None, s),
+                   "diagnostics": need_diag_r,
+                   "coverage_estimate": None, "scene_bbox": bbox_r,
+                   "warning": (None if bbox_r else (_empty_frame_note(0.0, None, s) if need_diag_r else None)),
                    "matrix": {"view": [[round(v, 6) for v in r] for r in make_view_matrix(s["from"], s["look_at"])],
                               "proj": [[round(v, 6) for v in r] for r in make_proj_matrix(
                                   s["width"], s["height"], s["lens"], s["sensor"], s["clip_start"], s["clip_end"],
                                   s["sensor_fit"], s["ortho"], s["ortho_scale"], s["shift_x"], s["shift_y"])]},
                    "meta": meta, "ms": int((time.perf_counter() - t0) * 1000), "spec": s})
     n = write_png(path, s["width"], s["height"], rgba)
-    # v0.9.1（93-D2）：自定义视角自诊断 —— 画面几乎只剩底色时直接告警并给"该怎么瞄"
-    cov = _coverage(rgba, s["width"], s["height"], None)   # 底色取众数（background=true 时世界底色也算像素）
-    bbox = _scene_bbox()
-    try:
-        in_frame, margin_px = _objects_in_frame(s)
-    except Exception:
-        in_frame, margin_px = None, None
-    warn = _empty_frame_note(cov, bbox, s, in_frame)
+    # ── 诊断三项：默认不跑，近空帧自动补跑（v0.9.4 · P0-1）────────────────────────
+    # v0.9.1（93-D2）的自诊断（coverage_estimate / scene_bbox / objects_in_frame + frame_looks_empty）
+    # 语义**不变**，只是不再每次都付：正常帧省 45–490 ms，近空帧（PNG < EMPTY_PNG_BYTES）
+    # 或调用方显式 diagnostics=true 时照旧跑全。缓冲区已经在手里，补跑不需要重新绘制。
+    need_diag = bool(s.get("diagnostics")) or int(n) < EMPTY_PNG_BYTES
+    if need_diag:
+        cov = _coverage(rgba, s["width"], s["height"], None)   # 底色取众数（background=true 时世界底色也算像素）
+        bbox = _scene_bbox()
+        try:
+            in_frame, margin_px = _objects_in_frame(s)
+        except Exception:
+            in_frame, margin_px = None, None
+        warn = _empty_frame_note(cov, bbox, s, in_frame)
+    else:
+        cov = bbox = in_frame = margin_px = warn = None
     return _j({"ok": True, "mode": "viewport", "path": path, "bytes": n,
+               "diagnostics": need_diag,
                "width": s["width"], "height": s["height"], "fallback_from": err,
-               "coverage_estimate": round(float(cov), 6), "scene_bbox": bbox,
+               "coverage_estimate": (None if cov is None else round(float(cov), 6)), "scene_bbox": bbox,
                "objects_in_frame": in_frame, "min_margin_px": margin_px, "warning": warn,
                "matrix": {"view": [[round(v, 6) for v in r] for r in make_view_matrix(s["from"], s["look_at"])],
                           "proj": [[round(v, 6) for v in r] for r in make_proj_matrix(
@@ -628,10 +650,13 @@ def help():
                    "gui_frame": "GUI 原语：框选对象/全场景（rt_do 里 screen 为 None 做不到）",
                    "gui_shading": "GUI 原语：切视口着色 WIREFRAME/SOLID/MATERIAL/RENDERED",
                    "gui_open": "GUI 原语：打开 .blend（⚠ 替换当前文件）", "gui_help": "GUI 原语速查"},
-        "diagnostics_v2": {
+        "diagnostics_v3": {
             "coverage_estimate": "画面里非底色像素占比（子采样）—— 用来判'自定义视角是不是瞄空了'",
             "scene_bbox": "当前场景可见 mesh 的世界 bbox（center/span）—— 瞄空时按它重设 look_at",
             "warning": "coverage ≤ 0.004 时给 {code:'frame_looks_empty', suggest:{from,look_at,lens}}，直接照它再出一次",
+            "when": "v0.9.4 起**默认不跑**（回执里 diagnostics=false 且三项为 null）；"
+                    "PNG < %d 字节（近空帧）自动补跑；spec.diagnostics=true 可强制每次都跑。"
+                    "实测省 45 ms（空场景）～488 ms（2240×1260）/次" % EMPTY_PNG_BYTES,
         },
         "notes": "viewport 模式完全不改场景（物体/相机/选择都不动）；render 模式临时加相机，结束即删并逐项还原渲染设置",
     })
@@ -648,4 +673,7 @@ if _K is not None:
                        # 所以"能被复用/被自检调用"的东西必须挂到 API 上）
                        "diagnostics": {"scene_bbox": _scene_bbox, "coverage": _coverage,
                                        "objects_in_frame": _objects_in_frame,
-                                       "empty_frame_note": _empty_frame_note}}
+                                       "empty_frame_note": _empty_frame_note,
+                                       # v0.9.4（P0-1）：把"什么时候会自动跑诊断"的阈值一并暴露，
+                                       # 自检才能对"diagnostics 标志 == (显式要求 or 字节数 < 阈值)"做机械断言
+                                       "empty_png_bytes": EMPTY_PNG_BYTES}}
