@@ -247,5 +247,41 @@ def montage_help():
 
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
+def montage_selftest():
+    # 拼图自检：两张 8x8 纯色 PNG -> 拼成 2 列 -> 检查产物落盘
+    import json
+
+    def _d(x):
+        return json.loads(x) if isinstance(x, str) else x
+
+    import bpy
+    import os
+    import tempfile
+    ev = {}
+    d = tempfile.mkdtemp(prefix="dsh_montage_")
+    ps = []
+    try:
+        for i, col in enumerate(((1.0, 0.0, 0.0, 1.0), (0.0, 1.0, 0.0, 1.0))):
+            img = bpy.data.images.new("__dsh_mt_%d" % i, width=8, height=8, alpha=True)
+            img.pixels[:] = list(col) * 64
+            p = os.path.join(d, "t%d.png" % i)
+            img.filepath_raw = p
+            img.file_format = "PNG"
+            img.save()
+            bpy.data.images.remove(img)
+            ps.append(p)
+        ev["inputs_written"] = all(os.path.exists(p) for p in ps)
+        out = os.path.join(d, "montage.png")
+        r = _d(montage(paths=ps, cols=2, out=out))
+        ev["montage_ok"] = isinstance(r, dict) and r.get("ok") is not False
+        ev["output_written"] = os.path.exists(out)
+        return _j({"ok": all(x is True for x in ev.values()), "evidence": ev, "dir": d})
+    except Exception as e:
+        return _j({"ok": False, "evidence": ev, "error": "%s: %s" % (type(e).__name__, str(e)[:200])})
+
+
+
 if _K is not None:
-    _K.dsh_montage_api = _KIT.Api({"version": MONTAGE_VERSION, "montage": montage, "help": montage_help})
+    _K.dsh_montage_api = _KIT.Api({
+        "dispatch": _KIT.wrap_dispatch(None, {"selftest": montage_selftest}),"version": MONTAGE_VERSION, "montage": montage, "help": montage_help,
+        "selftest": montage_selftest})

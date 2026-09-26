@@ -386,10 +386,57 @@ def p_dispatch(op, args=None):
 
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
+def p_selftest():
+    # 配方自检：存 -> 取 -> 套到真对象上 -> 值确实生效 -> 删
+    import json
+
+    def _d(x):
+        return json.loads(x) if isinstance(x, str) else x
+
+    import bpy
+    import bmesh as _bm
+    ev = {}
+    nm = "__dsh_ps_cube"
+    pn = "__dsh_selftest_preset"
+    try:
+        me = bpy.data.meshes.new(nm)
+        ob = bpy.data.objects.new(nm, me)
+        bpy.context.scene.collection.objects.link(ob)
+        bm = _bm.new()
+        _bm.ops.create_cube(bm, size=1.0)
+        bm.to_mesh(me)
+        bm.free()
+        ob.location = (0.0, 0.0, 0.0)
+        ev["save_ok"] = _d(p_save(pn, {"location": [1.0, 2.0, 3.0]}, kind="object", note="selftest")).get("ok") is not False
+        ev["get_ok"] = isinstance(_d(p_get(pn)), dict)
+        ap = _d(p_apply(pn, targets=["OBJ:" + nm]))
+        ev["apply_ok"] = isinstance(ap, dict) and ap.get("ok") is not False
+        try:
+            bpy.context.view_layer.update()
+        except Exception:
+            pass
+        loc = bpy.data.objects[nm].location
+        ev["value_applied"] = abs(loc[0] - 1.0) < 1e-4 and abs(loc[2] - 3.0) < 1e-4
+        _d(p_delete(pn))
+        ev["deleted"] = True
+        return _j({"ok": all(x is True for x in ev.values()), "evidence": ev, "loc": [round(float(q), 3) for q in loc]})
+    except Exception as e:
+        return _j({"ok": False, "evidence": ev, "error": "%s: %s" % (type(e).__name__, str(e)[:200])})
+    finally:
+        o = bpy.data.objects.get(nm)
+        if o is not None:
+            me2 = o.data
+            bpy.data.objects.remove(o, do_unlink=True)
+            if me2 is not None and me2.users == 0:
+                bpy.data.meshes.remove(me2, do_unlink=True)
+
+
+
 if _K is not None:
-    _K.dsh_preset_api = _KIT.Api({"version": PRESET_VERSION, "dispatch": p_dispatch, "save": p_save, "list": p_list,
+    _K.dsh_preset_api = _KIT.Api({"version": PRESET_VERSION, "dispatch": _KIT.wrap_dispatch(p_dispatch, {"selftest": p_selftest}), "save": p_save, "list": p_list,
                          "get": p_get, "delete": p_delete, "apply": p_apply, "export": p_export,
-                         "import": p_import, "glass": preset_glass, "help": p_help})
+                         "import": p_import, "glass": preset_glass, "help": p_help,
+        "selftest": p_selftest})
 
 # ---- v0.9.1（93-B1/B2）：API 可调用化（换成 dict 子类实例，返回已解析对象）----
 # 背景：K.dsh_x_api 原来是普通 dict → 进程内 api(args) 报 TypeError: 'dict' object is not callable；

@@ -456,10 +456,31 @@ def dsh_loop_bench(iterations=5000):
 # execute_code 每次都是新命名空间 → API 挂到持久内核 K，后续调用用 K.dsh_loop_api[...]
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
+def dsh_loop_selftest():
+    # 内环自检（只读）：status 空闲可读 + help 结构化（不真起循环）
+    import json
+
+    def _d(x):
+        return json.loads(x) if isinstance(x, str) else x
+
+    ev = {}
+    try:
+        st = _d(dsh_loop_status())
+        ev["status_dict"] = isinstance(st, dict)
+        ev["running_is_bool"] = isinstance(st.get("running"), bool)
+        ev["help_dict"] = isinstance(_d(dsh_loop_help()), dict)
+        return _j({"ok": all(x is True for x in ev.values()), "evidence": ev})
+    except Exception as e:
+        return _j({"ok": False, "evidence": ev, "error": "%s: %s" % (type(e).__name__, str(e)[:200])})
+
+
+
 if _K is not None:
-    _K.dsh_loop_api = _KIT.Api({"version": RUNNER_VERSION, "start": dsh_loop_start, "status": dsh_loop_status,
+    _K.dsh_loop_api = _KIT.Api({
+        "dispatch": _KIT.wrap_dispatch(None, {"selftest": dsh_loop_selftest}),"version": RUNNER_VERSION, "start": dsh_loop_start, "status": dsh_loop_status,
                        "stop": dsh_loop_stop, "board": dsh_loop_board, "export": dsh_loop_export,
-                       "help": dsh_loop_help, "bench": dsh_loop_bench})
+                       "help": dsh_loop_help, "bench": dsh_loop_bench,
+        "selftest": dsh_loop_selftest})
 
 # ---- v0.9.1（93-B1/B2）：API 可调用化（换成 dict 子类实例，返回已解析对象）----
 # 背景：K.dsh_x_api 原来是普通 dict → 进程内 api(args) 报 TypeError: 'dict' object is not callable；

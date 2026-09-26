@@ -524,12 +524,63 @@ def t_ops():
 
 import sys as _sys
 _txn_K = _sys.modules.get("dsh_rt_kernel")
+def t_selftest():
+    # 事务自检：mark -> 真改对象 -> revert 必须把变换还原
+    import json
+
+    def _d(x):
+        return json.loads(x) if isinstance(x, str) else x
+
+    import bpy
+    import bmesh as _bm
+    ev = {}
+    nm = "__dsh_tx_cube"
+    lb = "__dsh_selftest_mark"
+    try:
+        me = bpy.data.meshes.new(nm)
+        ob = bpy.data.objects.new(nm, me)
+        bpy.context.scene.collection.objects.link(ob)
+        bm = _bm.new()
+        _bm.ops.create_cube(bm, size=1.0)
+        bm.to_mesh(me)
+        bm.free()
+        ob.location = (0.0, 0.0, 0.0)
+        _d(t_mark(lb, [nm]))
+        ob.location = (5.0, 5.0, 5.0)
+        try:
+            bpy.context.view_layer.update()
+        except Exception:
+            pass
+        ev["changed"] = abs(bpy.data.objects[nm].location[0] - 5.0) < 1e-4
+        r = _d(t_revert(lb))
+        ev["revert_ok"] = isinstance(r, dict) and r.get("ok") is not False
+        try:
+            bpy.context.view_layer.update()
+        except Exception:
+            pass
+        loc = bpy.data.objects[nm].location
+        ev["restored"] = abs(loc[0]) < 1e-4 and abs(loc[2]) < 1e-4
+        ev["marks_listable"] = isinstance(_d(t_list()), dict)
+        return _KIT.j({"ok": all(x is True for x in ev.values()), "evidence": ev, "loc": [round(float(q), 3) for q in loc]})
+    except Exception as e:
+        return _KIT.j({"ok": False, "evidence": ev, "error": "%s: %s" % (type(e).__name__, str(e)[:200])})
+    finally:
+        o = bpy.data.objects.get(nm)
+        if o is not None:
+            me2 = o.data
+            bpy.data.objects.remove(o, do_unlink=True)
+            if me2 is not None and me2.users == 0:
+                bpy.data.meshes.remove(me2, do_unlink=True)
+
+
+
 if _txn_K is not None:
-    _txn_K.dsh_txn_api = _KIT.Api({"version": TXN_VERSION, "dispatch": t_dispatch, "snapshot": t_snapshot, "restore": t_restore,
+    _txn_K.dsh_txn_api = _KIT.Api({"version": TXN_VERSION, "dispatch": _KIT.wrap_dispatch(t_dispatch, {"selftest": t_selftest}), "snapshot": t_snapshot, "restore": t_restore,
                       "list": t_list, "prune": t_prune, "mark": t_mark, "revert": t_revert,
                       "marks": t_marks, "drop": t_drop, "help": t_help,
                       "edit_begin": t_edit_begin, "edit_check": t_edit_check, "edit_accept": t_edit_accept,
-                      "edit_revert": t_edit_revert, "edit_status": t_edit_status})
+                      "edit_revert": t_edit_revert, "edit_status": t_edit_status,
+        "selftest": t_selftest})
 
 # ---- v0.9.1（93-B1/B2）：API 可调用化（换成 dict 子类实例，返回已解析对象）----
 # 背景：K.dsh_x_api 原来是普通 dict → 进程内 api(args) 报 TypeError: 'dict' object is not callable；

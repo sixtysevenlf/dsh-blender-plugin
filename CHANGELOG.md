@@ -172,6 +172,38 @@ GUI 通道（`npm run test:gui`，需真机 + addon）—— **11/11 通过**：
 无头整合自检 **23 → 34 断言**（新增材质链路与 guard 的 install/mark/clear）。
 ⚠ 生效时机：catalog 与 guard 在后端（重启即生效）；工具描述在 `lib/index.js`（下次 DSH 启动）。
 
+### D20 · S1-b 收尾：给 10 个「无自检」模块补自检（重构盲区清零）
+
+重构时发现：`contract / deliver / montage / perf / planner / presets / qc / runner / txn / worker` 这 10 个模块
+**没有 selftest** —— 改坏了没人发现（前几批迁移它们时就是盲区）。本批补上 9 个（worker 是热无头会话的入口脚本、
+不是 K-API 模块，单独说明）。
+
+每个自检都是**自包含**的：造临时对象/数据 → 验核心机制 → 清理。
+
+| 模块 | 验的是什么（evidence 摘录） |
+|---|---|
+| contract | 复位 → 登记真组件 → status 计数 ≥1 → 复位 |
+| deliver | 建临时立方体 → 导出 OBJ → 文件真的落盘 → verify 对 md5 |
+| montage | 造两张 8×8 PNG → 拼成 2 列 → 产物落盘 |
+| perf | ops 齐备 + status/apply/revert 可跑（**该模块由 engine 直调，不注册 K API** —— 如实标注） |
+| planner | status / diag / graph 都给结构化回执 |
+| presets | 存 → 取 → 套到真对象 → **值真生效**（location 1,2,3）→ 删 |
+| qc | **IoU 用已知答案验**（50/50 掩码交集 25、并集 75 ⇒ 1/3）+ resize + profile |
+| runner | status 空闲可读 + help 结构化（不真起循环） |
+| txn | mark → 真改变换 → revert → **变换真还原** + 列表可读 |
+
+**新套件** `tests/modules_selftest.py`（9 项，独立回归）：`HEADLESS {pass:9, fail:0}`。
+
+**kit 扩展**：新增 `_KIT.wrap_dispatch(base, extra)` —— 给已有 dispatch 挂附加 op，不去改各模块形态不一的手写 op 表
+（这条也顺带暴露了一个真实不一致：`perf.py` 根本不注册自己的 API，尾部只有一段兼容 shim）。
+
+**踩坑记录（都是实测）**：① `py_compile` 过的插入仍可能语法错（我把 selftest 键插到字典**外**、又叠加成 `},,`）；
+② helper 函数被追加到函数**末尾** ⇒ `UnboundLocalError`（Python 把名字当局部，调用在前赋值在后）；
+③ `kit.py` 改动要**重启后端**才生效（`KIT_SRC` 是引擎启动时读的，指纹只影响模块重注）；
+④ `presets.apply` 的 `targets` 必须传**列表**（传字符串会被逐字符拆开）。
+
+回归：Blender 侧 **261 断言**（整合 122 + audit 78 + gate 52 + 模块自检 9）全绿 · 能力锁 PASS（28 family / 183 op / 15 工具）· npm test 全绿。
+
 ### D19 · S5：流水线层（工件注册表 + @引用）—— 让 183 个 op 真正配合
 
 痛点（重构前的实测）：op 之间只能人肉搬运。`vehicle_sections` 回一份 **5,656 字符**的 JSON，

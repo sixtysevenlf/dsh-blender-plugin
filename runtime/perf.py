@@ -322,10 +322,33 @@ def dsh_perf_help():
 
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
-if _K is not None:
-    _K.dsh_perf_api = _KIT.Api({"version": PERF_VERSION, "status": (lambda *a, **kw: dsh_perf_status(*a, **kw)), "apply": dsh_perf_apply,
-                       "revert": dsh_perf_revert, "analyze": dsh_perf_analyze, "help": dsh_perf_help,
-                       "opt_analyze": dsh_opt_analyze, "opt_join": dsh_opt_join})
+def dsh_perf_selftest():
+    # 渲染性能自检。**注意**：本模块由 engine 直调（blender_rt_perf / blender_rt_opt），
+    # 模块本身**不注册** K.dsh_perf_api（尾部只有一段兼容 shim）=> 自检直接验模块级函数。
+    import json
+
+    def _d(x):
+        return json.loads(x) if isinstance(x, str) else x
+
+    ev = {}
+    try:
+        _g = globals()
+        st_fn = _g.get("dsh_perf_status")
+        ap_fn = _g.get("dsh_perf_apply")
+        rv_fn = _g.get("dsh_perf_revert")
+        ev["ops_present"] = all(callable(x) for x in (st_fn, ap_fn, rv_fn))
+        ev["api_registered_by_module"] = isinstance(getattr(_K, "dsh_perf_api", None), dict)  # 如实标注现状
+        if callable(st_fn):
+            ev["status_runs"] = isinstance(_d(st_fn()), dict)
+        if callable(ap_fn) and callable(rv_fn):
+            ev["apply_runs"] = isinstance(_d(ap_fn(samples=64, persistent=True)), dict)
+            ev["revert_runs"] = isinstance(_d(rv_fn()), dict)
+        _checks = ["ops_present", "status_runs", "apply_runs", "revert_runs"]
+        ok = all(ev.get(k) is True for k in _checks if k in ev)
+        # api_registered_by_module 只是如实标注现状（该模块由 engine 直调），不参与判定
+        return _j({"ok": bool(ok), "evidence": ev})
+    except Exception as e:
+        return _j({"ok": False, "evidence": ev, "error": "%s: %s" % (type(e).__name__, str(e)[:200])})
 
 
 def _dsh_perf_engine_mode():

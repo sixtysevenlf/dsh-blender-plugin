@@ -112,6 +112,23 @@ def register(name, version, ops, dispatch=None, extra=None):
     return a
 
 
+def wrap_dispatch(base, extra=None):
+    """给已有 dispatch 挂附加 op（如 selftest）：命中 extra 走额外表，否则交回原 dispatch。
+
+    用途：模块的 op 表是各自手写的（形态不一），补 op 时不该去改它的内部结构。
+    """
+    extra = extra or {}
+
+    def _d(op, args_json=None):
+        fn = extra.get(str(op))
+        if fn is not None:
+            return dispatch_table({str(op): fn}, op, args_json)
+        if callable(base):
+            return base(op, args_json)
+        return err("unknown op", op=op, ops=sorted(extra.keys()))
+
+    return _d
+
 def flatten(args):
     """参数摊平：`{"args": {...}}` 与顶层键等价（历史两种写法都支持）。"""
     out = {}
@@ -264,5 +281,5 @@ _K.dsh_kit = types.SimpleNamespace(
     version=KIT_VERSION, j=j, err=err, receipt=receipt, units=units, mm=mm, api=api,
     Api=Api, register=register, flatten=flatten, dispatch_table=dispatch_table,
     objects=objects, world_tris=world_tris, bvh=bvh, iou=iou,
-    pairwise_clearance=pairwise_clearance, selftest=selftest, kernel=_kernel,
+    pairwise_clearance=pairwise_clearance, selftest=selftest, kernel=_kernel, wrap_dispatch=wrap_dispatch,
 )

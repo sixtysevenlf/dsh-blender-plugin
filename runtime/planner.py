@@ -416,10 +416,29 @@ def p_ops():
 
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
+def p_selftest():
+    # 规划器自检：status / diag / graph 都要给结构化回执
+    import json
+
+    def _d(x):
+        return json.loads(x) if isinstance(x, str) else x
+
+    ev = {}
+    try:
+        ev["status_dict"] = isinstance(_d(p_status()), dict)
+        ev["diag_dict"] = isinstance(_d(p_diag()), dict)
+        ev["graph_dict"] = isinstance(_d(p_graph()), dict)
+        return _j({"ok": all(x is True for x in ev.values()), "evidence": ev})
+    except Exception as e:
+        return _j({"ok": False, "evidence": ev, "error": "%s: %s" % (type(e).__name__, str(e)[:200])})
+
+
+
 if _K is not None:
-    _K.dsh_plan_api = _KIT.Api({"version": PLAN_VERSION, "dispatch": p_dispatch,
+    _K.dsh_plan_api = _KIT.Api({"version": PLAN_VERSION, "dispatch": _KIT.wrap_dispatch(p_dispatch, {"selftest": p_selftest}),
                        "load": p_load, "diag": p_diag, "order": p_order,
-                       "build": p_build, "graph": p_graph, "status": p_status, "help": p_help})
+                       "build": p_build, "graph": p_graph, "status": p_status, "help": p_help,
+        "selftest": p_selftest})
     # 给契约层补一个"规划器诊断"入口（S1 与 S3 联动）
     if hasattr(_K, "dsh_contract_api"):
         _K.dsh_contract_api["plan_diag"] = p_diag

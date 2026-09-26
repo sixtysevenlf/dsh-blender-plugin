@@ -1724,9 +1724,49 @@ def c_ops():
 
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
+def c_selftest():
+    # 契约层自检：复位 -> 登记一个真组件 -> 状态可读 -> 复位（登记簿能收能清）
+    import json
+
+    def _d(x):
+        return json.loads(x) if isinstance(x, str) else x
+
+    import bpy
+    import bmesh as _bm
+    ev = {}
+    nm = "__dsh_ct_cube"
+    try:
+        c_reset()
+        me = bpy.data.meshes.new(nm)
+        ob = bpy.data.objects.new(nm, me)
+        bpy.context.scene.collection.objects.link(ob)
+        bm = _bm.new()
+        _bm.ops.create_cube(bm, size=1.0)
+        bm.to_mesh(me)
+        bm.free()
+        r = _d(c_register_component("cube1", objects=[nm], tags=["selftest"]))
+        ev["register_ok"] = isinstance(r, dict) and r.get("ok") is not False
+        st = _d(c_status())
+        ev["status_dict"] = isinstance(st, dict)
+        ev["components_counted"] = int(st.get("components") or 0) >= 1
+        c_reset()
+        ev["reset_ok"] = True
+        return _j({"ok": all(v is True for v in ev.values()), "evidence": ev})
+    except Exception as e:
+        return _j({"ok": False, "evidence": ev, "error": "%s: %s" % (type(e).__name__, str(e)[:200])})
+    finally:
+        o = bpy.data.objects.get(nm)
+        if o is not None:
+            me2 = o.data
+            bpy.data.objects.remove(o, do_unlink=True)
+            if me2 is not None and me2.users == 0:
+                bpy.data.meshes.remove(me2, do_unlink=True)
+
+
+
 if _K is not None:
     _K.dsh_contract_api = _KIT.Api({
-        "dispatch": c_dispatch,
+        "dispatch": _KIT.wrap_dispatch(c_dispatch, {"selftest": c_selftest}),
         "version": CONTRACT_VERSION,
         "reset": c_reset, "help": c_help, "status": c_status,
         "register_component": c_register_component, "register_connection": c_register_connection,
@@ -1739,7 +1779,7 @@ if _K is not None:
         "fingerprint": c_fingerprint,
         "mate_check": c_mate_check, "fit_help": c_fit_help,
         "interference_report": c_interference_report,
-    })
+        "selftest": c_selftest})
 
 # ---- v0.9.1（93-B1/B2）：API 可调用化（换成 dict 子类实例，返回已解析对象）----
 # 背景：K.dsh_x_api 原来是普通 dict → 进程内 api(args) 报 TypeError: 'dict' object is not callable；

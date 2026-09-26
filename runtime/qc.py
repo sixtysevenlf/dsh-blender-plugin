@@ -1117,8 +1117,34 @@ def qc_ops():
 
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
+def qc_selftest():
+    # QC 自检：IoU/缩放/剖面都用**已知答案**的合成掩码验（收敛到 kit 后数字必须仍然对）
+    import json
+
+    def _d(x):
+        return json.loads(x) if isinstance(x, str) else x
+
+    import numpy as np
+    ev = {}
+    try:
+        a = np.zeros((10, 10), bool)
+        a[:5, :] = True            # 50 px
+        b = np.zeros((10, 10), bool)
+        b[:, :5] = True            # 50 px，交集 25、并集 75 => IoU = 1/3
+        r = _d(qc_iou(a, b))
+        ev["iou_known"] = abs(float(r.get("iou")) - (25.0 / 75.0)) < 0.002 and int(r.get("inter")) == 25 and int(r.get("union")) == 75
+        m = qc_resize_mask(a, 5, 5)
+        ev["resize_shape"] = tuple(np.asarray(m).shape) == (5, 5)
+        prof = qc_profile(a, bins=5)
+        ev["profile_len"] = len(prof) == 5
+        return _j({"ok": all(x is True for x in ev.values()), "evidence": ev, "iou": r.get("iou")})
+    except Exception as e:
+        return _j({"ok": False, "evidence": ev, "error": "%s: %s" % (type(e).__name__, str(e)[:200])})
+
+
+
 if _K is not None:
-    _K.dsh_qc_api = _KIT.Api({"version": QC_VERSION, "dispatch": qc_dispatch, "compare": qc_compare_auto,
+    _K.dsh_qc_api = _KIT.Api({"version": QC_VERSION, "dispatch": _KIT.wrap_dispatch(qc_dispatch, {"selftest": qc_selftest}), "compare": qc_compare_auto,
                      "compare_basic": qc_compare, "mask_auto": qc_mask_auto, "metrics": qc_metrics,
                      "self_check": qc_self_check, "mask_sweep": qc_mask_sweep, "load": qc_load, "crop": qc_crop, "mask": qc_mask,
                      "iou": qc_iou, "profile": qc_profile, "profile_diff": qc_profile_diff,
@@ -1126,6 +1152,7 @@ if _K is not None:
                      "render_views": qc_render_views, "align_search": _align_search, "iou_pair": _iou_pair,
                      "align_rotate": qc_align_rotate, "rotate_mask": _rotate_mask,
                      "gif_first_frame": _gif_first_frame, "gif_to_png": gif_to_png,
-                     "help": qc_help})
+                     "help": qc_help,
+        "selftest": qc_selftest})
     _K.dsh_measure = {"aabb_err": m_aabb_err, "silhouette_iou": m_silhouette_iou,
                       "profile_err": m_profile_err}
