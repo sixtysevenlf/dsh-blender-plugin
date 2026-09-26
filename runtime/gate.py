@@ -65,6 +65,12 @@ import time
 import bpy
 
 
+import sys as _sys_kit
+_KIT = getattr(_sys_kit.modules.get("dsh_rt_kernel"), "dsh_kit", None)
+if _KIT is None:
+    raise RuntimeError("gate 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
+
+
 def _kernel():
     """模块命名空间里没有 K（K 在 dsh_rt_kernel 模块上）—— 与 sculpt.py / uv_tools.py 同一套取法。"""
     return sys.modules.get("dsh_rt_kernel")
@@ -176,10 +182,7 @@ PRESETS = {
 
 
 
-def _j(o):
-    return json.dumps(o, ensure_ascii=False, default=str)
-
-
+_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
 def _md5_text(t):
     return hashlib.md5(t.encode("utf-8")).hexdigest()
 
@@ -878,17 +881,7 @@ def gate_dispatch(op, args_json):
                    "help": gate_help() if op not in ("help",) else None})
 
 
-class _DshApi(dict):
-    def __call__(self, op=None, args=None, **kw):
-        if op is None or isinstance(op, dict):
-            args, op = (op if isinstance(op, dict) else args), "help"
-        payload = args if isinstance(args, str) else _j(dict(args or {}, **kw))
-        return json.loads(self["dispatch"](str(op), payload))
-
-    def call(self, op, args=None, **kw):
-        return self(op, args, **kw)
-
-
+_DshApi = _KIT.Api  # 共享内核（尾部注册行无需改）
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
 if _K is not None:

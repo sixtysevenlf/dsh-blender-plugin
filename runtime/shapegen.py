@@ -132,16 +132,14 @@ STEPS = [
 ]
 
 
-def _j(o):
-    return json.dumps(o, ensure_ascii=False, default=str)
+import sys as _sys_kit
+_KIT = getattr(_sys_kit.modules.get("dsh_rt_kernel"), "dsh_kit", None)
+if _KIT is None:
+    raise RuntimeError("shapegen 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
-def _api(name):
-    import sys
-    K = sys.modules.get("dsh_rt_kernel")
-    return getattr(K, "dsh_%s_api" % name, None) if K is not None else None
-
-
+_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_api = _KIT.api  # 共享内核
 def shape_plan(object_class="generic", family=None):
     """该类别的**还原协议**：要哪些视图、盯哪些比例、配哪些算子、怎么验收、有哪些坑。"""
     c = str(object_class or "generic").lower()
@@ -361,18 +359,7 @@ def shape_dispatch(op, args_json):
         return _j({"ok": False, "error": "%s: %s" % (type(e).__name__, str(e)[:220]), "op": op})
 
 
-class _DshApi(dict):
-    def __call__(self, op=None, args=None, **kw):
-        if op is None or isinstance(op, dict):
-            args, op = (op if isinstance(op, dict) else args), "help"
-        payload = args if isinstance(args, str) else _j(dict(args or {}, **kw))
-        out = self["dispatch"](str(op), payload)
-        return out if isinstance(out, dict) else json.loads(out)
-
-    def call(self, op, args=None, **kw):
-        return self(op, args, **kw)
-
-
+_DshApi = _KIT.Api  # 共享内核（尾部注册行无需改）
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
 if _K is not None:

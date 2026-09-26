@@ -32,10 +32,13 @@ PRESETS = ("metal_brushed", "metal_paint", "rust", "plastic", "glass", "fabric",
 BAKE_TYPES = ("DIFFUSE", "ROUGHNESS", "NORMAL", "AO", "EMIT", "COMBINED")
 
 
-def _j(o):
-    return json.dumps(o, ensure_ascii=False, default=str)
+import sys as _sys_kit
+_KIT = getattr(_sys_kit.modules.get("dsh_rt_kernel"), "dsh_kit", None)
+if _KIT is None:
+    raise RuntimeError("material 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
+_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
 def _num(v, name, lo=None, hi=None, default=None):
     if v is None:
         if default is None:
@@ -637,17 +640,7 @@ def material_dispatch(op, args_json):
         return _j({"ok": False, "error": "%s: %s" % (type(e).__name__, str(e)[:220]), "op": op})
 
 
-class _DshApi(dict):
-    def __call__(self, op=None, args=None, **kw):
-        if op is None or isinstance(op, dict):
-            args, op = (op if isinstance(op, dict) else args), "help"
-        payload = args if isinstance(args, str) else _j(dict(args or {}, **kw))
-        return json.loads(self["dispatch"](str(op), payload))
-
-    def call(self, op, args=None, **kw):
-        return self(op, args, **kw)
-
-
+_DshApi = _KIT.Api  # 共享内核（尾部注册行无需改）
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
 if _K is not None:
