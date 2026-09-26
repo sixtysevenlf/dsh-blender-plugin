@@ -352,7 +352,7 @@ def vehicle_base(spec=None, name="VehicleShell", stations=28, section_pts=16, wh
                 except Exception:
                     pass
         made = [nm]
-        mmu = float(bpy.context.scene.unit_settings.scale_length or 1.0) * 1000.0
+        mmu = _KIT.units()
         wheel_info = []
         if wheels:
             r = sp["wheel_r_mm"] / 1000.0
@@ -1045,7 +1045,7 @@ def vehicle_panels(object_name=None, cuts_mm=None, gap_mm=3.0, separate=True, na
             return _j({"ok": False, "error": "给 object_name（或选中一个 mesh）"})
         if not cuts_mm:
             return _j({"ok": False, "error": "cuts_mm 必填：[x 位置…]（毫米，沿车长）"})
-        mmu = float(bpy.context.scene.unit_settings.scale_length or 1.0) * 1000.0
+        mmu = _KIT.units()
         cutters = []
         for i, x in enumerate(list(cuts_mm)):
             cme = bpy.data.meshes.new(ob.name + "_cut%d" % i)

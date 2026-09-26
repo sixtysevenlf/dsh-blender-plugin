@@ -90,7 +90,7 @@ def _mm_per_unit(mm_per_unit=None):
     if mm_per_unit is not None:
         return _num(mm_per_unit, "mm_per_unit", 1e-9, 1e9)
     try:
-        return float(bpy.context.scene.unit_settings.scale_length or 1.0) * 1000.0
+        return _KIT.units()
     except Exception:
         return 1000.0
 

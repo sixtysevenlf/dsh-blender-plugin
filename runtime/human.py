@@ -248,7 +248,7 @@ def human_base(spec=None, height_mm=None, heads=None, shoulder_w_mm=None, pose="
                 break
             # heads_geo = 身高/(2r)：实测偏大 ⇒ 头偏小 ⇒ 要放大 ⇒ 乘 (实测/目标)
             head_scale *= (heads_geo / want)
-        mmu = float(bpy.context.scene.unit_settings.scale_length or 1.0) * 1000.0
+        mmu = _KIT.units()
         mk = []
         if markers:
             coll = bpy.data.collections.get(nm + "_joints")
@@ -309,7 +309,7 @@ def human_measure(objects=None, scope="ACTIVE", name=None):
         objs = [o] if o is not None else []
     if not objs:
         return _j({"ok": False, "error": "没有对象（给 objects/name）"})
-    mmu = float(bpy.context.scene.unit_settings.scale_length or 1.0) * 1000.0
+    mmu = _KIT.units()
     try:
         bpy.context.view_layer.update()
     except Exception:

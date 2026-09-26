@@ -320,8 +320,8 @@ def img_diff(a, b, out=None, align=True, invert_a=False, invert_b=False):
     A = np.zeros((H, W), bool); B = np.zeros((H, W), bool)
     A[:ma.shape[0], :ma.shape[1]] = ma
     B[:mb.shape[0], :mb.shape[1]] = mb
-    inter = int((A & B).sum()); union = int((A | B).sum())
-    iou = (inter / union) if union else None
+    # S2：度量收敛到共享内核（唯一实现）
+    iou, inter, union = _KIT.iou(A, B)
     a_only = int((A & ~B).sum()); b_only = int((B & ~A).sum())
     # 各轴剖面（每列/每行前景比例差）——给出"哪一段胖了/瘦了"
     col_a, col_b = A.mean(axis=0), B.mean(axis=0)

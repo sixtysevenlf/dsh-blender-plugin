@@ -300,9 +300,9 @@ def qc_iou(a, b):
     w = min(a.shape[1], b.shape[1])
     a2 = qc_resize_mask(a, h, w)
     b2 = qc_resize_mask(b, h, w)
-    inter = int(np.logical_and(a2, b2).sum())
-    union = int(np.logical_or(a2, b2).sum())
-    return {"iou": (inter / union) if union else 0.0, "inter": inter, "union": union,
+    # S2：度量收敛到共享内核（唯一实现）
+    _iou, inter, union = _KIT.iou(a2, b2)
+    return {"iou": (0.0 if _iou is None else _iou), "inter": inter, "union": union,
             "a_px": int(a2.sum()), "b_px": int(b2.sum())}
 
 
@@ -586,9 +586,9 @@ def _down(mask, work):
 
 
 def _iou_pair(a, b):
-    inter = int(np.logical_and(a, b).sum())
-    uni = int(np.logical_or(a, b).sum())
-    return (inter / uni) if uni else 0.0, inter, uni
+    # S2：度量收敛到共享内核（唯一实现）；空并集时 kit 给 None，这里按旧契约返回 0.0
+    iou, inter, uni = _KIT.iou(a, b)
+    return (0.0 if iou is None else iou), inter, uni
 
 
 def _align_search(ref_mask, ren_mask, work=384, coarse=True):
