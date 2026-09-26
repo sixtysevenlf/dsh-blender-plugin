@@ -1500,6 +1500,10 @@ def vehicle_dispatch(op, args_json):
             kw.update(v)
         else:
             kw[k] = v
+    try:
+        kw = _KIT.resolve_refs(kw)   # S5-b：单步调用也支持 "@工件"
+    except KeyError as e:
+        return _j({"ok": False, "error": "引用解析失败: %s" % str(e)[:160]})
     ops = {"spec": lambda **k: _j(vehicle_spec(**k)), "package": vehicle_package, "base": vehicle_base,
            "sections": vehicle_sections, "loft": vehicle_loft, "panels": vehicle_panels,
            "regions": vehicle_regions, "fit": vehicle_fit,

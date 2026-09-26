@@ -112,6 +112,34 @@ def register(name, version, ops, dispatch=None, extra=None):
     return a
 
 
+def resolve_refs(value, skip_keys=("out", "steps")):
+    """把 args 里的 "@工件[.路径]" 解析成真值（递归 dict/list）—— **单发 op 与 pipe_run 共用同一套语义**。
+
+    工件表在 K.dsh_artifacts（pipe_put / pipe_run 的 out= 写入）。引用不存在时抛 KeyError，
+    skip_keys 里的键**不解析**（如 pipe_run 的 out="@名字" 是输出名；steps 由 pipe_run 自己按序解析）。
+    路由层会把它变成可见的报错（而不是静默把字符串当参数用）。
+    """
+    reg = getattr(_kernel(), "dsh_artifacts", None) or {}
+
+    def _walk(v):
+        if isinstance(v, str) and v.startswith("@"):
+            body = v[1:]
+            parts = body.split(".")
+            nm = parts[0]
+            if nm not in reg:
+                raise KeyError("引用了不存在的工件 @%s（现有：%s）" % (nm, ", ".join(sorted(reg.keys())) or "无"))
+            cur = reg[nm].get("value") if isinstance(reg[nm], dict) else reg[nm]
+            for p in parts[1:]:
+                cur = cur[int(p)] if isinstance(cur, list) else cur[p]
+            return cur
+        if isinstance(v, dict):
+            return {k: (x if k in skip_keys else _walk(x)) for k, x in v.items()}
+        if isinstance(v, list):
+            return [_walk(x) for x in v]
+        return v
+
+    return _walk(value)
+
 def wrap_dispatch(base, extra=None):
     """给已有 dispatch 挂附加 op（如 selftest）：命中 extra 走额外表，否则交回原 dispatch。
 
@@ -148,6 +176,10 @@ def flatten(args):
 def dispatch_table(ops, op, args_json=None):
     """标准 dispatch：解析 → 摊平 → 查表 → 调用 → 统一错误回执。"""
     kw = flatten(args_json)
+    try:
+        kw = resolve_refs(kw)   # S5-b：单发 op 也支持 "@工件[.路径]"
+    except KeyError as e:
+        return err("引用解析失败: %s" % str(e)[:160], op=op)
     fn = ops.get(str(op))
     if fn is None:
         return err("unknown op", op=op, ops=sorted(ops))
@@ -281,5 +313,5 @@ _K.dsh_kit = types.SimpleNamespace(
     version=KIT_VERSION, j=j, err=err, receipt=receipt, units=units, mm=mm, api=api,
     Api=Api, register=register, flatten=flatten, dispatch_table=dispatch_table,
     objects=objects, world_tris=world_tris, bvh=bvh, iou=iou,
-    pairwise_clearance=pairwise_clearance, selftest=selftest, kernel=_kernel, wrap_dispatch=wrap_dispatch,
+    pairwise_clearance=pairwise_clearance, selftest=selftest, kernel=_kernel, wrap_dispatch=wrap_dispatch, resolve_refs=resolve_refs,
 )

@@ -783,7 +783,7 @@ def t_pipeline():
         {"api": "pipe", "op": "get", "args": {"name": "m"}, "out": "@g2"},
     ]})
     chk("四步链跑通且逐步都有回执", bool(r.get("ok")) and r.get("step_count") == 4,
-        [(s.get("op"), s.get("ok"), s.get("ms")) for s in (r.get("steps") or [])])
+        {"err": str(r.get("error"))[:120], "steps": [(s.get("op"), s.get("ok")) for s in (r.get("steps") or [])]})
     chk("产出按 out= 存成工件", set(["h", "p1", "p2", "g2"]).issubset(set(r.get("artifacts") or [])),
         r.get("artifacts"))
     chk("@引用传到真实调用里（value\"@n\" -> 7）", p("get", {"name": "m"}).get("value") == 7,
@@ -793,10 +793,30 @@ def t_pipeline():
         bad.get("failed_steps"))
     p("clear", {})
 
+
+
+def t_refs_single_op():
+    # S5-b：**单发 op** 也能用 @引用（不只是 pipe_run）—— 工件由 pipe_put 存，单步调用时解析
+    p = getattr(K, "dsh_pipe_api", None)  # noqa: F821
+    v = getattr(K, "dsh_vehicle_api", None)  # noqa: F821
+    if p is None or v is None:
+        raise RuntimeError("需要 pipe + vehicle 模块")
+    p("clear", {})
+    sts = [{"x_mm": float(x), "z_top_mm": float(z), "z_bottom_mm": 110.0, "half_w_mm": 700.0}
+           for (x, z) in ((0, 400), (1000, 480), (2000, 700), (3000, 460), (4300, 400))]
+    p("put", {"name": "zzsts", "value": sts})
+    r = v("loft", {"stations": "@zzsts", "name": PREFIX + "refshell", "subsurf": 1})
+    chk("单发 op 的 @引用被解析（stations=\"@zzsts\" 建出壳）",
+        bool(r.get("ok")) and int(r.get("stations_used") or 0) == 5, r.get("stations_used"))
+    bad = v("loft", {"stations": "@no_such_artifact"})
+    chk("单发 op 引用不存在 ⇒ 可读报错（列出已有工件）",
+        bad.get("ok") is False and "工件" in str(bad.get("error") or ""), str(bad.get("error"))[:80])
+    p("clear", {})
+
 def main():
     before = len(bpy.data.objects)
     print("== 上游整合 A1–A5 自检 ==")
-    for fn in (t_sculpt, t_fix_and_audit, t_uv, t_print, t_sweep, t_material, t_render_guard, t_audit_slim, t_gate, t_island, t_conn, t_human, t_vehicle, t_clearance, t_vehicle_shell, t_vehicle_fit_regions, t_rectify_and_polyline, t_feature_lines, t_crease_radius, t_shape_layer, t_shape_extensions, t_pipeline):
+    for fn in (t_sculpt, t_fix_and_audit, t_uv, t_print, t_sweep, t_material, t_render_guard, t_audit_slim, t_gate, t_island, t_conn, t_human, t_vehicle, t_clearance, t_vehicle_shell, t_vehicle_fit_regions, t_rectify_and_polyline, t_feature_lines, t_crease_radius, t_shape_layer, t_shape_extensions, t_pipeline, t_refs_single_op):
         try:
             fn()
         except Exception as e:

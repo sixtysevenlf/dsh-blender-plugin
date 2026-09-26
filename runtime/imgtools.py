@@ -480,6 +480,10 @@ def img_dispatch(op, args_json):
             kw.update(v)
         else:
             kw[k] = v
+    try:
+        kw = _KIT.resolve_refs(kw)   # S5-b：单步调用也支持 "@工件"
+    except KeyError as e:
+        return _j({"ok": False, "error": "引用解析失败: %s" % str(e)[:160]})
     ops = {"scan": img_scan, "rectify": img_rectify, "crop": img_crop, "annotate": img_annotate, "diff": img_diff,
            "selftest": img_selftest, "help": img_help}
     fn = ops.get(str(op))

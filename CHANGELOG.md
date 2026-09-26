@@ -172,6 +172,23 @@ GUI 通道（`npm run test:gui`，需真机 + addon）—— **11/11 通过**：
 无头整合自检 **23 → 34 断言**（新增材质链路与 guard 的 install/mark/clear）。
 ⚠ 生效时机：catalog 与 guard 在后端（重启即生效）；工具描述在 `lib/index.js`（下次 DSH 启动）。
 
+### D21 · S5-b：@引用进单发 op（不再局限于 pipe_run）
+
+此前 `@工件` 只在 `pipe_run` 内解析 —— 单发 `blender_rt_plan(op="vehicle_loft", args={"stations":"@sec.stations"})` 会把字符串当参数用。本批让它**在单步调用里也能用**。
+
+**实现路径（走过一次弯路，如实记录）**：最初想在 **engine 路由层**统一包一层解析（改 `_json.loads` 外层），结果所有 plan 调用都报 `JSONDecodeError`。对照测试（stash 掉改动后一切正常）确认是路由改动导致 —— **果断放弃**，改为**模块级解析**（风险面小得多）：
+
+- `kit.resolve_refs(value, skip_keys=("out", "steps"))`：递归解析 `"@名字[.路径]"`，引用不存在抛 KeyError（含现有工件名）；
+  `skip_keys` 是**必需**的 —— `pipe_run` 的 `out="@h"` 是**输出名**、`steps` 由 pipe_run 自己按序解析（否则「第 3 步引用第 2 步产出」会被提前解析而报错）；
+- `kit.dispatch_table` 在摊平后解析 ⇒ 覆盖所有用 `_KIT.register` 注册的模块；
+- `vehicle.py` / `gate.py` / `imgtools.py` 的手写 dispatch 各插一段（这三个是链上最常用的消费方）。
+
+实测（真机）：先 `pipe_run` 存下 `@sec`，再**单发** `vehicle_loft(stations="@sec.stations")` ⇒ 直接建出壳（4289×597×708mm / 21 站）；引用不存在时回可读报错：`引用解析失败: 引用了不存在的工件 @nope（现有：sec, n2）`。
+
+**又踩一次的坑**：改 `kit.py` 后忘了重启后端 ⇒ 测试仍跑旧内核（`KIT_SRC` 是引擎启动时读的），表现为「改了没生效」。
+
+回归：Blender 侧 **263 断言**（整合 124 + audit 78 + gate 52 + 模块自检 9）全绿 · 能力锁 PASS · npm test 全绿。
+
 ### D20 · S1-b 收尾：给 10 个「无自检」模块补自检（重构盲区清零）
 
 重构时发现：`contract / deliver / montage / perf / planner / presets / qc / runner / txn / worker` 这 10 个模块

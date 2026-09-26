@@ -862,6 +862,10 @@ def gate_dispatch(op, args_json):
             kw.update(v)
         else:
             kw[k] = v
+    try:
+        kw = _KIT.resolve_refs(kw)   # S5-b：单步调用也支持 "@工件"
+    except KeyError as e:
+        return _j({"ok": False, "error": "引用解析失败: %s" % str(e)[:160]})
     ops = {"plan": gate_plan, "run": gate_run, "selftest": gate_selftest, "help": gate_help}
     fn = ops.get(str(op))
     if fn is None:
