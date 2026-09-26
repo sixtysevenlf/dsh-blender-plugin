@@ -1,0 +1,23 @@
+# DSH × Blender 直连实时插件
+
+> DSH（DeepSeek Harness）插件：让 AI 模型通过一条 TCP 直连通道驱动 **GUI Blender** —— 看视口 / 改场景 / 连续观察 / 内环搜索 / 渲染性能 / 对象精简 / 无头跑重活 / 事务回滚 / 契约层与规划器，共 15 个工具。
+> 本包**不含** Blender addon（`MCP for Blender`），需用户自备。
+
+## 安装（先读，别猜）
+
+- [README（中文）](https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/README.zh-CN.md): §2 前置条件（5 条）· §3 安装（5 步）· §7 常见故障 —— **安装前必读**
+- [README (English)](https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/README.md)
+- [AI 安装提示词](https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/docs/AI-安装提示词.md): 可直接粘贴给 AI 助手
+- [AGENTS.md](https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/AGENTS.md): 助手自动加载的仓库约定
+- [配置参考](https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/docs/配置参考.md): 配置文件 / 环境变量 / 路径映射 / 自动探测
+
+## 验收判据（没到就是没装好）
+
+- `curl -sS http://127.0.0.1:9877/doctor` → `kind=ok`
+- `blender_viewport(op="doctor")` → `kind=ok`；`blender_rt_see(max_size=560)` → 能回一帧图
+
+## 文档
+
+- [操作教程](https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/docs/操作教程.md): 从零上手 → 连通 → 工具 → 配方 → 排错
+- [假设驱动建模 cookbook](https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/docs/假设驱动建模-cookbook.md): 假设 / 区间 / 证据 / 三态判定
+- [CHANGELOG](https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/CHANGELOG.md): 逐版实测数据

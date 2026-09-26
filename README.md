@@ -1,5 +1,12 @@
 # DSH × Blender — Direct Realtime Plugin (Shareable Edition)
 
+> 🤖 **Installing with an AI agent?** Don't let it guess — send it the repo URL together with this:
+> "Read §2 Requirements, §3 Install and §7 Troubleshooting in the README, plus AGENTS.md, *before* doing anything. Then run `doctor` — it is not installed until `kind=ok`; if it fails, walk §7."
+>
+> Ready-to-paste prompt: [docs/AI-安装提示词.md](docs/AI-安装提示词.md)
+
+---
+
 ## Support · Buy me a coffee
 
 This plugin is **open source and free** (BSD-3-Clause): every feature is available to everyone — no paywall, no license key, no "sponsor edition".
@@ -106,7 +113,7 @@ cp dsh-blender.config.example.json dsh-blender.config.json
 
 # 4) Start Blender → press N → "MCP for Blender" → Connect (127.0.0.1:9876)
 
-# 5) Verify
+# 5) Verify — the ONLY acceptance criterion: doctor returns kind=ok (otherwise it is NOT installed; walk §7)
 curl -sS http://127.0.0.1:9877/health    # backend alive
 curl -sS http://127.0.0.1:9877/doctor    # FULL round-trip through bpy; "kind":"ok" is the goal
 curl -sS http://127.0.0.1:9877/who       # write lease + channel metrics + effective config

@@ -1,5 +1,12 @@
 # DSH × Blender 直连实时插件 · 分享版
 
+> 🤖 **想让 AI 帮你装？** 别让它猜 —— 把仓库地址和这句话一起发给它：
+> 「先完整读 README 的 §2 前置条件 / §3 安装 / §7 常见故障 与 AGENTS.md，再动手；装完必须 `doctor` 回 `kind=ok`，没到就不算装好，失败按 §7 排查。」
+>
+> 现成提示词可直接复制：[docs/AI-安装提示词.md](docs/AI-安装提示词.md)
+
+---
+
 ## 支持本项目 · 请我喝咖啡
 
 这个插件是**开源、免费**的（BSD-3-Clause）：所有功能对所有人开放 —— 没有付费墙、没有授权码、也没有"赞助者专享版"。
@@ -117,7 +124,7 @@ cp dsh-blender.config.example.json dsh-blender.config.json        # 见 docs/配
 #    agent / 无人值守：blender_viewport(op="launch")   ← v0.9.4：写 boot 脚本 + spawn + 轮询 9876，幂等
 #    人工：启动 Blender → 按 N →「MCP for Blender」→ Connect（监听 127.0.0.1:9876）
 
-# ⑤ 验证（三条命令；doctor 是关键）
+# ⑤ 验证 —— **唯一验收判据：doctor 回 `kind=ok`**（没到 = 没装好，按 §7 排查）
 curl -sS http://127.0.0.1:9877/health      # 后端活着
 curl -sS http://127.0.0.1:9877/doctor      # ⭐ 真跑一次 bpy 往返 + 打印生效配置：kind=ok 才算通
 curl -sS http://127.0.0.1:9877/who         # 租约 + 通道指标 + config
