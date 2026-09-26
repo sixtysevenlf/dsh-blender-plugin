@@ -125,6 +125,10 @@ import { PLAN_CATALOG, TOOL_DETAIL, PLAN_TOOL_MAP, planOpNames, planOpSuggestion
 export { PLAN_CATALOG, TOOL_DETAIL, PLAN_TOOL_MAP, planOpNames, planOpSuggestion, planOpCrossChannelHint, catalogFingerprint, PLAN_READ_ONLY_OPS, PLAN_READ_ONLY };
 
 
+import { MODELING_CLASS_GUIDE, renderClassText, classGuideStats } from './classes.mjs';
+export { MODELING_CLASS_GUIDE, renderClassText, classGuideStats };
+
+/** 建模类型指引（S6）：模型先问"我要建什么"，再落到能力族 */
 export function catalogPayload(opts) {
   const o = (opts && typeof opts === 'object') ? opts : {};
   // v0.9.6（D3）：加载版本自证 —— 目录里也要带"本进程加载的是哪一代"，避免磁盘 mtime 冒充加载版本
@@ -141,9 +145,20 @@ export function catalogPayload(opts) {
     if (!e) return { ok: false, error: 'unknown family: ' + o.family, families: PLAN_CATALOG.map((x) => x.f), provenance: prov };
     return { ok: true, op: 'catalog', family: e.f, text: renderFamilyText(e), provenance: prov };
   }
+  if (o.classes) {
+    const rows = MODELING_CLASS_GUIDE.map((r) => renderClassText(r)).join(String.fromCharCode(10) + String.fromCharCode(10));
+    return { ok: true, op: 'catalog', classes: MODELING_CLASS_GUIDE.length, text: rows, provenance: prov };
+  }
+  if (o.class) {
+    const q = String(o.class).toLowerCase();
+    const hit = MODELING_CLASS_GUIDE.find((r) => r.c === q) || MODELING_CLASS_GUIDE.find((r) => (r.c + ' ' + r.name).toLowerCase().includes(q));
+    if (!hit) return { ok: false, error: 'unknown modeling class: ' + o.class, classes: MODELING_CLASS_GUIDE.map((r) => r.c), provenance: prov };
+    return { ok: true, op: 'catalog', class: hit.c, text: renderClassText(hit), provenance: prov };
+  }
   const L = [];
   L.push('plan 通道目录：' + PLAN_CATALOG.length + ' 个 family / ' + planOpNames().length + ' 个 op。'
     + '先按"我要干什么"选 family，再按"最小骨架"填 args；参数名写错会直接报"不认识的参数"。');
+  L.push('按建模类型查（更推荐先看这个）：args={classes:true} 一次拿 ' + MODELING_CLASS_GUIDE.length + ' 类建模的 第一步/算子链/禁止自造/验收门；args={class:"recon"} 看单类。');
   L.push('');
   for (const e of PLAN_CATALOG) {
     L.push('· ' + e.f + (e.prefix ? '（' + e.prefix + '*）' : '') + '：' + e.when);

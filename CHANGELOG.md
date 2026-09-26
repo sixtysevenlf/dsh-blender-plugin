@@ -172,6 +172,32 @@ GUI 通道（`npm run test:gui`，需真机 + addon）—— **11/11 通过**：
 无头整合自检 **23 → 34 断言**（新增材质链路与 guard 的 install/mark/clear）。
 ⚠ 生效时机：catalog 与 guard 在后端（重启即生效）；工具描述在 `lib/index.js`（下次 DSH 启动）。
 
+### D24 · S6：建模类型指引 —— 给模型指明"每类建模用哪些工具、禁止自造什么"
+
+**动机（实测）**：另一个建模 AI 手里有 `vehicle_*` 配方、也知道 Recipe 17/18/19 与 Recipe 22，**仍然自己写了参数化放样** ⇒
+渲染出来是一张连续光滑面：没棱线、没板缝、6 处结构硬伤（尖喙/悬空平板/鼓包/悬空尾板/孤立鳍片/无棱无缝）。
+根因**不是缺文档**（SKILL.md 里车壳配方 1030–1136 行、Recipe 22 在 1141 行、`crease` 出现 9 次），而是三样都缺：
+**入口**（第一步该敲哪条命令）、**禁止自造**（写了也没人拦）、**可数值判的验收门**（"丑"没有任何门会红）。
+
+**本批交付**：
+
+1. **`runtime/classes.mjs`** —— 12 类建模指引，每类四件事：第一步 / 算子链 / 禁止自造 / 验收门：
+   `recon · faceted · smooth · organic · repeats · boolean · human · sweep · rotational · plate · assembly · deliver`
+2. **模型侧查法**（真机验证）：`op="catalog", args={classes:true}` 拿全部 12 类 · `args={class:"sweep"}` 拿单类；目录首页加了指路提示行；
+3. **catalog 13 族补硬警告** —— 例：`vehicle.not` 现在明确写「**别自己写参数化放样** —— 自造只能出一张连续光滑面（没棱没缝的肥皂）；车壳一律 `vehicle_sections → vehicle_loft → vehicle_panels`」；
+   同批：`shape`（别手算站表）· `sweep`（别手接路径段）· `generator`（别写一次性循环）· `uv`（别手动摆 UV）· `material`（别手搭节点树）·
+   `deliver`（别手写导出）· `gate`（别自写判据）· `motion`（别手摆姿态）· `human`（别自造比例）· `img`（别用眼睛估尺寸）· `audit`/`qc`（别目测代替体检/验收）；
+4. **机械守卫 `tests/guidance_selftest.mjs`**（已挂进 `npm test`，6 项）：
+   ① 12 类字段齐全且 `forbid` 必须是硬话；② 指引里点到的 op / 工具名**必须真实存在**（防改名后变成错指路）；
+   ③ 13 个家族的 `not` 必须带硬警告（防被删）。
+
+**配套 skill**（`dsh-skill-blender-modeling`）：`SKILL.md` 新增 **§0.7 建模类型 → 工具指路**（12 类表 + 三条硬规则 + 查询命令），
+`shape_plan` 在 SKILL.md 的提及 **0 → 4 次**（此前只加载 skill 的模型学不到这个单入口）。
+
+**验证**：能力锁 PASS（28 family / 183 op / 15 工具）· 指引自检 6/6 · 路由契约 28/28 + 70/70 · `npm test` 全绿 · Blender 侧 **263 断言**全绿 · 真机目录查询通过。
+
+**边界（诚实）**：指引仍是"文档 + 可查询"，**没有强制力** —— 真正能拦住"自造放样"的是机械门（下一步：把板缝/特征线计数、连通分量、悬空件做成 `gate_run` 的 `vehicle_shell` preset）。
+
 ### D22 · 路由契约测试（拆 createEngine 的前置条件，已抓到一个真 bug）
 
 现有 263 条断言偏「领域正确性」，不覆盖「每个 op 都能被路由到」——这几轮实际撞过两次（目录漏列 `vehicle_loft`、`perf` 模块没有 dispatch）。
