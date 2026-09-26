@@ -98,6 +98,8 @@ export function blenderJoin(...parts) {
   if (IS_WIN) return path.win32.join(...parts);
   return wslToWin(path.join(...parts));
 }
+/** 共享内核（kit）：JSON/API 样板·单位·几何·度量·回执骨架的唯一实现 */
+export const KIT_PATH = path.join(HERE, 'kit.py');
 export const RUNNER_PATH = path.join(HERE, 'runner.py');
 export const PERF_PATH = path.join(HERE, 'perf.py');
 export const VIEW_PATH = path.join(HERE, 'view.py');
@@ -457,6 +459,9 @@ export const ACT_WRAPPER = (src) => [
   '    print("DSH_ACT_OK " + _dsh_json.dumps({"stdout": _dsh_o.getvalue()[-16000:], "stderr": _dsh_e.getvalue()[-8000:], "epoch": _dsh_epoch()}, ensure_ascii=False))',
 ].join('\n');
 
+// kit 的**内容指纹**：并入每个模块的失效判据 ⇒ 改 kit 会让所有模块在下次调用时自动重注
+const KIT_SRC = (() => { try { return fs.readFileSync(KIT_PATH, "utf8"); } catch (e) { return ""; } })();
+const KIT_HASH = createHash("sha256").update(KIT_SRC).digest("hex").slice(0, 12);
 export const KERNEL_BOOTSTRAP = [
   'import sys as _sys, types as _types',
   'K = _sys.modules.get("dsh_rt_kernel")',
@@ -466,6 +471,8 @@ export const KERNEL_BOOTSTRAP = [
   'import bpy, math, mathutils',
   'Vector = mathutils.Vector',
   '# ---- 路径辅助（v0.7.0）：GUI 与无头两侧都能用，省掉手拼 UNC 与 chr(92)\n' + PATH_HELPERS,
+  '# ---- 共享内核 kit（唯一实现；K.dsh_kit 供所有模块与自写脚本使用）----',
+  KIT_SRC,
 ].join('\n');
 
 /** addon 命令目录：name → { d: 说明, gate: 需要的 scene 开关（null=常驻） } */
@@ -1803,7 +1810,7 @@ export function createEngine(opts = {}) {
     // 内容指纹（size + mtime）：模块文件一改，下次调用自动重新注入 —— 开发闭环必需。
     // 注意：K 跨后端重启保留，所以"只查 hasattr"会让改了文件却不生效（v0.7.0 修）。
     let fp = 'x';
-    try { const st = fs.statSync(file); fp = String(st.size) + '-' + String(Math.round(st.mtimeMs)); } catch (e) { fp = 'missing'; }
+    try { const st = fs.statSync(file); fp = String(st.size) + '-' + String(Math.round(st.mtimeMs)) + '-k' + KIT_HASH; } catch (e) { fp = 'missing-k' + KIT_HASH; }
     // K 才是真相：Blender 重启后 K 会清空，仅靠本地 Set 会误判"已注入"
     try {
       const chk = await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\nprint("HAVE " + str(hasattr(K, "' + attr + '")) + " FP " + str(getattr(K, "' + hashAttr + '", "none")))' }, 30000);
