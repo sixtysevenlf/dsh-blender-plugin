@@ -20,19 +20,19 @@ declare function losslessSanitize(root: any): {
     value: any;
     fixes: string[];
 };
-import z from 'schemastery';
+import type zt from '@deepseek-ai/schemastery';
 export declare const name = "@dsh-external/dsh-blender-plugin";
 export declare const inject: string[];
 export interface Config {
     port: number;
     autoStart: boolean;
 }
-export declare const Config: z<Schemastery.ObjectS<NoInfer<{
-    port: z<number, number, "defined">;
-    autoStart: z<boolean, boolean, "defined">;
+export declare const Config: zt<Schemastery.ObjectS<NoInfer<{
+    port: zt<number, number, "defined">;
+    autoStart: zt<boolean, boolean, "defined">;
 }>>, Schemastery.ObjectT<NoInfer<{
-    port: z<number, number, "defined">;
-    autoStart: z<boolean, boolean, "defined">;
+    port: zt<number, number, "defined">;
+    autoStart: zt<boolean, boolean, "defined">;
 }>>, "plain">;
 /** 结构化信封（block 0）：稳定字段 + 有界大小（大结果只给 resultPath） */
 declare function receiptEnvelope(res: any, ctx: any): any;

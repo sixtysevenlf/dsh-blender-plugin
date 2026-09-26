@@ -23,6 +23,7 @@ import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 
@@ -154,7 +155,24 @@ const vTool = (spec: any): any => defineTool({
     return value
   },
 })
-import z from 'schemastery'
+// 只为类型：`import type` 编译后被完全擦除，运行期不会要求这个包名存在
+// （运行期由下面的 createRequire 双名解析负责）。
+import type zt from '@deepseek-ai/schemastery'
+/**
+ * schemastery 的包名在不同 DSH 版本间是**有 scope / 无 scope 两种形态**（`schemastery` ↔
+ * `@deepseek-ai/schemastery`；cordis 同理）。两个都试，两代宿主都能装 —— 只声明其中一个，
+ * 换成另一种宿主就会在载入期 `ERR_MODULE_NOT_FOUND`，表现为 15 个工具**整体消失**、
+ * 后端也不起（故障现象与真因不在同一层，极难定位）。
+ * 静态 import 无法条件化，所以走 createRequire 运行时解析。
+ */
+const z: typeof zt = (() => {
+  const req = createRequire(import.meta.url)
+  const tried: string[] = []
+  for (const id of ['@deepseek-ai/schemastery', 'schemastery']) {
+    try { const m = req(id); return (m && m.default) || m } catch (e) { tried.push(id) }
+  }
+  throw new Error('schemastery 解析失败，已尝试：' + tried.join(' / ') + '。宿主需提供 schemastery —— 有 scope 的 @deepseek-ai/schemastery 或无 scope 的 schemastery 任一即可。')
+})()
 
 export const name = '@dsh-external/dsh-blender-plugin'
 export const inject = ['tools']
