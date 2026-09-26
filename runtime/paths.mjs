@@ -90,6 +90,8 @@ export const CLEARANCE_PATH = path.join(HERE, 'clearance.py');
 export const VEHICLE_PATH = path.join(HERE, 'vehicle.py');
 /** 参考图通用还原方法层（P4）：类别协议 + 通用量具/放样/拟合/分件/旋转体 */
 export const SHAPE_PATH = path.join(HERE, 'shapegen.py');
+/** S5 流水线：工件注册表 + 步骤编排 */
+export const PIPELINE_PATH = path.join(HERE, 'pipeline.py');
 /**
  * 用户 Blender 配置目录（GPU 偏好所在）—— 无头进程默认读不到它，Cycles 会静默回落 CPU。
  * 分享版默认 null（用系统默认配置）；要继承某套配置就设 DSH_BLENDER_USER_CONFIG / 配置项 blenderUserConfig。

@@ -172,6 +172,31 @@ GUI 通道（`npm run test:gui`，需真机 + addon）—— **11/11 通过**：
 无头整合自检 **23 → 34 断言**（新增材质链路与 guard 的 install/mark/clear）。
 ⚠ 生效时机：catalog 与 guard 在后端（重启即生效）；工具描述在 `lib/index.js`（下次 DSH 启动）。
 
+### D19 · S5：流水线层（工件注册表 + @引用）—— 让 183 个 op 真正配合
+
+痛点（重构前的实测）：op 之间只能人肉搬运。`vehicle_sections` 回一份 **5,656 字符**的 JSON，
+`vehicle_loft` 要求把 `stations` 数组再粘回去；每一步交接都过模型上下文 ⇒ 贵且易抄错。
+skill 里那 18 条多步链全是散文，模型得自己翻译成 N 次工具调用。
+
+**新家族 pip（7 op）**：`pipe_run` / `pipe_put` / `pipe_get` / `pipe_list` / `pipe_clear` / `pipe_selftest` / `pipe_help`
+
+- **工件注册表**：任何一步产出可命名存放（存持久内核 `K.dsh_artifacts`，活一个 Blender 会话）；
+- **@引用**：后续步骤 args 里写 `"@名字"` 或 `"@名字.a.b"`（点路径/列表下标），运行时解析成真值；
+- **逐步回执**：每步给 `ok / ms / keys / stored`，失败默认即停（`stop_on_fail=false` 可跑完看全貌）；
+- 引用不存在的工件 ⇒ **当场报错并列出已有的工件名**（不静默失败）。
+
+**真链实测**（合成参考图，全程 @引用）：`vehicle.sections` 144ms → `vehicle.loft`（`stations="@sec.stations"`）97ms
+→ `vehicle.panels`（`object_name="@shell.object"`）353ms → `clearance.check`（`a/b` 用 `@panels.parts.0/1`）61ms；
+**一次调用 657ms 跑完，4 个工件自动传递**。自检 9 项全 true（含点路径、嵌套解析、失败即停）。
+
+接进现有面：engine 路由 `pipe_` + 目录族（含 when/not/最小骨架）+ 只读白名单 +3（`pipe_list/get/help`）；
+S4 的机器直接用上了 —— 一条命令刷新能力锁与计数（**28 family / 183 op / 15 工具**）。
+
+回归：Blender 侧 **252 断言**（整合 122 + audit 78 + gate 52）全绿 · 能力锁 PASS · 单一事实源 5/5 · npm test 全绿。
+
+边界：@引用只在 `pipe_run` 内解析（单发 plan op 不自动解引用 —— 那要动引擎写路径，留待后续）；
+工件活在当前 Blender 会话（重启即清空）；`pipe_run` 是同步串行，长任务仍走 `rt_job`/headless。
+
 ### D18 · P4.2：截面通路写进类别协议（选路不再靠读 CHANGELOG）
 
 `shape_plan` 的每类协议现在直接带 **`section_path`**（该类用哪条截面通路），并随协议返回 **5 条决策规则**：

@@ -1406,7 +1406,7 @@ export function apply(ctx: any, config: Config): void {
 
   ctx.effect(() => ctx.tools.register(vTool({
     name: 'blender_rt_plan',
-    description: '[v' + PLUGIN_VERSION + '] 【判定 / 验收 / 导出 / 造型】27 个 family · 176 个 op 都在这一个工具里。'
+    description: '[v' + PLUGIN_VERSION + '] 【判定 / 验收 / 导出 / 造型】28 个 family · 183 个 op 都在这一个工具里。'
       + '**不确定用哪个就先问目录：op="catalog"**（本地直出，不占 Blender 往返；含"什么时候用 / 别用 / 最小骨架"）；'
       + '单族展开 op="catalog", args={family:"audit"}；算子细节用各 family 自己的 <family>_help。'
       + '常用速查：audit_scene|audit_mesh（网格体检）· audit_gate（出厂门：连通+包络）· audit_interference|audit_overlap（干涉/重叠，可跨 .blend）· '

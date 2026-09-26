@@ -80,7 +80,7 @@ function runtimeFingerprint() {
 
 // 分享版：端口 / 工作目录 / blender.exe 全部来自 config.mjs（env → 配置文件 → 自动探测）。
 // 本机版曾把这些写死在这里；现在换机器只需改 dsh-blender.config.json 或设 DSH_BLENDER_* 环境变量。
-export { winToWsl, wslToWin, describeConfig, COMMAND_CATALOG, PKG_ROOT, blenderJoin };
+export { winToWsl, wslToWin, describeConfig, COMMAND_CATALOG, PKG_ROOT, blenderJoin, PIPELINE_PATH };
 
 export const KERNEL_BOOTSTRAP = [
   'import sys as _sys, types as _types',
@@ -110,7 +110,7 @@ export const KERNEL_BOOTSTRAP = [
  */
 // S3：目录（数据 + 目录逻辑）外移到 catalog.mjs；此处导入并**重导出公开面**，对外面逐字节不变
 // S3-b：路径与常量外移到 paths.mjs；具名导入 + 重导出，对外面不变
-import { ADDRESS, WIN_TMP, WSL_TMP, LIVE_PNG_WIN, LIVE_PNG_WSL, KIT_PATH, RUNNER_PATH, PERF_PATH, VIEW_PATH, CONTRACT_PATH, PLANNER_PATH, WORKER_PATH, TXN_PATH, QC_PATH, QC_RENDER_PATH, PRESET_PATH, AUDIT_PATH, MONTAGE_PATH, MOTION_PATH, DELIVER_PATH, GENERATOR_PATH, SCULPT_PATH, FIX_PATH, UV_PATH, PRINT_PATH, SWEEP_PATH, MATERIAL_PATH, RENDER_GUARD_PATH, GATE_PATH, IMG_PATH, CALIB_PATH, FACE_PATH, HUMAN_PATH, CLEARANCE_PATH, VEHICLE_PATH, SHAPE_PATH, USER_CONFIG_WIN, USER_SCRIPTS_WIN, GPU_PRELUDE, VIEW_PNG_WIN, VIEW_PNG_WSL, BLENDER_EXE, PATH_HELPERS, ACT_WRAPPER, KIT_SRC, KIT_HASH, blenderJoin } from './paths.mjs';
+import { ADDRESS, WIN_TMP, WSL_TMP, LIVE_PNG_WIN, LIVE_PNG_WSL, KIT_PATH, RUNNER_PATH, PERF_PATH, VIEW_PATH, CONTRACT_PATH, PLANNER_PATH, WORKER_PATH, TXN_PATH, QC_PATH, QC_RENDER_PATH, PRESET_PATH, AUDIT_PATH, MONTAGE_PATH, MOTION_PATH, DELIVER_PATH, GENERATOR_PATH, SCULPT_PATH, FIX_PATH, UV_PATH, PRINT_PATH, SWEEP_PATH, MATERIAL_PATH, RENDER_GUARD_PATH, GATE_PATH, IMG_PATH, CALIB_PATH, FACE_PATH, HUMAN_PATH, CLEARANCE_PATH, VEHICLE_PATH, SHAPE_PATH, USER_CONFIG_WIN, USER_SCRIPTS_WIN, GPU_PRELUDE, VIEW_PNG_WIN, VIEW_PNG_WSL, BLENDER_EXE, PATH_HELPERS, ACT_WRAPPER, KIT_SRC, KIT_HASH, blenderJoin, PIPELINE_PATH } from './paths.mjs';
 export { ADDRESS, WIN_TMP, WSL_TMP, LIVE_PNG_WIN, LIVE_PNG_WSL, KIT_PATH, RUNNER_PATH, PERF_PATH, VIEW_PATH, CONTRACT_PATH, PLANNER_PATH, WORKER_PATH, TXN_PATH, QC_PATH, QC_RENDER_PATH, PRESET_PATH, AUDIT_PATH, MONTAGE_PATH, MOTION_PATH, DELIVER_PATH, GENERATOR_PATH, SCULPT_PATH, FIX_PATH, UV_PATH, PRINT_PATH, SWEEP_PATH, MATERIAL_PATH, RENDER_GUARD_PATH, GATE_PATH, IMG_PATH, CALIB_PATH, FACE_PATH, HUMAN_PATH, CLEARANCE_PATH, VEHICLE_PATH, SHAPE_PATH, USER_CONFIG_WIN, USER_SCRIPTS_WIN, GPU_PRELUDE, VIEW_PNG_WIN, VIEW_PNG_WSL, BLENDER_EXE, PATH_HELPERS, ACT_WRAPPER };
 
 import { PLAN_CATALOG, TOOL_DETAIL, PLAN_TOOL_MAP, planOpNames, planOpSuggestion, planOpCrossChannelHint, catalogFingerprint, PLAN_READ_ONLY_OPS, PLAN_READ_ONLY, renderFamilyText, planEditDistance, name0StartsWith, probeDiskCatalog, COMMAND_CATALOG } from './catalog.mjs';
@@ -954,7 +954,7 @@ export function createEngine(opts = {}) {
                         UV_READY: 'dsh_uv_api', PRINT_READY: 'dsh_print_api',
                         SWEEP_READY: 'dsh_sweep_api',
                         MATERIAL_READY: 'dsh_material_api', RENDER_GUARD_READY: 'dsh_render_guard',
-                        GATE_READY: 'dsh_gate_api', IMG_READY: 'dsh_img_api', CALIB_READY: 'dsh_calib_api', FACE_READY: 'dsh_face_api', HUMAN_READY: 'dsh_human_api', CLEARANCE_READY: 'dsh_clearance_api', VEHICLE_READY: 'dsh_vehicle_api', SHAPE_READY: 'dsh_shape_api' };
+                        GATE_READY: 'dsh_gate_api', IMG_READY: 'dsh_img_api', CALIB_READY: 'dsh_calib_api', FACE_READY: 'dsh_face_api', HUMAN_READY: 'dsh_human_api', CLEARANCE_READY: 'dsh_clearance_api', VEHICLE_READY: 'dsh_vehicle_api', SHAPE_READY: 'dsh_shape_api', PIPELINE_READY: 'dsh_pipe_api' };
   /** 读 runtime 下的 python 模块源码（preload / 作业脚本拼接用） */
   const readModuleSource = (name) => fs.readFileSync(path.join(HERE, String(name).replace(/\.py$/, '') + '.py'), 'utf8');
   /**
@@ -1052,6 +1052,7 @@ export function createEngine(opts = {}) {
   // 门包会按 spec 调其它模块：先把常用的几个备好（各自注入一次，之后走缓存）
   const ensureImg = () => injectModule(needFile(IMG_PATH, 'imgtools'), 'IMG_READY', 'IMG_VERSION');
   // human_spec 要用 imgtools 量参考图 ⇒ 链路里带上
+  const ensurePipeline = () => injectModule(needFile(PIPELINE_PATH, 'pipeline'), 'PIPELINE_READY', 'PIPE_VERSION');
   const ensureShape = async () => { await ensureVehicle();
     return injectModule(needFile(SHAPE_PATH, 'shapegen'), 'SHAPE_READY', 'SHAPE_VERSION'); };
   const ensureClearance = () => injectModule(needFile(CLEARANCE_PATH, 'clearance'), 'CLEARANCE_READY', 'CLEAR_VERSION');
@@ -1333,6 +1334,7 @@ export function createEngine(opts = {}) {
       { p: 'clear_', n: 6, ensure: ensureClearance, api: 'dsh_clearance_api', ms: 600000 },
       { p: 'vehicle_', n: 8, ensure: ensureVehicle, api: 'dsh_vehicle_api', ms: 900000 },
       { p: 'shape_', n: 6, ensure: ensureShape, api: 'dsh_shape_api', ms: 900000 },
+      { p: 'pipe_', n: 5, ensure: ensurePipeline, api: 'dsh_pipe_api', ms: 600000 },
       { p: 'calib_', n: 6, ensure: ensureCalib, api: 'dsh_calib_api', ms: 1800000 },
       { p: 'material_', n: 9, ensure: ensureMaterial, api: 'dsh_material_api', ms: 900000 },
       { p: 'sculpt_', n: 7, ensure: ensureSculpt, api: 'dsh_sculpt_api', ms: 900000 },
