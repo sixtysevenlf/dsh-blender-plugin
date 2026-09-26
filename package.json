@@ -56,7 +56,7 @@
   "scripts": {
     "build": "bash scripts/build.sh",
     "typecheck": "node scripts/typecheck.mjs",
-    "test": "node tests/capability_lock.mjs && node tests/protocol_selftest.mjs && node tests/lossless_guard.mjs && node tests/lease_stale_selftest.mjs && node tests/mac_selftest.mjs && node tests/frame_dedupe_selftest.mjs && node tests/discoverability_selftest.mjs && node tests/workdir_shared_selftest.mjs && node tests/provenance_stale_selftest.mjs && node scripts/pyrun.mjs tests/generator_dispatch_selftest.py",
+    "test": "node tests/capability_lock.mjs && node tests/single_source_selftest.mjs && node tests/protocol_selftest.mjs && node tests/lossless_guard.mjs && node tests/lease_stale_selftest.mjs && node tests/mac_selftest.mjs && node tests/frame_dedupe_selftest.mjs && node tests/discoverability_selftest.mjs && node tests/workdir_shared_selftest.mjs && node tests/provenance_stale_selftest.mjs && node scripts/pyrun.mjs tests/generator_dispatch_selftest.py",
     "test:discover": "node tests/discoverability_selftest.mjs",
     "test:lease": "node tests/lease_stale_selftest.mjs",
     "test:workdir": "node tests/workdir_shared_selftest.mjs",

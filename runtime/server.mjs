@@ -21,7 +21,7 @@
  * 启动：node server.mjs [--port 9877]（缺省端口取 config.mjs：DSH_BLENDER_HTTP_PORT / 配置文件 / 9877）
  */
 import http from 'node:http';
-import { createEngine, engineProvenance } from './engine.mjs';
+import { createEngine, engineProvenance, PLAN_READ_ONLY_OPS } from './engine.mjs';
 import { CFG, describeConfig } from './config.mjs';
 
 const argv = process.argv.slice(2);
@@ -124,37 +124,7 @@ function leaseAcquire(holder, ttlMs, force) {
 }
 /** 只读 op：即便别人持有租约也放行（否则连"看看现状"都会被挡） */
 const READ_ONLY_OPS = { '/perf': ['status', 'help'], '/loop': ['status', 'board', 'help'], '/opt': ['opt_analyze', 'analyze', 'help'],
-  '/plan': ['status', 'help', 'ledger', 'check_envelope', 'check_interference', 'check_interface',
-            'plan_status', 'plan_validate', 'plan_diag', 'plan_order', 'plan_graph',
-            // v0.9.0：网格体检 + 装配门（只读：不改场景、不动物体变换）
-            // 注意 audit_snap_floaters 会动物体变换 → 明确不算只读，不列进来
-            'audit_mesh', 'audit_scene', 'audit_duplicates', 'audit_help',
-            'audit_connectivity', 'audit_drift', 'audit_measure', 'audit_gate', 'montage',
-            // v0.9.0：机构/交付的只读 op（motion_measure 会临时驱动对象→不算只读，不列）
-            'motion_status', 'motion_help', 'motion_joints', 'deliver_help', 'deliver_verify',
-            'generator_list', 'generator_get', 'generator_diff', 'generator_help',
-            // v0.9.6（上游整合 A1–A5）：只读面 —— 体检/帮助/UV 统计/制造检查/路径弯折分析都不动场景。
-            // 注意 sculpt_apply/setup/filter/mask/remesh、fix_repair/fix_decimate、uv_* 的写 op、
-            // sweep_build 都会改场景 → 明确不列进来（要过写租约）。
-            // v0.9.6（D1 · 可发现性）：目录查询在插件本地直出，不碰 Blender → 任何租约下都该能问
-            'catalog', 'catalog_help', 'help_all',
-            // v0.9.6（A6/A7）：材质体检与渲染状态都只读；bake/apply/install 会改场景或注册 handler → 不列
-            'material_scan', 'material_help',
-            'gate_plan', 'gate_help',
-            'img_scan', 'img_help', 'calib_help',
-            'face_ratios', 'face_compare', 'face_help',
-            'gltf_validate',
-            'clear_check', 'clear_help', 'vehicle_package', 'vehicle_spec', 'vehicle_help',
-            'shape_plan', 'shape_help', 'shape_sections', 'shape_revolve',
-            'render_state', 'render_wait',
-            'sculpt_scan', 'sculpt_help',
-            'fix_help',
-            'uv_stats', 'uv_help',
-            'print_walls', 'print_overhang', 'print_report', 'print_help',
-            'sweep_analyze', 'sweep_help',
-            // v0.9.1（93-D1/E1）：GUI 取景/着色与渲染锁状态都是视图级只读；gui_open 会换文件 → 不算只读
-            'gui_frame', 'gui_shading', 'gui_help', 'render_status', 'render_lock_status'],
-  '/worker': ['status', 'list'],
+  '/plan': PLAN_READ_ONLY_OPS,'/worker': ['status', 'list'],
   '/txn': ['list', 'marks', 'help', 'edit_status'],
   '/preset': ['list', 'get', 'help'],
   // v0.9.3（D6）：wait 只是"阻塞读"，kill 只作用于作业自己的子进程（不碰 live 场景）——

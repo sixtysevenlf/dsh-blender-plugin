@@ -920,6 +920,29 @@ function renderFamilyText(e) {
  *   op="catalog", args={family:"sculpt"}  → 只展开这一族
  *   op="catalog", args={full:true}        → 附带结构化 families/tools
  */
+/**
+ * S4 · 单一事实源：/plan 通道的只读 op 白名单（唯一声明处）（本文件是唯一声明处）。
+ * server.mjs 直接消费；tests/single_source_selftest.mjs 与冻结基线逐名对拍，防迁移丢项/多项。
+ * 判据：不改场景、不动对象变换、不注册 handler。新增只读 op 只改这一处。
+ */
+export const PLAN_READ_ONLY_OPS = [
+  'status', 'help', 'ledger', 'check_envelope', 'check_interference',
+  'check_interface', 'plan_status', 'plan_validate', 'plan_diag', 'plan_order',
+  'plan_graph', 'audit_mesh', 'audit_scene', 'audit_duplicates', 'audit_help',
+  'audit_connectivity', 'audit_drift', 'audit_measure', 'audit_gate', 'montage',
+  'motion_status', 'motion_help', 'motion_joints', 'deliver_help', 'deliver_verify',
+  'generator_list', 'generator_get', 'generator_diff', 'generator_help', 'catalog',
+  'catalog_help', 'help_all', 'material_scan', 'material_help', 'gate_plan',
+  'gate_help', 'img_scan', 'img_help', 'calib_help', 'face_ratios',
+  'face_compare', 'face_help', 'gltf_validate', 'clear_check', 'clear_help',
+  'vehicle_package', 'vehicle_spec', 'vehicle_help', 'shape_plan', 'shape_help',
+  'shape_sections', 'shape_revolve', 'render_state', 'render_wait', 'sculpt_scan',
+  'sculpt_help', 'fix_help', 'uv_stats', 'uv_help', 'print_walls',
+  'print_overhang', 'print_report', 'print_help', 'sweep_analyze', 'sweep_help',
+  'gui_frame', 'gui_shading', 'gui_help', 'render_status', 'render_lock_status',
+];
+export const PLAN_READ_ONLY = new Set(PLAN_READ_ONLY_OPS);
+
 export function catalogPayload(opts) {
   const o = (opts && typeof opts === 'object') ? opts : {};
   // v0.9.6（D3）：加载版本自证 —— 目录里也要带"本进程加载的是哪一代"，避免磁盘 mtime 冒充加载版本
