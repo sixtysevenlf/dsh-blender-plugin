@@ -64,6 +64,7 @@ Detailed walkthrough (Chinese, 377 lines): [`docs/操作教程.md`](docs/操作�
 3. **Node.js ≥ 20**.
 4. **DSH (DeepSeek Harness)** — this package registers tools as a DSH plugin (`inject: ['tools']`).
    Works both with DSH in WSL + Blender on Windows (WSL interop is used to spawn `blender.exe`) and with DSH and Blender on the same Windows machine (path mapping degrades gracefully).
+5. **macOS** — supported. Host and Blender run on the same machine, so there is no cross-OS path mapping: Blender is auto-detected under `/Applications` (`Blender*.app`, including `~/Applications` and `/Volumes/*/Applications`), and the working dir defaults to `~/.dsh-blender-rt`. Set `DSH_BLENDER_EXE` / `blenderExe` only if you installed Blender somewhere non-standard; `blender_viewport op=doctor` prints what was detected.
 
 ---
 
@@ -284,7 +285,7 @@ The published version only changes machine-bound parts; channel mechanics, all 1
 | `blender.exe` | hard-coded Steam path | auto-detected + configurable |
 | Ports | hard-coded 9876/9877 | configurable (two Blenders side by side) |
 | Denoiser default | always `OPTIX` | auto (OptiX ↔ OpenImageDenoise) |
-| Platform | author's WSL+Windows shape | WSL+Windows **and** all-Windows |
+| Platform | author's WSL+Windows shape | WSL+Windows · all-Windows · macOS |
 | Docs | author workspace only | bilingual README + tutorial + config reference |
 
 ---

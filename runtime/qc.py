@@ -195,7 +195,10 @@ def gif_to_png(path, out=None):
     h, w = arr.shape[0], arr.shape[1]
     rgb = np.ascontiguousarray(arr[:, :, :3]).tobytes()
     out = out or (os.path.splitext(_wp(path))[0] + "_frame0.png")
-    out = out if str(out)[1:2] == ":" or str(out).startswith(chr(92) * 2) else _wp(out)
+    # macOS/Linux 的绝对路径以 / 开头，也要算「已绝对」，否则会被 _wp 再走一遍
+    out_s = str(out)
+    _abs = (out_s[1:2] == ":" or out_s.startswith(chr(92) * 2) or out_s.startswith("/"))
+    out = out if _abs else _wp(out)
     write_png(out, w, h, rgb)
     return _j({"ok": True, "path": out, "size": [w, h], "bytes": os.path.getsize(out),
                "note": "只取首帧；GIF 里其余帧没有解"})

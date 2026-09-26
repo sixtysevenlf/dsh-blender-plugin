@@ -19,6 +19,8 @@ import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const PKG_ROOT = path.join(HERE, '..');
 export const IS_WIN = process.platform === 'win32';
+/** macOS：宿主与 Blender 同机同 OS，没有 Windows/WSL 的跨 OS 路径问题 */
+export const IS_MAC = process.platform === 'darwin';
 /** WSL 发行版名（拼 UNC 用） */
 export const DISTRO = process.env.WSL_DISTRO_NAME || 'Ubuntu';
 
@@ -46,7 +48,7 @@ const FILE = loadFileConfig();
 /** Windows 路径 → WSL 路径（D:\a\b → /mnt/d/a/b；UNC → /…；Windows 上原样返回） */
 export function winToWsl(p) {
   const s = String(p || '');
-  if (IS_WIN) return s;
+  if (IS_WIN || IS_MAC) return s;
   const m = s.match(/^([A-Za-z]):[\\/](.*)$/);
   if (m) return '/mnt/' + m[1].toLowerCase() + '/' + m[2].replace(/\\/g, '/');
   // v0.9.3（D4）：UNC 形态（\\wsl.localhost\<distro>\home\… 或 \\wsl$\…）→ WSL 可见的 /home/…
@@ -60,6 +62,7 @@ export function winToWsl(p) {
 /** WSL/相对路径 → Windows 侧可用路径（/mnt/x/... → X:\...；WSL 内部 → \\wsl.localhost\<distro>\...） */
 export function wslToWin(p) {
   const s = String(p || '');
+  if (IS_MAC) return s;
   if (IS_WIN) return s.replace(/\//g, '\\');
   const m = s.match(/^\/mnt\/([a-z])\/(.*)$/i);
   if (m) return m[1].toUpperCase() + ':' + '\\' + m[2].replace(/\//g, '\\');
@@ -73,6 +76,7 @@ function winLocalAppData() {
   if (_lad !== undefined) return _lad;
   _lad = null;
   if (IS_WIN) { _lad = process.env.LOCALAPPDATA || null; return _lad; }
+  if (IS_MAC) return null;   // macOS 无 %LOCALAPPDATA%；也不需要调 cmd.exe
   try {
     // cwd 要给 Windows 侧目录：在 UNC 路径下 cmd.exe 会警告 "UNC 路径不支持" 并回退到 C:Windows
     const cwd = fs.existsSync('/mnt/c') ? '/mnt/c' : (fs.existsSync('/mnt/d') ? '/mnt/d' : undefined);
@@ -89,6 +93,11 @@ function resolveWorkDir() {
     const win = /^[A-Za-z]:[\\/]/.test(given) ? given : wslToWin(given);
     return { win: win, wsl: winToWsl(given), from: 'config' };
   }
+  if (IS_MAC) {
+    // macOS：用户级持久目录（不用 os.tmpdir()，它会被系统清理，帧/台账会丢）
+    const d = path.join(os.homedir(), '.dsh-blender-rt');
+    return { win: d, wsl: d, from: 'auto:homedir' };
+  }
   const lad = winLocalAppData();
   if (lad) {
     const win = path.win32.join(lad, 'dsh-blender-rt');
@@ -102,7 +111,7 @@ function listDirSafe(p) {
   try { return fs.readdirSync(p); } catch (e) { return []; }
 }
 
-/** 找 Blender：配置 → 常见安装位置 → PATH（Windows / WSL 都能用） */
+/** 找 Blender：配置 → 常见安装位置 → PATH（Windows / WSL / macOS 都能用） */
 function detectBlenderExe() {
   const given = process.env.DSH_BLENDER_EXE || FILE.cfg.blenderExe;
   if (given) return { exe: given, from: 'config' };
@@ -113,7 +122,27 @@ function detectBlenderExe() {
       if (/^Blender/i.test(d)) cands.push(path.join(pf, 'Blender Foundation', d, 'blender.exe'));
     }
     cands.push(path.join(pf, 'Blender Foundation', 'Blender', 'blender.exe'));
+  } else if (IS_MAC) {
+    // macOS：Blender 官方安装是 .app bundle，可执行文件在 Contents/MacOS 下。
+    // 支持 /Applications、~/Applications 与任意 /Volumes/* 下的版本化目录（Blender 4.2.app、Blender.app…）。
+    const homes = [
+      '/Applications',
+      path.join(os.homedir(), 'Applications'),
+    ];
+    try {
+      for (const v of listDirSafe('/Volumes')) homes.push(path.join('/Volumes', v, 'Applications'));
+    } catch (e) { /* /Volumes 不可读就算了 */ }
+    for (const base of homes) {
+      for (const d of listDirSafe(base)) {
+        if (/^Blender.*\.app$/i.test(d)) {
+          cands.push(path.join(base, d, 'Contents', 'MacOS', 'Blender'));
+        }
+      }
+      // 兜底：未版本化的固定名
+      cands.push(path.join(base, 'Blender.app', 'Contents', 'MacOS', 'Blender'));
+    }
   } else {
+    // Linux/WSL：扫 /mnt/<盘>/Program Files/Blender Foundation/Blender*/blender.exe（含 Steam 版常见位置）
     // WSL：扫 /mnt/<盘>/Program Files/Blender Foundation/Blender*/blender.exe（含 Steam 版常见位置）
     for (const drive of ['c', 'd', 'e', 'f']) {
       const base = '/mnt/' + drive;
@@ -170,10 +199,21 @@ export const CFG = {
   source: { configFile: FILE.from, workDir: WORK.from, blenderExe: BLENDER.from },
 };
 
+/**
+ * 成对路径：`...Win` 给 Blender 进程用，`...Wsl` 给宿主 Node 用。
+ * macOS 上两者同构，不能再无脑 path.win32.join —— 那会产出
+ * \\Users\\...\\dsh_live_viewport.png，Blender 在 mac 上打不开（取帧静默失败）。
+ */
+function blenderSidePath(p, name) {
+  if (IS_MAC) return path.join(p, name);
+  if (IS_WIN) return path.win32.join(p, name);
+  return wslToWin(path.join(p, name));
+}
+
 export const PATHS = {
-  livePngWin: path.win32.join(CFG.workDirWin, 'dsh_live_viewport.png'),
+  livePngWin: blenderSidePath(CFG.workDirWin, 'dsh_live_viewport.png'),
   livePngWsl: path.join(CFG.workDirWsl, 'dsh_live_viewport.png'),
-  viewPngWin: path.win32.join(CFG.workDirWin, 'dsh_view_capture.png'),
+  viewPngWin: blenderSidePath(CFG.workDirWin, 'dsh_view_capture.png'),
   viewPngWsl: path.join(CFG.workDirWsl, 'dsh_view_capture.png'),
 };
 
@@ -183,7 +223,7 @@ export function describeConfig(over) {
   const o = over || {};
   return {
     platform: process.platform,
-    distro: IS_WIN ? null : DISTRO,
+    distro: (IS_WIN || IS_MAC) ? null : DISTRO,
     addon: CFG.addonHost + ':' + String(CFG.addonPort),
     addonProtocol: CFG.addonProtocol,
     http: '127.0.0.1:' + String(o.httpPort || CFG.httpPort),

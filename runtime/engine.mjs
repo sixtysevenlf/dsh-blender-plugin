@@ -20,7 +20,7 @@ import os from 'node:os';
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { CFG, PATHS, winToWsl, wslToWin, describeConfig, IS_WIN, PKG_ROOT } from './config.mjs';
+import { CFG, PATHS, winToWsl, wslToWin, describeConfig, IS_WIN, IS_MAC, PKG_ROOT } from './config.mjs';
 // 协议适配层：直连通道支持两种 addon 实现（ahujasid 扁平协议 / harveyxiacn category-action），
 // 由 CFG.addonProtocol 选择，默认 auto 自动探测。差异与映射见 runtime/addon-protocol.mjs。
 import { resolveProtocol, detectProtocol, resetProtocolCache } from './addon-protocol.mjs';
@@ -52,7 +52,17 @@ export const WIN_TMP = CFG.workDirWin;
 export const WSL_TMP = CFG.workDirWsl;
 export const LIVE_PNG_WIN = PATHS.livePngWin;
 export const LIVE_PNG_WSL = PATHS.livePngWsl;
-/** Blender 侧 python 模块：相对本文件定位 → 整个 runtime 目录可以搬到任意位置 */
+/**
+ * 把宿主侧路径表达成「Blender 进程侧」的形式。
+ * Windows：path.win32.join（反斜杠 + 盘符）；WSL：wslToWin；macOS：identity（同机同 OS）。
+ * macOS 支持：原先散落的 path.win32.join 在 mac 上会产出 \Users\... 这种垃圾串，
+ * 统一收到这里，避免以后再漏。
+ */
+export function blenderJoin(...parts) {
+  if (IS_MAC) return path.join(...parts);
+  if (IS_WIN) return path.win32.join(...parts);
+  return wslToWin(path.join(...parts));
+}
 export const RUNNER_PATH = path.join(HERE, 'runner.py');
 export const PERF_PATH = path.join(HERE, 'perf.py');
 export const VIEW_PATH = path.join(HERE, 'view.py');
@@ -211,6 +221,8 @@ export { PKG_ROOT } from './config.mjs';
  */
 const PATH_HELPERS_TEMPLATE = [
 'def _dsh_slashes(p):',
+'    # macOS / Linux 用正斜杠；只有 Windows 才需要反转',
+'    if __DSH_NATIVE_POSIX__: return str(p)',
 '    return str(p).replace("/", chr(92))',
 'def _dsh_blend_path(p):',
 '    """相对路径 → 相对当前 .blend 的绝对路径（Windows 形式）"""',
@@ -224,7 +236,8 @@ const PATH_HELPERS_TEMPLATE = [
 '    if _os.path.isabs(s) or (len(s) > 1 and s[1] == ":"): return _dsh_slashes(s)',
 '    return _dsh_slashes(_os.path.join(base, s)) if base else s',
 'def _dsh_win_path(p):',
-'    """任何路径 → Windows 侧可用形式（/mnt/d/x → D:/x 的 Windows 形式；WSL 内部 → UNC；相对 → 相对 .blend）"""',
+'    """任何路径 → Blender 进程侧可用形式（/mnt/d/x → D:/x；WSL 内部 → UNC；macOS/Linux 原生 → 原样）"""',
+'    if __DSH_NATIVE_POSIX__: return _dsh_blend_path(p)',
 '    s = str(p).strip(); b = chr(92)',
 '    if len(s) > 1 and s[1] == ":": return _dsh_slashes(s)',
 '    if s.startswith("/mnt/") and len(s) > 6: return s[5].upper() + ":" + b + s[7:].replace("/", b)',
@@ -235,7 +248,8 @@ const PATH_HELPERS_TEMPLATE = [
 '    if s.startswith("/"): return b + b + "wsl.localhost" + b + __DISTRO__ + s.replace("/", b)',
 '    return s',
 'def _dsh_wsl_path(p):',
-'    """Windows / UNC 路径 → WSL 侧可用形式（D:/x → /mnt/d/x；UNC → /...）"""',
+'    """Windows / UNC 路径 → WSL 侧可用形式（D:/x → /mnt/d/x；UNC → /...）；原生 POSIX 原样返回"""',
+'    if __DSH_NATIVE_POSIX__: return _dsh_blend_path(p)',
 '    s = str(p).strip(); b = chr(92)',
 '    if len(s) > 1 and s[1] == ":": return "/mnt/" + s[0].lower() + "/" + s[2:].replace(b, "/").lstrip("/")',
 '    if s.startswith(b + b + "wsl.localhost" + b):',
@@ -339,7 +353,10 @@ const PATH_HELPERS_TEMPLATE = [
   'DSH_WIN = _dsh_win_path',
   'DSH_WSL = _dsh_wsl_path',
 ].join('\n');
-const PATH_HELPERS = PATH_HELPERS_TEMPLATE
+export const PATH_HELPERS = PATH_HELPERS_TEMPLATE
+  // macOS 与「非 WSL 的原生 POSIX」都不需要跨 OS 路径改写（Blender 与宿主同机）。
+  // WSL 判据沿用工程里已有的 /mnt/c 探测，不依赖可能未导出的 WSL_DISTRO_NAME。
+  .replace(/__DSH_NATIVE_POSIX__/g, (IS_MAC || (!IS_WIN && !fs.existsSync('/mnt/c'))) ? 'True' : 'False')
   .replace(/__DISTRO__/g, JSON.stringify(process.env.WSL_DISTRO_NAME || 'Ubuntu'))
   .replace(/__OUTDIR__/g, JSON.stringify(WIN_TMP))
   .replace(/__RUNTIME_DIR__/g, JSON.stringify(HERE));
@@ -483,8 +500,10 @@ function baseChildEnv(extra) {
   return Object.assign({}, process.env, { PYTHONIOENCODING: 'utf-8', PYTHONUNBUFFERED: '1' }, extra || {});
 }
 
-/** WSLENV 声明（v0.9.1 实测坑：WSL 侧 spawn Windows 进程时 env 不会自动跨界）—— headless 与 job 共用 */
+/** WSLENV 声明（v0.9.1 实测坑：WSL 侧 spawn Windows 进程时 env 不会自动跨界）—— headless 与 job 共用
+ *  macOS / Windows 上父子进程同 OS，env 天然继承，不需要这一步。 */
 function withWslEnv(childEnv, extraEnv) {
+  if (IS_MAC || IS_WIN) return childEnv;   // 同 OS，env 直接继承；WSLENV 无意义且会污染子进程环境
   try {
     const pass = Object.keys(childEnv).filter((k) => k.indexOf('DSH_') === 0
       || (extraEnv && Object.prototype.hasOwnProperty.call(extraEnv, k)));
@@ -533,7 +552,7 @@ function envPrelude(envPairs) {
  * 静默写到 C:\home\x（证据：Saved: 'C:homesixtyseven67DSH…' 紧随其后 os.path.exists() -> false）。
  * 这里在脚本收尾时检查 scene.render.filepath；配合 stdout 里的 Saved: 扫描（pathAudit）。
  */
-const PATH_GUARD = ['# ---- DSH 路径体检（v0.9.3 / D4.3）----',
+export const PATH_GUARD = (IS_MAC || IS_WIN) ? '' : ['# ---- DSH 路径体检（v0.9.3 / D4.3）----',
   'try:',
   '    import json as _dsh_pj',
   '    _dsh_pw = []',
@@ -645,7 +664,8 @@ function pathAudit(stdout, stderr) {
   const text = String(stdout || '') + '\n' + String(stderr || '');
   const re = /Saved:\s*'([^']*)'/g;
   let m;
-  while ((m = re.exec(text)) !== null) {
+  // macOS 上宿主与 Blender 同 OS，不存在「POSIX 路径被 Windows API 改写成 D:home…」这类问题
+  while (!IS_MAC && (m = re.exec(text)) !== null) {
     const p = m[1];
     if (/^[A-Za-z]:(home|mnt|tmp|var|usr|root|opt)/i.test(p)) {
       warns.push({ code: 'posix_path_rewritten', evidence: p.slice(0, 200),
@@ -668,7 +688,7 @@ function pathAudit(stdout, stderr) {
 function writeHeadlessScript(code) {
   const name = 'dsh_headless_' + Date.now().toString(36) + '.py';
   const cands = [
-    { dir: WSL_TMP, win: path.win32.join(WIN_TMP, name) },
+    { dir: WSL_TMP, win: blenderJoin(WIN_TMP, name) },
     { dir: path.join(HERE, 'tmp'), win: null },
   ];
   const errs = [];
@@ -1190,7 +1210,7 @@ export function createEngine(opts = {}) {
       // 契约层的 evidence 需要 view.path：这里补默认工作目录下的证据文件（与 view.py 的默认出图分开）
       const p = payload && typeof payload === 'object' ? payload : {};
       p.view = p.view && typeof p.view === 'object' ? p.view : {};
-      if (!p.view.path) p.view.path = path.win32.join(WIN_TMP, 'dsh_evidence_' + SESSION_NAME.replace(/[^A-Za-z0-9_.-]/g, '_') + '.png');
+      if (!p.view.path) p.view.path = blenderJoin(WIN_TMP, 'dsh_evidence_' + SESSION_NAME.replace(/[^A-Za-z0-9_.-]/g, '_') + '.png');
       payload = p;
     }            // 证据要出图 → 先注入 view.py
     if (isPlan) {
@@ -1213,7 +1233,7 @@ export function createEngine(opts = {}) {
                              timeoutMs: Number(p.timeoutMs) || 3600000,
                              script: mods + String.fromCharCode(10) + driver });
         return { ok: true, mode: 'job', jobId: j.id, ms: 0, outdir: j.outdir, logDir: j.logDir,
-                 jsonl: path.win32.join(String(p.outdir || WIN_TMP), 'render_views.jsonl'), job: j,
+                 jsonl: blenderJoin(String(p.outdir || WIN_TMP), 'render_views.jsonl'), job: j,
                  hint: '长活已转作业层：blender_rt_job(op="status"/"collect", id="' + j.id + '") 跟进；产物与日志在 outdir/jobs/ 下' };
       }
       await ensureQcRender();
@@ -2315,7 +2335,7 @@ export function createEngine(opts = {}) {
         const msg = '起不来 Blender 进程（' + BLENDER_EXE + '）：' + String((res.spawnErr && res.spawnErr.message) || res.spawnErr);
         const e = new Error(msg); e.code = 'blender-exe-missing';
         e.hint = '自动探测没找到 blender 可执行文件。三种配置方式（任选一种）：'
-          + '① 环境变量 DSH_BLENDER_EXE=' + (IS_WIN ? 'D:\\...\\blender.exe' : '/mnt/d/.../blender.exe')
+          + '① 环境变量 DSH_BLENDER_EXE=' + (IS_WIN ? 'D:\\...\\blender.exe' : (IS_MAC ? '/Applications/Blender.app/Contents/MacOS/Blender' : '/mnt/d/.../blender.exe'))
           + ' ② 包根写 dsh-blender.config.json: {"blenderExe":"..."}'
           + ' ③ ~/.dsh/dsh-blender.config.json。当前探测结果见 blender_viewport op=doctor 的 config 字段。';
         throw e;
