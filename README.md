@@ -360,6 +360,26 @@ dsh-blender-plugin/
 - License: **BSD-3-Clause** (see `LICENSE`). Copyright holder is set to the repository owner — edit `LICENSE` if you need a different attribution.
 - Measured numbers in this README and in `tests/README.md` come from the author's machine and are meant as a baseline, not a guarantee.
 
+---
+
+## Support · Buy me a coffee
+
+This plugin is **open source and free** (BSD-3-Clause): every feature is available to everyone — no paywall, no license key, no "sponsor edition".
+If it saved you some time, you're welcome to buy me a coffee: **it's a voluntary donation, not a purchase**.
+
+| Alipay (支付宝) | WeChat 赞赏码 |
+|---|---|
+| <a href="docs/images/sponsor-alipay.jpg"><img src="docs/images/sponsor-alipay.jpg" alt="Alipay donation QR code" width="280"></a> | <a href="docs/images/sponsor-wechat-reward.png"><img src="docs/images/sponsor-wechat-reward.png" alt="WeChat reward QR code" width="280"></a> |
+| Open Alipay → Scan | Open WeChat → Scan |
+
+**A few things, so there's no misunderstanding:**
+
+- **A donation is not a purchase** — it buys no service, license, customization or priority. Issues and PRs are triaged on their own merits, regardless of donations.
+- **Donations don't change the license** — the code stays BSD-3-Clause for everyone, with identical features.
+- These are **personal appreciation codes** for small, voluntary gifts only; **not** for business or commercial payments. For commercial support, custom work or collaboration, open an issue and we'll do it properly (contract + invoice).
+- Please don't repost, forward or reuse the QR codes for anything outside this project.
+- The images live in the repo under `docs/images/` — **click one to open the full-size original** (1080×1621 / 1027×1027); if GitHub image loading is unreliable from mainland China, just open the files directly from the repository.
+
 ## Credits
 
 - **@lurenjia-l** — [dsh-blender-stylized-shading](https://github.com/lurenjia-l/dsh-blender-stylized-shading): their measured EEVEE pitfalls (Shader-to-RGB only sees direct light, diffuse extension darkening, gradient-group controller binding) are folded into `docs/EEVEE-工作要点.md`; their `stylized-shading` skill has been adapted to this plugin direct channel.

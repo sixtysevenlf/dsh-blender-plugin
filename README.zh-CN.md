@@ -302,6 +302,26 @@ dsh-blender-plugin/
 - 通道只监听 `127.0.0.1`（默认），不对外网开放；`execute_code` 是有意留下的"万能通道"，请只在可信环境使用。
 - 作者机器的实测数据（帧延迟、矩阵偏差、租约用例等）保留在 `docs/操作教程.md` 与 `tests/README.md`，可当作你环境的对照基线。
 
+---
+
+## 支持本项目 · 请我喝咖啡
+
+这个插件是**开源、免费**的（BSD-3-Clause）：所有功能对所有人开放 —— 没有付费墙、没有授权码、也没有"赞助者专享版"。
+如果它帮你省下了时间，可以请我喝杯咖啡：**这是自愿赞赏，不是购买**。
+
+| 支付宝 | 微信赞赏码 |
+|---|---|
+| <a href="docs/images/sponsor-alipay.jpg"><img src="docs/images/sponsor-alipay.jpg" alt="支付宝赞赏码" width="280"></a> | <a href="docs/images/sponsor-wechat-reward.png"><img src="docs/images/sponsor-wechat-reward.png" alt="微信赞赏码" width="280"></a> |
+| 打开支付宝 → 扫一扫 | 打开微信 → 扫一扫 |
+
+**几句话先说清楚（避免误会）：**
+
+- **赞赏 ≠ 购买**：不构成任何交易，不换取服务、授权、定制或优先响应；issue / PR 只看问题本身，与是否赞赏无关。
+- **赞赏不改变许可**：代码始终是 BSD-3-Clause，无论赞赏与否功能完全一致。
+- 二维码是**个人赞赏码**，只用于个人小额、自愿的赠与；**不接受**任何经营性 / 商业付款。需要商业支持、定制开发或合作，请开 issue 谈，走正规合同与发票。
+- 请勿转发、二次发布这两个二维码，也不要用于本项目之外的任何用途。
+- 图片就在仓库里（`docs/images/`），**点一下图可打开原图**（1080×1621 / 1027×1027）；若在中国大陆访问 GitHub 图片不稳定，直接在仓库里打开原图即可。
+
 ## 致谢 / Credits
 
 - **@lurenjia-l** — [dsh-blender-stylized-shading](https://github.com/lurenjia-l/dsh-blender-stylized-shading)：其 `material_pipeline.md` 的 EEVEE 实测踩坑（Shader to RGB 只含直接光、漫射拓展光源压暗、渐变组控制器绑定）已并入本插件 `docs/EEVEE-工作要点.md`；其 `stylized-shading` 技能已适配本插件直连通道（见 `~/.dsh/skills/stylized-shading/`）。
