@@ -47,9 +47,11 @@
   "scripts": {
     "build": "bash scripts/build.sh",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node tests/protocol_selftest.mjs && node tests/lossless_guard.mjs && node tests/lease_stale_selftest.mjs",
+    "test": "node tests/protocol_selftest.mjs && node tests/lossless_guard.mjs && node tests/lease_stale_selftest.mjs && node tests/mac_selftest.mjs",
     "test:lease": "node tests/lease_stale_selftest.mjs",
     "test:lossless": "node tests/lossless_guard.mjs",
+    "test:mac": "node tests/mac_selftest.mjs",
+    "test:gui": "node tests/gui_channel_probe.mjs",
     "test:lossless:live": "node tests/lossless_guard.mjs --live",
     "test:acceptance": "node tests/acceptance_v093.mjs",
     "test:dsh-api": "node tests/dsh_api_compat_probe.mjs"

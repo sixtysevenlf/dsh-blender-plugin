@@ -1,5 +1,53 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
+## Unreleased —— macOS 支持（全 GUI 路径打通）
+
+macOS 上宿主与 Blender 同机同 OS，跨 OS 路径改写退化为恒等。
+原先这些改写会把 `/Users/...` 拼成 `\\wsl.localhost\Ubuntu\Users\...` —— Blender 静默打不开。
+Windows / WSL 行为不变（有回归断言兜底）。
+
+### 新增
+
+- `runtime/config.mjs`：`IS_MAC`；`winToWsl` / `wslToWin` 在 mac 上早退返回原值；
+  `detectBlenderExe()` 增扫 `.app` bundle（`/Applications`、`~/Applications`、`/Volumes/*/Applications`，
+  支持任意版本名 `Blender*.app`）；`resolveWorkDir()` 改用 `~/.dsh-blender-rt`
+  （**不落系统临时目录** —— 那里会被清理，帧与台账会丢）；`winLocalAppData()` 不再尝试调 `cmd.exe`。
+- `runtime/engine.mjs`：`blenderJoin()` 收编原先散落的 `path.win32.join`（mac 上会产出 `\Users\...`）；
+  `withWslEnv()` 同 OS 时直接返回（不再往子进程塞 `WSLENV`）；注入 Blender 的 python 路径助手
+  （`_dsh_slashes` / `_dsh_win_path` / `_dsh_wsl_path`）带 `__DSH_NATIVE_POSIX__` 渲染开关，mac 上恒等；
+  `PATH_GUARD`（WSL 专属的 `render.filepath` 体检）在 mac 上关闭，避免把正常的 `/Users/...` 误报成路径问题。
+- `src/index.ts`：`killBackendByCmd()` 在没有 `/proc` 时回退 `ps -ax -o pid=,command=`
+  （macOS 无 `/proc`，原先静默返回 `[]`，热重载后残留后端停不掉）。
+- `tests/mac_selftest.mjs`（`npm run test:mac`）：45 条断言，纯 Node + 真跑一次 `python3`
+  执行注入的路径助手；含**回归保护**（断言 WSL/Windows 分支仍在，防止 mac 支持把原逻辑吃掉）。
+
+### 修复
+
+- `runtime/config.mjs`：`PATHS.livePngWin` / `PATHS.viewPngWin` 硬编码 `path.win32.join` →
+  在 mac 上产出 `\Users\...`，取视口截图会静默失败（该路径会被内联进 bpy 脚本、也直接交给 addon）。
+- `runtime/qc.py`：「已是绝对路径」的判据补上 `/` 开头（原来只认 `X:` 与 `\\`）。
+
+### 实机验证（macOS arm64 + Blender 5.2.2 LTS + MCP for Blender 1.7）
+
+路径层（`npm run test:mac`，45 断言，纯 Node + 真跑 `python3`）：
+
+- 无头运行 `status: finished` / 退出码 0 / workdir·runId·env 契约正确；
+- 真实渲染产出合法 160x120 RGBA PNG；
+- `GPUOffScreen` 自定义视角自检 `gpu_init: ok`、`first_px == [25,153,51,255]`、投影误差 ≈1e-7
+  （与 Windows 参考值一致）。
+
+GUI 通道（`npm run test:gui`，需真机 + addon）—— **11/11 通过**：
+
+- `blender_viewport op=doctor` / `op=status`：通道健康，读出真实 3D 视口 region；
+- `blender_rt_see`：离屏取帧 148ms，合法 RGBA PNG，写入 `~/.dsh-blender-rt`；
+- `blender_rt_see {from, look_at}`：自定义视角 178ms，覆盖 26.8%，**用户视口未被改动**；
+- `blender_rt_do`：改写场景 + 读回验证通过；持久内核 `K` 跨调用保留；
+- `blender_rt_cmd` / `blender_rt_commands` / `blender_rt_perf` / `blender_rt_opt` 均正常；
+- `blender_viewport op=launch` 冷启动：2.5s 从零到一个已 Connect 的 GUI Blender（原先需人手点面板）。
+
+`npm test` 既有回归（协议 / 租约）不受影响。
+
+
 ## v0.9.4（2026-09-25）—— 返回通道修复（P0）+ 一键启动器（P1）+ skill v2
 
 来源：另一会话《M1A1 分件建模》体感清单（500 对象 / 7 agent / 全程 headless / 主战场是自写 `tools/bl.sh`）。

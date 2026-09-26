@@ -18,7 +18,7 @@
  * 说明：人肉面板（网页 UI + Windows 输入注入）已按需求移除，不在此插件内。
  */
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { spawn } from 'node:child_process'
+import { spawn, execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync } from 'node:fs'
 import os from 'node:os'
@@ -303,20 +303,41 @@ function startBackend(port: number): string {
  */
 function killBackendByCmd(port: number): string[] {
   const killed: string[] = []
+  const needle = '--port ' + String(port)
+  // macOS 支持：把「列进程」抽成一条可移植的候选链 —— /proc 只有 Linux 有，
+  // macOS 没有；原先只读 /proc，在 mac 上静默返回 []（热重载后残留后端停不掉）。
+  const rows: Array<{ pid: number; cmd: string }> = []
+  let listed = false
+  // ① Linux：直接读 /proc（最准，无外部依赖）
   try {
     for (const d of readdirSync('/proc')) {
       if (!/^[0-9]+$/.test(d)) continue
       if (Number(d) === process.pid) continue
       try {
-        const cmd = readFileSync('/proc/' + d + '/cmdline', 'utf8').replace(/\u0000/g, ' ')
-        // 路径已随插件包改名（dsh-blender-plugin/runtime/server.mjs）→ 用更通用的匹配，否则停不掉残留
-        if (cmd.includes('server.mjs') && cmd.includes('--port ' + String(port))) {
-          process.kill(Number(d), 'SIGTERM')
-          killed.push(d)
-        }
+        const cmd = readFileSync('/proc/' + d + '/cmdline', 'utf8').replace(/\u0000/g, ' ') + ' '
+        rows.push({ pid: Number(d), cmd })
       } catch (e) { /* 进程可能已退出 */ }
     }
-  } catch (e) { /* /proc 不可读则不兜底 */ }
+    listed = true
+  } catch (e) { /* 无 /proc（macOS/Windows）→ 走 ② */ }
+  // ② macOS / 通用 POSIX：ps 输出 pid + 完整命令行
+  if (!listed) {
+    try {
+      for (const line of execFileSync('ps', ['-ax', '-o', 'pid=,command='], { encoding: 'utf8', timeout: 5000 }).split('\n')) {
+        const m = /^\s*(\d+)\s+(.*)$/.exec(line)
+        if (!m) continue
+        const pid = Number(m[1])
+        if (pid === process.pid) continue
+        rows.push({ pid, cmd: m[2] + ' ' })
+      }
+    } catch (e) { /* ps 不可用则不兜底 */ }
+  }
+  for (const r of rows) {
+    // 路径已随插件包改名（dsh-blender-plugin/runtime/server.mjs）→ 用更通用的匹配，否则停不掉残留
+    if (r.cmd.includes('server.mjs') && r.cmd.includes(needle)) {
+      try { process.kill(r.pid, 'SIGTERM'); killed.push(String(r.pid)) } catch (e) { /* 已退出 */ }
+    }
+  }
   return killed
 }
 

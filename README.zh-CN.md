@@ -59,7 +59,7 @@
 
 ---
 
-## 2. 前置条件（4 条，缺一不可）
+## 2. 前置条件（5 条，缺一不可）
 
 1. **Blender 4.x / 5.x（GUI 模式）** —— 本通道要的是"能看见的 Blender"；后台 `-b` 只用于无头工具那条线。
 2. **Blender 里的 addon：`MCP for Blender`**（**不在本包内**，需自备）：
@@ -73,6 +73,7 @@
 4. **DSH（DeepSeek Harness）**：本包以 DSH 插件形态提供工具（`inject: ['tools']`）。
    - 若你在 **WSL** 里跑 DSH、Blender 在 Windows：需要 WSL 互操作开启（默认开），这样 `spawn` 能直接起 `blender.exe`；
    - 若 DSH 与 Blender **同在 Windows**：把 `blenderExe` 配成 `D:\...\blender.exe` 即可，路径映射自动退化。
+5. **macOS** —— 已支持。宿主与 Blender 同机，不涉及跨 OS 路径映射：Blender 自动探测 `/Applications` 下的 `Blender*.app`（也扫 `~/Applications` 与 `/Volumes/*/Applications`），工作目录默认 `~/.dsh-blender-rt`。只有装在非标准位置时才需要配 `DSH_BLENDER_EXE` / `blenderExe`；`blender_viewport op=doctor` 会打印探测结果。
 
 ---
 
@@ -270,7 +271,7 @@ dsh-blender-plugin/
 | `blender.exe` | 写死 Steam 路径 | 自动扫描 `Program Files/Blender Foundation/Blender*` + Steam 常见位置 + `PATH`，或配置指定 |
 | 端口 | 9876 / 9877 写死 | 默认相同，可配置（支持两台 Blender 并存） |
 | 降噪器默认 | 固定 `OPTIX` | 按本机 `compute_device_type` 自动判（OptiX ↔ OpenImageDenoise） |
-| 路径映射 | 只按作者的 WSL / Windows 形态 | WSL 与"纯 Windows 跑 DSH"两种形态都支持 |
+| 路径映射 | 只按作者的 WSL / Windows 形态 | WSL · 纯 Windows · macOS |
 | 教程文档 | 面向作者自己的工作区 | 附带 `docs/操作教程.md` + `docs/配置参考.md`（自包含） |
 
 其余**通道机制、10 个工具行为、租约语义、内环语义与本机版完全一致**。
