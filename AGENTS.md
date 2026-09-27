@@ -47,6 +47,11 @@
 - 离线自检：`npm test`；真机验收：`npm run test:acceptance`（需要 Blender 在跑）。
 - 改 `runtime/*.py` 前先看 `tests/README.md`；每个能力族都有对应的 `*_selftest`。
 - 文档事实源在包内：`README.zh-CN.md` · `docs/操作教程.md` · `docs/配置参考.md` · `CHANGELOG.md`。
+- **发版流程**（v1.0.0 起）：① 版本号**三处同步**（`package.json` / `src/index.ts` 的 `PLUGIN_VERSION` / 重建后的 `lib/`）；
+  ② `npm test` 全绿；③ 提交 → `git tag -a vX.Y.Z` → 推 `main` 与 tag → `gh release create`。
+- **发布 npm**：`npm pack` → `npm publish <tgz> --access public`（包名 `@dsh-external/dsh-blender-plugin`，需维护者 npm 登录）。
+  打包面靠 `runtime/.npmignore` + `package.json` 的 `files` 否定模式把 `runtime/ext/venv`（1.2 G）挡在包外 ——
+  **改 `files` 后必须 `npm pack --dry-run` 核对**（健康值：约 1.3 MB / 125 文件；曾经漏成 458 MB / 12638 文件）。
 
 ## 4. 给用户的一段提示词
 
