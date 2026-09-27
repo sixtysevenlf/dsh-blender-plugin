@@ -1278,7 +1278,12 @@ export function createEngine(opts = {}) {
       const name = String(m).trim().replace(/\.py$/, '');
       if (!name) continue;
       const f = path.join(HERE, name + '.py');
-      if (!fs.existsSync(f)) throw new Error('preload 找不到模块：' + f);
+      if (!fs.existsSync(f)) {
+        // S9（④）：报错直接给可用模块名 —— 现场「要 preload=vehicle」只能靠试。
+        let avail = [];
+        try { avail = fs.readdirSync(HERE).filter((x) => x.endsWith('.py')).map((x) => x.slice(0, -3)); } catch (e2) { /* ignore */ }
+        throw new Error('preload 找不到模块：' + f + '（可用模块名：' + avail.join(', ') + '）—— preload 取 runtime/<name>.py 的文件名，例如 preload="vehicle,audit"；离线（后端挂了）见 runtime/offline_bootstrap.py');
+      }
       parts.push(preloadChunk(name));
     }
     parts.push('_dsh_stage_emit("preload-done")');

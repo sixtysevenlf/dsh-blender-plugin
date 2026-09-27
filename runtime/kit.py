@@ -140,6 +140,50 @@ def resolve_refs(value, skip_keys=("out", "steps")):
 
     return _walk(value)
 
+
+def kapi(name):
+    """模块 API 一行式访问器（K.dsh_<name>_api）；找不到时列出已加载模块，别让人靠猜 preload 名。"""
+    K = _kernel()
+    api = getattr(K, "dsh_%s_api" % str(name), None)
+    if api is None:
+        have = sorted(k[len("dsh_"):-len("_api")] for k in dir(K) if k.startswith("dsh_") and k.endswith("_api"))
+        raise RuntimeError("内核里没有 K.dsh_%s_api（已加载：%s）—— 在线路径请把它加进 preload（例如 preload=%s）；离线路径用 runtime/offline_bootstrap.py" % (name, have, name))
+    return api
+
+
+def install_kernel(ns=None):
+    """把 K（与 kapi）装进命名空间；不给就装进调用方的 globals。
+
+    为什么需要它：K 只注入「被执行脚本的 globals」，而 `import` 进来的 lib/*.py 有自己的 globals
+    ⇒ 直接写 K.dsh_vehicle_api 会 NameError。官方推荐两选一：
+      * 文件顶部一行：`import sys; K = sys.modules["dsh_rt_kernel"]`
+      * 或调用：`K.dsh_kit.install_kernel()` / `K.dsh_kit.kapi("vehicle")`
+    """
+    K = _kernel()
+    target = ns if isinstance(ns, dict) else sys._getframe(1).f_globals
+    target["K"] = K
+    if getattr(K, "dsh_kit", None) is not None:
+        target["kapi"] = K.dsh_kit.kapi
+    return K
+
+
+def comp_tree(scene=None):
+    """拿合成器节点树：Blender 5.2 起 scene.node_tree 已移除（搬到 scene.compositing_node_group）。
+
+    现场：5.2 上访问 scene.node_tree、或 Glare 的 mix、Mix 的 blend_type 会从助手函数深处抛 AttributeError。
+    统一从这里取，版本差异只在一处处理；拿不到就明确说清版本口径。
+    """
+    import bpy
+    sc = scene or bpy.context.scene
+    for attr in ("compositing_node_group", "node_tree"):
+        holder = getattr(sc, attr, None)
+        if holder is None:
+            continue
+        tree = getattr(holder, "node_tree", holder)
+        if tree is not None:
+            return tree
+    raise RuntimeError("拿不到合成器节点树：Blender 5.2 起改用 scene.compositing_node_group（旧的 scene.node_tree 已移除）；取到后注意 Glare 的 mix 与 Mix 的 blend_type/mix 都改名了，用 getattr 兜底")
+
 def wrap_dispatch(base, extra=None):
     """给已有 dispatch 挂附加 op（如 selftest）：命中 extra 走额外表，否则交回原 dispatch。
 
@@ -313,5 +357,5 @@ _K.dsh_kit = types.SimpleNamespace(
     version=KIT_VERSION, j=j, err=err, receipt=receipt, units=units, mm=mm, api=api,
     Api=Api, register=register, flatten=flatten, dispatch_table=dispatch_table,
     objects=objects, world_tris=world_tris, bvh=bvh, iou=iou,
-    pairwise_clearance=pairwise_clearance, selftest=selftest, kernel=_kernel, wrap_dispatch=wrap_dispatch, resolve_refs=resolve_refs,
+    pairwise_clearance=pairwise_clearance, selftest=selftest, kernel=_kernel, wrap_dispatch=wrap_dispatch, resolve_refs=resolve_refs, kapi=kapi, install_kernel=install_kernel, comp_tree=comp_tree,
 )

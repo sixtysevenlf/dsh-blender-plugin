@@ -43,7 +43,7 @@ export const PLAN_CATALOG = [
     key: '先算弯折半径 vs 型材半宽；过紧默认拒绝（force=true 才硬做）' },
   { f: 'audit', prefix: 'audit_',
     when: '装配体检与出厂门：连通 / 干涉 / 包络 / 漂移 / 量测 / 重复件 / 浮块',
-    not: '主观"像不像"（那走 qc_*）；**别目测代替体检** —— 用 audit_*（summary_only 瘦身）',
+    not: '主观"像不像"（那走 qc_*）；**别目测代替体检** —— 用 audit_*（summary_only 瘦身）；**装配口径**：连通门是「单体船」口径（默认 0.3 mm）—— 222 个独立零件的正常装配必然被报浮空；多零件请调 micro_gap_mm（1–2 mm）或走 gate_plan(preset="assembly")',
     sk: 'blender_rt_plan(op="audit_scene", args={}) → "audit_mesh"(objects=[...]) → "audit_gate"(scope="COL_Geo", envelope=[[min],[max]])',
     ops: ['mesh', 'scene', 'duplicates', 'connectivity', 'gate', 'drift', 'measure', 'snap_floaters', 'overlap', 'interference', 'purge_orphans', 'selftest', 'gate_selftest', 'help'],
     key: '相接口径 micro_gap_mm 默认 0.3（3D 打印口径）；带设计间隙的装配件按工艺给 1–2；audit_interference/overlap 支持 file= 跨 .blend；回执太大时加 summary_only=true / top_k=N（实测 40 对象场景 9,176→1,148 字符，判定不变）' },

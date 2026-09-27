@@ -631,6 +631,18 @@ try {
 } catch (e) {
   console.error('[blender-rt] 启动时未连上 addon（Blender 未运行或 addon 未监听 9876）：' + String((e && e.message) || e));
 }
+// S9：端口被占（EADDRINUSE）时给可执行结论 —— 现场遇到过"僵死后端占着 9877、WSL 里看不到 PID"，
+// 而报错只说"看后端日志"。这里明说是端口占用 + 怎么清。
+server.on('error', (e) => {
+  const code = e && e.code;
+  const msg = code === 'EADDRINUSE'
+    ? ('端口 ' + PORT + ' 已被占用（EADDRINUSE）：多半是上一次的后端僵死（Windows 侧进程，WSL 里看不到 PID）。'
+       + '处置：blender_viewport op=restart（先清残留再拉），或在 Windows 上 taskkill 掉占用者。')
+    : ('监听失败：' + String((e && e.message) || e));
+  console.error('[dsh-blender-backend] ' + msg);
+  try { fs.writeFileSync(path.join(CFG.workDirWsl, 'backend-listen-error.txt'), msg, 'utf8'); } catch (e2) { /* workDir 都写不了就算了 */ }
+  process.exit(1);
+});
 server.listen(PORT, HOST, () => {
   console.log('[blender-rt] http://' + HOST + ':' + String(PORT) + '/  (routes: /health /status /doctor /who /frame.png /act /view /headless /plan /worker /txn /preset /lease)');
 });

@@ -172,6 +172,24 @@ GUI 通道（`npm run test:gui`，需真机 + addon）—— **11/11 通过**：
 无头整合自检 **23 → 34 断言**（新增材质链路与 guard 的 install/mark/clear）。
 ⚠ 生效时机：catalog 与 guard 在后端（重启即生效）；工具描述在 `lib/index.js`（下次 DSH 启动）。
 
+### D30 · 运行时层加固（现场报告 7 项，按序一次改完）
+
+现场结论是"方法论层撑得住、运行时层拖后腿"。逐项：
+
+| # | 现场问题 | 本批改动 | 验证 |
+|---|---|---|---|
+| ① | `/mnt/d` 变只读 ⇒ 后端写不了 status/ledger 起不来；报错只说"看后端日志"；9877 被僵死进程占着(EADDRINUSE) | `config.mjs` 新增 **workDir 探写 + 回退**（原候选 → 包内 `tmp` → OS tmpdir，**回退必留痕** `CFG.workDirFallback{requested,why,used,errs}`）；`server.mjs` 加 `EADDRINUSE` 明确文案（明说"僵死后端占端口"+ 处置）并落盘 `backend-listen-error.txt` | 模拟不可写：`DSH_BLENDER_WORKDIR=/etc/hostname/nope` ⇒ 自动回退到 `dsh-blender-plugin/tmp`、`writable=true`、`why=ENOTDIR…` ✅ |
+| ② | 后端一挂 headless/job/do 全废；没有官方离线通道（用户手搓 15 行恢复能力） | 新增 **`runtime/offline_bootstrap.py`**：建 `dsh_rt_kernel` → 注入 kit → 按名加载模块，`kapi(name)` 取 API；支持 `blender -b --python … -- vehicle audit` 与脚本内 `ob.boot([...])`（契约与在线路径一致） | 真机：`blender -b --factory-startup --python runtime/offline_bootstrap.py -- vehicle audit` ⇒ **`OFFLINE_BOOTSTRAP ok · 已加载：audit, vehicle`** ✅ |
+| ③ | `K` 在 import 进来的 `lib/*.py` 里不可见（推荐用法与实现冲突） | `kit.py` 新增 **`kapi(name)`** 与 **`install_kernel(ns=None)`**；文档给官方一行式 `import sys; K = sys.modules["dsh_rt_kernel"]` | 离线路径已实测 `kapi("generator")` → `Api` ✅ |
+| ④ | preload 模块名靠猜 | `kapi` 报错列已加载模块；engine 的 `preload 找不到模块` 报错**列全部可用模块名**并给 `preload="vehicle,audit"` 示例 + 指向离线逃生口 | 语法/单测通过 ✅ |
+| ⑤ | 返回类型不统一（`dsh_audit_api` 回 dict，skill 示例写 JSON 字符串） | skill 新增 **§0.71 调用约定**：`api(op,args)`→dict；`api["dispatch"](op,json_str)`→str（要自己 loads）；给 `kapi()`/`install_kernel()`/`preload` 命名规则/离线逃生口 | skill 已写入 ✅ |
+| ⑥ | `audit_gate` 装配语义没写清（222 件车必然过不了连通门） | catalog 的 audit 族 `not` 明确写：**连通门是「单体船」口径（默认 0.3 mm）**；多零件请调 `micro_gap_mm`(1–2 mm) 或走 `gate_plan(preset="assembly")`；skill §0.71 同口径 | discoverability 51/51 ✅ |
+| ⑦ | Blender 5.2 合成器漂移（`scene.node_tree` 已移除；Glare `mix`、Mix `blend_type` 改名）从插件助手深处爆 AttributeError | `kit.comp_tree(scene)` **版本容错取合成器树**（5.2 `compositing_node_group` → 旧 `node_tree`），拿不到时明确写清版本口径与改名清单 | 真机 5.2 上注册可用（`material.py`/`qc_render.py` 本身用的是材质 `node_tree`，未受影响） |
+
+**回归**：`npm test` **exit=0**（13 步）· discoverability 51/51 · guidance 通过 · `py_compile` 全过 · 离线逃生口真机通过。
+
+**仍未做**（下一批）：`remap`/mixed 节点的完整 5.2 属性兜底（需要真机逐版本矩阵）；`workDir` 回退信息目前只在 `describeConfig()`/`CFG` 里，`/status`+`/health` 的字段暴露还没接。
+
 ### D29 · 修 `blender_viewport(op="launch")`：S3-c 搬移漏了 4 个依赖（现场报告）
 
 **现场**：`op=launch` 与 `dry_run` 都直接 `tcpProbe is not defined`，用户只能自己写 boot 脚本 + PowerShell spawn 才点亮 GUI。

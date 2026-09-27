@@ -140,7 +140,21 @@ function winLocalAppData() {
 }
 
 /** 工作目录：帧 PNG / 无头脚本 / 临时产物。要求"两端都能读写"。 */
-function resolveWorkDir() {
+function probeWritable(dir) {
+  // 真写一次才算可写（Node 的 mkdir 成功不代表能写：只读挂载/权限/路径过长都会在后一步炸）
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    const p = path.join(dir, '.dsh_write_probe_' + process.pid);
+    fs.writeFileSync(p, 'ok', 'utf8');
+    fs.unlinkSync(p);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, why: String((e && e.message) || e).slice(0, 200) };
+  }
+}
+
+/** 原始候选（不探写）；回退逻辑在 resolveWorkDir() 里 */
+function resolveWorkDirRaw() {
   const given = process.env.DSH_BLENDER_WORKDIR || FILE.cfg.workDir;
   if (given) {
     const win = /^[A-Za-z]:[\\/]/.test(given) ? given : wslToWin(given);
@@ -158,6 +172,33 @@ function resolveWorkDir() {
   }
   const t = path.join(os.tmpdir(), 'dsh-blender-rt');
   return { win: t, wsl: t, from: 'auto:tmpdir' };
+}
+
+/**
+ * S9：workDir **可写性自证 + 回退**（现场：/mnt/d 变只读后，后端写不了自己的 status/ledger 就起不来，
+ * 而报错只说"看后端日志"，没有一句"你的 workDir 不可写"—— 40 分钟就这么没了）。
+ * 顺序：配置/自动探测的候选 → 包内 tmp（工作区内，通常可写）→ OS tmpdir。回退必须显式留痕。
+ */
+function resolveWorkDir() {
+  const cand = resolveWorkDirRaw();
+  const pr = probeWritable(cand.wsl);
+  if (pr.ok) return Object.assign({}, cand, { writable: true, fallback: null });
+  const pkgTmp = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'tmp');
+  const tries = [
+    { dir: pkgTmp, from: 'fallback:pkg-tmp' },
+    { dir: path.join(os.tmpdir(), 'dsh-blender-rt'), from: 'fallback:tmpdir' },
+  ];
+  const errs = [cand.wsl + '（' + cand.from + '）：' + pr.why];
+  for (const t of tries) {
+    const p2 = probeWritable(t.dir);
+    if (p2.ok) {
+      return { win: wslToWin(t.dir), wsl: t.dir, from: t.from, writable: true,
+               fallback: { requested: cand.wsl, requestedFrom: cand.from, why: pr.why, used: t.dir, usedFrom: t.from, errs: errs } };
+    }
+    errs.push(t.dir + '（' + t.from + '）：' + p2.why);
+  }
+  // 全写不了：仍然返回原候选（上层会在写的时候报错），但把证据带上
+  return Object.assign({}, cand, { writable: false, fallback: { requested: cand.wsl, requestedFrom: cand.from, why: pr.why, used: cand.wsl, usedFrom: 'none', errs: errs } });
 }
 
 function listDirSafe(p) {
@@ -241,6 +282,9 @@ export const CFG = {
   // 目录（成对：Windows 侧给 Blender 写，宿主侧给 Node 读）
   workDirWin: WORK.win,
   workDirWsl: WORK.wsl,
+  /** S9：workDir 探写结果与回退留痕（null=原候选可写；非 null=已回退，见 errs） */
+  workDirFallback: WORK.fallback || null,
+  workDirWritable: WORK.writable !== false,
   // 无头进程
   blenderExe: BLENDER.exe,
   /** 用户 Blender 配置目录（GPU 偏好所在）：无头进程默认读不到 → 要继承就设它（配合 factory_startup=false） */
@@ -280,7 +324,7 @@ export function describeConfig(over) {
     addon: CFG.addonHost + ':' + String(CFG.addonPort),
     addonProtocol: CFG.addonProtocol,
     http: '127.0.0.1:' + String(o.httpPort || CFG.httpPort),
-    workDir: { win: CFG.workDirWin, wsl: CFG.workDirWsl, from: CFG.source.workDir,
+    workDir: { win: CFG.workDirWin, wsl: CFG.workDirWsl, from: CFG.source.workDir, fallback: CFG.workDirFallback,
                // v0.9.6（D3）：这个工作目录 Windows 侧看不看得见（false = 无头脚本会打不开，必须换目录）
                shared: wslPathShared(CFG.workDirWsl) },
     blenderExe: CFG.blenderExe,
