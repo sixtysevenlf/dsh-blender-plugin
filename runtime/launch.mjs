@@ -8,7 +8,12 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { CFG, PATHS, IS_WIN, winToWsl, wslToWin } from './config.mjs';
-import { WIN_TMP, WSL_TMP, blenderJoin } from './paths.mjs';
+import { WIN_TMP, WSL_TMP, blenderJoin, BLENDER_EXE, USER_CONFIG_WIN, USER_SCRIPTS_WIN } from './paths.mjs';
+// S8 修：tcpProbe 原先定义在 engine.mjs，S3-c 把 launchBlender 搬出来时漏了导入 ⇒ op=launch/dry_run 直接 ReferenceError。
+// 复用 runtime/backend_probe.mjs 的 probeTcp（同一语义：能连上就算在监听），保持单一实现。
+import { probeTcp } from './backend_probe.mjs';
+import { writeHeadlessScript } from './staging.mjs';
+import { baseChildEnv, withWslEnv, readJsonSafe } from './proc_env.mjs';   // S8：S3-c 搬移时漏了这个依赖
 
 
 const LAUNCH_BOOT_PY = [
@@ -127,7 +132,7 @@ export async function launchBlender(opts = {}) {
                  statusFileWin: wslToWin(statusWsl), configFrom: CFG.source ? CFG.source.blenderExe : null };
 
   // ① 已经在监听 → 什么都不做（幂等：agent 反复调用不会堆出第二个 Blender）
-  if (await tcpProbe('127.0.0.1', addonPort, 800)) {
+  if (await probeTcp('127.0.0.1', addonPort, 800)) {
     const boot0 = readJsonSafe(statusWsl);
     return Object.assign({}, base, { ok: true, already: true, launched: false, waitedMs: Date.now() - started, steps: steps,
       boot: boot0, hint: 'addon 已在本机 ' + addonPort + ' 监听，无需启动（要重启先关掉那个 Blender，或用 force 另起一个）' });
@@ -176,7 +181,7 @@ export async function launchBlender(opts = {}) {
 
   let listening = false;
   while (!spawnErr && Date.now() - started < waitMs) {
-    if (await tcpProbe('127.0.0.1', addonPort, 700)) { listening = true; break; }
+    if (await probeTcp('127.0.0.1', addonPort, 700)) { listening = true; break; }
     await new Promise((r) => setTimeout(r, 500));
   }
   if (spawnErr) {

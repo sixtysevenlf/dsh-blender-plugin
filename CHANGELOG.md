@@ -172,6 +172,35 @@ GUI 通道（`npm run test:gui`，需真机 + addon）—— **11/11 通过**：
 无头整合自检 **23 → 34 断言**（新增材质链路与 guard 的 install/mark/clear）。
 ⚠ 生效时机：catalog 与 guard 在后端（重启即生效）；工具描述在 `lib/index.js`（下次 DSH 启动）。
 
+### D29 · 修 `blender_viewport(op="launch")`：S3-c 搬移漏了 4 个依赖（现场报告）
+
+**现场**：`op=launch` 与 `dry_run` 都直接 `tcpProbe is not defined`，用户只能自己写 boot 脚本 + PowerShell spawn 才点亮 GUI。
+
+**根因（我的锅）**：S3-c 把 `launchBlender` 从 engine.mjs 搬到 `launch.mjs` 时，**只搬了函数体，没搬它的依赖**。逐个暴露出来的是：
+
+| 依赖 | 定义处 | 处理 |
+|---|---|---|
+| `tcpProbe` | engine.mjs | 复用 `runtime/backend_probe.mjs` 的 `probeTcp`（同语义，单一实现） |
+| `BLENDER_EXE` / `USER_CONFIG_WIN` / `USER_SCRIPTS_WIN` | paths.mjs | 补导入 |
+| `writeHeadlessScript` | engine.mjs | **抽出**到 `runtime/staging.mjs`；engine 具名导入 + 重导出（导出面不变） |
+| `baseChildEnv` / `withWslEnv` / `readJsonSafe` / `workdirStagingWarning` | engine.mjs | **抽出**到 `runtime/proc_env.mjs`；engine 导入（`readJsonSafe` 仍是 engine 本地，不进导出面） |
+
+**防复发**：新增 `tmp/dep_scan.py`（机械扫描：把 launch.mjs 用到的、定义在 engine/config/paths/staging/proc_env/backend_probe 里的顶层名，减去它的 import 与本地声明 ⇒ 列出缺依赖）。
+这次就是靠它一次列全，而不是一个个试出来。
+
+**验证（真机 END-TO-END）**：
+
+```
+dry_run   → LAUNCH ok · 给出 blender.exe 路径 + boot 脚本路径（不再抛错）
+真实 launch → LAUNCH ok · 已 spawn pid=2607071 · addon 端口 9876 已监听（5689ms）
+doctor    → ok
+```
+（顺带把用户当时已退出的 Blender 拉回来了。）
+
+回归：`npm test` **exit=0**（13 步）· Blender 侧 **263 断言**全绿。
+
+**教训**：S3-c 这类"搬函数"必须**搬依赖**，并且搬完立刻用机械扫描（而不是调用一次看报错）验证。已在 CHANGELOG 记下这个纪律。
+
 ### D28 · 修一批重构遗留（都藏在"看起来通过"的测试里）
 
 修 `op=start` 时顺手把 `npm test` 用**退出码**判了一遍（之前我用 `grep 失败|✗` 判，漏掉了三类静默失败），挖出 4 个真问题：

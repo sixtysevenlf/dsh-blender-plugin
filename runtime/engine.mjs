@@ -119,6 +119,11 @@ export const KERNEL_BOOTSTRAP = [
 // S3：目录（数据 + 目录逻辑）外移到 catalog.mjs；此处导入并**重导出公开面**，对外面逐字节不变
 // S3-b：路径与常量外移到 paths.mjs；具名导入 + 重导出，对外面不变
 import { ADDRESS, WIN_TMP, WSL_TMP, LIVE_PNG_WIN, LIVE_PNG_WSL, KIT_PATH, RUNNER_PATH, PERF_PATH, VIEW_PATH, CONTRACT_PATH, PLANNER_PATH, WORKER_PATH, TXN_PATH, QC_PATH, QC_RENDER_PATH, PRESET_PATH, AUDIT_PATH, MONTAGE_PATH, MOTION_PATH, DELIVER_PATH, GENERATOR_PATH, SCULPT_PATH, FIX_PATH, UV_PATH, PRINT_PATH, SWEEP_PATH, MATERIAL_PATH, RENDER_GUARD_PATH, GATE_PATH, IMG_PATH, CALIB_PATH, FACE_PATH, HUMAN_PATH, CLEARANCE_PATH, VEHICLE_PATH, SHAPE_PATH, USER_CONFIG_WIN, USER_SCRIPTS_WIN, GPU_PRELUDE, VIEW_PNG_WIN, VIEW_PNG_WSL, BLENDER_EXE, PATH_HELPERS, ACT_WRAPPER, KIT_SRC, KIT_HASH, blenderJoin, PIPELINE_PATH } from './paths.mjs';
+// S8：无头脚本暂存移到 staging.mjs；具名导入 + 重导出，导出面不变
+import { writeHeadlessScript } from './staging.mjs';
+// workdirStagingWarning 也在这个模块里（搬移时一并带过去了）；readJsonSafe 仍是 engine 本地（不进导出面）
+import { baseChildEnv, withWslEnv, workdirStagingWarning } from './proc_env.mjs';
+export { writeHeadlessScript };
 export { ADDRESS, WIN_TMP, WSL_TMP, LIVE_PNG_WIN, LIVE_PNG_WSL, KIT_PATH, RUNNER_PATH, PERF_PATH, VIEW_PATH, CONTRACT_PATH, PLANNER_PATH, WORKER_PATH, TXN_PATH, QC_PATH, QC_RENDER_PATH, PRESET_PATH, AUDIT_PATH, MONTAGE_PATH, MOTION_PATH, DELIVER_PATH, GENERATOR_PATH, SCULPT_PATH, FIX_PATH, UV_PATH, PRINT_PATH, SWEEP_PATH, MATERIAL_PATH, RENDER_GUARD_PATH, GATE_PATH, IMG_PATH, CALIB_PATH, FACE_PATH, HUMAN_PATH, CLEARANCE_PATH, VEHICLE_PATH, SHAPE_PATH, USER_CONFIG_WIN, USER_SCRIPTS_WIN, GPU_PRELUDE, VIEW_PNG_WIN, VIEW_PNG_WSL, BLENDER_EXE, PATH_HELPERS, ACT_WRAPPER };
 
 import { PLAN_CATALOG, TOOL_DETAIL, PLAN_TOOL_MAP, planOpNames, planOpSuggestion, planOpCrossChannelHint, catalogFingerprint, PLAN_READ_ONLY_OPS, PLAN_READ_ONLY, renderFamilyText, planEditDistance, name0StartsWith, probeDiskCatalog, COMMAND_CATALOG } from './catalog.mjs';
@@ -256,31 +261,6 @@ function clipMiddle(s, head, tail) {
   const t = String(s == null ? '' : s);
   if (t.length <= head + tail) return t;
   return t.slice(0, head) + '\n…[省略 ' + String(t.length - head - tail) + ' 字符；全文见 logs 路径]…\n' + t.slice(-tail);
-}
-
-/**
- * v0.9.3（D5 / 外部反馈 2026-09-24）：子进程基础环境 —— 三处 spawn 统一走它。
- *
- * 旧版只注入 PYTHONIOENCODING。Blender 的 Python stdout 被重定向（pipe）时是**块缓冲**，
- * 于是 job 的 stdout.log / stderr.log 在任务运行期间**全程 0 字节**，只有进程退出才落盘
- * （Lead 实测：20 分钟渲染期间两个日志一直 0 字节；engine：「399 s 那次中间没有任何阶段信息，6 分钟纯黑盒」）。
- * PYTHONUNBUFFERED=1 让 print 立即写出 → stage 心跳与增量日志才有意义。
- */
-function baseChildEnv(extra) {
-  return Object.assign({}, process.env, { PYTHONIOENCODING: 'utf-8', PYTHONUNBUFFERED: '1' }, extra || {});
-}
-
-/** WSLENV 声明（v0.9.1 实测坑：WSL 侧 spawn Windows 进程时 env 不会自动跨界）—— headless 与 job 共用
- *  macOS / Windows 上父子进程同 OS，env 天然继承，不需要这一步。 */
-function withWslEnv(childEnv, extraEnv) {
-  if (IS_MAC || IS_WIN) return childEnv;   // 同 OS，env 直接继承；WSLENV 无意义且会污染子进程环境
-  try {
-    const pass = Object.keys(childEnv).filter((k) => k.indexOf('DSH_') === 0
-      || (extraEnv && Object.prototype.hasOwnProperty.call(extraEnv, k)));
-    const spec = pass.map((k) => k + '/w').join(':');
-    childEnv.WSLENV = childEnv.WSLENV ? (childEnv.WSLENV + ':' + spec) : spec;
-  } catch (e) { /* WSLENV 拼不出来就算了，脚本内注入是主路径 */ }
-  return childEnv;
 }
 
 /**
@@ -491,62 +471,6 @@ function pathAudit(stdout, stderr) {
   // 去重（同一路径可能被 Saved: 打多次）
   const seen = new Set();
   return warns.filter((w) => { const k = w.code + '|' + String(w.evidence || w.value || ''); if (seen.has(k)) return false; seen.add(k); return true; });
-}
-
-/** 把"workDir 不共享、脚本改落别处"变成一条**追加在末尾**的 pathWarning（形状与 pathAudit 一致：带 hint）。
- *  为什么追加而不是插到最前：pathAudit 的既有断言（如 acceptance_v093）看的是 pathWarnings[0]，别抢它的位置。 */
-function workdirStagingWarning(staging) {
-  if (!staging || !staging.substituted) return null;
-  return { code: 'WORKDIR_NOT_SHARED', value: staging.requestedWhy, evidence: staging.note,
-           hint: 'workDir（' + staging.requested + '）在 Windows 侧不保证可见 → 无头脚本会落在 blender.exe 打不开的位置。'
-                 + '把 DSH_BLENDER_WORKDIR / 配置里的 workDir 指到 Windows 可见目录（D:\\… 或发行版根文件系统 ~/.dsh/…）' };
-}
-
-/**
- * 把无头脚本落到一个**两端都能读**的位置（v0.9.6 D3 起带共享性自证）。
- *
- * 现场踩到：workDir 落在 WSL 的独立挂载（如 /tmp tmpfs）时，Node 侧写成功、Windows 的 blender.exe
- * 却打不开 → `OSError: Python file "\\wsl.localhost\Ubuntu\tmp\…\dsh_headless_*.py" could not be opened`，
- * 回执 resultJson=null，被误读成"租约/通道坏了"。所以这里不讲"能不能写"（Node 永远说能），
- * 只讲**Windows 侧看不看得见**（wslPathShared，读挂载表），并优先选一个共享目录。
- * 返回 {wsl, win, staging}；staging 会原样进回执（替换了目录就必须说清，不许静默）。
- */
-export function writeHeadlessScript(code) {
-  const name = 'dsh_headless_' + Date.now().toString(36) + '.py';
-  const requested = WSL_TMP;
-  const reqShared = wslPathShared(requested);
-  // 候选：请求的 workDir（判为不可共享时降级）→ 用户 home（发行版根文件系统，Windows 可见）→ 包内 tmp
-  const wanted = { dir: requested, win: blenderJoin(WIN_TMP, name), label: 'workDir' };
-  const homeTmp = { dir: path.join(os.homedir(), '.dsh', 'dsh-blender-rt'), win: null, label: 'fallback:home' };
-  const pkgTmp = { dir: path.join(HERE, 'tmp'), win: null, label: 'fallback:pkg' };
-  const cands = (reqShared.shared === false) ? [homeTmp, pkgTmp, wanted] : [wanted, homeTmp, pkgTmp];
-  const errs = [];
-  const tryWrite = (c) => {
-    fs.mkdirSync(c.dir, { recursive: true });
-    const wsl = path.join(c.dir, name);
-    fs.writeFileSync(wsl, code, 'utf8');
-    const sh = wslPathShared(c.dir);
-    const substituted = path.resolve(c.dir) !== path.resolve(requested);
-    return { wsl: wsl, win: c.win || wslToWin(wsl),
-             staging: { requested: requested, requestedShared: reqShared.shared, requestedWhy: reqShared.why,
-                        used: c.dir, usedWin: c.win || wslToWin(wsl), usedShared: sh.shared, usedWhy: sh.why,
-                        label: c.label, substituted: substituted,
-                        note: substituted
-                          ? ('workDir ' + requested + ' 在 Windows 侧不保证可见（' + reqShared.why + '）→ 本次脚本改落 '
-                             + c.dir + '（shared=' + String(sh.shared) + '，' + sh.why + '）；无头脚本必须放在 Blender 读得到的地方')
-                          : 'workDir 共享性检查通过（' + sh.why + '）' } };
-  };
-  for (const c of cands) {
-    if (wslPathShared(c.dir).shared === false) { errs.push(c.label + ' ' + c.dir + '：Windows 侧不保证可见，跳过'); continue; }
-    try { return tryWrite(c); } catch (e) { errs.push(c.dir + ': ' + String((e && e.message) || e)); }
-  }
-  // 兜底：所有共享候选都写不了 → 宁可写进（可能不共享的）workDir，也不要静默无脚本
-  for (const c of cands) {
-    try { const r = tryWrite(c); r.staging.degraded = true;
-          r.staging.note += ' ⚠ 这是**降级**路径：共享候选全部写失败，脚本可能被 Windows 侧 Blender 读不到。'; return r; }
-    catch (e) { errs.push(c.dir + ': ' + String((e && e.message) || e)); }
-  }
-  throw new Error('无法写无头脚本：' + errs.join(' · '));
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
