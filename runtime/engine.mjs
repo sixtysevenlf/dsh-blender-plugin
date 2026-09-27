@@ -921,11 +921,17 @@ export function createEngine(opts = {}) {
       }
     }
     if (!raw) {
+      // 安装提示必须是**可直接粘的绝对路径**：旧版写成相对路径 'dsh-blender-plugin/runtime/ext/venv'，
+      // 用户若正好在 runtime/ext 里执行，会再套一层 runtime/ext/dsh-blender-plugin/...（现场踩过）。
+      const extAbs = path.resolve(extDir);
+      const installCmd = op === 'gltf_validate'
+        ? 'cd ' + (isWin ? '/d "' : '"') + extAbs + '" && npm i gltf-validator'
+        : (isWin ? 'cd /d "' + extAbs + '" && py -3 -m venv venv && venv\\Scripts\\pip install open3d'
+                 : 'cd "' + extAbs + '" && python3 -m venv venv && venv/bin/pip install open3d');
       return { ok: false, installed: false, path: winPath, tried: tried,
-               install: op === 'gltf_validate'
-                 ? 'npm i gltf-validator（本机已装到 dsh-blender-plugin/runtime/ext/node_modules）'
-                 : 'python3 -m venv dsh-blender-plugin/runtime/ext/venv && ext/venv/bin/pip install open3d',
-               hint: '两种解释器都试过了：后端在 Windows 时会用 wsl.exe 调 Linux venv；先确认依赖真的装在 runtime/ext 下' };
+               install: installCmd,
+               hint: '依赖必须装在 ' + extAbs + ' 下（上面那条自带绝对路径与 cd，在哪个目录执行都一样）；'
+                     + '两种解释器都试过了 —— 后端在 Windows 时会用 wsl.exe 调 Linux venv' };
     }
     let parsed = null;
     try { parsed = JSON.parse(raw); } catch (e) { parsed = { parse_error: String(e).slice(0, 120), raw: raw.slice(0, 400) }; }
