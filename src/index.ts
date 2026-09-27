@@ -278,6 +278,8 @@ function base(port: number): string {
 }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+import { probeHttp, decideStart, waitHttp } from '../runtime/backend_probe.mjs'
+
 async function probe(port: number, timeoutMs = 1500): Promise<boolean> {
   const ac = new AbortController()
   const timer = setTimeout(() => ac.abort(), timeoutMs)
@@ -294,7 +296,7 @@ async function probe(port: number, timeoutMs = 1500): Promise<boolean> {
 async function ensureBackend(port: number): Promise<boolean> {
   if (await probe(port)) return true
   if (paused) return false
-  try { startBackend(port) } catch (e) { /* ignore */ }
+  try { await startBackend(port) } catch (e) { /* ignore */ }
   for (let i = 0; i < 25; i++) {
     if (await probe(port)) return true
     await sleep(300)
@@ -307,12 +309,30 @@ function childAlive(): boolean {
   return !!(child && child.exitCode === null && child.signalCode === null && child.pid)
 }
 
-function startBackend(port: number): string {
-  if (childAlive()) return 'already-spawned'
-  child = null
+function spawnChild(port: number): string {
   child = spawn(process.execPath, [SERVER_PATH, '--port', String(port)], { stdio: 'ignore', detached: true })
   child.unref()
   return 'spawned pid=' + String(child.pid)
+}
+
+/**
+ * S7 修复：**探端口优先**，不再信陈旧句柄/pidfile。
+ * 现场 bug：句柄还在（childAlive）但端口根本没监听时，旧实现回 'already-spawned'，
+ * 用户拿到一个打不通的后端；反过来，真起来了却因为等待窗口太短回 '启动失败'。
+ * 现在：端口能服务 ⇒ already-running；端口不通但句柄在 ⇒ 判为陈旧句柄，SIGTERM 后重拉。
+ */
+async function startBackend(port: number): Promise<string> {
+  const url = base(port) + '/health'
+  const portUp = await probeHttp(url, 800)
+  const decision = decideStart({ portUp, childAlive: childAlive() })
+  if (decision === 'already-running') return 'already-running'
+  if (decision === 'stale-handle') {
+    const stalePid = child && child.pid
+    try { if (stalePid) process.kill(stalePid, 'SIGTERM') } catch (e) { /* 已经没了 */ }
+    child = null
+    return 'stale-handle(pid=' + String(stalePid) + ')->' + spawnChild(port)
+  }
+  return spawnChild(port)
 }
 
 /**
@@ -916,7 +936,7 @@ export function apply(ctx: any, config: Config): void {
             try { await backendPost(port, '/lease', { renewOnly: true }, 5000) } catch (e) { /* 后端可能刚挂，下一轮再试 */ }
             return
           }
-          startBackend(port)
+          await startBackend(port)
         } catch (e) { /* 看护失败静默，下一轮再试 */ }
       })()
     }, 15000)
@@ -1762,25 +1782,22 @@ export function apply(ctx: any, config: Config): void {
       const op = String((args && args.op) || 'status')
       if (op === 'start') {
         paused = false
-        if (await probe(port)) return '后端已在运行：' + base(port) + '/（看护已启用）'
-        const how = startBackend(port)
-        for (let i = 0; i < 20; i++) {
-          if (await probe(port)) return '后端已启动（' + how + '）：' + base(port) + '/（看护已启用）'
-          await sleep(300)
-        }
-        return '启动失败：' + how + '（检查 ' + SERVER_PATH + ' 与 node 是否可用）'
+        const url = base(port) + '/health'
+        if (await probeHttp(url, 800)) return '后端已在运行：' + base(port) + '/（看护已启用）'
+        const how = await startBackend(port)
+        // S7：等待改成「轮询到真能服务」（15 s），不再「睡固定窗口后探测一次」——
+        // 之前后端要 6 s 以上才起得来时会误报「启动失败」。
+        if (await waitHttp(url, 15000, 300)) return '后端已启动（' + how + '）：' + base(port) + '/（看护已启用）'
+        return '启动失败：' + how + '（15 s 内 /health 仍不通；可先 op=restart 清残留进程，或检查 ' + SERVER_PATH + ' 与 node）'
       }
       if (op === 'restart') {
         paused = false
         if (child) { try { child.kill() } catch (e) {} child = null }
         killBackendByCmd(port)
         await sleep(500)
-        const how2 = startBackend(port)
-        for (let i = 0; i < 20; i++) {
-          if (await probe(port)) return '后端已重启（' + how2 + '）：' + base(port) + '/'
-          await sleep(300)
-        }
-        return '重启失败：' + how2
+        const how2 = await startBackend(port)
+        if (await waitHttp(base(port) + '/health', 15000, 300)) return '后端已重启（' + how2 + '）：' + base(port) + '/'
+        return '重启失败：' + how2 + '（15 s 内 /health 仍不通）'
       }
       if (op === 'stop') {
         paused = true

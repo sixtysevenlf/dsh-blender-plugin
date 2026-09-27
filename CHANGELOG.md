@@ -172,6 +172,37 @@ GUI 通道（`npm run test:gui`，需真机 + addon）—— **11/11 通过**：
 无头整合自检 **23 → 34 断言**（新增材质链路与 guard 的 install/mark/clear）。
 ⚠ 生效时机：catalog 与 guard 在后端（重启即生效）；工具描述在 `lib/index.js`（下次 DSH 启动）。
 
+### D27 · 修 bug：`blender_viewport op=start` 信陈旧句柄，端口没监听也回"已在跑"
+
+**现象（现场两次）**：
+- ① `op=start` 回「后端已启动（already-spawned）」→ 紧接着 `doctor` 失败、`curl /doctor` 4 s 超时：**9877 根本没有监听**；
+- ② 另一次真拉起来了，却因为等待窗口太短回「启动失败：spawned pid=…」。
+
+**根因**：`startBackend()` 只看子进程句柄 `childAlive()`（exitCode/signalCode/pid），**从不探端口**；等待用「睡 20×300 ms 后探一次」。
+
+**修法**：
+
+1. 新增 `runtime/backend_probe.mjs`（+ `backend_probe.d.mts`）：`probeTcp` / `probeHttp` /
+   `decideStart({portUp, childAlive})`（纯函数三态） / `waitHttp(url, timeout, interval)`；
+2. `startBackend()` 改**探端口优先**：
+   - 端口能服务 ⇒ `already-running`（别的会话拉起的也算在跑，绝不重复拉）；
+   - 端口不通但句柄还在 ⇒ **`stale-handle`**：SIGTERM 清掉陈旧句柄后重拉（这就是修掉的那个 bug）；
+   - 否则 `spawn`；
+3. `op=start` / `op=restart` 的等待改成 `waitHttp(…, 15000, 300)` —— **轮询到真能服务**（不再睡固定窗口），失败信息带修法提示（`op=restart` 清残留）；
+4. 看护与命令路径的 `startBackend` 调用改为 `await`（函数变 async）。
+
+**验证**：
+
+- 单测 `tests/backend_probe_selftest.mjs`（已挂 `npm test`）**10/10**：服务在/不在时 TCP+HTTP 探活的真假、决策表三态、`waitHttp` 的"迟到成功"与"纯超时如实回 false"、真后端探活；
+- **等价 E2E（真环境）**：停后端 → 造「句柄活、端口死」的陈旧态 → 决策 **`stale-handle`**（旧实现在这里回 `already-spawned`）→ 清陈旧 → 重拉 → 轮询到能服务 ✅；
+- `lib/index.js` 已同步镜像并通过 `node --check`；`npm test` 全绿；`doctor` = ok。
+
+**生效条件与诚实边界**：
+
+- 插件是 **DSH 启动时加载**的模块 ⇒ 本修复**要重启 DSH 才生效**（后端侧无需重启）；
+- 本机**没有 tsc**（本包不装 typescript，DSH 宿主里也没有）⇒ `lib/index.js` 是**手工镜像**的，与 `src/index.ts` 语义一致；
+  下次在能构建的机器上跑 `bash scripts/build.sh` 应产生等价结果（届时以构建产物为准）。
+
 ### D26 · S6-b：子代理交接块 —— 解决"主模型会用工具、子代理不会"
 
 **现场反馈**："启用子代理后，虽然主模型看了 catalog 会用工具了，但子代理没看 catalog。"
