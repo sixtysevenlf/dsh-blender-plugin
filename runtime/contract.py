@@ -56,10 +56,10 @@ FIT_TABLE = {"clearance": 0.25, "location": 0.15, "press": -0.05, "snap": 0.20} 
 FIT_DEFAULT_CLS = "location"
 FIT_DEFAULT_TOL_MM = 0.15              # 默认容差（理由见 c_mate_check 文档串第 3 段）
 MATE_DEPTH_EPS_MM = 0.2                # 计划内接触允许的穿透深度（理由见 c_interference_report）
-MATE_MAX_TRIS = 2000000                # 单侧网格三角面上限：超了 ok:false，绝不"降级成看不清"
-INSIDE_MAX_TRIS = 200000               # 射线奇偶内测试上限：超了报 skipped，不猜
+MATE_MAX_TRIS = 0                      # **0 = 不设上限（默认全跑）**；显式设非 0 才在超限时 ok:false
+INSIDE_MAX_TRIS = 0                    # **0 = 不设上限（默认全跑）**；显式设非 0 才在超限时报 skipped
 VOL_SAMPLES = 1200                     # 重叠体积蒙特卡洛采样数（低差异序列，确定性）
-VOL_MAX_TRIS = 60000                   # 体积估计的网格上限（超了只报深度，不报体积）
+VOL_MAX_TRIS = 0                       # **0 = 不设上限（默认全跑）**；显式设非 0 才在超限时只报深度
 SEV_DEPTH_HIGH_MM = 2.0                # 严重度分档：深度
 SEV_DEPTH_MED_MM = 0.5
 SEV_FRAC_HIGH = 0.25                   # 严重度分档：体积占比
@@ -306,7 +306,7 @@ def c_check_interface(conn_id, mesh=True, samples=1500):
     if mdA is None or mdB is None or mdA["tris_n"] == 0 or mdB["tris_n"] == 0:
         out["mesh"] = {"skipped": True, "why": "求值后没有三角面 → 量不了"}
         return _j(out)
-    if mdA["tris_n"] > MATE_MAX_TRIS or mdB["tris_n"] > MATE_MAX_TRIS:
+    if MATE_MAX_TRIS > 0 and (mdA["tris_n"] > MATE_MAX_TRIS or mdB["tris_n"] > MATE_MAX_TRIS):
         out["mesh"] = {"skipped": True, "why": "网格过大（%d/%d 面 > %d）→ 不判，绝不读成已通过"
                        % (mdA["tris_n"], mdB["tris_n"], MATE_MAX_TRIS)}
         return _j(out)
@@ -1073,7 +1073,7 @@ def _mate_measure(mdA, mdB, mm_per_unit, PA, PB, contact_max_m):
     pen = {"status": "skipped", "tested": False, "points": 0, "depth_max_mm": None,
            "depth_mean_mm": None, "surface_inside_frac": None, "direction": "A→B + B→A",
            "rule": "内外=射线奇偶（闭合网格全局精确）；深度=最近点距离（SDF 近似）"}
-    if mdA["tris_n"] > INSIDE_MAX_TRIS or mdB["tris_n"] > INSIDE_MAX_TRIS:
+    if INSIDE_MAX_TRIS > 0 and (mdA["tris_n"] > INSIDE_MAX_TRIS or mdB["tris_n"] > INSIDE_MAX_TRIS):
         pen["status"] = "skipped_too_big"
         pen["why"] = "网格 %d/%d 面 > 内测试上限 %d → 未做侵入判定" % (mdA["tris_n"], mdB["tris_n"], INSIDE_MAX_TRIS)
     elif not (mdA["closed"] and mdB["closed"]):
@@ -1104,7 +1104,7 @@ def _mate_measure(mdA, mdB, mm_per_unit, PA, PB, contact_max_m):
                "contact_normal": ([_r6(x) for x in normal] if normal is not None else None),
                "contact_normal_rule": "A/B 两团接触点均值之差归一化（两团重合会退化，此时给 null）"}
     ov = None
-    if mdA["tris_n"] + mdB["tris_n"] <= VOL_MAX_TRIS:
+    if VOL_MAX_TRIS <= 0 or (mdA["tris_n"] + mdB["tris_n"]) <= VOL_MAX_TRIS:
         ov = _overlap_estimate(mdA["tris"], mdB["tris"], mdA["volume_m3"], mdB["volume_m3"],
                                mdA["closed"], mdB["closed"])
     return {"used_a": int(len(PA)), "used_b": int(len(PB)), "contact": contact, "gap": gap,
@@ -1220,7 +1220,7 @@ def c_mate_check(conn_id, fit=None, nominal=None, tol_mm=None, samples=4000,
                    "error": "两端之一没有三角面（求值后为空）",
                    "a_tris": (mdA or {}).get("tris_n"), "b_tris": (mdB or {}).get("tris_n"),
                    "skipped": (mdA or {}).get("skipped"), "units": ub})
-    if mdA["tris_n"] > MATE_MAX_TRIS or mdB["tris_n"] > MATE_MAX_TRIS:
+    if MATE_MAX_TRIS > 0 and (mdA["tris_n"] > MATE_MAX_TRIS or mdB["tris_n"] > MATE_MAX_TRIS):
         return _j({"ok": False, "verdict": "unresolved", "connection": conn_id, "measured": False,
                    "error": "网格过大，不判（大网格一律 analyzed=false，绝不静默降级）",
                    "a_tris": mdA["tris_n"], "b_tris": mdB["tris_n"], "limit": MATE_MAX_TRIS, "units": ub})
@@ -1526,7 +1526,7 @@ def c_interference_report(scope=None, use_bvh=True, limit=60, declared_ok=True,
         if not ma or not mb or ma["tris_n"] == 0 or mb["tris_n"] == 0:
             skipped.append({"a": oa.name, "b": ob_.name, "why": "一端没有三角面"})
             continue
-        if ma["tris_n"] > MATE_MAX_TRIS or mb["tris_n"] > MATE_MAX_TRIS:
+        if MATE_MAX_TRIS > 0 and (ma["tris_n"] > MATE_MAX_TRIS or mb["tris_n"] > MATE_MAX_TRIS):
             skipped.append({"a": oa.name, "b": ob_.name, "why": "网格过大（> %d 面）不判" % MATE_MAX_TRIS})
             continue
         checked += 1

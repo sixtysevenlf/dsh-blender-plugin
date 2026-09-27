@@ -178,7 +178,7 @@ def _shell_contains(outer, inner, cache, key, max_points=6):
     return all(_ray_parity_inside(bvh, p) for p in pts)
 
 
-SHELL_MAX_FACES = 300000         # 逐壳朝向分析的面上限（env DSH_SHELL_MAX_FACES 可覆盖）
+SHELL_MAX_FACES = 0              # **0 = 不设上限（默认全跑）**；验收不随规模退化。显式设 env DSH_SHELL_MAX_FACES 才启用上限
 # 实测（Blender 5.2，本机）：155k 面 ≈ 0.67 s，618k 面 ≈ 11 s（连通分组 3.5 s + 逐面度量 7.7 s）。
 # 超上限 ⇒ 一律 unknown/degraded（"未分析 ≠ 通过"），绝不静默拖住大场景；要强行分析就设 env。
 
@@ -210,7 +210,7 @@ def _shell_normals(bm):
     """
     nf = len(bm.faces)
     cap = _shell_max_faces()
-    if nf > cap:
+    if cap > 0 and nf > cap:   # 默认 cap=0 → 全跑；只有显式设上限才降级
         # 大网格直接降级（与 connectivity 的 max_tris 同一纪律：未分析 ≠ 通过，也绝不阻塞大场景）
         return None, 'unknown', [], ("面数 %d 超过逐壳朝向分析上限 %d（env DSH_SHELL_MAX_FACES 可调）"
                                      "—— 未做逐壳分析，不给通过结论" % (nf, cap))
@@ -789,7 +789,7 @@ def audit_selftest():
 
 VISIBLE_SPAN_FRACTION = 0.01
 MICRO_GAP_MM = 0.3
-CONN_MAX_TRIS = 4000000          # numpy 连通路径的实际上限；env DSH_CONN_MAX_TRIS 可覆盖
+CONN_MAX_TRIS = 0                # **0 = 不设上限（默认全跑）**；显式 env DSH_CONN_MAX_TRIS / 参数 max_tris 才启用
 
 
 def _conn_max_tris():
@@ -1318,7 +1318,7 @@ def _conn_analyze(objs, precision=5, visible_frac=VISIBLE_SPAN_FRACTION, micro_g
            "gap_note": "gap 是 bbox 级 → 低估真实间隙（贴而未重合会读成 0），偏向判 micro 放行（与上游同口径）"}
     if tris is None or len(tris) == 0:
         return dict(out, analyzed=False, reason="范围内没有三角面（空产出必须失败）", tris=0)
-    if len(tris) > cap:
+    if cap > 0 and len(tris) > cap:   # 默认 cap=0 → 全跑
         return dict(out, analyzed=False, tris=int(len(tris)),
                     reason="三角面 %d 超过上限 %d（env DSH_CONN_MAX_TRIS 可调）→ 跳过分析" % (len(tris), cap),
                     note="未分析 ≠ 已连通：门保持 degraded，不给通过结论")
@@ -1373,7 +1373,7 @@ def _conn_analyze(objs, precision=5, visible_frac=VISIBLE_SPAN_FRACTION, micro_g
     # 判据（v0.9.0 修正）：不再用「最大体积分量=主体、其余都是浮块」—— 两个等大零件时那条规则会
     # 随便挑一个当浮体（自检抓到过）。物理上要问的是：**这个分量有没有跟别的分量相接**。
     micro_units = float(micro_gap_mm) / mm_per_unit
-    mesh_mode = "mesh(BVH)" if len(tris) <= BVH_MAX_TRIS else "bbox-only"
+    mesh_mode = "mesh(BVH)" if (BVH_MAX_TRIS <= 0 or len(tris) <= BVH_MAX_TRIS) else "bbox-only"
     tree_cache = {}
     for s in stats:
         if ncomp == 1:
@@ -1796,7 +1796,7 @@ def _sample(tris, n, rng):
     return v0[idx] * (1 - m) + v1[idx] * (m * (1 - s)) + v2[idx] * (m * s)
 
 
-BVH_MAX_TRIS = 500000        # 超过就退回分格点对点（BVHTree.FromPolygons 的构建成本随面数线性涨）
+BVH_MAX_TRIS = 0             # **0 = 不设上限（默认全跑）**；显式设非 0 才在上限外退回分格点对点
 
 
 def _surface_mean_dist(P, tris_target):
@@ -1929,7 +1929,7 @@ def audit_drift(a, b, samples=20000, seed=24233, normalize=True, fast=True):
         rng = np.random.default_rng(int(seed))
         Pa, Pb = _sample(ta, samples, rng), _sample(tb, samples, rng)
         metric = "point-to-surface(BVHTree)"
-        if fast and len(ta) <= BVH_MAX_TRIS and len(tb) <= BVH_MAX_TRIS:
+        if fast and (BVH_MAX_TRIS <= 0 or (len(ta) <= BVH_MAX_TRIS and len(tb) <= BVH_MAX_TRIS)):
             try:
                 a2b, _n1 = _surface_mean_dist(Pa, tb)
                 b2a, _n2 = _surface_mean_dist(Pb, ta)
@@ -2202,7 +2202,7 @@ INTERFERENCE_SAMPLES = 200000     # 默认采样数（相对误差 ∝ 1/√n；
 MATERIAL_VOLUME_MM3 = 1.0         # 可执行下限：< 1 mm³ 的互穿低于网格弦差量级 → 不作为"真干涉"
 INTERFERENCE_MAX_STEPS = 64       # 单点单方向射线迭代上限；超限的点记 unknown（不猜）
 CONTACT_PROBE_PTS = 256           # contact_probe 每侧曲面采样点数
-PAIRS_BBOX_CAP = 200000           # 交叠面对 bbox 统计上限（病态场景防爆内存）
+PAIRS_BBOX_CAP = 0                # **0 = 不设上限（默认全跑）**；显式设非 0 才截断（病态场景防爆内存）
 
 
 def _box_pair(lo, hi, mm_per_unit, digits=5):
@@ -2420,7 +2420,8 @@ def _pairs_bbox(ta, tb, pairs):
     必然落在**与对方相交的三角面**上，第三类更是交叠面对本身 → 交集体一定在这个盒里。
     """
     import numpy as np
-    sel = pairs[:int(PAIRS_BBOX_CAP)]
+    _pc = int(PAIRS_BBOX_CAP)
+    sel = pairs if _pc <= 0 else pairs[:_pc]
     ia = np.fromiter((int(p[0]) for p in sel), dtype=np.int64, count=len(sel))
     ib = np.fromiter((int(p[1]) for p in sel), dtype=np.int64, count=len(sel))
     p = np.concatenate([ta[ia].reshape(-1, 3), tb[ib].reshape(-1, 3)], axis=0)
@@ -2689,7 +2690,7 @@ def audit_overlap(a=None, b=None, file_a=None, file_b=None, objects_a=None, obje
         ta, tb = sa["tris"], sb["tris"]
         na, nb = int(len(ta)), int(len(tb))
         cap = int(max_tris or BVH_MAX_TRIS)
-        over = [(t, v) for t, v in (("a", na), ("b", nb)) if v > cap]
+        over = [(t, v) for t, v in (("a", na), ("b", nb)) if cap > 0 and v > cap]   # cap=0 → 不设上限（默认全跑）
         if over:
             return dict(base, ok=False, analyzed=False, tris_a=na, tris_b=nb, max_tris=cap,
                         error="三角面超上限：%s（上限 %d，可用 max_tris 覆盖）→ 不分析"
@@ -2820,7 +2821,7 @@ def audit_interference(a=None, b=None, file_a=None, file_b=None, objects_a=None,
         ta, tb = sa["tris"], sb["tris"]
         na, nb = int(len(ta)), int(len(tb))
         cap = int(max_tris or BVH_MAX_TRIS)
-        over = [(t, v) for t, v in (("a", na), ("b", nb)) if v > cap]
+        over = [(t, v) for t, v in (("a", na), ("b", nb)) if cap > 0 and v > cap]   # cap=0 → 不设上限
         if over:
             return dict(base, ok=False, analyzed=False, tris_a=na, tris_b=nb, max_tris=cap,
                         error="三角面超上限：%s（上限 %d，可用 max_tris 覆盖）→ 不分析"

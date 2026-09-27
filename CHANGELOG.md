@@ -172,6 +172,40 @@ GUI 通道（`npm run test:gui`，需真机 + addon）—— **11/11 通过**：
 无头整合自检 **23 → 34 断言**（新增材质链路与 guard 的 install/mark/clear）。
 ⚠ 生效时机：catalog 与 guard 在后端（重启即生效）；工具描述在 `lib/index.js`（下次 DSH 启动）。
 
+### D25 · 验收不再随规模退化（7 类面数门槛默认改为"不限，全跑"）
+
+**要求**：把"验收会随规模退化"取消 —— 任何面数都要跑完整分析、给真结论，而不是"超阈值就跳过 / 降级成 bbox"。
+
+**改动**：7 个门槛常量默认值改为 `0 = 不设上限`，并在每处判断加 `cap > 0` 前置（**显式**设 env / 参数时才启用上限，那时行为与老版本一致）：
+
+| 常量 | 旧默认 | 新默认 | 位置 |
+|---|---|---|---|
+| `SHELL_MAX_FACES` | 300,000 | **0（不限）** | `audit.py:181`（逐壳朝向）|
+| `CONN_MAX_TRIS` | 4,000,000 | **0** | `audit.py:792`（连通/浮块）|
+| `BVH_MAX_TRIS` | 500,000 | **0** | `audit.py:1799`（网格级复核 / 干涉 BVH）|
+| `PAIRS_BBOX_CAP` | 200,000 | **0** | `audit.py:2205`（交叠对统计）|
+| `MATE_MAX_TRIS` | 2,000,000 | **0** | `contract.py:59`（配合门）|
+| `INSIDE_MAX_TRIS` | 200,000 | **0** | `contract.py:60`（射线内测试）|
+| `VOL_MAX_TRIS` | 60,000 | **0** | `contract.py:62`（体积估计）|
+
+**规模实测（1.57M 三角面：cube + subsurf 8 双层）**：
+
+```
+connectivity   analyzed=true  gate=pass   28.1 s   ← 旧行为：>50 万面跳过网格复核 → attached=null → 门降级
+audit_mesh     verdict=pass               9.9 s    ← 旧行为：>30 万面逐壳朝向 unknown → state=degraded
+interference   ok=true analyzed=true      运行      ← 旧行为：门里这条会把"0"当上限直接报错（见下）
+```
+
+**双侧验证（默认 vs 显式）**：默认 `analyzed=true / gate=pass`；`DSH_CONN_MAX_TRIS=1000` → `analyzed=false / gate=degraded` + 明说原因；去掉 env → 恢复 `pass`。
+
+**修的过程（如实记）**：第一轮只改了 13 处默认值与判断，跑回归时 `gate_review` **5 条失败**暴露还有 3 处比较没加前置（`audit.py:2693`、`audit.py:2824`、`contract.py:1529`）—— 它们把 `0` 当成"上限 0"，于是 12 面的小方块也被判"超上限 → 不分析"。补齐后 **263 断言全绿**。
+（另记一笔：我第一次贴的"全绿"是**误报** —— 我在检查前把输出截断了，没匹配到 fail 计数；之后改成对全文本判定。）
+
+**文档同步**：`docs/操作教程.md` · `docs/证据分级与读图纪律.md` · `README.zh-CN.md` · skill `SKILL.md`（2 处）共 **5 处**旧口径（"面数超 50 万跳过复核 → 门降级"）改为"**默认不限、全跑**；显式设上限才降级"。
+
+**代价（诚实）**：全跑是有成本的 —— 1.57M 面下 `connectivity` 28 s、`audit_mesh` 10 s；再大体量会更慢（BVH 构建随面数线性、逐壳判朝向是 Python 循环）。要更快有三条路：
+① 分件分析（`objects:["A","B"]` 缩 scope）② `fix_decimate` 降到阈值内再验 ③ 后续做分块 / 向量化优化（尚未做）。
+
 ### D24 · S6：建模类型指引 —— 给模型指明"每类建模用哪些工具、禁止自造什么"
 
 **动机（实测）**：另一个建模 AI 手里有 `vehicle_*` 配方、也知道 Recipe 17/18/19 与 Recipe 22，**仍然自己写了参数化放样** ⇒
