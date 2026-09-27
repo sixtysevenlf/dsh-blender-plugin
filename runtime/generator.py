@@ -108,6 +108,12 @@ _dsh_receipt()
 """
 
 
+# S7 修：模块顶层直接用 _KIT，但此前**只有 POSTLUDE 字符串里**才有它的定义 ⇒ 纯 python 导入必炸
+# （Blender 侧靠 preload 命名空间串味掩盖了）。这里显式解析一次，缺失就明确报错。
+_KIT = getattr(sys.modules.get("dsh_rt_kernel"), "dsh_kit", None)
+if _KIT is None:
+    raise RuntimeError("generator 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入；纯 python 路径由 tests 注入）")
+
 _j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
 def _kernel():
     return sys.modules.get("dsh_rt_kernel")

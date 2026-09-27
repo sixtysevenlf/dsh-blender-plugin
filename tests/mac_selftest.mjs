@@ -184,9 +184,13 @@ ok('仍保留 Windows Program Files 分支', cfgSrc.includes("Blender Foundation
 ok('仍保留 where.exe/which 兜底', cfgSrc.includes("where.exe"), '找不到 PATH 兜底');
 ok('wslToWin 仍有 UNC 分支', cfgSrc.includes('wsl.localhost'), 'UNC 分支被删了');
 
+// S7 修：S3-b 已把 PATH_HELPERS 搬到 runtime/paths.mjs —— 守卫必须跟着**实现**走，
+// 否则「能力还在」会被误报成「被删了」（这条守卫曾因此静默失败，靠 grep 看漏了）。
 const engSrc = fs.readFileSync(path.join(ROOT, 'runtime/engine.mjs'), 'utf8');
-ok('仍保留 WSLENV 处理', engSrc.includes('WSLENV'), 'WSLENV 逻辑被删了');
-ok('仍保留 _dsh_win_path 的 /mnt/ 转换', engSrc.includes('startswith("/mnt/")'), '/mnt/ 转换被删了');
+const pathSrc = fs.readFileSync(path.join(ROOT, 'runtime/paths.mjs'), 'utf8');
+const runtimeSrc = engSrc + String.fromCharCode(10) + pathSrc;
+ok('仍保留 WSLENV 处理', runtimeSrc.includes('WSLENV'), 'WSLENV 逻辑被删了');
+ok('仍保留 _dsh_win_path 的 /mnt/ 转换', runtimeSrc.includes('startswith("/mnt/")'), '/mnt/ 转换被删了');
 
 /* ───────────────────────────── 汇总 ───────────────────────────── */
 console.log('\n' + (fails.length ? 'FAILED ' + fails.length + ' / ' + (pass + fails.length)

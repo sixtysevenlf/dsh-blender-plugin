@@ -160,14 +160,19 @@ export function catalogPayload(opts) {
   }
   const L = [];
   L.push('plan 通道目录：' + PLAN_CATALOG.length + ' 个 family / ' + planOpNames().length + ' 个 op。'
-    + '先按"我要干什么"选 family，再按"最小骨架"填 args；参数名写错会直接报"不认识的参数"。');
-  L.push('按建模类型查（更推荐先看这个）：args={classes:true} 一次拿 ' + MODELING_CLASS_GUIDE.length + ' 类建模的 第一步/算子链/禁止自造/验收门；args={class:"recon"} 看单类；派子代理时用 args={handoff:true} 拿**可粘贴的交接块**。');
+    + '先按"我要干什么"选 family，再照"骨架"填 args；参数名写错会报"不认识的参数"。');
+  L.push('按建模类型查：args={classes:true}（' + MODELING_CLASS_GUIDE.length + ' 类）· args={class:"x"} 单类 · 派子代理 args={handoff:true}。');
   L.push('');
   for (const e of PLAN_CATALOG) {
     L.push('· ' + e.f + (e.prefix ? '（' + e.prefix + '*）' : '') + '：' + e.when);
     L.push('    ops: ' + e.ops.join(' '));
-    if (e.sk) L.push('    骨架: ' + e.sk);
-    L.push('    别用: ' + e.not);
+    // 默认页是「一页索引」：骨架封顶 160 字符；完整骨架在 args={family:…} 与 handoff 块里
+    if (e.sk) L.push('    骨架: ' + (e.sk.length > 160 ? e.sk.slice(0, 160) + '…（完整见 args={family:…}）' : e.sk));
+    // S6 起 not 里带了『；**别…**』硬警告（可操作那句）—— 默认页只显示它，
+    // 完整 not 在 args={family:…} 与 handoff 块里；这样一页索引仍能保持短。
+    const _not = String(e.not || '');
+    const _wi = _not.indexOf('；**别');
+    L.push('    别用: ' + (_wi >= 0 ? _not.slice(_wi + 1) : _not));
   }
   L.push('');
   L.push('顶层工具（先选工具，再选 op）：');

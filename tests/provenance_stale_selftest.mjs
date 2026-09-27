@@ -81,13 +81,16 @@ ok('C4 只是注释 → 目录内容指纹不变 → matchesLoadedCatalog=true�
   pr2.diskVerdict.matchesLoadedCatalog === true, JSON.stringify(pr2.diskVerdict).slice(0, 200))
 
 // ── C2：真动目录内容（改一族名）→ 干净进程的目录指纹必须与本进程不一致，并让 catalog 文本点名 FAIL
-const mutated = fs.readFileSync(COPY_ENGINE, 'utf8').replace("{ f: 'sculpt',", "{ f: 'sculptx',")
-ok('C5 前置：副本里确实替换了一族名', mutated !== fs.readFileSync(COPY_ENGINE, 'utf8'), 'replace 未命中')
-fs.writeFileSync(COPY_ENGINE, mutated, 'utf8')
+// S7 修：S3-a 之后目录（PLAN_CATALOG）住在 catalog.mjs —— 改 engine 副本已经改不动目录，
+// 这条用例曾因此静默失败（前提就不成立）。要点：干净进程 import engine 副本，它会 import catalog 副本。
+const COPY_CATALOG = path.join(COPY_RT, 'catalog.mjs')
+const mutated = fs.readFileSync(COPY_CATALOG, 'utf8').replace("{ f: 'sculpt',", "{ f: 'sculptx',")
+ok('C5 前置：副本里确实替换了一族名', mutated !== fs.readFileSync(COPY_CATALOG, 'utf8'), 'replace 未命中')
+fs.writeFileSync(COPY_CATALOG, mutated, 'utf8')
 // 本进程内存里的 PLAN_CATALOG 仍是旧的一份（正是"后端没重启"的现场）
 const catOld = m.catalogPayload({ verify: true })
-ok('C6 干净进程看到磁盘上的新目录（family 数 27、sculptx 已在）',
-  catOld.provenance.diskVerdict.families === 27 && catOld.provenance.diskVerdict.matchesLoadedCatalog === false,
+ok('C6 干净进程看到磁盘上的新目录（family 数 28、sculptx 已在）',
+  catOld.provenance.diskVerdict.families === 28 && catOld.provenance.diskVerdict.matchesLoadedCatalog === false,
   JSON.stringify(catOld.provenance.diskVerdict).slice(0, 260))
 ok('C7 本进程 catalog 的 catalogHash 与磁盘不同 → 判定"本进程目录是旧版"',
   catOld.provenance.catalogHash !== catOld.provenance.diskVerdict.catalogHash,

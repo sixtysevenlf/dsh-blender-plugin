@@ -172,6 +172,27 @@ GUI 通道（`npm run test:gui`，需真机 + addon）—— **11/11 通过**：
 无头整合自检 **23 → 34 断言**（新增材质链路与 guard 的 install/mark/clear）。
 ⚠ 生效时机：catalog 与 guard 在后端（重启即生效）；工具描述在 `lib/index.js`（下次 DSH 启动）。
 
+### D28 · 修一批重构遗留（都藏在"看起来通过"的测试里）
+
+修 `op=start` 时顺手把 `npm test` 用**退出码**判了一遍（之前我用 `grep 失败|✗` 判，漏掉了三类静默失败），挖出 4 个真问题：
+
+| # | 问题 | 根因 | 修法 |
+|---|---|---|---|
+| 1 | `/plan op=catalog args={verify:true}` 抛 `ReferenceError: ENGINE_SOURCE_PATH is not defined` | **S3-a** 把 `probeDiskCatalog` 搬进 `catalog.mjs` 时，`ENGINE_SOURCE_PATH` / `pathToFileURL` / `execFileSync` 三个导入都没跟过去 | catalog.mjs 补齐三处（`ENGINE_SOURCE_PATH` 由本模块位置解析，与 engine.mjs 同目录） |
+| 2 | 纯 python 导入 `generator.py` 直接 `NameError: _KIT` | **S1** 统一内核时，`_KIT` 只定义在 **POSTLUDE 字符串里**（注入生成脚本用的），模块顶层却在用它 —— Blender 侧靠 preload 命名空间串味掩盖了 | 模块顶层显式解析 + 缺失即明确报错；`tests/generator_dispatch_selftest.py` 在伪内核里先注入 kit（纯 python 路径） |
+| 3 | `catalog` 默认页 10,410 字符（守卫上限 9,600） | **S6** 给 13 族加的硬警告 + 提示行把一页索引撑长了 | 默认页只显示可操作那句警告、骨架封顶 160 字符（完整内容仍在 `args={family:…}` 与 handoff 块里）；现 **9,442 字符** ✓ |
+| 4 | `mac_selftest` 的 `/mnt/` 守卫、`provenance_stale_selftest` 的 C 系列失败 | **S3-b** 把 PATH_HELPERS 搬到 `paths.mjs`、**S3-a** 把目录搬到 `catalog.mjs`，而这两条守卫还在改/读 `engine.mjs` | 守卫改为读 engine + paths；provenance 改的是 **catalog 副本**，族数 27 → 28 |
+
+另外修了路由契约测试的**分类口径**：`参数不匹配 + did_you_mean` 恰恰证明**路由是通的**（只是空参不对），此前被误判成"路由失败" ⇒ 现在先排除参数类错误，真机 **70/70** 恢复。
+
+**过程教训（记下来）**：我此前几次说"npm test 全绿"是**不准确**的 —— 判据是 `grep 失败|✗`，而 `mac_selftest` 打印的是 `FAILED`、`provenance` 是静默非零退出、`pyrun` 直接抛 traceback，三类都躲过了 grep。**现在一律用退出码判**：
+
+```
+npm test > /tmp/nt.log 2>&1; echo "exit=$?"     # exit=0 才算绿
+```
+
+**验证**：`npm test` **exit=0**（13 步全过）· 路由契约 4/4（静态 28/28 · 真机 70/70）· Blender 侧 263 断言全绿 · `pyrun` generator 13/0 · provenance 16/0 · mac 7/0。
+
 ### D27 · 修 bug：`blender_viewport op=start` 信陈旧句柄，端口没监听也回"已在跑"
 
 **现象（现场两次）**：

@@ -30,6 +30,12 @@ _k = types.ModuleType('dsh_rt_kernel')
 _k.dsh_generator = {'runs': [], 'log': []}
 sys.modules['dsh_rt_kernel'] = _k
 
+# S7 修：S1 起模块统一依赖共享内核 kit（K.dsh_kit）。Blender 侧由 KERNEL_BOOTSTRAP 注入；
+# 纯 python 路径（pyrun）要自己注入 —— 否则模块 import 就 NameError: _KIT（曾因此静默失败）。
+_kit_py = os.path.join(HERE, '..', 'runtime', 'kit.py')
+if os.path.exists(_kit_py) and not hasattr(_k, 'dsh_kit'):
+    exec(compile(open(_kit_py, encoding='utf-8').read(), _kit_py, 'exec'), {'K': _k})
+
 spec = importlib.util.spec_from_file_location('dsh_generator', GENPY)
 g = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(g)

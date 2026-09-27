@@ -65,6 +65,11 @@ for (const f of families) {
 ok("每个 family 前缀都有路由（EXT_ROUTES 或 indexOf 分支）", noRoute.length === 0, noRoute.slice(0, 8));
 
 // ── ② 真机：只读 op 逐个空参调用，只判"路由是否接上"
+/**
+ * 分类：**先排除「路由到了但参数不对」** —— 这类回执里常常也带 did_you_mean（提示正确参数名），
+ * 那恰恰证明路由是通的（例：generator_get 空参 → 参数不匹配 + did_you_mean）。S7 修：把这两类分开。
+ */
+const ARG_ERR = [/参数不匹配/i, /missing \d+ required positional argument/i, /unexpected keyword argument/i, /不认识的参数/];
 const ROUTE_FAIL = [/unknown op/i, /did_you_mean/i, /没有.*路由/, /not routed/i, /未知 ?op/i, /no such op/i, /Cannot read propert/i, /is not a function/i];
 async function plan(op, args) {
   const r = await fetch(BASE + "/plan", {
@@ -85,11 +90,12 @@ for (const op of roOps) {
   let j = null;
   try { j = await plan(op, {}); } catch (e) { routingFails.push({ op, why: "请求异常: " + String(e.message).slice(0, 60) }); continue; }
   const text = JSON.stringify(j).slice(0, 2000);
-  const bad = ROUTE_FAIL.find((re) => re.test(text));
+  const argErr = ARG_ERR.some((re) => re.test(text));   // 路由通了、只是空参不对
+  const bad = argErr ? null : ROUTE_FAIL.find((re) => re.test(text));
   if (bad) { routingFails.push({ op, why: text.slice(0, 120) }); continue; }
   routed.push(op);
   const res = j.result;
-  if (res && typeof res === "object" && res.ok === false) summary.rejectedArgs++;
+  if (argErr || (res && typeof res === "object" && res.ok === false)) summary.rejectedArgs++;
   else if (res && typeof res === "object" && (res.verdict === "degraded" || res.state === "degraded")) summary.degraded++;
   else summary.ok++;
 }
