@@ -86,7 +86,14 @@ if (toolsDir) {
     console.error('probe: 解包失败'); process.exit(2)
   }
 }
+// v0.9.6 起 lib/index.js 用 `../runtime/*.mjs`（以及 `../dsh-blender.config.json`）解析包内路径；
+// 只拷 index.mjs 会让 staging 树缺 runtime/，载入即 ERR_MODULE_NOT_FOUND —— 探针必须按包根布局铺开。
+const pluginRoot = resolve(dirname(pluginLib), '..')
 cpSync(pluginLib, join(root, 'plugin', 'index.mjs'))
+cpSync(join(pluginRoot, 'runtime'), join(root, 'runtime'), { recursive: true })
+if (existsSync(join(pluginRoot, 'dsh-blender.config.json'))) {
+  cpSync(join(pluginRoot, 'dsh-blender.config.json'), join(root, 'dsh-blender.config.json'))
+}
 
 const inner = join(root, 'inner.mjs')
 writeFileSync(inner, `

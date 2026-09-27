@@ -1,6 +1,16 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
-## Unreleased —— macOS 支持（全 GUI 路径打通）
+## v1.0.0（2026-09-28）—— 首个 1.0 发布：macOS 全 GUI 路径打通 + 对外能力冻结
+
+> **1.0 = 能力冻结线**：15 个模型侧工具 + `blender_rt_plan`（28 个 family / 183 个 op）是对外稳定面；
+> 包版本（`package.json`）、工具描述前缀（`[v1.0.0] …`）、npm 包名 `@dsh-external/dsh-blender-plugin` 三者一致。
+> 相对 v0.9.6 的**功能增量只有一项**：macOS 支持（见下）；其余为既有能力收口 + README（中英）重写为「只写 1.0 现状」，
+> 不再按版本号罗列历史 —— 历史留在本文件里。
+>
+> **仓库同一提交的另两个动作**：
+> ① 删除本地与远端分支 `backup/v0.9.6-local-0926-2005`（独有 commit `0f99949`，删除后不再有 ref 指向它；
+>   本地回看用 `git show 0f99949`，远端若已被 GC 则取不回）—— 此后只保留并推送 `main`；
+> ② 版本号 0.9.6 → 1.0.0（`package.json` / `src/index.ts` / `lib/index.js` 的 `PLUGIN_VERSION`），并重建 `lib/`。
 
 macOS 上宿主与 Blender 同机同 OS，跨 OS 路径改写退化为恒等。
 原先这些改写会把 `/Users/...` 拼成 `\\wsl.localhost\Ubuntu\Users\...` —— Blender 静默打不开。

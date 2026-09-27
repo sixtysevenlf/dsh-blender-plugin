@@ -8,7 +8,7 @@
  *       blender_rt_do       跑一段 Python + 立刻回一帧（整步 ~105ms）
  *       blender_rt_watch    指定时间窗内连续采样若干帧（看动画/交互行为）
  *       blender_rt_loop     内环：一次调用在 Blender 主线程跑几千次迭代
- *       blender_rt_cmd/commands  透传 addon 任意命令（30 条）
+ *       blender_rt_cmd/commands  透传 addon 任意命令（34 条：19 常驻 + 15 集成门控）
  *       blender_rt_perf/opt 渲染性能预设 / 对象精简
  *       blender_rt_headless 无头进程（blender -b）：重活不占 GUI 通道
  *       blender_viewport   后端运维：status / doctor / who / lease / release / start / stop / restart
@@ -32,7 +32,7 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
  * description 由**已加载的那份 lib** 生成 → 会话里一眼能看出自己跑的是哪一代，
  * 不会再出现「读的是新源码、跑的是旧 lib」那种排查事故（外部反馈 j20-build 的元教训）。
  */
-const PLUGIN_VERSION = '0.9.6'
+const PLUGIN_VERSION = '1.0.0'
 // 注意：必须**先加前缀、再交给 defineTool** —— defineTool 负责校验与规范化，
 // 自己 spread 一个成品对象会绕过它（实测：spread 版本会让插件 fiber 直接 failed）。
 //
@@ -1173,7 +1173,7 @@ export function apply(ctx: any, config: Config): void {
 
   ctx.effect(() => ctx.tools.register(vTool({
     name: 'blender_rt_cmd',
-    description: '直连调用 Blender addon 的任意命令（30 个名字：14 常驻 + 15 集成门控 + ping），含 MCP 层不暴露的 get_world_state_snapshot / drain_human_activity / get_telemetry_consent / set_telemetry_consent / get_addon_info，以及资产类命令（PolyHaven / Sketchfab / Poly Pizza / Hyper3D / Hunyuan3D）。参数必须匹配 addon 真实签名：get_scene_info 无参、get_object_info 用 name（不是 object_name）、不要传 MCP 才有的 user_prompt。先用 blender_rt_commands 看清单与可用性。',
+    description: '直连调用 Blender addon 的任意命令（34 个名字：19 常驻 + 15 集成门控），含 MCP 层不暴露的 get_world_state_snapshot / drain_human_activity / get_telemetry_consent / set_telemetry_consent / get_addon_info，以及资产类命令（PolyHaven / Sketchfab / Poly Pizza / Hyper3D / Hunyuan3D）。参数必须匹配 addon 真实签名：get_scene_info 无参、get_object_info 用 name（不是 object_name）、不要传 MCP 才有的 user_prompt。先用 blender_rt_commands 看清单与可用性。',
     parameters: {
       name: { type: 'string', required: true, description: 'addon 命令名，如 get_world_state_snapshot、search_polyhaven_assets' },
       params: { type: 'json', description: '参数对象（可选），如 {"asset_type":"hdris"}' },
@@ -1198,7 +1198,7 @@ export function apply(ctx: any, config: Config): void {
 
   ctx.effect(() => ctx.tools.register(vTool({
     name: 'blender_rt_commands',
-    description: '列出直连通道当前可用的 addon 命令（14 常驻 + 15 集成门控 + ping）与 5 个集成的真实状态（开关是否打开、是否缺 API key）。调 blender_rt_cmd 之前先用它。',
+    description: '列出直连通道当前可用的 addon 命令（19 常驻 + 15 集成门控）与 5 个集成的真实状态（开关是否打开、是否缺 API key）。调 blender_rt_cmd 之前先用它。',
     parameters: {},
     output: { schema: ANY_SCHEMA, render: renderOne },
     isConcurrencySafe: () => true,

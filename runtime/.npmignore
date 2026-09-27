@@ -1,0 +1,9 @@
+# 发布到 npm 时排除本机依赖（不影响 git；这些路径在 .gitignore 里也不入库）
+# 背景：package.json 的 files 白名单写了 "runtime"，而子目录 .npmignore 会在其之上再过滤
+# —— 不加这一份，npm pack 会把 1.2G 的 open3d venv 一起打进去（实测 458MB tgz / 12638 个文件）。
+ext/venv/
+ext/node_modules/
+ext/pkg.tgz
+__pycache__/
+*.pyc
+.npmignore

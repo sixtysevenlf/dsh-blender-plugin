@@ -1,7 +1,7 @@
 {
   "name": "@dsh-external/dsh-blender-plugin",
-  "version": "0.9.6",
-  "description": "DSH × Blender 直连实时插件【分享版】（**v0.9.3 = headless 优先 + 超时不丢结果**：等待窗口到点回 promoted 回执含 jobId；回执结构化=block0 单行 JSON 信封；PYTHONUNBUFFERED + dsh_stage 心跳；outdir/out_json 收 WSL 路径；shots 多视角一体化；rt_job 收 script_file/args/env + op=wait）：15 个工具（看视口 + 自定义视角 / 跑 Python 与跑文件 / 连续观察 / Blender 侧内环迭代 / addon 命令透传 / 渲染性能预设 / 对象精简 / 无头进程 / 热无头会话 / 事务回滚 / 作业层 / 通道运维与租约；QC、多视角渲染 harness 与契约层走 blender_rt_plan）；自带 runtime（node + python），配置走 runtime/config.mjs（env → 配置文件 → 自动探测），换机器不用改源码。操作教程见 docs/操作教程.md。**v0.9.2 = DSH 更新适配**：宿主 exec.signal（用户打断 / per-tool 截止）贯通到传输层、每个工具声明静态 timeoutMs、doctor/status 带宿主 dsh-tools 自证、图片回传不再静默失败、按 0.1.7 的 dsh.bundle 约定声明 bundle；见 docs/DSH-更新适配.md。",
+  "version": "1.0.0",
+  "description": "DSH × Blender 直连实时插件【分享版 v1.0】：15 个模型侧工具让 AI 直接驱动 Blender —— blender_rt_see（视口帧 / 自定义视角）、blender_rt_do（跑 Python，持久内核 K）、blender_rt_watch（时间窗采样）、blender_rt_loop（Blender 侧内环迭代）、blender_rt_cmd / blender_rt_commands（addon 命令透传）、blender_rt_perf（渲染性能诊断与预设）、blender_rt_opt（对象精简 / 安全合并）、blender_rt_headless（独立无头进程）、blender_rt_worker（热无头会话）、blender_rt_job（作业层，超时不丢结果）、blender_rt_txn（事务回滚）、blender_rt_preset（配方库）、blender_rt_plan（契约层 + 规划器：28 个 family / 183 个 op 的判定·验收·导出·造型）、blender_viewport（通道运维与写租约）；自带 node + python runtime，配置走 env → 配置文件 → 自动探测，换机器不用改源码。安装三步与唯一验收判据（doctor kind=ok）见 README，操作教程见 docs/操作教程.md。",
   "private": false,
   "keywords": [
     "dsh",
@@ -20,6 +20,10 @@
   "files": [
     "lib",
     "runtime",
+    "!runtime/ext/venv",
+    "!runtime/ext/node_modules",
+    "!runtime/ext/pkg.tgz",
+    "!runtime/__pycache__",
     "docs",
     "tests",
     "cordis.patch.yml",
