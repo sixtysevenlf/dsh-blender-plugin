@@ -125,8 +125,8 @@ import { PLAN_CATALOG, TOOL_DETAIL, PLAN_TOOL_MAP, planOpNames, planOpSuggestion
 export { PLAN_CATALOG, TOOL_DETAIL, PLAN_TOOL_MAP, planOpNames, planOpSuggestion, planOpCrossChannelHint, catalogFingerprint, PLAN_READ_ONLY_OPS, PLAN_READ_ONLY };
 
 
-import { MODELING_CLASS_GUIDE, renderClassText, classGuideStats } from './classes.mjs';
-export { MODELING_CLASS_GUIDE, renderClassText, classGuideStats };
+import { MODELING_CLASS_GUIDE, renderClassText, classGuideStats, renderHandoff, MODEL_FACING_TOOLS } from './classes.mjs';
+export { MODELING_CLASS_GUIDE, renderClassText, classGuideStats, renderHandoff, MODEL_FACING_TOOLS };
 
 /** 建模类型指引（S6）：模型先问"我要建什么"，再落到能力族 */
 export function catalogPayload(opts) {
@@ -145,6 +145,9 @@ export function catalogPayload(opts) {
     if (!e) return { ok: false, error: 'unknown family: ' + o.family, families: PLAN_CATALOG.map((x) => x.f), provenance: prov };
     return { ok: true, op: 'catalog', family: e.f, text: renderFamilyText(e), provenance: prov };
   }
+  if (o.handoff) {   // 子代理交接块：主模型一条命令拿到，粘进子代理提示词
+    return { ok: true, op: 'catalog', handoff: true, text: renderHandoff(), provenance: prov };
+  }
   if (o.classes) {
     const rows = MODELING_CLASS_GUIDE.map((r) => renderClassText(r)).join(String.fromCharCode(10) + String.fromCharCode(10));
     return { ok: true, op: 'catalog', classes: MODELING_CLASS_GUIDE.length, text: rows, provenance: prov };
@@ -158,7 +161,7 @@ export function catalogPayload(opts) {
   const L = [];
   L.push('plan 通道目录：' + PLAN_CATALOG.length + ' 个 family / ' + planOpNames().length + ' 个 op。'
     + '先按"我要干什么"选 family，再按"最小骨架"填 args；参数名写错会直接报"不认识的参数"。');
-  L.push('按建模类型查（更推荐先看这个）：args={classes:true} 一次拿 ' + MODELING_CLASS_GUIDE.length + ' 类建模的 第一步/算子链/禁止自造/验收门；args={class:"recon"} 看单类。');
+  L.push('按建模类型查（更推荐先看这个）：args={classes:true} 一次拿 ' + MODELING_CLASS_GUIDE.length + ' 类建模的 第一步/算子链/禁止自造/验收门；args={class:"recon"} 看单类；派子代理时用 args={handoff:true} 拿**可粘贴的交接块**。');
   L.push('');
   for (const e of PLAN_CATALOG) {
     L.push('· ' + e.f + (e.prefix ? '（' + e.prefix + '*）' : '') + '：' + e.when);

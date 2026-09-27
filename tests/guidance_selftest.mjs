@@ -52,6 +52,19 @@ for (const f of PINNED) {
 ok("易自造族的 catalog not 都带硬警告（" + PINNED.length + " 族）", missingWarn.length === 0, missingWarn);
 const noWarn = cat.filter((e) => !/别|禁止|不要|必须/.test(String(e.not))).map((e) => e.f);
 
+
+// ④ 子代理交接块（S6-b）：子代理看不到主模型读过的 catalog ⇒ 必须能把指路"交下去"
+const handoff = engine.catalogPayload({ handoff: true });
+const ht = String(handoff.text || "");
+ok("handoff 块存在且非空", handoff.ok === true && ht.length > 500, ht.length);
+ok("handoff 块短到能塞进子代理提示词（<= 3500 字符）", ht.length <= 3500, ht.length);
+ok("handoff 覆盖全部 12 类", MODELING_CLASS_GUIDE.every((r) => ht.includes(r.c)),
+  MODELING_CLASS_GUIDE.map((r) => r.c).filter((c) => !ht.includes(c)));
+ok("handoff 含禁止自造与三条硬规则", ht.includes("禁止自造") && ht.includes("三条硬规则"));
+const mft = (await import(path.join(ROOT, "runtime", "classes.mjs"))).MODEL_FACING_TOOLS;
+const lockTools = lock.tools || [];
+ok("工具清单与能力锁逐名一致（防漂移）",
+  mft.length === lockTools.length && mft.every((t) => lockTools.includes(t)), { mine: mft.length, lock: lockTools.length });
 console.log("指引自检：" + pass + " 通过 / " + fail + " 失败");
 console.log("  类型表 " + stats.classes + " 类 · 钉住硬警告 " + PINNED.length + " 族 · 其余未带硬警告 " + noWarn.length + " 族（" + noWarn.join(",") + "）");
 if (fail) for (const f of fails.slice(0, 8)) console.log("  x " + f.clause + (f.detail ? " — " + JSON.stringify(f.detail).slice(0, 300) : ""));

@@ -129,3 +129,43 @@ export function classGuideStats() {
   }
   return { classes: MODELING_CLASS_GUIDE.length, keys: MODELING_CLASS_GUIDE.map((r) => r.c), missing };
 }
+
+/** 模型侧工具清单（15 个）—— 与 capability.lock.json 的 tools 逐名对拍（guidance_selftest 守） */
+export const MODEL_FACING_TOOLS = [
+  "blender_rt_see", "blender_rt_do", "blender_rt_watch", "blender_rt_loop",
+  "blender_rt_cmd", "blender_rt_commands", "blender_rt_perf", "blender_rt_opt",
+  "blender_rt_headless", "blender_rt_plan", "blender_rt_worker", "blender_rt_txn",
+  "blender_rt_preset", "blender_rt_job", "blender_viewport",
+];
+
+/**
+ * 子代理交接块（S6-b）—— 主模型把它**原样粘进子代理提示词**。
+ *
+ * 为什么必需：子代理是自包含上下文（看不到主模型读过的 catalog），而它们倾向直接写 Python 绕过 plan 通道；
+ * 实测后果就是"没用 vehicle_* 而自造放样 → 一张没棱没缝的光滑面"。
+ * 目标：**短**（能塞进子代理提示词）、**只给判断所需的**（类型→第一步→禁止自造 + 工具名 + 硬规则 + 通道纪律）。
+ */
+export function renderHandoff() {
+  const L = [];
+  L.push("# Blender 工具指路（子代理必读 · 30 秒）");
+  L.push("");
+  L.push("**别猜工具**：先 `blender_rt_plan(op=\"catalog\")` 看 28 个能力族；按建模类型查 `args={classes:true}`（或单类 `args={class:\"recon\"}`）。");
+  L.push("模型侧 15 个工具：" + MODEL_FACING_TOOLS.map((t) => "`" + t + "`").join(" "));
+  L.push("");
+  L.push("## 12 类建模：第一步 | 禁止自造");
+  L.push("");
+  for (const r of MODELING_CLASS_GUIDE) {
+    L.push("- **" + r.c + "**（" + r.name + "）：" + r.entry + " ｜ 禁止：" + r.forbid);
+  }
+  L.push("");
+  L.push("## 三条硬规则");
+  L.push("1. 有参考图 → 先 `shape_plan(object_class=…)` 拿 `section_path`，别自造截面、别手算站表；");
+  L.push("2. 车壳/外壳类**禁止自造放样**（自造只能出一张连续光滑面，没棱没缝）；板缝与棱线用 `vehicle_panels` + `crease_lines`/`inset_lines`；");
+  L.push("3. 验收一律**机械门**（`gate_run` 顶层读 verdict 三态；`degraded` ≠ 通过），别用\"看起来像\"代替。");
+  L.push("");
+  L.push("## 通道纪律");
+  L.push("- 长活（>1 min / 长渲染 / 批量几何）走 `blender_rt_job` / `blender_rt_headless`，别同步硬等；");
+  L.push("- 写场景**同一时刻只能一个写者**（写租约；别的会话持有时回 409，只读 op 豁免）；");
+  L.push("- 改一步看一眼用 `blender_rt_see`（~100 ms）；量尺寸用 `img_*`/`audit_*`，**别用眼睛估**。");
+  return L.join(String.fromCharCode(10));
+}
