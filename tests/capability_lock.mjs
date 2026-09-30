@@ -23,7 +23,10 @@ const families = (cat.families || [])
 
 // 工具名取模型侧真源 src/index.ts（工具注册处）
 const SRC = fs.readFileSync(path.join(HERE, "..", "src", "index.ts"), "utf8");
-const tools = [...SRC.matchAll(/name: '(blender_[a-z_]+)'/g)].map((m) => m[1]).sort();
+// v1.0.1+S11（issue #10）：同一个 tool 名会在"降级占位"分支里被**再声明一次**（占位工具复用
+// 既有名，不是新能力）⇒ 按**集合**去重再计数。本测试的口径本来就是"只看集合（工具名）"，
+// 之前用数组长度是把重复声明也算成了新工具。
+const tools = [...new Set([...SRC.matchAll(/name: '(blender_[a-z_]+)'/g)].map((m) => m[1]))].sort();
 
 const snap = {
   families_count: families.length,

@@ -41,6 +41,30 @@ def _exec(path, ns, label):
     exec(compile(src, path, "exec"), ns)
 
 
+def _install_kernel_getattr(K):
+    """给内核模块挂 PEP 562 的 `__getattr__`：把"该模块没 preload"的裸 AttributeError
+    变成可执行的指引（2026-09-30 实测反馈：4 个 agent 独立卡在 `K.dsh_audit_api` 不存在）。
+
+    只接管 `dsh_*_api` 这一族名字，其余属性保持 Python 原生行为。
+    """
+    if hasattr(K, "__getattr__"):
+        return K
+
+    def _kernel_getattr(name, _K=K):
+        if name.startswith("dsh_") and name.endswith("_api"):
+            have = sorted(k[4:-4] for k in dir(_K)
+                          if k.startswith("dsh_") and k.endswith("_api"))
+            base = name[4:-4]
+            raise AttributeError(
+                "内核里没有 %s —— 模块 %r 没被加载。已加载：%s。"
+                "headless 用 preload=%r 带上它；或 K.dsh_kit.kapi(%r) 查/取。"
+                % (name, base, have or "（只有 kit）", base, base))
+        raise AttributeError(name)
+
+    K.__getattr__ = _kernel_getattr
+    return K
+
+
 def boot(modules=(), runtime_dir=None):
     """建内核 → 注入共享内核 kit → 按名加载模块；返回命名空间（含 K 与 kapi）。"""
     rt = runtime_dir or RT
@@ -48,6 +72,7 @@ def boot(modules=(), runtime_dir=None):
     if K is None:
         K = types.ModuleType("dsh_rt_kernel")
         sys.modules["dsh_rt_kernel"] = K
+    _install_kernel_getattr(K)
     if getattr(K, "dsh_kit", None) is None:
         _exec(os.path.join(rt, "kit.py"), {"K": K}, "kit")
     ns = {}

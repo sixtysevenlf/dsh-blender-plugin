@@ -3132,7 +3132,25 @@ def audit_dispatch(op, args=None):
     try:
         return fn(**kw)
     except TypeError as e:
-        return _j({"ok": False, "error": "参数不匹配: %s" % str(e)[:200], "op": op, "help": audit_help()})
+        msg = str(e)[:200]
+        out = {"ok": False, "error": "参数不匹配: %s" % msg, "op": op, "help": audit_help(),
+               "given": sorted(kw)}
+        # 定向提示（2026-09-30 实测反馈）：file= 只被一部分 op 接受，泛化的"参数不匹配"
+        # 会让 agent 反复试错（QBZ-191 项目里 4 个 agent 独立踩同一个坑）。
+        bad = [k for k in ("file", "file_a", "file_b")
+               if k in kw and ("unexpected keyword argument '%s'" % k) in msg]
+        if bad:
+            takes_file = ["connectivity", "gate", "measure", "overlap", "interference"]
+            out["error_hint"] = (
+                "`audit_%s` 不吃 %s —— 整个 audit 家族里只有 %s 接受 file="
+                "（overlap / interference 用 file_a / file_b）。"
+                "要对**另一个 .blend** 里的件跑单件自证，只有这一条路："
+                "先 bpy.ops.wm.open_mainfile(filepath=PATH) 真的打开它，"
+                "再 audit_mesh(objects=[...])（headless 里 preload=\"audit\" 后 "
+                "K.dsh_audit_api(\"mesh\", {...}) 同口径）。"
+                % (op, "/".join(bad), " / ".join("audit_" + t for t in takes_file)))
+            out["file_arg_ops"] = takes_file
+        return _j(out)
 
 
 _DshApi = _KIT.Api  # 共享内核（尾部注册行无需改）

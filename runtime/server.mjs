@@ -21,6 +21,8 @@
  * 启动：node server.mjs [--port 9877]（缺省端口取 config.mjs：DSH_BLENDER_HTTP_PORT / 配置文件 / 9877）
  */
 import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
 import { createEngine, engineProvenance, PLAN_READ_ONLY_OPS } from './engine.mjs';
 import { CFG, describeConfig } from './config.mjs';
 
@@ -626,25 +628,96 @@ const server = http.createServer(async (req, res) => {
 
 // Blender 可能还没起/没启用 addon —— 不能因此让整个后端退出：
 // 否则 /health 不可用、看护与工具全部连不上，错误信息也说不清。启动失败只记一条日志，按调用报错。
+// ── S10 自愈补丁（2026-09-29 实测）────────────────────────────────────────────
+// 现场（可复现）：后端事件循环被长时间同步操作占死 ⇒ /health 不应答、SIGTERM 处理函数
+// 永远排不上队、看护每 15 s 重生一个实例却撞 EADDRINUSE 退出 ⇒ 无限循环，只能人工 kill -9。
+// 两层兜底：① 信号处理不再可能被"吞"（强制退出定时器）；② EADDRINUSE 时先判定占用者是死是活，
+// 死的直接 SIGKILL 夺回端口并重试 listen（不依赖人工、不依赖看护）。
+const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** 按 /proc 扫出"占着本端口的同族后端"（供 SIGKILL 用；无 /proc 的平台返回 []）。
+ *  ★ 必须按 **argv token** 精确匹配，绝不能拿整条 cmdline 做子串匹配：
+ *    实测踩过（2026-09-29）—— 调用方的 `bash -c "... node runtime/server.mjs --port 9899 ..."`
+ *    命令行里同样含这两个串，子串匹配会把调用方自己的 shell 一起 SIGKILL 掉（自伤）。 */
+function samePortHolders(port) {
+  const out = [];
+  const wantPort = String(port);
+  try {
+    for (const d of fs.readdirSync('/proc')) {
+      if (!/^[0-9]+$/.test(d) || Number(d) === process.pid) continue;
+      try {
+        const toks = fs.readFileSync('/proc/' + d + '/cmdline', 'utf8').split('\u0000').filter(Boolean);
+        let isServer = false, portOk = false, isShell = false;
+        for (let i = 0; i < toks.length; i++) {
+          if (i === 0 && /(^|\/)(bash|sh|zsh|dash|fish|bwrap)$/.test(toks[i])) isShell = true;
+          if (i >= 1 && /(^|\/)server\.mjs$/.test(toks[i])) isServer = true;   // 必须是独立 argv 且以 server.mjs 结尾
+          if (toks[i] === '--port' && toks[i + 1] === wantPort) portOk = true;
+        }
+        if (isServer && portOk && !isShell) out.push(Number(d));
+      } catch (e) { /* 进程刚好退出 */ }
+    }
+  } catch (e) { /* 无 /proc（macOS/Windows）→ 不夺，交给看护报错 */ }
+  return out;
+}
+
+/** 占用者到底"死没死"：还能答 /health 就是活的（只是忙），那就绝不夺。 */
+async function holderResponsive(port, ms = 1200) {
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), ms);
+  try { return (await fetch('http://127.0.0.1:' + String(port) + '/health', { signal: ac.signal })).ok; }
+  catch (e) { return false; }
+  finally { clearTimeout(t); }
+}
+
+function killHolders(port, signal) {
+  const killed = [];
+  for (const pid of samePortHolders(port)) {
+    try { process.kill(pid, signal); killed.push(pid); } catch (e) { /* 已退出 */ }
+  }
+  return killed;
+}
+
 try {
   await engine.start();
 } catch (e) {
   console.error('[blender-rt] 启动时未连上 addon（Blender 未运行或 addon 未监听 9876）：' + String((e && e.message) || e));
 }
-// S9：端口被占（EADDRINUSE）时给可执行结论 —— 现场遇到过"僵死后端占着 9877、WSL 里看不到 PID"，
-// 而报错只说"看后端日志"。这里明说是端口占用 + 怎么清。
-server.on('error', (e) => {
+
+const onListening = () => console.log('[blender-rt] http://' + HOST + ':' + String(PORT) + '/  (routes: /health /status /doctor /who /frame.png /act /view /headless /plan /worker /txn /preset /lease)');
+let reclaimTries = 0;   // 夺端口最多 2 次，防止两个实例互踢成死循环
+
+// S9：端口被占（EADDRINUSE）时给可执行结论 —— 现场遇到过"僵死后端占着 9877、WSL 里看不到 PID"。
+// S10：不再只是"报错退出"，而是先确认占用者是死是活；死的直接 SIGKILL 夺回并重试 listen。
+server.on('error', async (e) => {
   const code = e && e.code;
+  if (code === 'EADDRINUSE' && reclaimTries < 2) {
+    reclaimTries += 1;
+    if (await holderResponsive(PORT)) {
+      console.error('[dsh-blender-backend] 端口 ' + String(PORT) + ' 被**能应答**的后端占着 —— 不夺，本次退出（交给看护/op=start）。');
+      process.exit(0);
+    }
+    const k1 = killHolders(PORT, 'SIGTERM');
+    await sleepMs(600);
+    const k2 = killHolders(PORT, 'SIGKILL');   // 事件循环被占死的进程只认 SIGKILL
+    console.error('[dsh-blender-backend] 僵死后端占着 ' + String(PORT) + '：SIGTERM=[' + k1.join(',') + '] SIGKILL=[' + k2.join(',') + '] → 重试 listen。');
+    await sleepMs(300);
+    try { server.listen(PORT, HOST, onListening); return; } catch (e2) { /* 落到下面的通用报错 */ }
+  }
   const msg = code === 'EADDRINUSE'
-    ? ('端口 ' + PORT + ' 已被占用（EADDRINUSE）：多半是上一次的后端僵死（Windows 侧进程，WSL 里看不到 PID）。'
-       + '处置：blender_viewport op=restart（先清残留再拉），或在 Windows 上 taskkill 掉占用者。')
+    ? ('端口 ' + PORT + ' 已被占用（EADDRINUSE）且自动夺回失败：多半是上一次的后端僵死。'
+       + '处置：blender_viewport op=restart，或 kill -9 掉 /proc 里 cmdline 含 "server.mjs --port ' + String(PORT) + '" 的进程。')
     : ('监听失败：' + String((e && e.message) || e));
   console.error('[dsh-blender-backend] ' + msg);
   try { fs.writeFileSync(path.join(CFG.workDirWsl, 'backend-listen-error.txt'), msg, 'utf8'); } catch (e2) { /* workDir 都写不了就算了 */ }
   process.exit(1);
 });
-server.listen(PORT, HOST, () => {
-  console.log('[blender-rt] http://' + HOST + ':' + String(PORT) + '/  (routes: /health /status /doctor /who /frame.png /act /view /headless /plan /worker /txn /preset /lease)');
-});
-process.on('SIGINT', () => { engine.stop(); server.close(); process.exit(0); });
-process.on('SIGTERM', () => { engine.stop(); server.close(); process.exit(0); });
+server.listen(PORT, HOST, onListening);
+
+// 强制退出兜底：信号处理里任何一步抛错/挂住，都不该让"占着端口的僵尸"活下来。
+const shutdown = () => {
+  try { engine.stop(); } catch (e) { /* 忽略 */ }
+  try { server.close(); } catch (e) { /* 忽略 */ }
+  setTimeout(() => process.exit(0), 400);
+};
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);

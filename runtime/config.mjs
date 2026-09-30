@@ -277,6 +277,13 @@ export const CFG = {
     return v === 'ahujasid' || v === 'category-action' ? v : 'auto';
   })(),
   httpPort: num(process.env.DSH_BLENDER_HTTP_PORT || FILE.cfg.httpPort, 9877),
+  /**
+   * Windows 侧启动代理（D:/DSH/blender/launch-agent.mjs，默认 127.0.0.1:9878）。
+   * WSL 走它拉起 GUI Blender ⇒ 本次启动 0 次互操作调用，回避 microsoft/WSL#41173
+   * 的中继空转泄漏（Interop 线程吃满一个核心且无法释放）。
+   * 代理不在线时自动回退到旧的互操作 spawn；设为 "off" 可强制回退。
+   */
+  launchAgentUrl: String(process.env.DSH_BLENDER_LAUNCH_AGENT_URL || FILE.cfg.launchAgentUrl || "http://127.0.0.1:9878").replace(/\/+$/, ""),
   holder: process.env.DSH_BLENDER_HOLDER || FILE.cfg.holder || ('plugin-pid-' + String(process.pid)),
   leaseTtlMs: num(process.env.DSH_BLENDER_LEASE_TTL_MS || FILE.cfg.leaseTtlMs, 600000),
   // 目录（成对：Windows 侧给 Blender 写，宿主侧给 Node 读）

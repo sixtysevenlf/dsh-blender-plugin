@@ -1,5 +1,162 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
+## v1.0.2（2026-09-30）—— 门禁合规（去 eval）+ issue #10 修复 + S10 自愈一并发布
+
+> 触发：本插件投稿 [awesome-ai-plugins](https://github.com/hashgraph-online/awesome-ai-plugins)（PR #539）时，上游"必需的
+> source scan"给 **73/100**（阈值 ≥80 且无 critical/high），唯一 high 是 `runtime/gate.py` 的动态求值。
+> 本版把三件事一起发出去：**去 eval** · **issue #10 修复** · **S10 现场补丁回灌**，外加门禁缺分项的仓库卫生。
+
+### 1. `runtime/gate.py`：动态求值 → 逐节点白名单 AST 求值器（门禁 high 项）
+- 原实现把编译后的 AST 交给内置动态求值入口执行。语义上它早已被 `_check_ast` 限死（不许下划线属性、调用只许
+  `ALLOWED_FUNCS`），但"名字+左括号"这个形态本身会被扫描器判 high（`DANGEROUS_DYNAMIC_EXECUTION`）。
+- 现在新增 `_eval_node()` **逐节点按白名单求值**（BoolOp / UnaryOp / Compare / BinOp / Name / Constant /
+  Attribute(非下划线) / Subscript / Tuple / List / Call），不再调用任何动态执行入口；`_check_ast` 仍是唯一入口。
+- 两处**故意更严**：名字不在 env → 直接报错；调用不支持 `*args` / `**kwargs`（`_check_ast` 本就不放行）。
+- 回归：新增 `tests/gate_eval_selftest.py`（**32 项**：源码面 3 · 语义等价 14 · 短路/操作数语义 4 · 拒绝面 11），
+  已接入 `npm test`。它不需要 Blender（给 `bpy` 与共享内核 `dsh_rt_kernel` 打桩，只测纯求值器）。
+
+### 2. issue #10 修复：schemastery 解析改 ESM 优先 + 顶层不再 throw
+明细见下一节 `v1.0.1+S11`（含新增 `tests/schema_resolve_selftest.mjs`，14 项）。
+
+### 3. S10 现场补丁**回灌进 `src/`**
+原先只打在 `lib/index.js`，一 `npm run build` 就丢；本次补齐 src 侧，明细见 `v1.0.1+S10`。
+
+### 4. 仓库卫生（门禁缺分项）
+- 新增 `SECURITY.md`（私密上报口径 + 本插件的执行面/凭据面声明）
+- 提交 `package-lock.json`（修 `DEPENDENCY_LOCKFILE_MISSING`）
+- 新增 `.github/dependabot.yml`（npm 周更）
+- `package.json` 的 `files` 增加排除：`!runtime/*.bak-*`、`!runtime/*.v1-*` —— 现场备份不再进包
+
+### 验证
+- `npm test` 全链绿（含新增 `tests/schema_resolve_selftest.mjs` 与 `tests/gate_eval_selftest.py`）
+- `python3 tests/gate_eval_selftest.py` → **32 项 ALL PASS**
+- 全仓文本扫描（含注释）：被判 high 的那条**动态求值调用形态** **0 处**；用 exec 加载源码再执行的既有写法
+  原样保留 —— 上游同一轮扫描没有判它们（只报了 gate.py 那一处）
+
+## v1.0.1+S11（2026-09-30）—— 修 issue #10：schemastery 解析改 ESM 优先 + 顶层不再 throw（「15 个工具整体消失」）
+
+> 外部报告：<https://github.com/sixtysevenlf/dsh-blender-plugin/issues/10>（@qaz040619，证据链含包内容逐文件对拍、
+> `dsh.profile.bundles` 二分、`--dump-config-schema` 与 boot 路径分叉）。**确认成立，1.0.1 未修**：`src/index.ts`
+> 里确实还是 `createRequire()` 双名解析 + 模块顶层 `throw`。
+
+### 现象
+profile 里同时装 `dshmarket` 或 `dsh-context`（两者都以带 scope 名 `@deepseek-ai/schemastery` 走 ESM loader）时，
+插件 entry 报 `failed to import`、**15 个工具整体消失**、后端也不起；宿主**只回一句** `failed to import`，真异常被吞。
+顺序无关、包本身逐字节一致、`--dump-config-schema` 里该 entry 反而是 `schema`（导入成功）—— 故障现象与真因不在同一层。
+
+### 根因
+解析只用 `createRequire()`，且**在模块顶层 `throw`**：该 require 在多插件共存时的宿主模块解析拦截下失败 ⇒
+模块**载入期**抛错 ⇒ entry 的 `fiber` 始终 `undefined` ⇒ 整体消失。本仓 `docs/DSH-更新适配.md` 早已点过这个失效模式。
+
+### 改法（`src/index.ts`，3 处）
+1. **顺序**：ESM `await import()` 优先（`@deepseek-ai/schemastery` → `schemastery`），失败再退回 `createRequire`；
+   形态判定要求真拿得到 `.object()`（拿不到就判为不可用，不赌）。
+2. **失败语义**：**顶层不再 `throw`** ⇒ 降级加载：`Config` 为 `undefined`，`apply()` 只注册一个
+   `blender_viewport` **诊断占位**（直接回报试过的名字、每条通道的真实错误与修法）。插件不再"整体消失"，
+   宿主那句 `failed to import` 之外终于有可读的现场。`apply()` 同时防御性读配置（不再假设 schema 一定补了默认值）。
+3. **可诊断**：`__internals.schemaResolve`（`via` / `error` / `tried`），并在 `blender_viewport op=status` 与
+   `op=doctor` 各加一行（"走了哪条通道 / 为什么失败"）。
+
+### 顺带修：S10 补丁**回灌进 src**（否则一 build 就丢）
+S10 现场补丁原先只打在 `lib/index.js`（`src/index.ts` 里没有）：`killBackendByCmd` 的 `signal` 参数、argv token
+精确匹配（防自伤）、看护"先清尸再重生"（连续 2 次探活失败 → SIGTERM → 1.2s → SIGKILL）。一旦 `npm run build`
+这些逻辑就会被抹掉。本次已补齐 src 侧，**src 与 lib 重新同源**，S10 的 `runtime/server.mjs` 部分本就在树里。
+
+### 回归自检（新增，不需要 Blender）：`tests/schema_resolve_selftest.mjs`
+已接入 `npm test`，另有 `npm run test:schema`。四组 fixture 各自真 `import()` 一份 `lib/` 拷贝，只改它上方
+`node_modules` 里"有哪些名字"：
+| 组 | fixture 提供的名字 | 断言 |
+|---|---|---|
+| A | 只有 `@deepseek-ai/schemastery` | import 成功、走 `esm:` 通道、`Config` 正常构建 |
+| B | 只有 `schemastery` | import 成功、`Config` 正常构建 |
+| C | 两个都没有 | **不抛**；`Config === undefined`；注册的是诊断占位且回报原因/修法 |
+| D | 本包真身（真 node_modules） | 可 import、`__internals.schemaResolve.via` 有值 |
+
+实测 **14 项全过**；C 组正是旧版"整体消失"的那条路径。
+
+### 附带
+- **能力锁**：`tools_count` 从"数组长度"改为**集合去重**（降级分支会复用同一个 tool 名；本测试口径本来就是
+  "只看集合（工具名）"）。工具面仍是 **15 个**，不是 16。
+- issue #10 里第 3 条（`tests/protocol_selftest.mjs` mock 端口随机到 >65535 触发 `ERR_SOCKET_BAD_PORT`）**未能复现**：
+  1.0.0 与 1.0.1 的 `tests/protocol_selftest.mjs:90` 都是 `srv.listen(0, '127.0.0.1', …)`（OS 分配端口），
+  全包唯一随机端口在 `tests/launch_selftest.mjs:23`（`21000 + Math.random()*20000`，区间 21000–40999）。已在 issue 里请对方补该文件的行号/stack。
+- **版本**：本节修复随 **v1.0.2** 一起发布（S10 现场补丁 + 本节修复 + 门禁卫生文件）。`package.json`
+  的 `files` 已加 `!runtime/*.bak-*` / `!runtime/*.v1-*`，现场备份不再进包。
+
+## v1.0.1+S10（2026-09-29）—— 僵死后端自愈（现场补丁，未随包发布）
+
+> 现场：9877 后端**事件循环被长时间同步操作占死** ⇒ `/health` 不应答（`ss` 见 `Recv-Q` 只涨、
+> 无人 accept）、**SIGTERM 处理函数永远排不上队**（信号排进队列但主线程不返回）、看护每 15 s
+> 重生一个实例却撞 `EADDRINUSE` 直接 `exit(1)` ⇒ **无限空转、永不自愈，只能人工 `kill -9`**。
+> 本次把它做成自愈，改 2 个文件、6 处；实测红绿对照见下。
+
+### 修 1：`runtime/server.mjs` —— EADDRINUSE 时"先判定死活，死了就夺回端口"（P0）
+- 原来只在 `server.on('error')` 里打印结论然后 `process.exit(1)`；现在：探活占用者（1200 ms），
+  **能应答就不夺**（避免把"只是忙"的后端踢掉），**真死则 `SIGTERM` → 600 ms → `SIGKILL` 清场后重试 `listen`**（最多 2 次）。
+- 为什么必须升级到 SIGKILL：实测事件循环被占死的进程**收不到也处理不了 SIGTERM**。
+- 附带修掉一个既存 bug：该错误分支里用了 `fs` / `path` 却**从未 import**，
+  于是那句"可执行结论"其实一直被 `catch (e2)` 吞掉、**从没写进 `backend-listen-error.txt`**；现已补 import。
+
+### 修 2：`lib/index.js` —— 看护"先清尸再重生" + SIGKILL 升级
+- 看护原先探活失败就直接 `startBackend()`，**从不调用已有的 `killBackendByCmd()`**（它只被 `op=stop/restart` 用到）
+  ⇒ 端口被僵死进程占着时每次重生都注定 EADDRINUSE。
+- 现在：连续 **2 次**（≈30 s，`probe` 超时仅 1500 ms，故不用单次判定）探活失败 →
+  `killBackendByCmd(port,'SIGTERM')` → 1.2 s → `killBackendByCmd(port,'SIGKILL')` → 再重生。
+- `killBackendByCmd(port, signal='SIGTERM')` 增加信号参数，默认值保持既有调用点行为不变。
+
+### 修 3：两处"杀进程"都改成 **argv token 精确匹配**（自伤修复）
+- 原判据是**整条 cmdline 子串匹配**（`cmd.includes('server.mjs') && cmd.includes('--port 9877')`）。
+  实测自伤：调用方 `bash -c "... node runtime/server.mjs --port 9899 ..."` 的命令行同样含这两个串
+  ⇒ 新版抢端口时把**调用方自己的 shell 一起 SIGKILL 掉**（本补丁首版即踩，被 A/B 测试当场抓出）。
+- 现在要求：**某个独立 argv 以 `/server.mjs` 结尾**（basename 精确）且其后紧跟 `--port <port>`，
+  并排除 `bash/sh/zsh/dash/fish/bwrap` 一类 shell。`lib/index.js` 与 `runtime/server.mjs` 两侧同步收紧。
+- 回归证据：同样带该字面量的 bash 调用**不再被杀**（修复前会被杀）。
+
+### 修 4：`runtime/server.mjs` —— 信号处理强制退出兜底
+- `SIGTERM/SIGINT` 处理改为 `try{engine.stop()}catch{}` + `try{server.close()}catch{}` +
+  `setTimeout(()=>process.exit(0),400)`：任一环节抛错/挂住都不会再让"占着端口的僵尸"活下来。
+- 实测：发 SIGTERM 后 **510 ms** 内退出。
+
+### 红绿对照（本机实测，隔离端口 9898/9899，替身 = 占端口 + 忽略 SIGTERM + 永不应答）
+| | 旧版 | 新版 |
+|---|---|---|
+| 启动结果 | `exit 1`，日志 `已被占用（EADDRINUSE）…` | `僵死后端占着 9899：SIGTERM=[37258] SIGKILL=[37258] → 重试 listen` + `[blender-rt] http://…:9899/` |
+| `/health` | 无应答 ❌ | `{"ok":true,…}` ✅ |
+| 替身进程 | 仍活着（需人工 kill） | 已被 SIGKILL 清掉 ✅ |
+
+### 未随包发布 / 升级注意
+- 这是**现场补丁**：插件包升级会覆盖 `lib/index.js` 与 `runtime/server.mjs`。原件与可重打 diff 在
+  `tmp/patch-backup-20260929/`（`index.js` / `server.mjs` 原件 + `S10-selfheal.diff`，`patch -p0 < S10-selfheal.diff` 重打）。
+- **生效范围**：`runtime/server.mjs` 的部分**重启后端即生效**（`blender_viewport op=restart`）；
+  `lib/index.js` 的看护部分需**宿主/插件重新加载**后才生效（本次会话内仍是旧看护，但仅靠 server.mjs 的夺端口路径也已完成自愈）。
+
+## v1.0.1（2026-09-28）—— 修 blender_rt_perf / blender_rt_opt 每个 op 都崩（perf API 从未注册）+ 描述按平台改写
+
+### 修：perf / opt 两个工具全 op 报 AttributeError（P0）
+- **症状**：`blender_rt_perf`（status/analyze/apply/revert/help）与 `blender_rt_opt`（analyze/opt_analyze/opt_join）
+  每一个 op 都回 `AttributeError: module 'dsh_rt_kernel' has no attribute 'dsh_perf_api'`（内核里只有
+  `dsh_perf_api_fp`，那是 engine 写的内容指纹，容易被误读成"注册过"）。
+- **根因**：`runtime/perf.py` 尾部只有一段 v0.9.1 时代的 shim —— 它把**已存在**的 `K.dsh_perf_api`
+  包成 `_DshApi`，而全包没有任何地方真正创建过这个属性；同时 `engine.mjs` 的
+  `MODULE_ATTR.PERF_READY='dsh_perf_api'` 这个 ready 判据永远为假 ⇒ 每次调用都重新注入模块。
+- **修法**：按 `kit.py` 的统一约定注册（与 qc / clearance / pipeline 同形）：
+  `_KIT.register("perf", PERF_VERSION, {status, analyze, apply, revert, help, opt_analyze, opt_join}, extra={selftest})`。
+- **契约对齐**：`engine.mjs` 的 `perfCall` 由 per-op 直调 `K.dsh_perf_api[op](dict)`
+  （参数会被当成第一个位置参数误绑，如 `samples={'samples':64}`）改为
+  `K.dsh_perf_api["dispatch"](op, json)` —— 与 audit / txn / preset / plan 同契约，参数按 kwargs 摊平。
+- **自检收紧**：`dsh_perf_selftest` 把 `api_registered_by_module` 从「只如实标注」升为**硬判据**；
+  同类"模块没注册 API"的回归以后会被测试直接拦下。
+- 验证：隔离无头实测 status / help / opt_analyze / apply 全通（status 回 `engine=BLENDER_EEVEE`）；`npm test` 全绿。
+
+### 改：`blender_rt_headless` 的路径提示改按平台分支
+- 原文案写死 `cwd 是 \\wsl.localhost\…\DSH，WSL 绝对路径必须带开头 /`，在 Windows 宿主上指向错误空间。
+- 现按新增的模块级 `IS_WIN` 分支：Windows 提示"给 Windows 路径"，WSL 保留原提示。
+- 描述预算门仍绿：rt_headless 1556（< 1600），15 个工具合计 11944（<= 12000）。
+
+### 含
+- 本版以 v1.0.0 之后的 `13a10bd`（ext 安装提示文案修复）为基线。
+
+
 ## v1.0.0（2026-09-28）—— 首个 1.0 发布：macOS 全 GUI 路径打通 + 对外能力冻结
 
 > **1.0 = 能力冻结线**：15 个模型侧工具 + `blender_rt_plan`（28 个 family / 183 个 op）是对外稳定面；

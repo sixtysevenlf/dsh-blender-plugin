@@ -351,6 +351,103 @@ def _check_ast(node, label="pass_if"):
             raise ValueError("%s 不许访问下划线属性" % label)
 
 
+# ── v1.0.2（门禁合规）· 受限 AST 求值器 ────────────────────────────────────────
+# 背景：本函数原先走的是内置的**动态求值入口**。语义上它已经被 `_check_ast` 限死在很小的
+#   语法子集里（不许下划线属性、调用只许 ALLOWED_FUNCS），但那个入口的"名字+左括号"本身
+#   就会被供应链扫描器判为 high（DANGEROUS_DYNAMIC_EXECUTION）——与其把关键词藏起来过检，
+#   不如把求值器写成"逐节点按白名单算"，白名单与 `_check_ast` 逐条对齐（它仍是唯一入口）。
+#   注：本文件与 runtime/ 下另有几处"用 exec 加载源码再执行"的既有写法（加载 spec 模块 /
+#   跑测试脚本），它们是同一个受限内核里的常规用法，**不在**扫描器那条规则上，故原样不动。
+_BIN_OPS = {
+    ast.Add: lambda a, b: a + b,
+    ast.Sub: lambda a, b: a - b,
+    ast.Mult: lambda a, b: a * b,
+    ast.Div: lambda a, b: a / b,
+    ast.Mod: lambda a, b: a % b,
+}
+_CMP_OPS = {
+    ast.Eq: lambda a, b: a == b,
+    ast.NotEq: lambda a, b: a != b,
+    ast.Lt: lambda a, b: a < b,
+    ast.LtE: lambda a, b: a <= b,
+    ast.Gt: lambda a, b: a > b,
+    ast.GtE: lambda a, b: a >= b,
+    ast.In: lambda a, b: a in b,
+    ast.NotIn: lambda a, b: a not in b,
+}
+
+
+def _eval_node(node, env, label):
+    """按白名单**逐节点**求值（与旧的受限动态求值语义对齐）。
+
+    语义要点（都只在"更严"的方向上与内置实现不同）：
+      · 名字只从 env 取；取不到 → 直接报错（旧版走到 builtins 空表才 NameError）；
+      · 调用只允许 ALLOWED_FUNCS，且不支持 `*args` / `**kwargs`（`_check_ast` 本就不放行）；
+      · BoolOp 返回短路处的操作数本身（不是 bool），Compare 支持链式 `a < b < c`；与 Python 一致。
+    """
+    if isinstance(node, ast.Expression):
+        return _eval_node(node.body, env, label)
+    if isinstance(node, ast.Constant):
+        return node.value
+    if isinstance(node, ast.Name):
+        if node.id in env:
+            return env[node.id]
+        raise ValueError("%s 里的名字不可用：%s" % (label, node.id))
+    if isinstance(node, ast.UnaryOp):
+        val = _eval_node(node.operand, env, label)
+        if isinstance(node.op, ast.Not):
+            return not val
+        if isinstance(node.op, ast.USub):
+            return -val
+        if isinstance(node.op, ast.UAdd):
+            return +val
+        raise ValueError("%s 里有一元运算符不受支持：%s" % (label, type(node.op).__name__))
+    if isinstance(node, ast.BoolOp):
+        want_and = isinstance(node.op, ast.And)
+        val = _eval_node(node.values[0], env, label)
+        for nxt in node.values[1:]:
+            if (want_and and not val) or ((not want_and) and val):
+                return val
+            val = _eval_node(nxt, env, label)
+        return val
+    if isinstance(node, ast.BinOp):
+        fn = _BIN_OPS.get(type(node.op))
+        if fn is None:
+            raise ValueError("%s 里有二元运算符不受支持：%s" % (label, type(node.op).__name__))
+        return fn(_eval_node(node.left, env, label), _eval_node(node.right, env, label))
+    if isinstance(node, ast.Compare):
+        left = _eval_node(node.left, env, label)
+        for op_node, comp in zip(node.ops, node.comparators):
+            fn = _CMP_OPS.get(type(op_node))
+            if fn is None:
+                raise ValueError("%s 里有比较运算符不受支持：%s" % (label, type(op_node).__name__))
+            right = _eval_node(comp, env, label)
+            if not fn(left, right):
+                return False
+            left = right                      # 链式比较：a < b < c
+        return True
+    if isinstance(node, ast.Attribute):
+        if node.attr.startswith("_"):
+            raise ValueError("%s 不许访问下划线属性" % label)
+        return getattr(_eval_node(node.value, env, label), node.attr)
+    if isinstance(node, ast.Subscript):
+        sl = node.slice
+        if type(sl).__name__ == "Index":      # Python < 3.9 的 ast.Index 包装
+            sl = sl.value
+        return _eval_node(node.value, env, label)[_eval_node(sl, env, label)]
+    if isinstance(node, ast.Tuple):
+        return tuple(_eval_node(e, env, label) for e in node.elts)
+    if isinstance(node, ast.List):
+        return [_eval_node(e, env, label) for e in node.elts]
+    if isinstance(node, ast.Call):
+        if node.keywords or any(isinstance(a, ast.Starred) for a in node.args):
+            raise ValueError("%s 的函数调用不支持 *args / **kwargs" % label)
+        if not isinstance(node.func, ast.Name) or node.func.id not in ALLOWED_FUNCS:
+            raise ValueError("%s 只允许这些函数：%s" % (label, sorted(ALLOWED_FUNCS)))
+        return env[node.func.id](*[_eval_node(a, env, label) for a in node.args])
+    raise ValueError("%s 里有不允许的语法：%s" % (label, type(node).__name__))
+
+
 def _eval_pass_if(expr, receipt, label="pass_if"):
     """受限表达式求值（`pass_if` 与 `degrade_if` 共用）。变量从回执顶层取；取不到 → 明确报缺哪个字段。"""
     tree = ast.parse(expr, mode="eval")
@@ -368,7 +465,8 @@ def _eval_pass_if(expr, receipt, label="pass_if"):
     if missing:
         raise ValueError("%s 引用了回执里没有的字段：%s（回执顶层字段：%s）"
                          % (label, missing, sorted(k for k in receipt if not str(k).startswith("_"))[:14]))
-    return bool(eval(compile(tree, "<%s>" % label, "eval"), {"__builtins__": {}}, env))
+    # v1.0.2：不再用内置 eval —— 逐节点按白名单求值（语法白名单仍是上面的 _check_ast）
+    return bool(_eval_node(tree.body, env, label))
 
 
 def _aggregate(states):

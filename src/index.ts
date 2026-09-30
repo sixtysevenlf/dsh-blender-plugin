@@ -27,12 +27,14 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 
+const IS_WIN = process.platform === 'win32'
+
 /**
  * v0.8.10（A0 版本自证）：工具描述统一带版本前缀。
  * description 由**已加载的那份 lib** 生成 → 会话里一眼能看出自己跑的是哪一代，
  * 不会再出现「读的是新源码、跑的是旧 lib」那种排查事故（外部反馈 j20-build 的元教训）。
  */
-const PLUGIN_VERSION = '1.0.0'
+const PLUGIN_VERSION = '1.0.2'
 // 注意：必须**先加前缀、再交给 defineTool** —— defineTool 负责校验与规范化，
 // 自己 spread 一个成品对象会绕过它（实测：spread 版本会让插件 fiber 直接 failed）。
 //
@@ -156,23 +158,61 @@ const vTool = (spec: any): any => defineTool({
   },
 })
 // 只为类型：`import type` 编译后被完全擦除，运行期不会要求这个包名存在
-// （运行期由下面的 createRequire 双名解析负责）。
+// （运行期由下面的**双通道**运行时解析负责）。
 import type zt from '@deepseek-ai/schemastery'
 /**
  * schemastery 的包名在不同 DSH 版本间是**有 scope / 无 scope 两种形态**（`schemastery` ↔
- * `@deepseek-ai/schemastery`；cordis 同理）。两个都试，两代宿主都能装 —— 只声明其中一个，
- * 换成另一种宿主就会在载入期 `ERR_MODULE_NOT_FOUND`，表现为 15 个工具**整体消失**、
- * 后端也不起（故障现象与真因不在同一层，极难定位）。
- * 静态 import 无法条件化，所以走 createRequire 运行时解析。
+ * `@deepseek-ai/schemastery`；cordis 同理），静态 import 无法条件化，只能运行期解析。
+ *
+ * v1.0.1+S11（issue #10 修复）—— 解析顺序与失败语义都改了：
+ *   ① **顺序**：ESM `await import()` 优先，失败再退回 `createRequire`。
+ *      旧版只走 createRequire：在"宿主只提供带 scope 的名字"的 profile 里，该 require 在
+ *      多插件共存时的 DSH module-resolution 拦截下解析失败（现场 3/3 复现，见 issue #10 的
+ *      bundle 二分表），而 ESM loader 正是宿主自己走的那条路 —— 所以先试它。
+ *   ② **失败语义**：顶层不再 `throw`。旧版在模块载入期抛错 ⇒ 宿主只回一句 `failed to import`
+ *      （真因被吞）、entry 的 fiber 始终 undefined ⇒ **15 个工具整体消失、后端也不起**，
+ *      且现象与真因不在同一层，极难定位。现在改为**降级加载**：注册一个只回报原因的占位工具
+ *      （见下面 DEGRADED 分支），其余工具不注册，但报错可读、插件不会消失。
+ *   ③ **诊断**：走了哪条通道、试过哪些名字，进 __internals.schemaResolve，并在 op=status /
+ *      op=doctor 里可见（这类"静默整体消失"必须留下可读的现场）。
  */
-const z: typeof zt = (() => {
-  const req = createRequire(import.meta.url)
-  const tried: string[] = []
-  for (const id of ['@deepseek-ai/schemastery', 'schemastery']) {
-    try { const m = req(id); return (m && m.default) || m } catch (e) { tried.push(id) }
-  }
-  throw new Error('schemastery 解析失败，已尝试：' + tried.join(' / ') + '。宿主需提供 schemastery —— 有 scope 的 @deepseek-ai/schemastery 或无 scope 的 schemastery 任一即可。')
-})()
+const SM_NAMES: string[] = ['@deepseek-ai/schemastery', 'schemastery']
+const schemaResolve: { z?: typeof zt; via?: string; error?: string; tried: string[] } = { tried: [] }
+/** 只取错误的首行 + 截断：诊断要能一行说完，不要把整个 stack 塞进状态输出 */
+const smErrLine = (e: any): string => String((e && e.code) || (e && e.message) || e).split('\n')[0].slice(0, 120)
+/** 形态判定：能拿到带 `.object()` 的那一层才算可用（拿不到就是不认，不赌） */
+const smPick = (m: any): any => {
+  for (const c of [m && m.default, m]) if (c && typeof c.object === 'function') return c
+  return null
+}
+for (const id of SM_NAMES) {
+  try {
+    const m: any = await import(/* webpackIgnore: true */ id)
+    const hit = smPick(m)
+    if (hit) { schemaResolve.z = hit; schemaResolve.via = 'esm:' + id; break }
+    schemaResolve.tried.push(id + '(esm:no-object)')
+  } catch (e) { schemaResolve.tried.push(id + '(esm:' + smErrLine(e) + ')') }
+}
+if (!schemaResolve.z) {
+  try {
+    const req = createRequire(import.meta.url)
+    for (const id of SM_NAMES) {
+      try {
+        const m: any = req(id)
+        const hit = smPick(m)
+        if (hit) { schemaResolve.z = hit; schemaResolve.via = 'cjs:' + id; break }
+        schemaResolve.tried.push(id + '(cjs:no-object)')
+      } catch (e) { schemaResolve.tried.push(id + '(cjs:' + smErrLine(e) + ')') }
+    }
+  } catch (e) { schemaResolve.tried.push('createRequire(' + smErrLine(e) + ')') }
+}
+if (!schemaResolve.z) {
+  schemaResolve.error = 'schemastery 解析失败，已尝试：' + schemaResolve.tried.join(' / ')
+    + '。宿主需提供 schemastery —— 有 scope 的 @deepseek-ai/schemastery 或无 scope 的 schemastery 任一即可。'
+  console.error('[dsh-blender] ' + schemaResolve.error
+    + '（降级加载：只注册一个诊断占位工具，不会再出现"15 个工具整体消失且真因被吞"）')
+}
+const z: any = schemaResolve.z
 
 export const name = '@dsh-external/dsh-blender-plugin'
 export const inject = ['tools']
@@ -264,10 +304,13 @@ function hostApiInfo(): string {
 }
 const HOST_API = hostApiInfo()
 
-export const Config = z.object({
-  port: z.natural().default(resolveHttpPort()),
-  autoStart: z.boolean().default(true),
-})
+// v1.0.1+S11：z 不可用时（降级模式）不给 schema —— 宿主不会因为这里再抛一次而整体失败。
+export const Config = z
+  ? z.object({
+      port: z.natural().default(resolveHttpPort()),
+      autoStart: z.boolean().default(true),
+    })
+  : undefined
 
 let child: any = null
 /** 用户用 op=stop 显式停过 → 看护不再自动拉起（op=start 解除） */
@@ -336,15 +379,16 @@ async function startBackend(port: number): Promise<string> {
 }
 
 /**
- * 按 /proc 扫出"本插件历史代次拉起的后端"，SIGTERM 掉。
+ * 按 /proc 扫出"本插件历史代次拉起的后端"，按 signal 停掉（默认 SIGTERM）。
  * 热重载会丢掉 child 句柄（上一代 fiber 持有），只靠句柄停不掉残留进程 —— 这是兜底。
+ * v1.0.1+S10：新增 signal 参数（事件循环被同步操作占死的进程只认 SIGKILL）。
  */
-function killBackendByCmd(port: number): string[] {
+function killBackendByCmd(port: number, signal: NodeJS.Signals = 'SIGTERM'): string[] {
   const killed: string[] = []
-  const needle = '--port ' + String(port)
+  const wantPort = String(port)
   // macOS 支持：把「列进程」抽成一条可移植的候选链 —— /proc 只有 Linux 有，
   // macOS 没有；原先只读 /proc，在 mac 上静默返回 []（热重载后残留后端停不掉）。
-  const rows: Array<{ pid: number; cmd: string }> = []
+  const rows: Array<{ pid: number; toks: string[] }> = []
   let listed = false
   // ① Linux：直接读 /proc（最准，无外部依赖）
   try {
@@ -352,8 +396,8 @@ function killBackendByCmd(port: number): string[] {
       if (!/^[0-9]+$/.test(d)) continue
       if (Number(d) === process.pid) continue
       try {
-        const cmd = readFileSync('/proc/' + d + '/cmdline', 'utf8').replace(/\u0000/g, ' ') + ' '
-        rows.push({ pid: Number(d), cmd })
+        const toks = readFileSync('/proc/' + d + '/cmdline', 'utf8').split('\u0000').filter(Boolean)
+        rows.push({ pid: Number(d), toks })
       } catch (e) { /* 进程可能已退出 */ }
     }
     listed = true
@@ -366,14 +410,24 @@ function killBackendByCmd(port: number): string[] {
         if (!m) continue
         const pid = Number(m[1])
         if (pid === process.pid) continue
-        rows.push({ pid, cmd: m[2] + ' ' })
+        rows.push({ pid, toks: m[2].trim().split(/\s+/) })
       }
     } catch (e) { /* ps 不可用则不兜底 */ }
   }
   for (const r of rows) {
-    // 路径已随插件包改名（dsh-blender-plugin/runtime/server.mjs）→ 用更通用的匹配，否则停不掉残留
-    if (r.cmd.includes('server.mjs') && r.cmd.includes(needle)) {
-      try { process.kill(r.pid, 'SIGTERM'); killed.push(String(r.pid)) } catch (e) { /* 已退出 */ }
+    // ★ v1.0.1+S10（自伤修复）：按 **argv token** 精确匹配，绝不拿整条 cmdline 做子串匹配 ——
+    //   调用方的 `bash -c "... node runtime/server.mjs --port 9877 ..."` 命令行同样含这两个串，
+    //   子串匹配会把调用方自己的 shell 一起 SIGKILL 掉（2026-09-29 实测踩到，A/B 当场抓出）。
+    let isServer = false
+    let portOk = false
+    let isShell = false
+    for (let i = 0; i < r.toks.length; i++) {
+      if (i === 0 && /(^|\/)(bash|sh|zsh|dash|fish|bwrap)$/.test(r.toks[i])) isShell = true
+      if (i >= 1 && /(^|\/)server\.mjs$/.test(r.toks[i])) isServer = true     // 必须是独立 argv 且以 server.mjs 结尾
+      if (r.toks[i] === '--port' && r.toks[i + 1] === wantPort) portOk = true
+    }
+    if (isServer && portOk && !isShell) {
+      try { process.kill(r.pid, signal); killed.push(String(r.pid)) } catch (e) { /* 已退出 */ }
     }
   }
   return killed
@@ -877,7 +931,8 @@ function promotedReceipt(job: any, jobId: string, why: string): any {
   if (logs) parts.push('日志（运行期就有增量：PYTHONUNBUFFERED=1）：' + String(logs.stdout || '') + ' · ' + String(logs.stderr || ''))
   if (env.stdoutTail) parts.push('--- stdout 尾 ---' + NLx + String(env.stdoutTail).slice(-1500))
   parts.push('收结果：blender_rt_job(op="wait", id="' + jobId + '", timeout_ms=120000) —— 阻塞到完成或超时（不要连发 status 轮询，会撞重复调用检测）；'
-    + '也可 op="collect"（随时看，未完成时也能看到 stage/日志尾），op="kill" 中止。')
+    + '也可 op="collect"（随时看，未完成时也能看到 stage/日志尾），op="kill" 中止。'
+    + ' ⚠ 这个 id 是**Blender 侧台账** id，不是 DSH 的作业 id —— 拿它去 DSH 的 job_output 会回 unknown job。')
   parts.push('提醒：下次这类长活直接 as_job=true（预期 >100 s 都建议），就不会占用调用窗口。')
   return { text: parts.join(NLx), envelope: env }
 }
@@ -919,22 +974,67 @@ async function fetchJobStatus(port: number, id: string): Promise<any> {
 const ANY_SCHEMA: any = { type: 'json' }
 const HINT_KERNEL = '持久内核：K.x = 1 这次写，下次调用还能读到；预置 bpy / math / mathutils / Vector。'
 
-export function apply(ctx: any, config: Config): void {
-  const port = config.port
+/**
+ * v1.0.1+S11（issue #10）：schemastery 解析失败时的**降级出口**。
+ * 目的不是"还能干活"，而是**让失败可读、可定位**：占位工具照样出现在工具列表里，
+ * 一调它就直接给出试过的名字、每条通道的真实错误与修法 —— 而不是旧版那样
+ * "模块载入期 throw → 15 个工具整体消失 + 宿主只回一句 failed to import"。
+ */
+function registerSchemaDiagnostic(ctx: any): void {
+  const text = [
+    '⛔ @dsh-external/dsh-blender-plugin 以**降级模式**加载：schemastery 未能解析，15 个 blender_rt_* 工具都未注册（这是**可读的失败**，不是插件消失）。',
+    '原因：' + String(schemaResolve.error || '(未知)'),
+    '试过的名字与错误：' + (schemaResolve.tried.length ? schemaResolve.tried.join(' / ') : '(空)'),
+    '修法：让宿主能解析到 @deepseek-ai/schemastery 或 schemastery 任一（同一份包的两种发布形态）；若用的是只提供带 scope 名的宿主，请升级到含本修复的版本。',
+    '口径：解析顺序 = ESM `await import()` 优先 → createRequire 兜底；顶层不再 throw。',
+  ].join(String.fromCharCode(10))
+  ctx.effect(() => ctx.tools.register(vTool({
+    name: 'blender_viewport',
+    description: '仅诊断：本插件降级加载（schemastery 未解析），15 个工具未注册。调用它只回报原因与修法。',
+    parameters: { op: { type: 'string', description: '任意值；只用于触发诊断输出' } },
+    output: { schema: { type: 'string' }, render: (_a: unknown, v: unknown) => [{ type: 'text', text: String(v) }] },
+    isConcurrencySafe: () => true,
+    timeoutMs: 10000,
+    async execute() { return text },
+  })), '@dsh-external/dsh-blender-plugin: degraded-schema')
+}
 
-  void (async () => { if (config.autoStart && !paused) await ensureBackend(port) })()
+export function apply(ctx: any, config: Config): void {
+  // v1.0.1+S11（issue #10）：解析失败 ⇒ 降级但不消失（见 registerSchemaDiagnostic）。
+  if (!z) { registerSchemaDiagnostic(ctx); return }
+
+  // 防御性读配置：schema 正常时宿主会补默认值，但降级/宿主差异都不该让这里再抛。
+  const cfgIn: any = (config && typeof config === 'object') ? config : {}
+  const port = Number.isFinite(Number(cfgIn.port)) && Number(cfgIn.port) > 0 ? Number(cfgIn.port) : resolveHttpPort()
+  const autoStart = cfgIn.autoStart === undefined ? true : !!cfgIn.autoStart
+
+  void (async () => { if (autoStart && !paused) await ensureBackend(port) })()
 
   // 常驻看护：每 15s 探活一次，掉线自动拉起（宿主重启 / 进程被杀 / 端口被回收都能自愈）。
   // 显式 op=stop 会置 paused，看护尊重它，不会跟用户对着干。
+  // ★ v1.0.1+S10（探活失败时**先清尸再重生**）：否则"僵死后端占着端口"时，重生进程必然撞
+  //   EADDRINUSE 退出 → 每 15 s 空转一次、永不自愈（现场：后端事件循环被长时间同步操作占死，
+  //   /health 不应答、连 SIGTERM 都排不上队）。probe 超时只有 1500ms，所以连续 2 次（≈30s）
+  //   失败才认定卡死，避免把"只是忙"的后端杀掉。
+  let probeMisses = 0
   ctx.effect(() => {
     const wd = setInterval(() => {
       void (async () => {
         try {
           if (paused) return
           if (await probe(port)) {
+            probeMisses = 0
             // 租约心跳：只在"本来就持有"时续期，空闲时不抢占别的会话
             try { await backendPost(port, '/lease', { renewOnly: true }, 5000) } catch (e) { /* 后端可能刚挂，下一轮再试 */ }
             return
+          }
+          probeMisses += 1
+          if (probeMisses >= 2) {
+            probeMisses = 0
+            // SIGTERM → 1.2s → SIGKILL：事件循环被同步操作占死的进程只认 SIGKILL
+            try { killBackendByCmd(port, 'SIGTERM') } catch (e) { /* 忽略 */ }
+            await sleep(1200)
+            try { killBackendByCmd(port, 'SIGKILL') } catch (e) { /* 忽略 */ }
           }
           await startBackend(port)
         } catch (e) { /* 看护失败静默，下一轮再试 */ }
@@ -1316,7 +1416,8 @@ export function apply(ctx: any, config: Config): void {
   ctx.effect(() => ctx.tools.register(vTool({
     name: 'blender_rt_headless',
     description: '【无头 Blender · 第一路径】独立进程跑脚本（blender.exe -b）：不占 GUI 通道、不动你在看的场景。'
-      + '⚠ 路径：cwd 是 \\\\wsl.localhost\\…\\DSH，**WSL 绝对路径必须带开头 /**；script_file 已自动给 __file__ + 脚本目录 sys.path。'
+      + (IS_WIN ? '⚠ 给 Windows 路径（D:\\x\\y.py）；' : '⚠ cwd 在 UNC 下，WSL 路径要带开头 /；')
+      + 'script_file 自动给 __file__ + sys.path。'
       + '批量几何 / 校验 / 渲染 / 不需要"人在回路看视口"的活都先走这里；"看一眼"用 rt_do/rt_see。'
       + 'print("HEADLESS " + json.dumps(obj)) 回传（**必须单行 JSON**）。'
       + '默认 --factory-startup；默认注入 EEVEE + 光追前导（engine="cycles"|"keep"|"none" 可改）。'
@@ -1883,6 +1984,9 @@ export function apply(ctx: any, config: Config): void {
           lines.push('诊断：' + String((d && d.kind) || (diag && diag.kind) || (d && d.ok ? 'ok' : 'unknown')))
           lines.push('宿主 API：' + HOST_API)                      // v0.9.2（R2）：DSH 升级后一眼看出插件挂的是哪份 dsh-tools
           lines.push('插件：v' + PLUGIN_VERSION + ' @ ' + HERE)
+          lines.push('schemastery：' + (schemaResolve.via
+            ? ('已解析（' + schemaResolve.via + '）')
+            : ('❌ ' + String(schemaResolve.error || '未解析') + ' —— 工具未注册（降级模式）')))
           if (diag && diag.summary) lines.push('结论：' + diag.summary)
           if (diag && diag.fix) lines.push('修法：' + diag.fix)
           if (d && d.addon) lines.push('addon：' + JSON.stringify(d.addon))
@@ -1920,6 +2024,8 @@ export function apply(ctx: any, config: Config): void {
           pluginVersion: s.plugin ? s.plugin.version : null,
           hostApi: HOST_API,                              // v0.9.2（R2）：插件侧解析到的宿主 dsh-tools
           toolVersion: PLUGIN_VERSION,
+          // v1.0.1+S11（issue #10）：包名形态解析走哪条通道 / 为什么失败 —— 这类静默整体消失必须留现场
+          schemaResolve: { via: schemaResolve.via || null, error: schemaResolve.error || null, tried: schemaResolve.tried },
           recentRuns: (s.runs || []).map((x: any) => ({ id: x.id, status: x.status, pid: x.pid, ms: x.ms,
                                                         outdir: x.outdir, artifacts: x.artifactCount,
                                                         expectOk: x.expect ? x.expect.ok : null })),
@@ -1953,4 +2059,5 @@ export const __internals = {
   promotedReceipt: promotedReceipt,
   HEADLESS_WAIT_MS: HEADLESS_WAIT_MS,
   PLUGIN_VERSION: PLUGIN_VERSION,
+  schemaResolve: schemaResolve,   // v1.0.1+S11（issue #10）：schemastery 走了哪条通道 / 失败原因
 }

@@ -462,6 +462,22 @@ def st_main():
     st_check("neg_missing_file_cleanup_reported", isinstance(cn_nope.get("cleanup"), dict),
              cn_nope.get("cleanup"))
 
+    # ⑦ file= 误用到不收 file 的 op 上：必须回"定向提示"，不许只回一句泛化的"参数不匹配"
+    #    （2026-09-30 实测反馈：QBZ-191 项目里 4 个 agent 独立踩过这个坑，每次都靠试错才找到出路）
+    mesh_bad = st_call("mesh", {"file": B})
+    hint = str(mesh_bad.get("error_hint") or "")
+    ST_MEAS["mesh_file_misuse"] = {"ok": mesh_bad.get("ok"), "error": mesh_bad.get("error"),
+                                   "error_hint": hint, "file_arg_ops": mesh_bad.get("file_arg_ops")}
+    st_check("⑦mesh_rejects_file_arg", mesh_bad.get("ok") is False, mesh_bad)
+    st_check("⑦mesh_file_misuse_has_targeted_hint",
+             "不吃" in hint and "open_mainfile" in hint and "audit_gate" in hint, hint)
+    st_check("⑦mesh_file_misuse_lists_capable_ops",
+             mesh_bad.get("file_arg_ops") == ["connectivity", "gate", "measure", "overlap", "interference"],
+             mesh_bad.get("file_arg_ops"))
+    # 对照：合法 op 传 file= 不需要这条 hint（别把定向提示乱撒）
+    st_check("⑦valid_file_op_has_no_misuse_hint",
+             not cn_nope.get("error_hint") and not cn_nope.get("file_arg_ops"), cn_nope)
+
 
 def st_emit(extra=None):
     res = {"ok": not ST_FAILS, "passed": len(ST_PASS), "failed": len(ST_FAILS), "failures": ST_FAILS,

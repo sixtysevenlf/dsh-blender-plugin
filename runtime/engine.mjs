@@ -92,6 +92,22 @@ export const KERNEL_BOOTSTRAP = [
   'if K is None:',
   '    K = _types.ModuleType("dsh_rt_kernel")',
   '    _sys.modules["dsh_rt_kernel"] = K',
+  // v1.0.1（2026-09-30 实测反馈）：PRELOAD_MODULES / runtime/*.py 的 API 挂在
+  // K.dsh_<name>_api 上，但**没 preload 的模块就是不存在** —— 裸的 AttributeError
+  // 不会告诉 agent"要用 preload"，实测 4 个 agent 独立在这一步卡过一轮。
+  // 给内核模块挂 PEP 562 的 __getattr__，把"缺模块"变成"告诉你怎么装 + 已装了什么"。
+  'if not hasattr(K, "__getattr__"):',
+  '    def _dsh_kernel_getattr(_name, _K=K):',
+  '        if _name.startswith("dsh_") and _name.endswith("_api"):',
+  '            _have = sorted(_k[4:-4] for _k in dir(_K)',
+  '                           if _k.startswith("dsh_") and _k.endswith("_api"))',
+  '            _base = _name[4:-4]',
+  '            raise AttributeError(',
+  '                "内核里没有 %s —— 模块 %r 没被加载。已加载：%s。"',
+  '                "headless 用 preload=%r 带上它；或 K.dsh_kit.kapi(%r) 查/取。"',
+  '                % (_name, _base, _have or "（只有 kit）", _base, _base))',
+  '        raise AttributeError(_name)',
+  '    K.__getattr__ = _dsh_kernel_getattr',
   'import bpy, math, mathutils',
   'Vector = mathutils.Vector',
   '# ---- 路径辅助（v0.7.0）：GUI 与无头两侧都能用，省掉手拼 UNC 与 chr(92)\n' + PATH_HELPERS,
@@ -834,11 +850,10 @@ export function createEngine(opts = {}) {
   // 渲染 guard 必须把标记文件路径注入进去（Windows 形式；handler 闭包持有该命名空间）
   const ensureRenderGuard = () => injectModule(needFile(RENDER_GUARD_PATH, 'render_guard'), 'RENDER_GUARD_READY',
     'RG_VERSION', 'DSH_RENDER_FLAG_WIN = ' + JSON.stringify(RENDER_FLAG_WIN));
-  /** perf/opt 通用调用：op 是 K.dsh_perf_api 里的函数名 */
+  /** perf/opt 通用调用：走 api["dispatch"](op, json)，参数按 kwargs 摊平（与 audit/txn/preset 同契约） */
   async function perfCall(op, payload) {
     await ensurePerf();
-    const arg = payload === undefined ? '' : '_json.loads(' + JSON.stringify(JSON.stringify(payload)) + ')';
-    const body = 'import json as _json' + '\n' + 'print("LOOP " + K.dsh_perf_api[' + JSON.stringify(op) + '](' + arg + '))';
+    const body = 'import json as _json' + '\n' + 'print("LOOP " + K.dsh_perf_api["dispatch"](' + JSON.stringify(op) + ', ' + JSON.stringify(JSON.stringify(payload === undefined ? {} : payload)) + '))';
     return extractLoop(await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\n' + body }, 300000));
   }
   /** v0.9.6（D1）：把模块返回里的 unknown op 变成"一步改对"——补 did_you_mean + 最小骨架 */

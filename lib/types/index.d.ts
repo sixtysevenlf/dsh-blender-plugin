@@ -20,6 +20,7 @@ declare function losslessSanitize(root: any): {
     value: any;
     fixes: string[];
 };
+import type zt from '@deepseek-ai/schemastery';
 export declare const name = "@dsh-external/dsh-blender-plugin";
 export declare const inject: string[];
 export interface Config {
@@ -54,5 +55,11 @@ export declare const __internals: {
     promotedReceipt: typeof promotedReceipt;
     HEADLESS_WAIT_MS: number;
     PLUGIN_VERSION: string;
+    schemaResolve: {
+        z?: typeof zt;
+        via?: string;
+        error?: string;
+        tried: string[];
+    };
 };
 export {};
