@@ -1,5 +1,56 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
+## v1.0.3（2026-10-05）—— 内环从"存在"到"真能用"：修 `ns` 未绑定（内环 6 个版本跑不通一次迭代）+ 新 op `shape_search`（声明式搜索）+ 描述改任务型触发词
+
+### 修（P0 · 这才是"没人用 rt_loop"的真正原因）：`step`/`measure` 里 `ns[...]` 一跑就 NameError
+- **症状**：`blender_rt_loop(op="start", …)` 回 `start_ok: true`，但**第一个 tick 就 error 收工** ——
+  `stop_reason="error"` / `i=0` / `best=null` / `board_n=0`，`error` 尾部是
+  `File "<dsh_loop.step>", line 1, in <module>\nNameError: name 'ns' is not defined. Did you mean: 'np'?`
+- **根因**：`runner.py` 的 `exec(step_code, ns)` 用 `ns` 当 globals，但**从没把 `ns` 这个名字绑进命名空间**
+  （`git log -S 'ns["ns"]'` 在 v0.4.0→v1.0.2 全史无命中 ⇒ 自发布起就如此）。而 README / cookbook / 工具描述 /
+  全部食谱**一律**写 `ns["params"]` / `ns["score"]` —— 谁照文档写谁炸，于是"内环存在但没人用得上"。
+- **修法**：注入 `ns["ns"] = ns` 与 `ns["st"] = st`（后者也是文档 preloaded 列表里承诺过的名字）。
+- **实测对照**（真 Blender 无头，手动驱动 tick；无头下 timers 不触发）：
+  | | 修复前 `run-muu3oj9hlcjh` | 修复后 `run-muu3ppkr6508` |
+  |---|---|---|
+  | `stop_reason` | `error` | `iterations` |
+  | `i` | 0 | 5 |
+  | `best` | `null` | `{score: 0.0687…}` |
+  | `board_n` | 0 | 3 |
+  | `ns_bound` | **false** | **true** |
+- **回归门**：`dsh_loop_selftest` 从"只读 status/help、不真起循环"升级为**真起一个最小循环并手动驱动 4 个 tick**，
+  硬判 `ns_bound / iters_done / best_present / no_error`（旧自检的结构性盲区正是这条回归活了 6 个版本的原因）。
+
+### 改 1：`blender_rt_loop` 描述从「次数门槛」改成「任务形状」
+- 触发词：对齐 / 拟合 / 反推尺寸 / 参数扫描 —— 判据能写成一个数（轮廓 IoU、包围盒尺寸误差、剖面差，或自写 score）。
+- 明写硬前提：**只在 GUI 会话有效**；`op=board` 看候选；`op=export` 落可复现脚本；收敛后换通路复核；跑完场景停在**最后一次迭代**而非 best。
+- 长尾（spec 字段 / `K.dsh_measure` 三签名 / 可照抄骨架 / 4 条纪律）搬进 catalog 详情：`blender_rt_plan(op="catalog", args={tool:"rt_loop"})`（1,834 字符，按需取）。
+- 描述预算门仍绿：合计 **11,672 ≤ 12,000**，rt_loop **1,261 < 1,600**。
+- 旧文案里的 `≥20 次才用` 是"自我否决"：模型读完就跳过 —— 换成任务型触发词后，§0 路由表 + 描述 + catalog 三级都能命中。
+
+### 新 op：`blender_rt_plan(op="shape_search", args={…})` —— 声明式搜索
+- **你只给目标与区间，机器去搜**：`objective`（`silhouette_iou` / `profile_err` / `aabb_err`）+ `params`
+  （`{dy_mm:{min:-30,max:30,step:5}}` 或 `{values:[…]}`）+ `apply`（每轮把 `ns["params"]` 落到场景的代码；
+  建议在 setup 里定义 `apply(p)` —— 与 `op=export` 的复现口径一致）。
+- 内部**复用 runner**：`start → 轮询 → board → export` 全程托管 ⇒ **只在 GUI 会话有效**；
+  `dry_run:true` 只校验并回 spec（**不需要 Blender 连着**）。
+- 采样 `strategy:"auto"`：组合数 ≤ iterations 走**穷举网格**（迭代数自动收敛到组合数），否则**随机搜索**；
+  可显式 `grid` / `random`；显式网格 >20000 组合直接拒绝并给骨架。
+- 收尾：内环结束时场景停在最后一次迭代的参数上，本 op 默认再执行一次 `setup + apply(best)` 把场景落到 best（`restore:"none"` 可关）。
+- 只读性：会通过 `apply` 改场景 ⇒ 归**写 op**（不在 `/plan` 只读白名单，受写租约约束）。
+- 回执：`spec_echo` + `best` + `board` + `stop_reason` + `applied` + `exported` + `next_steps`；**任何校验失败都给 `skeleton`**。
+- 代码块缩进归一化（`normBody`）：`apply`/`setup` 支持"首行顶格 + 续行缩进"写法与嵌套块（`if/else`），
+  不会生成 `IndentationError` —— 由测试里"用 python3 真编译三段代码"这条断言守住。
+
+### 配套 skill（`dsh-skill-blender-modeling`，另一仓库，同步发布）
+- §0 路由表补 `rt_loop` 行；§0.7 增**第四条硬规则**（可标量化 + 要试几十~几千组 ⇒ 不许手工拍参数）；
+  新增 **Recipe 24**（可复制 spec + 现成目标函数表 + 5 条纪律 + 3 种不该用的场景）+ 声明式 `shape_search` 的用法与分工；
+  front-matter 描述补"参数搜索内环"、配方计数 23 → 24。
+
+### 测试
+- 新增 `tests/shape_search_selftest.mjs`（**24 项**）：目录面 / spec 生成（grid · random · aabb_err · 多视平均 · pyLit 布尔）/
+  **python3 真编译三段代码（含嵌套块）** / 校验面（缺参 · 非法目标 · 组合爆炸都必须给骨架）/ 真路由（隔离后端 POST `/plan`）。
+- 能力锁更新为 **28 family / 184 op**（+1 op，原因即本节）；`npm test` **16 步全绿**。
 ## v1.0.2（2026-09-30）—— 门禁合规（去 eval）+ issue #10 修复 + S10 自愈一并发布
 
 > 触发：本插件投稿 [awesome-ai-plugins](https://github.com/hashgraph-online/awesome-ai-plugins)（PR #539）时，上游"必需的

@@ -316,6 +316,13 @@ def dsh_loop_start(spec=None, **kw):
             ns["np"] = _np
         except Exception:
             pass
+        # ★ 命名空间自引用（v1.0.3 修）：README / cookbook / 工具描述 / 食谱一律写 ns["params"] / ns["score"]，
+        #   而 exec(code, ns) 里 `ns` 这个名字**不会**自动存在 —— 少了这两行，step 第一行就
+        #   NameError: name 'ns' is not defined，内环 1 个 tick 内 error 收工（best / board 全空）。
+        #   实测（修复前）：start_ok=true → stop_reason="error" / i=0 / board_n=0（run-muu3oj9hlcjh）。
+        #   这就是"内环存在但没人用得上"的真正原因：文档写法一跑就炸。
+        ns["ns"] = ns
+        ns["st"] = st
         if s["setup"]:
             exec(compile(s["setup"], "<dsh_loop.setup>", "exec"), ns)
     except BaseException:
@@ -457,7 +464,13 @@ def dsh_loop_bench(iterations=5000):
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
 def dsh_loop_selftest():
-    # 内环自检（只读）：status 空闲可读 + help 结构化（不真起循环）
+    """内环自检：真的起一次最小循环并**手动驱动 tick**（无头下 bpy.app.timers 不触发，所以直接调 st["timer"]）。
+
+    断言 measure 能拿到 `ns`、best 有值 —— 这正是 v1.0.3 修掉的回归：
+    旧版没有把 `ns` 绑进命名空间，文档贯用的 `ns["params"]` / `ns["score"]` 写法在第一个 tick 就
+    NameError（循环 start_ok=true 但立刻 error 收工，best/board 全空）。旧自检只读 status/help、
+    "不真起循环"，所以这条回归活了 6 个版本没人发现。
+    """
     import json
 
     def _d(x):
@@ -465,11 +478,32 @@ def dsh_loop_selftest():
 
     ev = {}
     try:
-        st = _d(dsh_loop_status())
-        ev["status_dict"] = isinstance(st, dict)
-        ev["running_is_bool"] = isinstance(st.get("running"), bool)
-        ev["help_dict"] = isinstance(_d(dsh_loop_help()), dict)
-        return _j({"ok": all(x is True for x in ev.values()), "evidence": ev})
+        if _state().get("running"):
+            return _j({"ok": True, "skipped": "loop already running"})
+        started = _d(dsh_loop_start({
+            "setup": "pass",
+            "step": "ns['params'] = {'a': random.uniform(0.0, 1.0)}",
+            "measure": "ns['score'] = float(ns['params']['a'])",
+            "iterations": 4, "budget_ms": 2000, "top_k": 3,
+        }))
+        ev["start_ok"] = started.get("ok") is True
+        for _ in range(10):
+            st2 = _state()
+            if not st2.get("running"):
+                break
+            fn = st2.get("timer")
+            if fn is None:
+                break
+            fn()
+        s3 = _d(dsh_loop_status(4))
+        ev["ns_bound"] = "ns" in (_state().get("ns") or {})
+        ev["i"] = int(s3.get("i") or 0)
+        ev["iters_done"] = int(s3.get("i") or 0) >= 4
+        ev["best_present"] = isinstance(s3.get("best"), dict)
+        ev["no_error"] = not s3.get("error")
+        ev["stop_reason"] = s3.get("stop_reason")
+        ok_all = all(ev.get(k) is True for k in ("start_ok", "ns_bound", "iters_done", "best_present", "no_error"))
+        return _j({"ok": ok_all, "evidence": ev})
     except Exception as e:
         return _j({"ok": False, "evidence": ev, "error": "%s: %s" % (type(e).__name__, str(e)[:200])})
 

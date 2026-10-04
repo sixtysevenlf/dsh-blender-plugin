@@ -152,7 +152,8 @@ blender_rt_see(from="9,-9,6", look_at="0,0,1")               # ③ 换个角度�
 ### `blender_rt_loop` —— 内环搜索
 
 一次调用在 Blender 主线程跑几百到几千次迭代（`bpy.app.timers` 循环，主线程安全；迭代 / 时间双上限 + 急停）—— 模型只写目标与验收，机器去搜。`op=start | status | stop | board | export | help | bench`；`spec={setup, step, measure, iterations, budget_ms, interval, measure_every, minimize, top_k, group_key, redraw_every, patience}`，`measure` 必须给 `ns["score"]`。
-**何时用（量化）**：要在参数空间搜 ≥20 次、且每次都得出图或量测；只搜 ≤5 次或判据不需要每次渲染 → 用 `blender_rt_do` 自己循环更省事。内环只优化你写的目标函数 —— 收敛后必须换另一条计算通路复核 + `blender_rt_see` 视觉确认（防 Goodhart）。
+**什么时候用（看任务形状，不看次数）**：对齐 / 拟合 / 反推尺寸 / 参数扫描 —— 判据能写成一个数（轮廓 IoU、包围盒尺寸误差、剖面差，或你自写的 score），候选几十~几千组。只试 ≤5 组 → 用 `blender_rt_do` 自己循环更省事；**无头（`blender -b`）下 `bpy.app.timers` 不触发，内环只在 GUI 会话有效**。内环只优化你写的目标函数 —— 收敛后必须换另一条计算通路复核 + `blender_rt_see` 视觉确认（防 Goodhart）；注意跑完场景停在**最后一次迭代**的参数上，不是 best（要 best 用 `op="export"`）。
+**不想手写 setup/step/measure？** 用声明式：`blender_rt_plan(op="shape_search", args={objective:"silhouette_iou", ref:"D:/ref/side.png", view:{…}, apply:"ob.location.y = p['dy_mm']/1000.0", params:{dy_mm:{min:-30,max:30,step:5}}, iterations:300, export:"D:/out/best_fit.py"})` —— 目标 + 区间进，候选表 + 可复现脚本出（内部跑同一条内环；`dry_run=true` 只校验并回 spec）。长尾说明见 `blender_rt_plan(op="catalog", args={tool:"rt_loop"})`。
 
 ### `blender_rt_cmd` —— 透传 addon 任意命令
 
