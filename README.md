@@ -74,7 +74,7 @@ Detailed walkthrough (Chinese): [`docs/操作教程.md`](docs/操作教程.md) �
    Compatibility probe: `node runtime/_probe_tools.mjs`. Protocol self-test (no Blender needed): `node tests/protocol_selftest.mjs`.
 3. **Node.js ≥ 20**.
 4. **DSH (DeepSeek Harness)** — this package registers tools as a DSH plugin (`inject: ['tools']`).
-   Works with DSH in WSL + Blender on Windows (WSL interop is used to spawn `blender.exe`) and with DSH and Blender on the same Windows machine (path mapping degrades gracefully).
+   Works with DSH in WSL + Blender on Windows (WSL interop is used to spawn `blender.exe`), with DSH and Blender on the same Windows machine (path mapping degrades gracefully), and — as of v1.0.4 — with **native Linux (not WSL)**: host and Blender share one OS, so no cross-OS path rewriting happens (`/home/…` reaches Blender as-is) and `blender_viewport op=doctor` reports your own distro. Blender is found via `which blender`; set `DSH_BLENDER_EXE` if it lives elsewhere. Default working dir: `os.tmpdir()/dsh-blender-rt` (see `docs/配置参考.md` §5).
 5. **macOS** — supported. Host and Blender run on the same machine, so there is no cross-OS path mapping: Blender is auto-detected under `/Applications` (`Blender*.app`, including `~/Applications` and `/Volumes/*/Applications`), and the working dir defaults to `~/.dsh-blender-rt`. Set `DSH_BLENDER_EXE` / `blenderExe` only if you installed Blender somewhere non-standard; `blender_viewport op=doctor` prints what was detected.
 
 ---

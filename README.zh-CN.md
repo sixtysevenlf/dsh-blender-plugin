@@ -85,6 +85,7 @@
 3. **Node.js ≥ 20**（跑后端与插件宿主）。
 4. **DSH（DeepSeek Harness）**：本包以 DSH 插件形态提供工具（`inject: ['tools']`），并按 `dsh.bundle` 约定声明装配（`cordis.patch.yml`）。
    - WSL 里跑 DSH、Blender 在 Windows：需要 WSL 互操作开启（默认开），`spawn` 才能直接起 `blender.exe`；两者同在 Windows：把 `blenderExe` 配成 `D:\...\blender.exe` 即可，路径映射自动退化。
+   - **原生 Linux（非 WSL，Blender 与宿主同机）** —— v1.0.4 起支持。同机同 OS ⇒ 跨 OS 路径改写**不参与**（`/home/…` 原样交给 Blender），`blender_viewport op=doctor` 的 `distro` 报的是你自己的发行版；Blender 走 `which blender` 兜底，装在别处就配 `DSH_BLENDER_EXE`；工作目录默认 `os.tmpdir()/dsh-blender-rt`（见 `docs/配置参考.md` §5）。
 5. **macOS** —— 已支持。宿主与 Blender 同机，不涉及跨 OS 路径映射：Blender 自动探测 `/Applications` 下的 `Blender*.app`（也扫 `~/Applications` 与 `/Volumes/*/Applications`），工作目录默认 `~/.dsh-blender-rt`。只有装在非标准位置时才需要配 `DSH_BLENDER_EXE` / `blenderExe`；`blender_viewport op=doctor` 会打印探测结果。
 
 ---

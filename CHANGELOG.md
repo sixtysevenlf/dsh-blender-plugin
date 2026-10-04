@@ -1,5 +1,46 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
+## v1.0.4（2026-10-05）—— 原生 Linux 成为一等平台：修 `wslToWin()` 把"非 Win/mac 的宿主"一律当成 WSL（取帧恒报 `frame http 502`）
+
+### 修（issue #11，报告人 @mlfc666，Manjaro 原生 Linux）
+- **症状**：原生 Linux（Blender 与宿主同机）上 `blender_rt_see` 恒报 `Error: frame http 502`，`/frame.png` 回
+  `ENOENT … /home/<u>/.dsh-blender-rt/dsh_live_viewport.png`；而帧 PNG **确实写出来了**，只是落在一个
+  **字面量反斜杠目录** `/home/<u>/\wsl.localhost/Ubuntu/home/<u>/.dsh-blender-rt/` 里。旁证：`/doctor` 在 Manjaro 上把 `distro` 报成 `Ubuntu`。
+- **根因**：`runtime/config.mjs` 的 `wslToWin()` 只分了 `IS_MAC` / `IS_WIN`，**其余一律当成「Linux 宿主 ⇒ WSL +
+  Windows 上的 Blender」**，把宿主绝对路径映射成 `\\wsl.localhost\<distro>\…`。同机的 Blender 会把这个串当
+  **相对路径**，于是"Node 侧写、Blender 侧读"的文件交接全线错位（帧 / 无头脚本 / 台账 / results / trajectory /
+  launch 的 statusFile / staging 都走它）。macOS 当年踩过同一个坑并修了（`blenderSidePath` 的注释就是原话），原生 Linux 漏了。
+- **修法**：新增 `IS_WSL` 判据（环境变量优先 → 退回 `/proc/version`；systemd 服务里 dsh **不继承** `WSL_DISTRO_NAME`，
+  见 #6，所以不能只看环境变量），`wslToWin()` 在非 WSL 上**恒等返回**；判据剥成纯函数 `detectWsl(platform, env, procVersion)`
+  以便在**任何平台**上对拍。顺带两处同源问题：`/doctor` 的 `distro` 在原生 Linux 上读 `/etc/os-release` 报真实发行版；
+  `PATH_GUARD`（"Windows Blender 把 `/home/x` 当当前盘根下的相对路径"的体检）在原生 Linux 关闭 —— 否则每条正常脚本
+  都回一条 `render_filepath_posix` 假警告，还把人往"改成 Windows 形式"引。
+- **实测对照**（在 WSL 里用**私有挂载命名空间**把 `/proc/version` 绑成 Manjaro 内核串 + 清掉 `WSL_DISTRO_NAME/WSL_INTEROP`，
+  于是真走到"原生 Linux"分支；同一台机器上跑修前 / 修后两份代码对拍）：
+
+  | 探针 | 修前 | 修后 |
+  |---|---|---|
+  | `wslToWin('/home/u/.dsh-blender-rt')` | `\\wsl.localhost\Ubuntu\home\u\.dsh-blender-rt` | `/home/u/.dsh-blender-rt` |
+  | `CFG.workDirWin` | `\\wsl.localhost\Ubuntu\tmp\dsh-blender-rt` | `/tmp/dsh-blender-rt`（与 `workDirWsl` 同构） |
+  | `PATHS.livePngWin` | `\\wsl.localhost\Ubuntu\tmp\dsh-blender-rt/dsh_live_viewport.png` | `/tmp/dsh-blender-rt/dsh_live_viewport.png` |
+  | `describeConfig().distro` | `Ubuntu` | `Ubuntu 24.04.4 LTS`（读 os-release） |
+  | `PATH_GUARD` | 非空（假警告） | `''` |
+
+- **回归门**：新增 `tests/linux_selftest.mjs`（`npm run test:linux`，25 断言；已挂进 `npm test`）—— `detectWsl()` 判据决策表
+  （任何平台可跑，含"假内核串不能误判成 WSL"/"读不到 /proc/version 不硬猜"）+ 本平台分支自洽 + 源码回归保护（UNC 分支仍在）
+  + 原生 Linux 端到端恒等。同一份自检打在**修前**代码上是 **11 红 / 16**，修后 **25 全绿**。
+- **WSL / Windows / macOS 三条既有路径逐字节不变**：`wslToWin('/home/x/f.png') === '\\wsl.localhost\Ubuntu\home\x\f.png'`、
+  `/mnt/d/… → D:\…`；真机上 `lease_stale_selftest`（含拉起 Windows 版 `blender.exe`、拿回 `resultJson.ok=true` 的 D2）20/0、
+  `mac_selftest` 7/0，`npm test` 与修前**逐条一致**、无新增失败。（唯一红的 `shape_search_selftest` 是本机 **Windows 侧
+  DSH 主进程占用了它默认的 9895 端口**，与本次改动无关：换端口单独跑 24/24 全过。）
+
+### 已知未修（与 issue #11 报告人的附注一致，留给后续）
+- `wslPathShared()` 在原生 Linux 上仍按 WSL 判据（`/tmp`、独立挂载一律判"不共享"）⇒ `/doctor` 的 `workDir.shared=false`、
+  无头脚本走"替换 / 降级"分支并带 `WORKDIR_NOT_SHARED` 提示。功能不挡事（同机 Blender 读得到），但语义要重新表述；
+  `workdir_shared_selftest` 的 A1/A2/A3 把 WSL 语义写成了硬断言，得跟着一起改。
+- 另注：`runtime/paths.mjs` 的 python 侧用的是另一套"非 WSL 原生 POSIX"判据（`!IS_WIN && !fs.existsSync('/mnt/c')`）。
+  原生 Linux 上两者结论一致（本版没动它）；只在"WSL 但没有 /mnt/c"这种边角上两套判据会分叉。
+
 ## v1.0.3（2026-10-05）—— 内环从"存在"到"真能用"：修 `ns` 未绑定（内环 6 个版本跑不通一次迭代）+ 新 op `shape_search`（声明式搜索）+ 描述改任务型触发词
 
 ### 修（P0 · 这才是"没人用 rt_loop"的真正原因）：`step`/`measure` 里 `ns[...]` 一跑就 NameError

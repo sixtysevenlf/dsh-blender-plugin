@@ -24,7 +24,7 @@ import os from 'node:os';
 import { createHash } from 'node:crypto';
 import { spawn, execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { CFG, PATHS, winToWsl, wslToWin, describeConfig, IS_WIN, IS_MAC, PKG_ROOT, wslPathShared } from './config.mjs';
+import { CFG, PATHS, winToWsl, wslToWin, describeConfig, IS_WIN, IS_MAC, IS_WSL, PKG_ROOT, wslPathShared } from './config.mjs';
 // 协议适配层：直连通道支持两种 addon 实现（ahujasid 扁平协议 / harveyxiacn category-action），
 // 由 CFG.addonProtocol 选择，默认 auto 自动探测。差异与映射见 runtime/addon-protocol.mjs。
 import { resolveProtocol, detectProtocol, resetProtocolCache } from './addon-protocol.mjs';
@@ -355,8 +355,12 @@ function envPrelude(envPairs) {
  * v0.9.3（D4.3）：路径体检 —— Windows Blender 把 '/home/x' 当"当前盘根下的相对路径"，
  * 静默写到 C:\home\x（证据：Saved: 'C:homesixtyseven67DSH…' 紧随其后 os.path.exists() -> false）。
  * 这里在脚本收尾时检查 scene.render.filepath；配合 stdout 里的 Saved: 扫描（pathAudit）。
+ *
+ * 这条体检的前提是「WSL 宿主 + Windows 版 Blender」：只有那种组合才把 POSIX 绝对路径读错。
+ * 原生 Linux 上 Blender 与宿主同机同 OS，'/home/x' 本来就是对的 ⇒ 必须关掉，否则每个正常脚本
+ * 都回一条 `render_filepath_posix` 假警告，还把人往"改成 Windows 形式"的错方向引（issue #11）。
  */
-export const PATH_GUARD = (IS_MAC || IS_WIN) ? '' : ['# ---- DSH 路径体检（v0.9.3 / D4.3）----',
+export const PATH_GUARD = (IS_MAC || IS_WIN || !IS_WSL) ? '' : ['# ---- DSH 路径体检（v0.9.3 / D4.3）----',
   'try:',
   '    import json as _dsh_pj',
   '    _dsh_pw = []',

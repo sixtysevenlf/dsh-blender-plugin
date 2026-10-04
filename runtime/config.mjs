@@ -21,8 +21,42 @@ export const PKG_ROOT = path.join(HERE, '..');
 export const IS_WIN = process.platform === 'win32';
 /** macOS：宿主与 Blender 同机同 OS，没有 Windows/WSL 的跨 OS 路径问题 */
 export const IS_MAC = process.platform === 'darwin';
-/** WSL 发行版名（拼 UNC 用） */
+
+/**
+ * 是否真的跑在 WSL 里（而不是原生 Linux）—— issue #11。
+ *
+ * 为什么必须单独判：`wslToWin()` 原来只分了 Windows / macOS，**其余一律当成「Linux 宿主 ⇒ WSL +
+ * Windows 上的 Blender」**，把宿主绝对路径映射成 `\\wsl.localhost\<distro>\…`。原生 Linux 上 Blender
+ * 与宿主同机同 OS（跟 macOS 一样同构），这个映射会让 Blender 把该串当**相对路径**，产物落进一个字面量
+ * 反斜杠目录，后端再按原路径读就 ENOENT ⇒ `blender_rt_see` 恒报 `frame http 502`。
+ *
+ * 判据：环境变量优先（交互式 WSL 一定有）；再退回 /proc/version —— dsh 跑在 systemd 服务里时**不继承**
+ * `WSL_DISTRO_NAME`（issue #6 现场），但那台机器确实是 WSL，不能因此误判成原生 Linux。
+ * 剥成纯函数是为了能在**任何平台**上对拍判据（tests/linux_selftest.mjs [1]）。
+ */
+export function detectWsl(platform, env, procVersion) {
+  if (platform === 'win32' || platform === 'darwin') return false;
+  const e = env || {};
+  if (e.WSL_DISTRO_NAME || e.WSL_INTEROP) return true;
+  return /microsoft|wsl/i.test(String(procVersion || ''));
+}
+
+export const IS_WSL = detectWsl(process.platform, process.env, (function () {
+  try { return fs.readFileSync('/proc/version', 'utf8'); } catch (e) { return ''; }
+})());
+
+/** WSL 发行版名（拼 UNC 用）；非 WSL 平台只用于诊断显示，见 linuxDistroName() */
 export const DISTRO = process.env.WSL_DISTRO_NAME || 'Ubuntu';
+
+/** 原生 Linux 的发行版名（只喂 /doctor 的显示字段；WSL 用 DISTRO） */
+export function linuxDistroName() {
+  try {
+    const t = fs.readFileSync('/etc/os-release', 'utf8');
+    const m = t.match(/^PRETTY_NAME="?([^"\n]+)"?/m) || t.match(/^NAME="?([^"\n]+)"?/m);
+    if (m) return m[1].trim();
+  } catch (e) { /* 读不到就退回平台名，不编 */ }
+  return 'linux';
+}
 
 export const CONFIG_FILES = [
   process.env.DSH_BLENDER_CONFIG,
@@ -59,11 +93,20 @@ export function winToWsl(p) {
   return s;
 }
 
-/** WSL/相对路径 → Windows 侧可用路径（/mnt/x/... → X:\...；WSL 内部 → \\wsl.localhost\<distro>\...） */
+/**
+ * 宿主路径 → Blender 进程侧的可用路径。
+ *   Windows     → 反斜杠化（原样）
+ *   WSL         → /mnt/x/... → X:\...；WSL 内部 → \\wsl.localhost\<distro>\...
+ *   原生 Linux  → **恒等**（宿主与 Blender 同机同 OS，跟 macOS 一样不该做跨 OS 改写）—— issue #11
+ *   macOS       → 恒等
+ */
 export function wslToWin(p) {
   const s = String(p || '');
   if (IS_MAC) return s;
   if (IS_WIN) return s.replace(/\//g, '\\');
+  // 原生 Linux（非 WSL）：恒等。映射成 \\wsl.localhost\… 的话，同机的 Blender 会把它当**相对路径**，
+  // 产物落进一个字面量反斜杠目录（取帧 PNG 写出来但读不到 ⇒ frame http 502、无头脚本打不开）。
+  if (!IS_WSL) return s;
   const m = s.match(/^\/mnt\/([a-z])\/(.*)$/i);
   if (m) return m[1].toUpperCase() + ':' + '\\' + m[2].replace(/\//g, '\\');
   if (s.startsWith('/')) return '\\\\wsl.localhost\\' + DISTRO + s.replace(/\//g, '\\');
@@ -327,7 +370,8 @@ export function describeConfig(over) {
   const o = over || {};
   return {
     platform: process.platform,
-    distro: (IS_WIN || IS_MAC) ? null : DISTRO,
+    // WSL 报发行版名（UNC 里用的就是它）；原生 Linux 报自己的发行版 —— 别再把 Manjaro 报成 'Ubuntu'（issue #11）
+    distro: (IS_WIN || IS_MAC) ? null : (IS_WSL ? DISTRO : linuxDistroName()),
     addon: CFG.addonHost + ':' + String(CFG.addonPort),
     addonProtocol: CFG.addonProtocol,
     http: '127.0.0.1:' + String(o.httpPort || CFG.httpPort),

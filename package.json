@@ -1,6 +1,6 @@
 {
   "name": "@dsh-external/dsh-blender-plugin",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "DSH × Blender 直连实时插件【分享版 v1.0】：15 个模型侧工具让 AI 直接驱动 Blender —— blender_rt_see（视口帧 / 自定义视角）、blender_rt_do（跑 Python，持久内核 K）、blender_rt_watch（时间窗采样）、blender_rt_loop（Blender 侧内环迭代）、blender_rt_cmd / blender_rt_commands（addon 命令透传）、blender_rt_perf（渲染性能诊断与预设）、blender_rt_opt（对象精简 / 安全合并）、blender_rt_headless（独立无头进程）、blender_rt_worker（热无头会话）、blender_rt_job（作业层，超时不丢结果）、blender_rt_txn（事务回滚）、blender_rt_preset（配方库）、blender_rt_plan（契约层 + 规划器：28 个 family / 183 个 op 的判定·验收·导出·造型）、blender_viewport（通道运维与写租约）；自带 node + python runtime，配置走 env → 配置文件 → 自动探测，换机器不用改源码。安装三步与唯一验收判据（doctor kind=ok）见 README，操作教程见 docs/操作教程.md。",
   "private": false,
   "keywords": [
@@ -70,7 +70,7 @@
   "scripts": {
     "build": "bash scripts/build.sh",
     "typecheck": "node scripts/typecheck.mjs",
-    "test": "node tests/capability_lock.mjs && node tests/single_source_selftest.mjs && node tests/protocol_selftest.mjs && node tests/lossless_guard.mjs && node tests/lease_stale_selftest.mjs && node tests/mac_selftest.mjs && node tests/frame_dedupe_selftest.mjs && node tests/discoverability_selftest.mjs && node tests/shape_search_selftest.mjs && node tests/workdir_shared_selftest.mjs && node tests/provenance_stale_selftest.mjs && node scripts/pyrun.mjs tests/generator_dispatch_selftest.py && node tests/guidance_selftest.mjs && node tests/backend_probe_selftest.mjs && node tests/schema_resolve_selftest.mjs && node scripts/pyrun.mjs tests/gate_eval_selftest.py",
+    "test": "node tests/capability_lock.mjs && node tests/single_source_selftest.mjs && node tests/protocol_selftest.mjs && node tests/lossless_guard.mjs && node tests/lease_stale_selftest.mjs && node tests/mac_selftest.mjs && node tests/linux_selftest.mjs && node tests/frame_dedupe_selftest.mjs && node tests/discoverability_selftest.mjs && node tests/shape_search_selftest.mjs && node tests/workdir_shared_selftest.mjs && node tests/provenance_stale_selftest.mjs && node scripts/pyrun.mjs tests/generator_dispatch_selftest.py && node tests/guidance_selftest.mjs && node tests/backend_probe_selftest.mjs && node tests/schema_resolve_selftest.mjs && node scripts/pyrun.mjs tests/gate_eval_selftest.py",
     "test:discover": "node tests/discoverability_selftest.mjs",
     "test:lease": "node tests/lease_stale_selftest.mjs",
     "test:workdir": "node tests/workdir_shared_selftest.mjs",
@@ -80,6 +80,7 @@
     "test:diag": "node tests/view_diag_selftest_runner.mjs",
     "test:lossless": "node tests/lossless_guard.mjs",
     "test:mac": "node tests/mac_selftest.mjs",
+    "test:linux": "node tests/linux_selftest.mjs",
     "test:gui": "node tests/gui_channel_probe.mjs",
     "test:lossless:live": "node tests/lossless_guard.mjs --live",
     "test:acceptance": "node tests/acceptance_v093.mjs",
