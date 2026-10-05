@@ -22,7 +22,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { wslPathShared, describeConfig } from '../runtime/config.mjs'
+import { wslPathShared, describeConfig, IS_WSL } from '../runtime/config.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const PKG = path.join(HERE, '..')
@@ -60,14 +60,29 @@ const a3 = wslPathShared('/dev/shm/dsh-x')
 if (process.platform === 'win32') {
   ok('A1 Windows 平台恒判共享（平台无此问题）', a1.shared === true, JSON.stringify(a1))
 } else {
-  // /tmp 在不同发行版可能是独立挂载、也可能就在根文件系统上 ⇒ 不该硬编码结论，只验「判定自洽」
-  ok('A1 判定自洽（shared 能被 why 解释：distro-root-fs ⇒ 共享；独立挂载 ⇒ 不共享）',
-    a1.shared === true ? a1.why === 'distro-root-fs'
-      : (a1.shared === false && typeof a1.why === 'string' && a1.why.length > 0),
-    JSON.stringify(a1))
-  ok('A2 home 下的路径判为共享（发行版根文件系统 → \\\\wsl.localhost\\<distro>\\…）',
-    a2.shared === true && a2.why === 'distro-root-fs', JSON.stringify(a2))
-  ok('A3 /dev/shm 同判不共享（另一个独立挂载）', a3.shared === false, JSON.stringify(a3))
+  if (IS_WSL) {
+    // WSL: Windows-side Blender visibility really does depend on the mount table
+    // /tmp 在不同发行版可能是独立挂载、也可能就在根文件系统上 ⇒ 不该硬编码结论，只验「判定自洽」
+    ok('A1 判定自洽（shared 能被 why 解释：distro-root-fs ⇒ 共享；独立挂载 ⇒ 不共享）',
+      a1.shared === true ? a1.why === 'distro-root-fs'
+        : (a1.shared === false && typeof a1.why === 'string' && a1.why.length > 0),
+      JSON.stringify(a1))
+    ok('A2 home 下的路径判为共享（发行版根文件系统 → \\\\wsl.localhost\\<distro>\\…）',
+      a2.shared === true && a2.why === 'distro-root-fs', JSON.stringify(a2))
+    ok('A3 /dev/shm 同判不共享（另一个独立挂载）', a3.shared === false, JSON.stringify(a3))
+  } else if (process.platform === 'linux') {
+    // native Linux: Blender is local, so the mount table is irrelevant and every absolute path is shared
+    const native = (x) => x.shared === true && x.why === 'native-linux-same-machine'
+    ok('A1 原生 Linux 无 Windows 侧，恒判共享', native(a1), JSON.stringify(a1))
+    ok('A2 home 下的路径恒判共享（不再看挂载表）', native(a2), JSON.stringify(a2))
+    ok('A3 /dev/shm 同样恒判共享（独立挂载也不再降级）', native(a3), JSON.stringify(a3))
+  } else {
+    // macOS: no /proc/self/mounts, so the verdict stays "cannot judge"
+    const unknown = (x) => x.shared === null && x.why === 'no-mount-table'
+    ok('A1 macOS 读不到挂载表，判不了', unknown(a1), JSON.stringify(a1))
+    ok('A2 home 下的路径同样判不了', unknown(a2), JSON.stringify(a2))
+    ok('A3 /dev/shm 同样判不了', unknown(a3), JSON.stringify(a3))
+  }
   ok('A4 相对路径判不了 → null（不硬猜）', wslPathShared('relative/x').shared === null, JSON.stringify(wslPathShared('relative/x')))
   ok('A5 判定必须带 why（可解释，不是布尔玄学）', typeof a1.why === 'string' && a1.why.length > 0, JSON.stringify(a1))
 }

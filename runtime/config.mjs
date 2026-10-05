@@ -148,6 +148,8 @@ export function wslPathShared(p) {
   const s = String(p || '');
   if (IS_WIN) return { shared: true, why: 'windows' };
   if (s.charAt(0) !== '/') return { shared: null, why: 'not-absolute' };
+  // native Linux: Blender runs on this same machine, so nothing can be invisible to it
+  if (!IS_MAC && !IS_WSL) return { shared: true, why: 'native-linux-same-machine' };
   if (/^\/mnt\/[a-z](\/|$)/i.test(s)) return { shared: true, why: 'drvfs-drive' };
   const ms = mountEntries();
   if (!ms.length) return { shared: null, why: 'no-mount-table' };
