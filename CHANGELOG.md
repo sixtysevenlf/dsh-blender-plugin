@@ -1,5 +1,66 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
+## v1.0.5（2026-10-07）—— issue #14：悬垂默认不再把「贴床底面」算成需要支撑（+ 两个各向异性缩放的旧账 + `npm test` 在 Windows 上跑不到一半）
+
+### 修 1（P1 · issue #14）：`print_overhang` / `print_report` 的贴床面口径
+
+- **症状**：FDM 零件绝大多数是平底，而旧口径把「法线朝下的面」一律算悬垂 ⇒ **平底零件默认 `overhang_ok=false`**。
+  报告人的 PLA 支架 `overhang_area_mm2=5351.57`，其中 **97%（5198.49mm²）是 z=0 的贴床平底**；
+  1 单位立方体 `overhang_ratio=0.1667`、ok=false。
+- **根因**：判据只看法线（`c >= cos_lim`），从没问「这个面是不是贴在打印平台上」；而回执 note 却让用户
+  「底面贴床的平面请用 `min_area_mm2` 排除」—— 与实现矛盾（那是**面积预算**，抬高预算会把真悬垂一并放行）。
+- **改法**：新增 `exclude_bed=True`（默认）、`bed_tol_mm=0.2`、`bed_mode=flat|min`、`bed_horiz_deg=1.0`、`bed_band_mm=1.0`。
+  贴床面 = 水平朝下（≤`bed_horiz_deg`）**且**标高落在平台面 ±`bed_tol_mm` 内；平台面 `flat`（默认）取
+  「面积最大的水平朝下层」的标高、`min` 取所选集合最低点。回执：`overhang_area_mm2` = **净悬垂**、
+  `bed_area_mm2` 单列贴床面、`overhang_area_incl_bed_mm2` 保留老口径、`bed_level_mm`/`lowest_mm` 可复盘；
+  `exclude_bed=False` 整体回退 v1.0.4 老口径（净悬垂/占比/ok 逐值等价）。
+- **顺手堵掉一个假绿**：`flat` 若无条件信任「面积最大的水平朝下面」，**蘑菇件**（细柱 + 宽帽）会把帽底
+  当平台面 ⇒ 实测 200×200 帽底 **40000mm² 真实悬垂被整块吞掉、`ok=true`**。加 `bed_band_mm` 防线：候选层
+  离最低点超过 1mm 就判定「它不像平台面」→ 退回 `min` 口径并写 `bed_warning`。修后同一几何：
+  `bed_mode=min-fallback`、帽底 40000mm² 照算、`ok=false`。
+- **不确定不许读成绿**：`print_report` 顶层新增 `warnings[]`（平台面判据的自证警告，`rows[].bed_warning` 同步），
+  `gate.py` 的 print preset 把 `len(warnings) > 0` 接进 `degrade_if` ⇒ 这类回执在门里是 **degraded**。
+- **已知边界（写进 `print_help` 的 limits）**：`bed_band_mm` 以内的差值判不出来 —— 「距台 ≤1mm 的宽面」与
+  「底缘碎面」是同一形状，`flat` 一律算贴床（FDM 能桥接）；另 `flat/min` 都几何自推、**位置无关**，
+  整件悬空时最低点就是它自己，要按绝对平台判请先落台或用 `exclude_bed=False`。
+- **字段契约变更**：`PRINT_VERSION` 1 → 2；`overhang_area_mm2` 语义翻转（默认不再含贴床面）。
+- **自检**：`print_selftest` 从 1 个形状扩到 **8 个**（平底立方体 / 悬臂 / 平底碎块 / 蘑菇帽 / 斜面不许当贴床 /
+  单件 T 的比值 / 非均匀缩放的面积真值与法线），期望值全是解析解而非实现回抄；并接进真机 A1–A5 套件。
+
+### 修 2（旧账 · v1.0.4 就有）：各向异性缩放下法线与面积都算错
+
+- **法线**：`M.to_3x3() @ n` 应为**逆转置** `((M⁻¹)ᵀ @ n)`。scale(2,1,1) 下真法线离正下方 16°（必须支撑）被算成
+  49° ⇒ **整块面丢出悬垂集**（实测修前该斜面悬垂 0.00mm²、修后 0.34mm² 计入）。
+- **面积**：`p.area × (_scale_avg × mmu)²` 在 scale(2,1,1) 下偏 **-11.1%**（1.777e6 vs 真值 2e6 mm²）；
+  改为按世界坐标三角扇累加（旋转/等比缩放下与原值等价，只有各向异性缩放会变）。
+
+### 修 3（issue #10 的跟进项）：`npm test` 在 Windows 上跑不到一半
+
+- `import(path.join(...))` 得到的 Windows 盘符路径（`C:\…`）会被 ESM 当成 scheme `c:` ⇒
+  `ERR_UNSUPPORTED_ESM_URL_SCHEME`（**任何平台都可复现**，不只 Windows）。**11 处**统一改成
+  `pathToFileURL(...).href`：`capability_lock` / `single_source` / `guidance` / `shape_search` / `backend_probe` /
+  `route_contract` / `mac_selftest` / `sync_counts` / `dsh_api_compat_probe`（两处内联脚本）/
+  `schema_resolve_selftest`（父进程传 URL + 子进程自转 URL）。
+- `tests/schema_resolve_selftest.mjs` 新增 **E 组**：Windows 风格裸路径不得再撞 scheme 错 —— 这条**任何平台都能跑**，
+  所以 Windows 的失效模式在 Linux CI 上就有回归保护。
+- `tests/protocol_selftest.mjs` 的「死端口」原为 `flatPort + 4242`：OS 动态端口在 49152–65535，> 61293 时越界 ⇒
+  `Socket.connect()` 抛 `ERR_SOCKET_BAD_PORT`、那句断言根本跑不到（约 **26%** 概率间歇红）。改为 bind(:0) → close
+  取真死端口，并把原来那条**恒真**断言换成「死端口 ≠ 任一 mock 端口」。
+- `tests/README.md` 的 preload 示例漏了 `pipeline`（实测红 2 条：`t_pipeline` / `t_refs_single_op` —— 是示例漏项、
+  不是插件缺陷），已补全；断言数订正为实测值。
+
+### 验收（全部在最终改动之后实测）
+
+| 门 | 结果 |
+|---|---|
+| `npm test`（16 步） | **EXIT=0** |
+| `print_selftest`（真机 Blender 5.2.2） | **ok=true** · 8 形状 |
+| `gate_selftest` | **ok=true**（新增真机用例：`warnings` 非空 ⇒ 该门 degraded） |
+| A1–A5 集成自检（真机无头） | **128 / 0 失败** |
+| gate 复审回归（真机无头） | **52 / 0 失败** |
+| issue #14 复现（默认 Cube） | 修前 `4000000 / 0.1667 / ok=false` → 修后 **`0 / 0 / ok=true`**；`exclude_bed=False` 仍复现老数字 |
+| 变异测试（故意改坏实现） | 忽略 `bed_horiz_deg` → 红；`overhang_ratio` 分母写错 → 红；法线退回 `M@n` → 红；面积退回 `_scale_avg` → 红；拆掉 `bed_band_mm` → 红 |
+
 ## v1.0.4（2026-10-05）—— 原生 Linux 成为一等平台：修 `wslToWin()` 把"非 Win/mac 的宿主"一律当成 WSL（取帧恒报 `frame http 502`）
 
 ### 修（issue #11，报告人 @mlfc666，Manjaro 原生 Linux）

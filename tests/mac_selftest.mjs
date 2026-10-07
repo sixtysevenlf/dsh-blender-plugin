@@ -17,7 +17,7 @@ import net from 'node:net';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -34,8 +34,8 @@ function eq(label, got, want) {
     'got=' + JSON.stringify(got) + ' want=' + JSON.stringify(want));
 }
 
-const cfg = await import(path.join(ROOT, 'runtime/config.mjs'));
-const eng = await import(path.join(ROOT, 'runtime/engine.mjs'));
+const cfg = await import(pathToFileURL(path.join(ROOT, 'runtime/config.mjs')).href);
+const eng = await import(pathToFileURL(path.join(ROOT, 'runtime/engine.mjs')).href);
 
 const IS_MAC = cfg.IS_MAC;
 const IS_WIN = cfg.IS_WIN;

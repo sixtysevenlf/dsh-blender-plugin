@@ -34,7 +34,7 @@ export const PLAN_CATALOG = [
     not: '装配干涉/连通/包络（那走 audit_*）',
     sk: 'blender_rt_plan(op="print_report", args={objects:["Body"], min_mm:1.2, max_angle_deg:45})',
     ops: ['walls', 'overhang', 'report', 'selftest', 'help'],
-    key: '回执带 resolution_mm（本地面尺寸）；min_mm 低于它会给"结论不可信"警告 —— 别拿粗网格下细结论' },
+    key: '回执带 resolution_mm（本地面尺寸）；min_mm 低于它会给"结论不可信"警告 —— 别拿粗网格下细结论；悬垂默认**排除贴床面**（bed_area_mm2 单列、overhang_area_incl_bed_mm2 留老口径、exclude_bed=false 回退），min_area_mm2 是净悬垂预算；flat 有 bed_band_mm 防线（半空中的大帽檐不会被当平台面 ⇒ 不会把真实悬垂吞成绿），平台面判据的自证警告在 overhang 的 bed_warning 与 print_report 顶层 warnings[]' },
   { f: 'sweep', prefix: 'sweep_',
     when: '管路 / 线缆 / 轨道 / 护栏这类"沿路径成形"',
     not: '等距重复阵列（履带/链节走参数化 Array 配方）；**别手接路径段** —— 先 sweep_analyze 算弯折半径',

@@ -2,11 +2,13 @@
 """上游整合 A1–A5 自检：sculpt / mesh_fix / uv_tools / printcheck / sweep + audit 空网格回归。
 
 跑法（无头，factory-startup，绝不碰用户 GUI 场景；engine=none 只为省引擎前导）：
-    blender_rt_headless(preload="audit,sculpt,mesh_fix,uv_tools,printcheck,sweep", engine="none",
-        factory_startup=True, timeout_ms=300000,
+    blender_rt_headless(preload="audit,sculpt,mesh_fix,uv_tools,printcheck,sweep,material,render_guard,"
+                                "gate,human,vehicle,clearance,shapegen,faceeval,imgtools,pipeline",
+        engine="none", factory_startup=True, timeout_ms=300000,
         script="_p=K.win_path('/home/sixtyseven67/DSH/dsh-blender-plugin/tests/upstream_integration_selftest.py');"
                "exec(compile(open(_p,encoding='utf-8').read(),'x','exec'),globals())")
     # 也可以直接： blender -b --factory-startup --python tests/upstream_integration_selftest.py
+    # ⚠ preload 要覆盖 main() 跑到的全部能力面；漏 pipeline 会红 2 条（t_pipeline / t_refs_single_op）。
 
 判据（数字对着实测写；不达标改代码，不改断言）：
     雕刻   1986 顶点的球：draw 笔触 affected>0 且 max_delta>0；单点 + symmetry=["x"] ⇒ stroke_paths==2（不是 1）；
@@ -14,7 +16,8 @@
     修复   合成缺陷网格：degenerate/loose 修复后归 0；空网格（0 边）audit_mesh 不再 IndexError，报 empty_objects≥1
     UV     立方体 smart project ⇒ 有 UV 层且零面积 UV 面 = 0
     制造   200×200×5mm 薄板（面≈4mm）@min_mm=10 ⇒ min≈5mm（±0.5）且 thin_samples>0、无 resolution 警告；
-           悬垂面积对上解析解 40000mm²（占比 0.476）；
+           平底薄板底面判为贴床面 40000mm²（v1.0.5 / issue #14：净悬垂 0、老口径字段仍给 40000）；
+           同批里离台 50mm 的薄板底面必须仍计入悬垂 10000mm²（真悬垂不许被平台面吞掉）；
            粗网格（体素球）@min_mm=5 ⇒ 必须给 resolution_mm 与"结论不可信"警告
     扫掠   3 站 12 边形直管 ⇒ 38 顶点 / 48 面；过紧路径 ⇒ 拒绝（ok=false 且指出第几个点）
     材质   metal_brushed 建图（节点/连线 >=5）→ 套用 → scan 报 procedural/needs_uv → AO 128px 烘出贴图
@@ -75,8 +78,8 @@ def new_sphere(name, segs=64, rings=32, radius=1.0):
     return ob
 
 
-def new_plate(name, size=0.1, segs=50, thick=0.005):
-    """size=0.1 ⇒ 200mm 见方；thick=0.005 ⇒ 5mm。"""
+def new_plate(name, size=0.1, segs=50, thick=0.005, lift=0.0):
+    """size=0.1 ⇒ 200mm 见方；thick=0.005 ⇒ 5mm；lift 把整块板沿 +Z 抬起来（烘进顶点，不靠对象变换）。"""
     me = bpy.data.meshes.new(name)
     ob = bpy.data.objects.new(name, me)
     bpy.context.scene.collection.objects.link(ob)
@@ -86,6 +89,8 @@ def new_plate(name, size=0.1, segs=50, thick=0.005):
     vs = [e for e in r["geom"] if isinstance(e, bmesh.types.BMVert)]
     bmesh.ops.translate(bm, verts=vs, vec=(0.0, 0.0, thick))
     bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+    if lift:
+        bmesh.ops.translate(bm, verts=list(bm.verts), vec=(0.0, 0.0, lift))
     bm.to_mesh(me)
     bm.free()
     return ob
@@ -177,16 +182,33 @@ def t_print():
         w.get("ok") is False and row["thin_samples"] > 0 and not row.get("warning"), row)
     o = api("print")("overhang", {"objects": [plate.name], "max_angle_deg": 45})
     orow = o["objects"][0]
-    # 解析解：200×200×5mm 薄板总表面积 = 2*200*200 + 4*200*5 = 84000 mm²，正下方底面 40000 mm²
-    chk("薄板悬垂面积对上解析解（40000 mm² / 占比 0.476）",
-        abs(float(orow["overhang_area_mm2"]) - 40000.0) <= 100.0
-        and abs(float(orow["overhang_ratio"]) - 0.476) <= 0.01, orow)
+    # 解析解：200×200×5mm 薄板总表面积 = 2*200*200 + 4*200*5 = 84000 mm²，正下方底面 40000 mm²。
+    # v1.0.5（issue #14）：底面贴在平台上 ⇒ 归 bed_area_mm2，净悬垂 = 0；老口径字段仍给 40000 供对照。
+    chk("平底薄板底面判为贴床面（40000 mm² / 净悬垂 0 / 老口径仍 40000）",
+        abs(float(orow["bed_area_mm2"]) - 40000.0) <= 100.0
+        and abs(float(orow["overhang_area_mm2"])) <= 1.0
+        and abs(float(orow["overhang_area_incl_bed_mm2"]) - 40000.0) <= 100.0, orow)
+    chk("贴床面占比 0.476（bed_ratio）", abs(float(orow["bed_ratio"]) - 0.476) <= 0.01, orow)
+    chk("平底薄板默认过悬垂门（issue #14：不再恒判 false）", orow.get("ok") is True, orow)
+
+    # 真悬垂不许被平台面吞掉：同一批里再放一块 100mm 见方、离台 50mm 的薄板（底面 10000 mm²）
+    lifted = new_plate(PREFIX + "plate_lifted", size=0.05, lift=0.05)
+    o2 = api("print")("overhang", {"objects": [plate.name, lifted.name], "max_angle_deg": 45})
+    lrow = o2["objects"][1]
+    chk("离台 50mm 的薄板底面仍计入悬垂（10000 mm²、贴床面 0）",
+        abs(float(lrow["overhang_area_mm2"]) - 10000.0) <= 100.0
+        and abs(float(lrow["bed_area_mm2"])) <= 1.0 and lrow.get("ok") is False, lrow)
 
     coarse = new_sphere(PREFIX + "coarse", segs=24, rings=12)
     w2 = api("print")("walls", {"objects": [coarse.name], "min_mm": 1})
     row2 = w2["objects"][0]
     chk("粗网格必须给 resolution_mm 与'结论不可信'警告",
         row2.get("resolution_mm") and row2.get("warning"), row2)
+
+    # v1.0.5（issue #14）：把模块自检也纳入真机套件 —— 4 种形状（平底立方体 / 悬臂 / 平底碎块 / 蘑菇帽）
+    st = api("print")("selftest", {})
+    chk("print_selftest 自证：贴床面被排除、真悬垂仍计入、蘑菇帽不许假绿",
+        bool(st.get("ok")), st.get("fails") or st.get("error"))
 
 
 def t_sweep():

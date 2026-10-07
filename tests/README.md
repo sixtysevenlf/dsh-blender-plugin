@@ -5,15 +5,22 @@
 ## 上游整合 A1–A5 自检（v0.9.6）
 
 ``python
-blender_rt_headless(preload="audit,sculpt,mesh_fix,uv_tools,printcheck,sweep", engine="none",
+blender_rt_headless(preload="audit,sculpt,mesh_fix,uv_tools,printcheck,sweep,material,render_guard,gate,human,vehicle,clearance,shapegen,faceeval,imgtools,pipeline", engine="none",
     factory_startup=True, timeout_ms=300000,
     script="_p=K.win_path('<包路径>/tests/upstream_integration_selftest.py');"
            "exec(compile(open(_p,encoding='utf-8').read(),_p,'exec'),globals())")
 ``
 
-63 项断言（v0.9.6 起含材质、渲染 guard、D3 瘦身门、D5 门包/分岛/三态、D6 相贴判据），**实测数字写死**（不达标改代码，不改断言）：雕刻位移笔刷真的动了网格、对称是独立笔触、
+> ⚠ preload 必须覆盖 main() 里跑到的**全部**能力面。旧示例只写前 6 个 —— 实测会红 2 条
+> （`t_pipeline` / `t_refs_single_op` 报「模块没注入：K.dsh_pipe_api」），那是示例漏项、不是插件缺陷。
+> 完整清单见上面这行（`pipeline` 最容易漏）。
+
+128 项断言（2026-10-07 实测 · 全绿；v0.9.6 起含材质、渲染 guard、D3 瘦身门、D5 门包/分岛/三态、D6 相贴判据），**实测数字写死**（不达标改代码，不改断言）：雕刻位移笔刷真的动了网格、对称是独立笔触、
 体素预算守卫拦得下过小的 voxel_size、fix_repair 修完自证、空网格不再让 audit_mesh 崩（回归）、
-UV 零面积面=0、薄板壁厚 5mm ±0.5、粗网格必须给 resolution_mm 警告、直管 38 顶点/48 面、过紧路径被拒。
+UV 零面积面=0、薄板壁厚 5mm ±0.5、粗网格必须给 resolution_mm 警告、直管 38 顶点/48 面、过紧路径被拒、
+**print（issue #14）：平底薄板底面判为贴床面（净悬垂 0 / 老口径字段仍给 40000 / 默认过门）、同批离台 50mm 的
+板底面仍计 10000mm²、`print_selftest` 六形状自证（平底立方体 / 悬臂 / 平底碎块 / 蘑菇帽不许假绿 / 斜面不许当
+贴床 / 单件 T 的 overhang_ratio 分母）—— 「真悬垂不许被平台面吞掉」这条有回归锁**。
 材质：metal_brushed 建图（节点/连线 ≥5）→ 套用 → scan 报 procedural/needs_uv → AO 128px 烘出贴图（bytes>0）；
 渲染：render_guard install/mark/clear —— 磁盘标记出现又消失，handler 数量 ≥1；
 瘦身：`audit_scene(summary_only, top_k)` 判定不变（clean/totals 一致）、字符省 ≥70%、40 行 → top_k 行；`audit_mesh` 去明细留判据。

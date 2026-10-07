@@ -98,7 +98,10 @@ if (existsSync(join(pluginRoot, 'dsh-blender.config.json'))) {
 const inner = join(root, 'inner.mjs')
 writeFileSync(inner, `
 const root = process.argv[2]
-const mod = await import(root + '/plugin/index.mjs')
+const { pathToFileURL } = await import('node:url')
+// root 是绝对路径：Windows 上是 C:\\…，裸路径会被 import() 当成 scheme 'c:'
+// ⇒ ERR_UNSUPPORTED_ESM_URL_SCHEME（issue #10 跟进项）。一律转 file:// URL。
+const mod = await import(pathToFileURL(root + '/plugin/index.mjs').href)
 const regs = []; const errors = []
 const ctx = {
   effect(fn, label) { try { const d = fn(); return typeof d === 'function' ? d : () => {} } catch (e) { errors.push(String(label) + ': ' + String(e && e.message)) } return () => {} },
@@ -147,7 +150,8 @@ console.log(jsonOut ? '基线已写入     : ' + jsonOut : '')
 if (argv.includes('--smoke')) {
   const smoke = spawnSync(process.execPath, ['-e', `
     const root = process.argv[1]
-    const mod = await import(root + '/plugin/index.mjs')
+    const { pathToFileURL } = await import('node:url')
+    const mod = await import(pathToFileURL(root + '/plugin/index.mjs').href)
     const regs = []
     const ctx = { effect(fn) { try { fn() } catch (e) {} return () => {} }, get() { return undefined }, on() {}, plugin() {}, tools: { register(d) { regs.push(d); return () => {} } } }
     mod.apply(ctx, { port: Number(process.argv[2] || 9877), autoStart: false })

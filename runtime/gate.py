@@ -156,12 +156,16 @@ PRESETS = {
             # （不是 fail，也不是 pass），echo 把三个真实读数带进回执供审计。
             {"id": "walls", "op": "print_report", "args": {"min_mm": 2.0, "scope": "ACTIVE"},
              "pass_if": "thin_samples_total == 0 and walls_ok == True",
-             "degrade_if": "params['min_mm'] < detail['walls']['objects'][0]['resolution_mm']",
+             "degrade_if": ("params['min_mm'] < detail['walls']['objects'][0]['resolution_mm']"
+                            " or len(warnings) > 0"),
              "echo": ["params.min_mm", "detail.walls.objects.0.resolution_mm",
-                      "detail.walls.objects.0.warning"],
+                      "detail.walls.objects.0.warning", "warnings",
+                      "params.bed_mode", "params.bed_level_mm"],
              "note": "制造门：壁厚 < min_mm 的采样数必须为 0，**且这个结论得可信**。分辨率口径在 per-object 的 "
                      "detail.walls.objects[].warning / resolution_mm 上（顶层没有这个字段）⇒ degrade_if 直接读它们："
-                     "min_mm 低于本网格测量分辨率时判 degraded（顶层变 degraded，不是假绿）。"
+                     "min_mm 低于本网格测量分辨率时判 degraded（顶层变 degraded，不是假绿）；"
+                     "v1.0.5（issue #14）起悬垂一侧同理：顶层 warnings[] 非空（print_overhang 的 bed_warning —— "
+                     "平台面判不准，可能把真实悬垂当贴床面排掉）也判 degraded。"
                      "判的是活动对象（scope=ACTIVE，objects[0]）；多对象/多分辨率请自己写 spec 逐对象判"},
         ],
     },
@@ -803,12 +807,18 @@ def gate_selftest():
         # 分辨率 0.1mm ⇒ 不命中（"只有当分辨率不可信时才降级"）。echo 走点路径取真实字段。
         _preset_print = PRESETS["print"]["gates"][0]
         _dg_expr = _preset_print["degrade_if"]
-        _coarse = {"params": {"min_mm": 2.0}, "detail": {"walls": {"objects": [{"resolution_mm": 1000.0}]}}}
-        _fine = {"params": {"min_mm": 2.0}, "detail": {"walls": {"objects": [{"resolution_mm": 0.1}]}}}
+        _coarse = {"warnings": [], "params": {"min_mm": 2.0},
+                   "detail": {"walls": {"objects": [{"resolution_mm": 1000.0}]}}}
+        _fine = {"warnings": [], "params": {"min_mm": 2.0},
+                 "detail": {"walls": {"objects": [{"resolution_mm": 0.1}]}}}
+        # v1.0.5（issue #14）：悬垂一侧的 bed_warning 汇总在顶层 warnings[] —— 非空也必须降级
+        _warned = {"warnings": ["贴床面标高 0.5 比集合最低点 0.0 高 0.5 mm"], "params": {"min_mm": 2.0},
+                   "detail": {"walls": {"objects": [{"resolution_mm": 0.1}]}}}
         ev["degrade_if_unit"] = {
             "expr": _dg_expr,
             "coarse_hits": _eval_pass_if(_dg_expr, _coarse),
             "fine_hits": _eval_pass_if(_dg_expr, _fine),
+            "warned_hits": _eval_pass_if(_dg_expr, _warned),
             "path_ok": _path_get(_coarse, "detail.walls.objects.0.resolution_mm") == (1000.0, True),
             "path_missing": _path_get(_coarse, "detail.walls.objects.9.resolution_mm")[1] is False,
             "echo": _collect_echo(_coarse, _preset_print.get("echo")),
@@ -816,9 +826,11 @@ def gate_selftest():
         }
         ev["degrade_if_ok"] = bool(ev["degrade_if_unit"]["coarse_hits"] is True
                                    and ev["degrade_if_unit"]["fine_hits"] is False
+                                   and ev["degrade_if_unit"]["warned_hits"] is True
                                    and ev["degrade_if_unit"]["path_ok"]
                                    and ev["degrade_if_unit"]["path_missing"]
                                    and ev["degrade_if_unit"]["echo"].get("params.min_mm") == 2.0
+                                   and "warnings" in (ev["degrade_if_unit"]["plan_echo"] or [])
                                    and ev["degrade_if_unit"]["plan_echo"])
         # preset 静态契约（F2-a/b/c + v3 的跳过/降级字段）：门还在、各自读的字段是真的、没来源的门会 skipped
         pp = json.loads(gate_plan(preset="assembly"))
@@ -853,6 +865,45 @@ def gate_selftest():
                                         and p5["ok"] is False and p5["pass_if_value"] is True
                                         and p5["resolution_mm"] == p5["receipt_resolution_mm"]
                                         and (p5["resolution_mm"] or 0) > (p5["min_mm"] or 0))
+        # v1.0.5（issue #14）**真机**：悬垂一侧的「平台面判不准」也必须进 warnings 并让门不绿。
+        # 探针 = 绕 X 倾斜 45° 的立方体：它**没有水平朝下的面** ⇒ print_overhang 走 min-fallback 并写
+        # bed_warning ⇒ print_report 顶层 warnings 非空、echo 也带出来。
+        # 注：这条只证「warnings 确实产生 + 确实被 echo + 门确实 degraded」；「仅凭 warnings 就能降级」
+        # 由上面的合成回执 _warned 单独锁（那条的分辨率是 0.1mm ⇒ 排除分辨率因素）。
+        import mathutils as _mu
+        tilt_me = bpy.data.meshes.new("__dsh_gate_selftest_tilt")
+        tilt_ob = bpy.data.objects.new("__dsh_gate_selftest_tilt", tilt_me)
+        bpy.context.scene.collection.objects.link(tilt_ob)
+        made.append(tilt_ob.name)
+        tbm = bmesh.new()
+        bmesh.ops.create_cube(tbm, size=1.0)
+        bmesh.ops.rotate(tbm, cent=(0.0, 0.0, 0.0), verts=list(tbm.verts),
+                         matrix=_mu.Matrix.Rotation(0.7853981633974483, 3, "X"))   # 45°
+        tbm.to_mesh(tilt_me)
+        tbm.free()
+        bpy.context.view_layer.objects.active = tilt_ob
+        r6 = json.loads(gate_run(preset="print", overrides={"walls": {"min_mm": 900.0, "mm_per_unit": 1000.0}},
+                                 detail=True))
+        g6 = (r6.get("gates") or [{}])[0]
+        _echo6 = g6.get("echo") or {}
+        _recv6 = g6.get("receipt") or {}
+        ev["print_bed_warning_case"] = {
+            "state": g6.get("state"), "verdict": r6.get("verdict"), "ok": r6.get("ok"),
+            "pass_if_value": g6.get("pass_if_value"),
+            "warnings_n": len(_recv6.get("warnings") or []),
+            "echo_warnings_n": len(_echo6.get("warnings") or []),
+            "bed_mode": _echo6.get("params.bed_mode"),
+            "thin_total": _recv6.get("thin_samples_total"),
+            # 门侧回执是裁剪过的（只留 reads/echo 引用到的字段）；warnings 因被 degrade_if 引用而保留 ——
+            # 这正是「门读得到这条警告」的证据；objects[] 明细不在裁剪回执里，别去那里找。
+            "receipt_has_objects": "objects" in _recv6,
+        }
+        p6 = ev["print_bed_warning_case"]
+        ev["print_bed_warning_ok"] = bool(p6["state"] == "degraded" and p6["verdict"] == "degraded"
+                                          and p6["ok"] is False and p6["pass_if_value"] is True
+                                          and p6["warnings_n"] >= 1 and p6["echo_warnings_n"] >= 1
+                                          and p6["bed_mode"] == "min-fallback"
+                                          and p6["thin_total"] == 0)
         # 未配置来源 ⇒ skipped（不是 error）；全部门都 skipped ⇒ degraded
         r4 = json.loads(gate_run(spec={"name": "skip", "gates": [
             {"id": "c", "op": "audit_interference", "args": {},
@@ -879,6 +930,7 @@ def gate_selftest():
         ok = bool(ok1 and r2.get("verdict") == "pass" and r2.get("ok") is True and ev.get("tri_state_ok")
                   and ev.get("nested_tri_ok") and ev.get("preset_ok") and ev.get("skip_ok")
                   and ev.get("degrade_if_ok") and ev.get("print_resolution_ok")
+                  and ev.get("print_bed_warning_ok")
                   and ev.get("unknown_op_error")
                   and (ev.get("bad_field") or {}).get("state") == "error"
                   and "没有的字段" in ((ev.get("bad_field") or {}).get("error") or ""))

@@ -89,6 +89,18 @@ function mockCategoryAction() {
 
 const listen = (srv) => new Promise((r) => srv.listen(0, '127.0.0.1', () => r(srv.address().port)));
 
+/* 「死端口」必须落在合法区间 1–65535。
+   原写法是 flatPort + 4242：OS 动态端口在 49152–65535，flatPort > 61293 时越界，
+   Socket.connect() 直接抛 ERR_SOCKET_BAD_PORT，那句「死端口 → null」根本跑不到
+   —— 约 26% 概率间歇红（issue #10 的跟进项）。
+   现在改成：先绑 :0 让 OS 给一个端口，再关掉 —— 必然合法，且刚释放的端口没人监听。
+   注意**必须在三个 mock 都 listen 之后**再取，否则刚释放的端口可能被 mock 的 listen(0) 拿走。 */
+const freePort = () => new Promise((res, rej) => {
+  const s = net.createServer();
+  s.once('error', rej);
+  s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => res(p)); });
+});
+
 /* ───────── mock 3：扁平 addon，但只在收到换行分帧后才回（模拟"第一次探测时 addon 正忙"） ─────────
    用来验证探测的纠错分支：第一轮扁平探测超时 → 第二轮 category/action 探测发出后，
    它回的其实是**扁平封套**（{status,result}）→ 应当据此纠正回 ahujasid，而不是误判成 category-action。 */
@@ -115,12 +127,21 @@ const lateSrv = mockFlatLateReply();
 const flatPort = await listen(flatSrv);
 const caPort = await listen(caSrv);
 const latePort = await listen(lateSrv);
-console.log('\n=== addon 协议适配自检 ===\n  mock flat=:' + flatPort + '  category-action=:' + caPort + '  flat-late=:' + latePort + '\n');
+// 三个 mock 都占好端口之后再取死端口，避免它被 listen(0) 复用
+let deadPort = null;
+try { deadPort = await freePort(); } catch (e) { /* 下面那条 ok 会红，别在这里崩掉整条 && 链 */ }
+console.log('\n=== addon 协议适配自检 ===\n  mock flat=:' + flatPort + '  category-action=:' + caPort + '  flat-late=:' + latePort
+  + '  dead=:' + deadPort + '\n');
+ok('取到一个刚释放的死端口（bind :0 → close；必然合法且无人监听）', Number.isInteger(deadPort), String(deadPort));
+// 有保护力的判据：死端口不能撞上（或等于）任一 mock 端口 —— 撞上就会把「死端口」测成"活着"
+ok('死端口与三个 mock 端口互不相同',
+  Number.isInteger(deadPort) && deadPort !== flatPort && deadPort !== caPort && deadPort !== latePort, deadPort);
 
 /* 1. 探测 */
 eq('detectProtocol(flat) → ahujasid', (await detectProtocol('127.0.0.1', flatPort, 800))?.id, 'ahujasid');
 eq('detectProtocol(category-action) → category-action', (await detectProtocol('127.0.0.1', caPort, 800))?.id, 'category-action');
-eq('detectProtocol(死端口) → null', await detectProtocol('127.0.0.1', flatPort + 4242, 300), null);
+if (deadPort === null) ok('detectProtocol(死端口) → null', false, '拿不到死端口');
+else eq('detectProtocol(死端口) → null', await detectProtocol('127.0.0.1', deadPort, 300), null);
 eq('detectProtocol(扁平 addon 第一轮没回) → 按封套形状纠正回 ahujasid', (await detectProtocol('127.0.0.1', latePort, 500))?.id, 'ahujasid');
 
 /* 2. 解析（auto / 显式） */

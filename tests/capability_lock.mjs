@@ -10,11 +10,11 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const LOCK = path.join(HERE, 'capability.lock.json');
-const engine = await import(path.join(HERE, "..", "runtime", "engine.mjs"));
+const engine = await import(pathToFileURL(path.join(HERE, "..", "runtime", "engine.mjs")).href);
 const cat = engine.catalogPayload({});
 
 const families = (cat.families || [])

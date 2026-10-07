@@ -14,6 +14,8 @@
  *   C 两个都不给                              → 必须**不抛**；降级为诊断占位（Config=undefined，
  *                                               apply() 注册的占位工具直接回报原因与修法）
  * 外加 D：本包真身（真 node_modules）也必须 import 成功并给出 via。
+ * 外加 E：specifier 形态的回归保护 —— Windows 盘符裸路径（C:\…）不得再撞
+ *         ERR_UNSUPPORTED_ESM_URL_SCHEME（issue #10 跟进项；这条在任何平台都能跑）。
  */
 import { mkdtempSync, mkdirSync, writeFileSync, cpSync, rmSync } from 'node:fs'
 import os from 'node:os'
@@ -65,7 +67,12 @@ function fixture(root, name, smNames) {
 }
 
 const PROBE = [
-  'const mod = await import(process.argv[1]);',
+  "import { pathToFileURL } from 'node:url';",
+  // 子进程只拿到一个 specifier：file:// URL 直接用，裸路径自己转 URL。
+  // 裸路径在 Windows 上是 `C:\…`，import() 会把它解析成 scheme 'c:' ⇒
+  // ERR_UNSUPPORTED_ESM_URL_SCHEME（issue #10 的跟进项：本文件 A/B/C 三组因此在 Windows 上全 FAIL）。
+  'const spec = process.argv[1];',
+  "const mod = await import(spec.startsWith('file:') ? spec : pathToFileURL(spec).href);",
   'const r = (mod.__internals && mod.__internals.schemaResolve) || null;',
   'const out = { via: (r && r.via) || null, error: (r && r.error) || null, tried: (r && r.tried) || [],',
   '  hasConfig: mod.Config !== undefined, tools: [], placeholder: null };',
@@ -80,10 +87,11 @@ const PROBE = [
   '',
 ].join('\n')
 
-function probe(entry) {
+/** 原样投喂 specifier（用来验证子进程对不同形态 specifier 的鲁棒性） */
+function probeSpec(spec) {
   let out
   try {
-    out = execFileSync(process.execPath, ['--input-type=module', '-e', PROBE, entry], { encoding: 'utf8' })
+    out = execFileSync(process.execPath, ['--input-type=module', '-e', PROBE, spec], { encoding: 'utf8' })
   } catch (e) {
     const tail = String((e && e.stderr) || (e && e.message) || e).trim().split('\n').slice(-6).join(' | ')
     return { threw: tail.slice(0, 500) }
@@ -91,6 +99,11 @@ function probe(entry) {
   const line = out.split('\n').find((l) => l.startsWith('FIXTURE_JSON '))
   if (!line) return { threw: 'fixture 没回 JSON：' + out.slice(-300) }
   return JSON.parse(line.slice('FIXTURE_JSON '.length))
+}
+
+/** 父进程一律传 file:// URL —— 裸 Windows 路径（C:\…）会被 import() 当成 scheme 'c:' */
+function probe(entry) {
+  return probeSpec(pathToFileURL(entry).href)
 }
 
 const root = mkdtempSync(path.join(os.tmpdir(), 'dsh-sm-resolve-'))
@@ -121,6 +134,25 @@ try {
   ok('lib/index.js 在本机可 import', typeof real.apply === 'function')
   ok('__internals 暴露 schemaResolve', !!(rr && Array.isArray(rr.tried)))
   ok('真环境下解析成功（有 via）', !!(rr && rr.via), JSON.stringify(rr))
+
+  console.log('== E：Windows 盘符路径 / 裸路径 specifier（issue #10 跟进项 · 任何平台可跑）==')
+  // 实测：import('C:\…') 在**任何平台**都被解析成 scheme 'c:' ⇒ ERR_UNSUPPORTED_ESM_URL_SCHEME。
+  // 子进程现在自己把裸路径转 file:// ⇒ 至少已越过 URL scheme 层。
+  // 这条在任何平台都能跑，所以 Windows 的失效模式在这里就有回归保护（不必真去借一台 Windows）。
+  const win = probeSpec('C:\\dsh\\no-such-dir\\lib\\index.js')
+  ok('Windows 风格裸路径 → 不再是 ERR_UNSUPPORTED_ESM_URL_SCHEME',
+    !/ERR_UNSUPPORTED_ESM_URL_SCHEME/.test(String(win.threw || '')), win.threw)
+  ok('…已越过 URL scheme 层（POSIX 上被反斜杠编码拦下 = ERR_INVALID_MODULE_SPECIFIER）',
+    /ERR_INVALID_MODULE_SPECIFIER|Cannot find|ENOENT|MODULE_NOT_FOUND/.test(String(win.threw || '')), win.threw)
+  // 本平台形态的"不存在的文件"：Windows 用盘符路径、POSIX 用绝对路径 —— 期望都是文件系统层的 ENOENT
+  const missing = process.platform === 'win32'
+    ? 'C:\\dsh\\no-such-dir\\lib\\index.js'
+    : path.join(root, 'no-such-dir', 'lib', 'index.js')
+  const miss = probeSpec(missing)
+  ok('不存在的文件 → 走到文件系统层（Cannot find module / ENOENT）',
+    /Cannot find|ENOENT|MODULE_NOT_FOUND/.test(String(miss.threw || '')), miss.threw)
+  const bare = probeSpec(fixture(root, 'bare-path', [{ scoped: true }]))
+  ok('裸路径 specifier 也能载入（子进程自转 file://）', !bare.threw && !!bare.via, bare.threw || JSON.stringify(bare))
 } finally {
   rmSync(root, { recursive: true, force: true })
 }

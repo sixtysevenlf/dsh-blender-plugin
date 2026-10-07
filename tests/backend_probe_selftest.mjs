@@ -6,7 +6,7 @@
  */
 import http from 'node:http';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { probeTcp, probeHttp, decideStart, waitHttp } from '../runtime/backend_probe.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -42,7 +42,7 @@ ok("waitHttp 纯超时回 false（不谎报）", (await waitHttp(url, 1200, 200)
 // ⑤ lib 里新导入的说明符必须能解析（编译产物在包根，../runtime/ 才对）
 let libOk = false; let libErr = "";
 try {
-  await import(path.join(ROOT, "runtime", "backend_probe.mjs"));
+  await import(pathToFileURL(path.join(ROOT, "runtime", "backend_probe.mjs")).href);
   libOk = true;
 } catch (e) { libErr = String(e.message).slice(0, 120); }
 ok("runtime/backend_probe.mjs 可被 lib 侧解析", libOk, libErr);

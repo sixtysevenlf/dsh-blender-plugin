@@ -10,11 +10,11 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(HERE, "..");
-const engine = await import(path.join(ROOT, "runtime", "engine.mjs"));
+const engine = await import(pathToFileURL(path.join(ROOT, "runtime", "engine.mjs")).href);
 const cat = engine.catalogPayload({});
 const fams = cat.families.length;
 const ops = cat.ops_count;

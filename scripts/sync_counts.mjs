@@ -7,11 +7,11 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(HERE, "..");
-const cat = (await import(path.join(ROOT, "runtime", "engine.mjs"))).catalogPayload({});
+const cat = (await import(pathToFileURL(path.join(ROOT, "runtime", "engine.mjs")).href)).catalogPayload({});
 const fams = cat.families.length;
 const ops = cat.ops_count;
 const dry = process.argv.includes("--dry");

@@ -9,12 +9,12 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(HERE, "..");
-const engine = await import(path.join(ROOT, "runtime", "engine.mjs"));
-const { MODELING_CLASS_GUIDE, classGuideStats } = await import(path.join(ROOT, "runtime", "classes.mjs"));
+const engine = await import(pathToFileURL(path.join(ROOT, "runtime", "engine.mjs")).href);
+const { MODELING_CLASS_GUIDE, classGuideStats } = await import(pathToFileURL(path.join(ROOT, "runtime", "classes.mjs")).href);
 const lock = JSON.parse(fs.readFileSync(path.join(ROOT, "tests", "capability.lock.json"), "utf8"));
 
 let pass = 0; let fail = 0; const fails = [];
@@ -61,7 +61,7 @@ ok("handoff 块短到能塞进子代理提示词（<= 3500 字符）", ht.length
 ok("handoff 覆盖全部 12 类", MODELING_CLASS_GUIDE.every((r) => ht.includes(r.c)),
   MODELING_CLASS_GUIDE.map((r) => r.c).filter((c) => !ht.includes(c)));
 ok("handoff 含禁止自造与三条硬规则", ht.includes("禁止自造") && ht.includes("三条硬规则"));
-const mft = (await import(path.join(ROOT, "runtime", "classes.mjs"))).MODEL_FACING_TOOLS;
+const mft = (await import(pathToFileURL(path.join(ROOT, "runtime", "classes.mjs")).href)).MODEL_FACING_TOOLS;
 const lockTools = lock.tools || [];
 ok("工具清单与能力锁逐名一致（防漂移）",
   mft.length === lockTools.length && mft.every((t) => lockTools.includes(t)), { mine: mft.length, lock: lockTools.length });

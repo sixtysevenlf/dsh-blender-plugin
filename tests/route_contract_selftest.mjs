@@ -14,12 +14,12 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(HERE, "..");
 const BASE = process.env.DSH_BLENDER_BACKEND || "http://127.0.0.1:9877";
-const engine = await import(path.join(ROOT, "runtime", "engine.mjs"));
+const engine = await import(pathToFileURL(path.join(ROOT, "runtime", "engine.mjs")).href);
 
 let pass = 0;
 let fail = 0;
@@ -44,7 +44,7 @@ if (!doctor || String(dk) !== "ok") {
 // ── ① 静态：每个 family 前缀都要有路由
 const SRC = fs.readFileSync(path.join(ROOT, "runtime", "engine.mjs"), "utf8");
 const cat = engine.catalogPayload({});
-const PLAN = engine.PLAN_CATALOG || (await import(path.join(ROOT, 'runtime', 'catalog.mjs'))).PLAN_CATALOG;
+const PLAN = engine.PLAN_CATALOG || (await import(pathToFileURL(path.join(ROOT, 'runtime', 'catalog.mjs')).href)).PLAN_CATALOG;
 const families = PLAN;
 ok("目录非空（family >= 20）", families.length >= 20, families.length);
 const noRoute = [];
