@@ -806,12 +806,62 @@ export function createEngine(opts = {}) {
       }
     } catch (e) { /* 记证据失败绝不影响命令本身 */ }
   }
+  /** 自愈节流状态（见 scheduleHandshakeRecovery） */
+  const HANDSHAKE_RECOVERY_COOLDOWN_MS = 5000;
+  const handshakeRecovery = { lastAt: 0, inFlight: false, attempts: 0, lastOkAt: null };
+
+  /**
+   * 后台重连 + 重探握手 —— 修"一次探测失败被永久缓存"的死局（现场 bug，用户实机复现）。
+   *
+   * 成因链：后端首次解析协议时探测没收到回包（Blender 主线程忙）⇒ `resolveProtocol` 把协议缓存在
+   * `fallback`（addon-protocol.mjs:241-244）；而后续命令用 fallback 协议**照样成功** ⇒
+   * `noteHandshake()` 把 `readiness.handshakeFrom` 记成 `'fallback'` ⇒ `/host/ready` 永久返回
+   * `ready:false, reason:'handshake-stale'`。偏偏它按契约是"零 I/O、只读缓存"，永远不会重新探测 ——
+   * 于是客户端按设计注销右侧栏标签，用户的视口面板**永久消失**，而重启 DSH 只是让第①步重新掷一次骰子。
+   *
+   * 这里**不改变 `/host/ready` 的响应语义**（仍同步、仍只读缓存、仍是契约允许的那两种 reason）：
+   * 只是顺带**调度**一次限速的后台重连 + 重探，把结果写回 `readiness`，下一轮轮询
+   * （客户端门控约 2s 一次）就能看到 `ready:true`，面板自行恢复。
+   *
+   * 为什么要由 `/host/ready` 触发：面板在 ready=false 时已被注销 ⇒ 不会再有命令进来 ⇒
+   * 只靠"命令成功后顺带修"解不开这个死锁。
+   * 为什么必须一并重连：addon 是 TCP 服务端、后端是客户端，没人发命令时后端不会自己连回去 ——
+   * Blender 重开后同样会死锁。
+   */
+  function scheduleHandshakeRecovery() {
+    const now = Date.now();
+    if (handshakeRecovery.inFlight) return;
+    if (now - handshakeRecovery.lastAt < HANDSHAKE_RECOVERY_COOLDOWN_MS) return;
+    handshakeRecovery.lastAt = now;
+    handshakeRecovery.inFlight = true;
+    handshakeRecovery.attempts++;
+    Promise.resolve()
+      .then(() => addon.ensure().catch(() => {}))
+      .then(() => {
+        resetProtocolCache();                 // 关键：不清缓存只会命中上次那份 fallback
+        addon.proto = null;
+        addon.protocolInfo = null;
+        return addon.protocol();
+      })
+      .then((pi) => {
+        if (pi && typeof pi === 'object') {
+          readiness.handshakeFrom = pi.from || null;
+          readiness.handshakeId = (pi.proto && pi.proto.id) || null;
+          if (pi.from && pi.from !== 'fallback') handshakeRecovery.lastOkAt = Date.now();
+        }
+      })
+      .catch(() => { /* 仍不可达：保持原 reason，冷却后下一轮再试 */ })
+      .finally(() => { handshakeRecovery.inFlight = false; });
+  }
+
   /**
    * S13（宿主集成 v1.2 · 契约 §7.1）：`GET /host/ready` 的**全部**逻辑。
    * **同步、零 I/O、零 Blender 往返** —— 只读上面那份缓存 + 常驻 socket 的存活态。
    * `ready=false` 的两种 reason（契约只允许这两个）：
    *   · `addon-unreachable`：常驻 socket 不在了（后端启动时就没连上，或 Blender 中途死了 —— socket 的 close 事件会把 sock 置空）
    *   · `handshake-stale`：socket 在，但协议解析是 `fallback`（端口通、探测不回包 ⇒ 对面不是我们认的 addon，或线程卡住）
+   * 注：**响应本身仍是零 I/O**；仅当 reason 非空时顺带调度一次限速的后台恢复
+   * （见 `scheduleHandshakeRecovery`），使该状态可自愈，而不是把用户卡在"面板永久消失"。
    */
   function hostReady() {
     const sock = addon.sock;
@@ -819,6 +869,7 @@ export function createEngine(opts = {}) {
     let reason = null;
     if (!connected) reason = 'addon-unreachable';
     else if (readiness.handshakeFrom === 'fallback') reason = 'handshake-stale';
+    if (reason !== null) scheduleHandshakeRecovery();
     return {
       ok: true,
       ready: reason === null,
