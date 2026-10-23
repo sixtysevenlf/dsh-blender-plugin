@@ -329,6 +329,7 @@ function base(port: number): string {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 import { probeHttp, decideStart, waitHttp } from '../runtime/backend_probe.mjs'
+import { detectFileAlias } from '../runtime/file_guard.mjs'
 
 async function probe(port: number, timeoutMs = 1500): Promise<boolean> {
   const ac = new AbortController()
@@ -1361,6 +1362,12 @@ function headlessHumanText(res: any, ctx: any): string {
     parts.push('⚠️ 路径体检（' + String(r.pathWarnings.length) + ' 条）：' + NLx
       + r.pathWarnings.map((w: any) => '  · ' + String(w.code) + ' · ' + String(w.evidence || w.value || '') + NLx + '    ' + String(w.hint || '')).join(NLx))
   }
+  if (Array.isArray(r.warnings) && r.warnings.length) {
+    parts.push('⚠️ warnings（' + String(r.warnings.length) + ' 条）：' + NLx
+      + r.warnings.map((w: any) => '  · ' + ((w && typeof w === 'object')
+          ? (String(w.code || '') + (w.hint ? (' — ' + String(w.hint)) : JSON.stringify(w)))
+          : String(w))).join(NLx))
+  }
   if (r.stdoutTruncated) parts.push('（stdout 已截断：全量见 logs 路径 / resultPath）')
   const so = String(r.stdoutTail !== undefined && r.stdoutTail !== null ? r.stdoutTail : (r.stdout || ''))
   if (so) parts.push((r.stdoutTruncated ? '--- stdout 尾（已截断）---' : '--- stdout ---') + NLx + (rj !== null && rj !== undefined ? clipText(so, 500, 800) : clipText(so, 1500, 2500)))
@@ -2042,12 +2049,20 @@ export function apply(ctx: any, config: Config): void {
     timeoutMs: T.headless,
     async execute(args: any) {
       if (!(await ensureBackend(port))) return { text: '后端不可用（127.0.0.1:' + String(port) + '）；无头通道由后端进程代管，先 blender_viewport op=start' }
+      // F-09：工具端必须自己拦 ALIAS / 空串 —— 旧写法 `(args && args.file) || undefined` 在 body 组装前
+      // 就把 falsy 剥成 undefined，引擎侧守卫对工具路径永不触发；参数名误写（blend= 等）静默丢参数＝空场景 ok=true。
+      const aliasKeys = detectFileAlias(args)
+      if (aliasKeys.length) return { text: 'blender_rt_headless 没有参数 ' + aliasKeys.join(', ')
+        + '；打开 .blend 请用 file=。（收到的键：' + Object.keys(args || {}).join(', ') + '）' }
+      const rawFile = args ? args.file : undefined
+      if (typeof rawFile === 'string' && !rawFile.trim()) return { text: 'file= 传了空字符串 —— 本次不会打开任何 .blend'
+        + '（脚本会拿到出厂空场景）；要么给真实 .blend 路径，要么就不要传 file=' }
       const runId = newRunId()
       const asJob = !!(args && args.as_job)
       const waitS = (args && args.wait_s !== undefined && args.wait_s !== null && args.wait_s !== '') ? Number(args.wait_s) : null
       const body: any = {
         script: String((args && args.script) || ''),
-        file: (args && args.file) || undefined,
+        file: (rawFile === undefined || rawFile === null) ? undefined : rawFile,
         outdir: (args && args.outdir) || undefined,
         timeoutMs: (args && args.timeout_ms) ? Number(args.timeout_ms) : undefined,
         factoryStartup: !(args && args.factory_startup === false),
@@ -2425,6 +2440,14 @@ export function apply(ctx: any, config: Config): void {
     async execute(args: any) {
       if (!(await ensureBackend(port))) return { text: '后端不可用（127.0.0.1:' + String(port) + '）' }
       const op = String((args && args.op) || 'list')
+      // F-09 一致性：op=start/run 的 file= 与 rt_headless 同一套拦截（引擎 job 路径已有 validateFileOpt 兜底）
+      if (op === 'start' || op === 'run') {
+        const aliasKeys = detectFileAlias(args)
+        if (aliasKeys.length) return { text: 'blender_rt_job 没有参数 ' + aliasKeys.join(', ')
+          + '；打开 .blend 请用 file=。（收到的键：' + Object.keys(args || {}).join(', ') + '）' }
+        if (args && typeof args.file === 'string' && !args.file.trim()) return { text: 'file= 传了空字符串 —— 本次不会打开任何 .blend'
+          + '（脚本会拿到出厂空场景）；要么给真实 .blend 路径，要么就不要传 file=' }
+      }
       const body: any = { op: op }
       if (args && args.id) body.id = String(args.id)
       if (args && args.script !== undefined) body.script = String(args.script)

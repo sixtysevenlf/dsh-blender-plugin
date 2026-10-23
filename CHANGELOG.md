@@ -1,5 +1,25 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
+## Unreleased
+
+### 修复
+- **headless：`file=` 缺失/空串/参数名误写不再静默成功**（旧症状：`file=""` 或 `blend=<路径>` →
+  `ok=true / exitCode=0 / inputFile=null / 零警告`，脚本拿到出厂空场景）：
+  引擎侧 `file=` 显式校验（空串→`file-empty`、非字符串→`file-type`，直连 `/headless` 的兜底）；
+  工具端（`blender_rt_headless` / `blender_rt_job` op=start|run）拦截参数名误写（`blend=`/`path=` 等六名）
+  与空串——工具端在 body 组装前剥 falsy，引擎守卫对工具路径永不触发，故 ALIAS 拦截必须落在工具端。
+  行为变化提示：`file=false`（布尔）旧行为被静默当「未传」，现按 `file-type` 明确报错——类型纪律收紧，
+  依赖旧语义者请改为省略该参数。
+- **headless：「成功但没开档」不再无声**——回执 `inputFile` 的 null 分支换成 `{given, opened, reason}`
+  语义对象（形态冻结：truthy 的 `fileFingerprint` 返回值一字未动）；未开档时 `warnings` 追加
+  `no_input_file`（含 `.py` 语义切换场景）；台账（headless/job 的 running 与终态）补记
+  `file`/`inputFile`，事后取证可区分「没给档」与「给了没开」。
+- **headless：同毫秒撞名**——无头脚本名（`staging.mjs`，旧 `Date.now().toString(36)` 同毫秒互相覆写）
+  与 stdout/stderr log 名（`engine.mjs`，同毫秒追加写同一文件互脏）都加唯一后缀（脚本名 = 毫秒+进程内
+  序号+随机；log 名 = 毫秒+runId）。
+- 新增 `runtime/file_guard.mjs`（engine / 工具端 / 单测共用同一份判定）与
+  `tests/headless_file_guard_selftest.mjs`（41 项，离线，已入 `npm test` 主链，`npm run test:fileguard`）。
+
 ## v2.6.1（2026-10-23）—— 性能优化（选中轮询 / 审计 / 批处理 update）+ 平台与测试修复
 
 > v2.6.0 之后合入的改动打包为本版（含此前 PR 中标注为 v2.7 的 dsh-TUI 宿主半边）。

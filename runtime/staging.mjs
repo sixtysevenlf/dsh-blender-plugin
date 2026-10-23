@@ -19,8 +19,21 @@ import { WIN_TMP, WSL_TMP, HERE, blenderJoin } from './paths.mjs';
  * 只讲**Windows 侧看不看得见**（wslPathShared，读挂载表），并优先选一个共享目录。
  * 返回 {wsl, win, staging}；staging 会原样进回执（替换了目录就必须说清，不许静默）。
  */
+/**
+ * 无头脚本文件名（issue A1：旧名只到毫秒 → 同毫秒并发两个 run 共写同一个 .py，
+ * 一方脚本被另一方覆写——"跑的不是我给的那份"这类难查症状的根）。
+ * 唯一性 = 毫秒 + 进程内单调序号（同进程零碰撞）+ 4 位随机（跨进程防撞）。
+ * 纯命名逻辑，tests/headless_file_guard_selftest.mjs 直接对它做 5000 次碰撞测试。
+ */
+let _nameSeq = 0;
+export function headlessScriptName() {
+  _nameSeq = (_nameSeq + 1) % 0x1000000;
+  const rand = Math.random().toString(36).slice(2).padEnd(4, '0').slice(0, 4);
+  return 'dsh_headless_' + Date.now().toString(36) + '_' + _nameSeq.toString(36) + rand + '.py';
+}
+
 export function writeHeadlessScript(code) {
-  const name = 'dsh_headless_' + Date.now().toString(36) + '.py';
+  const name = headlessScriptName();
   const requested = WSL_TMP;
   const reqShared = wslPathShared(requested);
   // 候选：请求的 workDir（判为不可共享时降级）→ 用户 home（发行版根文件系统，Windows 可见）→ 包内 tmp

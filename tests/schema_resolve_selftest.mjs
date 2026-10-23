@@ -50,8 +50,8 @@ function fixture(root, name, smNames) {
   mkdirSync(dir, { recursive: true })
   cpSync(path.join(PKG, 'lib'), path.join(dir, 'lib'), { recursive: true })
   mkdirSync(path.join(dir, 'runtime'), { recursive: true })
-  // lib/index.js's static runtime imports: backend_probe.mjs.
-  for (const runtimeFile of ['backend_probe.mjs']) {
+  // lib/index.js's static runtime imports: backend_probe.mjs + file_guard.mjs (F-09).
+  for (const runtimeFile of ['backend_probe.mjs', 'file_guard.mjs']) {
     cpSync(path.join(PKG, 'runtime', runtimeFile), path.join(dir, 'runtime', runtimeFile))
   }
   writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'fixture-' + name, type: 'module' }), 'utf8')

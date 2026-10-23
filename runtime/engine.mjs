@@ -29,6 +29,8 @@ import { CFG, PATHS, winToWsl, wslToWin, describeConfig, IS_WIN, IS_MAC, IS_WSL,
 import { resolveProtocol, detectProtocol, resetProtocolCache } from './addon-protocol.mjs';
 // v2.6（本轮反馈 #1）：pid 没了 ≠ 任务失败 —— 先用磁盘证据对账再判 stale
 import { reconcileLedger as reconcileLedgerFromDisk } from './recover.mjs';
+// F-09（issue）：file= 参数守卫 —— 缺失/空串/参数名错不再静默包装成 ok=true 空场景执行
+import { validateFileOpt, describeMissingInput, noInputFileWarning, headlessLogNames } from './file_guard.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -1726,9 +1728,10 @@ export function createEngine(opts = {}) {
     // ---- script_file（与 headless 同一套语义：显式收 .py；file= 传 .py 自动改当脚本）
     let scriptFileInfo = null;
     let script = opts.script ? String(opts.script) : '';
-    const fileLooksPython = !!(opts.file && /\.py$/i.test(String(opts.file)));
+    const fileOpt = validateFileOpt(opts.file);   // F-09：空串/类型错显式报错，不再静默当"没传"
+    const fileLooksPython = !!(fileOpt && /\.py$/i.test(String(fileOpt)));
     if (opts.scriptFile || fileLooksPython) {
-      const given = String(opts.scriptFile || opts.file);
+      const given = String(opts.scriptFile || fileOpt);
       try {
         const rp = readScriptPath(given);
         script = fs.readFileSync(rp.wsl, 'utf8');
@@ -1739,10 +1742,11 @@ export function createEngine(opts = {}) {
                             { hint: 'script_file 用 .py 路径（Windows D:\\… 或 WSL /home/… 都行）；file= 是 .blend' });
       }
     }
-    const inputFileInfo = (opts.file && !fileLooksPython)
-      ? fileFingerprint(wslToWin(String(opts.file)), winToWsl(String(opts.file))) : null;
+    const inputFileInfo = (fileOpt && !fileLooksPython)
+      ? fileFingerprint(wslToWin(String(fileOpt)), winToWsl(String(fileOpt)))
+      : describeMissingInput(fileOpt, fileLooksPython);   // F-09：null → {given,opened,reason}（形态冻结：truthy 分支一字未动）
     const args = ['-b'];
-    if (opts.file && !fileLooksPython) args.push(wslToWin(String(opts.file)));
+    if (fileOpt && !fileLooksPython) args.push(wslToWin(String(fileOpt)));
     if (opts.factoryStartup !== false) args.push('--factory-startup');
     const envPairs = { DSH_RUN_ID: runId, DSH_OUTDIR: outdirWin, DSH_SESSION: SESSION_NAME,
                        DSH_PLUGIN_VERSION: PLUGIN_VERSION,
@@ -1808,6 +1812,7 @@ export function createEngine(opts = {}) {
     jobs.set(id, j); if (jobs.size > 20) { const k = jobs.keys().next().value; if (k !== id) jobs.delete(k); }
     ledgerAppend({ id: id, kind: 'job', status: 'running', startedAt: j.startedAt, pid: j.pid, script: sp.win,
                    runId: runId, outdir: outdirWin, engine: engineMode, timeoutMs: timeoutMs, stage: null,
+                   file: (fileOpt === undefined ? null : String(fileOpt)),   // F-09（A3）：台账记 file，事后可区分"没给档"与"给了没开"
                    dir: wslToWin(dir), stdoutLog: wslToWin(outPath), stderrLog: wslToWin(errPath) });
     j.timer = setTimeout(() => { j.status = 'killed'; try { child.kill('SIGKILL'); } catch (e) {} }, timeoutMs);
     const stopHb = startHeartbeat(j, dir);
@@ -1827,7 +1832,8 @@ export function createEngine(opts = {}) {
         if (sl.length) { try { j.shots = JSON.parse(sl[sl.length - 1].slice('DSH_SHOTS '.length).trim()); } catch (e) { /* ignore */ } }
         j.stdoutTail = txt.length > 4000 ? txt.slice(-4000) : txt;
         j.pathWarnings = pathAudit(txt, '');
-        j.warnings = (j.pathWarnings || []).concat(sceneHygieneAudit(txt, ''));
+        // F-09：作业路径同样不许"成功但没开档"无声（与 sync 路径同一份守卫语义）
+        j.warnings = (j.pathWarnings || []).concat(sceneHygieneAudit(txt, '')).concat((!fileOpt || fileLooksPython) ? [noInputFileWarning(fileLooksPython)] : []);
       } catch (e) { /* ignore */ }
       try {
         const er = fs.readFileSync(errPath, 'utf8');
@@ -1865,6 +1871,7 @@ export function createEngine(opts = {}) {
         const summary = { id: id, kind: 'job', status: j.status, exitCode: j.exitCode, signal: j.signal,
                           startedAt: j.startedAt, finishedAt: Date.now(), ms: Date.now() - j.startedAt,
                           outdir: outdirWin, script: sp.win, engine: engineMode, runId: runId,
+                          file: (fileOpt === undefined ? null : String(fileOpt)), inputFile: j.inputFile,   // F-09（A3）
                           stage: j.stageName || null,
                           artifacts: arts.map((a) => a.name + '(' + a.bytes + 'B)'),
                           resultSummary: j.parsed ? JSON.stringify(j.parsed).slice(0, 400) : null,
@@ -2644,9 +2651,10 @@ export function createEngine(opts = {}) {
       // v0.9.1（93-B3）：scriptFile= 显式收 .py；file= 传 .py 时自动改当脚本（老语义 file= 仍是 .blend）
       let scriptFileInfo = null;
       let script = opts.script ? String(opts.script) : '';
-      const fileLooksPython = !!(opts.file && /\.py$/i.test(String(opts.file)));
+      const fileOpt = validateFileOpt(opts.file);   // F-09：空串/类型错显式报错（直连 /headless 的兜底；工具端另有 ALIAS 拦截）
+      const fileLooksPython = !!(fileOpt && /\.py$/i.test(String(fileOpt)));
       if (opts.scriptFile || fileLooksPython) {
-        const given = String(opts.scriptFile || opts.file);
+        const given = String(opts.scriptFile || fileOpt);
         try {
           const rp = readScriptPath(given);
           script = fs.readFileSync(rp.wsl, 'utf8');
@@ -2659,8 +2667,9 @@ export function createEngine(opts = {}) {
       }
       // ---- v0.9.3（F6）：inputFile 指纹 —— 探针跑在 02:55 版、04:07 才发现文件已被重存（浪费 4 次探针）
       // （必须在 fileLooksPython 之后：否则 TDZ ReferenceError —— 实测踩过）
-      const inputFileInfo = (opts.file && !fileLooksPython)
-        ? fileFingerprint(wslToWin(String(opts.file)), winToWsl(String(opts.file))) : null;
+      const inputFileInfo = (fileOpt && !fileLooksPython)
+        ? fileFingerprint(wslToWin(String(fileOpt)), winToWsl(String(fileOpt)))
+        : describeMissingInput(fileOpt, fileLooksPython);   // F-09：null → {given,opened,reason}（形态冻结：truthy 分支一字未动）
       // preload: 把 runtime 里的 python 模块（view/perf/runner/contract/planner...）源码拼进脚本开头
       const mods = Array.isArray(opts.preload) ? opts.preload : (opts.preload ? String(opts.preload).split(',') : []);
       // ---- v0.9.3（F1）：shots=[…] 多视角渲染一体化 —— 自动带上 qc_render（渲染 harness 就在里面）
@@ -2739,7 +2748,7 @@ export function createEngine(opts = {}) {
           + NL + '_dsh_stage_emit("done")' + NL
         : '';
       const args = ['-b'];
-      if (opts.file && !fileLooksPython) args.push(wslToWin(String(opts.file)));
+      if (fileOpt && !fileLooksPython) args.push(wslToWin(String(fileOpt)));
       if (opts.factoryStartup !== false) args.push('--factory-startup');
       let sp = null;
       if (body) { sp = writeHeadlessScript(body); args.push('--python', sp.win); }
@@ -2754,8 +2763,9 @@ export function createEngine(opts = {}) {
       let logs = null, soStream = null, seStream = null;
       try {
         fs.mkdirSync(logDirWsl, { recursive: true });
-        const soPath = path.join(logDirWsl, 'dsh_headless_' + stamp + '.stdout.log');
-        const sePath = path.join(logDirWsl, 'dsh_headless_' + stamp + '.stderr.log');
+        const logNames = headlessLogNames(stamp, runId);   // F-09（A2）：同毫秒两个 run 不再互写同一个 log
+        const soPath = path.join(logDirWsl, logNames.stdout);
+        const sePath = path.join(logDirWsl, logNames.stderr);
         soStream = fs.createWriteStream(soPath); seStream = fs.createWriteStream(sePath);
         logs = { stdout: wslToWin(soPath), stderr: wslToWin(sePath), stdoutWsl: soPath, stderrWsl: sePath };
       } catch (e) { logs = null; }
@@ -2774,6 +2784,7 @@ export function createEngine(opts = {}) {
       if (runs.size > 20) { const k = runs.keys().next().value; if (k !== runId) runs.delete(k); }
       ledgerAppend({ id: runId, kind: 'headless', status: 'running', startedAt: t0, script: runRec.script,
                      outdir: runRec.outdir, outdirWsl: outdirWsl, timeoutMs: timeoutMs, stage: null,
+                     file: (fileOpt === undefined ? null : String(fileOpt)),   // F-09（A3）：台账记 file，事后可区分"没给档"与"给了没开"
                      stdoutLog: logs ? logs.stdout : null, stderrLog: logs ? logs.stderr : null });
       // v0.8.7（外部反馈 #4 P0-2）/ v0.9.3（D1）：长任务转作业层 —— 客户端超时不再把结果丢掉。
       // 用法：as_job=true 强制转；或给 auto_job_ms（如 120000）表示预计超过它就走作业。
@@ -2885,8 +2896,9 @@ export function createEngine(opts = {}) {
       if (!soStream) {
         try {
           fs.mkdirSync(logDirWsl, { recursive: true });
-          const soPath = path.join(logDirWsl, 'dsh_headless_' + stamp + '.stdout.log');
-          const sePath = path.join(logDirWsl, 'dsh_headless_' + stamp + '.stderr.log');
+          const logNames = headlessLogNames(stamp, runId);   // F-09（A2）：与主路径同一套档名规则（含 runId）
+          const soPath = path.join(logDirWsl, logNames.stdout);
+          const sePath = path.join(logDirWsl, logNames.stderr);
           fs.writeFileSync(soPath, stdout, 'utf8');
           fs.writeFileSync(sePath, stderr, 'utf8');
           logs = { stdout: wslToWin(soPath), stderr: wslToWin(sePath), stdoutWsl: soPath, stderrWsl: sePath };
@@ -3016,13 +3028,16 @@ export function createEngine(opts = {}) {
         runRec.inputFile = inputFileInfo;
         ledgerAppend({ id: runId, kind: 'headless', status: runRec.status, exitCode: res.exitCode,
                        ms: runRec.ms, outdir: runRec.outdir, script: runRec.script, pid: runRec.pid,
+                       file: (fileOpt === undefined ? null : String(fileOpt)), inputFile: inputFileInfo,   // F-09（A3）
                        stage: runRec.stageName || null, resultPath: outJsonInfo.path,
                        stageMs: runRec.stageAt ? (runRec.stageAt - runRec.startedAt) : null,
                        artifacts: runRec.artifacts.slice(0, 8), expectOk: (expectEval ? expectEval.ok : null) });
       } catch (e) { /* ignore */ }
       try { stopRunHb && stopRunHb(); } catch (e) {}
       const hygieneWarnings = sceneHygieneAudit(stdout, stderr);
-      runRec.warnings = (pathWarnings || []).concat(hygieneWarnings);
+      // F-09：「成功但没开档」不再无声 —— 没传 file=（含 .py 语义切换）时给显式 no_input_file 警告
+      const noFileWarning = (!fileOpt || fileLooksPython) ? [noInputFileWarning(fileLooksPython)] : [];
+      runRec.warnings = (pathWarnings || []).concat(hygieneWarnings).concat(noFileWarning);
       return { ok: runOk, kind: 'headless', runId: runId, pluginVersion: PLUGIN_VERSION, expect: expectEval,
                warnings: runRec.warnings, progress: runRec.progress || null, progressAt: runRec.progressAt || null,
                heartbeat: runRec.heartbeat || null, progressHistory: runRec.progressHistory || [],
