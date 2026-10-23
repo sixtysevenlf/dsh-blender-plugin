@@ -29,6 +29,8 @@ import { CFG, PATHS, winToWsl, wslToWin, describeConfig, IS_WIN, IS_MAC, IS_WSL,
 import { resolveProtocol, detectProtocol, resetProtocolCache } from './addon-protocol.mjs';
 // v2.6（本轮反馈 #1）：pid 没了 ≠ 任务失败 —— 先用磁盘证据对账再判 stale
 import { reconcileLedger as reconcileLedgerFromDisk } from './recover.mjs';
+// F-14（issue）：无头进程 done 后硬退出 —— 绕开 Blender 5.2.3 退出期 AV（默认开，hardExit=false 回旧行为）
+import { hardExitJobParts, hardExitSyncTail } from './hard_exit.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -1781,6 +1783,8 @@ export function createEngine(opts = {}) {
     if (jobShotsWanted) parts.push(shotsBlock(Object.assign({ engine: 'keep', lock: true, warmup: true, tag: 'shot' }, jobShotsSpec, { outdir: outdirWin })));
     parts.push(PATH_GUARD);
     parts.push('_dsh_stage_emit("done")');
+    // F-14：done 之后冲刷 stdout/stderr 再 os._exit(0)（跳过 Blender 退出拆解；hardExit=false 回旧行为）
+    for (const hx of hardExitJobParts(opts)) parts.push(hx);
     const sp = writeHeadlessScript(parts.join('\n'));
     args.push('--python', sp.win, '--');
     if (opts.outdir) args.push(outdirWin);
@@ -2726,7 +2730,7 @@ export function createEngine(opts = {}) {
       const shotsPre = shotsWanted
         ? shotsBlock(Object.assign({ engine: 'keep', lock: true, warmup: true, tag: 'shot' }, shotsSpec, { outdir: outdirWin })) + NL
         : '';
-      const body = (script || pre || gpuPre || shotsPre)
+      let body = (script || pre || gpuPre || shotsPre)
         ? (headParts.length ? headParts.join(NL) + NL : '')
           + (expectPre ? expectPre + NL : '')
           + pre
@@ -2738,6 +2742,9 @@ export function createEngine(opts = {}) {
           + (expectPost ? expectPost : '')
           + NL + '_dsh_stage_emit("done")' + NL
         : '';
+      // F-14：done 之后冲刷 stdout/stderr 再 os._exit(0)（跳过 Blender 退出拆解；hardExit=false 回旧行为）。
+      // 空 body 不追加（与 2745 的 `if (body)` 同守卫）：无脚本的运行不该凭空多出一个"只有退出行"的 --python。
+      if (body) body += hardExitSyncTail(opts, NL);
       const args = ['-b'];
       if (opts.file && !fileLooksPython) args.push(wslToWin(String(opts.file)));
       if (opts.factoryStartup !== false) args.push('--factory-startup');
