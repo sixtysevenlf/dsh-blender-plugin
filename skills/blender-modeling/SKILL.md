@@ -6,7 +6,7 @@ license: MIT（融合自 RobLe3/cc-blender-skill 与 arjun988/blender-skills，�
 
 # Blender 建模流程
 
-> **v2.6 · 2026-10-21**：配套插件 @dsh-external/dsh-blender-plugin v2.6.1，15 个模型工具，plan 通道 33 family / 217 op。**默认 GUI 优先**：先开 GUI Blender + Connect；无头是备用路径（GUI 不可用/批处理/长活），但无头也能 rt_see，同样能“改一步、同步看一步”。
+> **v2.6 · 2026-10-28**：配套插件 @dsh-external/dsh-blender-plugin v2.6.2，15 个模型工具，plan 通道 34 个 family / 228 个 op。**默认 GUI 优先**：先开 GUI Blender + Connect；无头是备用路径（GUI 不可用/批处理/长活），但无头也能 rt_see，同样能“改一步、同步看一步”。
 > 旧版按 v2/v3/v7 记录的“哪段是哪次实测加的”不再写在正文；需要追溯看 CHANGELOG。下面只写**当前有效口径**。
 
 先定形状，再走流程，改一步看一眼。**不要一口气写完整个模型再回来看**——每一步都要有画面或数字证据。
@@ -25,7 +25,7 @@ license: MIT（融合自 RobLe3/cc-blender-skill 与 arjun988/blender-skills，�
 | blender_rt_headless | 批处理/重活 | 独立 blender -b；preload/outdir/args/attach_images/shots；长活走 as_job；不占 GUI |
 | blender_rt_job | 超长作业 | start/status/wait/collect/kill；超时不等于失败，按 id 回收 |
 | blender_rt_txn | 回滚 | 对象级 mark/revert 不含拓扑；拓扑改动前用文件级 snapshot |
-| blender_rt_plan | 契约层 + 判定/验收/导出/造型 | op=catalog 先查 33 family / 217 op；传 session="auto" 时按 family 自动起无头 worker 同步执行，不依赖 GUI |
+| blender_rt_plan | 契约层 + 判定/验收/导出/造型 | op=catalog 先查 34 个 family / 228 个 op；传 session="auto" 时按 family 自动起无头 worker 同步执行，不依赖 GUI |
 | blender_rt_perf | 渲染性能 | analyze/apply/revert；persistent_data 等 |
 | blender_rt_opt | 对象精简 | analyze/join 安全合并；几何零损失 |
 | blender_rt_preset | 配方库 | save/list/get/apply/delete/export/import |
@@ -140,7 +140,7 @@ license: MIT（融合自 RobLe3/cc-blender-skill 与 arjun988/blender-skills，�
 
 | 我要做什么 | 首选 | 备注 |
 |---|---|---|
-| 不知道该用什么 | blender_rt_plan(op="catalog") | 33 family / 217 op；单族 family=... |
+| 不知道该用什么 | blender_rt_plan(op="catalog") | 34 个 family / 228 个 op；单族 family=... |
 | 基本体/分面硬表面 | bmesh / geo primitives + bevel | 分面件不要 SubSurf |
 | 光滑硬表面 | Bevel + Subdivision + shade smooth | Bevel 必须在 SubSurf 前 |
 | 布尔开孔/切割 | geo.boolean / K.dsh_geo_api | 先判连接/闭合；保留 cutter 副本 |
@@ -160,6 +160,28 @@ license: MIT（融合自 RobLe3/cc-blender-skill 与 arjun988/blender-skills，�
 | 参数搜索 | blender_rt_loop（target=session 可无头） | 收敛后换通路复核 |
 | 判断动画动没动 | rt_watch(session=...) | 逐帧 hash + 图 |
 | 项目级验收 | gate_run / eval_run | verdict 三态 |
+| 参数化曲面（放样/扫掠/补片） | surface_loft/sweep/patch → tessellate → validate → export | 纯 bpy+numpy；细节见 references/曲面算法.md；M3 fit、M5 blend/offset 未实现 |
+
+### 0.7.1 曲面算法（surface_*）—— 有曲率、要可复现的形体
+
+适合：截面放样（瓶身/罩壳/机身段）、沿路径扫掠（管/梁/裙边）、四边补片（过渡面）。
+不适合：基本体/分面硬表面（用 bmesh/geo+Bevel）、有机雕刻（sculpt_*）、需要 G2/CAD 偏置（需 OCCT）。
+
+链路四步，全程 mm、可复现：
+
+    surface_loft(sections=[{z_mm, points_mm:[[x,y]...]}], degree, continuity, closed, tessellation)
+      → surface_tessellate(spec_or_object=<spec>)        # 拿网格对象名
+      → surface_validate(spec_or_object=<object>)        # 读 verdict：pass / fail / degraded
+      → surface_export(spec_or_object=<object>, out_dir=..., name=...)   # 出 GLB
+
+硬规则：
+- fail 不静默成 pass；degraded 是「没测成」，不等于通过；
+- 开放曲面（patch）厚度 n/a，不是 fail；
+- 先量参考图（img_*）再写 sections，不要凭感觉写 mm；
+- 曲率/厚度是离散近似；交付前仍要过 gate_*（三态）；
+- M3 fit、M5 blend/offset 未实现（明确 ok:false），别假装能用。
+
+细节与限制：references/曲面算法.md。
 
 ## 0.8 交付与验收（先读这一节，再写最后一步）
 
@@ -316,7 +338,7 @@ plan 通道返回 receipt.v2 信封（contract/op/verdict/summary/top_defects/ne
 
 **判据**：能用第一选择就不用第二选择；第二选择必须在回执里写明“为什么不用插件 op”。
 
-## 9. 当前 plan 通道速查（v2.6 · 33 family / 217 op）
+## 9. 当前 plan 通道速查（v2.6 · 34 个 family / 228 个 op）
 
 先 blender_rt_plan(op="catalog") 看“什么时候用 / 别用 / 最小骨架”，再单族展开。常用家族：
 
@@ -336,6 +358,7 @@ plan 通道返回 receipt.v2 信封（contract/op/verdict/summary/top_defects/ne
 | vehicle / human / face | 车辆/人形/头型 | vehicle_package / vehicle_base / human_* / face_* |
 | sculpt / fix / uv / print / sweep | 雕刻/修复/UV/打印/扫掠 | *_apply / fix_repair / uv_smart_project / print_report / sweep_build |
 | material / motion / generator | 材质/机构/参数化 | material_build / motion_* / generator_save|run |
+| surface | 参数化曲面候选/质检/导出 | surface_loft / surface_sweep / surface_patch / surface_tessellate / surface_validate / surface_export |
 | clear / calib | 间隙/门标定 | clear_check / calib_run |
 | pipe / plannner | 多步链/规划器 | pipe_run / planner_* |
 

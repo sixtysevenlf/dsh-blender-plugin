@@ -1,8 +1,41 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
-## Unreleased
+## v2.6.2（2026-10-28）—— 曲面算法（surface_*）+ 文档/计数一致性
 
-### 新增
+> 模型工具仍 **15 个**；plan catalog 扩到 **34 family / 228 op**（+1 family / +11 op）；addon 仍 **v1.10 / protocol 11**。
+> 本版**不包含**实验中的曲面工作台（workbench 面板/路由/模块已放弃，未进入发布）。
+
+### 新增：曲面算法包（M0–M2 / M4）
+
+- **`runtime/surface.py`**（纯 bpy + numpy，不依赖 OCCT/geomdl/trimesh）新增 11 个 op：
+  `surface_loft / sweep / patch / tessellate / validate / export / blend / offset / fit / selftest / help`。
+  - M0：SurfaceSpec 校验与 `spec_hash`（同 spec + tessellation ⇒ 同哈希、同顶点）；
+  - M1：loft（插值型 B-spline 过截面 + Catmull-Rom 环向）、sweep（平行传输标架 + twist + 逐点 scale）、
+    patch（张量积 clamped B-spline）、tessellate（spec→网格 / 对象→烘焙）；
+  - M2：G0/G1/G2 缝连续性、离散曲率、BVH 自交、射线近似厚度、长宽比/翻转法线/水密，
+    `verdict = pass | fail | degraded`，**fail 不静默成 pass**，degraded 不当作通过；
+  - export：对象 → GLB；blend/offset 明确 `ok:false`（M5 需 OCCT），fit 保留接口（M3 未实现）。
+- **接线**：`runtime/paths.mjs` SURFACE_PATH、engine `SURFACE_READY` + `surface_` 前缀路由、
+  catalog 新 family、plan headless 映射（preload `surface,audit`）、只读白名单补 `surface_help`。
+- **真机自检** `tests/surface_selftest.py`：三基准（瓶身/翼子板/头盔）+ 自交/薄壁/连续性负例 +
+  确定性 + tessellate 双通路 + 7 类坏参数；headless `preload="surface,audit"` 全绿（23 项证据）。
+
+### 文档
+
+- 新增 [docs/曲面算法.md](docs/曲面算法.md)（op 表/SurfaceSpec/verdict/限制/配合链路）；
+- README 中/英文各加「参数化曲面」特性与文档入口；
+- 操作教程新增 §3.5.6b 参数化曲面；
+- skill：SKILL.md §0.7 工具表 + §0.7.1 曲面算法回路（含硬规则）、§9 family 速查；
+  新增 `skills/blender-modeling/references/曲面算法.md`，install.sh 同步拉取；skill README 更新 references 清单。
+
+### 修复
+
+- **`scripts/sync_counts.mjs` 三处静默漏刷**：AGENTS 正则只认「N 个 family / N 个 op」（2.6.1 改成不带「个」后永远匹配不到却报“已一致”）；
+  只刷工作区 AGENTS、不刷仓内 AGENTS；单次 replace 只改第一处。改为双写法 + 双 AGENTS + `/g`，
+  并新增 `docs/操作教程.md` 与 `skills/blender-modeling/SKILL.md` 两个目标（本次实测已把两处 33/217 刷成 34/228）。
+- 修正 skill / 操作教程里残留的 `33 family / 217 op` 旧口径。
+
+### 新增（v2.6.1 之后合入）
 - **headless：`opts.hardExit`（默认开启）**——无头脚本在 `done` 标记之后显式冲刷 stdout/stderr，
   随即 `os._exit(0)` 跳过 Blender 自身退出拆解。现场：Blender 5.2.3（Steam）在 .blend 加载材质带
   Value→Material Output.Thickness 连线时，glTF 导出**成功、产物完整、done 已打出**之后，

@@ -145,7 +145,7 @@ export const PLAN_CATALOG = [
     key: '返回 best/逐视 IoU/sensitivity；unidentifiable=该参数在当前视角没信息；ortho_scale 是画面宽的世界尺寸' },
   { f: 'surface', prefix: 'surface_',
     when: '复杂曲面要参数化候选：loft/sweep/patch → tessellate → validate → export(GLB)',
-    not: '不是雕刻/有机建模；**M1 线性截面，G1/G2/高级 blend/fillet 仍需 OCCT 后端**；**参考图 IoU / 材质 / 打印检查仍需 qc_render_views / print_report**',
+    not: '不是雕刻/有机建模；**M1 截面间 B-spline 插值、z 线性；M3 fit、M5 blend/offset 未实现（需 OCCT）**；**参考图 IoU / 材质 / 打印检查仍需 qc_render_views / print_report**',
     sk: 'op="surface_loft", args={sections:[{z_mm:0,points_mm:[[-100,-50],...]},{z_mm:200,...}], tessellation:{u:24}, name:"R1-A"} → op="surface_tessellate"（拿 object）→ op="surface_export", args={spec_or_object:"SURF_loft_xxx", out_dir:"D:/out", name:"R1-A"}',
 
     ops: ['loft', 'sweep', 'patch', 'tessellate', 'validate', 'export', 'blend', 'offset', 'fit', 'selftest', 'help'],

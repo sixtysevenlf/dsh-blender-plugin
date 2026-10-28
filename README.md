@@ -20,6 +20,7 @@ DSH × Blender connects DeepSeek Harness to Blender so an agent can build, inspe
 - **GUI-first interactive modeling.** The agent works against the Blender session you are looking at. It can inspect the scene, run Python in a persistent kernel, take a viewport or custom-angle frame, and iterate one step at a time.
 - **Headless fallback with visual feedback.** If Blender has no GUI, start a persistent worker and the agent can still execute code and get Workbench frames. This is a fallback path, not the default; it exists so the agent is never blind.
 - **Reference-image measurement.** Measure silhouettes, holes, symmetry, readable features, and scale from a reference image before modeling. If no scale is known, the tools return pixel units instead of inventing millimeters.
+- **Parametric surfaces.** Build reproducible surface meshes from sections (loft), a profile swept along a rail, or a four-sided patch; run continuity, curvature, self-intersection, and thickness checks; then export GLB. The same spec yields the same `spec_hash` and vertices instead of hand-sculpted geometry.
 - **Assembly audit and repair.** Validate an assembly manifest, classify clashes, hidden overlaps, contacts, gaps, floating parts, and contained parts, apply safe repairs, gate the result, and export GLB, FBX, or OBJ with a manifest and merge ledger.
 - **Blockout and video-reference packs.** Build low-poly blockouts from declarative parts, render orthographic and perspective reference views, and produce a turntable MP4 for video models such as Seedance.
 - **Visual acceptance and delivery gates.** Compare renders against references from the same camera, report defects with crops and measurements, run defect-injection evaluation, and block delivery when the gate is not pass.
@@ -159,6 +160,7 @@ The plugin exposes 15 tools. All planning, audit, assembly, export, and evaluati
 
 ## Documentation
 
+- Surface algorithm: docs/曲面算法.md
 - Step-by-step guide: docs/操作教程.md
 - Configuration: docs/配置参考.md
 - AI install prompt: docs/AI-安装提示词.md

@@ -1,9 +1,9 @@
-# DSH 更新适配（当前插件 v2.6.1）
+# DSH 更新适配（当前插件 v2.6.2）
 
 > 触发场景：DSH 升级（`npm i -g @deepseek-ai/dsh@<版本>`）之后，本插件的 15 个工具是否还在、行为是否变了。
 > 结论依据：2026-09-23 对宿主 0.1.6-alpha.1 ↔ 0.1.7-alpha.2 的逐包 diff + 版本矩阵实测（**历史快照**）。
 >
-> **当前口径（2026-10-20）**：插件 **v2.6.1** · **15 个模型工具** · plan catalog **33 family / 217 op** ·
+> **当前口径（2026-10-28）**：插件 **v2.6.2** · **15 个模型工具** · plan catalog **34 family / 228 op** ·
 > addon **v1.10 / protocol 11**；验收仍以 `doctor` 回 `kind=ok` 为准。DSH 升级适配结论（§0–§4）不变，
 > 具体工具数 / 目录数以当前仓库与 `blender_rt_plan(op="catalog")` 为准。
 
@@ -13,7 +13,7 @@
 0.1.7-alpha.1 / 0.1.7-alpha.2 五个版本下全部注册成功、0 报错、参数 schema 逐字节一致）。
 真正要盯的是**四件与工具定义无关的事**：加载链、解析链、取消/超时、输出预算口径。
 
-> 2026-10-20 复核：工具数仍为 **15**，plan catalog 为 **33 family / 217 op**（v2.6.1）；上述四个风险点的结论不变。
+> 2026-10-28 复核：工具数仍为 **15**，plan catalog 为 **34 family / 228 op**（v2.6.2）；上述四个风险点的结论不变。
 
 ## 1. 本插件在 DSH 里的三条链（先认清结构，再看风险）
 
@@ -30,7 +30,7 @@
 
 ```bash
 cd ~/DSH/dsh-blender-plugin
-npm run test:dsh-api                    # ② 工具契约：15 工具 + 15 timeoutMs + 0 报错 + 前缀 [v2.6.1]
+npm run test:dsh-api                    # ② 工具契约：15 工具 + 15 timeoutMs + 0 报错 + 前缀 [v2.6.2]
 npm run test:dsh-api -- --version 0.1.7-alpha.2   # ③ 升级前预演：把待升级版本的 dsh-tools 拉下来先测
 ```
 
@@ -39,7 +39,7 @@ npm run test:dsh-api -- --version 0.1.7-alpha.2   # ③ 升级前预演：把待
 ```
 诊断：…
 宿主 API：dsh-tools@<当前版本> @ /usr/lib/node_modules/.../dsh-tools/lib/index.js   ← 自证（版本以本机为准）
-插件：v2.6.1 @ /home/sixtyseven67/DSH/dsh-blender-plugin/lib/index.js
+插件：v2.6.2 @ /home/sixtyseven67/DSH/dsh-blender-plugin/lib/index.js
 ```
 
 `宿主 API` 这行是**升级后第一时间要看的**：它证明"插件挂上了哪一份宿主 API"。
@@ -58,12 +58,12 @@ dsh --profile web --dump-config | grep -A3 dsh-blender-plugin
 |---|---|---|
 | R1 | 曾只能靠 super-injector 注入：第三方 hook 吃宿主内部面（`loader.internal.loadCache`/`entry._dispose`），loader 一重构就可能整体消失 | **已解决**：2026-09-23 切到官方 bundle 装配并删除 super-injector（见 §4） |
 | R2 | 解析链依赖全局安装的绝对路径；无冻结基线 | **已加自证**（`HOST_API` + doctor/status）；换安装位置仍需人工确认 |
-| R3 | 宿主 `exec.signal` 未接、未声明 `timeoutMs` → 上游设默认截止时"Blender 还在跑、工具已判超时" | **已修**（当前 v2.6.1 仍成立：`EXEC_CTX` 贯通 + 15 个静态 `timeoutMs`） |
+| R3 | 宿主 `exec.signal` 未接、未声明 `timeoutMs` → 上游设默认截止时"Blender 还在跑、工具已判超时" | **已修**（当前 v2.6.2 仍成立：`EXEC_CTX` 贯通 + 15 个静态 `timeoutMs`） |
 | R4 | 0.1.7 把 spill 口径从 `maxInlineBytes: 50000` 改成 `maxInlineTokens: 12500`，且图片会计入省略 → 大文本可能改为落盘 spill、长会话图片可能被省略 | **观察项**：升级后按 token 重新校准本插件自己的 12KB 截断阈值 |
 | R5 | 新版 `plugin-manager` 按 `dsh.bundle` 判定 bundle | **已声明**（`package.json` + `cordis.patch.yml`），可切 §4 |
 | R6 | 0.1.7 把官方 HMR 行 `cordis-plugin-hmr` 换成 `@deepseek-ai/dsh-hmr`、`dsh-settings-file` → `dsh-settings` | 本插件不依赖这些 id；injector 已删除 —— 代价是不再有第三方"运行时热注入"，改配置需重启（官方 HMR 行在 0.1.7 才启用） |
 | R7 | `peerDependencies` 写的是裸名 `cordis`/`schemastery`（npm 上是另一条谱系），宿主用的是 `@deepseek-ai/*` | 现在走 **link 装配**（profile node_modules → 本目录 → 全局安装）→ 无影响；**改成 registry 安装**（`pnpm add`）前必须先解决，否则会引入第二份实现 |
-| R8 | 图片回传失败被 `catch` 吞掉，纯文本结果无告警 | **已修**（当前 v2.6.1 仍成立：`{ref}`/`{why}` + `⚠ 图片未回传：<原因>`） |
+| R8 | 图片回传失败被 `catch` 吞掉，纯文本结果无告警 | **已修**（当前 v2.6.2 仍成立：`{ref}`/`{why}` + `⚠ 图片未回传：<原因>`） |
 | R9 | 15 个工具 + 超长中文描述全量进 prompt；新版 dsh-tools 已有 `deferLoading` | **优化项**：上游若默认延迟加载，需评估"描述即文档"策略 |
 
 ## 4. 装配方式：bundle 式（2026-09-23 已切换 + 迁移记录）

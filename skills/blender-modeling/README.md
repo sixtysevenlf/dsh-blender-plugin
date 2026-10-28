@@ -32,6 +32,7 @@ ln -s "$PLUGIN/skills/blender-modeling" ~/.dsh/skills/blender-modeling   # 或�
 - `references/multiview-calibration.md` —— 三视图联立标定脚本（可 `--selftest`；与 img_calib/shapesolve 配套）。
 - `references/参考图通用还原SOP.md` —— 参考图还原九步（优先 img_digest/probe/measure/calib；无标定不写 mm）。
 - `references/验收清单.md` —— 独立验证子代理专用（优先 audit/asm_gate/gate_run/visualreport/eval；约 4.2k 字符）。
+- `references/曲面算法.md` —— surface_* 曲面包速查：loft/sweep/patch → tessellate → validate → export，verdict 三态与 M3/M5 限制。
 
 > **架构优先**：有 plugin op 就不许手写等价几何/验收；catalog 里没有对应能力才写 bpy，并且仍必须回插件门验收。
 

@@ -21,7 +21,7 @@ fetch "SKILL.md" "$DEST/SKILL.md"
 fetch "README.md" "$DEST/README.md"
 fetch "NOTICE.md" "$DEST/NOTICE.md"
 fetch "LICENSE" "$DEST/LICENSE"
-for f in modeling-overview.md multiview-calibration.md 参考图通用还原SOP.md 验收清单.md; do
+for f in modeling-overview.md multiview-calibration.md 参考图通用还原SOP.md 验收清单.md 曲面算法.md; do
   fetch "references/$f" "$DEST/references/$f"
 done
 

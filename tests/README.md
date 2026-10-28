@@ -21,7 +21,7 @@ node tests/host_routes_selftest.mjs     # /host/* 路由（需要后端 127.0.0.
   写租约被别的会话持有时**不夺租约**而是跳过（共享同一 Blender 时的有意取舍）。
 - 两条都不进 `npm test` 主链（`host_routes` 依赖真后端），需要时手动跑。
 
-## 工具卡片自检（v2.6.1 · 进 `npm test`）
+## 工具卡片自检（v2.6.2 · 进 `npm test`）
 
 ```bash
 node tests/tool_cards_selftest.mjs      # 15 个工具的 presentCall / presentResult（不需要 Blender，不起后端）
@@ -32,7 +32,7 @@ node tests/tool_cards_selftest.mjs      # 15 个工具的 presentCall / presentR
   结果卡片去掉单行 JSON 信封、摘要在前、代码在后、图片块原样透传；出错 / 没东西可改时回 `undefined`（宿主默认显示）；
   `render` 输出仍以信封开头；坏参数不抛、view 全是 lossless JSON。
 
-## dsh-TUI 宿主半边自检（v2.6.1 · 进 `npm test`）
+## dsh-TUI 宿主半边自检（v2.6.2 · 进 `npm test`）
 
 ```bash
 node tests/tui_host_selftest.mjs        # src/tui-host.ts：假宿主接缝 + 假后端 + 一个真 runtime/server.mjs（不需要 Blender / dsh-TUI）
@@ -43,7 +43,7 @@ node tests/tui_host_selftest.mjs        # src/tui-host.ts：假宿主接缝 + �
 - 页脚字段的每种状态、`@` 提及条目、`/blender status|jobs|doctor`、接缝缺失时零注册、卸载清理。
 - 真后端 `/host/state`：无 Blender 时的形状与「未连接」；再挂一个假 addon，验「AI 操作已暂停」→ `aiPaused=true` → 成功一次后清空。
 
-## Windows 子进程藏窗自检（v2.6.1 · 进 `npm test`）
+## Windows 子进程藏窗自检（v2.6.2 · 进 `npm test`）
 
 ```bash
 node tests/windows_hide_selftest.mjs     # 静态扫描 runtime/*.mjs 的 child_process 调用（不需要 Blender / 不需要 Windows）

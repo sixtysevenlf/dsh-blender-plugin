@@ -1,17 +1,17 @@
 # MIGRATIONS —— 从旧版本迁到 v2.6
 
-> **当前版本（2026-10-20）**：插件 **v2.6.1** · **15 个模型工具** · plan catalog **33 family / 217 op** ·
+> **当前版本（2026-10-20）**：插件 **v2.6.2** · **15 个模型工具** · plan catalog **34 family / 228 op** ·
 > addon **v1.10**（protocol **11**）· 后端 `127.0.0.1:9877` / addon `127.0.0.1:9876`。
 > **旧 `MCP for Blender` 自 v2.3 起不再支持**；v2.3/v2.4 的迁移变更与 addon v1.10 的面板更新仍然适用，
 > v2.6 以**新增字段/能力**为主，按下文 §0 最短路径迁完即可。
 
-## 0. 最短路径（任何旧版 → v2.6.1）
+## 0. 最短路径（任何旧版 → v2.6.2）
 
-1. 更新 DSH 插件包到 **v2.6.1** → **重启 DSH**；旧「Blender 视口」tab / 点击进消息在 v2.3 已删除，这是预期。
+1. 更新 DSH 插件包到 **v2.6.2** → **重启 DSH**；旧「Blender 视口」tab / 点击进消息在 v2.3 已删除，这是预期。
 2. Blender 里停用旧 addon → 安装本仓 `addon/dsh_blender_bridge.py`（**v1.10**）→ 启用 → N → Connect。
 3. `blender_rt_cmd get_addon_info` → `addon_version=[1,10]`、`protocol=11`；
    GUI 路线 `curl http://127.0.0.1:9877/doctor` → `kind=ok`（纯无头路线用 `rt_worker(start)` + `see` 出图自证）；
-   `blender_rt_plan(op="catalog")` → **33 family / 217 op**。
+   `blender_rt_plan(op="catalog")` → **34 family / 228 op**。
 4. 选中入口：Blender 原生选中 → `N` →「Selection → DSH」→ 发送（多选 / 集合）；编辑模式选点/面、姿态选骨骼也会一起发。
 5. 新能力（交互式无头、`img_*`、`asm_*`、`blockout`、`visualreport`、`shapesolve`、`eval_run`、强制门等）用
    `blender_rt_plan(op="catalog")` 查骨架；旧 op 不删除、只增不改。

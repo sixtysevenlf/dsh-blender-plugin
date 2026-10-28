@@ -3,7 +3,7 @@
 > 这个文件会被 DSH / Claude Code / Cursor / Codex 等助手**自动加载**。动手前先读完（约 1 分钟）。
 > 人类读者请直接看 [README.zh-CN.md](README.zh-CN.md)（[English](README.md)）。
 
-> **当前版本（2026-10-23）**：插件 **v2.6.1** · **15 个模型工具** · plan catalog **34 个 family / 228 个 op** ·
+> **当前版本（2026-10-28）**：插件 **v2.6.2** · **15 个模型工具** · plan catalog **34 个 family / 228 个 op** ·
 > Blender 侧 addon **v1.10**（protocol **11**）· 后端 `127.0.0.1:9877` / addon `127.0.0.1:9876`。
 > **验收判据**：GUI 路线 = `doctor` 回 `kind=ok`；纯无头路线（不装 addon）= `blender_rt_worker(start)` + `see` 出图自证
 > （此时 doctor 的 bpy 往返不可达属预期）。**GUI 优先（无头备用）**：GUI 首选，交互式无头（持久 worker + see/watch/reset）
@@ -38,11 +38,11 @@
 | `blender-unreachable` | Blender 没跑，或 addon 没 Connect | `blender_viewport(op="launch")`；或人工在 Blender 里按 `N` → Connect；纯无头改用 `blender_rt_worker` |
 | `main-thread-busy` | 主线程被渲染 / 模态操作占住 | 等它空下来，或改走无头（`rt_headless` / `rt_worker`） |
 | 后端不可用 | 后端进程没起来 | `blender_viewport(op="start")` |
-| 工具数不是 15 / catalog 不是 34-228 | 插件版本旧，或升级后没重启 DSH | 安装 v2.6.1 → **重启 DSH** → 复核 |
-| `value is not lossless JSON` | 宿主与插件回执契约不匹配（旧版/未重载） | 升级 v2.6.1 后**重启 DSH** |
+| 工具数不是 15 / catalog 不是 34-228 | 插件版本旧，或升级后没重启 DSH | 安装 v2.6.2 → **重启 DSH** → 复核 |
+| `value is not lossless JSON` | 宿主与插件回执契约不匹配（旧版/未重载） | 升级 v2.6.2 后**重启 DSH** |
 | 写操作 409 `leased` | 别的会话持有写租约 | `blender_viewport(op="who")`，别强抢 |
 
-## 2. 当前能力面（v2.6.1 · 15 个模型工具）
+## 2. 当前能力面（v2.6.2 · 15 个模型工具）
 
 工具参考（完整参数见 `blender_rt_plan(op="catalog")` / `docs/操作教程.md`）：
 
