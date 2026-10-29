@@ -1,0 +1,160 @@
+{
+  "families_count": 34,
+  "ops_count": 228,
+  "tools_count": 15,
+  "tools": [
+    "blender_rt_cmd",
+    "blender_rt_commands",
+    "blender_rt_do",
+    "blender_rt_headless",
+    "blender_rt_job",
+    "blender_rt_loop",
+    "blender_rt_opt",
+    "blender_rt_perf",
+    "blender_rt_plan",
+    "blender_rt_preset",
+    "blender_rt_see",
+    "blender_rt_txn",
+    "blender_rt_watch",
+    "blender_rt_worker",
+    "blender_viewport"
+  ],
+  "families": [
+    {
+      "f": "assembly",
+      "ops": 8
+    },
+    {
+      "f": "audit",
+      "ops": 14
+    },
+    {
+      "f": "blockout",
+      "ops": 7
+    },
+    {
+      "f": "calib",
+      "ops": 3
+    },
+    {
+      "f": "clearance",
+      "ops": 3
+    },
+    {
+      "f": "contract",
+      "ops": 19
+    },
+    {
+      "f": "deliver",
+      "ops": 3
+    },
+    {
+      "f": "eval",
+      "ops": 3
+    },
+    {
+      "f": "ext",
+      "ops": 2
+    },
+    {
+      "f": "face",
+      "ops": 4
+    },
+    {
+      "f": "fix",
+      "ops": 4
+    },
+    {
+      "f": "gate",
+      "ops": 7
+    },
+    {
+      "f": "generator",
+      "ops": 7
+    },
+    {
+      "f": "gui",
+      "ops": 4
+    },
+    {
+      "f": "human",
+      "ops": 6
+    },
+    {
+      "f": "img",
+      "ops": 11
+    },
+    {
+      "f": "material",
+      "ops": 6
+    },
+    {
+      "f": "montage",
+      "ops": 2
+    },
+    {
+      "f": "motion",
+      "ops": 10
+    },
+    {
+      "f": "pipe",
+      "ops": 7
+    },
+    {
+      "f": "plan",
+      "ops": 8
+    },
+    {
+      "f": "print",
+      "ops": 5
+    },
+    {
+      "f": "qc",
+      "ops": 16
+    },
+    {
+      "f": "qc_render",
+      "ops": 3
+    },
+    {
+      "f": "render",
+      "ops": 3
+    },
+    {
+      "f": "render_guard",
+      "ops": 5
+    },
+    {
+      "f": "sculpt",
+      "ops": 8
+    },
+    {
+      "f": "shape",
+      "ops": 12
+    },
+    {
+      "f": "shapesolve",
+      "ops": 3
+    },
+    {
+      "f": "surface",
+      "ops": 11
+    },
+    {
+      "f": "sweep",
+      "ops": 4
+    },
+    {
+      "f": "uv",
+      "ops": 7
+    },
+    {
+      "f": "vehicle",
+      "ops": 10
+    },
+    {
+      "f": "visualreport",
+      "ops": 3
+    }
+  ]
+}

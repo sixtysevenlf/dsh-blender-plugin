@@ -1,0 +1,12 @@
+# T1 commands
+node scripts/test.mjs
+node scripts/test.mjs js
+node scripts/test.mjs python
+node scripts/test.mjs unit
+node scripts/test.mjs integration
+node scripts/test.mjs contract
+node scripts/test.mjs bogus    # unknown mode exits 2, no tests run
+npm run test:legacy            # legacy chain is preserved, not removed
+
+# WSL cross-check
+wsl.exe -d Ubuntu-24.04 -- bash -lc 'cd /home/villager_uncle/work/dsh-blender-plugin; export PATH=/opt/node/bin:/usr/bin:/bin; export PYTHON=/home/villager_uncle/work/dsh-test-venv/bin/python; node scripts/test.mjs'

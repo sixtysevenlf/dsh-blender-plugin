@@ -1738,6 +1738,17 @@ def surface_export(spec_or_object=None, out_dir=None, name=None, apply_modifiers
 
 
 
+# ────────────────────────────── M3：fit 只留接口（不假装实现） ──────────────────────────────
+_M3_FIT_MSG = "fit not implemented in pure-python, point-cloud/BRep solver required (M3)"
+
+
+def surface_fit(*args, **kwargs):
+    """M3 接口：把点云/参考曲线拟合为 SurfaceSpec 需要外部求解器（本包不依赖），明确拒绝。"""
+    return _err(_M3_FIT_MSG, stage="M3", op="fit", code="M3_NOT_IMPLEMENTED",
+                next_action="当前用 op=loft/sweep/patch 手工给截面/控制网格；或 vehicle_fit 的参数化 polyline 路线",
+                hint="纯 bpy+numpy 不做稳健曲面拟合；需要 OCCT/点云拟合后端接线后再开放。")
+
+
 def surface_help():
     return _j({
         "module": "surface.py", "version": SURFACE_VERSION,
@@ -1762,6 +1773,8 @@ def surface_help():
             "offset": {"sig": "spec_or_object,distance_mm", "out": "M5：同上（纯 Python offset 会自交/翻面）"},
             "export": {"sig": "spec_or_object, out_dir, name, apply_modifiers=true, selection_only=true, max_tris?",
                        "out": "直接导 GLB（工作台内置查看器可看，免渲染三视图）"},
+            "fit": {"sig": "points/curves + tolerance",
+                    "out": "M3：ok:false + 'not implemented in pure-python'（需点云/BRep 求解器）"},
             "selftest": {"sig": "无参", "out": "三基准 + 自交/薄壁/连续性负例 + 坏参数"},
             "help": {"sig": "无参"},
         },
@@ -1778,7 +1791,7 @@ def surface_help():
             "自交：三角数超 max_tris ⇒ degraded（不当作无自交）；厚度只对闭合壳有意义",
         ],
         "deps": {"required": "K.dsh_kit", "optional": "audit（可再交叉跑 audit_mesh，本模块不强制）"},
-        "honest_limits": ["离散曲率/射线厚度都是近似", "M5 blend/offset 未实现（需 OCCT）",
+        "honest_limits": ["离散曲率/射线厚度都是近似", "M3 fit 未实现（需点云/BRep 求解器）", "M5 blend/offset 未实现（需 OCCT）",
                           "patch/sweep 的连续性只查有接缝的方向；单张面片无内部缝",
                           "loft 的 z 沿 v 线性（不额外摆动）；截面参数按 z 归一化"],
     })
@@ -1789,4 +1802,4 @@ _KIT.register("surface", SURFACE_VERSION, {
     "loft": surface_loft, "sweep": surface_sweep, "patch": surface_patch,
     "tessellate": surface_tessellate, "validate": surface_validate,
     "blend": surface_blend, "offset": surface_offset, "export": surface_export,
-    "selftest": surface_selftest, "help": surface_help})
+    "fit": surface_fit, "selftest": surface_selftest, "help": surface_help})

@@ -301,7 +301,8 @@ function detectBlenderExe() {
   try {
     const cmd = IS_WIN ? 'where.exe' : 'which';
     // windowsHide: where.exe 是 console-subsystem，宿主无控制台时会被新配控制台（issue #43；非 Windows no-op）
-    const out = execFileSync(cmd, ['blender'], { encoding: 'utf8', timeout: 5000, windowsHide: true }).split(/\r?\n/).filter(Boolean)[0];
+    const out = execFileSync(cmd, ['blender'], { encoding: 'utf8', timeout: 5000, windowsHide: true,
+      stdio: ['ignore', 'pipe', 'ignore'] }).split(/\r?\n/).filter(Boolean)[0];
     if (out) return { exe: IS_WIN ? out.trim() : out.trim(), from: 'auto:path' };
   } catch (e) { /* 没装到 PATH */ }
   return { exe: null, from: 'not-found' };

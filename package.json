@@ -51,12 +51,12 @@
     }
   },
   "peerDependencies": {
+    "@deepseek-ai/cordis": ">=4.0.0-rc <5",
     "@deepseek-ai/dsh-llm": ">=0.0.1-rc <2",
     "@deepseek-ai/dsh-tools": ">=0.0.1-rc <2",
+    "@deepseek-ai/schemastery": "^3.18.0",
     "cordis": ">=4.0.0-rc <5",
-    "schemastery": "^3.18.0",
-    "@deepseek-ai/cordis": ">=4.0.0-rc <5",
-    "@deepseek-ai/schemastery": "^3.18.0"
+    "schemastery": "^3.18.0"
   },
   "//peerDependenciesMeta": "schemastery / cordis 在不同 DSH 版本间是有 scope / 无 scope 两种形态。两个名字都声明且都标 optional —— 任一满足即可，宿主给了哪个就用哪个（见 src/index.ts 的运行时解析）。",
   "peerDependenciesMeta": {
@@ -74,13 +74,26 @@
     }
   },
   "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.5",
+    "@deepseek-ai/dsh-attachment": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-brand": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-invariants": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-llm": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-scope": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-session": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-timeout": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-tools": "^0.0.1-rc.1",
+    "@deepseek-ai/schemastery": "^3.18.5",
     "@types/node": "^24.13.3",
-    "typescript": "^5.9.0"
+    "@vitest/coverage-v8": "^3.2.7",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.7"
   },
   "scripts": {
     "build": "bash scripts/build.sh",
     "typecheck": "node scripts/typecheck.mjs",
-    "test": "node tests/capability_lock.mjs && node tests/single_source_selftest.mjs && node tests/lossless_guard.mjs && node tests/lease_stale_selftest.mjs && node tests/mac_selftest.mjs && node tests/linux_selftest.mjs && node tests/frame_dedupe_selftest.mjs && node tests/discoverability_selftest.mjs && node tests/shape_search_selftest.mjs && node tests/workdir_shared_selftest.mjs && node tests/provenance_stale_selftest.mjs && node tests/ledger_recover_selftest.mjs && node tests/scene_hygiene_selftest.mjs && node tests/lease_scope_selftest.mjs && node tests/ledger_recover_e2e_selftest.mjs && node scripts/pyrun.mjs tests/generator_dispatch_selftest.py && node tests/guidance_selftest.mjs && node tests/backend_probe_selftest.mjs && node tests/schema_resolve_selftest.mjs && node scripts/pyrun.mjs tests/gate_eval_selftest.py && node tests/skill_bundle_selftest.mjs && node tests/selection_store_selftest.mjs && node tests/client_bundle_selftest.mjs && node tests/tool_cards_selftest.mjs && node tests/tui_host_selftest.mjs && node tests/windows_hide_selftest.mjs && node tests/headless_file_guard_selftest.mjs && node tests/headless_hard_exit_selftest.mjs",
+    "test": "node scripts/test.mjs",
     "test:discover": "node tests/discoverability_selftest.mjs",
     "test:fileguard": "node tests/headless_file_guard_selftest.mjs",
     "test:hardexit": "node tests/headless_hard_exit_selftest.mjs",
@@ -102,7 +115,13 @@
     "test:dsh-api": "node tests/dsh_api_compat_probe.mjs",
     "test:routes": "node tests/route_contract_selftest.mjs",
     "test:schema": "node tests/schema_resolve_selftest.mjs",
-    "test:search": "node tests/shape_search_selftest.mjs"
+    "test:search": "node tests/shape_search_selftest.mjs",
+    "test:legacy": "node tests/capability_lock.mjs && node tests/single_source_selftest.mjs && node tests/lossless_guard.mjs && node tests/lease_stale_selftest.mjs && node tests/mac_selftest.mjs && node tests/linux_selftest.mjs && node tests/frame_dedupe_selftest.mjs && node tests/discoverability_selftest.mjs && node tests/shape_search_selftest.mjs && node tests/workdir_shared_selftest.mjs && node tests/provenance_stale_selftest.mjs && node tests/ledger_recover_selftest.mjs && node tests/scene_hygiene_selftest.mjs && node tests/lease_scope_selftest.mjs && node tests/ledger_recover_e2e_selftest.mjs && node scripts/pyrun.mjs tests/generator_dispatch_selftest.py && node tests/guidance_selftest.mjs && node tests/backend_probe_selftest.mjs && node tests/schema_resolve_selftest.mjs && node scripts/pyrun.mjs tests/gate_eval_selftest.py && node tests/skill_bundle_selftest.mjs && node tests/selection_store_selftest.mjs && node tests/client_bundle_selftest.mjs && node tests/tool_cards_selftest.mjs && node tests/tui_host_selftest.mjs && node tests/windows_hide_selftest.mjs && node tests/headless_file_guard_selftest.mjs && node tests/headless_hard_exit_selftest.mjs",
+    "test:unit": "node scripts/test.mjs unit",
+    "test:integration": "node scripts/test.mjs integration",
+    "test:contract": "node scripts/test.mjs contract",
+    "test:python": "node scripts/test.mjs python",
+    "test:watch": "node node_modules/vitest/vitest.mjs"
   },
   "exports": {
     ".": {

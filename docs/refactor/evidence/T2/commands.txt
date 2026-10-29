@@ -1,0 +1,4 @@
+# T2 commands
+node node_modules/vitest/vitest.mjs run tests/unit/js/contract
+node scripts/test.mjs contract
+/home/villager_uncle/work/dsh-test-venv/bin/python -m pytest tests/unit/python -q

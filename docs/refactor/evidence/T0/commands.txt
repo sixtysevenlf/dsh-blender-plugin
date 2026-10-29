@@ -1,0 +1,18 @@
+# T0 commands (Windows shell, Git Bash; node = v22.17.0)
+export PATH='/c/Users/villa/AppData/Local/node22test':$PATH
+export DSH_BLENDER_EXE='D:/DSH/tools/blender-win/blender-4.2.10-windows-x64/blender.exe'
+export DSH_BLENDER_WORKDIR='D:/DSH/tmp/dsh-blender-work'
+export PYTHONIOENCODING=utf-8
+export PYTHONUTF8=1
+export PYTHON='D:/DSH/tools/dsh-test-venv/Scripts/python.exe'
+export TEMP='D:\DSH\tmp'
+export TMP='D:\DSH\tmp'
+
+node scripts/typecheck.mjs
+node scripts/test.mjs
+npm run test:legacy
+node scripts/sync_counts.mjs --dry
+sha256sum tests/capability.lock.json
+
+# WSL cross-check:
+wsl.exe -d Ubuntu-24.04 -- bash -lc 'cd /home/villager_uncle/work/dsh-blender-plugin; export PATH=/opt/node/bin:/usr/bin:/bin; node scripts/typecheck.mjs; node scripts/test.mjs'

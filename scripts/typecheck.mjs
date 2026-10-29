@@ -40,14 +40,31 @@ const printOnly = argv.indexOf('--print') >= 0
 const rest = argv.filter((a) => a !== '--print')
 const tscArgs = (rest[0] === '--') ? rest.slice(1) : rest
 
-/** .bin 里的入口：POSIX 是 `tsc`，Windows 是 `tsc.cmd`（.cmd 也要能被 spawnSync 执行） */
+/**
+ * 找 tsc 入口。Windows 上 `.bin/tsc.cmd` 是 shell shim，Node 22 直接 spawnSync 会
+ * EINVAL；优先返回同包的真实 JS 入口 `typescript/bin/tsc`，由 process.execPath 执行。
+ */
 function binTsc(dir) {
   if (!dir) return null
+  const real = path.resolve(dir, '..', 'typescript', 'lib', 'tsc.js')
+  try { if (fs.existsSync(real)) return real } catch (e) { /* ignore */ }
   for (const name of ['tsc' + EXE, 'tsc']) {
     const p = path.join(dir, name)
     try { if (fs.existsSync(p)) return p } catch (e) { /* ignore */ }
   }
   return null
+}
+
+/** 统一 spawn：JS 入口交给当前 node；Windows .cmd/.bat 走 cmd.exe shim。 */
+function spawnTsc(tscPath, args) {
+  const lower = String(tscPath).toLowerCase()
+  if (lower.endsWith('.js') || lower.endsWith('.cjs') || lower.endsWith('.mjs')) {
+    return spawnSync(process.execPath, [tscPath].concat(args), { stdio: 'inherit' })
+  }
+  if (process.platform === 'win32' && (lower.endsWith('.cmd') || lower.endsWith('.bat'))) {
+    return spawnSync(tscPath, args, { stdio: 'inherit', shell: true })
+  }
+  return spawnSync(tscPath, args, { stdio: 'inherit' })
 }
 
 /** 检查一个"dsh checkout"：它得同时有 packages/（源码树）和 node_modules/.bin/tsc（编译工具） */
@@ -150,7 +167,7 @@ if (!fs.existsSync(TSCONFIG)) {
 const hasProject = tscArgs.some((a) => a === '-p' || a === '--project' || String(a).indexOf('--project=') === 0)
 const base = hasProject ? ['--noEmit'] : ['-p', TSCONFIG, '--noEmit']
 console.error('typecheck: 用 ' + resolved.tsc + '（来源 ' + resolved.from + '）')
-const r = spawnSync(resolved.tsc, base.concat(tscArgs), { stdio: 'inherit' })
+const r = spawnTsc(resolved.tsc, base.concat(tscArgs))
 if (r.error) {
   console.error('typecheck: 执行失败：' + String(r.error.message || r.error))
   process.exit(2)
