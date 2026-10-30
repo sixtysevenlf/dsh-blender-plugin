@@ -1,0 +1,28 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.14, pytest-8.4.2, pluggy-1.7.0
+rootdir: D:\DSH\worktrees\refactor-j
+configfile: pytest.ini
+testpaths: tests/unit/python, tests/integration/python
+plugins: cov-7.1.0
+collected 253 items
+
+tests\unit\python\test_addon_activity.py ...........                     [  4%]
+tests\unit\python\test_addon_assets_io.py ...........                    [  8%]
+tests\unit\python\test_addon_config.py ...........                       [ 13%]
+tests\unit\python\test_addon_manifest.py ....                            [ 14%]
+tests\unit\python\test_addon_premium.py ...................              [ 22%]
+tests\unit\python\test_addon_protocol.py ......                          [ 24%]
+tests\unit\python\test_addon_selection.py ...............                [ 30%]
+tests\unit\python\test_runtime_layout.py .........                       [ 33%]
+tests\unit\python\test_smoke.py .                                        [ 34%]
+tests\unit\python\test_surface_fit_contract.py ...                       [ 35%]
+tests\integration\python\test_addon_command_matrix.py .................. [ 42%]
+........................................................................ [ 71%]
+................................................                         [ 90%]
+tests\integration\python\test_addon_dispatch.py ...........              [ 94%]
+tests\integration\python\test_addon_launcher_contract.py ...             [ 95%]
+tests\integration\python\test_addon_packaging.py ....                    [ 97%]
+tests\integration\python\test_addon_protocol_frames.py ......            [ 99%]
+tests\integration\python\test_smoke.py .                                 [100%]
+
+============================= 253 passed in 1.88s =============================
