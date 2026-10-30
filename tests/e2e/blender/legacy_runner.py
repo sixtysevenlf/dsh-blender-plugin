@@ -53,6 +53,12 @@ def main():
     try:
         namespace = _boot(repo_root, preloads)
         kernel = sys.modules.get("dsh_rt_kernel")
+        # Archived cases write their artefacts under K.out_dir (the online headless
+        # kernel sets it per run). The offline harness must provide it too.
+        out_dir = os.path.join(os.path.dirname(os.path.abspath(report_path)), "out")
+        os.makedirs(out_dir, exist_ok=True)
+        if kernel is not None:
+            kernel.out_dir = out_dir
         # The legacy scripts compute repo paths from __file__ (HERE/../runtime).
         # Keep their original repo/tests/<name>.py location as the virtual file
         # name so that arithmetic keeps pointing at the real runtime/ and tests/.
@@ -76,6 +82,14 @@ def main():
     with open(report_path, "w", encoding="utf-8") as handle:
         json.dump(report, handle, ensure_ascii=False, indent=2)
     print("LEGACY_CASE_REPORT " + json.dumps(report, ensure_ascii=False))
+    # GUI mode: a non-background Blender keeps its window (and the process)
+    # alive after the script ends. Quit explicitly so the harness gets its exit.
+    if os.environ.get("LEGACY_GUI") == "1":
+        # bpy.ops.wm.quit_blender() can leave a GUI process waiting for its
+        # event loop; the report is already flushed, so exit the process.
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(0)
 
 
 if __name__ == "__main__":

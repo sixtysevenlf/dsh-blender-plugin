@@ -67,6 +67,8 @@ def _module_dirs(rt):
         for d in _DOMAINS:
             dirs.append(os.path.join(base, "py", d))
         dirs.append(os.path.join(base, "py"))
+    # 旧扁平布局的真实模块（§4.7 未收录：generator / uv_tools）就在 runtime 根下。
+    dirs.append(root)
     dirs.append(rt)
     seen, out = set(), []
     for d in dirs:
@@ -139,12 +141,19 @@ def boot(modules=(), runtime_dir=None):
     if getattr(K, "dsh_kit", None) is None:
         _exec(_kit_file(rt), {"K": K, "__name__": "kit", "__file__": _kit_file(rt)}, "kit")
     ns = {"K": K}
+    # v2.6.3（T8 回归修复）：每个模块必须 exec 到自己的命名空间。
+    # 旧实现把所有模块塞进同一个 globals，而各模块都定义 _num/_r/_j/_path 等私有 helper，
+    # 后加载的模块会把前面的顶掉（实测 assembly 的 _num(v) 被 mesh_fix 的 _num(v,name,...) 覆盖，
+    # asm_export 直接报 TypeError: _num() missing 1 required positional argument: 'name'）。
+    # 与在线 kernel.preloadChunk 的约定一致：私有名不外泄，只把公开名合并回共享 ns（兼容旧脚本）。
     for name in modules:
         p = _find_module(name, rt)
         if p is None:
             raise RuntimeError("找不到模块 %r（查找目录：%s）—— 检查模块名或 runtime_dir"
                                % (name, os.pathsep.join(_module_dirs(rt))))
-        _exec(p, ns, name)
+        mod_ns = {"K": K, "__name__": name, "__file__": p}
+        _exec(p, mod_ns, name)
+        ns.update({k: v for k, v in mod_ns.items() if not k.startswith("_")})
     ns["K"] = K
 
     def kapi(name):

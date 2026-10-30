@@ -24,3 +24,6 @@ node_modules
 # 构建产物（T15：prepack 重建，不入库）
 /lib/
 /lib
+
+# T12: coverage artifacts
+coverage/

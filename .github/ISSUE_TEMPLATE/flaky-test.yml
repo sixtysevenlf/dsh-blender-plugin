@@ -1,0 +1,41 @@
+name: Flaky test
+description: Track a flaky test with an owner and expiry date
+title: "[flaky] "
+labels: ["flaky", "test"]
+body:
+  - type: input
+    id: test
+    attributes:
+      label: Test name and file
+      placeholder: tests/integration/js/host-scene-items.test.ts > ...
+    validations:
+      required: true
+  - type: textarea
+    id: symptom
+    attributes:
+      label: Symptom and frequency
+      description: What fails, how often, and the first failing run/log link.
+    validations:
+      required: true
+  - type: input
+    id: owner
+    attributes:
+      label: Owner
+    validations:
+      required: true
+  - type: input
+    id: expiry
+    attributes:
+      label: Expiry date (YYYY-MM-DD)
+      description: After this date the test must be fixed or removed.
+    validations:
+      required: true
+  - type: checkboxes
+    id: policy
+    attributes:
+      label: Policy
+      options:
+        - label: This test is not in the required PR set.
+          required: true
+        - label: Retries do not mask the failure.
+          required: true

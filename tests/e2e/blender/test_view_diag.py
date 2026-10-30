@@ -22,12 +22,13 @@ if str(HERE) not in sys.path:
 
 import legacy  # noqa: E402
 
-pytestmark = pytest.mark.blender
+# OpenGL capture (bpy.ops.render.opengl) requires a GUI OpenGL context; headless Blender cannot run it.
+pytestmark = [pytest.mark.blender, pytest.mark.gui]
 
 PRELOADS = ("view",)
 
 
 def test_view_diag(tmp_path):
-    run = legacy.run_case(tmp_path, "view_diag_selftest.py", preloads=PRELOADS, timeout=600)
+    run = legacy.run_case(tmp_path, "view_diag_selftest.py", preloads=PRELOADS, timeout=600, gui=True)
     assert run["report"] is not None, legacy.describe_failure(run)
     assert run["report"]["ok"] is True, legacy.describe_failure(run)

@@ -24,7 +24,7 @@ import legacy  # noqa: E402
 
 pytestmark = pytest.mark.blender
 
-PRELOADS = ("imgtools",)
+PRELOADS = ("imgtools", "blockout", "assembly",)
 
 
 def test_p0_real_modeling(tmp_path):

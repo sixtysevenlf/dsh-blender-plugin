@@ -139,7 +139,10 @@ describe('registerTuiHost wiring', () => {
       expect(trees[0].children(['blender', 'status'])).toEqual([])
       expect(mentions[0]).toMatchObject({ id: 'blender', title: 'Blender' })
 
-      await sleep(120)
+      // Coverage instrumentation makes the first status poll slower than the
+      // old fixed 120 ms sleep; poll until the footer is wired (bounded).
+      const deadline = Date.now() + 5000
+      while (fields.length === 0 && Date.now() < deadline) await sleep(50)
       expect(fields.length).toBeGreaterThan(0)
       expect(fields[0][0]).toBe('blender')
       expect(fields[0][1]).toContain('Blender')

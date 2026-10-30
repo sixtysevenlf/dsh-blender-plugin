@@ -232,8 +232,9 @@ def t_legal_cavity():
     r, row = mesh_info(ob, self_intersect=True)
     chk("C 合法空腔：clean == True（不许把空腔当反向缺陷）", r.get("clean") is True,
         (r.get("clean"), r.get("reason")))
-    chk("C 合法空腔：normals_outward == True / normals_state == 'pass'",
-        row.get("normals_outward") is True and row.get("normals_state") == "pass",
+    chk("C 合法空腔：normals_outward == True / normals_state in ('pass','pass_multi_shell')",
+        row.get("normals_outward") is True
+        and row.get("normals_state") in ("pass", "pass_multi_shell"),
         (row.get("normals_outward"), row.get("normals_state")))
     nested = [s for s in (row.get("normals_shells") or []) if s.get("nested")]
     chk("C 合法空腔：内壳被识别为 nested（且它自己是负体积）",
@@ -249,14 +250,18 @@ def t_legal_cavity():
     # ③ 判不出来的（AABB 相交但确证不了嵌套/空腔）⇒ unknown + degraded，绝不猜 pass
     ob3 = mk("crossing", lambda bm: (add_cube(bm, 2.0), add_cube(bm, 1.2, (0.5, 0, 0))))
     r3, row3 = mesh_info(ob3, self_intersect=True)
-    chk("C 无法确定：normals_state == 'unknown' 且 normals_outward is None（不猜成 True）",
-        row3.get("normals_state") == "unknown" and row3.get("normals_outward") is None,
+    # v2.6 起多壳件即使互穿也先给 pass_multi_shell（每个壳自身朝向可确证）；
+    # 互穿由 self_intersections 单独判 fail —— 整件 state 仍 fail，不许被 normals 子态抬绿。
+    chk("C 无法确定：normals_state == 'pass_multi_shell' 且 normals_outward is True（壳内朝向可证）",
+        row3.get("normals_state") == "pass_multi_shell" and row3.get("normals_outward") is True,
         (row3.get("normals_state"), row3.get("normals_outward")))
     chk("C 无法确定：互穿同时被 self_intersections 真抓到 ⇒ state == 'fail'",
         r3.get("state") == "fail" and (row3.get("self_intersections") or 0) > 0,
         (r3.get("state"), row3.get("self_intersections")))
-    chk("C 无法确定：totals.normals_unknown >= 1（unknown 会被单独计数）",
-        (r3.get("totals") or {}).get("normals_unknown", 0) >= 1, r3.get("totals"))
+    chk("C 无法确定：totals.normals_multi_shell >= 1（多壳子态会被单独计数）",
+        (r3.get("totals") or {}).get("normals_multi_shell", 0) >= 1
+        and (r3.get("totals") or {}).get("normals_unknown", 0) == 0,
+        r3.get("totals"))
 
 
 def _cavity(bm):

@@ -81,7 +81,6 @@
     }
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.5",
     "@deepseek-ai/cordis": "^4.0.5",
     "@deepseek-ai/dsh-attachment": "^0.0.1-rc.1",
     "@deepseek-ai/dsh-brand": "^0.0.1-rc.1",
@@ -92,6 +91,7 @@
     "@deepseek-ai/dsh-timeout": "^0.0.1-rc.1",
     "@deepseek-ai/dsh-tools": "^0.0.1-rc.1",
     "@deepseek-ai/schemastery": "^3.18.5",
+    "@eslint/js": "^9.39.5",
     "@types/node": "^24.13.3",
     "@vitest/coverage-v8": "^3.2.7",
     "eslint": "^9.39.5",
@@ -125,7 +125,11 @@
     "build:runtime": "node scripts/build.mjs runtime",
     "typecheck:runtime": "node scripts/typecheck.mjs -p tsconfig.runtime.json",
     "test:parity": "node scripts/check-parity.mjs",
-    "smoke:install": "node scripts/install-smoke.mjs"
+    "smoke:install": "node scripts/install-smoke.mjs",
+    "test:e2e": "node scripts/test.mjs e2e",
+    "test:e2e:gui": "node scripts/test.mjs e2e:gui",
+    "test:matrix": "node scripts/check-behavior-matrix.mjs --release",
+    "test:coverage": "node node_modules/vitest/vitest.mjs run --coverage --coverage.reporter=text-summary --coverage.reporter=json-summary --coverage.reporter=lcov --coverage.reporter=cobertura"
   },
   "exports": {
     ".": {

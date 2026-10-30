@@ -36,24 +36,28 @@ def case_path(case: str) -> Path:
     return path
 
 
-def run_case(tmp_path, case, preloads=(), timeout=600):
+def run_case(tmp_path, case, preloads=(), timeout=600, gui=False):
     """Execute one archived case; returns {ok, returncode, report, command, stdout, stderr}."""
     executable = harness.require_blender()
     work_dir = Path(tmp_path) / "legacy-e2e"
     work_dir.mkdir(parents=True, exist_ok=True)
     report_path = work_dir / "report.json"
-    command = [
-        executable,
-        "--background",
+    command = [executable]
+    if not gui:
+        command.append("--background")
+    command += [
         "--factory-startup",
         "--python-exit-code", "1",
         "--python", str(RUNNER),
         "--", str(case_path(case)), str(report_path), ",".join(preloads), str(harness.REPO_ROOT),
     ]
+    env = harness._env(work_dir)
+    if gui:
+        env["LEGACY_GUI"] = "1"
     completed = subprocess.run(
         command,
         cwd=str(harness.REPO_ROOT),
-        env=harness._env(work_dir),
+        env=env,
         capture_output=True,
         text=True,
         encoding="utf-8",

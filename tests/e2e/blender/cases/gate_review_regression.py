@@ -202,10 +202,12 @@ def t_plan_contract():
         and "min_mm" in (prow.get("degrade_if") or "")
         and (prow.get("args") or {}).get("scope") == "ACTIVE",
         {"degrade_if": prow.get("degrade_if"), "args": prow.get("args")})
-    chk("F8-b：print preset 声明 echo（分辨率 / min_mm / warning 三个真实读数进回执）",
-        len(prow.get("echo") or []) == 3
+    chk("F8-b：print preset 声明 echo（分辨率 / min_mm / warning / 平台读数进回执）",
+        len(prow.get("echo") or []) >= 3
         and any("resolution_mm" in str(x) for x in (prow.get("echo") or []))
-        and any("warning" in str(x) for x in (prow.get("echo") or [])),
+        and any("warning" in str(x) for x in (prow.get("echo") or []))
+        and any("min_mm" in str(x) for x in (prow.get("echo") or []))
+        and any("bed_mode" in str(x) for x in (prow.get("echo") or [])),
         prow.get("echo"))
 
 

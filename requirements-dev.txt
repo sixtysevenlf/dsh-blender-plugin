@@ -1,3 +1,4 @@
 # Python-side test stack (T1). Keep pinned ranges; CI installs -r requirements-dev.txt.
 pytest>=8.3,<9
 pytest-cov>=6,<8
+diff-cover>=9,<10
