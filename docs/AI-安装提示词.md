@@ -98,6 +98,7 @@ blender_rt_do(code="print(K.out_dir)", session="auto")       # 同步 exec，不
    生物/有机造型、电影级布光/体积/合成、角色动画绑定不覆盖。
 8. **addon 兼容性（重要）**：v2.3 起只支持本仓 [`addon/dsh_blender_bridge.py`](../addon/dsh_blender_bridge.py)（v1.10+）。
    若装的是旧 `MCP for Blender` / `blender_mcp`，先停用再装本仓 addon；否则「Selection → DSH」与模型工具都可能连不上。
+   其他普通 addon 不受影响；**不要卸载或停用用户的其他 addon**（只需停用桥接类 addon）。
    —— 请把这条如实告诉用户，并给出迁移步骤（[MIGRATIONS.md](../MIGRATIONS.md)）。
 
 ## ④ 什么算失败（拿到这些回执就别宣布成功）
