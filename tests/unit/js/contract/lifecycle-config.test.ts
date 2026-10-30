@@ -20,7 +20,7 @@ function readTree(dir: string, ext: string): string {
 }
 const indexSource = readTree(pkgPath('src'), '.ts')
 const engineSource = readTree(pkgPath('runtime'), '.mjs')
-const addonSource = fs.readFileSync(pkgPath('addon', 'dsh_blender_bridge.py'), 'utf8')
+const addonSource = readTree(pkgPath('addon', 'dsh_blender_bridge'), '.py')
 const serverSource = readTree(pkgPath('runtime', 'http'), '.mjs')
 
 describe('backend start decision table', () => {

@@ -17,7 +17,7 @@ function readTree(dir: string, ext: string): string {
     return entry.isDirectory() ? readTree(full, ext) : entry.name.endsWith(ext) ? fs.readFileSync(full, 'utf8') : ''
   }).join('\n')
 }
-const addonSource = fs.readFileSync(pkgPath('addon', 'dsh_blender_bridge.py'), 'utf8')
+const addonSource = readTree(pkgPath('addon', 'dsh_blender_bridge'), '.py')
 const serverSource = readTree(pkgPath('runtime', 'http'), '.mjs')
 const indexSource = readTree(pkgPath('src'), '.ts')
 

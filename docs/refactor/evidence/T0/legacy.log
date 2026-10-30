@@ -1,0 +1,697 @@
+npm notice run @dsh-external/dsh-blender-plugin@2.6.2 test:legacy
+npm notice run node tests/capability_lock.mjs && node tests/single_source_selftest.mjs && node tests/lossless_guard.mjs && node tests/lease_stale_selftest.mjs && node tests/mac_selftest.mjs && node tests/linux_selftest.mjs && node tests/frame_dedupe_selftest.mjs && node tests/discoverability_selftest.mjs && node tests/shape_search_selftest.mjs && node tests/workdir_shared_selftest.mjs && node tests/provenance_stale_selftest.mjs && node tests/ledger_recover_selftest.mjs && node tests/scene_hygiene_selftest.mjs && node tests/lease_scope_selftest.mjs && node tests/ledger_recover_e2e_selftest.mjs && node scripts/pyrun.mjs tests/generator_dispatch_selftest.py && node tests/guidance_selftest.mjs && node tests/backend_probe_selftest.mjs && node tests/schema_resolve_selftest.mjs && node scripts/pyrun.mjs tests/gate_eval_selftest.py && node tests/skill_bundle_selftest.mjs && node tests/selection_store_selftest.mjs && node tests/client_bundle_selftest.mjs && node tests/tool_cards_selftest.mjs && node tests/tui_host_selftest.mjs && node tests/windows_hide_selftest.mjs && node tests/headless_file_guard_selftest.mjs && node tests/headless_hard_exit_selftest.mjs
+能力锁：PASS（34 family / 228 op / 15 工具，与 capability.lock.json 一致）
+  ✓ 只读白名单派生集合与冻结基线逐名一致（98 条）
+  ✓ 白名单里没有重复项
+  ✓ server.mjs 确实消费派生常量（不再手抄）
+  ✓ src/index.ts 描述里的计数 == catalog（34 family / 228 op）
+  · 未找到工作区 AGENTS.md，跳过
+single-source-selftest：4 通过 / 0 失败
+宿主真校验器：(local-copy — 未找到宿主真校验器)
+  ✓ lib/index.js 暴露测试接缝 __internals
+被测量的插件版本：v2.6.2
+
+== 控制组（校验器严格性自证） ==
+  ✓ promoted:undefined 必须被拒（v0.9.3 的真实病因）
+  ✓ NaN 必须被拒
+  ✓ Infinity 必须被拒
+  ✓ -0 必须被拒
+  ✓ JSON.parse("-0") 必须被拒
+  ✓ Date 必须被拒
+  ✓ 数组里的 undefined 必须被拒
+  ✓ 对照：null 值合法
+
+== 出口消毒器 losslessSanitize ==
+  ✓ 消毒后整体过门
+  ✓ 每个问题字段都留下 fixes 记录（不静默）
+  ✓ NaN → null
+  ✓ Infinity → null
+  ✓ -0 → 0（且不是 -0）
+  ✓ undefined 键被丢弃
+  ✓ Date → ISO 字符串
+  ✓ Map/Set → 数组
+  ✓ 二进制 → {bytes:N}
+  ✓ bigint → number
+  ✓ 数组元素 undefined → null（长度不塌）
+  ✓ 嵌套 undefined 键被丢弃、NaN 变 null
+  ✓ 循环引用过门
+  ✓ 循环引用 → [Circular]
+  ✓ DAG 共享引用（非循环）过门
+
+== 真实回执（receiptEnvelope / headlessReceipt / promotedReceipt） ==
+  ✓ sync 回执（干净输入）直接过门 ← v0.9.3 这里必挂
+  ✓ sync 回执里没有 promoted 键（是"有才给键"，不是 undefined 值）
+  ✓ sync 回执 resultJson 保真
+  ✓ sync 回执不依赖消毒（receiptEnvelope 自身就是 lossless）
+  ✓ job 回执（干净输入）直接过门
+  ✓ job 回执 mode/status 正确
+  ✓ promoted 回执过门
+  ✓ promoted 回执（人读文本）非空
+  ✓ promoted 回执 envelope.promoted === true
+  ✓ headlessReceipt（text+envelope 整体）过门
+  ✓ headlessReceipt 两个块都在
+  ✓ 反证：envelope 带 promoted:undefined 必被拒（所以只能"有才给键"）
+  ✓ 敌意回执原样确实过不了门（说明消毒器是必需的，不是装饰）
+  ✓ 敌意回执经出口消毒后过门
+  ✓ 敌意回执的消毒留下了 fixes 记录
+  ✓ shot 行里的 -0 coverage 被消成 0
+
+== 真机用例（默认跳过；加 --live 打开） ==
+  · skip blender_rt_headless 真实回执 — 未加 --live
+  · skip blender_rt_job op=status 真实回执 — 未加 --live
+
+────────────────────────────────────────────────────────────────
+lossless-guard：40 通过 / 0 失败 / 2 跳过（⚠ 用的是本地规则副本，未能加载宿主真校验器）
+OK：工具回执全部过得了宿主 lossless-JSON 门。
+== 死会话租约回收自检 ==
+隔离后端：http://127.0.0.1:9896 · 工作目录 D:\DSH\tmp\dsh-lease-selftest-3BzWIv（Windows 侧共享判定 shared=true，windows）
+  ✓ 隔离后端已就绪
+  ✓ 构造出的 holder pid 确实已不存在
+  ✓ A1 本进程（活）拿到租约
+  ✓ A2 另一个活着的人来抢 → 被挡（409 denied）
+  ✓ A3 /who 报告 holderAlive=true（能判活）
+  ✓ B1 死 pid 强制拿到租约（构造现场）
+  ✓ B2 /who 报告 holderAlive=false（判死）
+  ✓ B3 活会话不带 force 也能拿到（死租约被自动回收）
+  ✓ B4 统计里记了 staleLeasesReclaimed
+  ✓ B5 回收事件有可读说明（不静默）
+  ✓ C1 换成非约定 holder 拿到租约
+  ✓ C2 holderAlive=null（判不了存活）
+  ✓ C3 判不了存活 → 仍然挡（保守，不误抢）
+  ✓ D0 现场重置为死持有者
+  ✓ D1 写路由没有被死租约挡住（不再 409 leased）
+  ✓ D2 写路由真的跑出了结果
+  ✓ E1 隔离 workDir 本身共享 → 不替换（substituted=false）
+  ✓ E2 共享时脚本仍落在请求的 workDir
+  ✓ E3 共享时没有 WORKDIR_NOT_SHARED 噪音
+  ✓ F1 /doctor 能报 workDir 的 Windows 可见性（shared 字段）
+
+────────────────────────────────────────────────────────────────
+lease-stale-selftest：20 通过 / 0 失败
+OK：活持有者照样挡，死持有者自动回收，写通道不会被幽灵租约锁死。
+
+[1] config.mjs 平台分支
+  platform = win32 | IS_MAC = false | IS_WIN = true
+  note 非 macOS，跳过 mac 专属断言（本文件在 mac CI/开发机上才有意义）
+
+[2] engine.mjs 平台行为
+  ok   blenderJoin 是函数
+
+[3] Blender 侧 python 路径助手（真跑 python3）
+  note 非 macOS，python 断言跳过
+
+[4] 回归保护（WSL/Windows 分支仍在）
+  ok   仍保留 WSL /mnt/ 扫描分支
+  ok   仍保留 Windows Program Files 分支
+  ok   仍保留 where.exe/which 兜底
+  ok   wslToWin 仍有 UNC 分支
+  ok   仍保留 WSLENV 处理
+  ok   仍保留 _dsh_win_path 的 /mnt/ 转换
+
+ALL 7 ASSERTIONS PASSED
+
+[1] detectWsl 判据决策表
+  ok   detectWsl 是导出的纯函数（判据可单独验，不必真换一台机器）
+  ok   Windows 上恒 false（哪怕环境里有 WSL 变量）
+  ok   macOS 上恒 false（哪怕环境里有 WSL 变量）
+  ok   原生 Linux：环境变量没有 + 内核不是 microsoft ⇒ false
+  ok   原生 Linux：有 WSL_INTEROP 但内核是 MANJARO ⇒ 仍按环境变量判 true（互操作已在跑）
+  ok   WSL：WSL_DISTRO_NAME 命中 ⇒ true
+  ok   WSL：systemd 服务里环境变量为空（issue #6 现场）⇒ 靠 /proc/version 认出来
+  ok   读不到 /proc/version（非 Linux 挂载、容器裁剪）⇒ 不硬猜 WSL
+  ok   undefined 入参不炸
+  ok   内核串里出现 Microsoft 也算（旧版 WSL 的 /proc/version 长这样）
+
+[2] 当前平台分支
+  platform = win32 | IS_WIN = true | IS_MAC = false | IS_WSL = false
+  ok   IS_WSL 在 Windows 上为 false
+  ok   wslToWin 仍是"反斜杠化"（Windows 原行为不变）
+
+[3] 回归保护（WSL/Windows 分支仍在）
+  ok   wslToWin 仍有 UNC 分支
+  ok   wslToWin 仍有 /mnt/<盘> → 盘符分支
+  ok   原生 Linux 提前返回（!IS_WSL ⇒ 恒等）
+  ok   判据不只看环境变量（退回 /proc/version）
+
+[4] 原生 Linux 端到端恒等
+  note 当前不是原生 Linux（platform=win32, IS_WSL=false），跳过本段 —— 该分支的判据由 [1] 的决策表覆盖
+
+ALL 16 ASSERTIONS PASSED
+{
+  "suite": "frame-dedupe",
+  "phase": "P0-2",
+  "total": 15,
+  "pass": 15,
+  "fail": 0,
+  "failures": [],
+  "note": "只测纯逻辑：同键同 hash 才判重；force 放行；通道隔离；空 hash 不判重。真机附件是否真的没发由 acceptance/live 用例覆盖。"
+}
+== 工具可发现性自检（D1）==
+  ✓ catalog 覆盖 >= 26 个 family 且含关键家族
+  ✓ catalog 覆盖 >= 100 个 op
+  ✓ catalog 默认是短文本（3k–按 family 数缩放的上限，且每个 family <= 360 字符）
+  ✓ catalog 默认不带结构化明细（要 full:true 才给）
+  ✓ catalog 文本含"什么时候用"与"别用"判据
+  ✓ 单族展开更短（< 1500 字符）
+  ✓ 单族展开含最小骨架
+  ✓ full:true 才带结构化明细（条数与 families 一致）
+  ✓ 未知 family 要报错并列出候选
+  ✓ generator 骨架用 code= 而不是 script=（旧目录把 script 当参数名，照抄必炸）
+  ✓ generator_run 骨架用嵌套 args=（PARAMS 走这一层，不会被摊平）
+  ✓ catalogHash 稳定（同一进程两次调用一致）
+  ✓ catalog 回执带 provenance（loadedHash / currentHash / verdict）
+  ✓ provenance 用的是内容哈希（12 位十六进制），并明确写着不含 mtime
+  ✓ 本进程刚 import → verdict=current（stale=false）
+  ✓ catalog 文本里带"目录自证"一行（加载版本可自证）
+  ✓ args={verify:true} 起干净进程读磁盘当裁判（diskVerdict.ok）
+  ✓ 干净进程的 catalogHash 与本进程一致（= 目录不是旧版）
+  ✓ 干净进程看到的 family/op 数与本进程一致
+  ✓ material 家族在目录里（build/apply/bake）
+  ✓ render_guard 家族在目录里（state/wait/reset）
+  ✓ render_state 不需要 Blender 也能答（读磁盘标记）
+  ✓ audti_mesh → audit_mesh（带骨架）
+  ✓ sculpt_appli → sculpt_apply
+  ✓ qc_render_view → qc_render_views
+  ✓ 完全不相干的词不硬猜（返回 null）
+  ✓ qc_render_catalog → 指回 blender_rt_plan（实测真实发生过的弯路）
+  ✓ audit_mesh → 指回 blender_rt_plan(op="audit_mesh")
+  ✓ 真 addon 命令不误判（放行）
+  ✓ 拼错的 plan op → 给最近邻建议
+  ✓ planOpNames 与 catalog 一致（无孤儿 op）
+  ✓ rt_plan 描述 < 2000 字符（压缩前 4,708）
+  ✓ 描述里保留"不确定就 op=catalog"的指路
+  ✓ 描述覆盖 16 family / 117 op 的说法与 catalog 一致
+  ✓ args={tool:"rt_headless"} 能取到参数细节
+  ✓ 细节里有长尾信息（as_job / promoted / preload）
+  ✓ 细节体量合理（800–2500 字符，按需取不常驻）
+  ✓ 未知 tool 报错并列出可查清单
+  ✓ catalog 索引里指路了"工具参数细节"
+  ✓ rt_plan 细节里的 family/op 数由 PLAN_CATALOG 现算（不再硬编码而过期）
+  ✓ rt_plan 细节里写明了目录自证的口径（内容指纹 / 不看 mtime / verify:true 裁判）
+  ✓ 15 个工具 schema 合计 <= 12000 字符（v0.9.4 基线 17,147；v2.3 删 pick 后更宽裕）
+  ✓ blender_rt_pick 已删除（v2.3 视口面板移除，原生选中取代）
+  ✓ 单工具 schema 都 < 1600 字符（v0.9.4 最大 4,020）
+  ✓ rt_headless 已压到 < 1600 字符（原 4,020）
+  ✓ 重工具都在 catalog 里有细节条目
+  隔离后端：http://127.0.0.1:9897
+  ✓ 隔离后端已就绪
+  ✓ /plan op=catalog 不依赖 Blender 也能回目录
+  ✓ /plan op=catalog args={family:print} 只回该族
+  ✓ /plan op=catalog args={verify:true} 端到端带磁盘对拍（干净进程裁判）
+  ✓ /cmd 收到 plan op 名 → 当场纠正（CMD_HINT）
+  ✓ /cmd 对真 addon 命令不拦（无 Blender 时是连接类错误，而不是 CMD_HINT）
+
+通过 52 项，全部通过
+== 声明式搜索自检（P2 · shape_search）==
+  ✓ planOpNames 含 shape_search
+  ✓ planOpNames 条数 == catalog ops_count（无孤儿 / 无漏列）
+  ✓ shape 家族 ops 里列了 search
+  ✓ shape_search 不在只读白名单（它会通过 apply 改场景 ⇒ 要写租约）
+  ✓ 单族展开文本里出现 shape_search（模型查目录就能看见）
+  ✓ 隔离后端已就绪
+  ✓ dry_run 回执 ok=true
+  ✓ 小空间自动选 grid，并把迭代数收敛到组合数
+  ✓ spec 三段齐备且是有内容的字符串
+  ✓ setup 里定义了 apply(p)（op=export 的复现约定）
+  ✓ pyLit：JSON 的 true 必须落成 Python 的 True
+  ✓ 大空间自动选 random
+  ✓ random 的 step 用 random.uniform
+  ✓ 生成的 setup/step/measure 能被 python3 真编译（grid 与 random 两种 spec）
+  ✓ grid 的 step 用桩 ns 跑 5 轮 → 5 组不同参数
+  ✓ 嵌套块 apply（if/else）也编译通过，且相对层次保留
+  ✓ aabb_err 生成的目标函数正确
+  ✓ 枚举维度走 random.choice
+  ✓ 多视取平均并回逐视指标
+  ✓ 校验：缺 params → ok:false + 骨架
+  ✓ 校验：缺 ref → ok:false + 骨架
+  ✓ 校验：非法 objective → ok:false + 骨架
+  ✓ 校验：渲染类目标缺 apply → ok:false + 骨架
+  ✓ 校验：grid 组合爆炸（显式 strategy:"grid"） → ok:false + 骨架
+
+通过 24 项，全部通过
+== workDir 共享性自证 ==
+平台 win32 · home C:\Users\villa
+  ✓ A1 Windows 平台恒判共享（平台无此问题）
+  ✓ B1 describeConfig().workDir.shared 存在（/doctor 能报）
+  ✓ C1 脚本文件真的写出来了
+  ✓ C2 替换契约：requested 不共享 ⇒ 必须换成共享目录；已共享 ⇒ 必须不替换
+  ✓ C3 回执带可读说明（替换时报原因+落点；已共享时报检查通过）
+  ✓ C4 requestedShared 被记进回执（布尔、可对拍）
+  ✓ C5 回执里的 Windows 路径 = 替换后目录（usedWin 与 win 一致，别让调用方拿到旧 UNC）
+  ✓ D1 共享 workDir 不被替换（substituted=false）
+  ✓ D2 脚本就落在 requested 目录里
+  ✓ D3 note 说明共享性检查通过
+
+────────────────────────────────────────────────────────────────
+workdir-shared-selftest：10 通过 / 0 失败
+OK：不共享的 workDir 会被换成共享目录并在回执里点名；共享的不会被乱动。
+== 加载版本自证（内容指纹 vs mtime）==
+副本：D:\DSH\tmp\dsh-prov-stale-8yQnaM\runtime\engine.mjs
+  ✓ A1 刚加载 → verdict=current、stale=false
+  ✓ A2 loadedHash === currentHash（同为 sha256:12 内容指纹）
+  ✓ A3 回执写明判定口径是内容哈希、不含 mtime
+  ✓ A4 catalog 文本是"目录自证：…一致"，没有 FAIL 告警
+  ✓ B0 前置：mtime 确实变了、内容没变
+  ✓ B1 只改 mtime → 仍然 current（mtime 不能冒充加载版本）
+  ✓ B2 currentMtime 会被如实报出来（参考字段，但不参与判定）
+  ✓ C1 内容真改了 → verdict=stale、stale=true
+  ✓ C2 staleReason 里同时给出 loaded 与 current 两个指纹（可对拍）
+  ✓ C3 干净进程读磁盘看到了这份改动（diskVerdict.ok）
+  ✓ C4 只是注释 → 目录内容指纹不变 → matchesLoadedCatalog=true（stale 的是源码，不是目录）
+  ✓ C5 前置：副本里确实替换了一族名
+  ✓ C6 干净进程看到磁盘上的新目录（family 数与当前 catalog 一致、sculptx 已在）
+  ✓ C7 本进程 catalog 的 catalogHash 与磁盘不同 → 判定"本进程目录是旧版"
+  ✓ C8 文本给出 ⚠ 目录自证 FAIL（不再拿旧目录冒充当前版本）
+  ✓ C9 verified 失败说明是"以磁盘那份为准"的可执行结论
+
+────────────────────────────────────────────────────────────────
+provenance-stale-selftest：16 通过 / 0 失败
+OK：mtime 骗不了它，内容变了也跑不掉；干净进程当裁判，catalog 文本会点名 FAIL。
+  ✓ A summary.json → done + recovered
+  ✓ A 保留证据路径
+  ✓ A 结果可读（artifacts 透传）
+  ✓ A2 summary failed → failed（不判成完成）
+  ✓ B resultPath → done + recovered
+  ✓ C stdout done → done + recovered
+  ✓ C stage 取日志里的最后一条
+  ✓ D HEADLESS → done
+  ✓ E Traceback → failed
+  ✓ F 没有终态 → stale（不许判完成）
+  ✓ F 附上证据（lastStage）
+  ✓ G 无证据 → stale
+  ✓ G 说明查过哪些证据
+  ✓ H pid 活着 → 原样返回（不抢）
+  ✓ I 大日志只读尾部也认终态
+  ✓ I 证据里带字节数
+  ✓ J job 目录（dir + stdout.log）也能对账
+  ✓ K 终态记录原样返回
+
+ledger-recover-selftest：18 通过 / 0 失败
+  ✓ sceneHygieneAudit 已导出
+  ✓ A 一行溢出 → 1 条 warning
+  ✓ A 解析出 used/limit
+  ✓ B 多条 → occurrences 计数且取最后一条的数值
+  ✓ C 正常输出不误报
+  ✓ D fix 点名 2048 且行得通（use_shadow=False）
+  ✓ E K.light_hygiene 在 KERNEL_BOOTSTRAP 里
+  ✓ E K.route_collections 在 KERNEL_BOOTSTRAP 里（写作用域第二维）
+
+scene-hygiene-selftest：8 通过 / 0 失败
+  ✓ 后端起来了（独立 workDir/端口）
+  ✓ A lease 成功且 scope=null（未声明 = 不限制）
+  ✓ B scope 规范化成两维
+  ✓ C /who 回 scope
+  ✓ D 别人拿租约 → 409 + holderScope
+  ✓ E 裸 token 也能推断维度
+
+lease-scope-selftest：6 通过 / 0 失败
+  ✓ 后端起来了
+  ✓ A summary.json → status=done + recovered
+  ✓ A 带 recoveredFrom=summary.json
+  ✓ B 只有 stdout 终态 → done + recoveredFrom=stdout.log
+  ✓ C 无证据 → stale + 说明查过哪些证据
+  ✓ D 日志在但没终态 → stale（不许谎报完成）
+  ✓ E headless 回执带 progress（dsh_progress → DSH_PROGRESS）
+  ✓ E progress 内容是最后一帧
+  ✓ F headless 回执带 warnings 字段
+  ✓ G 回执带 heartbeat（进度心跳）
+
+ledger-recover-e2e：10 通过 / 0 失败
+== generator dispatch 参数走廊自检 ==
+  ✓ A1 save(code=…) 成功
+  ✓ A2 save 回执带源码哈希
+  ✓ A3 落盘 <name>.py + <name>.json
+  ✓ A4 save(script=…) 被明确拒绝（旧目录就是这么写的）
+  ✓ A5 拒绝时给出正确参数名清单
+  ✓ B1 run({name,args:{n:3}}) 进到 generator_run（不是 TypeError: unexpected keyword n）
+  ✓ B2 报错文案指向"生成器不存在"，说明 name/args 都收到了
+  ✓ B3 run 只给 args（没有 name）→ 参数不匹配 + 提示嵌套层（不再静默拿空参数跑）
+  ✓ B4 参数不匹配时给出 expected 与 note
+  ✓ C1 list 的单键信封 {"args":{…}} 仍被拆开（向后兼容）
+  ✓ D1 未知 op → ok=false 且列出可用 op
+  ✓ E1 generator_help 的 save 写明用 code
+  ✓ E2 generator_help 的 run 写明 args 是嵌套的 PARAMS
+
+────────────────────────────────────────────────────────────────
+generator-dispatch-selftest：13 通过 / 0 失败
+OK：save 用 code；run 的嵌套 args 不被摊平；信封兼容与错误文案都在。
+指引自检：11 通过 / 0 失败
+  类型表 12 类 · 钉住硬警告 13 族 · 其余未带硬警告 15 族（fix,print,pipe,clearance,ext,face,blockout,eval,calib,surface,render_guard,render,plan,gui,montage）
+指引：真后端 127.0.0.1:9877/health → 未跑（跳过，不计失败）
+探活自检：10 通过 / 0 失败
+== A：只提供带 scope 的 @deepseek-ai/schemastery ==
+  ✓ import 成功（不再顶层 throw）
+  ✓ 走 ESM 通道（esm: 优先）
+  ✓ Config schema 正常构建
+== B：只提供无 scope 的 schemastery ==
+  ✓ import 成功
+  ✓ 解析到 schemastery
+  ✓ Config schema 正常构建
+== C：两个名字都没有（旧版在这里整体消失）==
+[dsh-blender] schemastery 解析失败，已尝试：@deepseek-ai/schemastery(esm:ERR_MODULE_NOT_FOUND) / schemastery(esm:ERR_MODULE_NOT_FOUND) / @deepseek-ai/schemastery(cjs:MODULE_NOT_FOUND) / schemastery(cjs:MODULE_NOT_FOUND)。宿主需提供 schemastery —— 有 scope 的 @deepseek-ai/schemastery 或无 scope 的 schemastery 任一即可。（降级加载：只注册一个诊断占位工具，不会再出现"15 个工具整体消失且真因被吞"）
+  ✓ import 仍然成功（不再抛）
+  ✓ Config 为 undefined（不给宿主二次抛错的机会）
+  ✓ 注册的是诊断占位工具
+  ✓ 占位工具直接回报原因与修法
+  ✓ tried 里两条通道都留了痕
+== D：本包真身（真 node_modules）==
+  ✓ lib/index.js 在本机可 import
+  ✓ __internals 暴露 schemaResolve
+  ✓ 真环境下解析成功（有 via）
+== E：Windows 盘符路径 / 裸路径 specifier（issue #10 跟进项 · 任何平台可跑）==
+node:internal/modules/esm/resolve:275
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\dsh\no-such-dir\lib\index.js' imported from D:\project\dsh-blender-plugin\[eval1]
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:860:10)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:780:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:704:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:687:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:305:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:643:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:344:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:642:21) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///C:/dsh/no-such-dir/lib/index.js'
+}
+
+Node.js v22.17.0
+  ✓ Windows 风格裸路径 → 不再是 ERR_UNSUPPORTED_ESM_URL_SCHEME
+  ✓ …已越过 URL scheme 层（POSIX 上被反斜杠编码拦下 = ERR_INVALID_MODULE_SPECIFIER）
+node:internal/modules/esm/resolve:275
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\dsh\no-such-dir\lib\index.js' imported from D:\project\dsh-blender-plugin\[eval1]
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:860:10)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:780:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:704:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:687:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:305:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:643:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:344:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:642:21) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///C:/dsh/no-such-dir/lib/index.js'
+}
+
+Node.js v22.17.0
+  ✓ 不存在的文件 → 走到文件系统层（Cannot find module / ENOENT）
+  ✓ 裸路径 specifier 也能载入（子进程自转 file://）
+
+schema-resolve-selftest：ALL PASS
+== A：源码面（扫描器实际判 high 的那条规则）==
+  ✓ runtime/gate.py 里没有该动态求值调用形态
+  ✓ 已换成逐节点求值器 _eval_node()
+  ✓ 语法白名单入口仍在（_check_ast 未被绕过）
+  注：本文件另有 exec 加载 spec 模块的既有写法（第 213 行附近），扫描器未判它 —— 不在本次改动面内。
+== B：与旧语义等价 ==
+  ✓ 1 + 2 * 3 == 7                                       → True
+  ✓ thin_samples_total == 0                              → True
+  ✓ a < b < c                                            → True
+  ✓ not (a == b)                                         → True
+  ✓ verdict == 'refuted' or verdict == 'pass'            → True
+  ✓ gate['verdict'] == 'pass'                            → True
+  ✓ 'x' in tags and len(tags) == 2                       → True
+  ✓ min(1, 2, 3) + max([4, 5]) == 6                      → True
+  ✓ abs(-3) == 3 and round(1.6) == 2                     → True
+  ✓ sum([1, 2, 3]) == 6 and all([True, 1]) and any([0, False, 2]) → True
+  ✓ int("4") + float("0.5") == 4.5 and str(9) == "9"     → True
+  ✓ tolerance_mm == None                                 → True
+  ✓ mod_ok                                               → True
+  ✓ (a, b) == (1, 2)                                     → True
+== B2：短路 / 操作数语义（直接打 _eval_node） ==
+  ✓ a and b == 2（返回短路处的操作数本身，不是 bool）
+  ✓ z or 5 == 5
+  ✓ 链式 a < b < c is True
+  ✓ 下标 + 常量键
+== C：拒绝面（只严不松） ==
+  ✓ 应拒绝：__import__('os')                   (ValueError)
+  ✓ 应拒绝：open('/etc/passwd')                (ValueError)
+  ✓ 应拒绝：a.__class__                        (ValueError)
+  ✓ 应拒绝：os.system('id')                    (ValueError)
+  ✓ 应拒绝：(1).__class__.__bases__            (ValueError)
+  ✓ 应拒绝：min(*[1, 2])                       (ValueError)
+  ✓ 应拒绝：min(a, key=len)                    (ValueError)
+  ✓ 应拒绝：unknown_field == 1                 (ValueError)
+  ✓ 应拒绝：a if a else b                      (ValueError)
+  ✓ 应拒绝：[x for x in tags]                  (ValueError)
+  ✓ 应拒绝：lambda: 1                          (ValueError)
+
+gate-eval-selftest：ALL PASS
+
+== 1. skills/blender-modeling 资产树 ==
+  ✓ SKILL.md 存在
+  ✓ SKILL.md 以 YAML frontmatter 开头
+  ✓ SKILL.md 体量合理（> 50 KB）
+  ✓ frontmatter 可解析
+  ✓ name = blender-modeling
+  ✓ description 非空且足够长（catalog 会截 500 字）
+  ✓ license 字段保留（MIT 来源声明）
+  ✓ references/ 目录存在
+  ✓ references/modeling-overview.md
+  ✓ references/multiview-calibration.md
+  ✓ references/参考图通用还原SOP.md
+  ✓ references/验收清单.md
+  ✓ LICENSE（MIT）随包
+  ✓ NOTICE.md（上游归属）随包
+  ✓ README.md（随包说明）存在
+  ✓ 没有 .bak/.tmp 等临时文件
+
+== 2. package.json 打包面 / 版本 ==
+  ✓ files 包含 "skills"
+  ✓ name 正确
+  ✓ license 仍是 BSD-3-Clause（技能子目录单独 MIT）
+
+== 3. lib/index.js · bundled provider ==
+  ✓ lib/index.js 可 import
+  ✓ 导出版本号与 package.json 一致
+  ✓ 测试接缝 __internals.bundledSkill 存在
+  ✓ bundled skill 目录解析正确
+  ✓ provider 名合法
+  ✓ rank = 600（与 DSH BUNDLED_SKILL_RANK 同值）
+  ✓ createProvider() 非空（SKILL.md 可读且 frontmatter 合法）
+  ✓ provider.name 与声明一致
+  ✓ list() 返回数组且恰好 1 条
+  ✓ list() 返回 thenable（带 signal 的宿主调用不会 TypeError）
+  ✓ 带 signal 的 list() 结果正常
+  ✓ candidate.name = blender-modeling
+  ✓ candidate.description 非空
+  ✓ candidate.invocation 开关都是 boolean
+  ✓ candidate.source = bundled
+  ✓ candidate.provider 与 provider.name 一致
+  ✓ candidate.rank 是有限数且 = 600
+  ✓ candidate.resourceBase = directory 且真实存在
+  ✓ candidate.path 指向 SKILL.md
+  ✓ get() 返回完整定义
+  ✓ get() 返回 thenable（带 signal 的宿主调用不会 TypeError）
+  ✓ 带 signal 的 get() 能加载全文
+  ✓ 定义名 = candidate 名
+  ✓ 定义带 content（已剥离 frontmatter）
+  ✓ 正文含 skill 标题（# Blender 建模流程）
+  ✓ content 与磁盘 SKILL.md 去 frontmatter 后逐字一致
+  ✓ resourceBase 在定义里同样存在
+
+== 4. parseSkillFrontmatter 边界 ==
+  ✓ 双引号包裹的值去引号
+  ✓ body 不含 frontmatter
+  ✓ 单引号包裹的值去引号
+  ✓ 缩进 continuation 合并
+  ✓ 无 frontmatter 时不抛且 body 原文返回
+
+== 5. 注册路径（fake ctx，不启动 DSH） ==
+  ✓ register() 不抛
+  ✓ 走 ctx.inject(['skills'])（服务可用时才注册）
+  ✓ 注册到的 provider 名正确
+  ✓ 注册后的 provider.list() 仍返回 1 条
+  ✓ 无 ctx.inject 时走 ctx.skills 直挂
+  ✓ 宿主没有 skills 服务时不抛
+
+== 6. 真 SkillRegistry 集成（找到宿主才跑） ==
+  · skip 真注册表集成 — 本机未找到 DSH 宿主包（可用 DSH_CORDIS_LIB / DSH_SKILL_LIB 指定）
+
+PASS — 57 passed, 0 failed
+
+== 1. payload 消毒 ==
+  ✓ source 保留
+  ✓ sent_at 取整
+  ✓ names 保留顺序
+  ✓ count 保留
+  ✓ active/mode 保留
+  ✓ dimensions_mm 保留并四舍五入到 0.1
+  ✓ scene/file 保留
+  ✓ activity 保留三态字段
+  ✓ 超长名字被截断到 200 字符
+  ✓ 非法 dimensions 被丢弃而不是变成 NaN
+  ✓ 缺 scene/activity 时给 null 而不是 undefined
+  ✓ names 上限 200
+  ✓ objects 上限 50
+  ✓ 截断后标记 truncated
+  ✓ 空 names + count=5 → truncated=true（客户端可回"共 5 件"）
+  ✓ 未知字段不进入存储
+  ✓ null payload → 合法空选中（count=0）
+  ✓ 缺省 kind → objects（旧客户端兼容）
+
+== 1b. 集合 payload（v2.3，大装配体不逐个发对象） ==
+  ✓ kind=collection 保留
+  ✓ 集合名保留
+  ✓ 件数保留（500）
+  ✓ 成员名单只保留前 3（原样）
+  ✓ truncated=true 如实保留
+  ✓ collections 摘要保留
+  ✓ 未知 kind → 回退 objects
+  ✓ collections 摘要上限 50
+  ✓ collections 里 count 取整
+
+== 2. seq / consumed_seq / consume 语义 ==
+  ✓ 初始态：seq=0 / 无未消费
+  ✓ put → ok + seq=1
+  ✓ snapshot：unconsumed=true 且带 selection
+  ✓ snapshot 带 activity/scene 供面板展示
+  ✓ stale_ms 可计算
+  ✓ 过 5s 后 stale_ms ≈ 5000
+  ✓ consume(1) → consumed_seq=1
+  ✓ 消费后 unconsumed=false 且 selection=null（不会重复插入）
+  ✓ 消费后 seq 仍是 1（序号不回退）
+  ✓ 不带 meta 的 consume → last_consume.ok=null（兼容 curl/老客户端）
+  ✓ 重复 consume 幂等
+  ✓ 第二次 put → seq=2
+  ✓ 新事件重新变成未消费
+  ✓ 带插入回执的 consume 接受
+  ✓ last_consume 记录插入结果（按钮点了但草稿没字时可查）
+  ✓ consume(0) → 拒绝且不改消费位
+  ✓ consume(-3) → 拒绝
+  ✓ consume(99)（未来 seq）→ 拒绝
+  ✓ consume(1.5) → 拒绝
+  ✓ consume(null) → 拒绝
+  ✓ consume("3") → 接受（HTTP JSON 字符串数字化）
+  ✓ 字符串 consume 后 unconsumed=false
+  ✓ put(null) → ok=false（路由回 400）
+
+== 2.5 v2.4 子元素选择（编辑模式 / 骨骼） ==
+  ✓ sub 原样保留类型/对象/模式
+  ✓ sub 计数与索引保留
+  ✓ sub 选择模式保留
+  ✓ 骨骼 sub 消毒后保留名字
+  ✓ 未知 sub 类型归为 OTHER 且不伪造成 MESH
+  ✓ sub 缺 object → 丢弃（不凭空造对象名）
+  ✓ sub 索引夹到 MAX_SUB_INDICES 且 truncated=true
+  ✓ sub 索引过滤非整数/负数
+
+== 3. 路由契约形状（存储层输出，客户端/面板直接消费） ==
+  ✓ snapshot 字段齐全（客户端按名取值）
+  ✓ snapshot.ok=true（路由直接透传）
+  ✓ received_at 来自注入时钟
+
+PASS — 61 passed, 0 failed
+
+客户端 bundle 自检：50 通过 / 0 失败  ✅   （lib/client.js）
+== 工具卡片自检（presentCall / presentResult）==
+  ✓ 注册了 15 个工具
+  ✓ 每个工具都有 presentCall + presentResult
+  ✓ CARD_SPECS 与注册的工具名一一对应
+  ✓ rt_see 默认标题
+  ✓ rt_see 自定义视角标题
+  ✓ rt_see full=true 是截窗口
+  ✓ rt_do 标题取首个非注释行 + 行数
+  ✓ rt_do 代码进调用卡片正文
+  ✓ rt_do session 进标题
+  ✓ rt_do 只给 file 时取文件名
+  ✓ rt_cmd 标题带命令名与参数键
+  ✓ rt_commands 标题
+  ✓ rt_plan 标题带 op
+  ✓ rt_headless 脚本文件取文件名 + 作业标记
+  ✓ rt_job 标题
+  ✓ blender_viewport 标题带 op
+  ✓ 参数不合 schema ⇒ undefined（defineTool 先校验，宿主退回通用卡片）
+  ✓ 不带代码的调用卡片没有正文
+  ✓ 超长首行在标题里截断
+  ✓ 超长代码在正文里保留头尾、中间省略
+  ✓ 结构化回执去掉 JSON 信封
+  ✓ 摘要在最前
+  ✓ 图片块原样透传到最后
+  ✓ 不给 title（沿用调用卡片标题）
+  ✓ rt_do 结果：摘要在前、代码在后（单个 text block）
+  ✓ rt_do 结果图片仍在
+  ✓ 出错的结果交给宿主默认显示
+  ✓ 没有信封也没有代码 ⇒ undefined（原始回执已经是人读文本）
+  ✓ 多行 JSON 不当信封剥
+  ✓ 只有一块 JSON 时不剥（那是唯一内容）
+  ✓ render 输出仍以 JSON 信封开头
+  ✓ 同一参数两次 presentCall 结果相同
+  ✓ 奇怪参数 / 空结果都不抛
+  ✓ 所有 view 都是 lossless JSON
+
+工具卡片自检：34 通过 / 0 失败
+== dsh-TUI 宿主半边自检（v2.6.1）==
+  ✓ lib/client.js 的 __selftest 可取到
+  ✓ 16 组选中 payload 的草稿文本与 Web 客户端逐字一致
+  ✓ 空选中 → null
+  ✓ 单个对象：标题带名字
+  ✓ 多个对象：标题带件数
+  ✓ 集合：名字 + 件数
+  ✓ 子元素：对象名
+  ✓ 超长名字截断
+  ✓ 挂上 chip：key=selection、标题带件数、内容是草稿文本
+  ✓ 挂上后 consume(ok:true, how:tui-chip)
+  ✓ toast 提示「未发送」
+  ✓ 同一 seq 不重复挂
+  ✓ 挂不上：前两次不 consume、只提示一次
+  ✓ 第 3 次挂不上 → consume(ok:false, reason)
+  ✓ 空选中不挂 chip、直接 consume(ok:false)
+  ✓ attachContext 抛错 / 后端不可达都不抛
+  ✓ 后端不可达 → Blender ○ / dim
+  ✓ 一切正常 → Blender ● / success
+  ✓ 作业在跑 → 文本带作业数
+  ✓ AI 暂停优先
+  ✓ 渲染中
+  ✓ 主线程忙
+  ✓ 从没连上 → 未连接
+  ✓ blender-unreachable → 未连接
+  ✓ 别的会话持有租约 → 他人租约
+  ✓ 本会话持有租约 → 正常且悬停说明里写明
+  ✓ 页脚文本都 ≤ 24 个字符
+  ✓ 对象 / 材质 / 集合都映射成条目
+  ✓ 插入文本与 Web codec 同口径
+  ✓ 插入文本不以 @ 开头（不会被当成文件提及）
+  ✓ 最多 50 条
+  ✓ 坏响应 → []
+  ✓ 本地过滤：不分大小写、空 query 给前 50 条
+  ✓ 冷启动：宿主 abort 时立刻回空（不拖住输入）
+  ✓ 冷启动之后：缓存已填上，立即有结果、没有第二次拉取
+  ✓ /blender（默认 status）列出通道 / 租约 / 渲染 / 作业 / 最近错误
+  ✓ /blender jobs 列出作业
+  ✓ /blender doctor 给诊断 / 结论 / 修法
+  ✓ 未知子命令 → error 并列出可用的
+  ✓ 后端不可达时 status 也能回话（不抛）
+  ✓ 宿主没有任何接缝 → 零注册、零轮询
+  ✓ 页脚字段写在 right-head、带悬停说明
+  ✓ /blender 命令注册（带输入提示）
+  ✓ 子命令补全：/blender 下列 status/doctor/jobs
+  ✓ @ 提及提供方注册（id=blender）
+  ✓ 提及：首查拉全量（q 为空）再本地过滤
+  ✓ 提及：5 s 内再查走缓存（不再碰后端）
+  ✓ 命令 handler 走 rawInput
+  ✓ doctor 摘要列出接上的接缝
+  ✓ 卸载：页脚清掉、提及 / 命令 / 补全都注销
+  ✓ 旧版 tuiStatus（没有 setField）→ 不注册页脚
+  ✓ tuiMentions.register 抛错（重复 / 超额）→ 不往外抛、doctor 里显示未接上
+  ✓ 接线：选中桥挂 chip，toast 经由 tuiToast 那块的队列发出
+  ✓ 真后端 /host/state 可读（无 Blender）
+  ✓ 形状：channel / lease / render / jobs / backend
+  ✓ 无 Blender：从没成功过、没暂停、没在渲染、0 个作业
+  ✓ 页脚显示「未连接」
+  ✓ 10 次 /host/state < 500 ms（零 Blender 往返）
+  ✓ addon 正常应答一次 → lastOkAgeMs 有值、页脚 ●
+  ✓ addon 回「AI 操作已暂停」→ aiPaused=true、页脚 ⏸
+  ✓ 继续之后成功一次 → aiPaused 清掉
+
+dsh-TUI 宿主半边自检：61 通过 / 0 失败
+windowsHide 静态自检：PASS（4 个 runtime 文件 / 8 处 child_process 调用均带 windowsHide 或 detached）
+file-guard 自检：41 通过 / 0 失败
+hard-exit 自检：18 通过 / 0 失败

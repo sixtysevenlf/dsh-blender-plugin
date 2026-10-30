@@ -6,7 +6,7 @@
 
 This repository is the **DSH × Blender plugin** (v2.6.2): a DeepSeek Harness plugin that drives a live
 Blender session over a loopback TCP bridge. Model surface: **15 tools**; planning surface:
-**34 families / 228 ops**; Blender addon **v1.10 / protocol 11**; backend `127.0.0.1:9877`, addon `127.0.0.1:9876`.
+**34 families / 228 ops**; Blender addon **v1.11 / protocol 11** (package + zip install); backend `127.0.0.1:9877`, addon `127.0.0.1:9876`.
 Ports, config keys, and paths are facts of [docs/配置参考.md](docs/配置参考.md) — never invent them.
 
 ## 1. Commands (single source)
@@ -18,6 +18,7 @@ rows do not exist in `package.json` yet and must keep the marker until their tas
 |---|---|---|
 | Install dependencies | `npm ci --legacy-peer-deps` | available |
 | Build host `src/` → `lib/` | `DSH_CHECKOUT=/path/to/dsh-harness npm run build` | available; needs a DSH checkout |
+| Build / verify the addon zip | `npm run build:addon` / `npm run check:addon` | available (T9) |
 | Typecheck | `npm run typecheck` | available |
 | Unit tests | `npm run test:unit` | available |
 | Integration tests | `npm run test:integration` | available |
@@ -47,7 +48,7 @@ never describe a target file as existing.
 | Backend engine | `runtime/core/*`, `runtime/execution/*`, `runtime/transport/*` | `runtime/engine.mjs` 3,189 lines (**T6**) |
 | Backend language | `runtime/**/*.ts` compiled to `lib/runtime/**/*.js` (**T15**) | 16 flat `runtime/*.mjs` files |
 | Python domains | `runtime/py/{core,geometry,assembly,render,export}` plus shims | 40 flat `runtime/*.py` files (**T8**) |
-| Blender addon | `addon/dsh_blender_bridge/` package, zip install | single 7,515-line `addon/dsh_blender_bridge.py` (**T9**) |
+| Blender addon | `addon/dsh_blender_bridge/` package, zip install | package + committed zip, 39 modules (**T9** done) |
 | Built output | `lib/` built by `prepack`, not committed | `lib/` committed; never hand-edit it |
 
 ## 3. Hard rules
@@ -56,7 +57,7 @@ never describe a target file as existing.
   `blender_rt_worker(op="start")` plus `see` returns a frame. Never report success otherwise.
 - **Install, config, and troubleshooting facts** live in [docs/操作教程.md](docs/操作教程.md) and
   [docs/配置参考.md](docs/配置参考.md). Read them before advising.
-- **Only the bundled addon is supported** (`addon/dsh_blender_bridge.py`, v1.10 / protocol 11).
+- **Only the bundled addon is supported** (`addon/dsh_blender_bridge.zip`, v1.11 / protocol 11).
   MCP for Blender is unsupported since v2.3; migration is in [MIGRATIONS.md](MIGRATIONS.md).
 - **Tool and op names come from the catalog**: `blender_rt_plan(op="catalog")`; fix from `did_you_mean`.
 - **Not installed / not covered**: landmark and face (no cv2 or MediaPipe), OCR, DXF,
@@ -78,7 +79,7 @@ never describe a target file as existing.
 | Use the plugin or model a scene | [skills/blender-modeling/SKILL.md](skills/blender-modeling/SKILL.md) → [docs/操作教程.md](docs/操作教程.md) |
 | Host side (`src/`) | [src/index.ts](src/index.ts) → [tests/README.md](tests/README.md) → [ADR 0001](docs/adr/0001-runtime-ts.md) |
 | Backend (`runtime/`) | [runtime/engine.mjs](runtime/engine.mjs) · [runtime/server.mjs](runtime/server.mjs) → [tests/README.md](tests/README.md) |
-| Blender addon | [addon/dsh_blender_bridge.py](addon/dsh_blender_bridge.py) → [docs/宿主集成-接口契约-v2.3增补.md](docs/宿主集成-接口契约-v2.3增补.md) |
+| Blender addon | [addon/README.md](addon/README.md) → [docs/宿主集成-接口契约-v2.3增补.md](docs/宿主集成-接口契约-v2.3增补.md) |
 | Catalog, op, or route change | section 1 count-sync commands → [tests/README.md](tests/README.md) contract tests |
 | Tests, CI, coverage | [tests/README.md](tests/README.md) → [docs/refactor/spec.md](docs/refactor/spec.md) |
 | Architecture decision | [docs/adr/README.md](docs/adr/README.md): write an ADR first |

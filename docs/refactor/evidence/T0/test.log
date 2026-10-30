@@ -1,0 +1,24 @@
+
+== Vitest (unit + integration) ==
+
+ RUN  v3.2.7 D:/project/dsh-blender-plugin
+
+ ✓ tests/unit/js/smoke.test.ts (1 test) 1ms
+ ✓ tests/unit/js/contract/client-bundle.test.ts (3 tests) 5ms
+ ✓ tests/integration/js/smoke.test.ts (1 test) 1ms
+ ✓ tests/unit/js/contract/route-contract.test.ts (3 tests) 3ms
+ ✓ tests/unit/js/contract/lossless.test.ts (4 tests) 4ms
+ ✓ tests/unit/js/contract/tool-schema.test.ts (4 tests) 10ms
+ ✓ tests/unit/js/contract/surface-fit.test.ts (3 tests) 3ms
+ ✓ tests/unit/js/contract/catalog.test.ts (4 tests) 5ms
+ ✓ tests/integration/js/fake-addon.test.ts (7 tests) 233ms
+
+ Test Files  9 passed (9)
+      Tests  30 passed (30)
+   Start at  03:31:18
+   Duration  857ms (transform 462ms, setup 0ms, collect 1.83s, tests 267ms, environment 1ms, prepare 1.31s)
+
+
+== pytest (unit + integration, blender/gui excluded) ==
+.....                                                                    [100%]
+5 passed in 0.04s

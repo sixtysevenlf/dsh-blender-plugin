@@ -6,7 +6,7 @@
  *   - model tools: every .ts under src (vTool registrations; the schema-diagnostic
  *     duplicate is not a model-facing tool and is skipped)
  *   - addon commands: runtime/catalog.mjs COMMAND_CATALOG, each backed by
- *     addon/dsh_blender_bridge.py
+ *     the addon package (all .py under addon/dsh_blender_bridge/)
  *   - plan ops: runtime/catalog.mjs PLAN_CATALOG (one row per op entry)
  *   - HTTP routes: CONTRACT_ROUTES from runtime/http/routes/index.mjs
  *   - fixed protocol/lifecycle/config/install/security/version rows
@@ -90,8 +90,19 @@ const failures = [];
 const fail = (message) => failures.push(message);
 const rel = (file) => path.relative(ROOT, file).replaceAll(path.sep, '/');
 
-function read(relative) {
-  return readFileSync(path.join(ROOT, relative), 'utf8');
+function readTree(relative, extension) {
+  const root = path.join(ROOT, relative);
+  const out = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith(extension)) out.push(full);
+    }
+  };
+  if (existsSync(root)) walk(root);
+  out.sort();
+  return out;
 }
 
 function splitRow(line) {
@@ -175,7 +186,7 @@ async function loadCatalogs() {
   const routes = Array.isArray(routesModule.CONTRACT_ROUTES) ? routesModule.CONTRACT_ROUTES : [];
   if (routes.length === 0) fail('cannot find CONTRACT_ROUTES in runtime/http/routes/index.mjs');
 
-  const addonSource = read('addon/dsh_blender_bridge.py');
+  const addonSource = readTree('addon/dsh_blender_bridge', '.py').map((full) => readFileSync(full, 'utf8')).join('\n');
   const protocolMatch = addonSource.match(/ADDON_PROTOCOL_VERSION\s*=\s*(\d+)/);
   const protocol = protocolMatch ? Number(protocolMatch[1]) : null;
   const handshake = addonSource.slice(
@@ -260,7 +271,7 @@ function checkAddonCommands(catalogs) {
   for (const name of Object.keys(catalogs.commandCatalog)) {
     const pattern = new RegExp('["\\\']' + name.replace(/[.*+?^\${}()|[\]\\]/g, '\\$&') + '["\\\']\\s*:');
     if (!pattern.test(catalogs.addonSource)) {
-      fail('COMMAND_CATALOG command ' + name + ' has no handler in addon/dsh_blender_bridge.py');
+      fail('COMMAND_CATALOG command ' + name + ' has no handler in addon/dsh_blender_bridge/');
     }
   }
   if (!/cmd_type\s*==\s*["']ping["']/.test(catalogs.addonSource)) {
@@ -364,7 +375,7 @@ async function main() {
     matrix: rel(options.matrix),
     sources: {
       tools: 'src/index.ts',
-      commands: 'runtime/catalog.mjs + addon/dsh_blender_bridge.py',
+      commands: 'runtime/catalog.mjs + addon/dsh_blender_bridge/',
       ops: 'runtime/catalog.mjs',
       routes: 'runtime/server.mjs',
     },

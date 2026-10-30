@@ -96,6 +96,8 @@
   },
   "scripts": {
     "build": "bash scripts/build.sh",
+    "build:addon": "node scripts/build-addon.mjs",
+    "check:addon": "node scripts/build-addon.mjs --check",
     "typecheck": "node scripts/typecheck.mjs && node scripts/typecheck.mjs -p tsconfig.test.json",
     "typecheck:src": "node scripts/typecheck.mjs",
     "typecheck:test": "node scripts/typecheck.mjs -p tsconfig.test.json",

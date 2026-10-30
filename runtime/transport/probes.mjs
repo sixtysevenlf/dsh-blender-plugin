@@ -62,8 +62,8 @@ export async function diagnose() {
     return { kind: "addon-thread-stuck", tcp: true, ping: false, error: String((e && e.message) || e),
       summary: "端口通但 ping 无响应 —— addon 客户端线程卡住，或当前 addon 不是本仓「DSH Blender Bridge」",
       fix: "不要连发；等它结束（agent 模式下可 blender_rt_loop op=stop 急停），仍无响应再重启 Blender。"
-        + "若 Blender 里装的是旧「MCP for Blender」，v2.3 起已不支持：请换成 addon/dsh_blender_bridge.py（v1.8）",
-      hint: "TCP 通但 ping 无响应 → addon 线程卡住，或装的不是本仓 addon；v2.3 起只支持 DSH Blender Bridge v1.8+" };
+        + "若 Blender 里装的是旧单文件 addon 或旧「MCP for Blender」，均已不支持：请换成 addon/dsh_blender_bridge.zip（v1.11）",
+      hint: "TCP 通但 ping 无响应 → addon 线程卡住，或装的不是本仓 addon；只支持 DSH Blender Bridge v1.11+（zip 包）" };
   }
 }
 

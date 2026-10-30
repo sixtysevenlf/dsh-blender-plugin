@@ -1,11 +1,17 @@
 import { afterAll, describe, expect, it } from 'vitest'
 import fs from 'node:fs'
+import path from 'node:path'
 import { COMMAND_CATALOG } from '../../../../runtime/catalog.mjs'
 import { AddonClient } from '../../../../runtime/engine.mjs'
 import { startFakeAddon } from '../../../helpers/fake-addon.mjs'
 import { pkgPath } from '../../../helpers/pkg'
 
-const source = fs.readFileSync(pkgPath('addon', 'dsh_blender_bridge.py'), 'utf8')
+const addonDir = pkgPath('addon', 'dsh_blender_bridge')
+const readAddon = (...parts: string[]) => fs.readFileSync(path.join(addonDir, ...parts), 'utf8')
+const source = readAddon('server.py')
+const protocolSource = readAddon('protocol.py')
+const coreSource = readAddon('commands', 'core.py')
+const premiumSource = readAddon('commands', 'generate_premium.py')
 
 function namesIn(block: string): string[] {
   return [...block.matchAll(/^\s+"([a-z0-9_]+)":\s*(?:self\.|premium_)/gm)].map((m) => m[1]!)
@@ -27,11 +33,9 @@ function gatedHandlers(): Record<string, string[]> {
 }
 
 function tripoHandlers(): string[] {
-  const start = source.indexOf('def premium_tripo_handlers()')
-  const end = source.indexOf('# Hunyuan:', start)
+  const start = premiumSource.indexOf('def premium_tripo_handlers()')
   expect(start).toBeGreaterThan(0)
-  expect(end).toBeGreaterThan(start)
-  return namesIn(source.slice(start, end))
+  return namesIn(premiumSource.slice(start))
 }
 
 function allSourceHandlers(): string[] {
@@ -86,16 +90,16 @@ describe('addon command surface', () => {
   it('pauses every non-read command and keeps read-only ones safe', () => {
     expect(source).toContain('if _ai_paused() and not _is_pause_safe_command(command.get("type")):')
     expect(source).toContain('"AI_PAUSED"')
-    const pauseBlock = source.slice(source.indexOf('PAUSE_SAFE_COMMANDS = frozenset({'), source.indexOf('def _ai_paused'))
+    const pauseBlock = protocolSource.slice(protocolSource.indexOf('PAUSE_SAFE_COMMANDS = frozenset({'), protocolSource.indexOf('def _ai_paused'))
     expect(pauseBlock).toContain('"ping"')
     expect(pauseBlock).not.toContain('"execute_code"')
-    expect(source).toContain('if cmd.startswith("get_"):')
+    expect(protocolSource).toContain('if cmd.startswith("get_"):')
   })
 
   it('advertises protocol 11 with a 16-name capability handshake', () => {
-    const m = source.match(/ADDON_PROTOCOL_VERSION\s*=\s*(\d+)/)
+    const m = protocolSource.match(/ADDON_PROTOCOL_VERSION\s*=\s*(\d+)/)
     expect(m?.[1]).toBe('11')
-    const info = source.slice(source.indexOf('def get_addon_info'), source.indexOf('def get_scene_info'))
+    const info = coreSource.slice(coreSource.indexOf('def get_addon_info'), coreSource.indexOf('def get_scene_info'))
     expect(info).toContain('"protocol_version": ADDON_PROTOCOL_VERSION')
     const caps = info.slice(info.indexOf('"capabilities"'), info.indexOf('"blender_version"'))
     expect([...caps.matchAll(/^\s+"([a-z0-9_]+)",?$/gm)]).toHaveLength(16)
