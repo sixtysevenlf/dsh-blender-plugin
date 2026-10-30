@@ -1,0 +1,8 @@
+check-build: PASS
+  ✓ resolve-tsc — D:\DSH\t11-repo\node_modules\typescript\lib\tsc.js
+  ✓ tsc-emit
+  ✓ artifacts — lib/index.js, lib/plugin.js, lib/tools/index.js, lib/tools/viewport.js, lib/plan/tool.js, lib/host/backend.js, lib/host/http.js, lib/ui/cards.js, lib/headless/receipts.js, lib/types/index.d.ts
+  ✓ entry-bytes — 809 B
+  ✓ no-ts-nocheck — clean
+  ✓ check-structure — check-structure: PASS
+  ✓ build-client-check — build-client --check: 最新 ✅  lib\client.js  sha256 31e693ec7197 / 27928 B
