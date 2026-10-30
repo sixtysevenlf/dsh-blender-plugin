@@ -89,7 +89,7 @@ jobs:
         env:
           PYTHON: python
           TMPDIR: ${{ runner.temp }}
-        run: python -m pytest --cov=runtime --cov=addon --cov-report=xml:coverage/python-coverage.xml --cov-report=term
+        run: python -m pytest --cov=addon --cov-report=xml:coverage/python-coverage.xml --cov-report=term
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
         with:
