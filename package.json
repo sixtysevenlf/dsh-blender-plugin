@@ -107,6 +107,7 @@
     "check:build": "node scripts/check-build.mjs",
     "prepack": "node scripts/check-build.mjs",
     "test": "node scripts/test.mjs",
+    "test:matrix": "node scripts/check-behavior-matrix.mjs --release",
     "test:discover": "node tests/discoverability_selftest.mjs",
     "test:fileguard": "node tests/headless_file_guard_selftest.mjs",
     "test:hardexit": "node tests/headless_hard_exit_selftest.mjs",

@@ -20,5 +20,6 @@ One directory per task, created when the task is accepted. Each contains at leas
 | T7 split runtime server into modules | self-checked | docs/refactor/evidence/T7/ |
 | T8 split runtime Python into five domain packages | self-checked | docs/refactor/evidence/T8/ |
 | T13 AI collaboration docs + bilingual entries | self-checked (E4 open) | docs/refactor/evidence/T13/ |
+| T14 behavior coverage matrix and contract tests | self-checked (R1 open) | docs/refactor/evidence/T14/ |
 
 Logs are raw command output; do not translate or rewrite them.
