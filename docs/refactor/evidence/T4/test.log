@@ -1,0 +1,447 @@
+== node scripts/test.mjs (vitest unit+integration + pytest) ==
+
+== Vitest (unit + integration) ==
+
+ RUN  v3.2.7 D:/DSH/worktrees/refactor-c
+
+ ✓ tests/unit/js/contract/client-bundle.test.ts (3 tests) 4ms
+ ✓ tests/unit/js/smoke.test.ts (1 test) 2ms
+ ✓ tests/unit/js/contract/route-contract.test.ts (3 tests) 4ms
+ ✓ tests/integration/js/smoke.test.ts (1 test) 2ms
+ ✓ tests/unit/js/contract/surface-fit.test.ts (3 tests) 3ms
+ ✓ tests/unit/js/contract/catalog.test.ts (4 tests) 5ms
+ ✓ tests/integration/js/fake-addon.test.ts (7 tests) 233ms
+ ✓ tests/unit/js/contract/lossless.test.ts (4 tests) 4ms
+ ✓ tests/unit/js/contract/tool-schema.test.ts (4 tests) 11ms
+
+ Test Files  9 passed (9)
+      Tests  30 passed (30)
+   Start at  19:32:53
+   Duration  885ms (transform 427ms, setup 0ms, collect 2.18s, tests 267ms, environment 1ms, prepare 1.47s)
+
+
+== pytest (unit + integration, blender/gui excluded) ==
+.....                                                                    [100%]
+5 passed in 0.04s
+EXIT=0
+
+== node tests/capability_lock.mjs ==
+能力锁：PASS（34 family / 228 op / 15 工具，与 capability.lock.json 一致）
+EXIT=0
+
+== node tests/single_source_selftest.mjs ==
+  ✓ 只读白名单派生集合与冻结基线逐名一致（98 条）
+  ✓ 白名单里没有重复项
+  ✓ server.mjs 确实消费派生常量（不再手抄）
+  ✓ src/plan/tool.ts 描述里的计数 == catalog（34 family / 228 op）
+  · 未找到工作区 AGENTS.md，跳过
+single-source-selftest：4 通过 / 0 失败
+EXIT=0
+
+== node tests/lossless_guard.mjs ==
+宿主真校验器：(local-copy — 未找到宿主真校验器)
+  ✓ lib/index.js 暴露测试接缝 __internals
+被测量的插件版本：v2.6.2
+
+== 控制组（校验器严格性自证） ==
+  ✓ promoted:undefined 必须被拒（v0.9.3 的真实病因）
+  ✓ NaN 必须被拒
+  ✓ Infinity 必须被拒
+  ✓ -0 必须被拒
+  ✓ JSON.parse("-0") 必须被拒
+  ✓ Date 必须被拒
+  ✓ 数组里的 undefined 必须被拒
+  ✓ 对照：null 值合法
+
+== 出口消毒器 losslessSanitize ==
+  ✓ 消毒后整体过门
+  ✓ 每个问题字段都留下 fixes 记录（不静默）
+  ✓ NaN → null
+  ✓ Infinity → null
+  ✓ -0 → 0（且不是 -0）
+  ✓ undefined 键被丢弃
+  ✓ Date → ISO 字符串
+  ✓ Map/Set → 数组
+  ✓ 二进制 → {bytes:N}
+  ✓ bigint → number
+  ✓ 数组元素 undefined → null（长度不塌）
+  ✓ 嵌套 undefined 键被丢弃、NaN 变 null
+  ✓ 循环引用过门
+  ✓ 循环引用 → [Circular]
+  ✓ DAG 共享引用（非循环）过门
+
+== 真实回执（receiptEnvelope / headlessReceipt / promotedReceipt） ==
+  ✓ sync 回执（干净输入）直接过门 ← v0.9.3 这里必挂
+  ✓ sync 回执里没有 promoted 键（是"有才给键"，不是 undefined 值）
+  ✓ sync 回执 resultJson 保真
+  ✓ sync 回执不依赖消毒（receiptEnvelope 自身就是 lossless）
+  ✓ job 回执（干净输入）直接过门
+  ✓ job 回执 mode/status 正确
+  ✓ promoted 回执过门
+  ✓ promoted 回执（人读文本）非空
+  ✓ promoted 回执 envelope.promoted === true
+  ✓ headlessReceipt（text+envelope 整体）过门
+  ✓ headlessReceipt 两个块都在
+  ✓ 反证：envelope 带 promoted:undefined 必被拒（所以只能"有才给键"）
+  ✓ 敌意回执原样确实过不了门（说明消毒器是必需的，不是装饰）
+  ✓ 敌意回执经出口消毒后过门
+  ✓ 敌意回执的消毒留下了 fixes 记录
+  ✓ shot 行里的 -0 coverage 被消成 0
+
+== 真机用例（默认跳过；加 --live 打开） ==
+  · skip blender_rt_headless 真实回执 — 未加 --live
+  · skip blender_rt_job op=status 真实回执 — 未加 --live
+
+────────────────────────────────────────────────────────────────
+lossless-guard：40 通过 / 0 失败 / 2 跳过（⚠ 用的是本地规则副本，未能加载宿主真校验器）
+OK：工具回执全部过得了宿主 lossless-JSON 门。
+EXIT=0
+
+== node tests/frame_dedupe_selftest.mjs ==
+{
+  "suite": "frame-dedupe",
+  "phase": "P0-2",
+  "total": 15,
+  "pass": 15,
+  "fail": 0,
+  "failures": [],
+  "note": "只测纯逻辑：同键同 hash 才判重；force 放行；通道隔离；空 hash 不判重。真机附件是否真的没发由 acceptance/live 用例覆盖。"
+}
+EXIT=0
+
+== node tests/schema_resolve_selftest.mjs ==
+== A：只提供带 scope 的 @deepseek-ai/schemastery ==
+  ✓ import 成功（不再顶层 throw）
+  ✓ 走 ESM 通道（esm: 优先）
+  ✓ Config schema 正常构建
+== B：只提供无 scope 的 schemastery ==
+  ✓ import 成功
+  ✓ 解析到 schemastery
+  ✓ Config schema 正常构建
+== C：两个名字都没有（旧版在这里整体消失）==
+[dsh-blender] schemastery 解析失败，已尝试：@deepseek-ai/schemastery(esm:ERR_MODULE_NOT_FOUND) / schemastery(esm:ERR_MODULE_NOT_FOUND) / @deepseek-ai/schemastery(cjs:MODULE_NOT_FOUND) / schemastery(cjs:MODULE_NOT_FOUND)。宿主需提供 schemastery —— 有 scope 的 @deepseek-ai/schemastery 或无 scope 的 schemastery 任一即可。（降级加载：只注册一个诊断占位工具，不会再出现"15 个工具整体消失且真因被吞"）
+  ✓ import 仍然成功（不再抛）
+  ✓ Config 为 undefined（不给宿主二次抛错的机会）
+  ✓ 注册的是诊断占位工具
+  ✓ 占位工具直接回报原因与修法
+  ✓ tried 里两条通道都留了痕
+== D：本包真身（真 node_modules）==
+  ✓ lib/index.js 在本机可 import
+  ✓ __internals 暴露 schemaResolve
+  ✓ 真环境下解析成功（有 via）
+== E：Windows 盘符路径 / 裸路径 specifier（issue #10 跟进项 · 任何平台可跑）==
+node:internal/modules/esm/resolve:275
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\dsh\no-such-dir\lib\index.js' imported from D:\DSH\worktrees\refactor-c\[eval1]
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:860:10)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:780:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:704:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:687:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:305:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:643:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:344:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:642:21) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///C:/dsh/no-such-dir/lib/index.js'
+}
+
+Node.js v22.17.0
+  ✓ Windows 风格裸路径 → 不再是 ERR_UNSUPPORTED_ESM_URL_SCHEME
+  ✓ …已越过 URL scheme 层（POSIX 上被反斜杠编码拦下 = ERR_INVALID_MODULE_SPECIFIER）
+node:internal/modules/esm/resolve:275
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\dsh\no-such-dir\lib\index.js' imported from D:\DSH\worktrees\refactor-c\[eval1]
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:860:10)
+    at defaultResolve (node:internal/modules/esm/resolve:984:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:780:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:704:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:687:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:305:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:643:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:344:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:642:21) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///C:/dsh/no-such-dir/lib/index.js'
+}
+
+Node.js v22.17.0
+  ✓ 不存在的文件 → 走到文件系统层（Cannot find module / ENOENT）
+  ✓ 裸路径 specifier 也能载入（子进程自转 file://）
+
+schema-resolve-selftest：ALL PASS
+EXIT=0
+
+== node tests/skill_bundle_selftest.mjs ==
+
+== 1. skills/blender-modeling 资产树 ==
+  ✓ SKILL.md 存在
+  ✓ SKILL.md 以 YAML frontmatter 开头
+  ✓ SKILL.md 体量合理（> 50 KB）
+  ✓ frontmatter 可解析
+  ✓ name = blender-modeling
+  ✓ description 非空且足够长（catalog 会截 500 字）
+  ✓ license 字段保留（MIT 来源声明）
+  ✓ references/ 目录存在
+  ✓ references/modeling-overview.md
+  ✓ references/multiview-calibration.md
+  ✓ references/参考图通用还原SOP.md
+  ✓ references/验收清单.md
+  ✓ LICENSE（MIT）随包
+  ✓ NOTICE.md（上游归属）随包
+  ✓ README.md（随包说明）存在
+  ✓ 没有 .bak/.tmp 等临时文件
+
+== 2. package.json 打包面 / 版本 ==
+  ✓ files 包含 "skills"
+  ✓ name 正确
+  ✓ license 仍是 BSD-3-Clause（技能子目录单独 MIT）
+
+== 3. lib/index.js · bundled provider ==
+  ✓ lib/index.js 可 import
+  ✓ 导出版本号与 package.json 一致
+  ✓ 测试接缝 __internals.bundledSkill 存在
+  ✓ bundled skill 目录解析正确
+  ✓ provider 名合法
+  ✓ rank = 600（与 DSH BUNDLED_SKILL_RANK 同值）
+  ✓ createProvider() 非空（SKILL.md 可读且 frontmatter 合法）
+  ✓ provider.name 与声明一致
+  ✓ list() 返回数组且恰好 1 条
+  ✓ list() 返回 thenable（带 signal 的宿主调用不会 TypeError）
+  ✓ 带 signal 的 list() 结果正常
+  ✓ candidate.name = blender-modeling
+  ✓ candidate.description 非空
+  ✓ candidate.invocation 开关都是 boolean
+  ✓ candidate.source = bundled
+  ✓ candidate.provider 与 provider.name 一致
+  ✓ candidate.rank 是有限数且 = 600
+  ✓ candidate.resourceBase = directory 且真实存在
+  ✓ candidate.path 指向 SKILL.md
+  ✓ get() 返回完整定义
+  ✓ get() 返回 thenable（带 signal 的宿主调用不会 TypeError）
+  ✓ 带 signal 的 get() 能加载全文
+  ✓ 定义名 = candidate 名
+  ✓ 定义带 content（已剥离 frontmatter）
+  ✓ 正文含 skill 标题（# Blender 建模流程）
+  ✓ content 与磁盘 SKILL.md 去 frontmatter 后逐字一致
+  ✓ resourceBase 在定义里同样存在
+
+== 4. parseSkillFrontmatter 边界 ==
+  ✓ 双引号包裹的值去引号
+  ✓ body 不含 frontmatter
+  ✓ 单引号包裹的值去引号
+  ✓ 缩进 continuation 合并
+  ✓ 无 frontmatter 时不抛且 body 原文返回
+
+== 5. 注册路径（fake ctx，不启动 DSH） ==
+  ✓ register() 不抛
+  ✓ 走 ctx.inject(['skills'])（服务可用时才注册）
+  ✓ 注册到的 provider 名正确
+  ✓ 注册后的 provider.list() 仍返回 1 条
+  ✓ 无 ctx.inject 时走 ctx.skills 直挂
+  ✓ 宿主没有 skills 服务时不抛
+
+== 6. 真 SkillRegistry 集成（找到宿主才跑） ==
+  · skip 真注册表集成 — 本机未找到 DSH 宿主包（可用 DSH_CORDIS_LIB / DSH_SKILL_LIB 指定）
+
+PASS — 57 passed, 0 failed
+EXIT=0
+
+== node tests/tool_cards_selftest.mjs ==
+== 工具卡片自检（presentCall / presentResult）==
+  ✓ 注册了 15 个工具
+  ✓ 每个工具都有 presentCall + presentResult
+  ✓ CARD_SPECS 与注册的工具名一一对应
+  ✓ rt_see 默认标题
+  ✓ rt_see 自定义视角标题
+  ✓ rt_see full=true 是截窗口
+  ✓ rt_do 标题取首个非注释行 + 行数
+  ✓ rt_do 代码进调用卡片正文
+  ✓ rt_do session 进标题
+  ✓ rt_do 只给 file 时取文件名
+  ✓ rt_cmd 标题带命令名与参数键
+  ✓ rt_commands 标题
+  ✓ rt_plan 标题带 op
+  ✓ rt_headless 脚本文件取文件名 + 作业标记
+  ✓ rt_job 标题
+  ✓ blender_viewport 标题带 op
+  ✓ 参数不合 schema ⇒ undefined（defineTool 先校验，宿主退回通用卡片）
+  ✓ 不带代码的调用卡片没有正文
+  ✓ 超长首行在标题里截断
+  ✓ 超长代码在正文里保留头尾、中间省略
+  ✓ 结构化回执去掉 JSON 信封
+  ✓ 摘要在最前
+  ✓ 图片块原样透传到最后
+  ✓ 不给 title（沿用调用卡片标题）
+  ✓ rt_do 结果：摘要在前、代码在后（单个 text block）
+  ✓ rt_do 结果图片仍在
+  ✓ 出错的结果交给宿主默认显示
+  ✓ 没有信封也没有代码 ⇒ undefined（原始回执已经是人读文本）
+  ✓ 多行 JSON 不当信封剥
+  ✓ 只有一块 JSON 时不剥（那是唯一内容）
+  ✓ render 输出仍以 JSON 信封开头
+  ✓ 同一参数两次 presentCall 结果相同
+  ✓ 奇怪参数 / 空结果都不抛
+  ✓ 所有 view 都是 lossless JSON
+
+工具卡片自检：34 通过 / 0 失败
+EXIT=0
+
+== node tests/tui_host_selftest.mjs ==
+== dsh-TUI 宿主半边自检（v2.6.1）==
+  ✓ lib/client.js 的 __selftest 可取到
+  ✓ 16 组选中 payload 的草稿文本与 Web 客户端逐字一致
+  ✓ 空选中 → null
+  ✓ 单个对象：标题带名字
+  ✓ 多个对象：标题带件数
+  ✓ 集合：名字 + 件数
+  ✓ 子元素：对象名
+  ✓ 超长名字截断
+  ✓ 挂上 chip：key=selection、标题带件数、内容是草稿文本
+  ✓ 挂上后 consume(ok:true, how:tui-chip)
+  ✓ toast 提示「未发送」
+  ✓ 同一 seq 不重复挂
+  ✓ 挂不上：前两次不 consume、只提示一次
+  ✓ 第 3 次挂不上 → consume(ok:false, reason)
+  ✓ 空选中不挂 chip、直接 consume(ok:false)
+  ✓ attachContext 抛错 / 后端不可达都不抛
+  ✓ 后端不可达 → Blender ○ / dim
+  ✓ 一切正常 → Blender ● / success
+  ✓ 作业在跑 → 文本带作业数
+  ✓ AI 暂停优先
+  ✓ 渲染中
+  ✓ 主线程忙
+  ✓ 从没连上 → 未连接
+  ✓ blender-unreachable → 未连接
+  ✓ 别的会话持有租约 → 他人租约
+  ✓ 本会话持有租约 → 正常且悬停说明里写明
+  ✓ 页脚文本都 ≤ 24 个字符
+  ✓ 对象 / 材质 / 集合都映射成条目
+  ✓ 插入文本与 Web codec 同口径
+  ✓ 插入文本不以 @ 开头（不会被当成文件提及）
+  ✓ 最多 50 条
+  ✓ 坏响应 → []
+  ✓ 本地过滤：不分大小写、空 query 给前 50 条
+  ✓ 冷启动：宿主 abort 时立刻回空（不拖住输入）
+  ✓ 冷启动之后：缓存已填上，立即有结果、没有第二次拉取
+  ✓ /blender（默认 status）列出通道 / 租约 / 渲染 / 作业 / 最近错误
+  ✓ /blender jobs 列出作业
+  ✓ /blender doctor 给诊断 / 结论 / 修法
+  ✓ 未知子命令 → error 并列出可用的
+  ✓ 后端不可达时 status 也能回话（不抛）
+  ✓ 宿主没有任何接缝 → 零注册、零轮询
+  ✓ 页脚字段写在 right-head、带悬停说明
+  ✓ /blender 命令注册（带输入提示）
+  ✓ 子命令补全：/blender 下列 status/doctor/jobs
+  ✓ @ 提及提供方注册（id=blender）
+  ✓ 提及：首查拉全量（q 为空）再本地过滤
+  ✓ 提及：5 s 内再查走缓存（不再碰后端）
+  ✓ 命令 handler 走 rawInput
+  ✓ doctor 摘要列出接上的接缝
+  ✓ 卸载：页脚清掉、提及 / 命令 / 补全都注销
+  ✓ 旧版 tuiStatus（没有 setField）→ 不注册页脚
+  ✓ tuiMentions.register 抛错（重复 / 超额）→ 不往外抛、doctor 里显示未接上
+  ✓ 接线：选中桥挂 chip，toast 经由 tuiToast 那块的队列发出
+  ✓ 真后端 /host/state 可读（无 Blender）
+  ✓ 形状：channel / lease / render / jobs / backend
+  ✓ 无 Blender：从没成功过、没暂停、没在渲染、0 个作业
+  ✓ 页脚显示「未连接」
+  ✓ 10 次 /host/state < 500 ms（零 Blender 往返）
+  ✓ addon 正常应答一次 → lastOkAgeMs 有值、页脚 ●
+  ✓ addon 回「AI 操作已暂停」→ aiPaused=true、页脚 ⏸
+  ✓ 继续之后成功一次 → aiPaused 清掉
+
+dsh-TUI 宿主半边自检：61 通过 / 0 失败
+EXIT=0
+
+== node tests/client_bundle_selftest.mjs ==
+
+客户端 bundle 自检：50 通过 / 0 失败  ✅   （lib/client.js）
+EXIT=0
+
+== node tests/backend_probe_selftest.mjs ==
+指引：真后端 127.0.0.1:9877/health → 未跑（跳过，不计失败）
+探活自检：10 通过 / 0 失败
+EXIT=0
+
+== node tests/selection_store_selftest.mjs ==
+
+== 1. payload 消毒 ==
+  ✓ source 保留
+  ✓ sent_at 取整
+  ✓ names 保留顺序
+  ✓ count 保留
+  ✓ active/mode 保留
+  ✓ dimensions_mm 保留并四舍五入到 0.1
+  ✓ scene/file 保留
+  ✓ activity 保留三态字段
+  ✓ 超长名字被截断到 200 字符
+  ✓ 非法 dimensions 被丢弃而不是变成 NaN
+  ✓ 缺 scene/activity 时给 null 而不是 undefined
+  ✓ names 上限 200
+  ✓ objects 上限 50
+  ✓ 截断后标记 truncated
+  ✓ 空 names + count=5 → truncated=true（客户端可回"共 5 件"）
+  ✓ 未知字段不进入存储
+  ✓ null payload → 合法空选中（count=0）
+  ✓ 缺省 kind → objects（旧客户端兼容）
+
+== 1b. 集合 payload（v2.3，大装配体不逐个发对象） ==
+  ✓ kind=collection 保留
+  ✓ 集合名保留
+  ✓ 件数保留（500）
+  ✓ 成员名单只保留前 3（原样）
+  ✓ truncated=true 如实保留
+  ✓ collections 摘要保留
+  ✓ 未知 kind → 回退 objects
+  ✓ collections 摘要上限 50
+  ✓ collections 里 count 取整
+
+== 2. seq / consumed_seq / consume 语义 ==
+  ✓ 初始态：seq=0 / 无未消费
+  ✓ put → ok + seq=1
+  ✓ snapshot：unconsumed=true 且带 selection
+  ✓ snapshot 带 activity/scene 供面板展示
+  ✓ stale_ms 可计算
+  ✓ 过 5s 后 stale_ms ≈ 5000
+  ✓ consume(1) → consumed_seq=1
+  ✓ 消费后 unconsumed=false 且 selection=null（不会重复插入）
+  ✓ 消费后 seq 仍是 1（序号不回退）
+  ✓ 不带 meta 的 consume → last_consume.ok=null（兼容 curl/老客户端）
+  ✓ 重复 consume 幂等
+  ✓ 第二次 put → seq=2
+  ✓ 新事件重新变成未消费
+  ✓ 带插入回执的 consume 接受
+  ✓ last_consume 记录插入结果（按钮点了但草稿没字时可查）
+  ✓ consume(0) → 拒绝且不改消费位
+  ✓ consume(-3) → 拒绝
+  ✓ consume(99)（未来 seq）→ 拒绝
+  ✓ consume(1.5) → 拒绝
+  ✓ consume(null) → 拒绝
+  ✓ consume("3") → 接受（HTTP JSON 字符串数字化）
+  ✓ 字符串 consume 后 unconsumed=false
+  ✓ put(null) → ok=false（路由回 400）
+
+== 2.5 v2.4 子元素选择（编辑模式 / 骨骼） ==
+  ✓ sub 原样保留类型/对象/模式
+  ✓ sub 计数与索引保留
+  ✓ sub 选择模式保留
+  ✓ 骨骼 sub 消毒后保留名字
+  ✓ 未知 sub 类型归为 OTHER 且不伪造成 MESH
+  ✓ sub 缺 object → 丢弃（不凭空造对象名）
+  ✓ sub 索引夹到 MAX_SUB_INDICES 且 truncated=true
+  ✓ sub 索引过滤非整数/负数
+
+== 3. 路由契约形状（存储层输出，客户端/面板直接消费） ==
+  ✓ snapshot 字段齐全（客户端按名取值）
+  ✓ snapshot.ok=true（路由直接透传）
+  ✓ received_at 来自注入时钟
+
+PASS — 61 passed, 0 failed
+EXIT=0
