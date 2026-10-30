@@ -156,3 +156,94 @@ def test_gated_commands_are_unknown_while_their_toggle_is_off(monkeypatch):
     for name in GATED_COMMANDS:
         response = server.execute_command({"type": name, "params": {}})
         assert response == {"status": "error", "message": f"Unknown command type: {name}"}, name
+
+def test_params_are_forwarded_as_handler_keyword_arguments(monkeypatch):
+    server = _server(monkeypatch)
+    seen = {}
+
+    def record(**kwargs):
+        seen.update(kwargs)
+        return {"ok": True}
+
+    server.get_object_info = record
+    response = server.execute_command({
+        "type": "get_object_info",
+        "params": {"name": "Cube", "unused": 1},
+    })
+    assert response == {"status": "success", "result": {"ok": True}}
+    assert seen == {"name": "Cube", "unused": 1}
+
+
+def test_missing_and_non_mapping_params_are_tolerated(monkeypatch):
+    server = _server(monkeypatch)
+    server.get_scene_info = lambda: {"ok": True}
+    assert server.execute_command({"type": "get_scene_info"})["status"] == "success"
+    assert server.execute_command({"type": "get_scene_info", "params": {}})["status"] == "success"
+    non_mapping = server.execute_command({"type": "get_scene_info", "params": None})
+    assert non_mapping["status"] == "error"
+    assert server.execute_command({}) == {
+        "status": "error", "message": "Unknown command type: None",
+    }
+
+
+def test_success_and_error_envelopes_are_json_serialisable(monkeypatch):
+    server = _server(monkeypatch)
+    _patch_dispatch_targets(server)
+    success = server.execute_command({"type": "get_addon_info"})
+    error = server.execute_command({"type": "nope"})
+    assert set(success) == {"status", "result"}
+    assert set(error) == {"status", "message"}
+    assert json.loads(json.dumps(success)) == success
+    assert json.loads(json.dumps(error)) == error
+
+
+def test_pause_gate_does_not_run_the_agent_recorder(monkeypatch):
+    server = _server(monkeypatch)
+    _patch_dispatch_targets(server)
+    events = []
+
+    class Recorder:
+        def agent_command(self):
+            events.append("enter")
+
+            class _Ctx:
+                def __enter__(self_inner):
+                    return None
+
+                def __exit__(self_inner, *exc):
+                    events.append("exit")
+                    return False
+
+            return _Ctx()
+
+    monkeypatch.setattr(server_module, "get_edit_recorder", lambda: Recorder())
+    bpy.context.scene.dshbb_ai_paused = True
+    try:
+        blocked = server.execute_command({"type": "execute_code", "params": {}})
+        assert blocked["error"] == "AI_PAUSED"
+        assert events == []
+        allowed = server.execute_command({"type": "get_scene_info"})
+        assert allowed["status"] == "success"
+        assert events == ["enter", "exit"]
+    finally:
+        bpy.context.scene.dshbb_ai_paused = False
+
+
+def test_every_read_safe_command_survives_the_pause_gate(monkeypatch):
+    server = _server(monkeypatch)
+    _patch_dispatch_targets(server)
+    for name in ("dshbb_use_polyhaven", "dshbb_use_hyper3d", "dshbb_use_sketchfab",
+                 "dshbb_use_polypizza", "dshbb_use_hunyuan3d", "dshbb_use_tripo"):
+        setattr(bpy.context.scene, name, True)
+    bpy.context.scene.dshbb_ai_paused = True
+    try:
+        for name in sorted(protocol.PAUSE_SAFE_COMMANDS):
+            if name == "ping":
+                continue
+            response = server.execute_command({"type": name, "params": {}})
+            assert response["status"] == "success", (name, response)
+        for name in protocol.COMMAND_NAMES:
+            if name.startswith("get_"):
+                assert server.execute_command({"type": name, "params": {}})["status"] == "success", name
+    finally:
+        bpy.context.scene.dshbb_ai_paused = False

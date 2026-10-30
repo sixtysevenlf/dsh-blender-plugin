@@ -1,0 +1,10 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.14, pytest-8.4.2, pluggy-1.7.0
+rootdir: D:\DSH\worktrees\refactor-j
+configfile: pytest.ini
+plugins: cov-7.1.0
+collected 4 items
+
+tests\e2e\gui\test_gui_connect.py ....                                   [100%]
+
+============================== 4 passed in 2.27s ==============================
