@@ -1,0 +1,26 @@
+# T6 commands — run from D:/DSH/worktrees/refactor-d
+export PATH=/d/DSH/tools/node-v22.17.0-win-x64:$PATH
+export TEMP=D:/DSH/tmp TMP=D:/DSH/tmp
+export PYTHON=D:/DSH/tools/dsh-test-venv/Scripts/python.exe
+export PYTHONIOENCODING=utf-8 PYTHONUTF8=1
+
+# 1. full layered suite: Vitest (12 files / 44 tests) + pytest (5) -> test.log
+node scripts/test.mjs
+
+# 2. engine export/surface parity against the frozen base (19828ed) -> parity.log
+git show 19828ed:runtime/engine.mjs > /d/DSH/tmp/refactor/engine.base.mjs
+node docs/refactor/evidence/T6/parity-engine.mjs /d/DSH/tmp/refactor/engine.base.mjs
+
+# 3. §8 B2 file-map / size evidence -> line-counts.txt
+wc -l runtime/engine.mjs runtime/core/*.mjs runtime/execution/*.mjs runtime/transport/probes.mjs
+
+# 4. build gate for runtime .mjs (no compiler build in Phase D) -> build.log
+for f in runtime/engine.mjs runtime/server.mjs runtime/core/*.mjs \
+         runtime/execution/*.mjs runtime/transport/probes.mjs \
+         runtime/http/*.mjs runtime/http/routes/*.mjs; do
+  node --check "$f" || exit 1
+done
+node -e "import('./runtime/engine.mjs').then(m => console.log('exports:', Object.keys(m).length))"
+
+# 5. catalog/provenance behavior through the facade -> discoverability.log
+node tests/discoverability_selftest.mjs

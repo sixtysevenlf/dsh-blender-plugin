@@ -1,0 +1,27 @@
+== 死会话租约回收自检 ==
+隔离后端：http://127.0.0.1:9896 · 工作目录 D:\DSH\tmp\dsh-lease-selftest-EdOtgR（Windows 侧共享判定 shared=true，windows）
+  ✓ 隔离后端已就绪
+  ✓ 构造出的 holder pid 确实已不存在
+  ✓ A1 本进程（活）拿到租约
+  ✓ A2 另一个活着的人来抢 → 被挡（409 denied）
+  ✓ A3 /who 报告 holderAlive=true（能判活）
+  ✓ B1 死 pid 强制拿到租约（构造现场）
+  ✓ B2 /who 报告 holderAlive=false（判死）
+  ✓ B3 活会话不带 force 也能拿到（死租约被自动回收）
+  ✓ B4 统计里记了 staleLeasesReclaimed
+  ✓ B5 回收事件有可读说明（不静默）
+  ✓ C1 换成非约定 holder 拿到租约
+  ✓ C2 holderAlive=null（判不了存活）
+  ✓ C3 判不了存活 → 仍然挡（保守，不误抢）
+  ✓ D0 现场重置为死持有者
+  ✓ D1 写路由没有被死租约挡住（不再 409 leased）
+  ✓ D2 写路由真的跑出了结果
+  ✓ E1 隔离 workDir 本身共享 → 不替换（substituted=false）
+  ✓ E2 共享时脚本仍落在请求的 workDir
+  ✓ E3 共享时没有 WORKDIR_NOT_SHARED 噪音
+  ✓ F1 /doctor 能报 workDir 的 Windows 可见性（shared 字段）
+
+────────────────────────────────────────────────────────────────
+lease-stale-selftest：20 通过 / 0 失败
+OK：活持有者照样挡，死持有者自动回收，写通道不会被幽灵租约锁死。
+lease selftest exit=0

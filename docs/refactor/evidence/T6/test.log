@@ -1,0 +1,27 @@
+
+== Vitest (unit + integration) ==
+
+ RUN  v3.2.7 D:/DSH/worktrees/refactor-d
+
+ ✓ tests/unit/js/smoke.test.ts (1 test) 2ms
+ ✓ tests/unit/js/contract/client-bundle.test.ts (3 tests) 5ms
+ ✓ tests/integration/js/smoke.test.ts (1 test) 2ms
+ ✓ tests/unit/js/contract/lossless.test.ts (4 tests) 4ms
+ ✓ tests/unit/js/contract/tool-schema.test.ts (4 tests) 13ms
+ ✓ tests/unit/js/http-lease.test.ts (5 tests) 33ms
+ ✓ tests/unit/js/contract/route-contract.test.ts (4 tests) 5ms
+ ✓ tests/integration/js/server-routes.test.ts (5 tests) 274ms
+ ✓ tests/unit/js/contract/surface-fit.test.ts (3 tests) 3ms
+ ✓ tests/unit/js/contract/catalog.test.ts (4 tests) 5ms
+ ✓ tests/unit/js/engine-surface.test.ts (3 tests) 5ms
+ ✓ tests/integration/js/fake-addon.test.ts (7 tests) 233ms
+
+ Test Files  12 passed (12)
+      Tests  44 passed (44)
+   Start at  19:36:11
+   Duration  1.14s (transform 435ms, setup 0ms, collect 3.40s, tests 582ms, environment 1ms, prepare 2.05s)
+
+
+== pytest (unit + integration, blender/gui excluded) ==
+.....                                                                    [100%]
+5 passed in 0.05s
