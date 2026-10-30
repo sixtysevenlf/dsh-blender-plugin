@@ -113,7 +113,10 @@ describe('macOS branch (runs only on macOS)', () => {
     }
   })
 
-  it('compiles the Blender-side path helpers with Python (macOS identity)', () => {
+  // macOS identity only: on Windows the same helper intentionally emits UNC paths
+  // (\\wsl.localhost\...) and native backslashes, so the macOS expectations below
+  // only hold on a Mac. Mirrors the sibling skipIf above.
+  it.skipIf(!IS_MAC)('compiles the Blender-side path helpers with Python (macOS identity)', () => {
     const python = pythonAvailable()
     if (!python) return
     const probe = path.join(os.tmpdir(), 'dsh_mac_paths_probe.py')

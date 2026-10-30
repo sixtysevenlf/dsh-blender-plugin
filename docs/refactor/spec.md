@@ -100,8 +100,8 @@ not met. "SHALL" is mandatory; there is no partial credit.
 - **B1 — Entry and file map.** `src/index.ts` SHALL be at most 150 lines and contain only imports,
   apply, and exports; the fifteen tool handlers SHALL live under `src/tools/*`; the files named in plan
   §4.2-4.5 SHALL exist; the import graph SHALL be acyclic.
-- **B2 — Engine and server split.** `engine.mjs` SHALL only assemble the engine and dispatch;
-  `server.mjs` SHALL only start and stop; routes, lease, and host views SHALL be separate modules. New
+- **B2 — Engine and server split.** `engine.ts` SHALL only assemble the engine and dispatch;
+  `server.ts` SHALL only start and stop; routes, lease, and host views SHALL be separate modules. New
   modules SHALL stay at or below 600 lines, and none over 1,000 without an ADR.
 - **B3 — Python domain packages.** Five domain packages under `runtime/py/` plus shims SHALL exist; old
   imports SHALL keep working; shims SHALL only re-export; no module-level Node import and no scene

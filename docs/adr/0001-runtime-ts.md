@@ -7,12 +7,12 @@
 
 ## Context
 
-The backend is sixteen flat `.mjs` files under `runtime/` (about 8,000 lines, including
-`engine.mjs` at 3,189 and `server.mjs` at 1,009). The host side under `src/` is already strict
-TypeScript, but the backend has no compile step: types exist only in a hand-written
-`backend_probe.d.mts`, and every boundary (JSON payloads, subprocess output, Python bridge results, file
-paths) validates by convention. Contract tests import the `.mjs` files directly, while the released
-package serves `lib/` built from `src/` only.
+At migration start (base `b8778c8`) the backend is sixty flat `.mjs` files under `runtime/`
+(7,307 lines; `engine.mjs` and `server.mjs` are already thin facades at 23 and 35 lines after the
+T6/T7 splits). The host side under `src/` is already strict TypeScript, but the backend has no compile
+step: types exist only in hand-written `.d.mts` stubs, and every boundary (JSON payloads, subprocess
+output, Python bridge results, file paths) validates by convention. Contract tests import the `.mjs`
+files directly, while the released package serves `lib/` built from `src/` only.
 
 Two problems follow. First, a change in the backend can break a caller that TypeScript would have caught
 before tests run; the type declarations drift silently. Second, there is no single build artifact that both
@@ -61,6 +61,29 @@ previous module is still present until its replacement lands.
 - Some `.mjs`-only conveniences (top-level dynamic imports of optional modules) need explicit typed
   wrappers; that is accepted as the cost of a checked boundary.
 - The diff is large but mechanical; each PR stays reviewable because it moves one module and its test.
+
+## Outcome (2026-10-30)
+
+Phase R landed as one migration commit on `task/t15`, followed only by tests, packaging, and evidence:
+
+- The sixty `.mjs` modules became 62 `.ts` modules (two boundary modules were added:
+  `runtime/core/json.ts` and `runtime/http/routes/deps.ts`); 8,294 strict-compiled lines produce
+  `lib/runtime/**/*.js` (62 files, 62 source maps, 62 declarations). Zero `runtime/**/*.mjs`,
+  zero `@ts-nocheck`.
+- Build order is runtime → host → client, not host first as plan §10.2 said: after T7 the host side
+  imports boundary helpers from the built `lib/runtime/*.js`, so the runtime must compile before `src/`.
+- `npm run test:parity` compares the base `b8778c8` runtime with the built `lib/runtime`:
+  87 exports, 34 families / 228 ops / 39 commands / 29 routes / 7 tool-detail keys, the catalog
+  fingerprint, and six `catalogPayload` shapes are identical after normalizing provenance hashes and
+  environment fields.
+- The package (684 entries) contains 62 `lib/runtime/**/*.js`, 85 Python files, and no backend `.ts`
+  or `.mts`; a clean install resolves `SERVER_PATH` to `lib/runtime/server.js`, `doctor` returns
+  `kind=ok`, and the packaged backend serves `/health` with version 2.6.2.
+- Rollback is proven at the Git level: reverting the migration commit restores the base tree exactly
+  (`git diff b8778c8 HEAD` is empty) and the v2.6.2 `.mjs` runtime runs without a build. Rebuilding
+  that pre-migration commit still needs a DSH checkout, which is why release rollback uses the v2.6.2
+  tag and tarball rather than a source rebuild.
+- Blender 4.2 LTS headless E2E passes against the built runtime.
 
 ## Alternatives considered
 

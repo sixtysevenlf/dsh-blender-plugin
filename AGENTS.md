@@ -17,7 +17,7 @@ rows do not exist in `package.json` yet and must keep the marker until their tas
 | Task | Command | Status |
 |---|---|---|
 | Install dependencies | `npm ci --legacy-peer-deps` | available |
-| Build host `src/` → `lib/` | `DSH_CHECKOUT=/path/to/dsh-harness npm run build` | available; needs a DSH checkout |
+| Build `runtime/` + `src/` → `lib/` | `npm run build` (optional `DSH_CHECKOUT` links DSH host packages) | available (T15) |
 | Build / verify the addon zip | `npm run build:addon` / `npm run check:addon` | available (T9) |
 | Typecheck | `npm run typecheck` | available |
 | Unit tests | `npm run test:unit` | available |

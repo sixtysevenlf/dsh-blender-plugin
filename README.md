@@ -37,7 +37,7 @@ DSH × Blender connects DeepSeek Harness to Blender so an agent can build, inspe
 - DSH (DeepSeek Harness) installed and working.
 - Node.js 20 or newer for the backend; Node.js 22 is the CI and test baseline.
 - Blender 4.x or 5.x. GUI mode requires the bundled addon (install it first); headless mode only needs the Blender executable.
-- Optional: a DSH source checkout if you want to rebuild the plugin.
+- Optional: a DSH source checkout when rebuilding the host side; otherwise the build links against this repository's installed dependencies.
 
 ### Option A: ask an AI agent
 
@@ -68,12 +68,13 @@ Install the standalone modeling skill (only needed for hosts that do not load th
 
    Use only this addon. Disable MCP for Blender or any other Blender addon before continuing. If the rest of the installation does not work, check this step first.
 
-2. Clone the repository and, if needed, build it. The repository commits the built lib directory, so a normal clone is ready to use.
+2. Clone the repository and build it. `lib/` is a build artifact and is not committed, so a fresh clone must build once before use.
 
         git clone https://github.com/sixtysevenlf/dsh-blender-plugin.git
         cd dsh-blender-plugin
-        # Optional: only after changing src/
-        DSH_CHECKOUT=/path/to/dsh-harness bash scripts/build.sh
+        npm ci --legacy-peer-deps
+        npm run build
+        # Optional: DSH_CHECKOUT=/path/to/dsh-harness npm run build links DSH host packages
 
 3. Add the package to your DSH profile as a bundle. Link the checkout into the profile, then add the dependency and bundle entry to the profile package.json.
 
@@ -188,7 +189,7 @@ The plugin exposes 15 tools. All planning, audit, assembly, export, and evaluati
 - Python tests need a virtualenv with `pytest`. Point `PYTHON` at its interpreter
   (`PYTHONIOENCODING=utf-8` and `PYTHONUTF8=1` on Windows); tests import the TypeScript sources directly.
 - The canonical command table — install, build, typecheck, test, lint, pack — is
-  [`AGENTS.md` §1](AGENTS.md#1-commands-single-source). `lib/` is rebuilt from `src/`; never hand-edit it.
+  [`AGENTS.md` §1](AGENTS.md#1-commands-single-source). `lib/` is rebuilt from `runtime/` and `src/`; never hand-edit it.
 - Test layers, fixtures, and per-layer commands: [`tests/README.md`](tests/README.md).
 - Contribution workflow: [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`zh-CONTRIBUTING.md`](zh-CONTRIBUTING.md).
 - Bundled skill source: `skills/blender-modeling/`.

@@ -8,8 +8,25 @@ import { ensureBuild } from '../../helpers/ensure-build'
 
 ensureBuild()
 const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-t14-pack-'))
-const npmEnv = {
-  ...process.env,
+/**
+ * Environment for the child npm. Strip every inherited npm_config_* /
+ * npm_lifecycle_* entry: when the whole suite runs under `npm test`, npm
+ * exports npm config with BOTH cases (NPM_CONFIG_CACHE="..." and
+ * npm_config_cache="..."). Spreading process.env then keeps the uppercase
+ * value, and on Windows (case-insensitive environment) the inherited default
+ * cache wins over the per-test cache override -> EPERM on the user profile.
+ */
+function npmEnvFor(extra: Record<string, string>): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {}
+  for (const [key, value] of Object.entries(process.env)) {
+    const lower = key.toLowerCase()
+    if (lower.startsWith('npm_config_') || lower.startsWith('npm_lifecycle_')) continue
+    env[key] = value
+  }
+  return { ...env, ...extra }
+}
+
+const npmEnv = npmEnvFor({
   TEMP: tmpRoot,
   TMP: tmpRoot,
   npm_config_cache: path.join(tmpRoot, 'npm-cache'),
@@ -18,7 +35,7 @@ const npmEnv = {
   npm_config_fund: 'false',
   npm_config_ignore_scripts: 'true',
   npm_config_legacy_peer_deps: 'true',
-}
+})
 
 function npm(args: string[]): string {
   return execFileSync('npm', args, { cwd: PKG_ROOT, env: npmEnv, encoding: 'utf8', shell: true, timeout: 60000 })

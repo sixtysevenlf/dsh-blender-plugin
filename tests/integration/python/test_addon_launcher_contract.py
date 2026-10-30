@@ -3,7 +3,7 @@
 The DSH launcher injects LAUNCH_BOOT_PY into Blender and refuses anything that
 is not the dsh_blender_bridge package with protocol 11 / add-on version >= 1.10.
 These tests read the launcher source (the boot script is a string in
-runtime/launch.mjs) and compare the contract with the real add-on package so a
+runtime/launch.ts) and compare the contract with the real add-on package so a
 version/prorocol drift fails here before a user sees the Connect error.
 """
 
@@ -20,7 +20,7 @@ protocol = importlib.import_module("addon.dsh_blender_bridge.protocol")
 pkg = importlib.import_module("addon.dsh_blender_bridge")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-LAUNCH_SOURCE = (REPO_ROOT / "runtime" / "launch.mjs").read_text(encoding="utf-8")
+LAUNCH_SOURCE = (REPO_ROOT / "runtime" / "launch.ts").read_text(encoding="utf-8")
 
 
 def test_launcher_requires_the_package_install_not_the_old_single_file():

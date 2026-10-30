@@ -124,7 +124,8 @@
     "build:host": "node scripts/build.mjs host",
     "build:runtime": "node scripts/build.mjs runtime",
     "typecheck:runtime": "node scripts/typecheck.mjs -p tsconfig.runtime.json",
-    "test:parity": "node scripts/check-parity.mjs"
+    "test:parity": "node scripts/check-parity.mjs",
+    "smoke:install": "node scripts/install-smoke.mjs"
   },
   "exports": {
     ".": {

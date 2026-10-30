@@ -284,6 +284,7 @@ function parseArgs(argv) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2))
+  ensureBuild()
   const catalogs = await loadCatalogs()
   const rows = loadMatrix(options.matrix)
   const expected = expectedIds(catalogs)
