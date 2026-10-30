@@ -13,7 +13,7 @@ export { launchBlender };
  * 注：人肉面板（浏览器 UI + Windows 输入注入）已按需求移除，这里只保留 AI 实时通道。
  *
  * 另有两条辅助线：
- *  - 自定义视角捕获（runtime/view.py）：自建 view/proj 矩阵 + GPUOffScreen.draw_view3d，不动场景出任意角度图
+ *  - 自定义视角捕获（runtime/py/render/view.py）：自建 view/proj 矩阵 + GPUOffScreen.draw_view3d，不动场景出任意角度图
  *  - 无头进程（blender.exe -b）：独立进程跑重活，不占 GUI 通道；与本通道互不阻塞
  * 并发保护：租约（lease）——写操作要持有租约，别的会话在用时会明确报"leased by X"，可 force 抢占。
  */
@@ -73,15 +73,23 @@ const ENGINE_SELF = (() => {
 const _fpCache = new Map();
 function runtimeFingerprint() {
   const out = {};
+  const add = (p, key) => {
+    const st = fs.statSync(p);
+    const cacheKey = String(st.size) + ':' + String(Math.round(st.mtimeMs));
+    let hit = _fpCache.get(p);
+    if (!hit || hit.key !== cacheKey) { hit = { key: cacheKey, hash: sha12(fs.readFileSync(p)) }; _fpCache.set(p, hit); }
+    out[key] = hit.hash;
+  };
   try {
     for (const f of fs.readdirSync(HERE)) {
       if (!/\.(py|mjs)$/.test(f)) continue;
-      const p = path.join(HERE, f);
-      const st = fs.statSync(p);
-      const key = String(st.size) + ':' + String(Math.round(st.mtimeMs));
-      let hit = _fpCache.get(p);
-      if (!hit || hit.key !== key) { hit = { key: key, hash: sha12(fs.readFileSync(p)) }; _fpCache.set(p, hit); }
-      out[f] = hit.hash;
+      // T8：键集合保持原样（行为冻结），但 .py 键的哈希取自 runtime/py/<domain>/ 的真实实现，
+      // 否则改实现文件时自证指纹不动。generator / uv_tools 无领域包，仍取扁平真实文件。
+      let src = path.join(HERE, f);
+      if (f.endsWith('.py')) {
+        try { src = pyModuleFile(f); } catch (e) { /* 非 §4.7 模块仍用扁平文件 */ }
+      }
+      add(src, f);
     }
   } catch (e) { /* ignore */ }
   return out;
@@ -197,7 +205,7 @@ export const KERNEL_BOOTSTRAP = [
  */
 // S3：目录（数据 + 目录逻辑）外移到 catalog.mjs；此处导入并**重导出公开面**，对外面逐字节不变
 // S3-b：路径与常量外移到 paths.mjs；具名导入 + 重导出，对外面不变
-import { ADDRESS, WIN_TMP, WSL_TMP, LIVE_PNG_WIN, LIVE_PNG_WSL, KIT_PATH, RUNNER_PATH, PERF_PATH, VIEW_PATH, CONTRACT_PATH, PLANNER_PATH, WORKER_PATH, TXN_PATH, QC_PATH, QC_RENDER_PATH, PRESET_PATH, AUDIT_PATH, MONTAGE_PATH, MOTION_PATH, DELIVER_PATH, GENERATOR_PATH, SCULPT_PATH, FIX_PATH, UV_PATH, PRINT_PATH, SWEEP_PATH, MATERIAL_PATH, RENDER_GUARD_PATH, GATE_PATH, IMG_PATH, CALIB_PATH, FACE_PATH, HUMAN_PATH, CLEARANCE_PATH, VEHICLE_PATH, SHAPE_PATH, USER_CONFIG_WIN, USER_SCRIPTS_WIN, GPU_PRELUDE, VIEW_PNG_WIN, VIEW_PNG_WSL, BLENDER_EXE, PATH_HELPERS, ACT_WRAPPER, KIT_SRC, KIT_HASH, GEO_SRC, blenderJoin, PIPELINE_PATH, ASSEMBLY_PATH, BLOCKOUT_PATH, VISUALREPORT_PATH, SHAPESOLVE_PATH, EVALHARNESS_PATH, SURFACE_PATH } from './paths.mjs';
+import { pyModuleFile, pyModuleNames, ADDRESS, WIN_TMP, WSL_TMP, LIVE_PNG_WIN, LIVE_PNG_WSL, KIT_PATH, RUNNER_PATH, PERF_PATH, VIEW_PATH, CONTRACT_PATH, PLANNER_PATH, WORKER_PATH, TXN_PATH, QC_PATH, QC_RENDER_PATH, PRESET_PATH, AUDIT_PATH, MONTAGE_PATH, MOTION_PATH, DELIVER_PATH, GENERATOR_PATH, SCULPT_PATH, FIX_PATH, UV_PATH, PRINT_PATH, SWEEP_PATH, MATERIAL_PATH, RENDER_GUARD_PATH, GATE_PATH, IMG_PATH, CALIB_PATH, FACE_PATH, HUMAN_PATH, CLEARANCE_PATH, VEHICLE_PATH, SHAPE_PATH, USER_CONFIG_WIN, USER_SCRIPTS_WIN, GPU_PRELUDE, VIEW_PNG_WIN, VIEW_PNG_WSL, BLENDER_EXE, PATH_HELPERS, ACT_WRAPPER, KIT_SRC, KIT_HASH, GEO_SRC, blenderJoin, PIPELINE_PATH, ASSEMBLY_PATH, BLOCKOUT_PATH, VISUALREPORT_PATH, SHAPESOLVE_PATH, EVALHARNESS_PATH, SURFACE_PATH } from './paths.mjs';
 // S8：无头脚本暂存移到 staging.mjs；具名导入 + 重导出，导出面不变
 import { writeHeadlessScript } from './staging.mjs';
 // workdirStagingWarning 也在这个模块里（搬移时一并带过去了）；readJsonSafe 仍是 engine 本地（不进导出面）
@@ -465,7 +473,7 @@ export const PATH_GUARD = (IS_MAC || IS_WIN || !IS_WSL) ? '' : ['# ---- DSH 路�
   '    pass'].join('\n');
 
 /**
- * v0.9.3（F1/F2）：shots 多视角渲染 —— 复用 runtime/qc_render.py 的 qc_render_views
+ * v0.9.3（F1/F2）：shots 多视角渲染 —— 复用 runtime/py/render/qc_render.py 的 qc_render_views
  * （自动取景/三点光/渲染锁/设备回读/逐张 md5 都已在那里），只补"显式 from+look_at"与覆盖率判定。
  * 结果契约：打印 DSH_SHOTS <单行 JSON>（qc_render_views 的原样回执）。
  */
@@ -876,7 +884,7 @@ export function createEngine(opts = {}) {
                         VISUALREPORT_READY: 'dsh_visualreport_api', SHAPESOLVE_READY: 'dsh_shapesolve_api',
                         EVALHARNESS_READY: 'dsh_evalharness_api', SURFACE_READY: 'dsh_surface_api' };
   /** 读 runtime 下的 python 模块源码（preload / 作业脚本拼接用） */
-  const readModuleSource = (name) => fs.readFileSync(path.join(HERE, String(name).replace(/\.py$/, '') + '.py'), 'utf8');
+  const readModuleSource = (name) => fs.readFileSync(pyModuleFile(name), 'utf8');
   /**
    * v0.9.1（93-B3）：脚本路径解析。headless 的 `file=` 语义是 **.blend**（老成员误传 .py 会拿到
    * `File format is not supported`），现在：显式 `scriptFile=` 收 .py；`file=` 传 .py 时自动改当脚本并给提示。
@@ -1061,7 +1069,10 @@ export function createEngine(opts = {}) {
     const wslPath = /^[A-Za-z]:[\\/]/.test(winPath)
       ? ('/mnt/' + winPath[0].toLowerCase() + winPath.slice(2).replace(/\\/g, '/'))
       : winPath;
-    const runner = path.join(extDir, op === 'gltf_validate' ? 'gltf_validate_runner.mjs' : 'open3d_check.py');
+    // T8：open3d_check.py 已随导出域移入 runtime/py/export/；ext/ 只留 venv 与 gltf_validate_runner.mjs。
+    const runner = op === 'gltf_validate'
+      ? path.join(extDir, 'gltf_validate_runner.mjs')
+      : path.join(HERE, 'py', 'export', 'open3d_check.py');
     // 后端跑在 WSL 时 node 看到的是 Linux 文件系统：**先给 WSL 路径**；在 Windows 时反过来。
     const isWin = process.platform === 'win32';
     const first = isWin ? winPath : wslPath;
@@ -1772,12 +1783,13 @@ export function createEngine(opts = {}) {
     for (const m of jobMods) {
       const name = String(m).trim().replace(/\.py$/, '');
       if (!name) continue;
-      const f = path.join(HERE, name + '.py');
-      if (!fs.existsSync(f)) {
+      // T8：模块真实文件在 runtime/py/<domain>/ 下；旧 runtime/<name>.py 只是 re-export shim，
+      // 注入通道必须是真实文件，否则 exec 出去的只是 import 语句。
+      let f = null;
+      try { f = pyModuleFile(name); } catch (e2) { f = null; }
+      if (!f || !fs.existsSync(f)) {
         // S9（④）：报错直接给可用模块名 —— 现场「要 preload=vehicle」只能靠试。
-        let avail = [];
-        try { avail = fs.readdirSync(HERE).filter((x) => x.endsWith('.py')).map((x) => x.slice(0, -3)); } catch (e2) { /* ignore */ }
-        throw new Error('preload 找不到模块：' + f + '（可用模块名：' + avail.join(', ') + '）—— preload 取 runtime/<name>.py 的文件名，例如 preload="vehicle,audit"；离线（后端挂了）见 runtime/offline_bootstrap.py');
+        throw new Error('preload 找不到模块：' + name + '（可用模块名：' + pyModuleNames().join(', ') + '）—— preload 取模块名（runtime/py/<domain>/<name>.py，旧 runtime/<name>.py 是兼容 shim），例如 preload="vehicle,audit"；离线（后端挂了）见 runtime/py/core/offline_bootstrap.py');
       }
       parts.push(preloadChunk(name));
     }
@@ -2182,7 +2194,7 @@ export function createEngine(opts = {}) {
     });
     if (info.spawnErr) {
       const e = new Error('worker 起不来（' + BLENDER_EXE + '）：' + String((info.spawnErr && info.spawnErr.message) || info.spawnErr));
-      e.hint = '检查 blenderExe 配置与 runtime/worker.py 是否存在';
+      e.hint = '检查 blenderExe 配置与 runtime/py/core/worker.py 是否存在';
       throw e;
     }
     if (!info.ok) {
@@ -2687,8 +2699,9 @@ export function createEngine(opts = {}) {
       for (const m of mods) {
         const name = String(m).trim().replace(/\.py$/, '');
         if (!name) continue;
-        const f = path.join(HERE, name + '.py');
-        if (!fs.existsSync(f)) throw new Error('preload 找不到模块：' + f);
+        // T8：同作业层，取 runtime/py/<domain>/ 的真实文件（旧路径是 shim）。
+        const f = pyModuleFile(name);
+        if (!fs.existsSync(f)) throw new Error('preload 找不到模块：' + name + '（' + f + '）');
         pre += preloadChunk(name) + '\n';
       }
       // ---- 引擎前导（v0.8.0）：默认 eevee + 光追；可选 cycles / keep（向后兼容 gpu:"false"=keep）

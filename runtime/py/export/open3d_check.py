@@ -1,5 +1,8 @@
+# -*- coding: utf-8 -*-
+"""Open3D 外部通路（T8 起在 runtime/py/export/）：被引擎当脚本调用，也可 import 复用 main()。"""
 import json
 import sys
+
 
 def main():
     p = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -29,4 +32,6 @@ def main():
     }
     print("EXT " + json.dumps(out, ensure_ascii=False))
 
-main()
+
+if __name__ == "__main__":
+    main()

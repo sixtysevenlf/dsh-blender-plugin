@@ -1,0 +1,40 @@
+# T8 commands (Git Bash; run from D:/DSH/worktrees/refactor-e)
+export PATH=/d/DSH/tools/node-v22.17.0-win-x64:$PATH
+export PYTHON=D:/DSH/tools/dsh-test-venv/Scripts/python.exe
+export PYTHONIOENCODING=utf-8 PYTHONUTF8=1
+export TEMP=D:/DSH/tmp TMP=D:/DSH/tmp
+export npm_config_cache=D:/DSH/tmp/npm-cache
+
+# 1. Python unit + integration (required exact command)
+"$PYTHON" -m pytest tests/unit/python tests/integration/python -q
+# same run without double-quiet summary:
+"$PYTHON" -m pytest tests/unit/python tests/integration/python
+"$PYTHON" -m pytest --version
+node -v
+
+# 2. JS unit + integration (repo entry point for python mode; direct vitest for JS in this worktree)
+node scripts/test.mjs python
+node node_modules/vitest/vitest.mjs run --configLoader runner
+
+# 3. Import smoke inside real Blender 4.2.10 (bpy/numpy/mathutils present)
+B="D:/DSH/tools/blender-win/blender-4.2.10-windows-x64/blender.exe"
+"$B" -b --factory-startup --python docs/refactor/evidence/T8/scripts/blender_import_all.py
+"$B" -b --factory-startup --python docs/refactor/evidence/T8/scripts/blender_import_flat.py
+"$B" -b --factory-startup --python docs/refactor/evidence/T8/scripts/blender_offline_bootstrap.py
+"$B" -b --factory-startup --python docs/refactor/evidence/T8/scripts/blender_domain_loaders.py
+
+# 4. Build/syntax/packaging checks
+node --check runtime/engine.mjs
+node --check runtime/paths.mjs
+node --check runtime/classes.mjs
+node --input-type=module -e "const e = await import('./runtime/engine.mjs'); console.log('ENGINE_IMPORT_OK', typeof e.catalogPayload, Object.keys(e).length)"
+npm pack --dry-run --json --ignore-scripts   # summary written to build.log; no tarball
+
+# 5. Optional static inspection used while developing:
+git status --short
+git diff --check
+
+# 6. Evidence manifest (final step; artifacts.sha256 does not hash itself)
+cd docs/refactor/evidence/T8
+sha256sum env.txt commands.txt test.log build.log review.md acceptance.md scripts/*.py > artifacts.sha256
+sha256sum -c artifacts.sha256

@@ -168,7 +168,7 @@ export function renderHandoff() {
   L.push("KERNEL_BOOTSTRAP 已注入 geo（无需 preload）：");
   L.push("造 box/cyl/tube/prism/loft/stack ｜ 切 boolean（**带退化守卫**）、hole_cut/slots_cut（批量一次布尔） ｜ 组 mirror/linear_array/join ｜ 收边 bevel/shade_auto（**自动平滑不改拓扑**）｜ 量 mesh_stats/tri_count/bbox_all ｜ 看 quick_views ｜ 登记 own(ob,coll,owner)（COL_/dsh.owner）");
   L.push("**只给动词不给名词**：齿距/站表/截面/坐标一律由 spec.py 给。");
-  L.push("速查：K.dsh_geo_api 的 help/selftest；分层见 runtime/geo.py 头注释。");
+  L.push("速查：K.dsh_geo_api 的 help/selftest；分层见 runtime/py/geometry/geo.py 头注释。");
   L.push("");
   L.push("## 通道纪律");
   L.push("- 长活（>1 min / 长渲染 / 批量几何）走 `blender_rt_job` / `blender_rt_headless`，别同步硬等；");
