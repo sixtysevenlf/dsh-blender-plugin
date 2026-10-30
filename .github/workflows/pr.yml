@@ -76,13 +76,15 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
+      - name: Create Python venv
+        run: python -m venv .venv
       - name: Install dependencies
         run: |
           npm ci --legacy-peer-deps
-          python -m pip install -r requirements-dev.txt -r requirements-typecheck.txt
+          .venv/bin/python -m pip install -r requirements-dev.txt -r requirements-typecheck.txt
       - name: Addon unit tests (no Blender)
         env:
-          PYTHON: python
+          PYTHON: .venv/bin/python
           TMPDIR: ${{ runner.temp }}
         run: npm run test:addon-unit
       - name: Addon typecheck with fake-bpy stubs
