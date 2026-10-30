@@ -76,7 +76,7 @@ Phase R landed as one migration commit on `task/t15`, followed only by tests, pa
   87 exports, 34 families / 228 ops / 39 commands / 29 routes / 7 tool-detail keys, the catalog
   fingerprint, and six `catalogPayload` shapes are identical after normalizing provenance hashes and
   environment fields.
-- The package (684 entries) contains 62 `lib/runtime/**/*.js`, 85 Python files, and no backend `.ts`
+- The package (556 entries) contains 62 `lib/runtime/**/*.js`, 85 Python files, and no backend `.ts`
   or `.mts`; a clean install resolves `SERVER_PATH` to `lib/runtime/server.js`, `doctor` returns
   `kind=ok`, and the packaged backend serves `/health` with version 2.6.2.
 - Rollback is proven at the Git level: reverting the migration commit restores the base tree exactly

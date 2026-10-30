@@ -129,6 +129,7 @@ const TARGET_FILES = [
   'src/headless/receipts.ts',
   'src/tools/schema-diagnostic.ts',
   'src/plugin.ts',
+  'src/tools/errors.ts',
   'src/host/skill.ts',
   'src/plan/tool.ts',
   'src/tools/index.ts',
