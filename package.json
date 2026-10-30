@@ -131,6 +131,7 @@
     "test:e2e:gui": "node scripts/test.mjs e2e:gui",
     "test:matrix": "node scripts/check-behavior-matrix.mjs --release",
     "test:coverage": "node node_modules/vitest/vitest.mjs run --coverage --coverage.reporter=text-summary --coverage.reporter=json-summary --coverage.reporter=lcov --coverage.reporter=cobertura",
+    "check:coverage": "node scripts/check-coverage.mjs",
     "typecheck:addon": "pyright -p pyrightconfig.addon.json",
     "test:addon-unit": "node scripts/test.mjs addon-unit"
   },

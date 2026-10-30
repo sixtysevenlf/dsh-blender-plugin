@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "baselineCommit": "b4427a5",
+  "baselineDate": "2026-10-31",
+  "policy": "首版基线只设不下降 floor；每个 PR 按 ratchetPerPr 抬升，最终到 target。CI 与本地 gate 读同一文件。",
+  "javascript": {
+    "globalFloor": {
+      "lines": 63,
+      "branches": 69
+    },
+    "changedLinesFloor": {
+      "lines": 58,
+      "targetLines": 70,
+      "targetBranches": 60,
+      "ratchetPerPr": 2
+    },
+    "criticalModules": [
+      {
+        "module": "runtime/catalog.ts",
+        "lines": 90,
+        "branches": 75
+      },
+      {
+        "module": "runtime/addon-protocol.ts",
+        "lines": 90,
+        "branches": 75
+      },
+      {
+        "module": "runtime/http/router.ts",
+        "lines": 90,
+        "branches": 75
+      },
+      {
+        "module": "runtime/http/lease.ts",
+        "lines": 90,
+        "branches": 75
+      },
+      {
+        "module": "src/tools/index.ts",
+        "lines": 90,
+        "branches": 75
+      }
+    ]
+  },
+  "python": {
+    "scope": [
+      "addon/dsh_blender_bridge/protocol.py",
+      "addon/dsh_blender_bridge/config.py",
+      "addon/dsh_blender_bridge/recorders/activity.py",
+      "addon/dsh_blender_bridge/premium/jobs.py",
+      "addon/dsh_blender_bridge/premium/client.py",
+      "addon/dsh_blender_bridge/commands/selection.py",
+      "addon/dsh_blender_bridge/commands/activity.py",
+      "addon/dsh_blender_bridge/integrations/hyper3d_client.py",
+      "addon/dsh_blender_bridge/integrations/sketchfab_client.py",
+      "addon/dsh_blender_bridge/assets/io.py"
+    ],
+    "floor": {
+      "lines": 70,
+      "branches": 60
+    },
+    "baseline": {
+      "lines": 82.3,
+      "branches": 79.5
+    },
+    "omitReason": "UI 绘制/注册样板、真 bpy 调用、子进程与网络传输由 C6 E2E/C9 覆盖，不并入行覆盖率。"
+  },
+  "e2e": {
+    "behaviorMatrixRelease": true,
+    "scenarioCoverage": 100,
+    "plannedMustBeZero": true
+  }
+}

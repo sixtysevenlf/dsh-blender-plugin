@@ -119,15 +119,17 @@ jobs:
         env:
           PYTHON: python
           TMPDIR: ${{ runner.temp }}
-        run: python -m pytest --cov=runtime --cov=addon --cov-report=xml:coverage/python-coverage.xml --cov-report=term
+        run: |
+          python -m pytest tests/unit/python tests/integration/python --cov=addon --cov-branch --cov-report=json:coverage/python-coverage.json --cov-report=term
+      - name: Coverage ratchet gate
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: |
+          git fetch origin "$BASE_REF" --depth=1
+          diff-cover coverage/lcov.info --compare-branch="origin/$BASE_REF" --json-report=coverage/diff-cover.json
+          npm run check:coverage
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
         with:
           name: coverage
           path: coverage/
-      - name: Diff coverage (changed lines)
-        if: github.event_name == 'pull_request'
-        run: |
-          git fetch origin ${{ github.base_ref }} --depth=1
-          diff-cover coverage/lcov.info --compare-branch=origin/${{ github.base_ref }} --fail-under=80
-          diff-cover coverage/python-coverage.xml --compare-branch=origin/${{ github.base_ref }} --fail-under=80

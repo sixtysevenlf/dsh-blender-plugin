@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "generatedFrom": "v2.6.2..b4427a5",
+  "entries": [],
+  "note": "本次重构的 runtime TS 迁移与 addon 分包均伴随结构/行为重排，无法机械判定为纯搬运；diff-cover 不排除任何行，58% 作为首版基线 floor。新增模块仍受 criticalModules 与 Python 纯逻辑 floor 约束。"
+}

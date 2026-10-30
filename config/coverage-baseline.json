@@ -1,0 +1,49 @@
+{
+  "commit": "b4427a5",
+  "date": "2026-10-31",
+  "javascript": {
+    "statements": 63.01,
+    "branches": 69.33,
+    "functions": 64.2,
+    "lines": 63.01
+  },
+  "changedLines": {
+    "lines": 58,
+    "total": 8449,
+    "missing": 3508,
+    "against": "v2.6.2"
+  },
+  "criticalModules": {
+    "runtime/addon-protocol.ts": {
+      "lines": 100,
+      "branches": 80
+    },
+    "runtime/catalog.ts": {
+      "lines": 98.01,
+      "branches": 78.57
+    },
+    "runtime/http/lease.ts": {
+      "lines": 100,
+      "branches": 87.17
+    },
+    "runtime/http/router.ts": {
+      "lines": 100,
+      "branches": 92.85
+    },
+    "src/tools/index.ts": {
+      "lines": 100,
+      "branches": 100
+    }
+  },
+  "python": {
+    "scopeLines": 82.3,
+    "scopeBranches": 79.5,
+    "rawAddonLines": 50
+  },
+  "e2e": {
+    "behaviorMatrixRows": 347,
+    "covered": 345,
+    "planned": 0,
+    "exempt": 2
+  }
+}
