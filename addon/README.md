@@ -1,6 +1,6 @@
 # `dsh_blender_bridge.py` —— Blender 侧 addon（本仓附带，唯一受支持版本）
 
-配套 [`@dsh-external/dsh-blender-plugin`](../README.zh-CN.md) 的 Blender 内 addon。
+配套 [`@dsh-external/dsh-blender-plugin`](../zh-README.md) 的 Blender 内 addon。
 
 > **v2.3 起只支持本文件。** 上游 `MCP for Blender`（模块 `blender_mcp`）与 harveyxiacn `blender_mcp_addon`
 > 已不再支持 —— 插件里的双名回退与 category-action 适配已删除。原因：v2.3 的原生选中 / 集合 / activity

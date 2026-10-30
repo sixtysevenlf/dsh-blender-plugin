@@ -1,6 +1,6 @@
 # DSH × Blender
 
-[简体中文](README.zh-CN.md)
+[简体中文](zh-README.md)
 
 DSH × Blender connects DeepSeek Harness to Blender so an agent can build, inspect, validate, and export 3D scenes in a real Blender session. The normal workflow is GUI-first: start Blender, connect the addon, and let the agent look, change, and verify. When no GUI is available, a persistent headless session provides the same interactive loop, including frames.
 
@@ -35,7 +35,7 @@ DSH × Blender connects DeepSeek Harness to Blender so an agent can build, inspe
 ### Requirements
 
 - DSH (DeepSeek Harness) installed and working.
-- Node.js 20 or newer for the backend.
+- Node.js 20 or newer for the backend; Node.js 22 is the CI and test baseline.
 - Blender 4.x or 5.x. GUI mode requires the bundled addon (install it first); headless mode only needs the Blender executable.
 - Optional: a DSH source checkout if you want to rebuild the plugin.
 
@@ -166,6 +166,8 @@ The plugin exposes 15 tools. All planning, audit, assembly, export, and evaluati
 - AI install prompt: docs/AI-安装提示词.md
 - Deployment SOP: docs/部署SOP.md
 - Third-party checklist: docs/给第三方的安装清单.md
+- Architecture decisions: docs/adr/README.md
+- Refactor specification: docs/refactor/spec.md
 - Modeling skill: skills/blender-modeling/
 - Release notes: GitHub Releases and CHANGELOG.md
 
@@ -182,9 +184,14 @@ The plugin exposes 15 tools. All planning, audit, assembly, export, and evaluati
 
 ## Development
 
-- Run the offline test suite: npm test
-- Rebuild after changing src: DSH_CHECKOUT=/path/to/dsh-harness bash scripts/build.sh
-- Bundled skill source: skills/blender-modeling/
+- Node.js **22** is the CI and test baseline; Node.js 20 or newer runs the backend.
+- Python tests need a virtualenv with `pytest`. Point `PYTHON` at its interpreter
+  (`PYTHONIOENCODING=utf-8` and `PYTHONUTF8=1` on Windows); tests import the TypeScript sources directly.
+- The canonical command table — install, build, typecheck, test, lint, pack — is
+  [`AGENTS.md` §1](AGENTS.md#1-commands-single-source). `lib/` is rebuilt from `src/`; never hand-edit it.
+- Test layers, fixtures, and per-layer commands: [`tests/README.md`](tests/README.md).
+- Contribution workflow: [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`zh-CONTRIBUTING.md`](zh-CONTRIBUTING.md).
+- Bundled skill source: `skills/blender-modeling/`.
 
 ## Support
 

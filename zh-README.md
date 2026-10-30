@@ -35,7 +35,7 @@ DSH × Blender 把 DeepSeek Harness 接到 Blender，让 AI 能在真实 Blender
 ### 前置条件
 
 - 已安装并可用的 DSH（DeepSeek Harness）。
-- Node.js 20 或更高版本（后端运行环境）。
+- Node.js 20 或更高版本（后端运行环境）；CI 与测试基线为 Node.js **22**。
 - Blender 4.x 或 5.x。GUI 模式必须先安装随包 addon；无头模式只需要能找到 Blender 可执行文件。
 - 可选：如果你想重新构建插件，需要 DSH 源码 checkout。
 
@@ -166,6 +166,8 @@ DSH × Blender 把 DeepSeek Harness 接到 Blender，让 AI 能在真实 Blender
 - AI 安装提示词：docs/AI-安装提示词.md
 - 部署 SOP：docs/部署SOP.md
 - 第三方安装清单：docs/给第三方的安装清单.md
+- 架构决策：docs/adr/README.md
+- 重构规格：docs/refactor/spec.md
 - 建模 skill：skills/blender-modeling/
 - 版本说明：GitHub Releases 与 CHANGELOG.md
 
@@ -182,9 +184,14 @@ DSH × Blender 把 DeepSeek Harness 接到 Blender，让 AI 能在真实 Blender
 
 ## 开发
 
-- 离线测试：npm test
-- 改 src 后重建：DSH_CHECKOUT=/path/to/dsh-harness bash scripts/build.sh
-- 随包 skill 真源：skills/blender-modeling/
+- CI 与测试基线为 Node.js **22**；后端在 Node.js 20 及以上可运行。
+- Python 测试需要装有 `pytest` 的虚拟环境（virtualenv），用 `PYTHON` 指向该解释器（Windows 另设
+  `PYTHONIOENCODING=utf-8`、`PYTHONUTF8=1`）；测试直接导入 TypeScript 源码。
+- 命令的唯一事实源（安装、构建、typecheck、测试、lint、打包）见
+  [`AGENTS.md` §1](AGENTS.md#1-commands-single-source)；`lib/` 由 `src/` 重新构建，不要手改。
+- 测试分层、fixture 与各层命令：[`tests/README.md`](tests/README.md)。
+- 贡献流程：[`CONTRIBUTING.md`](CONTRIBUTING.md) · [`zh-CONTRIBUTING.md`](zh-CONTRIBUTING.md)。
+- 随包 skill 真源：`skills/blender-modeling/`。
 
 ## 支持
 

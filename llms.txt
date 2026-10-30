@@ -18,7 +18,7 @@
 
 ## 安装（先读，别猜）
 
-- [README（中文）](https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/README.zh-CN.md): §2 前置条件（5 条）· §3 安装（5 步）· §7 常见故障 —— **安装前必读**
+- [README（中文）](https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/zh-README.md): §2 前置条件（5 条）· §3 安装（5 步）· §7 常见故障 —— **安装前必读**
 - [README (English)](https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/README.md)
 - [AI 安装提示词](https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/docs/AI-安装提示词.md): 可直接粘贴给 AI 助手
 - [AGENTS.md](https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/AGENTS.md): 助手自动加载的仓库约定

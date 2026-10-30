@@ -1303,7 +1303,7 @@ interference   ok=true analyzed=true      运行      ← 旧行为：门里这�
 **修的过程（如实记）**：第一轮只改了 13 处默认值与判断，跑回归时 `gate_review` **5 条失败**暴露还有 3 处比较没加前置（`audit.py:2693`、`audit.py:2824`、`contract.py:1529`）—— 它们把 `0` 当成"上限 0"，于是 12 面的小方块也被判"超上限 → 不分析"。补齐后 **263 断言全绿**。
 （另记一笔：我第一次贴的"全绿"是**误报** —— 我在检查前把输出截断了，没匹配到 fail 计数；之后改成对全文本判定。）
 
-**文档同步**：`docs/操作教程.md` · `docs/证据分级与读图纪律.md` · `README.zh-CN.md` · skill `SKILL.md`（2 处）共 **5 处**旧口径（"面数超 50 万跳过复核 → 门降级"）改为"**默认不限、全跑**；显式设上限才降级"。
+**文档同步**：`docs/操作教程.md` · `docs/证据分级与读图纪律.md` · `zh-README.md` · skill `SKILL.md`（2 处）共 **5 处**旧口径（"面数超 50 万跳过复核 → 门降级"）改为"**默认不限、全跑**；显式设上限才降级"。
 
 **代价（诚实）**：全跑是有成本的 —— 1.57M 面下 `connectivity` 28 s、`audit_mesh` 10 s；再大体量会更慢（BVH 构建随面数线性、逐壳判朝向是 Python 循环）。要更快有三条路：
 ① 分件分析（`objects:["A","B"]` 缩 scope）② `fix_decimate` 降到阈值内再验 ③ 后续做分块 / 向量化优化（尚未做）。
@@ -2460,7 +2460,7 @@ engine.act 在 v0.7.0 改成返回结构化对象（stdout/stderr/error/tracebac
 - **诊断升级**：`/doctor` 输出 `protocol` / `protocol_label` / `protocol_from`；原先"端口通但 ping 不回"一律归为 `addon-thread-stuck`，现在会再探一次协议，确属协议不匹配时给出 `detected_protocol` 与「把 `addonProtocol` 改成 X」的修法；`diagnose()` 的面板提示也随协议变化。
 - **category-action 侧适配**：`execute_code → utility.execute_python`（回包重新包成 `{executed,result}`，否则 `/act` 的 stdout 与 `LOOP` 标记解析全空）、`get_viewport_screenshot` / `get_world_state_snapshot` 由插件侧生成 python（对面同名 handler 的参数与 Blender 4 老 API 都不兼容）、遥测类命令走本地桩、5 条资产集成明确报错。
 - **新增自检 `tests/protocol_selftest.mjs`**（`npm test`）：两个 mock addon 覆盖探测 / 解析 / 两种协议下的调用 / 错误传播 / 缺能力不假装成功，共 28 项断言，**不需要 Blender**。
-- 文档：`docs/配置参考.md` §6 新增「两种 addon 协议」小节；`README.md` 与 `README.zh-CN.md` 的前置条件、故障表各补一行；`dsh-blender.config.example.json` 加 `addonProtocol`。
+- 文档：`docs/配置参考.md` §6 新增「两种 addon 协议」小节；`README.md` 与 `zh-README.md` 的前置条件、故障表各补一行；`dsh-blender.config.example.json` 加 `addonProtocol`。
 
 ## v0.4.0（2026-09-13，本会话）—— 三批次增强：诊断 / 自定义视角 / 租约 / 无头进程
 
