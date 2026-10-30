@@ -1,0 +1,45 @@
+parity: PASS (base b8778c8) - exports 87, families 34, ops 228, commands 39, toolDetail 7, routes 29
+  ok  exports  engine export set
+  ok  exports-count  engine exports
+  ok  fingerprint  catalogFingerprint()
+  ok  contract-counts  catalog contract counts
+  ok  catalog-default  catalogPayload({})
+  ok  catalog-default-len  catalogPayload text length
+  ok  catalog-family  catalogPayload({"family":"sculpt"})
+  ok  catalog-family-len  catalogPayload text length
+  ok  catalog-tool  catalogPayload({"tool":"rt_headless"})
+  ok  catalog-tool-len  catalogPayload text length
+  ok  catalog-full  catalogPayload({"full":true})
+  ok  catalog-full-len  catalogPayload text length
+  ok  catalog-handoff  catalogPayload({"handoff":true})
+  ok  catalog-handoff-len  catalogPayload text length
+  ok  catalog-verify  catalogPayload({"verify":true})
+  ok  catalog-verify-len  catalogPayload text length
+  ok  table-COMMAND_CATALOG  COMMAND_CATALOG
+  ok  table-COMMAND_CATALOG-entries  COMMAND_CATALOG entries
+  ok  table-PLAN_CATALOG  PLAN_CATALOG
+  ok  table-PLAN_CATALOG-entries  PLAN_CATALOG entries
+  ok  table-TOOL_DETAIL  TOOL_DETAIL
+  ok  table-TOOL_DETAIL-entries  TOOL_DETAIL entries
+  ok  table-PLAN_TOOL_MAP  PLAN_TOOL_MAP
+  ok  table-PLAN_TOOL_MAP-entries  PLAN_TOOL_MAP entries
+  ok  table-MODEL_FACING_TOOLS  MODEL_FACING_TOOLS
+  ok  table-MODEL_FACING_TOOLS-entries  MODEL_FACING_TOOLS entries
+  ok  table-GATE_FLAGS  GATE_FLAGS
+  ok  table-GATE_FLAGS-entries  GATE_FLAGS entries
+  ok  table-FLAGS_CODE  FLAGS_CODE
+  ok  table-FLAGS_CODE-entries  FLAGS_CODE entries
+  ok  table-MODELING_CLASS_GUIDE  MODELING_CLASS_GUIDE
+  ok  table-MODELING_CLASS_GUIDE-entries  MODELING_CLASS_GUIDE entries
+  ok  table-PATH_GUARD  PATH_GUARD
+  ok  table-PATH_GUARD-entries  PATH_GUARD entries
+  ok  routes  CONTRACT_ROUTES
+  ok  routes-count  CONTRACT_ROUTES routes
+  ok  plan-op-names  planOpNames()
+  ok  plan-op-suggestion  planOpSuggestion()
+  ok  plan-op-hint  planOpCrossChannelHint()
+  ok  class-guide-stats  classGuideStats()
+  ok  render-handoff  renderHandoff()
+  ok  render-class-text  renderClassText()
+  ok  plan-read-only  PLAN_READ_ONLY
+  ok  plan-read-only-ops  PLAN_READ_ONLY_OPS

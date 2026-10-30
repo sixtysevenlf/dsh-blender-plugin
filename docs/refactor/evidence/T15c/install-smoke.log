@@ -1,0 +1,20 @@
+
+> @dsh-external/dsh-blender-plugin@2.6.2 smoke:install
+> node scripts/install-smoke.mjs
+
+SMOKE pack {"name":"@dsh-external/dsh-blender-plugin","version":"2.6.2","entries":684,"size":2165031}
+SMOKE sourcemaps ok
+SMOKE install {"version":"2.6.2","entry":"./lib/index.js","files":684}
+SMOKE no-runtime-mjs ok
+SMOKE package-entry {"main":"./lib/index.js","exports":[".","./client","./package.json"]}
+SMOKE entry-syntax ok
+SMOKE SERVER_PATH D:\DSH\tmp\dsh-install-smoke-oS76Le\app\node_modules\@dsh-external\dsh-blender-plugin\lib\runtime\server.js
+SMOKE engine-exports 87
+SMOKE doctor {"ok":true,"kind":"ok","protocol":"flat"}
+SMOKE fingerprint {"catalogHash":"1d401b938b69","families":34,"opsCount":228,"toolDetailKeys":7,"commandCatalogKeys":39}
+SMOKE health {"ok":true}
+SMOKE status {"version":"2.6.2","runtimeKeys":56}
+SMOKE server-stdout-tail [blender-rt] http://127.0.0.1:2700/  (routes: /health /status /doctor /launch /who /lease /release /frame /frame.png /act /commands /cmd /loop /perf /opt /view /headless /plan /worker /txn /preset /job /host/scene-items /host/jobs /host/jobs/log /host/state /host/selection /host/selection/latest /host/selection/consume)
+
+SMOKE server-stderr
+SMOKE PASS

@@ -1,0 +1,14 @@
+ ✓ tests/unit/js/ledger-recover.test.ts (12 tests) 45ms
+ ✓ tests/integration/js/selection-store.test.ts (15 tests) 40ms
+ ✓ tests/integration/js/ledger-recover-e2e.test.ts (5 tests) 284ms
+ ✓ tests/unit/js/workdir.test.ts (4 tests) 310ms
+ ✓ tests/unit/js/headless-file-guard.test.ts (6 tests) 12ms
+ ✓ tests/integration/js/launch.test.ts (6 tests) 549ms
+ ✓ tests/unit/js/lease-stale.test.ts (6 tests) 587ms
+ ✓ tests/unit/js/shape-search.test.ts (10 tests) 10ms
+ ✓ tests/unit/js/platform-paths.test.ts (15 tests | 2 skipped) 6ms
+ ✓ tests/unit/js/scene-hygiene.test.ts (5 tests) 5ms
+ ✓ tests/unit/js/headless-hard-exit.test.ts (4 tests) 4ms
+ ✓ tests/integration/js/fake-addon.test.ts (7 tests) 254ms
+ ✓ tests/unit/js/provenance.test.ts (4 tests) 1848ms
+ ✓ tests/integration/js/backend-probe.test.ts (4 tests) 2131ms
