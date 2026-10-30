@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
-// @ts-expect-error - runtime is plain .mjs, no declaration file
 import { PLAN_CATALOG } from '../../../../runtime/catalog.mjs'
 import { pkgPath } from '../../../helpers/pkg'
 

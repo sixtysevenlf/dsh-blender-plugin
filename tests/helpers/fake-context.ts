@@ -14,7 +14,7 @@ export interface CapturedTool {
   execute?: (...args: never[]) => unknown
   presentCall?: unknown
   presentResult?: unknown
-  isConcurrencySafe?: boolean
+  isConcurrencySafe?: boolean | (() => boolean)
 }
 
 export function createFakeContext() {

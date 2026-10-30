@@ -1,0 +1,13 @@
+# 构建产物 / 依赖 / 历史运行时（Phase R 后再纳入）
+node_modules/
+lib/
+coverage/
+runtime/
+# T4 要求 tui-host.ts 保持原样（不参与本次格式化）
+src/tui-host.ts
+addon/
+skills/
+docs/
+tests/fixtures/
+tests/capability.lock.json
+*.min.js

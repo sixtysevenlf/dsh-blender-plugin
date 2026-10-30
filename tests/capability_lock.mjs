@@ -38,11 +38,20 @@ if (badShape.length) {
   process.exit(1);
 }
 
-// 工具名取模型侧真源 src/index.ts（工具注册处）
+// 工具名取模型侧真源：T4 之后工具注册分散在 src/tools/*.ts（14 个工具）与 src/plan/tool.ts（plan），
+// 不再从 src/index.ts 取（入口层只做 re-export，不含工具声明）。
 // tarball guard (issue #40): files 面不含 src/ ⇒ tarball 用户读不到真源，工具维度不可判（family/op 维度仍照判）。
 // 口径同 tests/host_routes_selftest.mjs「后端不可达 → SKIP 且 exit 0」：降级要说出来，不得静默当作已验。
-const SRC_PATH = path.join(HERE, "..", "src", "index.ts");
-const SRC = fs.existsSync(SRC_PATH) ? fs.readFileSync(SRC_PATH, "utf8") : null;
+const TOOLS_DIR = path.join(HERE, "..", "src", "tools");
+const PLAN_TOOL_PATH = path.join(HERE, "..", "src", "plan", "tool.ts");
+const SRC = (() => {
+  if (!fs.existsSync(TOOLS_DIR)) return null;
+  const files = fs.readdirSync(TOOLS_DIR)
+    .filter((f) => f.endsWith(".ts"))
+    .map((f) => path.join(TOOLS_DIR, f));
+  files.push(PLAN_TOOL_PATH);
+  return files.map((f) => (fs.existsSync(f) ? fs.readFileSync(f, "utf8") : "")).join("\n");
+})();
 // v1.0.1+S11（issue #10）：同一个 tool 名会在"降级占位"分支里被**再声明一次**（占位工具复用
 // 既有名，不是新能力）⇒ 按**集合**去重再计数。本测试的口径本来就是"只看集合（工具名）"，
 // 之前用数组长度是把重复声明也算成了新工具。
@@ -65,7 +74,7 @@ if (update || !fs.existsSync(LOCK)) {
 
 const old = JSON.parse(fs.readFileSync(LOCK, "utf8"));
 const fails = [];
-if (SRC === null) console.log("  · SKIP 工具维度：src/index.ts 不在（发布 tarball 的 files 面不含 src/）。family/op 维度照常判。自检工具面请从 git 检出跑：git clone --branch <tag> <repo>");
+if (SRC === null) console.log("  · SKIP 工具维度：src/tools/ 不在（发布 tarball 的 files 面不含 src/）。family/op 维度照常判。自检工具面请从 git 检出跑：git clone --branch <tag> <repo>");
 if (old.families_count !== snap.families_count) fails.push("family 数变了: " + old.families_count + " -> " + snap.families_count);
 if (old.ops_count !== snap.ops_count) fails.push("op 数变了: " + old.ops_count + " -> " + snap.ops_count);
 if (SRC !== null && old.tools_count !== snap.tools_count) fails.push("工具数变了: " + old.tools_count + " -> " + snap.tools_count);

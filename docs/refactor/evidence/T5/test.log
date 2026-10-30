@@ -1,0 +1,100 @@
+== npm run typecheck (src strict + tests strict) ==
+
+> @dsh-external/dsh-blender-plugin@2.6.2 typecheck
+> node scripts/typecheck.mjs && node scripts/typecheck.mjs -p tsconfig.test.json
+
+typecheck: 用 D:\DSH\worktrees\refactor-c\node_modules\typescript\lib\tsc.js（来源 local）
+typecheck: 用 D:\DSH\worktrees\refactor-c\node_modules\typescript\lib\tsc.js（来源 local）
+EXIT=0
+
+== npm run lint ==
+
+> @dsh-external/dsh-blender-plugin@2.6.2 lint
+> eslint src tests/unit/js tests/integration/js tests/helpers scripts --max-warnings=0
+
+EXIT=0
+
+== npm run format:check ==
+
+> @dsh-external/dsh-blender-plugin@2.6.2 format:check
+> prettier --check "src/**/*.ts" "scripts/check-*.mjs" "eslint.config.mjs" "tsconfig*.json" ".prettierrc.json" "tests/types/**/*.d.ts"
+
+Checking formatting...
+All matched files use Prettier code style!
+EXIT=0
+
+== negative control: boundary rule must reject src/ui -> src/tools import ==
+
+D:\DSH\worktrees\refactor-c\src\ui\__boundary_probe.ts
+  1:1  error  '../tools/see.js' import is restricted from being used by a pattern. src/ui 是叶子层：只允许依赖 utils / contracts。  no-restricted-imports
+
+✖ 1 problem (1 error, 0 warnings)
+
+EXPECTED_FAIL_EXIT=1
+
+== node scripts/test.mjs js ==
+
+== Vitest (js) ==
+
+ RUN  v3.2.7 D:/DSH/worktrees/refactor-c
+
+ ✓ tests/unit/js/smoke.test.ts (1 test) 1ms
+ ✓ tests/unit/js/contract/client-bundle.test.ts (3 tests) 4ms
+ ✓ tests/unit/js/contract/route-contract.test.ts (3 tests) 4ms
+ ✓ tests/integration/js/smoke.test.ts (1 test) 2ms
+ ✓ tests/unit/js/contract/surface-fit.test.ts (3 tests) 3ms
+ ✓ tests/unit/js/contract/catalog.test.ts (4 tests) 5ms
+ ✓ tests/integration/js/fake-addon.test.ts (7 tests) 233ms
+ ✓ tests/unit/js/contract/lossless.test.ts (4 tests) 4ms
+ ✓ tests/unit/js/contract/tool-schema.test.ts (4 tests) 11ms
+
+ Test Files  9 passed (9)
+      Tests  30 passed (30)
+   Start at  19:33:19
+   Duration  863ms (transform 423ms, setup 0ms, collect 2.17s, tests 267ms, environment 1ms, prepare 1.44s)
+
+EXIT=0
+
+===== post-cleanup re-verification 2026-10-30T19:36+08:00 =====
+== npm run typecheck ==
+
+> @dsh-external/dsh-blender-plugin@2.6.2 typecheck
+> node scripts/typecheck.mjs && node scripts/typecheck.mjs -p tsconfig.test.json
+
+typecheck: 用 D:\DSH\worktrees\refactor-c\node_modules\typescript\lib\tsc.js（来源 local）
+typecheck: 用 D:\DSH\worktrees\refactor-c\node_modules\typescript\lib\tsc.js（来源 local）
+EXIT=0
+
+== npm run lint ==
+
+> @dsh-external/dsh-blender-plugin@2.6.2 lint
+> eslint src tests/unit/js tests/integration/js tests/helpers scripts --max-warnings=0
+
+EXIT=0
+
+== npm run format:check ==
+
+> @dsh-external/dsh-blender-plugin@2.6.2 format:check
+> prettier --check "src/**/*.ts" "scripts/check-*.mjs" "eslint.config.mjs" "tsconfig*.json" ".prettierrc.json" "tests/types/**/*.d.ts"
+
+Checking formatting...
+All matched files use Prettier code style!
+EXIT=0
+
+== node scripts/test.mjs js ==
+ ✓ tests/unit/js/contract/client-bundle.test.ts (3 tests) 5ms
+ ✓ tests/unit/js/smoke.test.ts (1 test) 2ms
+ ✓ tests/unit/js/contract/route-contract.test.ts (3 tests) 4ms
+ ✓ tests/integration/js/smoke.test.ts (1 test) 2ms
+ ✓ tests/unit/js/contract/surface-fit.test.ts (3 tests) 3ms
+ ✓ tests/unit/js/contract/catalog.test.ts (4 tests) 5ms
+ ✓ tests/unit/js/contract/lossless.test.ts (4 tests) 4ms
+ ✓ tests/integration/js/fake-addon.test.ts (7 tests) 229ms
+ ✓ tests/unit/js/contract/tool-schema.test.ts (4 tests) 11ms
+
+ Test Files  9 passed (9)
+      Tests  30 passed (30)
+   Start at  19:35:32
+   Duration  881ms (transform 442ms, setup 0ms, collect 2.21s, tests 264ms, environment 1ms, prepare 1.39s)
+
+EXIT=0

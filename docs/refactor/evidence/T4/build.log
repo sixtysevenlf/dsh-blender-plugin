@@ -1,0 +1,153 @@
+== node node_modules/typescript/lib/tsc.js -p tsconfig.json (emit) ==
+EXIT=0
+
+== node scripts/build-client.mjs ==
+build-client: src\client\index.js → lib\client.js
+  · 27928 B  sha256 31e693ec7197
+  · sourceMappingURL：（无 .map，未挂引用）
+EXIT=0
+
+== node scripts/check-structure.mjs --out docs/refactor/evidence/T4/structure-report.json ==
+check-structure: PASS
+  index: 13 行，entry-only=true
+  tools: 15 个 handler（15 个名字）
+  target files: 32/32
+  import graph: 32 文件 / 147 边 / 0 环
+  报告: docs/refactor/evidence/T4/structure-report.json
+EXIT=0
+
+== public export surface (lib/index.js) ==
+Config,__internals,apply,frameDedupe,inject,name,resetFrameCache
+EXIT=0
+
+== wc -l src/index.ts ==
+12 src/index.ts
+
+== lib entry map ==
+lib/constants.js
+lib/index.js
+lib/plugin.js
+lib/types/index.d.ts
+
+lib/contracts:
+lossless.js
+lossless.js.map
+tool.js
+tool.js.map
+
+lib/headless:
+receipts.js
+receipts.js.map
+
+lib/host:
+backend.js
+backend.js.map
+exec-context.js
+exec-context.js.map
+http.js
+http.js.map
+skill.js
+skill.js.map
+
+lib/plan:
+headless-target.js
+headless-target.js.map
+tool.js
+tool.js.map
+
+lib/tools:
+cmd.js
+cmd.js.map
+commands.js
+commands.js.map
+do.js
+do.js.map
+headless.js
+headless.js.map
+index.js
+index.js.map
+job.js
+job.js.map
+loop.js
+loop.js.map
+opt.js
+opt.js.map
+perf.js
+perf.js.map
+preset.js
+preset.js.map
+schema-diagnostic.js
+schema-diagnostic.js.map
+see.js
+see.js.map
+txn.js
+txn.js.map
+viewport.js
+viewport.js.map
+watch.js
+watch.js.map
+worker.js
+worker.js.map
+
+lib/ui:
+cards.js
+cards.js.map
+
+lib/utils:
+frame-cache.js
+frame-cache.js.map
+image.js
+image.js.map
+
+===== post-cleanup re-verification 2026-10-30T19:36+08:00 =====
+== git status short (unexpected-file check) ==
+ M lib/index.js
+ M lib/index.js.map
+ M lib/tui-host.js
+ M lib/tui-host.js.map
+ M lib/types/index.d.ts
+ M lib/types/tui-host.d.ts
+ M package-lock.json
+ M package.json
+ M scripts/sync_counts.mjs
+ M src/index.ts
+ M tests/capability_lock.mjs
+ M tests/helpers/fake-context.ts
+ M tests/integration/js/fake-addon.test.ts
+ M tests/single_source_selftest.mjs
+ M tests/unit/js/contract/catalog.test.ts
+ M tests/unit/js/contract/lossless.test.ts
+ M tests/unit/js/contract/route-contract.test.ts
+ M tests/unit/js/contract/surface-fit.test.ts
+ M tests/unit/js/contract/tool-schema.test.ts
+?? .prettierignore
+?? .prettierrc.json
+?? docs/refactor/evidence/T4/
+?? docs/refactor/evidence/T5/
+?? eslint.config.mjs
+?? lib/constants.js
+?? lib/constants.js.map
+?? lib/contracts/
+?? lib/headless/
+?? lib/host/
+?? lib/plan/
+
+== node node_modules/typescript/lib/tsc.js -p tsconfig.json --noEmit ==
+EXIT=0
+
+== node scripts/check-structure.mjs --out docs/refactor/evidence/T4/structure-report.json ==
+check-structure: PASS
+  index: 13 行，entry-only=true
+  tools: 15 个 handler（15 个名字）
+  target files: 32/32
+  import graph: 32 文件 / 147 边 / 0 环
+  报告: docs/refactor/evidence/T4/structure-report.json
+EXIT=0
+
+== public export surface ==
+Config,__internals,apply,frameDedupe,inject,name,resetFrameCache
+EXIT=0
+
+== wc -l src/index.ts / wc -c src/index.ts ==
+12 src/index.ts
+807 src/index.ts

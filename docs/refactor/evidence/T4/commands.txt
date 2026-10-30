@@ -1,0 +1,35 @@
+# T4 命令与结果（工作目录 D:/DSH/worktrees/refactor-c，Git Bash）
+# 环境：PATH=/d/DSH/tools/node-v22.17.0-win-x64:$PATH，TEMP/TMP=D:/DSH/tmp（Node v22.17.0，npm 10.9.2）
+# 说明：未运行 scripts/build.sh（会 relink node_modules）；等价构建见下。所有 EXIT 均来自实际运行。
+
+node node_modules/typescript/lib/tsc.js -p tsconfig.json --noEmit        # EXIT=0（T4/build.log post-cleanup）
+node node_modules/typescript/lib/tsc.js -p tsconfig.json                 # EXIT=0（T4/build.log）
+node scripts/build-client.mjs                                            # EXIT=0（T4/build.log）
+node scripts/check-structure.mjs --out docs/refactor/evidence/T4/structure-report.json  # EXIT=0（T4/build.log；报告文件）
+node -e "import('./lib/index.js').then(m=>console.log(Object.keys(m).sort().join(',')))"  # EXIT=0；输出 Config,__internals,apply,frameDedupe,inject,name,resetFrameCache
+wc -l src/index.ts; wc -c src/index.ts                                   # 12；807（T4/build.log；check-structure 按换行计数为 13）
+node scripts/test.mjs                                                    # EXIT=0；Vitest 9 文件 / 30 测试 + pytest 5 通过（T4/test.log）
+
+# legacy 自检（全部 EXIT=0，T4/test.log）
+node tests/capability_lock.mjs
+node tests/single_source_selftest.mjs
+node tests/lossless_guard.mjs
+node tests/frame_dedupe_selftest.mjs
+node tests/schema_resolve_selftest.mjs
+node tests/skill_bundle_selftest.mjs
+node tests/tool_cards_selftest.mjs
+node tests/tui_host_selftest.mjs
+node tests/client_bundle_selftest.mjs
+node tests/backend_probe_selftest.mjs
+node tests/selection_store_selftest.mjs
+
+# 结构门禁实际输出（T4/build.log / structure-report.json）：
+#   check-structure: PASS
+#   index: 13 行，entry-only=true
+#   tools: 15 个 handler（15 个名字）
+#   target files: 32/32
+#   import graph: 32 文件 / 147 边 / 0 环
+
+# 清理/核对（仍 EXIT=0）：
+git checkout -- runtime/backend_probe.d.mts   # 恢复被误改的既有声明文件，随后 tsc --noEmit EXIT=0
+git status --short                            # 仅预期改动 + 证据；无 .tmp-node-probe.txt

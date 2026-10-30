@@ -1,0 +1,31 @@
+# T5 命令与结果（工作目录 D:/DSH/worktrees/refactor-c，Git Bash）
+# 环境：PATH=/d/DSH/tools/node-v22.17.0-win-x64:$PATH，TEMP/TMP=D:/DSH/tmp（Node v22.17.0，npm 10.9.2）
+# 说明：未在 worktree 执行 npm install / npm ci（避免改动 node_modules）；lock 一致性用 scratch 的 npm ci --dry-run 验证。
+
+npm run typecheck          # EXIT=0；src strict + tsconfig.test.json tests strict（T5/test.log）
+npm run lint               # EXIT=0；eslint src tests/unit/js tests/integration/js tests/helpers scripts --max-warnings=0（T5/test.log）
+npm run format:check       # EXIT=0；All matched files use Prettier code style!（T5/test.log）
+node scripts/test.mjs js   # EXIT=0；9 文件 / 30 测试通过（T5/test.log）
+npm run check:build        # EXIT=0；check-build: PASS（T5/build.log）
+npm run check:structure    # EXIT=0；PASS（T4/structure-report.json）
+npm pack --dry-run         # EXIT=0；package size 1.7 MB / unpacked 5.2 MB / total files 321（T5/build.log 最终段）
+
+# 边界规则负向控制（预期失败，证明规则真的在跑；探针随即删除）：
+printf "import { registerSee } from '../tools/see.js'\nexport const probe = registerSee\n" > src/ui/__boundary_probe.ts
+npx --no-install eslint src/ui/__boundary_probe.ts
+# EXPECTED_FAIL_EXIT=1；no-restricted-imports：src/ui 是叶子层：只允许依赖 utils / contracts
+rm -f src/ui/__boundary_probe.ts
+
+# lock 生成与一致性（不在 worktree 安装；scratch 目录）：
+# 1) 在 D:/DSH/tmp/lockgen 复制 package.json/package-lock.json，把既有 devDependencies 固定为已提交 lock 的精确版本；
+#    npm install --package-lock-only --legacy-peer-deps --ignore-scripts   # EXIT=0
+# 2) 合并回 worktree：恢复 package.json 的 devDependency ranges，并恢复平台包条目的原始 metadata 顺序；
+#    git diff package-lock.json：新增 93 个包，@deepseek-ai/* 版本 0 变化。
+cp package.json package-lock.json /d/DSH/tmp/ci-check/
+cd /d/DSH/tmp/ci-check && npm ci --dry-run --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+# EXIT=0；dry-run "added 314 packages"（T5/build.log）
+
+# 备注：
+# - 若 CI 严格复现，请使用 npm ci --legacy-peer-deps（仓库既有 peer 冲突现实）。
+# - prettier 范围仅 src/**/*.ts（不含 tui-host.ts）、scripts/check-*.mjs、eslint.config.mjs、tsconfig*.json、
+#   .prettierrc.json、tests/types/**/*.d.ts；未重排全仓。
