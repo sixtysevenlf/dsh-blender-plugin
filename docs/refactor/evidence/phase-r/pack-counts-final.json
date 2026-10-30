@@ -1,0 +1,14 @@
+{
+  "note": "pack of the final evidence commit (code commit 46f2d83 plus docs/refactor/evidence). The only difference from the clean-clone pack of the code commit is documentation under docs/refactor/evidence; code entries and all B5 checks are identical. tarball sha256 46a8a1712809c7ae803d80b1c4b448543752e20d97ac582d9eb04dee6e56799c, size 2209339 bytes, install smoke PASS on this tree (install-smoke-final.log).",
+  "entries": 780,
+  "size": 2209339,
+  "libRuntimeJs": 62,
+  "jsMaps": 94,
+  "runtimePy": 85,
+  "nonDtsTs": 0,
+  "runtimeTs": 0,
+  "hasLibIndex": true,
+  "hasServer": true,
+  "hasAddonZip": true,
+  "tarballSha256": "46a8a1712809c7ae803d80b1c4b448543752e20d97ac582d9eb04dee6e56799c"
+}

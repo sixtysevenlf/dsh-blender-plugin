@@ -21,7 +21,7 @@ PASS for every item except B5.12 (B1 3-question regression, NOT EXECUTED because
 | B5.7 source maps readable | PASS | build.log · lib/runtime/engine.js.map (inline sources) | author self-check | 2026-10-30 |
 | B5.8 git status shows no lib/ | PASS | scan.log (lib tracked in git: 0) · .gitignore · git rm --cached lib | author self-check | 2026-10-30 |
 | B5.9 v2.6.2 rollback rehearsal | PASS (Git level); build-level limitation recorded | rollback.md · rollback2.log | author self-check | 2026-10-30 |
-| B5.10 clean install smoke: doctor kind=ok and the packaged backend serves | PASS | install-smoke.log (SMOKE PASS) | author self-check | 2026-10-30 |
+| B5.10 clean install smoke: doctor kind=ok and the packaged backend serves | PASS | install-smoke.log (clean clone) · install-smoke-final.log (final tree) | author self-check | 2026-10-30 |
 | B5.11 clean environment build+test+pack+install all green | PASS | clean2-results.txt (ci/build/checkbuild/typecheck/test/packdry/installsmoke = 0) | author self-check | 2026-10-30 |
 | B5.12 B1 3-question small regression | NOT EXECUTED — benchmark environment incomplete; handed to T16/D4 | b1-regression.md | author self-check | 2026-10-30 |
 | R1 non-author review | PENDING | review.md | — | — |
@@ -29,6 +29,7 @@ PASS for every item except B5.12 (B1 3-question regression, NOT EXECUTED because
 ## Caveats
 
 - B1 regression not executed; see b1-regression.md. It is release-environment work (T16/D4), not T15 code work.
+- pack-list.txt is from the clean clone of code commit 46f2d83 (683 entries). Packing the final evidence commit adds only docs/refactor/evidence (780 entries; see pack-counts-final.json); code entries and all B5 checks are identical, and the final-tree install smoke (install-smoke-final.log) still returns doctor kind=ok and a serving backend.
 - No CI workflow exists on this branch (T12 unchecked); the dual import/spawn paths were proven locally and in a clean clone.
 - Only Blender 4.2 headless E2E ran; GUI rendering and Blender 5.x were unavailable.
 - frame/render latency was not measured (no GUI Blender/addon); perf.log measures engine import, backend start, /health, /status, and an addon doctor round-trip, and says so.

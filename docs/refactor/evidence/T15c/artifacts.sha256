@@ -1,5 +1,4 @@
 7d4c948ce1e0a9cca87bd5261c61790c508829b715a819f6727fd9007c039382 *docs/refactor/evidence/T15c/acceptance.md
-02ad993f1e805272c3a444211f17f7098e3c46aaec64b770072ee8d008bf4491 *docs/refactor/evidence/T15c/artifacts.sha256
 ff3af01a241a9f12104e64e8983d2ab5e95c19479dbc6e5b34d90ba70e9b2983 *docs/refactor/evidence/T15c/build.log
 da470cab3ea4b68b359535e028e5c694c8eca7b85666af4490fab1e63f08011a *docs/refactor/evidence/T15c/commands.txt
 7e47bde06bbacb985a7694af32fc9b9f4bd46be265d374760221535f48c41198 *docs/refactor/evidence/T15c/e2e.log
@@ -19,4 +18,4 @@ a36285a3d338e587450c6550274bf5b185bf7a3a2465b5fec98a23a19d318111 *tsconfig.runti
 1c1c0e403a16c3df626a0c61a46474c7cb0d97ce083005899185ff5546a40134 *scripts/install-smoke.mjs
 988f9687c8eed43de1eb5dcaa698cbcd07966d1ec718f49d0e3d69eff4afd2d1 *package.json
 1c329c0f46c64fc63055c9b7f1f39d14f93222a4050fe47218964177119a5e71 *docs/adr/0001-runtime-ts.md
-1026ed2777c1dedce4dff7d5b95251a6acc0d1df3504b77525de9a484309c520 *tarball:dsh-external-dsh-blender-plugin-2.6.2.tgz
+46a8a1712809c7ae803d80b1c4b448543752e20d97ac582d9eb04dee6e56799c *tarball-final:dsh-external-dsh-blender-plugin-2.6.2.tgz

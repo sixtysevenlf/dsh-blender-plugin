@@ -1,5 +1,4 @@
-83c6920c995c8d8a454b2719e4957b43ff8c83a9328ee179599f2fb71896eeae *docs/refactor/evidence/T15e/acceptance.md
-a764744067f88ba9b29ca99b44f8da6177e2aedafda7686ac27f047d4f8cc533 *docs/refactor/evidence/T15e/artifacts.sha256
+06969aa94f17daed8398dfb886d11c53d9e1c66013cd0c4c5740ec81888efc59 *docs/refactor/evidence/T15e/acceptance.md
 ff3af01a241a9f12104e64e8983d2ab5e95c19479dbc6e5b34d90ba70e9b2983 *docs/refactor/evidence/T15e/build.log
 62e2b17be50e3020ec03c5e5153d49b99eb775c0b5f94a56c1c8b239dc022cc9 *docs/refactor/evidence/T15e/built-paths.txt
 240ece86f48a0bfc47551fef717121cd656dd8dedeb097f60408a97c1f48170f *docs/refactor/evidence/T15e/clean2-build.log
@@ -13,6 +12,7 @@ aa0c35a73d786ec11df9725dc991e6c3a97d96579f888d6e33cfceede6d3bc17 *docs/refactor/
 da470cab3ea4b68b359535e028e5c694c8eca7b85666af4490fab1e63f08011a *docs/refactor/evidence/T15e/commands.txt
 6f361a22e9fb102c23a5f185ee01797467dc06434000a999a47caedd6cd491bd *docs/refactor/evidence/T15e/env.txt
 7b210b1296ed9cc7123ab32e1bfc0167f13d99237d43312dcfde2693a4d0961c *docs/refactor/evidence/T15e/imports.txt
+fe3bf5137ab2a4bbb0bf91462ae10159b76ecc4e4ec3884c3a3ba9067683f032 *docs/refactor/evidence/T15e/install-smoke-final.log
 72cab913c0287f52cb1b0d8448e3625a79e3b110442477dcd9b1d804701c16f4 *docs/refactor/evidence/T15e/review.md
 0b3febdf7b445aeef891f2d863d705bd21ab1ca53e0b4bf21d4bd0cefaa62884 *docs/refactor/evidence/T15e/scan.log
 4ce2cbc4f675749b8c070ad021b656caab16a591ab9d15376d981ac3c1968733 *docs/refactor/evidence/T15e/sourcemap-sample.txt
@@ -28,4 +28,4 @@ a36285a3d338e587450c6550274bf5b185bf7a3a2465b5fec98a23a19d318111 *tsconfig.runti
 1c1c0e403a16c3df626a0c61a46474c7cb0d97ce083005899185ff5546a40134 *scripts/install-smoke.mjs
 988f9687c8eed43de1eb5dcaa698cbcd07966d1ec718f49d0e3d69eff4afd2d1 *package.json
 1c329c0f46c64fc63055c9b7f1f39d14f93222a4050fe47218964177119a5e71 *docs/adr/0001-runtime-ts.md
-1026ed2777c1dedce4dff7d5b95251a6acc0d1df3504b77525de9a484309c520 *tarball:dsh-external-dsh-blender-plugin-2.6.2.tgz
+46a8a1712809c7ae803d80b1c4b448543752e20d97ac582d9eb04dee6e56799c *tarball-final:dsh-external-dsh-blender-plugin-2.6.2.tgz
