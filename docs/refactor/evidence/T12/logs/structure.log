@@ -1,0 +1,9 @@
+
+> @dsh-external/dsh-blender-plugin@2.6.2 check:structure
+> node scripts/check-structure.mjs
+
+check-structure: PASS
+  index: 13 行，entry-only=true
+  tools: 15 个 handler（15 个名字）
+  target files: 32/32
+  import graph: 32 文件 / 147 边 / 0 环

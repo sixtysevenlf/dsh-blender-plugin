@@ -1,0 +1,29 @@
+addon_utils.disable: dsh_blender_bridge not loaded
+Modules Installed (dsh_blender_bridge) from 'D:\\project\\dsh-blender-plugin\\addon\\dsh_blender_bridge.zip' into 'D:\\DSH\\tmp\\pytemp\\t10-blender-gui-lpw3kfzb\\blender-gui\\user_scripts\\addons'
+Info: Modules Installed (dsh_blender_bridge) from 'D:\\project\\dsh-blender-plugin\\addon\\dsh_blender_bridge.zip' into 'D:\\DSH\\tmp\\pytemp\\t10-blender-gui-lpw3kfzb\\blender-gui\\user_scripts\\addons'
+DSH Blender Bridge addon registered
+Server thread started
+DSH Blender Bridge server started on localhost:3889
+Connected to client: ('127.0.0.1', 11431)
+Client handler started
+Queued command: get_addon_info
+Executing handler for get_addon_info
+Handler execution complete
+Queued command: ping
+Queued command: execute_code
+Executing handler for execute_code
+Handler execution complete
+Queued command: get_selection
+Executing handler for get_selection
+Handler execution complete
+Client disconnected
+Client handler stopped
+Error accepting connection: [WinError 10038] 在一个非套接字上尝试了一个操作。
+Server thread stopped
+DSH Blender Bridge server stopped
+DSH Blender Bridge addon unregistered
+addon_utils.disable: dsh_blender_bridge not enabled
+T10_GUI_RESULT {"blender": "4.2.10 LTS", "background": false, "checks": {"install_enable": {"ok": true, "detail": {"module_file": "D:\\DSH\\tmp\\pytemp\\t10-blender-gui-lpw3kfzb\\blender-gui\\user_scripts\\addons\\dsh_blender_bridge\\__init__.py", "version": [1, 11], "protocol": 11, "commands": 39}}, "connect_operator": {"ok": true, "detail": {"operator_result": ["FINISHED"], "server_running": true, "scene_flag": true, "port": 3889}}, "socket_roundtrip": {"ok": true, "detail": {"responses": {"get_addon_info": {"status": "success", "result": {"name": "DSH Blender Bridge", "addon_version": [1, 11], "protocol_version": 11, "capabilities": ["bpy_api_lookup", "describe_node_type", "drain_human_activity", "execute_code", "get_activity_state", "get_addon_info", "get_collections", "get_object_info", "get_scene_info", "get_selection", "get_telemetry_consent", "get_viewport_screenshot", "get_world_state_snapshot", "send_collection_to_dsh", "send_selection_to_dsh", "set_telemetry_consent"], "blender_version": "4.2.10 LTS"}}, "ping": {"status": "success", "result": {"pong": true}}, "execute_code": {"status": "success", "result": {"executed": true, "result": "T10_GUI_EXECUTED\n"}}, "get_selection": {"status": "success", "result": {"kind": "objects", "count": 1, "names": ["Cube.001"], "truncated": false, "active": "Cube.001", "mode": "OBJECT", "objects": [{"name": "Cube.001", "type": "MESH", "dimensions_mm": [2000.0, 2000.0, 2000.0]}], "collections": [{"name": "Collection", "count": 1}], "scene": "Scene", "file": null, "activity": {"state": "agent", "human_active": false, "agent_active": true, "human_idle_ms": null, "agent_idle_ms": 93, "last_human_kind": null, "agent_depth": 0, "modal_operators": [], "mode": "OBJECT", "selection": {"count": 1, "names": ["Cube.001"], "active": "Cube.001", "mode": "OBJECT", "truncated": false}, "windows_ms": {"human": 1500, "agent": 1500}, "scene": "Scene", "ts": 1793368538.3844032, "source": "addon"}}}}, "elapsed_s": 1.175}}, "get_addon_info": {"ok": true, "detail": {"status": "success", "result": {"name": "DSH Blender Bridge", "addon_version": [1, 11], "protocol_version": 11, "capabilities": ["bpy_api_lookup", "describe_node_type", "drain_human_activity", "execute_code", "get_activity_state", "get_addon_info", "get_collections", "get_object_info", "get_scene_info", "get_selection", "get_telemetry_consent", "get_viewport_screenshot", "get_world_state_snapshot", "send_collection_to_dsh", "send_selection_to_dsh", "set_telemetry_consent"], "blender_version": "4.2.10 LTS"}}}, "ping": {"ok": true, "detail": {"status": "success", "result": {"pong": true}}}, "execute_bpy_command": {"ok": true, "detail": {"status": "success", "result": {"executed": true, "result": "T10_GUI_EXECUTED\n"}}}, "get_selection": {"ok": true, "detail": {"status": "success", "result": {"kind": "objects", "count": 1, "names": ["Cube.001"], "truncated": false, "active": "Cube.001", "mode": "OBJECT", "objects": [{"name": "Cube.001", "type": "MESH", "dimensions_mm": [2000.0, 2000.0, 2000.0]}], "collections": [{"name": "Collection", "count": 1}], "scene": "Scene", "file": null, "activity": {"state": "agent", "human_active": false, "agent_active": true, "human_idle_ms": null, "agent_idle_ms": 93, "last_human_kind": null, "agent_depth": 0, "modal_operators": [], "mode": "OBJECT", "selection": {"count": 1, "names": ["Cube.001"], "active": "Cube.001", "mode": "OBJECT", "truncated": false}, "windows_ms": {"human": 1500, "agent": 1500}, "scene": "Scene", "ts": 1793368538.3844032, "source": "addon"}}}}, "disconnect": {"ok": true, "detail": {}}, "stop_server": {"ok": true, "detail": {"stop_result": ["FINISHED"], "scene_flag": false}}, "disable_no_residue": {"ok": true, "detail": {"port_prop": false, "ai_paused_prop": false, "selection_prop": false}}, "remove_addon": {"ok": true, "detail": {"remove_error": null, "package_dir_removed": true, "still_enabled": [false, false]}}}, "raw": {"module_file": "D:\\DSH\\tmp\\pytemp\\t10-blender-gui-lpw3kfzb\\blender-gui\\user_scripts\\addons\\dsh_blender_bridge\\__init__.py", "version": [1, 11], "has_window": true, "listening": true, "client_started": true, "stop_result": ["FINISHED"], "server_after_stop": false}, "port": 3889, "screenshot": "D:\\DSH\\tmp\\pytemp\\t10-blender-gui-lpw3kfzb\\blender-gui\\gui-connect.png", "elapsed_s": 1.881}
+Saved session recovery to "D:\DSH\tmp\pytemp\t10-blender-gui-lpw3kfzb\blender-gui\tmp\quit.blend"
+
+Blender quit

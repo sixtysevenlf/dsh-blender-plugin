@@ -1,0 +1,105 @@
+
+> @dsh-external/dsh-blender-plugin@2.6.2 test
+> node scripts/test.mjs
+
+
+== Vitest (unit + integration) ==
+
+ RUN  v3.2.7 D:/project/dsh-blender-plugin
+
+ ✓ tests/integration/js/selection-store.test.ts (15 tests) 66ms
+ ✓ tests/integration/js/tui-selection.test.ts (9 tests) 240ms
+ ✓ tests/unit/js/contract/docs-bilingual.test.ts (14 tests) 332ms
+   ✓ no duplicate or stale Chinese documentation > does not reference the retired filename anywhere in the repository  315ms
+ ✓ tests/unit/js/contract/sidebar-injection.test.ts (4 tests) 349ms
+ ✓ tests/integration/js/ledger-recover-e2e.test.ts (5 tests) 1150ms
+ ✓ tests/unit/js/http-lease.test.ts (5 tests) 474ms
+   ✓ http lease module > reclaims the lease of a dead holder  465ms
+ ✓ tests/integration/js/tui-commands.test.ts (10 tests) 396ms
+   ✓ registerTuiHost wiring > wires the footer, mentions, command tree and selection bridge  307ms
+ ✓ tests/integration/js/server-routes.test.ts (5 tests) 1275ms
+ ✓ tests/integration/js/lease-scope.test.ts (5 tests) 1634ms
+ ✓ tests/integration/js/tui-footer.test.ts (8 tests) 1462ms
+ ✓ tests/unit/js/contract/tool-cards.test.ts (6 tests) 32ms
+ ✓ tests/unit/js/contract/tool-presenter.test.ts (5 tests) 26ms
+ ✓ tests/unit/js/workdir.test.ts (4 tests) 2178ms
+   ✓ workDir Windows visibility > substitutes a non-shared workDir loudly (or proves the shared one untouched)  1601ms
+   ✓ workDir Windows visibility > never substitutes an already-shared workDir  573ms
+ ✓ tests/integration/js/backend-probe.test.ts (4 tests) 2260ms
+   ✓ backend probe and start decision > waits for a late server and returns false on a pure timeout  2143ms
+ ✓ tests/unit/js/contract/behavior-matrix.test.ts (2 tests) 2211ms
+   ✓ behavior matrix release gate > passes against the live catalogs and source files  1248ms
+   ✓ behavior matrix release gate > exits nonzero when a planned row survives the release gate  961ms
+ ✓ tests/integration/js/host-selection.test.ts (5 tests) 1810ms
+ ✓ tests/unit/js/ledger-recover.test.ts (12 tests) 63ms
+ ✓ tests/unit/js/contract/agents-doc.test.ts (22 tests) 23ms
+ ✓ tests/unit/js/contract/runtime-layout.test.ts (4 tests) 25ms
+ ✓ tests/integration/js/host-jobs.test.ts (5 tests) 1264ms
+ ✓ tests/integration/js/launch.test.ts (6 tests) 2320ms
+   ✓ launch through a real backend > is idempotent when the addon is already listening  1188ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts (20 tests) 1422ms
+ ✓ tests/unit/js/shape-search.test.ts (10 tests) 11ms
+ ✓ tests/unit/js/contract/guidance.test.ts (7 tests) 12ms
+ ✓ tests/unit/js/contract/catalog.test.ts (4 tests) 14ms
+ ✓ tests/unit/js/contract/command-contract.test.ts (9 tests) 83ms
+ ✓ tests/unit/js/contract/protocol-contract.test.ts (9 tests) 158ms
+ ✓ tests/integration/js/dsh-api-compat.test.ts (5 tests) 27ms
+ ✓ tests/unit/js/contract/op-contract.test.ts (8 tests) 316ms
+ ✓ tests/integration/js/fake-addon.test.ts (7 tests) 525ms
+ ✓ tests/unit/js/headless-file-guard.test.ts (6 tests) 22ms
+ ✓ tests/unit/js/contract/lossless.test.ts (4 tests) 8ms
+ ✓ tests/unit/js/contract/single-source.test.ts (4 tests) 6ms
+ ✓ tests/unit/js/headless-hard-exit.test.ts (4 tests) 6ms
+ ✓ tests/unit/js/lease-stale.test.ts (6 tests) 3595ms
+   ✓ stale write lease reclaim > proves a dead holder dead, a live holder alive and an unknown scheme unknowable  1079ms
+   ✓ stale write lease reclaim > reclaims a lease whose holder process no longer exists  1245ms
+   ✓ stale write lease reclaim > lets the next live writer in through the gate after the reclaim  1263ms
+ ✓ tests/unit/js/contract/tool-schema.test.ts (4 tests) 21ms
+ ✓ tests/unit/js/contract/description-budget.test.ts (6 tests) 1181ms
+   ✓ tool description budget > keeps the catalog self-verifying provenance  1159ms
+ ✓ tests/unit/js/engine-surface.test.ts (3 tests) 10ms
+ps: unknown option -- x
+Try `ps --help' for more information.
+ps: unknown option -- x
+Try `ps --help' for more information.
+ ✓ tests/unit/js/contract/skill-bundle.test.ts (7 tests) 26ms
+ ✓ tests/unit/js/contract/security.test.ts (10 tests) 8ms
+ ✓ tests/unit/js/contract/client-bundle.test.ts (3 tests) 12ms
+ ✓ tests/unit/js/provenance.test.ts (4 tests) 4112ms
+   ✓ loaded version provenance > flags a real content change as stale and names both hashes  1097ms
+ ✓ tests/unit/js/smoke.test.ts (1 test) 6ms
+ ✓ tests/integration/js/smoke.test.ts (1 test) 2ms
+ ✓ tests/unit/js/static/windows-hide.test.ts (1 test) 5ms
+ ✓ tests/unit/js/frame-dedupe.test.ts (5 tests) 5ms
+ ✓ tests/unit/js/platform-paths.test.ts (15 tests | 2 skipped) 6ms
+ ✓ tests/unit/js/scene-hygiene.test.ts (5 tests) 6ms
+ ✓ tests/unit/js/contract/surface-fit.test.ts (3 tests) 5ms
+ ✓ tests/unit/js/contract/lifecycle-config.test.ts (13 tests) 3526ms
+   ✓ backend start decision table > probes TCP and HTTP with bounded timeouts  340ms
+   ✓ configuration contract > reads a config file when no environment override is present  1029ms
+   ✓ configuration contract > falls back to defaults for invalid numeric overrides  942ms
+   ✓ configuration contract > honors every DSH_BLENDER_* environment override  560ms
+   ✓ backend lifecycle operations > starts against an existing backend, pauses on stop, and restarts in place  633ms
+ ✓ tests/unit/js/contract/route-contract.test.ts (4 tests) 9ms
+ ✓ tests/integration/js/backend-routes.test.ts (7 tests) 7450ms
+   ✓ live HTTP route contract > serves health, status, who, and host state as JSON  892ms
+   ✓ port conflict contract > exits 0 when a responsive backend already owns the port  487ms
+ ✓ tests/integration/js/host-scene-items.test.ts (2 tests) 7968ms
+   ✓ host scene items failure path > 502s when no addon is reachable at all  6458ms
+ ✓ tests/integration/js/package-contract.test.ts (3 tests) 16408ms
+   ✓ npm package install contract > packs the runtime, addon, docs, skills, and tests without bundled environments  6917ms
+   ✓ npm package install contract > installs the tarball offline and exposes a syntax-valid entry point  9077ms
+
+ Test Files  54 passed (54)
+      Tests  353 passed | 2 skipped (355)
+   Start at  21:53:49
+   Duration  19.52s (transform 16.04s, setup 0ms, collect 42.25s, tests 66.56s, environment 12ms, prepare 51.62s)
+
+
+== pytest (unit + integration, blender/gui excluded) ==
+........................................................................ [ 24%]
+........................................................................ [ 48%]
+........................................................................ [ 73%]
+........................................................................ [ 97%]
+.......                                                                  [100%]
+295 passed in 2.85s

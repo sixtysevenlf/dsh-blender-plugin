@@ -1,0 +1,5 @@
+
+> @dsh-external/dsh-blender-plugin@2.6.2 test:matrix
+> node scripts/check-behavior-matrix.mjs --release
+
+OK behavior matrix: 347 rows (345 covered, 0 planned, 2 exempt) · source 15 tools / 39 commands / 34 families / 228 ops / 29 routes

@@ -1,0 +1,103 @@
+-------------
+Diff Coverage
+Diff: refactor-base-v2.6.2...HEAD, staged and unstaged changes
+-------------
+runtime/_probe_tools.ts (0.0%): Missing lines 1-2,4-5,11
+runtime/addon-protocol.ts (100%)
+runtime/backend_probe.ts (100%)
+runtime/catalog.ts (96.6%): Missing lines 20
+runtime/classes.ts (100%)
+runtime/config.ts (86.7%): Missing lines 31,154,158,221,258,276
+runtime/core/dispatch.ts (4.6%): Missing lines 29-32,34-46,49-68,70-75,77-82,85-90,92-97,99-110,112-123,125-129,132-154,156-162,164-175,178-193,195-201,203,206-215
+runtime/core/engine.ts (65.3%): Missing lines 136-141,143-178
+runtime/core/errors.ts (10.7%): Missing lines 9-17,19-28,31-33,37-39
+runtime/core/evidence.ts (58.5%): Missing lines 28,91-102,105-110,112-120,122-126,128-132,134-148,150-152,177-178,180,184-186,188,199-201,204-205
+runtime/core/flags.ts (100%)
+runtime/core/json.ts (51.1%): Missing lines 16-17,20-21,24-25,28-29,39-41,45-47,55-56,65-66,70-72,76-77
+runtime/core/kernel.ts (74.3%): Missing lines 134-137,147-156,158-159,162-163,165,167-181,195-197,219,223,228-232,235,238-245
+runtime/core/output.ts (54.0%): Missing lines 35-37,39-43,71-73,75-77,93-99,101-103,105-110,116-120,127-139,145-154
+runtime/core/plan-dispatch.ts (53.2%): Missing lines 37-40,43-60,78-79,82-83,87-93,95-97,99-121,124-147,151-155,157-196,198-199,219,287-289,336,396-398,400-406,408-411,419-428,431,433-436,441-442,444-445,447,450-458,460-465,467
+runtime/core/progress.ts (7.7%): Missing lines 28-52,54-70,76-93
+runtime/core/render-state.ts (100%)
+runtime/core/scripts.ts (4.5%): Missing lines 9-19,26-38,40-64,76-87,89,92-106,120-147
+runtime/core/server-compat.ts (18.4%): Missing lines 56-79,84-86,88-89,92,94-99,101-104,111-133,136,139-142,145-154,156-175,178-182,184-187,189-192,194-197,200-203,206-213,216-219,222-240,247-252,255-256,258-266,275-280,286-289
+runtime/engine.ts (100%)
+runtime/execution/headless.ts (5.0%): Missing lines 59-64,67-76,82,86-88,90-105,108-110,112,114-121,123-126,128-140,145-157,160-161,163-164,166-173,175-189,192-202,204-233,236-244,248-257,261-280,282-310,312-315,320-327,329-334,336,338-342,344-346,348-359,361-370,372-386,388-404,406-417,419-450,452-468,471-494,496-529
+runtime/execution/jobs.ts (9.9%): Missing lines 64-68,70-83,86-98,100-104,106-118,126-134,136-170,172,174-180,183-185,187-198,200-221,223-240,242-251,253-261,263-267,269-284,286-302,305-313,316-317,319-334,336-349,356-372,374-390,392-396,398-402
+runtime/execution/ledger.ts (23.3%): Missing lines 33-44,46-50,52-55,57-61,63-71,77-107,119-121
+runtime/execution/preset.ts (58.3%): Missing lines 16-20
+runtime/execution/trajectory.ts (100%)
+runtime/execution/txn.ts (58.3%): Missing lines 16-20
+runtime/execution/workers.ts (18.6%): Missing lines 58-61,63-73,76-81,84-89,92-156,159-169,172-195,197-203,205-211,213-219,221-225,227-232,234-242,253-259
+runtime/ext/gltf_validate_runner.ts (0.0%): Missing lines 3,10,12-13,16
+runtime/file_guard.ts (100%)
+runtime/hard_exit.ts (100%)
+runtime/http/config.ts (44.4%): Missing lines 22-27,29-37
+runtime/http/host.ts (7.9%): Missing lines 28-57,59-60,63-67,70-83,87-91,93-102,104-113,117-120,125-152,154-155,158-164
+runtime/http/jobs.ts (0.0%): Missing lines 8-45,48-53
+runtime/http/lease.ts (100%)
+runtime/http/lifecycle.ts (0.0%): Missing lines 4-7,12,18-37,40-46,48-54,65-99
+runtime/http/response.ts (3.8%): Missing lines 5-9,14-29,31-38,41-56,58-63
+runtime/http/router.ts (0.0%): Missing lines 4-5,20-39
+runtime/http/routes/act.ts (25.0%): Missing lines 10-33
+runtime/http/routes/commands.ts (27.3%): Missing lines 10-17,19-34
+runtime/http/routes/deps.ts (33.3%): Missing lines 43-44
+runtime/http/routes/frame.ts (33.3%): Missing lines 10-25
+runtime/http/routes/headless.ts (26.9%): Missing lines 9-27
+runtime/http/routes/health.ts (23.4%): Missing lines 10,13,16-20,22-30,32-43,45-52
+runtime/http/routes/index.ts (100%)
+runtime/http/routes/job.ts (17.1%): Missing lines 10-16,18-44
+runtime/http/routes/loop.ts (24.1%): Missing lines 9-30
+runtime/http/routes/opt.ts (31.8%): Missing lines 9-23
+runtime/http/routes/perf.ts (31.8%): Missing lines 9-23
+runtime/http/routes/plan.ts (28.0%): Missing lines 10-27
+runtime/http/routes/preset.ts (30.8%): Missing lines 11-28
+runtime/http/routes/session.ts (16.7%): Missing lines 10-24,26-28,30-35,37-55,57-68
+runtime/http/routes/txn.ts (30.8%): Missing lines 11-28
+runtime/http/routes/view.ts (24.2%): Missing lines 10-19,22-36
+runtime/http/routes/worker.ts (16.3%): Missing lines 10-13,16-20,22-28,30-33,35-50
+runtime/launch.ts (82.9%): Missing lines 48,76,80,265,270,309,327-328,337,351,354,358
+runtime/paths.ts (93.2%): Missing lines 18-20,78-79
+runtime/proc_env.ts (16.7%): Missing lines 15,22,36,38,57
+runtime/recover.ts (86.2%): Missing lines 86-89
+runtime/selectionstore.ts (95.6%): Missing lines 191-192,201
+runtime/server.ts (0.0%): Missing lines 3-14,17,19,21-28,31-35,37
+runtime/staging.ts (50.0%): Missing lines 61,63-64,81,87
+runtime/transport/probes.ts (53.6%): Missing lines 11-20,22-42,54-72,74-76,78-80,91-98,156
+src/constants.ts (82.0%): Missing lines 34-35,87-90,92-96
+src/contracts/lossless.ts (2.4%): Missing lines 20-76,78-80,82-100,103-106
+src/contracts/tool.ts (36.9%): Missing lines 18-31,33-36,59-61,65-66,76-79,82-101,103-108
+src/headless/receipts.ts (3.3%): Missing lines 17-18,20-24,26-36,39-73,76-85,87-97,102-126,129-141,144-322,325-326,332-380,383-386,392-411,413-416,419-430
+src/host/backend.ts (22.2%): Missing lines 39-40,43-54,56-61,63-69,73-74,77-80,88-97,99-104,112-113,116-117,119-128,130-133,135,137-146,148-150,154-166,168-172,179-196,200-201,203-204,206-207,211-213,215-218
+src/host/exec-context.ts (50.0%): Missing lines 10-12
+src/host/http.ts (5.0%): Missing lines 6-14,24-28,30-53,55-63,74-100,105-116,121-148,152-160,162,165-172,175-198,200-207,210-216
+src/host/skill.ts (65.4%): Missing lines 40-42,46-48,74-82,94-101,103-110,113,115-118
+src/index.ts (100%)
+src/plan/headless-target.ts (22.1%): Missing lines 42-52,54-69,71-74,76-89,91-130,133-176,178-183,185-187,189-191
+src/plan/tool.ts (47.8%): Missing lines 41-76
+src/plugin.ts (67.0%): Missing lines 45,54-56,79-83,85-87,89-94,96-98,100-104,106-109,111-112
+src/tools/cmd.ts (63.6%): Missing lines 25-40
+src/tools/commands.ts (54.5%): Missing lines 21-40
+src/tools/do.ts (21.5%): Missing lines 11-100,140-157,159-176,178-198,200-216
+src/tools/headless.ts (32.9%): Missing lines 64-65,68-110,115-132,134-135,137-147,149,152-168,170-172,174-186
+src/tools/index.ts (100%)
+src/tools/job.ts (20.3%): Missing lines 48-49,51-84,86-109,111-235
+src/tools/loop.ts (37.5%): Missing lines 48-122
+src/tools/opt.ts (65.9%): Missing lines 24-37
+src/tools/perf.ts (77.5%): Missing lines 28-29,31-37
+src/tools/preset.ts (36.5%): Missing lines 35-95
+src/tools/schema-diagnostic.ts (16.7%): Missing lines 14-38
+src/tools/see.ts (22.2%): Missing lines 10-52,104-109,111-133,135-155,157-167,169-208,210-256,258-276
+src/tools/txn.ts (37.1%): Missing lines 36-96
+src/tools/viewport.ts (18.7%): Missing lines 53-58,61-128,130-135,137-188,190-263,265-275,277-289
+src/tools/watch.ts (17.9%): Missing lines 9-75,96-170
+src/tools/worker.ts (23.6%): Missing lines 43-181
+src/ui/cards.ts (34.2%): Missing lines 2-6,20-25,28-37,39,42-51,68-73,75-83,85-88,90-96,98-101,115-122,132-137,151-155,175-179,181-191,200-209,213-218,220,222-230
+src/utils/frame-cache.ts (17.4%): Missing lines 15-24,26-30,34-35,39-40
+src/utils/image.ts (4.2%): Missing lines 4-25,29-30,32-37,40-47,49-52,54-81,86-106
+-------------
+Total:   8232 lines
+Missing: 5545 lines
+Coverage: 32%
+-------------
+
