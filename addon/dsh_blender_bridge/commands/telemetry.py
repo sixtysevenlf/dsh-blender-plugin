@@ -15,7 +15,7 @@ class TelemetryCommands:
         """
         try:
             # Get addon preferences - use the module name
-            addon_prefs = bpy.context.preferences.addons.get(ADDON_MODULE)
+            addon_prefs = bpy.context.preferences.addons.get(ADDON_MODULE)  # pyright: ignore[reportAttributeAccessIssue]
             if addon_prefs:
                 consent = bool(addon_prefs.preferences.telemetry_consent)
             else:
@@ -33,7 +33,7 @@ class TelemetryCommands:
         re-synced explicitly.
         """
         try:
-            addon_prefs = bpy.context.preferences.addons.get(ADDON_MODULE)
+            addon_prefs = bpy.context.preferences.addons.get(ADDON_MODULE)  # pyright: ignore[reportAttributeAccessIssue]
             if not addon_prefs:
                 return {"error": "Could not read addon preferences"}
             addon_prefs.preferences.telemetry_consent = bool(consent)

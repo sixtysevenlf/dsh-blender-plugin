@@ -264,7 +264,7 @@ def _polyhaven_uncompress_head(raw):
             return zlib.decompressobj(16 + zlib.MAX_WBITS).decompress(raw)
         return None
     try:
-        import zstandard
+        import zstandard  # pyright: ignore[reportMissingImports]
     except ImportError:
         # Not bundled with every Blender build. Without it the version cannot be
         # read, and the import falls back to trying the append and handling the

@@ -19,8 +19,8 @@ rows do not exist in `package.json` yet and must keep the marker until their tas
 | Install dependencies | `npm ci --legacy-peer-deps` | available |
 | Build `runtime/` + `src/` → `lib/` | `npm run build` (optional `DSH_CHECKOUT` links DSH host packages) | available (T15) |
 | Build / verify the addon zip | `npm run build:addon` / `npm run check:addon` | available (T9) |
-| Typecheck | `npm run typecheck` | available |
-| Unit tests | `npm run test:unit` | available |
+| Typecheck | `npm run typecheck`; addon typed-core `npm run typecheck:addon` | available (T10a) |
+| Unit tests | `npm run test:unit`; addon unit `npm run test:addon-unit` | available (T10a) |
 | Integration tests | `npm run test:integration` | available |
 | Contract tests | `npm run test:contract` | available |
 | Full suite (Vitest + pytest) | `npm test` | available |
@@ -29,6 +29,9 @@ rows do not exist in `package.json` yet and must keep the marker until their tas
 | Lint / format gate | `npm run lint` | available (T5) |
 | Package contents check | `npm pack --dry-run` | available |
 | Refresh counts after catalog edits | `node scripts/sync_counts.mjs` then update `tests/fixtures/capability.lock.json` ([tests/MIGRATION.md](tests/MIGRATION.md)) | available |
+
+Addon typecheck stubs: `python -m pip install -r requirements-typecheck.txt` (fake-bpy-module, type-only;
+behavior is real-Blender E2E).
 
 Node **22** is the CI and test baseline. Python tests need a venv with `pytest`, selected through
 `PYTHON` (`PYTHONIOENCODING=utf-8`, `PYTHONUTF8=1` on Windows); layers and fixtures:

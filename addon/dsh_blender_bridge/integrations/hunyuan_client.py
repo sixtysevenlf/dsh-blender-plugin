@@ -40,7 +40,7 @@ def get_tencent_cloud_sign_headers(
     region: str,
     secret_id: str,
     secret_key: str,
-    host: str = None
+    host: str | None = None
 ):
     """Generate the signature header required for Tencent Cloud API requests headers"""
     # Generate timestamp

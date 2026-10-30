@@ -86,7 +86,7 @@ def premium_error(code, message=None):
 
 def _premium_tag_redraw():
     try:
-        for window in bpy.context.window_manager.windows:
+        for window in bpy.context.window_manager.windows:  # pyright: ignore[reportAttributeAccessIssue]
             for area in window.screen.areas:
                 if area.type in {"VIEW_3D", "PREFERENCES"}:
                     area.tag_redraw()

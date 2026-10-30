@@ -24,7 +24,7 @@ class ActivityCommands:
         accumulate for a user who has said no.
         """
         try:
-            if not self.get_telemetry_consent().get("consent"):
+            if not self.get_telemetry_consent().get("consent"):  # pyright: ignore[reportAttributeAccessIssue]
                 get_edit_recorder().drain()
                 return {"events": []}
             return {"events": get_edit_recorder().drain()}

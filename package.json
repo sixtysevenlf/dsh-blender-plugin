@@ -97,6 +97,7 @@
     "eslint": "^9.39.5",
     "jsdom": "^26.1.0",
     "prettier": "^3.9.10",
+    "pyright": "1.1.414",
     "typescript": "^5.9.0",
     "typescript-eslint": "^8.72.1",
     "vitest": "^3.2.7"
@@ -129,7 +130,9 @@
     "test:e2e": "node scripts/test.mjs e2e",
     "test:e2e:gui": "node scripts/test.mjs e2e:gui",
     "test:matrix": "node scripts/check-behavior-matrix.mjs --release",
-    "test:coverage": "node node_modules/vitest/vitest.mjs run --coverage --coverage.reporter=text-summary --coverage.reporter=json-summary --coverage.reporter=lcov --coverage.reporter=cobertura"
+    "test:coverage": "node node_modules/vitest/vitest.mjs run --coverage --coverage.reporter=text-summary --coverage.reporter=json-summary --coverage.reporter=lcov --coverage.reporter=cobertura",
+    "typecheck:addon": "pyright -p pyrightconfig.addon.json",
+    "test:addon-unit": "node scripts/test.mjs addon-unit"
   },
   "exports": {
     ".": {

@@ -81,7 +81,7 @@ def _dshbb_ensure_server_running():
             print(f"DSH Blender Bridge: port {port} is already in use; auto-start skipped.")
             return None
         server = DSHBlenderBridgeServer(port=port)
-        bpy.types.dshbb_server = server
+        bpy.types.dshbb_server = server  # pyright: ignore[reportAttributeAccessIssue]
 
     if not server.running:
         # Safe while stopped and necessary when a newly loaded scene selects a
@@ -131,7 +131,7 @@ def get_dshbb_addon_preferences(context=None):
     """Get add-on preferences object if available."""
     if context is None:
         context = bpy.context
-    addon = context.preferences.addons.get(ADDON_MODULE)
+    addon = context.preferences.addons.get(ADDON_MODULE)  # pyright: ignore[reportAttributeAccessIssue]
     return addon.preferences if addon else None
 
 
@@ -140,7 +140,7 @@ DEFAULT_DSH_BACKEND = "http://127.0.0.1:9877"
 
 def _dshbb_backend_url():
     try:
-        url = bpy.context.scene.dshbb_backend_url
+        url = bpy.context.scene.dshbb_backend_url  # pyright: ignore[reportAttributeAccessIssue]
     except Exception:
         url = ""
     return (url or DEFAULT_DSH_BACKEND).rstrip("/")

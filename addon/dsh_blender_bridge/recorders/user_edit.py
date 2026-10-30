@@ -78,7 +78,7 @@ class UserEditRecorder:
 
     def _operator_stack(self):
         try:
-            return list(bpy.context.window_manager.operators)
+            return list(bpy.context.window_manager.operators)  # pyright: ignore[reportAttributeAccessIssue]
         except Exception:
             return []
 

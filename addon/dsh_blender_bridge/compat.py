@@ -42,7 +42,7 @@ def _read_sub_selection():
             return {"type": "MESH", "object": obj.name, "mode": mode,
                     "note": "读取选择失败：" + str(exc), "counts": {}, "indices": {}, "truncated": False}
         try:
-            sm = tuple(bool(x) for x in bpy.context.tool_settings.mesh_select_mode)
+            sm = tuple(bool(x) for x in bpy.context.tool_settings.mesh_select_mode)  # pyright: ignore[reportAttributeAccessIssue]
         except Exception:
             sm = (False, False, False)
         v_cap, v_tr = _cap_selection(verts)

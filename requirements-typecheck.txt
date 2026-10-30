@@ -1,0 +1,5 @@
+# Type-check-only Blender API stubs (plan 6.9 / gate C9).
+# fake-bpy-module provides PEP 561 .pyi stubs for bpy/bpy.props/...; it does NOT provide a
+# runtime bpy, addon registration, operators, sockets, or rendering. Never install this in
+# the runtime or use it to claim addon behavior; behavior is covered by the real-Blender E2E.
+fake-bpy-module-4.2==20260730

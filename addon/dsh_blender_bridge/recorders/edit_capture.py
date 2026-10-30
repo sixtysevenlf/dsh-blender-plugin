@@ -24,7 +24,7 @@ def _dshbb_depsgraph_post(scene, depsgraph=None):
 def _telemetry_consent_enabled():
     """Read the consent preference directly. Fails closed."""
     try:
-        addon_prefs = bpy.context.preferences.addons.get(ADDON_MODULE)
+        addon_prefs = bpy.context.preferences.addons.get(ADDON_MODULE)  # pyright: ignore[reportAttributeAccessIssue]
         if not addon_prefs:
             return False
         return bool(addon_prefs.preferences.telemetry_consent)
@@ -54,7 +54,7 @@ def sync_edit_capture_handlers():
     try:
         server_running = bool(
             getattr(bpy.types, "dshbb_server", None)
-            and bpy.types.dshbb_server.running
+            and bpy.types.dshbb_server.running  # pyright: ignore[reportAttributeAccessIssue]
         )
     except Exception:
         server_running = False

@@ -7,7 +7,8 @@
  *   node scripts/test.mjs js         # Vitest only
  *   node scripts/test.mjs python     # pytest only
  *   node scripts/test.mjs unit       # Vitest unit only
- *   node scripts/test.mjs integration# Vitest integration only
+ *   node scripts/test.mjs integration  # Vitest integration only
+ *   node scripts/test.mjs addon-unit    # pytest: Blender addon unit tests only
  *
  * The legacy selftest scripts were retired in T11; see tests/MIGRATION.md for the mapping.
  */
@@ -19,7 +20,7 @@ import { fileURLToPath } from 'node:url'
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const PKG = path.resolve(HERE, '..')
 const mode = (process.argv[2] || 'all').toLowerCase()
-const VALID = new Set(['all', 'js', 'python', 'unit', 'integration', 'contract', 'e2e', 'e2e:gui'])
+const VALID = new Set(['all', 'js', 'python', 'unit', 'integration', 'contract', 'addon-unit', 'e2e', 'e2e:gui'])
 if (!VALID.has(mode)) {
   console.error('test: unknown mode "' + mode + '"; expected one of ' + [...VALID].join(', '))
   process.exit(2)
@@ -57,6 +58,10 @@ function runPython() {
   const probe = spawnSync(py, ['-m', 'pytest', '--version'], { cwd: PKG, encoding: 'utf8' })
   if (probe.status !== 0) {
     fail('pytest is not available via "' + py + ' -m pytest"; install -r requirements-dev.txt')
+  }
+  if (mode === 'addon-unit') {
+    run(py, ['-m', 'pytest', 'tests/unit/python', '-k', 'addon'], 'pytest (Blender addon unit tests, bpy stubs, no Blender)')
+    return
   }
   if (mode === 'e2e') {
     // pytest.ini excludes blender/gui by default; clear addopts for the E2E layer.

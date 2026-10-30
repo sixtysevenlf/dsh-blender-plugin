@@ -40,7 +40,7 @@ def _is_pause_safe_command(cmd):
 
 def _redraw_view3d_panels():
     try:
-        for wm in bpy.context.window_manager.windows:
+        for wm in bpy.context.window_manager.windows:  # pyright: ignore[reportAttributeAccessIssue]
             for area in wm.screen.areas:
                 if area.type == 'VIEW_3D':
                     area.tag_redraw()

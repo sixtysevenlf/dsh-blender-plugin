@@ -13,7 +13,7 @@ def _scene_meta():
     """(scene_name, blend_basename) — shared by both payload builders."""
     scene_name = None
     try:
-        scene_name = bpy.context.scene.name if bpy.context.scene else None
+        scene_name = bpy.context.scene.name if bpy.context.scene else None  # pyright: ignore[reportAttributeAccessIssue]
     except Exception:
         scene_name = None
     file_name = None

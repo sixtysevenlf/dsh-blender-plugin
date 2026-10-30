@@ -113,7 +113,7 @@ class ActivityTracker:
         self._selection_fp = fingerprint
         self._selection = sel
         try:
-            self._scene = bpy.context.scene.name if bpy.context.scene else None
+            self._scene = bpy.context.scene.name if bpy.context.scene else None  # pyright: ignore[reportAttributeAccessIssue]
         except Exception:
             self._scene = None
         return sel
