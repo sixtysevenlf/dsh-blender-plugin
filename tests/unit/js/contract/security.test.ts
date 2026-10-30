@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
+import path from 'node:path'
 // @ts-expect-error - runtime is plain .mjs, no declaration file
 import {
   FILE_ALIAS_KEYS,
@@ -11,9 +12,15 @@ import {
 } from '../../../../runtime/file_guard.mjs'
 import { pkgPath } from '../../../helpers/pkg'
 
+function readTree(dir: string, ext: string): string {
+  return fs.readdirSync(dir, { withFileTypes: true }).map((entry) => {
+    const full = path.join(dir, entry.name)
+    return entry.isDirectory() ? readTree(full, ext) : entry.name.endsWith(ext) ? fs.readFileSync(full, 'utf8') : ''
+  }).join('\n')
+}
 const addonSource = fs.readFileSync(pkgPath('addon', 'dsh_blender_bridge.py'), 'utf8')
-const serverSource = fs.readFileSync(pkgPath('runtime', 'server.mjs'), 'utf8')
-const indexSource = fs.readFileSync(pkgPath('src', 'index.ts'), 'utf8')
+const serverSource = readTree(pkgPath('runtime', 'http'), '.mjs')
+const indexSource = readTree(pkgPath('src'), '.ts')
 
 describe('file= parameter guard', () => {
   it('detects every documented alias spelling', () => {

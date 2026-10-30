@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import * as plugin from '../../../../lib/index.js'
 import http from 'node:http'
 import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 // @ts-expect-error - runtime is plain .mjs, no declaration file
@@ -13,10 +15,16 @@ import { closedPort, startFakeBackend } from '../../../helpers/fake-backend.mjs'
 import { createFakeContext } from '../../../helpers/fake-context'
 import { pkgPath } from '../../../helpers/pkg'
 
-const indexSource = fs.readFileSync(pkgPath('src', 'index.ts'), 'utf8')
-const engineSource = fs.readFileSync(pkgPath('runtime', 'engine.mjs'), 'utf8')
+function readTree(dir: string, ext: string): string {
+  return fs.readdirSync(dir, { withFileTypes: true }).map((entry) => {
+    const full = path.join(dir, entry.name)
+    return entry.isDirectory() ? readTree(full, ext) : entry.name.endsWith(ext) ? fs.readFileSync(full, 'utf8') : ''
+  }).join('\n')
+}
+const indexSource = readTree(pkgPath('src'), '.ts')
+const engineSource = readTree(pkgPath('runtime'), '.mjs')
 const addonSource = fs.readFileSync(pkgPath('addon', 'dsh_blender_bridge.py'), 'utf8')
-const serverSource = fs.readFileSync(pkgPath('runtime', 'server.mjs'), 'utf8')
+const serverSource = readTree(pkgPath('runtime', 'http'), '.mjs')
 
 describe('backend start decision table', () => {
   it('prefers a listening port over a stale child handle', () => {
@@ -64,8 +72,8 @@ describe('configuration contract', () => {
   })
 
   it('reads a config file when no environment override is present', () => {
-    const file = pkgPath('tmp', 'dsh-t14-config-' + process.pid + '.json')
-    fs.mkdirSync(pkgPath('tmp'), { recursive: true })
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-t14-config-'))
+    const file = path.join(dir, 'dsh-t14-config.json')
     fs.writeFileSync(file, JSON.stringify({ httpPort: 19876, workerPort: 19877 }), 'utf8')
     try {
       const code = 'import(' + JSON.stringify(pathToFileURL(pkgPath('runtime', 'config.mjs')).href) + ').then(m => console.log(JSON.stringify({ http: m.CFG.httpPort, worker: m.CFG.workerPort })))'
@@ -75,7 +83,7 @@ describe('configuration contract', () => {
       })
       expect(JSON.parse(raw.trim().split('\n').pop()!)).toEqual({ http: 19876, worker: 19877 })
     } finally {
-      try { fs.unlinkSync(file) } catch (e) {}
+      try { fs.rmSync(dir, { recursive: true, force: true }) } catch (e) {}
     }
   })
 

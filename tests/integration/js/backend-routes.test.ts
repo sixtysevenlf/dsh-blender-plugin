@@ -7,8 +7,6 @@ import path from 'node:path'
 import net from 'node:net'
 import { pkgPath, PKG_ROOT } from '../../helpers/pkg'
 
-const serverSource = fs.readFileSync(pkgPath('runtime', 'server.mjs'), 'utf8')
-
 function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const s = net.createServer()
@@ -60,12 +58,14 @@ describe('live HTTP route contract', () => {
   let child: ChildProcess
   let port: number
   let stderr = ''
+  let stdout = ''
 
   beforeAll(async () => {
     workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-t14-routes-'))
     port = await freePort()
     child = spawnServer(port, workDir)
     child.stderr?.on('data', (d) => { stderr += String(d) })
+    child.stdout?.on('data', (d) => { stdout += String(d) })
     await waitHealth(port)
   }, 20000)
 
@@ -75,9 +75,9 @@ describe('live HTTP route contract', () => {
   })
 
   it('advertises exactly the 29 supported routes at startup', () => {
-    const line = serverSource.match(/routes: ([^)]+)\)/)?.[1]
+    const line = stdout.split('\n').find((entry) => entry.includes('(routes: '))
     expect(line).toBeTruthy()
-    const routes = line!.trim().split(/\s+/)
+    const routes = line!.split('(routes: ')[1].replace(/\)$/, '').trim().split(/\s+/)
     expect(routes).toHaveLength(29)
     expect(routes).toContain('/health')
     expect(routes).toContain('/host/selection/consume')

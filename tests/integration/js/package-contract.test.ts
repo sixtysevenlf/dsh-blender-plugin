@@ -22,6 +22,12 @@ function npm(args: string[]): string {
   return execFileSync('npm', args, { cwd: PKG_ROOT, env: npmEnv, encoding: 'utf8', shell: true, timeout: 60000 })
 }
 
+function packMeta(raw: string): any {
+  const start = raw.search(/[[{]/)
+  const parsed = JSON.parse(raw.slice(start))
+  return Array.isArray(parsed) ? parsed[0] : Object.values(parsed)[0]
+}
+
 afterAll(() => {
   try { fs.rmSync(tmpRoot, { recursive: true, force: true }) } catch (e) {}
 })
@@ -31,7 +37,7 @@ describe('npm package install contract', () => {
     const outDir = path.join(tmpRoot, 'pack')
     fs.mkdirSync(outDir, { recursive: true })
     const raw = npm(['pack', '--json', '--pack-destination', outDir])
-    const meta = JSON.parse(raw.trim().slice(raw.indexOf('[')))[0]
+    const meta = packMeta(raw)
     expect(meta.name).toBe('@dsh-external/dsh-blender-plugin')
     expect(meta.version).toBe('2.6.2')
     const files = meta.files.map((f: any) => f.path)
@@ -55,7 +61,7 @@ describe('npm package install contract', () => {
     const outDir = path.join(tmpRoot, 'install-pack')
     fs.mkdirSync(outDir, { recursive: true })
     const raw = npm(['pack', '--json', '--pack-destination', outDir])
-    const meta = JSON.parse(raw.trim().slice(raw.indexOf('[')))[0]
+    const meta = packMeta(raw)
     const tgz = path.join(outDir, meta.filename)
     expect(fs.existsSync(tgz)).toBe(true)
 

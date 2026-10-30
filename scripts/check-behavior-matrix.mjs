@@ -3,18 +3,18 @@
  * T14 behavior coverage matrix checker.
  *
  * Parses tests/BEHAVIOR_MATRIX.md and compares it with the live source of truth:
- *   - model tools: src/index.ts vTool registrations (the schema-diagnostic
+ *   - model tools: every .ts under src (vTool registrations; the schema-diagnostic
  *     duplicate is not a model-facing tool and is skipped)
  *   - addon commands: runtime/catalog.mjs COMMAND_CATALOG, each backed by
  *     addon/dsh_blender_bridge.py
  *   - plan ops: runtime/catalog.mjs PLAN_CATALOG (one row per op entry)
- *   - HTTP routes: the route list printed by runtime/server.mjs on listening
+ *   - HTTP routes: CONTRACT_ROUTES from runtime/http/routes/index.mjs
  *   - fixed protocol/lifecycle/config/install/security/version rows
  *
  * Exit 1 on any gap. --release also requires planned=0. --report <path>
  * writes a deterministic JSON report.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -143,15 +143,24 @@ function loadMatrix(matrixPath = MATRIX) {
 
 async function loadCatalogs() {
   const catalog = await import(pathToFileURL(path.join(ROOT, 'runtime', 'catalog.mjs')).href);
-  const toolsSource = read('src/index.ts');
   const toolNames = [];
-  const chunks = toolsSource.split('ctx.tools.register(vTool({').slice(1);
-  for (const chunk of chunks) {
-    const match = chunk.match(/name:\s*'([^']+)'/);
-    if (!match) continue;
-    if (chunk.slice(0, 3000).includes('仅诊断')) continue;
-    toolNames.push(match[1]);
-  }
+  const walkTools = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walkTools(full);
+      else if (entry.name.endsWith('.ts')) {
+        const chunks = readFileSync(full, 'utf8').split('vTool({').slice(1);
+        for (const chunk of chunks) {
+          const match = chunk.match(/name:\s*'([^']+)'/);
+          if (!match) continue;
+          if (chunk.slice(0, 3000).includes('仅诊断')) continue;
+          toolNames.push(match[1]);
+        }
+      }
+    }
+  };
+  walkTools(path.join(ROOT, 'src'));
+  toolNames.sort();
 
   const commandCatalog = catalog.COMMAND_CATALOG || {};
   const planCatalog = catalog.PLAN_CATALOG || [];
@@ -162,10 +171,9 @@ async function loadCatalogs() {
     for (const op of family.ops || []) ops.push({ family: family.f, op });
   }
 
-  const serverSource = read('runtime/server.mjs');
-  const routeMatch = serverSource.match(/routes: ([^)]+)\)/);
-  if (!routeMatch) fail('cannot find the onListening route list in runtime/server.mjs');
-  const routes = routeMatch ? routeMatch[1].trim().split(/\s+/).filter(Boolean) : [];
+  const routesModule = await import(pathToFileURL(path.join(ROOT, 'runtime', 'http', 'routes', 'index.mjs')).href);
+  const routes = Array.isArray(routesModule.CONTRACT_ROUTES) ? routesModule.CONTRACT_ROUTES : [];
+  if (routes.length === 0) fail('cannot find CONTRACT_ROUTES in runtime/http/routes/index.mjs');
 
   const addonSource = read('addon/dsh_blender_bridge.py');
   const protocolMatch = addonSource.match(/ADDON_PROTOCOL_VERSION\s*=\s*(\d+)/);

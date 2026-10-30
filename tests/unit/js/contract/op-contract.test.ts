@@ -16,7 +16,10 @@ import { catalogPayload } from '../../../../runtime/engine.mjs'
 import { pkgPath } from '../../../helpers/pkg'
 
 const baseline = JSON.parse(fs.readFileSync(pkgPath('tests', 'fixtures', 'plan_readonly.baseline.json'), 'utf8'))
-const engineSource = fs.readFileSync(pkgPath('runtime', 'engine.mjs'), 'utf8')
+const engineSource = [
+  fs.readFileSync(pkgPath('runtime', 'core', 'dispatch.mjs'), 'utf8'),
+  fs.readFileSync(pkgPath('runtime', 'core', 'plan-dispatch.mjs'), 'utf8'),
+].join('\n')
 
 function opsLine(family: string): string[] {
   const text = String(catalogPayload({ family }).text || '')
