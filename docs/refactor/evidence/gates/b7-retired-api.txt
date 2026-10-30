@@ -1,0 +1,8 @@
+llms.txt:3:> DSH（DeepSeek Harness）插件：让 AI 模型通过一条 TCP 直连通道驱动 **GUI Blender** —— 看视口 / 改场景 / 连续观察 / 内环搜索 / 渲染性能 / 对象精简 / 无头跑重活 / 事务回滚 / 契约层与规划器，共 15 个工具（v2.3 删除视口面板与 `blender_rt_pick`）。
+llms.txt:11:  v2.3 已删除 DSH 侧视口面板与 `blender_rt_pick`；`@` 提及保留。
+runtime/classes.ts:142:/** 模型侧工具清单（15 个；v2.3 删除 blender_rt_pick）—— 与 capability.lock.json 逐名对拍（guidance_selftest 守） */
+src/client/index.js:14: * v2.3 仅保留两块功能（DSH 侧视口面板与 blender_rt_pick 已于 v2.3 删除）：
+src/client/index.js:578:		 * v2.3：DSH 侧视口面板与 blender_rt_pick 已删除；这里只留 @ 提及源 + 原生选中桥。
+tests/unit/js/contract/agents-doc.test.ts:97:    expect(AGENTS).not.toContain('blender_rt_pick')
+tests/unit/js/contract/description-budget.test.ts:59:    expect(names).not.toContain('blender_rt_pick')
+tests/unit/js/contract/docs-bilingual.test.ts:93:      expect(readText(path), path + ' must not cite a deleted tool').not.toContain('blender_rt_pick')

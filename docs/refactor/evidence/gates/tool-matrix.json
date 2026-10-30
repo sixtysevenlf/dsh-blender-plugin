@@ -1,0 +1,110 @@
+{
+  "count": 15,
+  "tools": [
+    {
+      "name": "blender_rt_see",
+      "status": "covered",
+      "unit": "tests/unit/js/contract/tool-execution.test.ts::tool blender_rt_see executes a viewport frame round-trip",
+      "integration": "tests/unit/js/contract/tool-presenter.test.ts::attaches presentCall and presentResult to all 15 tools",
+      "e2e": "C6 真机 GUI/无头往返"
+    },
+    {
+      "name": "blender_rt_do",
+      "status": "covered",
+      "unit": "tests/unit/js/contract/tool-execution.test.ts::tool blender_rt_do executes code and returns the follow-up frame",
+      "integration": "tests/unit/js/contract/tool-presenter.test.ts::attaches presentCall and presentResult to all 15 tools",
+      "e2e": "C6 真机 GUI/无头往返"
+    },
+    {
+      "name": "blender_rt_watch",
+      "status": "covered",
+      "unit": "tests/unit/js/contract/tool-execution.test.ts::tool blender_rt_watch samples a time window",
+      "integration": "tests/unit/js/contract/tool-presenter.test.ts::attaches presentCall and presentResult to all 15 tools",
+      "e2e": "C6 真机 GUI/无头往返"
+    },
+    {
+      "name": "blender_rt_cmd",
+      "status": "covered",
+      "unit": "tests/unit/js/contract/tool-execution.test.ts::tool blender_rt_cmd sends one addon command",
+      "integration": "tests/unit/js/contract/tool-presenter.test.ts::attaches presentCall and presentResult to all 15 tools",
+      "e2e": "C6 真机 GUI/无头往返"
+    },
+    {
+      "name": "blender_rt_commands",
+      "status": "covered",
+      "unit": "tests/unit/js/contract/tool-execution.test.ts::tool blender_rt_commands renders the command catalog",
+      "integration": "tests/unit/js/contract/tool-presenter.test.ts::attaches presentCall and presentResult to all 15 tools",
+      "e2e": "C6 真机 GUI/无头往返"
+    },
+    {
+      "name": "blender_rt_loop",
+      "status": "covered",
+      "unit": "tests/unit/js/contract/tool-execution.test.ts::tool blender_rt_loop runs an inner-loop op",
+      "integration": "tests/unit/js/contract/tool-presenter.test.ts::attaches presentCall and presentResult to all 15 tools",
+      "e2e": "C6 真机 GUI/无头往返"
+    },
+    {
+      "name": "blender_rt_perf",
+      "status": "covered",
+      "unit": "tests/unit/js/contract/tool-execution.test.ts::tool blender_rt_perf runs a perf op",
+      "integration": "tests/unit/js/contract/tool-presenter.test.ts::attaches presentCall and presentResult to all 15 tools",
+      "e2e": "C6 真机 GUI/无头往返"
+    },
+    {
+      "name": "blender_rt_opt",
+      "status": "covered",
+      "unit": "tests/unit/js/contract/tool-execution.test.ts::tool blender_rt_opt maps join to the canonical opt_join op",
+      "integration": "tests/unit/js/contract/tool-presenter.test.ts::attaches presentCall and presentResult to all 15 tools",
+      "e2e": "C6 真机 GUI/无头往返"
+    },
+    {
+      "name": "blender_rt_headless",
+      "status": "covered",
+      "unit": "tests/unit/js/contract/tool-execution.test.ts::tool blender_rt_headless returns a headless receipt",
+      "integration": "tests/unit/js/contract/tool-presenter.test.ts::attaches presentCall and presentResult to all 15 tools",
+      "e2e": "C6 真机 GUI/无头往返"
+    },
+    {
+      "name": "blender_rt_plan",
+      "status": "covered",
+      "unit": "tests/unit/js/contract/tool-execution.test.ts::tool blender_rt_plan returns a plan receipt",
+      "integration": "tests/unit/js/contract/tool-presenter.test.ts::attaches presentCall and presentResult to all 15 tools",
+      "e2e": "C6 真机 GUI/无头往返"
+    },
+    {
+      "name": "blender_rt_worker",
+      "status": "covered",
+      "unit": "tests/unit/js/contract/tool-execution.test.ts::tool blender_rt_worker starts a worker session",
+      "integration": "tests/unit/js/contract/tool-presenter.test.ts::attaches presentCall and presentResult to all 15 tools",
+      "e2e": "C6 真机 GUI/无头往返"
+    },
+    {
+      "name": "blender_rt_txn",
+      "status": "covered",
+      "unit": "tests/unit/js/contract/tool-execution.test.ts::tool blender_rt_txn lists snapshots and marks",
+      "integration": "tests/unit/js/contract/tool-presenter.test.ts::attaches presentCall and presentResult to all 15 tools",
+      "e2e": "C6 真机 GUI/无头往返"
+    },
+    {
+      "name": "blender_rt_preset",
+      "status": "covered",
+      "unit": "tests/unit/js/contract/tool-execution.test.ts::tool blender_rt_preset lists the recipe library",
+      "integration": "tests/unit/js/contract/tool-presenter.test.ts::attaches presentCall and presentResult to all 15 tools",
+      "e2e": "C6 真机 GUI/无头往返"
+    },
+    {
+      "name": "blender_rt_job",
+      "status": "covered",
+      "unit": "tests/unit/js/contract/tool-execution.test.ts::tool blender_rt_job lists jobs",
+      "integration": "tests/unit/js/contract/tool-presenter.test.ts::attaches presentCall and presentResult to all 15 tools",
+      "e2e": "C6 真机 GUI/无头往返"
+    },
+    {
+      "name": "blender_viewport",
+      "status": "covered",
+      "unit": "tests/unit/js/contract/tool-execution.test.ts::tool blender_viewport status reports backend state",
+      "integration": "tests/unit/js/contract/tool-presenter.test.ts::attaches presentCall and presentResult to all 15 tools",
+      "e2e": "C6 真机 GUI/无头往返"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+
+ RUN  v3.2.7 D:/project/dsh-blender-plugin
+
+ ✓ tests/unit/js/contract/tool-execution.test.ts > model tool execution semantics > tool blender_rt_see executes a viewport frame round-trip 18ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts > model tool execution semantics > tool blender_rt_do executes code and returns the follow-up frame 8ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts > model tool execution semantics > tool blender_rt_watch samples a time window 210ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts > model tool execution semantics > tool blender_rt_cmd sends one addon command 4ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts > model tool execution semantics > tool blender_rt_commands renders the command catalog 2ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts > model tool execution semantics > tool blender_rt_loop runs an inner-loop op 2ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts > model tool execution semantics > tool blender_rt_perf runs a perf op 2ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts > model tool execution semantics > tool blender_rt_opt maps join to the canonical opt_join op 2ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts > model tool execution semantics > tool blender_rt_headless returns a headless receipt 3ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts > model tool execution semantics > tool blender_rt_plan returns a plan receipt 3ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts > model tool execution semantics > tool blender_rt_worker starts a worker session 3ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts > model tool execution semantics > tool blender_rt_txn lists snapshots and marks 2ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts > model tool execution semantics > tool blender_rt_preset lists the recipe library 3ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts > model tool execution semantics > tool blender_rt_job lists jobs 2ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts > model tool execution semantics > tool blender_viewport status reports backend state 1ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts > model tool execution semantics > rejects missing required parameters before touching the backend 4ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts > model tool execution semantics > maps a backend lease conflict to a readable 409 message 1ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts > model tool execution semantics > aborts waiting when the host exec signal fires 57ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts > model tool execution semantics > passes session routing through to the backend act endpoint 5ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts > model tool failure semantics > reports an unreachable backend without hanging 6ms
+
+ Test Files  1 passed (1)
+      Tests  20 passed (20)
+   Start at  22:21:34
+   Duration  1.19s (transform 155ms, setup 0ms, collect 497ms, tests 357ms, environment 0ms, prepare 119ms)
+

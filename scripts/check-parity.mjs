@@ -48,7 +48,10 @@ const ENV_KEYS = new Set([
   'loadedMtime',
   'diskMtime',
   'mtime',
-  'mtimeMs'
+  'mtimeMs',
+  // The plugin version is a declared, user-visible release change (2.6.2 ->
+  // 3.0.0), not a behavior change. Everything else in provenance stays strict.
+  'pluginVersion'
 ])
 function normalize(v) {
   if (typeof v === 'string') return v.replace(HASH_RE, '<hash>')

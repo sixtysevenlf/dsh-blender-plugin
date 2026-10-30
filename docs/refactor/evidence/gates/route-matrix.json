@@ -1,0 +1,121 @@
+{
+  "count": 29,
+  "routes": [
+    {
+      "path": "/health",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/status",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/doctor",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/launch",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/who",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/lease",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/release",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/frame",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/frame.png",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/act",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/commands",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/cmd",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/loop",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/perf",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/opt",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/view",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/headless",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/plan",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/worker",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/txn",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/preset",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/job",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/host/scene-items",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/host/jobs",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/host/jobs/log",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/host/state",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/host/selection",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/host/selection/latest",
+      "matrixStatus": "covered"
+    },
+    {
+      "path": "/host/selection/consume",
+      "matrixStatus": "covered"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "addonProtocolVersion": 11,
+  "addonBlInfoVersion": [
+    1,
+    11
+  ],
+  "expectedProtocol": 11,
+  "source": [
+    "addon/dsh_blender_bridge/protocol.py",
+    "addon/dsh_blender_bridge/__init__.py"
+  ]
+}

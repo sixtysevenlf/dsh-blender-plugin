@@ -1,0 +1,481 @@
+{
+  "families": 34,
+  "ops": 228,
+  "fingerprint": {
+    "catalogHash": "1d401b938b69",
+    "families": 34,
+    "opsCount": 228,
+    "toolDetailKeys": 7,
+    "commandCatalogKeys": 39
+  },
+  "planOpNames": 228,
+  "planReadOnlyOps": 98,
+  "familiesDetail": [
+    {
+      "family": "sculpt",
+      "prefix": "sculpt_",
+      "ops": 8,
+      "opNames": [
+        "scan",
+        "setup",
+        "apply",
+        "filter",
+        "mask",
+        "remesh",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "fix",
+      "prefix": "fix_",
+      "ops": 4,
+      "opNames": [
+        "repair",
+        "decimate",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "uv",
+      "prefix": "uv_",
+      "ops": 7,
+      "opNames": [
+        "stats",
+        "smart_project",
+        "unwrap",
+        "project",
+        "pack",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "print",
+      "prefix": "print_",
+      "ops": 5,
+      "opNames": [
+        "walls",
+        "overhang",
+        "report",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "sweep",
+      "prefix": "sweep_",
+      "ops": 4,
+      "opNames": [
+        "analyze",
+        "build",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "audit",
+      "prefix": "audit_",
+      "ops": 14,
+      "opNames": [
+        "mesh",
+        "scene",
+        "duplicates",
+        "connectivity",
+        "gate",
+        "drift",
+        "measure",
+        "snap_floaters",
+        "overlap",
+        "interference",
+        "purge_orphans",
+        "selftest",
+        "gate_selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "qc",
+      "prefix": "qc_",
+      "ops": 16,
+      "opNames": [
+        "compare",
+        "compare_basic",
+        "compare_auto",
+        "align_iou",
+        "align_rotate",
+        "mask_auto",
+        "mask_sweep",
+        "metrics",
+        "profile",
+        "profile_diff",
+        "robustness_check",
+        "self_check",
+        "load",
+        "crop",
+        "mask",
+        "help"
+      ]
+    },
+    {
+      "family": "qc_render",
+      "prefix": "qc_render_",
+      "ops": 3,
+      "opNames": [
+        "views",
+        "catalog",
+        "help"
+      ]
+    },
+    {
+      "family": "pipe",
+      "prefix": "pipe_",
+      "ops": 7,
+      "opNames": [
+        "run",
+        "put",
+        "get",
+        "list",
+        "clear",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "shape",
+      "prefix": "shape_",
+      "ops": 12,
+      "opNames": [
+        "draft",
+        "draft_check",
+        "plan",
+        "sections",
+        "loft",
+        "fit",
+        "search",
+        "regions",
+        "panels",
+        "revolve",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "vehicle",
+      "prefix": "vehicle_",
+      "ops": 10,
+      "opNames": [
+        "spec",
+        "package",
+        "sections",
+        "loft",
+        "panels",
+        "regions",
+        "fit",
+        "base",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "clearance",
+      "prefix": "clear_",
+      "ops": 3,
+      "opNames": [
+        "check",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "human",
+      "prefix": "human_",
+      "ops": 6,
+      "opNames": [
+        "base",
+        "measure",
+        "spec",
+        "head",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "ext",
+      "prefix": "",
+      "ops": 2,
+      "opNames": [
+        "gltf_validate",
+        "ext_mesh_check"
+      ]
+    },
+    {
+      "family": "face",
+      "prefix": "face_",
+      "ops": 4,
+      "opNames": [
+        "ratios",
+        "compare",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "img",
+      "prefix": "img_",
+      "ops": 11,
+      "opNames": [
+        "scan",
+        "rectify",
+        "crop",
+        "annotate",
+        "diff",
+        "digest",
+        "probe",
+        "measure",
+        "calib",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "assembly",
+      "prefix": "asm_",
+      "ops": 8,
+      "opNames": [
+        "scan",
+        "manifest",
+        "merge",
+        "repair",
+        "export",
+        "gate",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "blockout",
+      "prefix": "blockout_",
+      "ops": 7,
+      "opNames": [
+        "base",
+        "batch",
+        "export",
+        "turntable",
+        "refsheet",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "eval",
+      "prefix": "eval_",
+      "ops": 3,
+      "opNames": [
+        "run",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "calib",
+      "prefix": "calib_",
+      "ops": 3,
+      "opNames": [
+        "run",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "visualreport",
+      "prefix": "visualreport_",
+      "ops": 3,
+      "opNames": [
+        "report",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "shapesolve",
+      "prefix": "shapesolve_",
+      "ops": 3,
+      "opNames": [
+        "solve",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "surface",
+      "prefix": "surface_",
+      "ops": 11,
+      "opNames": [
+        "loft",
+        "sweep",
+        "patch",
+        "tessellate",
+        "validate",
+        "export",
+        "blend",
+        "offset",
+        "fit",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "gate",
+      "prefix": "gate_",
+      "ops": 7,
+      "opNames": [
+        "plan",
+        "run",
+        "preflight",
+        "checkpoint",
+        "deliver",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "material",
+      "prefix": "material_",
+      "ops": 6,
+      "opNames": [
+        "scan",
+        "build",
+        "apply",
+        "bake",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "render_guard",
+      "prefix": "",
+      "ops": 5,
+      "opNames": [
+        "render_state",
+        "render_wait",
+        "render_reset",
+        "render_guard_install",
+        "render_guard_selftest"
+      ]
+    },
+    {
+      "family": "render",
+      "prefix": "render_",
+      "ops": 3,
+      "opNames": [
+        "lock",
+        "status",
+        "help"
+      ]
+    },
+    {
+      "family": "deliver",
+      "prefix": "deliver_",
+      "ops": 3,
+      "opNames": [
+        "export",
+        "verify",
+        "help"
+      ]
+    },
+    {
+      "family": "motion",
+      "prefix": "motion_",
+      "ops": 10,
+      "opNames": [
+        "joints",
+        "joint",
+        "infer_axis",
+        "measure",
+        "export_urdf",
+        "export_usda",
+        "status",
+        "reset",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "generator",
+      "prefix": "generator_",
+      "ops": 7,
+      "opNames": [
+        "save",
+        "run",
+        "list",
+        "get",
+        "diff",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "plan",
+      "prefix": "plan_",
+      "ops": 8,
+      "opNames": [
+        "load",
+        "validate",
+        "order",
+        "build",
+        "graph",
+        "status",
+        "diag",
+        "help"
+      ]
+    },
+    {
+      "family": "contract",
+      "prefix": "",
+      "ops": 19,
+      "opNames": [
+        "status",
+        "help",
+        "reset",
+        "register_component",
+        "register_connection",
+        "register_envelope",
+        "check_envelope",
+        "check_interference",
+        "check_interface",
+        "destructive_guard",
+        "evidence",
+        "ledger",
+        "report",
+        "verify",
+        "flip",
+        "advance",
+        "mate_check",
+        "fit_help",
+        "interference_report"
+      ]
+    },
+    {
+      "family": "gui",
+      "prefix": "gui_",
+      "ops": 4,
+      "opNames": [
+        "frame",
+        "shading",
+        "open",
+        "help"
+      ]
+    },
+    {
+      "family": "montage",
+      "prefix": "",
+      "ops": 2,
+      "opNames": [
+        "montage",
+        "help"
+      ]
+    }
+  ]
+}

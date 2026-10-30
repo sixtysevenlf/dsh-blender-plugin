@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import { catalogPayload, PLAN_READ_ONLY_OPS } from '../../../../runtime/engine.js'
 import { pkgPath } from '../../../helpers/pkg'
@@ -43,5 +44,14 @@ describe('single source of truth', () => {
     expect(match).not.toBeNull()
     expect(Number(match![1])).toBe(catalog.families.length)
     expect(Number(match![2])).toBe(catalog.ops_count)
+  })
+
+  it('keeps the count sync script runnable against the built runtime', () => {
+    const out = execFileSync(process.execPath, [pkgPath('scripts', 'sync_counts.mjs'), '--dry'], {
+      cwd: pkgPath(),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe']
+    })
+    expect(out).toContain('需改 0 个文件')
   })
 })

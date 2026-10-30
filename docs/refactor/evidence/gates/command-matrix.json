@@ -1,0 +1,240 @@
+{
+  "count": 39,
+  "covered": 39,
+  "commands": [
+    {
+      "name": "ping",
+      "description": "存活探测（不碰 bpy 数据）",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "get_scene_info",
+      "description": "场景概览（无参）",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "get_world_state_snapshot",
+      "description": "世界状态快照：对象/选中/帧",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "get_addon_info",
+      "description": "addon 版本与协议号",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "get_object_info",
+      "description": "单对象详情（参数 name）",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "get_viewport_screenshot",
+      "description": "视口离屏截图（max_size, filepath, format）",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "describe_node_type",
+      "description": "查节点类型的全部 socket/属性（bl_idname, property_overrides）—— 建着色器/几何节点前先查，别猜 socket 顺序",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "bpy_api_lookup",
+      "description": "查 bpy API 参考（query，如 \"bpy.ops.mesh.primitive_cube_add\"）",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "export_scene",
+      "description": "导出场景/选择/名单到 glb|fbx|obj（filepath, format, object_names, selection_only, apply_modifiers）",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "get_activity_state",
+      "description": "统一活动状态 human/agent/idle/both + 原生选中摘要（无参；查询自身不算 agent）",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "get_selection",
+      "description": "当前 Blender 原生选中（名字/类型/活动对象/模式/场景；无参）",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "send_selection_to_dsh",
+      "description": "把当前选中 POST 给 DSH 后端（N 面板按钮的同一实现；timeout 可选）",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "get_collections",
+      "description": "列场景集合：名字 / 对象数 / 其中选中数（limit 可选；大装配体先选集合）",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "send_collection_to_dsh",
+      "description": "把整个集合 POST 给 DSH（collection 可选，缺省用 N 面板下拉的 dshbb_collection_target）",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "get_tripo_status",
+      "description": "Tripo 集成状态（premium 通道）",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "execute_code",
+      "description": "执行任意 Python（万能通道，预置 K/bpy/math/mathutils）",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "drain_human_activity",
+      "description": "取走\"人类操作\"事件缓冲",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "get_telemetry_consent",
+      "description": "读遥测同意开关",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "set_telemetry_consent",
+      "description": "写遥测同意开关（参数 consent）",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "get_polyhaven_status",
+      "description": "PolyHaven 集成状态",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "get_hyper3d_status",
+      "description": "Hyper3D Rodin 集成状态",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "get_sketchfab_status",
+      "description": "Sketchfab 集成状态",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "get_polypizza_status",
+      "description": "Poly Pizza 集成状态",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "get_hunyuan3d_status",
+      "description": "Hunyuan3D 集成状态",
+      "gate": null,
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "get_polyhaven_categories",
+      "description": "PolyHaven 分类（参数 asset_type: hdris/textures/models）",
+      "gate": "dshbb_use_polyhaven",
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "search_polyhaven_assets",
+      "description": "PolyHaven 搜索（asset_type, categories）",
+      "gate": "dshbb_use_polyhaven",
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "download_polyhaven_asset",
+      "description": "下载并导入 PolyHaven 资产（asset_id, asset_type, resolution）",
+      "gate": "dshbb_use_polyhaven",
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "set_texture",
+      "description": "把已下载贴图应用到对象（object_name, texture_id）",
+      "gate": "dshbb_use_polyhaven",
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "create_rodin_job",
+      "description": "Hyper3D Rodin 生成任务（文本/图片）",
+      "gate": "dshbb_use_hyper3d",
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "poll_rodin_job_status",
+      "description": "Rodin 任务轮询",
+      "gate": "dshbb_use_hyper3d",
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "import_generated_asset",
+      "description": "导入 Rodin 生成结果",
+      "gate": "dshbb_use_hyper3d",
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "search_sketchfab_models",
+      "description": "Sketchfab 搜索（query, categories, count）",
+      "gate": "dshbb_use_sketchfab",
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "get_sketchfab_model_preview",
+      "description": "Sketchfab 模型预览图",
+      "gate": "dshbb_use_sketchfab",
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "download_sketchfab_model",
+      "description": "下载并导入 Sketchfab 模型（uid）",
+      "gate": "dshbb_use_sketchfab",
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "search_polypizza_models",
+      "description": "Poly Pizza 搜索（query）",
+      "gate": "dshbb_use_polypizza",
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "download_polypizza_model",
+      "description": "下载并导入 Poly Pizza 模型（model_id）",
+      "gate": "dshbb_use_polypizza",
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "create_hunyuan_job",
+      "description": "Hunyuan3D 生成任务",
+      "gate": "dshbb_use_hunyuan3d",
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "poll_hunyuan_job_status",
+      "description": "Hunyuan3D 任务轮询",
+      "gate": "dshbb_use_hunyuan3d",
+      "matrixStatus": "covered"
+    },
+    {
+      "name": "import_generated_asset_hunyuan",
+      "description": "导入 Hunyuan3D 生成结果",
+      "gate": "dshbb_use_hunyuan3d",
+      "matrixStatus": "covered"
+    }
+  ]
+}

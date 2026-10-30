@@ -1,0 +1,23 @@
+
+ RUN  v3.2.7 D:/project/dsh-blender-plugin
+
+ ✓ tests/unit/js/contract/security.test.ts > file= parameter guard > detects every documented alias spelling 1ms
+ ✓ tests/unit/js/contract/security.test.ts > file= parameter guard > normalizes one valid path and preserves single-element arrays 0ms
+ ✓ tests/unit/js/contract/security.test.ts > file= parameter guard > rejects empty, whitespace, object, and multi-element inputs by code 0ms
+ ✓ tests/unit/js/contract/security.test.ts > file= parameter guard > passes file= paths through without claiming symlink containment 0ms
+ ✓ tests/unit/js/contract/security.test.ts > file= parameter guard > explains missing input instead of returning a bare null 1ms
+ ✓ tests/unit/js/contract/security.test.ts > file= parameter guard > sanitizes run ids before they enter log file names 0ms
+ ✓ tests/unit/js/contract/security.test.ts > archive and lease security boundaries > checks both glTF and OBJ zip entries before extraction 0ms
+ ✓ tests/unit/js/contract/security.test.ts > archive and lease security boundaries > keeps command execution out of a shell 1ms
+ ✓ tests/unit/js/contract/security.test.ts > archive and lease security boundaries > keeps write routes behind the lease gate while read-only ops bypass it 0ms
+ ✓ tests/unit/js/contract/security.test.ts > archive and lease security boundaries > does not use a shell for backend process control 0ms
+ ✓ tests/unit/js/contract/lossless.test.ts > lossless return channel > removes or normalizes every non-lossless JSON value 2ms
+ ✓ tests/unit/js/contract/lossless.test.ts > lossless return channel > keeps every receipt free of undefined keys 1ms
+ ✓ tests/unit/js/contract/lossless.test.ts > lossless return channel > builds headless receipts with text and a lossless envelope 0ms
+ ✓ tests/unit/js/contract/lossless.test.ts > lossless return channel > marks promoted receipts explicitly 0ms
+
+ Test Files  2 passed (2)
+      Tests  14 passed (14)
+   Start at  22:22:05
+   Duration  818ms (transform 158ms, setup 0ms, collect 536ms, tests 9ms, environment 0ms, prepare 263ms)
+

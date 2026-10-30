@@ -1,0 +1,18 @@
+
+ RUN  v3.2.7 D:/project/dsh-blender-plugin
+
+ ✓ tests/unit/js/contract/command-contract.test.ts > addon command surface > publishes 39 catalog commands and 24 always-on base handlers 1ms
+ ✓ tests/unit/js/contract/command-contract.test.ts > addon command surface > keeps every catalog command backed by a real addon handler 2ms
+ ✓ tests/unit/js/contract/command-contract.test.ts > addon command surface > documents the off-catalog handlers separately 0ms
+ ✓ tests/unit/js/contract/command-contract.test.ts > addon command surface > routes ping before dispatch and returns the flat success/error envelope 0ms
+ ✓ tests/unit/js/contract/command-contract.test.ts > addon command surface > gates write commands behind the scene switches 0ms
+ ✓ tests/unit/js/contract/command-contract.test.ts > addon command surface > pauses every non-read command and keeps read-only ones safe 0ms
+ ✓ tests/unit/js/contract/command-contract.test.ts > addon command surface > advertises protocol 11 with a 16-name capability handshake 0ms
+ ✓ tests/unit/js/contract/command-contract.test.ts > addon client command round-trip > performs the flat handshake over a real TCP socket 16ms
+ ✓ tests/unit/js/contract/command-contract.test.ts > addon client command round-trip > propagates addon error envelopes without rewriting them 1ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  22:21:40
+   Duration  1.00s (transform 224ms, setup 0ms, collect 612ms, tests 23ms, environment 0ms, prepare 141ms)
+
