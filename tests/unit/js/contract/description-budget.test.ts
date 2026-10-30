@@ -1,8 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
-import { catalogPayload, planOpCrossChannelHint, planOpNames, planOpSuggestion } from '../../../../runtime/engine.mjs'
+import { catalogPayload, planOpCrossChannelHint, planOpNames, planOpSuggestion } from '../../../../runtime/engine.js'
 import { pkgPath } from '../../../helpers/pkg'
+
+interface CatalogProvenance { catalogHash: string; note?: string; verdict?: string; diskVerdict: { ok?: boolean; catalogHash?: string } }
+interface CatalogDetailRow { family: string; not?: string }
+interface CatalogView {
+  families: string[]
+  ops_count: number
+  text: string
+  detail?: CatalogDetailRow[]
+  tools?: unknown
+  ok?: boolean
+  provenance: CatalogProvenance
+  [key: string]: unknown
+}
+const payload = (opts?: unknown): CatalogView => catalogPayload(opts) as unknown as CatalogView
 
 // D1: tool schemas and the plan description stay inside a fixed budget, the
 // catalog keeps its sizing contract, and the pure discoverability helpers keep
@@ -35,7 +49,7 @@ function schemaChars(name: string, sourceRel: string): number {
 }
 
 describe('tool description budget', () => {
-  const catalog = catalogPayload({})
+  const catalog = payload({})
   const declared = declaredTools()
   const names = [...new Set(declared.map((t) => t.name))]
 
@@ -67,17 +81,17 @@ describe('tool description budget', () => {
   })
 
   it('keeps the catalog text scale per family', () => {
-    const text = catalogPayload({})
+    const text = payload({})
     expect(text.families.length).toBeGreaterThanOrEqual(26)
     expect(text.ops_count).toBeGreaterThanOrEqual(100)
     expect(text.text.length).toBeGreaterThanOrEqual(3000)
     expect(text.text.length / text.families.length).toBeLessThanOrEqual(360)
     expect(text.detail).toBeUndefined()
     expect(text.tools).toBeUndefined()
-    expect(catalogPayload({ family: 'sculpt' }).text.length).toBeLessThan(1500)
-    expect(catalogPayload({ full: true }).detail).toHaveLength(text.families.length)
-    expect(catalogPayload({ family: '__nope__' }).ok).toBe(false)
-    expect(catalogPayload({ tool: 'rt_headless' }).text).toContain('as_job')
+    expect(payload({ family: 'sculpt' }).text.length).toBeLessThan(1500)
+    expect(payload({ full: true }).detail).toHaveLength(text.families.length)
+    expect(payload({ family: '__nope__' }).ok).toBe(false)
+    expect(payload({ tool: 'rt_headless' }).text).toContain('as_job')
   })
 
   it('suggests the nearest plan op and corrects cross-channel calls', () => {
@@ -91,11 +105,11 @@ describe('tool description budget', () => {
   })
 
   it('keeps the catalog self-verifying provenance', () => {
-    const cat = catalogPayload({})
+    const cat = payload({})
     expect(cat.provenance.catalogHash).toMatch(/^[0-9a-f]{12}$/)
     expect(cat.provenance.note).toContain('mtime')
     expect(cat.provenance.verdict).toBe('current')
-    const verified = catalogPayload({ verify: true })
+    const verified = payload({ verify: true })
     expect(verified.provenance.diskVerdict.ok).toBe(true)
     expect(verified.provenance.diskVerdict.catalogHash).toBe(cat.provenance.catalogHash)
   })

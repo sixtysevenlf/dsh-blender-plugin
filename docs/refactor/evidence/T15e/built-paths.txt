@@ -1,0 +1,5 @@
+# E2E / backend spawn / pack / install use built lib/runtime JS
+// Shared integration harness: a real lib/runtime/server.js on an ephemeral port with
+  const child = spawn(process.execPath, [pkgPath('lib', 'runtime', 'server.js'), '--port', String(port)], {
+const { createEngine } = await import('../../lib/runtime/engine.js')
+const { CFG } = await import('../../lib/runtime/config.js')

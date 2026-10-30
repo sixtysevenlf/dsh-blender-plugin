@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest'
-import { PROTOCOLS, detectProtocol, resolveProtocol } from '../../../../runtime/addon-protocol.mjs'
-import { AddonClient } from '../../../../runtime/engine.mjs'
+import { PROTOCOLS, detectProtocol, resolveProtocol } from '../../../../runtime/addon-protocol.js'
+import { AddonClient } from '../../../../runtime/engine.js'
 import { startFakeAddon } from '../../../helpers/fake-addon.mjs'
 
 describe('flat addon protocol', () => {
@@ -81,7 +81,7 @@ describe('flat protocol transport behavior', () => {
     })
     const c = new AddonClient({ host: '127.0.0.1', port: old.port })
     try {
-      const info = await c.send('get_addon_info', {}, 1000)
+      const info = (await c.send('get_addon_info', {}, 1000)) as any
       expect(info.protocol).toBe(10)
       const pong = await c.send('ping', {}, 1000)
       expect(pong).toEqual({ pong: true })

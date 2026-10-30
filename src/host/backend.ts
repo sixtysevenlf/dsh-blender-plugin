@@ -2,12 +2,12 @@ import { spawn, execFileSync } from 'node:child_process'
 import { readdirSync, readFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { probeHttp, decideStart } from '../../runtime/backend_probe.mjs'
+import { probeHttp, decideStart } from '../../lib/runtime/backend_probe.js'
 import { ABORT_HINT, HERE, HOSTNAME, SERVER_PATH } from '../constants.js'
 import { execSignal } from './exec-context.js'
 
 /**
- * 端口解析（与 runtime/config.mjs 同一套来源，避免两处配置漂移）：
+ * 端口解析（与 runtime/config.ts 同一套来源，避免两处配置漂移）：
  *   插件配置 port → DSH_BLENDER_HTTP_PORT → $DSH_BLENDER_CONFIG → <包根>/dsh-blender.config.json
  *   → ~/.dsh/dsh-blender.config.json → 9877
  */
@@ -149,7 +149,7 @@ export function killBackendByCmd(port: number, signal: NodeJS.Signals = 'SIGTERM
   }
   for (const r of rows) {
     // ★ v1.0.1+S10（自伤修复）：按 **argv token** 精确匹配，绝不拿整条 cmdline 做子串匹配 ——
-    //   调用方的 `bash -c "... node runtime/server.mjs --port 9877 ..."` 命令行同样含这两个串，
+    //   调用方的 `bash -c "... node lib/runtime/server.js --port 9877 ..."` 命令行同样含这两个串，
     //   子串匹配会把调用方自己的 shell 一起 SIGKILL 掉（2026-09-29 实测踩到，A/B 当场抓出）。
     let isServer = false
     let portOk = false

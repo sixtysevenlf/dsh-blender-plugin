@@ -5,10 +5,14 @@
  * Parses tests/BEHAVIOR_MATRIX.md and compares it with the live source of truth:
  *   - model tools: every .ts under src (vTool registrations; the schema-diagnostic
  *     duplicate is not a model-facing tool and is skipped)
- *   - addon commands: runtime/catalog.mjs COMMAND_CATALOG, each backed by
- *     the addon package (all .py under addon/dsh_blender_bridge/)
- *   - plan ops: runtime/catalog.mjs PLAN_CATALOG (one row per op entry)
- *   - HTTP routes: CONTRACT_ROUTES from runtime/http/routes/index.mjs
+ *   - addon commands: lib/runtime/catalog.js COMMAND_CATALOG (built from
+ *     runtime/catalog.ts), each backed by the addon package (all .py under
+ *     addon/dsh_blender_bridge/)
+ *   - plan ops: lib/runtime/catalog.js PLAN_CATALOG (one row per op entry)
+ *   - HTTP routes: CONTRACT_ROUTES from lib/runtime/http/routes/index.js
+ *
+ * T15: runtime sources are TypeScript, so this script imports the built
+ * lib/runtime JS artifact and calls scripts/ensure-build.mjs first.
  *   - fixed protocol/lifecycle/config/install/security/version rows
  *
  * Exit 1 on any gap. --release also requires planned=0. --report <path>
@@ -17,6 +21,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { ensureBuild } from './ensure-build.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(here, '..')
@@ -126,7 +131,7 @@ function loadMatrix(matrixPath = MATRIX) {
 }
 
 async function loadCatalogs() {
-  const catalog = await import(pathToFileURL(path.join(ROOT, 'runtime', 'catalog.mjs')).href)
+  const catalog = await import(pathToFileURL(path.join(ROOT, 'lib', 'runtime', 'catalog.js')).href)
   const toolNames = []
   const walkTools = (dir) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -155,9 +160,9 @@ async function loadCatalogs() {
     for (const op of family.ops || []) ops.push({ family: family.f, op })
   }
 
-  const routesModule = await import(pathToFileURL(path.join(ROOT, 'runtime', 'http', 'routes', 'index.mjs')).href)
+  const routesModule = await import(pathToFileURL(path.join(ROOT, 'lib', 'runtime', 'http', 'routes', 'index.js')).href)
   const routes = Array.isArray(routesModule.CONTRACT_ROUTES) ? routesModule.CONTRACT_ROUTES : []
-  if (routes.length === 0) fail('cannot find CONTRACT_ROUTES in runtime/http/routes/index.mjs')
+  if (routes.length === 0) fail('cannot find CONTRACT_ROUTES in lib/runtime/http/routes/index.js')
 
   const addonSource = readTree('addon/dsh_blender_bridge', '.py')
     .map((full) => readFileSync(full, 'utf8'))
@@ -279,6 +284,7 @@ function parseArgs(argv) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2))
+  ensureBuild()
   const catalogs = await loadCatalogs()
   const rows = loadMatrix(options.matrix)
   const expected = expectedIds(catalogs)
@@ -344,9 +350,9 @@ async function main() {
     matrix: rel(options.matrix),
     sources: {
       tools: 'src/index.ts',
-      commands: 'runtime/catalog.mjs + addon/dsh_blender_bridge/',
-      ops: 'runtime/catalog.mjs',
-      routes: 'runtime/server.mjs'
+      commands: 'runtime/catalog.ts + addon/dsh_blender_bridge/',
+      ops: 'runtime/catalog.ts',
+      routes: 'lib/runtime/http/routes/index.js'
     },
     counts: {
       tools: catalogs.toolNames.length,

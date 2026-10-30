@@ -1,0 +1,274 @@
+{
+  "ok": true,
+  "base": "b8778c8",
+  "checkedAt": "2026-10-30T13:00:45.132Z",
+  "node": "v22.17.0",
+  "runtime": "lib/runtime/engine.js",
+  "checks": [
+    {
+      "id": "exports",
+      "label": "engine export set",
+      "ok": true
+    },
+    {
+      "id": "exports-count",
+      "label": "engine exports",
+      "ok": true,
+      "detail": 87
+    },
+    {
+      "id": "fingerprint",
+      "label": "catalogFingerprint()",
+      "ok": true
+    },
+    {
+      "id": "contract-counts",
+      "label": "catalog contract counts",
+      "ok": true,
+      "detail": {
+        "catalogHash": "1d401b938b69",
+        "families": 34,
+        "opsCount": 228,
+        "toolDetailKeys": 7,
+        "commandCatalogKeys": 39
+      }
+    },
+    {
+      "id": "catalog-default",
+      "label": "catalogPayload({})",
+      "ok": true
+    },
+    {
+      "id": "catalog-default-len",
+      "label": "catalogPayload text length",
+      "ok": true,
+      "detail": {
+        "text": 10839
+      }
+    },
+    {
+      "id": "catalog-family",
+      "label": "catalogPayload({\"family\":\"sculpt\"})",
+      "ok": true
+    },
+    {
+      "id": "catalog-family-len",
+      "label": "catalogPayload text length",
+      "ok": true,
+      "detail": {
+        "text": 521
+      }
+    },
+    {
+      "id": "catalog-tool",
+      "label": "catalogPayload({\"tool\":\"rt_headless\"})",
+      "ok": true
+    },
+    {
+      "id": "catalog-tool-len",
+      "label": "catalogPayload text length",
+      "ok": true,
+      "detail": {
+        "text": 2129
+      }
+    },
+    {
+      "id": "catalog-full",
+      "label": "catalogPayload({\"full\":true})",
+      "ok": true
+    },
+    {
+      "id": "catalog-full-len",
+      "label": "catalogPayload text length",
+      "ok": true,
+      "detail": {
+        "text": 10839
+      }
+    },
+    {
+      "id": "catalog-handoff",
+      "label": "catalogPayload({\"handoff\":true})",
+      "ok": true
+    },
+    {
+      "id": "catalog-handoff-len",
+      "label": "catalogPayload text length",
+      "ok": true,
+      "detail": {
+        "text": 3503
+      }
+    },
+    {
+      "id": "catalog-verify",
+      "label": "catalogPayload({\"verify\":true})",
+      "ok": true
+    },
+    {
+      "id": "catalog-verify-len",
+      "label": "catalogPayload text length",
+      "ok": true,
+      "detail": {
+        "text": 10839
+      }
+    },
+    {
+      "id": "table-COMMAND_CATALOG",
+      "label": "COMMAND_CATALOG",
+      "ok": true
+    },
+    {
+      "id": "table-COMMAND_CATALOG-entries",
+      "label": "COMMAND_CATALOG entries",
+      "ok": true,
+      "detail": 39
+    },
+    {
+      "id": "table-PLAN_CATALOG",
+      "label": "PLAN_CATALOG",
+      "ok": true
+    },
+    {
+      "id": "table-PLAN_CATALOG-entries",
+      "label": "PLAN_CATALOG entries",
+      "ok": true,
+      "detail": 34
+    },
+    {
+      "id": "table-TOOL_DETAIL",
+      "label": "TOOL_DETAIL",
+      "ok": true
+    },
+    {
+      "id": "table-TOOL_DETAIL-entries",
+      "label": "TOOL_DETAIL entries",
+      "ok": true,
+      "detail": 7
+    },
+    {
+      "id": "table-PLAN_TOOL_MAP",
+      "label": "PLAN_TOOL_MAP",
+      "ok": true
+    },
+    {
+      "id": "table-PLAN_TOOL_MAP-entries",
+      "label": "PLAN_TOOL_MAP entries",
+      "ok": true,
+      "detail": 10
+    },
+    {
+      "id": "table-MODEL_FACING_TOOLS",
+      "label": "MODEL_FACING_TOOLS",
+      "ok": true
+    },
+    {
+      "id": "table-MODEL_FACING_TOOLS-entries",
+      "label": "MODEL_FACING_TOOLS entries",
+      "ok": true,
+      "detail": 15
+    },
+    {
+      "id": "table-GATE_FLAGS",
+      "label": "GATE_FLAGS",
+      "ok": true
+    },
+    {
+      "id": "table-GATE_FLAGS-entries",
+      "label": "GATE_FLAGS entries",
+      "ok": true,
+      "detail": 5
+    },
+    {
+      "id": "table-FLAGS_CODE",
+      "label": "FLAGS_CODE",
+      "ok": true
+    },
+    {
+      "id": "table-FLAGS_CODE-entries",
+      "label": "FLAGS_CODE entries",
+      "ok": true,
+      "detail": 304
+    },
+    {
+      "id": "table-MODELING_CLASS_GUIDE",
+      "label": "MODELING_CLASS_GUIDE",
+      "ok": true
+    },
+    {
+      "id": "table-MODELING_CLASS_GUIDE-entries",
+      "label": "MODELING_CLASS_GUIDE entries",
+      "ok": true,
+      "detail": 12
+    },
+    {
+      "id": "table-PATH_GUARD",
+      "label": "PATH_GUARD",
+      "ok": true
+    },
+    {
+      "id": "table-PATH_GUARD-entries",
+      "label": "PATH_GUARD entries",
+      "ok": true,
+      "detail": 0
+    },
+    {
+      "id": "routes",
+      "label": "CONTRACT_ROUTES",
+      "ok": true
+    },
+    {
+      "id": "routes-count",
+      "label": "CONTRACT_ROUTES routes",
+      "ok": true,
+      "detail": 29
+    },
+    {
+      "id": "plan-op-names",
+      "label": "planOpNames()",
+      "ok": true
+    },
+    {
+      "id": "plan-op-suggestion",
+      "label": "planOpSuggestion()",
+      "ok": true
+    },
+    {
+      "id": "plan-op-hint",
+      "label": "planOpCrossChannelHint()",
+      "ok": true
+    },
+    {
+      "id": "class-guide-stats",
+      "label": "classGuideStats()",
+      "ok": true
+    },
+    {
+      "id": "render-handoff",
+      "label": "renderHandoff()",
+      "ok": true
+    },
+    {
+      "id": "render-class-text",
+      "label": "renderClassText()",
+      "ok": true
+    },
+    {
+      "id": "plan-read-only",
+      "label": "PLAN_READ_ONLY",
+      "ok": true
+    },
+    {
+      "id": "plan-read-only-ops",
+      "label": "PLAN_READ_ONLY_OPS",
+      "ok": true
+    }
+  ],
+  "counts": {
+    "exports": 87,
+    "families": 34,
+    "ops": 228,
+    "commands": 39,
+    "toolDetailKeys": 7,
+    "routes": 29
+  },
+  "parity": "PASS"
+}

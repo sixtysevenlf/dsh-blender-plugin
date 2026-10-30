@@ -13,14 +13,16 @@
 import { existsSync, mkdirSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { ensureBuild } from '../../scripts/ensure-build.mjs'
 
 const workDir = process.env.DSH_BLENDER_WORKDIR
   || path.join(os.tmpdir(), 'dsh-t14-blender42-' + String(process.pid))
 mkdirSync(workDir, { recursive: true })
 process.env.DSH_BLENDER_WORKDIR = workDir
 
-const { createEngine } = await import('../../runtime/engine.mjs')
-const { CFG } = await import('../../runtime/config.mjs')
+ensureBuild()
+const { createEngine } = await import('../../lib/runtime/engine.js')
+const { CFG } = await import('../../lib/runtime/config.js')
 const exe = process.env.DSH_BLENDER_EXE || CFG.blenderExe
 if (!exe || !existsSync(exe)) {
   console.log('SKIP Blender 4.2 E2E: no DSH_BLENDER_EXE / discovered blender executable')

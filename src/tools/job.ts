@@ -5,7 +5,7 @@ import { ensureBackend } from '../host/backend.js'
 import { backendPost, leasedText, splitArgs } from '../host/http.js'
 import { renderStructured, clipText, safeStringify } from '../ui/cards.js'
 import { headlessReceipt, promotedReceipt } from '../headless/receipts.js'
-import { detectFileAlias } from '../../runtime/file_guard.mjs'
+import { detectFileAlias } from '../../lib/runtime/file_guard.js'
 
 export function registerJob(ctx: any, port: number): void {
   ctx.effect(

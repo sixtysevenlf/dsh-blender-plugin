@@ -7,7 +7,9 @@
  * 跑不了也没关系：addon 不在时每条都会明确 FAIL，不会假装成功。
  * 覆盖通道命令、取帧、自定义视角、持久内核 K、命令透传、perf/opt 预设。
  */
-import { createEngine } from '../runtime/engine.mjs';
+import { ensureBuild } from '../../../../scripts/ensure-build.mjs';
+ensureBuild();
+const { createEngine } = await import('../../../../lib/runtime/engine.js');
 const R = (p, ms, l) => Promise.race([p, new Promise((_, rj) => setTimeout(() => rj(new Error(l+' TIMEOUT')), ms))]);
 const e = createEngine();
 const results = [];

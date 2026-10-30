@@ -1,0 +1,8 @@
+
+> @dsh-external/dsh-blender-plugin@2.6.2 typecheck
+> node scripts/typecheck.mjs -p tsconfig.runtime.json && node scripts/build.mjs runtime && node scripts/typecheck.mjs && node scripts/typecheck.mjs -p tsconfig.test.json
+
+typecheck: 用 D:\DSH\tmp\clean-build-drill2\node_modules\typescript\lib\tsc.js（来源 local）
+build: runtime tsc (runtime → lib/runtime) · tsc=D:\DSH\tmp\clean-build-drill2\node_modules\typescript\lib\tsc.js
+typecheck: 用 D:\DSH\tmp\clean-build-drill2\node_modules\typescript\lib\tsc.js（来源 local）
+typecheck: 用 D:\DSH\tmp\clean-build-drill2\node_modules\typescript\lib\tsc.js（来源 local）

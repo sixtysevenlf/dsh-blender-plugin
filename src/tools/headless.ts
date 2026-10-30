@@ -13,7 +13,7 @@ import {
   promotedReceipt,
   startJobThenMaybeWait
 } from '../headless/receipts.js'
-import { detectFileAlias } from '../../runtime/file_guard.mjs'
+import { detectFileAlias } from '../../lib/runtime/file_guard.js'
 
 export function registerHeadless(ctx: any, port: number): void {
   ctx.effect(

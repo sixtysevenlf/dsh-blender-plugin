@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { describeConfig, wslPathShared } from '../../../runtime/config.mjs'
+import { describeConfig, wslPathShared } from '../../../runtime/config.js'
 import { pkgPath } from '../../helpers/pkg'
 
 // v0.9.6 (D3): the isolated workDir used to be os.tmpdir() (WSL /tmp is its own
@@ -15,7 +15,7 @@ type Staged = { staging?: any, win?: string, wsl?: string, exists?: boolean, err
 
 function stageWith(workdirPath: string): Staged {
   const code = [
-    "import { writeHeadlessScript } from './runtime/engine.mjs';",
+    "import { writeHeadlessScript } from './lib/runtime/engine.js';",
     "import fs from 'node:fs';",
     "const r = writeHeadlessScript('print(\"probe\")');",
     'console.log(JSON.stringify({ staging: r.staging, win: r.win, wsl: r.wsl, exists: fs.existsSync(r.wsl) }));',

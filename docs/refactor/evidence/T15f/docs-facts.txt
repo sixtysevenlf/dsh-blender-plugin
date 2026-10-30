@@ -1,0 +1,11 @@
+# docs/facts updated for T15
+
+- README.md: clone instructions now run npm ci + npm run build (lib/ is not committed); DSH_CHECKOUT is optional.
+- AGENTS.md §1: build row is "npm run build" for runtime/ + src/ -> lib/; DSH_CHECKOUT optional.
+- MIGRATIONS.md: new "repository use" section — npm install unchanged, git checkouts build once.
+- docs/refactor/spec.md B2: engine.ts / server.ts (the old .mjs names were stale).
+- docs/adr/0001-runtime-ts.md: Context refreshed to 60 modules / 7,307 lines; Outcome section records
+  62 compiled modules, build order, parity gate, tarball contents, and rollback result.
+
+Commands:
+  git show --stat 46f2d83 -- README.md AGENTS.md MIGRATIONS.md docs/refactor/spec.md docs/adr/0001-runtime-ts.md

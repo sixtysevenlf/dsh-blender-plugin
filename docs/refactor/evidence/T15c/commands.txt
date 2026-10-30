@@ -1,0 +1,30 @@
+# Exact commands (run from D:/DSH/worktrees/refactor-r unless noted)
+
+export PATH=/d/DSH/tools/node-v22.17.0-win-x64:$PATH
+export TEMP=/d/DSH/tmp TMP=/d/DSH/tmp
+unset NPM_CONFIG_CACHE npm_config_cache; export npm_config_cache=D:/DSH/tmp/npm-cache
+export PYTHONIOENCODING=utf-8 PYTHONUTF8=1
+export PYTHON='D:/DSH/tools/dsh-test-venv/Scripts/python.exe'
+
+npm run build                                             # exit 0
+npm run typecheck                                         # exit 0 (runtime noEmit -> runtime build -> src -> tests)
+npm run lint                                              # exit 0
+npm run format:check                                      # exit 0
+npm run check:structure                                   # exit 0
+npm run check:build                                       # exit 0
+npm run test:contract                                     # exit 0 (23 files / 172 tests)
+node scripts/check-parity.mjs --out docs/refactor/evidence/phase-r/parity.json   # exit 0, parity PASS
+npm test                                                  # exit 0 (54 Vitest files / 353 passed / 2 skipped; pytest 292 passed)
+npm run test:python                                       # exit 0 (292 passed)
+node scripts/check-behavior-matrix.mjs --release          # exit 0 (347 rows: 345 covered, 0 planned, 2 exempt)
+npm pack --dry-run --json                                 # exit 0
+npm pack --pack-destination /d/DSH/tmp/t15pack-final      # exit 0 (sha256 1026ed2777c1dedce4dff7d5b95251a6acc0d1df3504b77525de9a484309c520)
+npm run smoke:install                                     # exit 0 (SMOKE PASS)
+DSH_BLENDER_EXE='D:/DSH/tools/blender-win/blender-4.2.10-windows-x64/blender.exe' \
+  DSH_BLENDER_WORKDIR='D:/DSH/tmp/t15-blender-e2e' node tests/e2e/blender_42_headless.mjs   # exit 0
+node D:/DSH/tmp/bench-runtime.mjs                         # exit 0 (perf numbers in phase-r/perf.log)
+
+# clean clone of the committed tree (clone -> ci -> build -> check -> typecheck -> test -> pack -> install)
+bash /d/DSH/tmp/clean-build-drill2.sh                     # all steps 0, fresh clone HEAD = 46f2d83
+# rollback drill (throwaway clone; tag checkout and migration-commit revert)
+bash /d/DSH/tmp/rollback-drill2.sh                        # exit 0, ROLLBACK SERVER PASS in both states

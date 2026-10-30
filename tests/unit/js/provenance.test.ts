@@ -11,9 +11,9 @@ import { pkgPath } from '../../helpers/pkg'
 // fake "fresh". A clean process is the judge for the on-disk catalog.
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-prov-stale-'))
-const COPY_RT = path.join(TMP, 'runtime')
-const ENGINE = path.join(COPY_RT, 'engine.mjs')
-const CATALOG = path.join(COPY_RT, 'catalog.mjs')
+const COPY_RT = path.join(TMP, 'lib', 'runtime')
+const ENGINE = path.join(COPY_RT, 'engine.js')
+const CATALOG = path.join(COPY_RT, 'catalog.js')
 let mod: any
 let origEngine = ''
 let origMd5 = ''
@@ -21,7 +21,7 @@ let origMd5 = ''
 function copyRuntime(src: string, dest: string) {
   fs.mkdirSync(dest, { recursive: true })
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
-    if (entry.name === '__pycache__' || entry.name === 'ext') continue
+    if (['__pycache__', 'ext', 'venv', 'node_modules', 'pkg.tgz'].includes(entry.name)) continue
     const from = path.join(src, entry.name)
     const to = path.join(dest, entry.name)
     if (entry.isDirectory()) copyRuntime(from, to)
@@ -32,7 +32,9 @@ function copyRuntime(src: string, dest: string) {
 const md5 = (p: string) => createHash('md5').update(fs.readFileSync(p)).digest('hex')
 
 beforeAll(async () => {
-  copyRuntime(pkgPath('runtime'), COPY_RT)
+  // T15: the shipped runtime is built JS under lib/runtime; Python assets stay in package runtime/.
+  copyRuntime(pkgPath('lib', 'runtime'), COPY_RT)
+  copyRuntime(pkgPath('runtime'), path.join(TMP, 'runtime'))
   fs.copyFileSync(pkgPath('package.json'), path.join(TMP, 'package.json'))
   mod = await import(pathToFileURL(ENGINE).href + '?probe=' + String(Date.now()))
   origEngine = fs.readFileSync(ENGINE, 'utf8')

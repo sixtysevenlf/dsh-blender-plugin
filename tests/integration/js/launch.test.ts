@@ -1,6 +1,6 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { ADDON_NAME_HINTS, LAUNCH_BOOT_PY, addonNameHit } from '../../../runtime/launch.mjs'
+import { ADDON_NAME_HINTS, LAUNCH_BOOT_PY, addonNameHit } from '../../../runtime/launch.js'
 import { startBackend, freePort, type Backend } from '../../helpers/backend'
 import { startFakeAddon } from '../../helpers/fake-addon.mjs'
 

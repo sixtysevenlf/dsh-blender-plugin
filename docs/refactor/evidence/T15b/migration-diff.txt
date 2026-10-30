@@ -1,0 +1,1 @@
+See `git show --stat 0a2a395`: every base runtime/*.mjs is a rename to runtime/*.ts plus two new boundary modules runtime/core/json.ts and runtime/http/routes/deps.ts. Full mapping: inventory.txt.

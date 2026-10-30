@@ -6,8 +6,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
-import { decideStart, probeTcp, probeHttp, waitHttp } from '../../../../runtime/backend_probe.mjs'
-import { CFG, describeConfig } from '../../../../runtime/config.mjs'
+import { decideStart, probeTcp, probeHttp, waitHttp } from '../../../../runtime/backend_probe.js'
+import { CFG, describeConfig } from '../../../../runtime/config.js'
 import { closedPort, startFakeBackend } from '../../../helpers/fake-backend.mjs'
 import { createFakeContext } from '../../../helpers/fake-context'
 import { pkgPath } from '../../../helpers/pkg'
@@ -19,9 +19,12 @@ function readTree(dir: string, ext: string): string {
   }).join('\n')
 }
 const indexSource = readTree(pkgPath('src'), '.ts')
-const engineSource = readTree(pkgPath('runtime'), '.mjs')
+const engineSource = [
+  fs.readFileSync(pkgPath('runtime', 'execution', 'workers.ts'), 'utf8'),
+  fs.readFileSync(pkgPath('runtime', 'core', 'engine.ts'), 'utf8'),
+].join('\n')
 const addonSource = readTree(pkgPath('addon', 'dsh_blender_bridge'), '.py')
-const serverSource = readTree(pkgPath('runtime', 'http'), '.mjs')
+const serverSource = readTree(pkgPath('runtime', 'http'), '.ts')
 
 describe('backend start decision table', () => {
   it('prefers a listening port over a stale child handle', () => {
@@ -73,7 +76,7 @@ describe('configuration contract', () => {
     const file = path.join(dir, 'dsh-t14-config.json')
     fs.writeFileSync(file, JSON.stringify({ httpPort: 19876, workerPort: 19877 }), 'utf8')
     try {
-      const code = 'import(' + JSON.stringify(pathToFileURL(pkgPath('runtime', 'config.mjs')).href) + ').then(m => console.log(JSON.stringify({ http: m.CFG.httpPort, worker: m.CFG.workerPort })))'
+      const code = 'import(' + JSON.stringify(pathToFileURL(pkgPath('lib', 'runtime', 'config.js')).href) + ').then(m => console.log(JSON.stringify({ http: m.CFG.httpPort, worker: m.CFG.workerPort })))'
       const raw = execFileSync(process.execPath, ['--input-type=module', '-e', code], {
         encoding: 'utf8',
         env: { ...process.env, DSH_BLENDER_CONFIG: file },
@@ -85,7 +88,7 @@ describe('configuration contract', () => {
   })
 
   it('falls back to defaults for invalid numeric overrides', () => {
-    const code = 'import(' + JSON.stringify(pathToFileURL(pkgPath('runtime', 'config.mjs')).href) + ').then(m => console.log(JSON.stringify({ addon: m.CFG.addonPort, http: m.CFG.httpPort, ttl: m.CFG.leaseTtlMs })))'
+    const code = 'import(' + JSON.stringify(pathToFileURL(pkgPath('lib', 'runtime', 'config.js')).href) + ').then(m => console.log(JSON.stringify({ addon: m.CFG.addonPort, http: m.CFG.httpPort, ttl: m.CFG.leaseTtlMs })))'
     const raw = execFileSync(process.execPath, ['--input-type=module', '-e', code], {
       encoding: 'utf8',
       env: {
@@ -100,7 +103,7 @@ describe('configuration contract', () => {
   })
 
   it('honors every DSH_BLENDER_* environment override', () => {
-    const code = 'import(' + JSON.stringify(pathToFileURL(pkgPath('runtime', 'config.mjs')).href) + ').then(m => console.log(JSON.stringify({ cfg: { host: m.CFG.addonHost, addonPort: m.CFG.addonPort, httpPort: m.CFG.httpPort, leaseTtlMs: m.CFG.leaseTtlMs, workerPort: m.CFG.workerPort, holder: m.CFG.holder }, summary: m.describeConfig() })))'
+    const code = 'import(' + JSON.stringify(pathToFileURL(pkgPath('lib', 'runtime', 'config.js')).href) + ').then(m => console.log(JSON.stringify({ cfg: { host: m.CFG.addonHost, addonPort: m.CFG.addonPort, httpPort: m.CFG.httpPort, leaseTtlMs: m.CFG.leaseTtlMs, workerPort: m.CFG.workerPort, holder: m.CFG.holder }, summary: m.describeConfig() })))'
     const raw = execFileSync(process.execPath, ['--input-type=module', '-e', code], {
       encoding: 'utf8',
       env: {

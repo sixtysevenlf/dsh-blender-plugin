@@ -1,0 +1,3459 @@
+
+> @dsh-external/dsh-blender-plugin@2.6.2 prepack
+> npm run build && node scripts/check-build.mjs
+
+
+> @dsh-external/dsh-blender-plugin@2.6.2 build
+> node scripts/build.mjs all
+
+build: runtime tsc (runtime → lib/runtime) · tsc=D:\DSH\tmp\clean-build-drill2\node_modules\typescript\lib\tsc.js
+build: host tsc (src → lib) · tsc=D:\DSH\tmp\clean-build-drill2\node_modules\typescript\lib\tsc.js
+build: client half (src/client → lib/client.js)
+build-client: src\client\index.js → lib\client.js
+  · 27928 B  sha256 31e693ec7197
+  · sourceMappingURL：（无 .map，未挂引用）
+build: all targets OK
+check-build: PASS
+  ✓ build-runtime — build: runtime tsc (runtime → lib/runtime) · tsc=D:\DSH\tmp\clean-build-drill2\node_modules\typescript\lib\tsc.js
+  ✓ runtime-artifacts — lib/runtime/server.js, lib/runtime/engine.js, lib/runtime/catalog.js
+  ✓ resolve-tsc — D:\DSH\tmp\clean-build-drill2\node_modules\typescript\lib\tsc.js
+  ✓ tsc-emit
+  ✓ artifacts — lib/index.js, lib/plugin.js, lib/tools/index.js, lib/tools/viewport.js, lib/plan/tool.js, lib/host/backend.js, lib/host/http.js, lib/ui/cards.js, lib/headless/receipts.js, lib/types/index.d.ts
+  ✓ entry-bytes — 809 B
+  ✓ no-ts-nocheck — clean
+  ✓ check-structure — check-structure: PASS
+  ✓ runtime-no-mjs — 0 .mjs
+  ✓ runtime-ts — 62 .ts, 0 @ts-nocheck
+  ✓ lib-not-tracked — untracked
+  ✓ build-client-check — build-client --check: 最新 ✅  lib\client.js  sha256 31e693ec7197 / 27928 B
+[
+  {
+    "id": "@dsh-external/dsh-blender-plugin@2.6.2",
+    "name": "@dsh-external/dsh-blender-plugin",
+    "version": "2.6.2",
+    "size": 2163161,
+    "unpackedSize": 7046149,
+    "shasum": "221f6ca5a8acf37f5449b8daa696eb0bc53e897a",
+    "integrity": "sha512-Yq2QTNSaKqhAOpjaaG5u5oC8vsy9bFAxnXTGhiklZy9V+b1pTEw5A3BYKZK45F3yVnY+ZUwq2YUbDiJo+ghWHQ==",
+    "filename": "dsh-external-dsh-blender-plugin-2.6.2.tgz",
+    "files": [
+      {
+        "path": "CHANGELOG.md",
+        "size": 241650,
+        "mode": 420
+      },
+      {
+        "path": "LICENSE",
+        "size": 1549,
+        "mode": 420
+      },
+      {
+        "path": "MIGRATIONS.md",
+        "size": 5858,
+        "mode": 420
+      },
+      {
+        "path": "README.md",
+        "size": 11945,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge.zip",
+        "size": 330728,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/__init__.py",
+        "size": 14277,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/assets/__init__.py",
+        "size": 62,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/assets/io.py",
+        "size": 7864,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/commands/__init__.py",
+        "size": 64,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/commands/activity.py",
+        "size": 1442,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/commands/assets_polyhaven.py",
+        "size": 34364,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/commands/assets_polypizza.py",
+        "size": 15000,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/commands/assets_sketchfab.py",
+        "size": 19017,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/commands/core.py",
+        "size": 25939,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/commands/generate_hunyuan.py",
+        "size": 17948,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/commands/generate_hyper3d.py",
+        "size": 12874,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/commands/generate_premium.py",
+        "size": 941,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/commands/material.py",
+        "size": 5870,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/commands/scene.py",
+        "size": 13786,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/commands/selection.py",
+        "size": 12744,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/commands/telemetry.py",
+        "size": 1908,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/compat.py",
+        "size": 6164,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/config.py",
+        "size": 5134,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/integrations/__init__.py",
+        "size": 68,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/integrations/hunyuan_client.py",
+        "size": 4086,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/integrations/hyper3d_client.py",
+        "size": 525,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/integrations/polyhaven_client.py",
+        "size": 24617,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/integrations/polypizza_client.py",
+        "size": 4861,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/integrations/sketchfab_client.py",
+        "size": 344,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/premium/__init__.py",
+        "size": 63,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/premium/client.py",
+        "size": 9820,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/premium/jobs.py",
+        "size": 7515,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/premium/ui.py",
+        "size": 2940,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/protocol.py",
+        "size": 2914,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/recorders/__init__.py",
+        "size": 65,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/recorders/activity.py",
+        "size": 8340,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/recorders/edit_capture.py",
+        "size": 2329,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/recorders/user_edit.py",
+        "size": 6550,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/server.py",
+        "size": 18949,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/ui/__init__.py",
+        "size": 58,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/ui/lists.py",
+        "size": 5949,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/ui/operators.py",
+        "size": 12999,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/ui/panels.py",
+        "size": 18316,
+        "mode": 420
+      },
+      {
+        "path": "addon/dsh_blender_bridge/ui/preferences.py",
+        "size": 5799,
+        "mode": 420
+      },
+      {
+        "path": "addon/README.md",
+        "size": 4251,
+        "mode": 420
+      },
+      {
+        "path": "cordis.patch.yml",
+        "size": 1057,
+        "mode": 420
+      },
+      {
+        "path": "docs/adr/0001-runtime-ts.md",
+        "size": 6148,
+        "mode": 420
+      },
+      {
+        "path": "docs/adr/0002-test-stack.md",
+        "size": 4046,
+        "mode": 420
+      },
+      {
+        "path": "docs/adr/0003-addon-package-release.md",
+        "size": 4027,
+        "mode": 420
+      },
+      {
+        "path": "docs/adr/0004-lib-build-release.md",
+        "size": 3957,
+        "mode": 420
+      },
+      {
+        "path": "docs/adr/README.md",
+        "size": 3376,
+        "mode": 420
+      },
+      {
+        "path": "docs/AI-安装提示词.md",
+        "size": 10449,
+        "mode": 420
+      },
+      {
+        "path": "docs/DSH-更新适配.md",
+        "size": 8336,
+        "mode": 420
+      },
+      {
+        "path": "docs/EEVEE-工作要点.md",
+        "size": 6862,
+        "mode": 420
+      },
+      {
+        "path": "docs/examples/chair-backrest/evidence/best_attach_probe.png",
+        "size": 2698,
+        "mode": 420
+      },
+      {
+        "path": "docs/examples/chair-backrest/evidence/best_insert_probe.png",
+        "size": 3233,
+        "mode": 420
+      },
+      {
+        "path": "docs/examples/chair-backrest/evidence/gt_external_rear.png",
+        "size": 4572,
+        "mode": 420
+      },
+      {
+        "path": "docs/examples/chair-backrest/evidence/gt_external_side.png",
+        "size": 3316,
+        "mode": 420
+      },
+      {
+        "path": "docs/examples/chair-backrest/evidence/gt_probe_no_seat.png",
+        "size": 3459,
+        "mode": 420
+      },
+      {
+        "path": "docs/examples/chair-backrest/results.json",
+        "size": 7146,
+        "mode": 420
+      },
+      {
+        "path": "docs/examples/chair-backrest/results.md",
+        "size": 3068,
+        "mode": 420
+      },
+      {
+        "path": "docs/examples/chair-backrest/run.py",
+        "size": 21854,
+        "mode": 420
+      },
+      {
+        "path": "docs/flash建模上限-整合方案.md",
+        "size": 6705,
+        "mode": 420
+      },
+      {
+        "path": "docs/headless优先-路线决定.md",
+        "size": 18982,
+        "mode": 420
+      },
+      {
+        "path": "docs/Procedura-融合分析.md",
+        "size": 15944,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/README.md",
+        "size": 1614,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T0/acceptance.md",
+        "size": 2266,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T0/artifacts.sha256",
+        "size": 707,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T0/commands.txt",
+        "size": 782,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T0/counts.json",
+        "size": 505,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T0/env.txt",
+        "size": 1143,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T0/legacy.log",
+        "size": 36777,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T0/review.md",
+        "size": 794,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T0/test.log",
+        "size": 976,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T0/typecheck.log",
+        "size": 99,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T1/acceptance.md",
+        "size": 1662,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T1/artifacts.sha256",
+        "size": 940,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T1/commands.txt",
+        "size": 569,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T1/env.txt",
+        "size": 1143,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T1/review.md",
+        "size": 589,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T1/test-windows.log",
+        "size": 976,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T1/test.log",
+        "size": 991,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T1/typecheck-wsl.log",
+        "size": 114,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T2/acceptance.md",
+        "size": 1951,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T2/artifacts.sha256",
+        "size": 1245,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T2/commands.txt",
+        "size": 194,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T2/env.txt",
+        "size": 1143,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T2/review.md",
+        "size": 598,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T2/test.log",
+        "size": 697,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T3/acceptance.md",
+        "size": 1498,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T3/artifacts.sha256",
+        "size": 616,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T3/commands.txt",
+        "size": 96,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T3/env.txt",
+        "size": 1143,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T3/review.md",
+        "size": 422,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T3/test.log",
+        "size": 300,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T4/acceptance.md",
+        "size": 2516,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T4/artifacts.sha256",
+        "size": 11524,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T4/build.log",
+        "size": 3252,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T4/commands.txt",
+        "size": 2201,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T4/env.txt",
+        "size": 2249,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T4/review.md",
+        "size": 2942,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T4/structure-report.json",
+        "size": 1942,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T4/test.log",
+        "size": 19589,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T5/acceptance.md",
+        "size": 2450,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T5/artifacts.sha256",
+        "size": 11524,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T5/build.log",
+        "size": 42691,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T5/commands.txt",
+        "size": 2484,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T5/env.txt",
+        "size": 2249,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T5/review.md",
+        "size": 3447,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T5/test.log",
+        "size": 3747,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T6/acceptance.md",
+        "size": 2392,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T6/artifacts.sha256",
+        "size": 3141,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T6/build.log",
+        "size": 84,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T6/commands.txt",
+        "size": 1291,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T6/discoverability.log",
+        "size": 3521,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T6/env.txt",
+        "size": 1477,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T6/line-counts.txt",
+        "size": 766,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T6/parity-engine.mjs",
+        "size": 2045,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T6/parity.log",
+        "size": 276,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T6/review.md",
+        "size": 3467,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T6/test.log",
+        "size": 1152,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T7/acceptance.md",
+        "size": 3487,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T7/artifacts.sha256",
+        "size": 3893,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T7/build.log",
+        "size": 47,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T7/commands.txt",
+        "size": 1421,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T7/env.txt",
+        "size": 1652,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T7/lease-selftest.log",
+        "size": 1616,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T7/line-counts.txt",
+        "size": 864,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T7/parity-server.mjs",
+        "size": 5173,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T7/parity.log",
+        "size": 582,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T7/provenance-selftest.log",
+        "size": 1122,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T7/review.md",
+        "size": 3217,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T7/test-routes.log",
+        "size": 100,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T7/test.log",
+        "size": 1152,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T8/acceptance.md",
+        "size": 3871,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T8/artifacts.sha256",
+        "size": 866,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T8/commands.txt",
+        "size": 2031,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T8/env.txt",
+        "size": 1596,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T8/review.md",
+        "size": 5713,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T8/scripts/blender_domain_loaders.py",
+        "size": 1314,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T8/scripts/blender_import_all.py",
+        "size": 1829,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T8/scripts/blender_import_flat.py",
+        "size": 1112,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T8/scripts/blender_offline_bootstrap.py",
+        "size": 1074,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T9/acceptance.md",
+        "size": 6533,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T9/artifacts.sha256",
+        "size": 5200,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T9/build.log",
+        "size": 3977,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T9/commands.txt",
+        "size": 4967,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T9/env.txt",
+        "size": 1499,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T9/review.md",
+        "size": 8717,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T9/test.log",
+        "size": 8733,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T10/acceptance.md",
+        "size": 11162,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T10/artifacts.sha256",
+        "size": 4173,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T10/build.log",
+        "size": 5385,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T10/command-matrix.json",
+        "size": 21164,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T10/command-matrix.md",
+        "size": 6654,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T10/commands.txt",
+        "size": 3123,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T10/coverage.log",
+        "size": 6418,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T10/e2e-gui.log",
+        "size": 410,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T10/e2e-headless.log",
+        "size": 410,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T10/e2e/blender-gui.results.json",
+        "size": 7835,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T10/e2e/blender-gui.stderr.log",
+        "size": 104,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T10/e2e/blender-gui.stdout.log",
+        "size": 6675,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T10/e2e/blender-headless.results.json",
+        "size": 13898,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T10/e2e/blender-headless.stderr.log",
+        "size": 394,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T10/e2e/blender-headless.stdout.log",
+        "size": 8358,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T10/env.txt",
+        "size": 1175,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T10/matrix-test.log",
+        "size": 162,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T10/review.md",
+        "size": 4897,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T10/test.log",
+        "size": 1845,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T11/acceptance.md",
+        "size": 4370,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T11/artifacts.sha256",
+        "size": 1624,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T11/build.log",
+        "size": 541,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T11/commands.txt",
+        "size": 1562,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T11/e2e.log",
+        "size": 370,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T11/env.txt",
+        "size": 906,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T11/integration.log",
+        "size": 1865,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T11/lint.log",
+        "size": 0,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T11/migration-diff.md",
+        "size": 6546,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T11/pytest.log",
+        "size": 405,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T11/review.md",
+        "size": 2773,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T11/test.log",
+        "size": 7079,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T11/typecheck.log",
+        "size": 85,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T11/unit.log",
+        "size": 3641,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T13/acceptance.md",
+        "size": 4596,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T13/artifacts.sha256",
+        "size": 2732,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T13/commands.txt",
+        "size": 1675,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T13/docs-tree.txt",
+        "size": 1396,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T13/env.txt",
+        "size": 1118,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T13/review.md",
+        "size": 2044,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T13/spec-review.md",
+        "size": 2894,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T14/acceptance.md",
+        "size": 6123,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T14/artifacts.sha256",
+        "size": 2580,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T14/commands.txt",
+        "size": 2419,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T14/counts.json",
+        "size": 386,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T14/env.txt",
+        "size": 1501,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T14/matrix-report.json",
+        "size": 699,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/evidence/T14/review.md",
+        "size": 3845,
+        "mode": 420
+      },
+      {
+        "path": "docs/refactor/spec.md",
+        "size": 23312,
+        "mode": 420
+      },
+      {
+        "path": "docs/v2.6.0-更新说明.md",
+        "size": 7399,
+        "mode": 420
+      },
+      {
+        "path": "docs/假设驱动建模-cookbook.md",
+        "size": 19995,
+        "mode": 420
+      },
+      {
+        "path": "docs/宿主集成-接口契约-v2.3增补.md",
+        "size": 22142,
+        "mode": 420
+      },
+      {
+        "path": "docs/插件与技能优化验收.md",
+        "size": 41651,
+        "mode": 420
+      },
+      {
+        "path": "docs/操作教程.md",
+        "size": 92887,
+        "mode": 420
+      },
+      {
+        "path": "docs/曲面算法.md",
+        "size": 5883,
+        "mode": 420
+      },
+      {
+        "path": "docs/给第三方的安装清单.md",
+        "size": 6870,
+        "mode": 420
+      },
+      {
+        "path": "docs/证据分级与读图纪律.md",
+        "size": 17014,
+        "mode": 420
+      },
+      {
+        "path": "docs/部署SOP.md",
+        "size": 6413,
+        "mode": 420
+      },
+      {
+        "path": "docs/配置参考.md",
+        "size": 18436,
+        "mode": 420
+      },
+      {
+        "path": "dsh-blender.config.example.json",
+        "size": 612,
+        "mode": 420
+      },
+      {
+        "path": "lib/client.js",
+        "size": 27928,
+        "mode": 420
+      },
+      {
+        "path": "lib/constants.js",
+        "size": 6066,
+        "mode": 420
+      },
+      {
+        "path": "lib/constants.js.map",
+        "size": 2795,
+        "mode": 420
+      },
+      {
+        "path": "lib/contracts/lossless.js",
+        "size": 5180,
+        "mode": 420
+      },
+      {
+        "path": "lib/contracts/lossless.js.map",
+        "size": 4460,
+        "mode": 420
+      },
+      {
+        "path": "lib/contracts/tool.js",
+        "size": 5401,
+        "mode": 420
+      },
+      {
+        "path": "lib/contracts/tool.js.map",
+        "size": 3710,
+        "mode": 420
+      },
+      {
+        "path": "lib/headless/receipts.js",
+        "size": 21372,
+        "mode": 420
+      },
+      {
+        "path": "lib/headless/receipts.js.map",
+        "size": 22854,
+        "mode": 420
+      },
+      {
+        "path": "lib/host/backend.js",
+        "size": 8558,
+        "mode": 420
+      },
+      {
+        "path": "lib/host/backend.js.map",
+        "size": 7207,
+        "mode": 420
+      },
+      {
+        "path": "lib/host/exec-context.js",
+        "size": 792,
+        "mode": 420
+      },
+      {
+        "path": "lib/host/exec-context.js.map",
+        "size": 464,
+        "mode": 420
+      },
+      {
+        "path": "lib/host/http.js",
+        "size": 8160,
+        "mode": 420
+      },
+      {
+        "path": "lib/host/http.js.map",
+        "size": 8056,
+        "mode": 420
+      },
+      {
+        "path": "lib/host/skill.js",
+        "size": 4961,
+        "mode": 420
+      },
+      {
+        "path": "lib/host/skill.js.map",
+        "size": 4574,
+        "mode": 420
+      },
+      {
+        "path": "lib/index.js",
+        "size": 842,
+        "mode": 420
+      },
+      {
+        "path": "lib/index.js.map",
+        "size": 252,
+        "mode": 420
+      },
+      {
+        "path": "lib/plan/headless-target.js",
+        "size": 9055,
+        "mode": 420
+      },
+      {
+        "path": "lib/plan/headless-target.js.map",
+        "size": 9980,
+        "mode": 420
+      },
+      {
+        "path": "lib/plan/tool.js",
+        "size": 4913,
+        "mode": 420
+      },
+      {
+        "path": "lib/plan/tool.js.map",
+        "size": 3395,
+        "mode": 420
+      },
+      {
+        "path": "lib/plugin.js",
+        "size": 7283,
+        "mode": 420
+      },
+      {
+        "path": "lib/plugin.js.map",
+        "size": 3965,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/_probe_tools.d.ts",
+        "size": 11,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/_probe_tools.js",
+        "size": 1556,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/_probe_tools.js.map",
+        "size": 3657,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/addon-protocol.d.ts",
+        "size": 2529,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/addon-protocol.js",
+        "size": 3052,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/addon-protocol.js.map",
+        "size": 6980,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/backend_probe.d.ts",
+        "size": 1128,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/backend_probe.js",
+        "size": 2415,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/backend_probe.js.map",
+        "size": 5100,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/catalog.d.ts",
+        "size": 4047,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/catalog.js",
+        "size": 51957,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/catalog.js.map",
+        "size": 74619,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/classes.d.ts",
+        "size": 2206,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/classes.js",
+        "size": 12358,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/classes.js.map",
+        "size": 18039,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/config.d.ts",
+        "size": 5349,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/config.js",
+        "size": 20823,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/config.js.map",
+        "size": 40933,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/dispatch.d.ts",
+        "size": 1692,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/dispatch.js",
+        "size": 15220,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/dispatch.js.map",
+        "size": 29256,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/engine.d.ts",
+        "size": 3990,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/engine.js",
+        "size": 7174,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/engine.js.map",
+        "size": 18369,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/errors.d.ts",
+        "size": 176,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/errors.js",
+        "size": 3318,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/errors.js.map",
+        "size": 4827,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/evidence.d.ts",
+        "size": 2557,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/evidence.js",
+        "size": 11245,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/evidence.js.map",
+        "size": 22436,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/flags.d.ts",
+        "size": 295,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/flags.js",
+        "size": 1221,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/flags.js.map",
+        "size": 1946,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/json.d.ts",
+        "size": 2049,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/json.js",
+        "size": 2598,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/json.js.map",
+        "size": 5449,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/kernel.d.ts",
+        "size": 2222,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/kernel.js",
+        "size": 19144,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/kernel.js.map",
+        "size": 32171,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/output.d.ts",
+        "size": 1378,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/output.js",
+        "size": 9405,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/output.js.map",
+        "size": 19613,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/plan-dispatch.d.ts",
+        "size": 1245,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/plan-dispatch.js",
+        "size": 30853,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/plan-dispatch.js.map",
+        "size": 62009,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/progress.d.ts",
+        "size": 1839,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/progress.js",
+        "size": 4330,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/progress.js.map",
+        "size": 9064,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/render-state.d.ts",
+        "size": 365,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/render-state.js",
+        "size": 1364,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/render-state.js.map",
+        "size": 3261,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/scripts.d.ts",
+        "size": 1941,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/scripts.js",
+        "size": 7701,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/scripts.js.map",
+        "size": 11976,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/server-compat.d.ts",
+        "size": 7495,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/server-compat.js",
+        "size": 17285,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/core/server-compat.js.map",
+        "size": 32699,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/engine.d.ts",
+        "size": 1661,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/engine.js",
+        "size": 1869,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/engine.js.map",
+        "size": 3456,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/headless.d.ts",
+        "size": 1405,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/headless.js",
+        "size": 39289,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/headless.js.map",
+        "size": 72393,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/jobs.d.ts",
+        "size": 2055,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/jobs.js",
+        "size": 26846,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/jobs.js.map",
+        "size": 55112,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/ledger.d.ts",
+        "size": 718,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/ledger.js",
+        "size": 7371,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/ledger.js.map",
+        "size": 15007,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/preset.d.ts",
+        "size": 261,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/preset.js",
+        "size": 793,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/preset.js.map",
+        "size": 1773,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/trajectory.d.ts",
+        "size": 208,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/trajectory.js",
+        "size": 5165,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/trajectory.js.map",
+        "size": 11024,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/txn.d.ts",
+        "size": 246,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/txn.js",
+        "size": 778,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/txn.js.map",
+        "size": 1746,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/workers.d.ts",
+        "size": 1626,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/workers.js",
+        "size": 16133,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/execution/workers.js.map",
+        "size": 33724,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/ext/gltf_validate_runner.d.ts",
+        "size": 11,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/ext/gltf_validate_runner.js",
+        "size": 910,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/ext/gltf_validate_runner.js.map",
+        "size": 2269,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/file_guard.d.ts",
+        "size": 3269,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/file_guard.js",
+        "size": 5168,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/file_guard.js.map",
+        "size": 7864,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/hard_exit.d.ts",
+        "size": 1574,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/hard_exit.js",
+        "size": 1824,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/hard_exit.js.map",
+        "size": 2523,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/config.d.ts",
+        "size": 1198,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/config.js",
+        "size": 1785,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/config.js.map",
+        "size": 5199,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/host.d.ts",
+        "size": 727,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/host.js",
+        "size": 8210,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/host.js.map",
+        "size": 16805,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/jobs.d.ts",
+        "size": 639,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/jobs.js",
+        "size": 2787,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/jobs.js.map",
+        "size": 5827,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/lease.d.ts",
+        "size": 3358,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/lease.js",
+        "size": 7578,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/lease.js.map",
+        "size": 15421,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/lifecycle.d.ts",
+        "size": 306,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/lifecycle.js",
+        "size": 5155,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/lifecycle.js.map",
+        "size": 10059,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/response.d.ts",
+        "size": 1199,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/response.js",
+        "size": 3412,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/response.js.map",
+        "size": 7224,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/router.d.ts",
+        "size": 529,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/router.js",
+        "size": 961,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/router.js.map",
+        "size": 2913,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/act.d.ts",
+        "size": 268,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/act.js",
+        "size": 2034,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/act.js.map",
+        "size": 4513,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/commands.d.ts",
+        "size": 368,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/commands.js",
+        "size": 1661,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/commands.js.map",
+        "size": 3730,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/deps.d.ts",
+        "size": 2100,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/deps.js",
+        "size": 232,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/deps.js.map",
+        "size": 2658,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/frame.d.ts",
+        "size": 271,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/frame.js",
+        "size": 1377,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/frame.js.map",
+        "size": 3154,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/headless.d.ts",
+        "size": 278,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/headless.js",
+        "size": 1465,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/headless.js.map",
+        "size": 3063,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/health.d.ts",
+        "size": 551,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/health.js",
+        "size": 3154,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/health.js.map",
+        "size": 6350,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/index.d.ts",
+        "size": 303,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/index.js",
+        "size": 3775,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/index.js.map",
+        "size": 8316,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/job.d.ts",
+        "size": 268,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/job.js",
+        "size": 2916,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/job.js.map",
+        "size": 5632,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/loop.d.ts",
+        "size": 270,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/loop.js",
+        "size": 1966,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/loop.js.map",
+        "size": 4011,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/opt.d.ts",
+        "size": 268,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/opt.js",
+        "size": 1161,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/opt.js.map",
+        "size": 2652,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/perf.d.ts",
+        "size": 270,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/perf.js",
+        "size": 1170,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/perf.js.map",
+        "size": 2664,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/plan.d.ts",
+        "size": 270,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/plan.js",
+        "size": 1473,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/plan.js.map",
+        "size": 3174,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/preset.d.ts",
+        "size": 274,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/preset.js",
+        "size": 1474,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/preset.js.map",
+        "size": 3139,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/session.d.ts",
+        "size": 551,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/session.js",
+        "size": 4097,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/session.js.map",
+        "size": 8616,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/txn.d.ts",
+        "size": 268,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/txn.js",
+        "size": 1456,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/txn.js.map",
+        "size": 3116,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/view.d.ts",
+        "size": 270,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/view.js",
+        "size": 2391,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/view.js.map",
+        "size": 4639,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/worker.d.ts",
+        "size": 274,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/worker.js",
+        "size": 3847,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/http/routes/worker.js.map",
+        "size": 7378,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/launch.d.ts",
+        "size": 2731,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/launch.js",
+        "size": 18304,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/launch.js.map",
+        "size": 31685,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/paths.d.ts",
+        "size": 9084,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/paths.js",
+        "size": 27881,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/paths.js.map",
+        "size": 40159,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/proc_env.d.ts",
+        "size": 1899,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/proc_env.js",
+        "size": 2881,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/proc_env.js.map",
+        "size": 5163,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/recover.d.ts",
+        "size": 1933,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/recover.js",
+        "size": 10188,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/recover.js.map",
+        "size": 20296,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/selectionstore.d.ts",
+        "size": 4754,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/selectionstore.js",
+        "size": 12713,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/selectionstore.js.map",
+        "size": 27115,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/server.d.ts",
+        "size": 11,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/server.js",
+        "size": 1949,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/server.js.map",
+        "size": 3774,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/staging.d.ts",
+        "size": 476,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/staging.js",
+        "size": 4632,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/staging.js.map",
+        "size": 8785,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/transport/probes.d.ts",
+        "size": 1757,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/transport/probes.js",
+        "size": 8378,
+        "mode": 420
+      },
+      {
+        "path": "lib/runtime/transport/probes.js.map",
+        "size": 18236,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/cmd.js",
+        "size": 2659,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/cmd.js.map",
+        "size": 2219,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/commands.js",
+        "size": 2251,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/commands.js.map",
+        "size": 2435,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/do.js",
+        "size": 12335,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/do.js.map",
+        "size": 11295,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/headless.js",
+        "size": 13403,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/headless.js.map",
+        "size": 9514,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/index.js",
+        "size": 1492,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/index.js.map",
+        "size": 1470,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/job.js",
+        "size": 13669,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/job.js.map",
+        "size": 11039,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/loop.js",
+        "size": 8375,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/loop.js.map",
+        "size": 5881,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/opt.js",
+        "size": 2271,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/opt.js.map",
+        "size": 1901,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/perf.js",
+        "size": 2500,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/perf.js.map",
+        "size": 1867,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/preset.js",
+        "size": 5534,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/preset.js.map",
+        "size": 5053,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/schema-diagnostic.js",
+        "size": 2166,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/schema-diagnostic.js.map",
+        "size": 1219,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/see.js",
+        "size": 15225,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/see.js.map",
+        "size": 12115,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/txn.js",
+        "size": 5681,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/txn.js.map",
+        "size": 4692,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/viewport.js",
+        "size": 18723,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/viewport.js.map",
+        "size": 14781,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/watch.js",
+        "size": 8636,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/watch.js.map",
+        "size": 10429,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/worker.js",
+        "size": 11090,
+        "mode": 420
+      },
+      {
+        "path": "lib/tools/worker.js.map",
+        "size": 10318,
+        "mode": 420
+      },
+      {
+        "path": "lib/tui-host.js",
+        "size": 30371,
+        "mode": 420
+      },
+      {
+        "path": "lib/tui-host.js.map",
+        "size": 27060,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/constants.d.ts",
+        "size": 2358,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/contracts/lossless.d.ts",
+        "size": 1636,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/contracts/tool.d.ts",
+        "size": 244,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/headless/receipts.d.ts",
+        "size": 2485,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/host/backend.d.ts",
+        "size": 2515,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/host/exec-context.d.ts",
+        "size": 250,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/host/http.d.ts",
+        "size": 2766,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/host/skill.d.ts",
+        "size": 925,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/index.d.ts",
+        "size": 809,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/plan/headless-target.d.ts",
+        "size": 824,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/plan/tool.d.ts",
+        "size": 68,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/plugin.d.ts",
+        "size": 1773,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/tools/cmd.d.ts",
+        "size": 67,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/tools/commands.d.ts",
+        "size": 72,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/tools/do.d.ts",
+        "size": 66,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/tools/headless.d.ts",
+        "size": 72,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/tools/index.d.ts",
+        "size": 69,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/tools/job.d.ts",
+        "size": 67,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/tools/loop.d.ts",
+        "size": 68,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/tools/opt.d.ts",
+        "size": 67,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/tools/perf.d.ts",
+        "size": 68,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/tools/preset.d.ts",
+        "size": 70,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/tools/schema-diagnostic.d.ts",
+        "size": 724,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/tools/see.d.ts",
+        "size": 67,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/tools/txn.d.ts",
+        "size": 67,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/tools/viewport.d.ts",
+        "size": 72,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/tools/watch.d.ts",
+        "size": 69,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/tools/worker.d.ts",
+        "size": 70,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/tui-host.d.ts",
+        "size": 4836,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/ui/cards.d.ts",
+        "size": 1519,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/utils/frame-cache.d.ts",
+        "size": 1376,
+        "mode": 420
+      },
+      {
+        "path": "lib/types/utils/image.d.ts",
+        "size": 1112,
+        "mode": 420
+      },
+      {
+        "path": "lib/ui/cards.js",
+        "size": 12388,
+        "mode": 420
+      },
+      {
+        "path": "lib/ui/cards.js.map",
+        "size": 11723,
+        "mode": 420
+      },
+      {
+        "path": "lib/utils/frame-cache.js",
+        "size": 2038,
+        "mode": 420
+      },
+      {
+        "path": "lib/utils/frame-cache.js.map",
+        "size": 1327,
+        "mode": 420
+      },
+      {
+        "path": "lib/utils/image.js",
+        "size": 4625,
+        "mode": 420
+      },
+      {
+        "path": "lib/utils/image.js.map",
+        "size": 5037,
+        "mode": 420
+      },
+      {
+        "path": "package.json",
+        "size": 6008,
+        "mode": 420
+      },
+      {
+        "path": "runtime/assembly.py",
+        "size": 823,
+        "mode": 420
+      },
+      {
+        "path": "runtime/audit.py",
+        "size": 796,
+        "mode": 420
+      },
+      {
+        "path": "runtime/blockout.py",
+        "size": 823,
+        "mode": 420
+      },
+      {
+        "path": "runtime/calib.py",
+        "size": 802,
+        "mode": 420
+      },
+      {
+        "path": "runtime/clearance.py",
+        "size": 828,
+        "mode": 420
+      },
+      {
+        "path": "runtime/contract.py",
+        "size": 811,
+        "mode": 420
+      },
+      {
+        "path": "runtime/deliver.py",
+        "size": 812,
+        "mode": 420
+      },
+      {
+        "path": "runtime/evalharness.py",
+        "size": 826,
+        "mode": 420
+      },
+      {
+        "path": "runtime/faceeval.py",
+        "size": 823,
+        "mode": 420
+      },
+      {
+        "path": "runtime/gate.py",
+        "size": 791,
+        "mode": 420
+      },
+      {
+        "path": "runtime/generator.py",
+        "size": 30713,
+        "mode": 420
+      },
+      {
+        "path": "runtime/geo.py",
+        "size": 798,
+        "mode": 420
+      },
+      {
+        "path": "runtime/human.py",
+        "size": 808,
+        "mode": 420
+      },
+      {
+        "path": "runtime/imgtools.py",
+        "size": 817,
+        "mode": 420
+      },
+      {
+        "path": "runtime/kit.py",
+        "size": 786,
+        "mode": 420
+      },
+      {
+        "path": "runtime/material.py",
+        "size": 817,
+        "mode": 420
+      },
+      {
+        "path": "runtime/mesh_fix.py",
+        "size": 823,
+        "mode": 420
+      },
+      {
+        "path": "runtime/montage.py",
+        "size": 812,
+        "mode": 420
+      },
+      {
+        "path": "runtime/motion.py",
+        "size": 801,
+        "mode": 420
+      },
+      {
+        "path": "runtime/offline_bootstrap.py",
+        "size": 856,
+        "mode": 420
+      },
+      {
+        "path": "runtime/perf.py",
+        "size": 791,
+        "mode": 420
+      },
+      {
+        "path": "runtime/pipeline.py",
+        "size": 811,
+        "mode": 420
+      },
+      {
+        "path": "runtime/planner.py",
+        "size": 806,
+        "mode": 420
+      },
+      {
+        "path": "runtime/presets.py",
+        "size": 806,
+        "mode": 420
+      },
+      {
+        "path": "runtime/printcheck.py",
+        "size": 827,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/__init__.py",
+        "size": 179,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/assembly/__init__.py",
+        "size": 908,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/assembly/assembly_features.json",
+        "size": 16359,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/assembly/assembly.py",
+        "size": 229494,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/assembly/clearance.py",
+        "size": 8524,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/assembly/human.py",
+        "size": 26993,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/assembly/vehicle.py",
+        "size": 81397,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/core/__init__.py",
+        "size": 1081,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/core/audit.py",
+        "size": 181346,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/core/contract.py",
+        "size": 103117,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/core/evalharness.py",
+        "size": 43532,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/core/gate.py",
+        "size": 70348,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/core/kit.py",
+        "size": 19088,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/core/motion.py",
+        "size": 138761,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/core/offline_bootstrap.py",
+        "size": 7132,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/core/perf.py",
+        "size": 19319,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/core/pipeline.py",
+        "size": 11170,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/core/planner.py",
+        "size": 22297,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/core/presets.py",
+        "size": 20615,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/core/runner.py",
+        "size": 26156,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/core/sweep.py",
+        "size": 16076,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/core/txn.py",
+        "size": 41850,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/core/worker.py",
+        "size": 24914,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/export/__init__.py",
+        "size": 883,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/export/deliver.py",
+        "size": 52710,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/export/open3d_check.py",
+        "size": 1736,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/export/printcheck.py",
+        "size": 46448,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/geometry/__init__.py",
+        "size": 980,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/geometry/blockout.py",
+        "size": 116837,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/geometry/faceeval.py",
+        "size": 8757,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/geometry/geo.py",
+        "size": 36783,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/geometry/mesh_fix.py",
+        "size": 15274,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/geometry/sculpt.py",
+        "size": 37625,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/geometry/shapegen.py",
+        "size": 42403,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/geometry/shapesolve.py",
+        "size": 43013,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/geometry/surface.py",
+        "size": 91964,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/render/__init__.py",
+        "size": 988,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/render/calib.py",
+        "size": 24431,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/render/imgtools.py",
+        "size": 121064,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/render/material.py",
+        "size": 32078,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/render/montage.py",
+        "size": 13156,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/render/qc_render.py",
+        "size": 210114,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/render/qc.py",
+        "size": 54190,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/render/render_guard.py",
+        "size": 10326,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/render/view.py",
+        "size": 46478,
+        "mode": 420
+      },
+      {
+        "path": "runtime/py/render/visualreport.py",
+        "size": 60997,
+        "mode": 420
+      },
+      {
+        "path": "runtime/qc_render.py",
+        "size": 822,
+        "mode": 420
+      },
+      {
+        "path": "runtime/qc.py",
+        "size": 787,
+        "mode": 420
+      },
+      {
+        "path": "runtime/render_guard.py",
+        "size": 837,
+        "mode": 420
+      },
+      {
+        "path": "runtime/runner.py",
+        "size": 801,
+        "mode": 420
+      },
+      {
+        "path": "runtime/sculpt.py",
+        "size": 813,
+        "mode": 420
+      },
+      {
+        "path": "runtime/shapegen.py",
+        "size": 823,
+        "mode": 420
+      },
+      {
+        "path": "runtime/shapesolve.py",
+        "size": 833,
+        "mode": 420
+      },
+      {
+        "path": "runtime/surface.py",
+        "size": 818,
+        "mode": 420
+      },
+      {
+        "path": "runtime/sweep.py",
+        "size": 796,
+        "mode": 420
+      },
+      {
+        "path": "runtime/txn.py",
+        "size": 786,
+        "mode": 420
+      },
+      {
+        "path": "runtime/uv_tools.py",
+        "size": 17840,
+        "mode": 420
+      },
+      {
+        "path": "runtime/vehicle.py",
+        "size": 818,
+        "mode": 420
+      },
+      {
+        "path": "runtime/view.py",
+        "size": 797,
+        "mode": 420
+      },
+      {
+        "path": "runtime/visualreport.py",
+        "size": 837,
+        "mode": 420
+      },
+      {
+        "path": "runtime/worker.py",
+        "size": 801,
+        "mode": 420
+      },
+      {
+        "path": "skills/blender-modeling/install.sh",
+        "size": 1045,
+        "mode": 420
+      },
+      {
+        "path": "skills/blender-modeling/LICENSE",
+        "size": 1412,
+        "mode": 420
+      },
+      {
+        "path": "skills/blender-modeling/NOTICE.md",
+        "size": 1277,
+        "mode": 420
+      },
+      {
+        "path": "skills/blender-modeling/README.md",
+        "size": 3850,
+        "mode": 420
+      },
+      {
+        "path": "skills/blender-modeling/references/modeling-overview.md",
+        "size": 12989,
+        "mode": 420
+      },
+      {
+        "path": "skills/blender-modeling/references/multiview-calibration.md",
+        "size": 22282,
+        "mode": 420
+      },
+      {
+        "path": "skills/blender-modeling/references/参考图通用还原SOP.md",
+        "size": 12605,
+        "mode": 420
+      },
+      {
+        "path": "skills/blender-modeling/references/曲面算法.md",
+        "size": 3443,
+        "mode": 420
+      },
+      {
+        "path": "skills/blender-modeling/references/验收清单.md",
+        "size": 9977,
+        "mode": 420
+      },
+      {
+        "path": "skills/blender-modeling/SKILL.md",
+        "size": 85508,
+        "mode": 420
+      },
+      {
+        "path": "tests/BEHAVIOR_MATRIX.md",
+        "size": 118613,
+        "mode": 420
+      },
+      {
+        "path": "tests/conftest.py",
+        "size": 309,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender_42_headless.mjs",
+        "size": 1972,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/assembly_export_selftest.py",
+        "size": 18486,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/assembly_repair_selftest.py",
+        "size": 16351,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/assembly_selftest.py",
+        "size": 18597,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/audit_file_selftest.py",
+        "size": 32785,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/audit_review_regression.py",
+        "size": 28539,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/blockout_refsheet_selftest.py",
+        "size": 21265,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/blockout_selftest.py",
+        "size": 18343,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/contract_selftest.py",
+        "size": 10641,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/deliver_selftest.py",
+        "size": 24754,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/evalharness_selftest.py",
+        "size": 10851,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/gate_review_regression.py",
+        "size": 35723,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/geo_selftest.py",
+        "size": 1701,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/img_digest_selftest.py",
+        "size": 18176,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/mate_selftest.py",
+        "size": 23943,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/motion_selftest.py",
+        "size": 17645,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/p0_real_modeling_selftest.py",
+        "size": 4616,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/plan_selftest.py",
+        "size": 6416,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/qc_selftest.py",
+        "size": 3756,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/shapesolve_selftest.py",
+        "size": 14371,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/surface_selftest.py",
+        "size": 14507,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/txn_restore_selftest.py",
+        "size": 11202,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/txn_selftest.py",
+        "size": 23566,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/upstream_integration_selftest.py",
+        "size": 52636,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/view_diag_selftest.py",
+        "size": 9931,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/cases/visualreport_selftest.py",
+        "size": 19287,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/harness.py",
+        "size": 3916,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/legacy_runner.py",
+        "size": 3556,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/legacy.py",
+        "size": 3382,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/package_check.py",
+        "size": 3911,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/runner.py",
+        "size": 8142,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_addon_e2e.py",
+        "size": 5900,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_assembly_export.py",
+        "size": 1176,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_assembly_repair.py",
+        "size": 1188,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_assembly.py",
+        "size": 1154,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_audit_file.py",
+        "size": 1090,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_audit_review.py",
+        "size": 1115,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_blockout_refsheet.py",
+        "size": 1124,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_blockout.py",
+        "size": 1083,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_contract.py",
+        "size": 1115,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_deliver.py",
+        "size": 1101,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_evalharness.py",
+        "size": 1173,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_gate_review.py",
+        "size": 1155,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_geo.py",
+        "size": 1073,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_imgtools.py",
+        "size": 1066,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_mate.py",
+        "size": 1048,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_motion.py",
+        "size": 1043,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_p0_real_modeling.py",
+        "size": 1122,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_plan.py",
+        "size": 1059,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_qc.py",
+        "size": 1325,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_shapesolve.py",
+        "size": 1059,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_surface.py",
+        "size": 1054,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_txn_restore.py",
+        "size": 1061,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_txn.py",
+        "size": 1075,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_upstream_integration.py",
+        "size": 1307,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_view_diag.py",
+        "size": 1091,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/blender/test_visualreport.py",
+        "size": 1087,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/gui/cases/gui_channel_probe.mjs",
+        "size": 2420,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/gui/gui_connect_probe.py",
+        "size": 9814,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/gui/harness.py",
+        "size": 3966,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/gui/test_gui_channel.py",
+        "size": 1413,
+        "mode": 420
+      },
+      {
+        "path": "tests/e2e/gui/test_gui_connect.py",
+        "size": 3430,
+        "mode": 420
+      },
+      {
+        "path": "tests/fixtures/capability.lock.json",
+        "size": 2292,
+        "mode": 420
+      },
+      {
+        "path": "tests/fixtures/plan_readonly.baseline.json",
+        "size": 1757,
+        "mode": 420
+      },
+      {
+        "path": "tests/fixtures/README.md",
+        "size": 431,
+        "mode": 420
+      },
+      {
+        "path": "tests/helpers/bpy_stub.py",
+        "size": 9762,
+        "mode": 420
+      },
+      {
+        "path": "tests/helpers/fake-addon.mjs",
+        "size": 3281,
+        "mode": 420
+      },
+      {
+        "path": "tests/helpers/fake-backend.mjs",
+        "size": 6695,
+        "mode": 420
+      },
+      {
+        "path": "tests/helpers/png_decode.py",
+        "size": 615,
+        "mode": 420
+      },
+      {
+        "path": "tests/integration/python/__init__.py",
+        "size": 0,
+        "mode": 420
+      },
+      {
+        "path": "tests/integration/python/test_addon_command_matrix.py",
+        "size": 13508,
+        "mode": 420
+      },
+      {
+        "path": "tests/integration/python/test_addon_dispatch.py",
+        "size": 10069,
+        "mode": 420
+      },
+      {
+        "path": "tests/integration/python/test_addon_launcher_contract.py",
+        "size": 1765,
+        "mode": 420
+      },
+      {
+        "path": "tests/integration/python/test_addon_packaging.py",
+        "size": 6124,
+        "mode": 420
+      },
+      {
+        "path": "tests/integration/python/test_addon_protocol_frames.py",
+        "size": 5758,
+        "mode": 420
+      },
+      {
+        "path": "tests/integration/python/test_smoke.py",
+        "size": 57,
+        "mode": 420
+      },
+      {
+        "path": "tests/MIGRATION.md",
+        "size": 12887,
+        "mode": 420
+      },
+      {
+        "path": "tests/README.md",
+        "size": 2355,
+        "mode": 420
+      },
+      {
+        "path": "tests/unit/python/__init__.py",
+        "size": 0,
+        "mode": 420
+      },
+      {
+        "path": "tests/unit/python/test_addon_activity.py",
+        "size": 7620,
+        "mode": 420
+      },
+      {
+        "path": "tests/unit/python/test_addon_assets_io.py",
+        "size": 7791,
+        "mode": 420
+      },
+      {
+        "path": "tests/unit/python/test_addon_config.py",
+        "size": 9576,
+        "mode": 420
+      },
+      {
+        "path": "tests/unit/python/test_addon_manifest.py",
+        "size": 3464,
+        "mode": 420
+      },
+      {
+        "path": "tests/unit/python/test_addon_premium.py",
+        "size": 23990,
+        "mode": 420
+      },
+      {
+        "path": "tests/unit/python/test_addon_protocol.py",
+        "size": 5161,
+        "mode": 420
+      },
+      {
+        "path": "tests/unit/python/test_addon_selection.py",
+        "size": 13164,
+        "mode": 420
+      },
+      {
+        "path": "tests/unit/python/test_gate_eval.py",
+        "size": 4926,
+        "mode": 420
+      },
+      {
+        "path": "tests/unit/python/test_generator_dispatch.py",
+        "size": 4027,
+        "mode": 420
+      },
+      {
+        "path": "tests/unit/python/test_import_smoke.py",
+        "size": 6089,
+        "mode": 420
+      },
+      {
+        "path": "tests/unit/python/test_runtime_layout.py",
+        "size": 8225,
+        "mode": 420
+      },
+      {
+        "path": "tests/unit/python/test_smoke.py",
+        "size": 56,
+        "mode": 420
+      },
+      {
+        "path": "tests/unit/python/test_surface_fit_contract.py",
+        "size": 1605,
+        "mode": 420
+      }
+    ],
+    "entryCount": 683,
+    "bundled": []
+  }
+]

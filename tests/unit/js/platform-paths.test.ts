@@ -5,8 +5,8 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import {
   CFG, IS_MAC, IS_WSL, PATHS, describeConfig, detectWsl, winToWsl, wslToWin,
-} from '../../../runtime/config.mjs'
-import { PATH_GUARD, PATH_HELPERS, WIN_TMP, WSL_TMP, blenderJoin } from '../../../runtime/engine.mjs'
+} from '../../../runtime/config.js'
+import { PATH_GUARD, PATH_HELPERS, WIN_TMP, WSL_TMP, blenderJoin } from '../../../runtime/engine.js'
 import { pkgPath } from '../../helpers/pkg'
 
 // issue #11 / #32 / #33: the plug-in was written for "WSL + Windows Blender".
@@ -80,7 +80,7 @@ describe('current platform branch', () => {
 
 describe('source guards (WSL/Windows branches still exist)', () => {
   it('keeps the UNC and /mnt mappings and the WSL detection fallback', () => {
-    const config = read('runtime/config.mjs')
+    const config = read('runtime/config.ts')
     expect(config).toContain('wsl.localhost')
     expect(config).toContain('^\\/mnt\\/([a-z])\\/')
     expect(/if\s*\(!IS_WSL\)\s*return\s*s;/.test(config)).toBe(true)
@@ -90,7 +90,7 @@ describe('source guards (WSL/Windows branches still exist)', () => {
     expect(config).toContain('where.exe')
   })
   it('keeps the WSL path-helper rewrite', () => {
-    const source = read('runtime/engine.mjs') + NL + read('runtime/paths.mjs') + NL + read('runtime/proc_env.mjs')
+    const source = read('runtime/engine.ts') + NL + read('runtime/paths.ts') + NL + read('runtime/proc_env.ts')
     expect(source).toContain('WSLENV')
     expect(source).toContain('startswith("/mnt/")')
   })
@@ -113,7 +113,10 @@ describe('macOS branch (runs only on macOS)', () => {
     }
   })
 
-  it('compiles the Blender-side path helpers with Python (macOS identity)', () => {
+  // macOS identity only: on Windows the same helper intentionally emits UNC paths
+  // (\\wsl.localhost\...) and native backslashes, so the macOS expectations below
+  // only hold on a Mac. Mirrors the sibling skipIf above.
+  it.skipIf(!IS_MAC)('compiles the Blender-side path helpers with Python (macOS identity)', () => {
     const python = pythonAvailable()
     if (!python) return
     const probe = path.join(os.tmpdir(), 'dsh_mac_paths_probe.py')

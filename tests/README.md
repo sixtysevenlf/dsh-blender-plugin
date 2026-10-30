@@ -18,7 +18,7 @@ Run: `npm run test:unit`, `npm run test:contract`, or `npm run test:python`.
 
 `tests/integration/js` and `tests/integration/python`.
 
-Integration tests may start the local backend (`runtime/server.mjs`), the fake add-on socket, or a
+Integration tests may start the local backend (`lib/runtime/server.js`), the fake add-on socket, or a
 fake DSH host context, but never a real Blender GUI. Ports are ephemeral, every server is stopped
 in a fixture, and assertions are explicit (no retrying to hide flakes).
 

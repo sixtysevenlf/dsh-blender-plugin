@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   PLAN_CATALOG, PLAN_READ_ONLY, catalogPayload, planOpNames,
-} from '../../../runtime/engine.mjs'
-import { createPlanDispatch } from '../../../runtime/core/plan-dispatch.mjs'
+} from '../../../runtime/engine.js'
+import { createPlanDispatch } from '../../../runtime/core/plan-dispatch.js'
 
 // P2 declarative search (plan op shape_search): the only plan op orchestrated
 // locally in JS. Route/catalog drift and a broken spec generator both surface
@@ -13,14 +13,24 @@ import { createPlanDispatch } from '../../../runtime/core/plan-dispatch.mjs'
 const VIEW = { from: [0, -6, 1.0], look_at: [0, 0, 0.5], lens: 50, ortho: true }
 const APPLY = 'ob.location.y = p["dy_mm"] / 1000.0' + String.fromCharCode(10) + '    bpy.context.view_layer.update()'
 const dispatch = createPlanDispatch({} as any)
-const search = (args: Record<string, unknown>) => dispatch.planCall('shape_search', Object.assign({ dry_run: true }, args))
+interface SearchSpec { setup: string; step: string; measure: string }
+interface SearchRes {
+  ok: boolean
+  dry_run?: boolean
+  spec_echo: { strategy?: string; combos?: number; iterations?: number }
+  spec: SearchSpec
+  skeleton: string
+  [key: string]: unknown
+}
+const search = (args: Record<string, unknown>): Promise<SearchRes> =>
+  dispatch.planCall('shape_search', Object.assign({ dry_run: true }, args)) as unknown as Promise<SearchRes>
 
 describe('shape_search catalog surface', () => {
   it('is listed, not read-only, and matches the catalog count', () => {
     const names = planOpNames()
     expect(names).toContain('shape_search')
     expect(names.length).toBe(catalogPayload({}).ops_count)
-    const shape = PLAN_CATALOG.find((f: any) => f.f === 'shape')
+    const shape = PLAN_CATALOG.find((f) => f.f === 'shape')!
     expect(shape.ops).toContain('search')
     expect(PLAN_READ_ONLY.has('shape_search')).toBe(false)
     expect(catalogPayload({ family: 'shape' }).text).toContain('search')

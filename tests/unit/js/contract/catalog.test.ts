@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
-import { catalogPayload, planOpNames } from '../../../../runtime/engine.mjs'
+import { catalogPayload, planOpNames } from '../../../../runtime/engine.js'
 import { pkgPath } from '../../../helpers/pkg'
 
 const lock = JSON.parse(fs.readFileSync(pkgPath('tests', 'fixtures', 'capability.lock.json'), 'utf8'))
 
 describe('catalog contract', () => {
-  const payload = catalogPayload({ full: true })
+  const payload = catalogPayload({ full: true }) as any
 
   it('reports the frozen 34 family / 228 op surface', () => {
     expect(payload.ok).toBe(true)

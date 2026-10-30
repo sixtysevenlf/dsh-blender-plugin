@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import {
   FILE_ALIAS_KEYS, detectFileAlias, headlessLogNames, noInputFileWarning, validateFileOpt,
-} from '../../../runtime/file_guard.mjs'
-import { describeMissingInput as describeMissingRaw } from '../../../runtime/file_guard.mjs'
+} from '../../../runtime/file_guard.js'
+import { describeMissingInput as describeMissingRaw } from '../../../runtime/file_guard.js'
 
 // runtime/file_guard.d.mts types describeMissingInput as string; the frozen
 // receipt shape is {given, opened, reason}, so keep the runtime truth local.
 const describeMissingInput = describeMissingRaw as unknown as (a: unknown, b?: boolean) => { given: boolean, opened: boolean, reason: string }
-import { headlessScriptName } from '../../../runtime/staging.mjs'
+import { headlessScriptName } from '../../../runtime/staging.js'
 import { pkgPath } from '../../helpers/pkg'
 
 // F-09: a missing/empty/misnamed file= used to look like a successful headless
@@ -76,11 +76,11 @@ describe('headless file option guard', () => {
   })
 
   it('is wired into both execution paths and the tools', () => {
-    const jobs = fs.readFileSync(pkgPath('runtime', 'execution', 'jobs.mjs'), 'utf8')
-    const headless = fs.readFileSync(pkgPath('runtime', 'execution', 'headless.mjs'), 'utf8')
+    const jobs = fs.readFileSync(pkgPath('runtime', 'execution', 'jobs.ts'), 'utf8')
+    const headless = fs.readFileSync(pkgPath('runtime', 'execution', 'headless.ts'), 'utf8')
     const headlessTool = fs.readFileSync(pkgPath('src', 'tools', 'headless.ts'), 'utf8')
     const jobTool = fs.readFileSync(pkgPath('src', 'tools', 'job.ts'), 'utf8')
-    expect(jobs).toContain('from "../file_guard.mjs"')
+    expect(jobs).toContain('from "../file_guard.js"')
     expect(jobs).toContain('validateFileOpt(opts.file)')
     expect(jobs).toContain('describeMissingInput')
     expect(jobs).toContain('noInputFileWarning')

@@ -8,7 +8,7 @@ import {
   headlessLogNames,
   noInputFileWarning,
   validateFileOpt,
-} from '../../../../runtime/file_guard.mjs'
+} from '../../../../runtime/file_guard.js'
 import { pkgPath } from '../../../helpers/pkg'
 
 function readTree(dir: string, ext: string): string {
@@ -18,7 +18,7 @@ function readTree(dir: string, ext: string): string {
   }).join('\n')
 }
 const addonSource = readTree(pkgPath('addon', 'dsh_blender_bridge'), '.py')
-const serverSource = readTree(pkgPath('runtime', 'http'), '.mjs')
+const serverSource = readTree(pkgPath('runtime', 'http'), '.ts')
 const indexSource = readTree(pkgPath('src'), '.ts')
 
 describe('file= parameter guard', () => {
@@ -83,7 +83,7 @@ describe('archive and lease security boundaries', () => {
   })
 
   it('keeps write routes behind the lease gate while read-only ops bypass it', () => {
-    expect(serverSource).toContain('function leaseGate(payload)')
+    expect(serverSource).toContain('function leaseGate(payload')
     expect(serverSource).toContain("error: 'leased'")
     expect(serverSource).toContain("const gate = leaseGate(payload);")
     expect(serverSource).toContain("const gate = isReadOnly('/loop', op) ? null : leaseGate(payload);")

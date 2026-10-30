@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
-import { pyModuleFile, pyModuleNames, PY_DOMAINS } from '../../../../runtime/paths.mjs'
+import { pyModuleFile, pyModuleNames, PY_DOMAINS } from '../../../../runtime/paths.js'
 import { pkgPath } from '../../../helpers/pkg'
 
 const DOMAINS: Record<string, string[]> = {
@@ -55,13 +55,13 @@ describe('runtime domain package layout (T8)', () => {
   })
 
   it('feeds the split engine from the real package files, not the shims', () => {
-    const kernel = fs.readFileSync(pkgPath('runtime', 'core', 'kernel.mjs'), 'utf8')
+    const kernel = fs.readFileSync(pkgPath('runtime', 'core', 'kernel.ts'), 'utf8')
     expect(kernel).toContain("fs.readFileSync(pyModuleFile(name), 'utf8')")
-    const planDispatch = fs.readFileSync(pkgPath('runtime', 'core', 'plan-dispatch.mjs'), 'utf8')
+    const planDispatch = fs.readFileSync(pkgPath('runtime', 'core', 'plan-dispatch.ts'), 'utf8')
     expect(planDispatch).toContain("path.join(RUNTIME_DIR, 'py', 'export', 'open3d_check.py')")
-    const evidence = fs.readFileSync(pkgPath('runtime', 'core', 'evidence.mjs'), 'utf8')
+    const evidence = fs.readFileSync(pkgPath('runtime', 'core', 'evidence.ts'), 'utf8')
     expect(evidence).toContain('pyModuleFile(f)')
-    const engine = fs.readFileSync(pkgPath('runtime', 'engine.mjs'), 'utf8')
+    const engine = fs.readFileSync(pkgPath('runtime', 'engine.ts'), 'utf8')
     expect(engine).not.toMatch(/path\.join\(HERE, String\(name\)\.replace/)
   })
 })

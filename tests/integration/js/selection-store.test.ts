@@ -6,8 +6,42 @@ import {
   MAX_SELECTION_COLLECTIONS, MAX_SELECTION_NAMES, MAX_SELECTION_OBJECTS, MAX_STRING_CHARS,
   MAX_SUB_BONES, MAX_SUB_INDICES, STALE_MS,
   createSelectionStore, sanitizeSelectionPayload,
-} from '../../../runtime/selectionstore.mjs'
+} from '../../../runtime/selectionstore.js'
 import { pkgPath } from '../../helpers/pkg'
+
+interface SubView {
+  type?: string
+  object?: string
+  mode?: string
+  select_mode?: Record<string, boolean>
+  counts?: Record<string, number>
+  indices: Record<string, number[]>
+  bones?: string[]
+  truncated?: boolean
+}
+interface SelectionView {
+  kind?: string
+  count?: number
+  names: string[]
+  active?: string | null
+  mode?: string
+  objects: Array<Record<string, unknown>>
+  collections: Array<Record<string, unknown>>
+  collection?: string
+  sub?: SubView | null
+  truncated?: boolean
+}
+interface SanitizedView {
+  v?: number
+  source?: string
+  sent_at?: number
+  scene?: Record<string, unknown>
+  activity?: Record<string, unknown> | null
+  selection: SelectionView
+  [key: string]: unknown
+}
+const sanitize = (payload: unknown): SanitizedView =>
+  sanitizeSelectionPayload(payload) as unknown as SanitizedView
 
 // The selection store is the only server-side truth for "Blender native selection
 // -> DSH draft". It is pure memory: the addon POSTs, the client polls. Entry is
@@ -20,7 +54,7 @@ const clock = (start = 1000) => {
 
 describe('selection payload sanitising', () => {
   it('keeps the documented shape and drops unknown fields', () => {
-    const out = sanitizeSelectionPayload({
+    const out = sanitize({
       source: 'blender-addon', sent_at: '12.9', extra: 1,
       selection: {
         count: '2', names: ['Cube', 'Lamp'], active: 'Cube', mode: 'OBJECT', extra: true,
@@ -49,7 +83,7 @@ describe('selection payload sanitising', () => {
 
   it('caps strings, names, object details and collection summaries', () => {
     const long = 'x'.repeat(MAX_STRING_CHARS + 40)
-    const out = sanitizeSelectionPayload({
+    const out = sanitize({
       selection: {
         count: 5000,
         names: Array.from({ length: MAX_SELECTION_NAMES + 10 }, (_v, i) => 'n' + String(i)),
@@ -62,13 +96,13 @@ describe('selection payload sanitising', () => {
     expect(out.selection.names.every((n: string) => n.length <= MAX_STRING_CHARS)).toBe(true)
     expect(out.selection.objects).toHaveLength(MAX_SELECTION_OBJECTS)
     expect(out.selection.collections).toHaveLength(MAX_SELECTION_COLLECTIONS)
-    expect(out.selection.sub.object).toHaveLength(MAX_STRING_CHARS)
+    expect(out.selection.sub!.object).toHaveLength(MAX_STRING_CHARS)
     expect(out.selection.truncated).toBe(true)
-    expect(out.selection.sub.indices.vertices).toEqual([1, 2, 3])
+    expect(out.selection.sub!.indices.vertices).toEqual([1, 2, 3])
   })
 
   it('normalises a missing payload to an empty objects selection', () => {
-    const out = sanitizeSelectionPayload(null)
+    const out = sanitize(null)
     expect(out.selection.kind).toBe('objects')
     expect(out.selection.count).toBe(0)
     expect(out.selection.names).toEqual([])
@@ -78,12 +112,12 @@ describe('selection payload sanitising', () => {
   })
 
   it('marks truncated when the declared count exceeds the names we received', () => {
-    const out = sanitizeSelectionPayload({ selection: { count: 9, names: [] } })
+    const out = sanitize({ selection: { count: 9, names: [] } })
     expect(out.selection.truncated).toBe(true)
   })
 
   it('rounds dimensions to 0.1mm and drops non-finite triples', () => {
-    const out = sanitizeSelectionPayload({
+    const out = sanitize({
       selection: { objects: [
         { name: 'A', type: 'MESH', dimensions_mm: [1.26, 2.34, 3] },
         { name: 'B', type: 'MESH', dimensions_mm: [1, Number.NaN, 3] },
@@ -96,7 +130,7 @@ describe('selection payload sanitising', () => {
   })
 
   it('keeps collection kind and its summary', () => {
-    const out = sanitizeSelectionPayload({
+    const out = sanitize({
       selection: { kind: 'collection', collection: 'COL_Engine', count: 57, names: ['Piston', 'Valve', 'Bolt'] },
     })
     expect(out.selection.kind).toBe('collection')
@@ -106,13 +140,13 @@ describe('selection payload sanitising', () => {
   })
 
   it('sanitises edit-mode sub selections per type', () => {
-    const mesh = sanitizeSelectionPayload({
+    const mesh = sanitize({
       selection: { sub: {
         type: 'MESH', object: 'Cube', mode: 'EDIT', select_mode: { vertex: true, edge: false, face: true },
         counts: { vertices: 8, edges: '12', faces: -1, junk: 3 },
         indices: { vertices: [1, 2, 3], faces: [4, 5] },
       } },
-    }).selection.sub
+    }).selection.sub!
     expect(mesh).toMatchObject({
       type: 'MESH', object: 'Cube', mode: 'EDIT',
       select_mode: { vertex: true, edge: false, face: true },
@@ -121,27 +155,27 @@ describe('selection payload sanitising', () => {
     })
     expect(mesh.indices).toEqual({ vertices: [1, 2, 3], faces: [4, 5] })
 
-    const armature = sanitizeSelectionPayload({
+    const armature = sanitize({
       selection: { sub: { type: 'ARMATURE', object: 'Rig', bones: ['root', 'spine'] } },
-    }).selection.sub
+    }).selection.sub!
     expect(armature.type).toBe('ARMATURE')
     expect(armature.bones).toEqual(['root', 'spine'])
 
-    const unknown = sanitizeSelectionPayload({ selection: { sub: { type: 'LIGHT', object: 'Sun' } } }).selection.sub
+    const unknown = sanitize({ selection: { sub: { type: 'LIGHT', object: 'Sun' } } }).selection.sub!
     expect(unknown.type).toBe('OTHER')
 
-    expect(sanitizeSelectionPayload({ selection: { sub: { type: 'MESH' } } }).selection.sub).toBeNull()
-    expect(sanitizeSelectionPayload({ selection: { sub: [] } }).selection.sub).toBeNull()
+    expect(sanitize({ selection: { sub: { type: 'MESH' } } }).selection.sub!).toBeNull()
+    expect(sanitize({ selection: { sub: [] } }).selection.sub!).toBeNull()
   })
 
   it('caps long indices and bones and flags truncation', () => {
-    const sub = sanitizeSelectionPayload({
+    const sub = sanitize({
       selection: { sub: {
         type: 'MESH', object: 'Cube',
         indices: { vertices: Array.from({ length: MAX_SUB_INDICES + 3 }, (_v, i) => i) },
         bones: Array.from({ length: MAX_SUB_BONES + 2 }, (_v, i) => 'b' + String(i)),
       } },
-    }).selection.sub
+    }).selection.sub!
     expect(sub.indices.vertices).toHaveLength(MAX_SUB_INDICES)
     expect(sub.bones).toHaveLength(MAX_SUB_BONES)
     expect(sub.truncated).toBe(true)
@@ -171,12 +205,12 @@ describe('selection store sequence and consume cursor', () => {
     const snap = store.snapshot()
     expect(snap.seq).toBe(1)
     expect(snap.unconsumed).toBe(true)
-    expect(snap.selection.names).toEqual(['Cube'])
+    expect((snap as unknown as { selection: SelectionView }).selection.names).toEqual(['Cube'])
     expect(snap.stale_ms).toBe(0)
     c.advance(STALE_MS + 1)
     expect(store.snapshot().stale_ms).toBe(STALE_MS + 1)
-    expect(store.put({ selection: { names: ['Lamp'] } }).seq).toBe(2)
-    expect(store.snapshot().selection.names).toEqual(['Lamp'])
+    expect((store.put({ selection: { names: ['Lamp'] } }) as unknown as { seq: number }).seq).toBe(2)
+    expect((store.snapshot() as unknown as { selection: SelectionView }).selection.names).toEqual(['Lamp'])
   })
 
   it('rejects non-object payloads without moving the cursor', () => {
@@ -219,7 +253,7 @@ describe('selection store sequence and consume cursor', () => {
   })
 
   it('reports the module through the lib-facing path', async () => {
-    const mod = await import(pathToFileURL(path.join(pkgPath('runtime', 'selectionstore.mjs'))).href)
+    const mod = await import(pathToFileURL(path.join(pkgPath('lib', 'runtime', 'selectionstore.js'))).href)
     expect(typeof mod.createSelectionStore).toBe('function')
     expect(typeof mod.sanitizeSubSelection).toBe('function')
   })

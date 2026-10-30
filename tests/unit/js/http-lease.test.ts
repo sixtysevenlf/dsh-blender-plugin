@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { spawnSync } from 'node:child_process'
-import { LEASE, isReadOnly, leaseAcquire, leaseGate, leaseView, normalizeScope, releaseStaleLease } from '../../../runtime/http/lease.mjs'
+import { LEASE, isReadOnly, leaseAcquire, leaseGate, leaseView, normalizeScope, releaseStaleLease } from '../../../runtime/http/lease.js'
 
 function resetLease() {
   LEASE.holder = null
@@ -28,19 +28,19 @@ describe('http lease module', () => {
 
   it('grants, denies another holder, and allows force takeover', () => {
     resetLease()
-    const a = leaseAcquire('plugin-a', null, false)
+    const a = leaseAcquire('plugin-a', null, false) as any
     expect(a.granted).toBe(true)
     expect(a.lease.holder).toBe('plugin-a')
     expect(leaseView().active).toBe(true)
 
-    const b = leaseAcquire('plugin-b', null, false)
+    const b = leaseAcquire('plugin-b', null, false) as any
     expect(b.denied).toBe(true)
     expect(b.holder).toBe('plugin-a')
 
-    expect(leaseAcquire('plugin-a', null, false).granted).toBe(true) // 续期同一 holder
+    expect((leaseAcquire('plugin-a', null, false) as any).granted).toBe(true) // 续期同一 holder
     expect(leaseView().renewals).toBe(1)
 
-    const forced = leaseAcquire('plugin-b', 5 * 60 * 1000, true)
+    const forced = leaseAcquire('plugin-b', 5 * 60 * 1000, true) as any
     expect(forced.granted).toBe(true)
     expect(leaseView().holder).toBe('plugin-b')
     expect(leaseView().ttlMs).toBe(5 * 60 * 1000)
@@ -49,7 +49,7 @@ describe('http lease module', () => {
   it('returns 409 envelope from leaseGate for a foreign holder', () => {
     resetLease()
     leaseAcquire('plugin-a', null, false)
-    const gate = leaseGate({ holder: 'plugin-b' })
+    const gate = leaseGate({ holder: 'plugin-b' }) as any
     expect(gate).toMatchObject({ ok: false, error: 'leased', holder: 'plugin-a' })
     expect(gate.holderScope).toBeNull()
     expect(leaseGate({ holder: 'plugin-a' })).toBeNull()

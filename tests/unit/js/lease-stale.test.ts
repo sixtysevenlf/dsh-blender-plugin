@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { spawn } from 'node:child_process'
-import { LEASE, holderAlive, leaseAcquire, leaseGate, leaseView, releaseStaleLease } from '../../../runtime/http/lease.mjs'
+import { LEASE, holderAlive, leaseAcquire, leaseGate, leaseView, releaseStaleLease } from '../../../runtime/http/lease.js'
 
 // Dead-session lease reclaim (v0.9.4): a crashed session used to keep the write
 // lease for the whole TTL and lock every other session out. The lease must be

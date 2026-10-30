@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
-import { hardExitJobParts, hardExitSyncTail } from '../../../runtime/hard_exit.mjs'
+import { hardExitJobParts, hardExitSyncTail } from '../../../runtime/hard_exit.js'
 import { pkgPath } from '../../helpers/pkg'
 
 // F-14: Blender can AV on exit *after* the result is already emitted. The
@@ -37,12 +37,12 @@ describe('headless hard exit', () => {
   })
 
   it('is wired into both execution paths and the tool schema', () => {
-    const jobs = fs.readFileSync(pkgPath('runtime', 'execution', 'jobs.mjs'), 'utf8')
-    const headless = fs.readFileSync(pkgPath('runtime', 'execution', 'headless.mjs'), 'utf8')
+    const jobs = fs.readFileSync(pkgPath('runtime', 'execution', 'jobs.ts'), 'utf8')
+    const headless = fs.readFileSync(pkgPath('runtime', 'execution', 'headless.ts'), 'utf8')
     const tool = fs.readFileSync(pkgPath('src', 'tools', 'headless.ts'), 'utf8')
-    expect(jobs).toContain('from "../hard_exit.mjs"')
+    expect(jobs).toContain('from "../hard_exit.js"')
     expect(jobs).toContain('hardExitJobParts(opts)')
-    expect(headless).toContain('from "../hard_exit.mjs"')
+    expect(headless).toContain('from "../hard_exit.js"')
     expect(headless).toContain('body += hardExitSyncTail(opts, NL)')
     expect(jobs.indexOf('hardExitJobParts(opts)')).toBeLessThan(jobs.lastIndexOf('writeHeadlessScript'))
     expect(tool).toContain('hard_exit: {')

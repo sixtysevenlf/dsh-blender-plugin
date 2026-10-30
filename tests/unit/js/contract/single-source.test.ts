@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
-import { catalogPayload, PLAN_READ_ONLY_OPS } from '../../../../runtime/engine.mjs'
+import { catalogPayload, PLAN_READ_ONLY_OPS } from '../../../../runtime/engine.js'
 import { pkgPath } from '../../../helpers/pkg'
+
+interface CatalogView { families: string[]; ops_count: number }
+const payload = (opts?: unknown): CatalogView => catalogPayload(opts) as unknown as CatalogView
 
 // S4: the read-only plan whitelist is derived from the engine, the frozen
 // baseline must match it name by name, and the hand-written family/op counts in
@@ -18,12 +21,12 @@ describe('single source of truth', () => {
   })
 
   it('server consumes the derived constant instead of a hand copy', () => {
-    const lease = fs.readFileSync(pkgPath('runtime', 'http', 'lease.mjs'), 'utf8')
+    const lease = fs.readFileSync(pkgPath('runtime', 'http', 'lease.ts'), 'utf8')
     expect(lease).toContain("'/plan': PLAN_READ_ONLY_OPS")
   })
 
   it('keeps the plan tool description counts equal to the catalog', () => {
-    const catalog = catalogPayload({})
+    const catalog = payload({})
     const source = fs.readFileSync(pkgPath('src', 'plan', 'tool.ts'), 'utf8')
     const match = source.match(/【判定 \/ 验收 \/ 导出 \/ 造型】(\d+) 个 family · (\d+) 个 op/)
     expect(match).not.toBeNull()
@@ -36,7 +39,7 @@ describe('single source of truth', () => {
     if (!fs.existsSync(agents)) return
     const text = fs.readFileSync(agents, 'utf8')
     const match = text.match(/(\d+) 个 family \/ (\d+) 个 op/)
-    const catalog = catalogPayload({})
+    const catalog = payload({})
     expect(match).not.toBeNull()
     expect(Number(match![1])).toBe(catalog.families.length)
     expect(Number(match![2])).toBe(catalog.ops_count)

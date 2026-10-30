@@ -4,10 +4,29 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { pkgPath, PKG_ROOT } from '../../helpers/pkg'
+import { ensureBuild } from '../../helpers/ensure-build'
 
+ensureBuild()
 const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-t14-pack-'))
-const npmEnv = {
-  ...process.env,
+/**
+ * Environment for the child npm. Strip every inherited npm_config_* /
+ * npm_lifecycle_* entry: when the whole suite runs under `npm test`, npm
+ * exports npm config with BOTH cases (NPM_CONFIG_CACHE="..." and
+ * npm_config_cache="..."). Spreading process.env then keeps the uppercase
+ * value, and on Windows (case-insensitive environment) the inherited default
+ * cache wins over the per-test cache override -> EPERM on the user profile.
+ */
+function npmEnvFor(extra: Record<string, string>): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {}
+  for (const [key, value] of Object.entries(process.env)) {
+    const lower = key.toLowerCase()
+    if (lower.startsWith('npm_config_') || lower.startsWith('npm_lifecycle_')) continue
+    env[key] = value
+  }
+  return { ...env, ...extra }
+}
+
+const npmEnv = npmEnvFor({
   TEMP: tmpRoot,
   TMP: tmpRoot,
   npm_config_cache: path.join(tmpRoot, 'npm-cache'),
@@ -16,7 +35,7 @@ const npmEnv = {
   npm_config_fund: 'false',
   npm_config_ignore_scripts: 'true',
   npm_config_legacy_peer_deps: 'true',
-}
+})
 
 function npm(args: string[]): string {
   return execFileSync('npm', args, { cwd: PKG_ROOT, env: npmEnv, encoding: 'utf8', shell: true, timeout: 60000 })
@@ -42,8 +61,8 @@ describe('npm package install contract', () => {
     expect(meta.version).toBe('2.6.2')
     const files = meta.files.map((f: any) => f.path)
     expect(files).toContain('lib/index.js')
-    expect(files).toContain('runtime/server.mjs')
-    expect(files).toContain('runtime/catalog.mjs')
+    expect(files).toContain('lib/runtime/server.js')
+    expect(files).toContain('lib/runtime/catalog.js')
     expect(files).toContain('addon/dsh_blender_bridge.zip')
     expect(files).toContain('addon/dsh_blender_bridge/__init__.py')
     expect(files).toContain('package.json')
@@ -54,6 +73,10 @@ describe('npm package install contract', () => {
     expect(files.some((f: string) => f.includes('node_modules'))).toBe(false)
     expect(files.some((f: string) => f.includes('pkg.tgz'))).toBe(false)
     expect(files.some((f: string) => f.endsWith('.pyc'))).toBe(false)
+    // T15: runtime/source TypeScript must not ship; .d.ts declarations are allowed (package types).
+    expect(files.some((f: string) => f.endsWith('.ts') && !f.endsWith('.d.ts'))).toBe(false)
+    expect(files.some((f: string) => f.startsWith('runtime/') && /\.(?:ts|mts)$/.test(f))).toBe(false)
+    expect(files.some((f: string) => f.startsWith('runtime/') && f.endsWith('.py'))).toBe(true)
     expect(meta.size).toBeLessThan(10 * 1024 * 1024)
     expect(meta.entryCount).toBeGreaterThan(200)
   })
@@ -75,7 +98,8 @@ describe('npm package install contract', () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(installed, 'package.json'), 'utf8'))
     expect(pkg.name).toBe('@dsh-external/dsh-blender-plugin')
     expect(fs.existsSync(path.join(installed, 'lib', 'index.js'))).toBe(true)
-    expect(fs.existsSync(path.join(installed, 'runtime', 'server.mjs'))).toBe(true)
+    expect(fs.existsSync(path.join(installed, 'lib', 'runtime', 'server.js'))).toBe(true)
+    expect(fs.existsSync(path.join(installed, 'runtime', 'server.mjs'))).toBe(false)
     expect(fs.existsSync(path.join(installed, 'addon', 'dsh_blender_bridge.zip'))).toBe(true)
     expect(fs.existsSync(path.join(installed, 'addon', 'dsh_blender_bridge', '__init__.py'))).toBe(true)
     expect(fs.existsSync(path.join(installed, 'skills', 'blender-modeling', 'SKILL.md'))).toBe(true)

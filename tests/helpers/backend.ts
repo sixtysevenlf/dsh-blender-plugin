@@ -5,7 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { pkgPath } from './pkg'
 
-// Shared integration harness: a real runtime/server.mjs on an ephemeral port with
+// Shared integration harness: a real lib/runtime/server.js on an ephemeral port with
 // a throw-away workDir, plus a small fetch wrapper. Integration never touches the
 // user's live 9877 backend or the fixed 9876 addon port.
 
@@ -39,7 +39,7 @@ export async function startBackend(options: {
   const port = await freePort()
   const workDir = options.workDir || fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-it-'))
   let log = ''
-  const child = spawn(process.execPath, [pkgPath('runtime', 'server.mjs'), '--port', String(port)], {
+  const child = spawn(process.execPath, [pkgPath('lib', 'runtime', 'server.js'), '--port', String(port)], {
     cwd: pkgPath(),
     env: Object.assign({}, process.env, {
       DSH_BLENDER_WORKDIR: workDir,
@@ -48,7 +48,7 @@ export async function startBackend(options: {
       ...(options.addonPort ? { DSH_BLENDER_ADDON_PORT: String(options.addonPort) } : {}),
     }, options.env || {}),
     stdio: ['ignore', 'pipe', 'pipe'],
-  }) as ChildProcessWithoutNullStreams
+  }) as unknown as ChildProcessWithoutNullStreams
   child.stdout?.on('data', (chunk) => { log += chunk.toString() })
   child.stderr?.on('data', (chunk) => { log += chunk.toString() })
   const base = 'http://127.0.0.1:' + String(port)

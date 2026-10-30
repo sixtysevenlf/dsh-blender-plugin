@@ -42,13 +42,21 @@ v2.3 的原生选中 / 集合 / activity 依赖本仓 addon 的 5 条命令与 N
   旧配置里留着也不影响启动，但建议删掉，避免误以为还能切协议。
 - 其他 `DSH_BLENDER_*` 配置项不变，见 [`docs/配置参考.md`](docs/配置参考.md)。
 
-## 4. 历史接口契约
+## 4. 仓库使用方式（v3.0.0 / T15 起）
+
+- **npm 安装**不变：发布包自带 `lib/` 构建产物，装完即可用。
+- **从 Git 使用**需要先构建一次：`lib/` 不再入库，`git clone` 后依次跑 `npm ci --legacy-peer-deps` 和
+  `npm run build`（`DSH_CHECKOUT` 只在需要链接 DSH 宿主包时可选）。`prepack` 会自动构建，
+  所以 `npm pack`/发布不需要额外步骤。
+- 后端 TypeScript 源码在 `runtime/`，编译产物在 `lib/runtime/`；不要手改 `lib/`。
+
+## 5. 历史接口契约
 
 `docs/宿主集成-接口契约.md`、`宿主集成-接口契约-v2.1增补.md`、`v2.2增补.md` 与 TUI 适配文档已删除；
 当前唯一真源是 [`docs/宿主集成-接口契约-v2.3增补.md`](docs/宿主集成-接口契约-v2.3增补.md) —— 该文件顶部有 **v2.6 兼容声明**
 （v2.3 契约仍适用；addon v1.10 / protocol 11；新增 P0–P2 op 见 catalog）。
 
-## 5. addon v1.10 / v1.11 / v2.6 追加（无需迁移动作）
+## 6. addon v1.10 / v1.11 / v2.6 追加（无需迁移动作）
 
 - **addon v1.11**：拆成包并改为 zip 安装；命令名、参数、返回结构与 pause 语义不变（protocol 11）。
 - **addon v1.10**：N 面板活动状态置顶、环境与角色模型 API 子面板、**暂停 AI 操作**（暂停后只放行只读命令，

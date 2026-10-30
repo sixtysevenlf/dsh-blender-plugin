@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import http from 'node:http'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { decideStart, probeHttp, probeTcp, waitHttp } from '../../../runtime/backend_probe.mjs'
+import { decideStart, probeHttp, probeTcp, waitHttp } from '../../../runtime/backend_probe.js'
 import { pkgPath } from '../../helpers/pkg'
 
 // S7 regression: op=start used to trust the child handle only. A live handle on
@@ -59,7 +59,7 @@ describe('backend probe and start decision', () => {
   }, 20000)
 
   it('resolves the runtime module the lib side imports', async () => {
-    const mod = await import(pathToFileURL(path.join(pkgPath('runtime', 'backend_probe.mjs'))).href)
+    const mod = await import(pathToFileURL(path.join(pkgPath('lib', 'runtime', 'backend_probe.js'))).href)
     expect(typeof mod.probeHttp).toBe('function')
     expect(typeof mod.decideStart).toBe('function')
   })

@@ -1,0 +1,234 @@
+=== rollback drill 2026-10-30T21:01:54+08:00
+Cloning into 'D:/DSH/tmp/rollback-drill2'...
+done.
+--- HEAD
+46f2d83b061eadf241bf59e9e02c709ba6b2817c refactor(runtime): complete Phase R packaging, parity, and install smoke (T15a-T15f)
+
+=== A. release rollback: checkout v2.6.2 tag (no build required)
+Note: switching to 'refactor-base-v2.6.2'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+HEAD is now at 8b1b470 release v2.6.2: 曲面算法（surface_*）+ 文档/计数一致性
+runtime .mjs tracked: 17
+runtime .ts tracked: 0
+lib tracked: 7
+tsconfig.runtime.json present: no
+ROLLBACK package-version 2.6.2
+ROLLBACK build-script bash scripts/build.sh
+��Ϣ: ���ṩ��ģʽ�޷��ҵ��ļ���
+ROLLBACK old-engine-exports 87
+ROLLBACK old-fingerprint {"catalogHash":"1d401b938b69","families":34,"opsCount":228,"toolDetailKeys":7,"commandCatalogKeys":39}
+ROLLBACK old-server-health {"ok":true}
+ROLLBACK old-server-status {"version":"2.6.2","runtimeKeys":56}
+ROLLBACK old-server-routes 0
+ROLLBACK ROLLBACK SERVER PASS undefined
+
+=== B. source rollback of the migration commit 0a2a395
+Previous HEAD position was 8b1b470 release v2.6.2: 曲面算法（surface_*）+ 文档/计数一致性
+Switched to a new branch 'source-rollback'
+[source-rollback 9213d39] Revert "refactor(runtime): migrate backend to TypeScript (T15a-e)"
+ Date: Fri Oct 30 21:02:01 2026 +0800
+ 201 files changed, 7533 insertions(+), 2947 deletions(-)
+ create mode 100644 lib/client.js
+ create mode 100644 lib/constants.js
+ create mode 100644 lib/constants.js.map
+ create mode 100644 lib/contracts/lossless.js
+ create mode 100644 lib/contracts/lossless.js.map
+ create mode 100644 lib/contracts/tool.js
+ create mode 100644 lib/contracts/tool.js.map
+ create mode 100644 lib/headless/receipts.js
+ create mode 100644 lib/headless/receipts.js.map
+ create mode 100644 lib/host/backend.js
+ create mode 100644 lib/host/backend.js.map
+ create mode 100644 lib/host/exec-context.js
+ create mode 100644 lib/host/exec-context.js.map
+ create mode 100644 lib/host/http.js
+ create mode 100644 lib/host/http.js.map
+ create mode 100644 lib/host/skill.js
+ create mode 100644 lib/host/skill.js.map
+ create mode 100644 lib/index.js
+ create mode 100644 lib/index.js.map
+ create mode 100644 lib/plan/headless-target.js
+ create mode 100644 lib/plan/headless-target.js.map
+ create mode 100644 lib/plan/tool.js
+ create mode 100644 lib/plan/tool.js.map
+ create mode 100644 lib/plugin.js
+ create mode 100644 lib/plugin.js.map
+ create mode 100644 lib/tools/cmd.js
+ create mode 100644 lib/tools/cmd.js.map
+ create mode 100644 lib/tools/commands.js
+ create mode 100644 lib/tools/commands.js.map
+ create mode 100644 lib/tools/do.js
+ create mode 100644 lib/tools/do.js.map
+ create mode 100644 lib/tools/headless.js
+ create mode 100644 lib/tools/headless.js.map
+ create mode 100644 lib/tools/index.js
+ create mode 100644 lib/tools/index.js.map
+ create mode 100644 lib/tools/job.js
+ create mode 100644 lib/tools/job.js.map
+ create mode 100644 lib/tools/loop.js
+ create mode 100644 lib/tools/loop.js.map
+ create mode 100644 lib/tools/opt.js
+ create mode 100644 lib/tools/opt.js.map
+ create mode 100644 lib/tools/perf.js
+ create mode 100644 lib/tools/perf.js.map
+ create mode 100644 lib/tools/preset.js
+ create mode 100644 lib/tools/preset.js.map
+ create mode 100644 lib/tools/schema-diagnostic.js
+ create mode 100644 lib/tools/schema-diagnostic.js.map
+ create mode 100644 lib/tools/see.js
+ create mode 100644 lib/tools/see.js.map
+ create mode 100644 lib/tools/txn.js
+ create mode 100644 lib/tools/txn.js.map
+ create mode 100644 lib/tools/viewport.js
+ create mode 100644 lib/tools/viewport.js.map
+ create mode 100644 lib/tools/watch.js
+ create mode 100644 lib/tools/watch.js.map
+ create mode 100644 lib/tools/worker.js
+ create mode 100644 lib/tools/worker.js.map
+ create mode 100644 lib/tui-host.js
+ create mode 100644 lib/tui-host.js.map
+ create mode 100644 lib/types/constants.d.ts
+ create mode 100644 lib/types/contracts/lossless.d.ts
+ create mode 100644 lib/types/contracts/tool.d.ts
+ create mode 100644 lib/types/headless/receipts.d.ts
+ create mode 100644 lib/types/host/backend.d.ts
+ create mode 100644 lib/types/host/exec-context.d.ts
+ create mode 100644 lib/types/host/http.d.ts
+ create mode 100644 lib/types/host/skill.d.ts
+ create mode 100644 lib/types/index.d.ts
+ create mode 100644 lib/types/plan/headless-target.d.ts
+ create mode 100644 lib/types/plan/tool.d.ts
+ create mode 100644 lib/types/plugin.d.ts
+ create mode 100644 lib/types/tools/cmd.d.ts
+ create mode 100644 lib/types/tools/commands.d.ts
+ create mode 100644 lib/types/tools/do.d.ts
+ create mode 100644 lib/types/tools/headless.d.ts
+ create mode 100644 lib/types/tools/index.d.ts
+ create mode 100644 lib/types/tools/job.d.ts
+ create mode 100644 lib/types/tools/loop.d.ts
+ create mode 100644 lib/types/tools/opt.d.ts
+ create mode 100644 lib/types/tools/perf.d.ts
+ create mode 100644 lib/types/tools/preset.d.ts
+ create mode 100644 lib/types/tools/schema-diagnostic.d.ts
+ create mode 100644 lib/types/tools/see.d.ts
+ create mode 100644 lib/types/tools/txn.d.ts
+ create mode 100644 lib/types/tools/viewport.d.ts
+ create mode 100644 lib/types/tools/watch.d.ts
+ create mode 100644 lib/types/tools/worker.d.ts
+ create mode 100644 lib/types/tui-host.d.ts
+ create mode 100644 lib/types/ui/cards.d.ts
+ create mode 100644 lib/types/utils/frame-cache.d.ts
+ create mode 100644 lib/types/utils/image.d.ts
+ create mode 100644 lib/ui/cards.js
+ create mode 100644 lib/ui/cards.js.map
+ create mode 100644 lib/utils/frame-cache.js
+ create mode 100644 lib/utils/frame-cache.js.map
+ create mode 100644 lib/utils/image.js
+ create mode 100644 lib/utils/image.js.map
+ rename runtime/{_probe_tools.ts => _probe_tools.mjs} (75%)
+ rename runtime/{addon-protocol.ts => addon-protocol.mjs} (57%)
+ create mode 100644 runtime/backend_probe.d.mts
+ rename runtime/{backend_probe.ts => backend_probe.mjs} (76%)
+ rename runtime/{catalog.ts => catalog.mjs} (95%)
+ rename runtime/{classes.ts => classes.mjs} (95%)
+ rename runtime/{config.ts => config.mjs} (82%)
+ rename runtime/core/{dispatch.ts => dispatch.mjs} (85%)
+ create mode 100644 runtime/core/engine.mjs
+ delete mode 100644 runtime/core/engine.ts
+ rename runtime/core/{errors.ts => errors.mjs} (95%)
+ rename runtime/core/{evidence.ts => evidence.mjs} (66%)
+ rename runtime/core/{flags.ts => flags.mjs} (100%)
+ delete mode 100644 runtime/core/json.ts
+ rename runtime/core/{kernel.ts => kernel.mjs} (87%)
+ rename runtime/core/{output.ts => output.mjs} (82%)
+ rename runtime/core/{plan-dispatch.ts => plan-dispatch.mjs} (74%)
+ rename runtime/core/{progress.ts => progress.mjs} (69%)
+ rename runtime/core/{render-state.ts => render-state.mjs} (60%)
+ rename runtime/core/{scripts.ts => scripts.mjs} (89%)
+ rename runtime/core/{server-compat.ts => server-compat.mjs} (77%)
+ rename runtime/{engine.ts => engine.mjs} (69%)
+ rename runtime/execution/{headless.ts => headless.mjs} (74%)
+ rename runtime/execution/{jobs.ts => jobs.mjs} (76%)
+ rename runtime/execution/{ledger.ts => ledger.mjs} (63%)
+ rename runtime/execution/{preset.ts => preset.mjs} (60%)
+ rename runtime/execution/{trajectory.ts => trajectory.mjs} (66%)
+ rename runtime/execution/{txn.ts => txn.mjs} (61%)
+ rename runtime/execution/{workers.ts => workers.mjs} (58%)
+ rename runtime/ext/{gltf_validate_runner.ts => gltf_validate_runner.mjs} (63%)
+ create mode 100644 runtime/file_guard.d.mts
+ rename runtime/{file_guard.ts => file_guard.mjs} (77%)
+ rename runtime/{hard_exit.ts => hard_exit.mjs} (90%)
+ create mode 100644 runtime/http/config.mjs
+ delete mode 100644 runtime/http/config.ts
+ rename runtime/http/{host.ts => host.mjs} (69%)
+ rename runtime/http/{jobs.ts => jobs.mjs} (91%)
+ rename runtime/http/{lease.ts => lease.mjs} (71%)
+ rename runtime/http/{lifecycle.ts => lifecycle.mjs} (82%)
+ rename runtime/http/{response.ts => response.mjs} (68%)
+ create mode 100644 runtime/http/router.mjs
+ delete mode 100644 runtime/http/router.ts
+ rename runtime/http/routes/{act.ts => act.mjs} (63%)
+ create mode 100644 runtime/http/routes/commands.mjs
+ delete mode 100644 runtime/http/routes/commands.ts
+ delete mode 100644 runtime/http/routes/deps.ts
+ rename runtime/http/routes/{frame.ts => frame.mjs} (51%)
+ rename runtime/http/routes/{headless.ts => headless.mjs} (60%)
+ rename runtime/http/routes/{health.ts => health.mjs} (65%)
+ rename runtime/http/routes/{index.ts => index.mjs} (75%)
+ rename runtime/http/routes/{job.ts => job.mjs} (81%)
+ rename runtime/http/routes/{loop.ts => loop.mjs} (53%)
+ rename runtime/http/routes/{opt.ts => opt.mjs} (55%)
+ rename runtime/http/routes/{perf.ts => perf.mjs} (56%)
+ rename runtime/http/routes/{plan.ts => plan.mjs} (65%)
+ rename runtime/http/routes/{preset.ts => preset.mjs} (57%)
+ rename runtime/http/routes/{session.ts => session.mjs} (68%)
+ rename runtime/http/routes/{txn.ts => txn.mjs} (58%)
+ create mode 100644 runtime/http/routes/view.mjs
+ delete mode 100644 runtime/http/routes/view.ts
+ rename runtime/http/routes/{worker.ts => worker.mjs} (86%)
+ rename runtime/{launch.ts => launch.mjs} (91%)
+ rename runtime/{paths.ts => paths.mjs} (96%)
+ rename runtime/{proc_env.ts => proc_env.mjs} (75%)
+ rename runtime/{recover.ts => recover.mjs} (74%)
+ rename runtime/{selectionstore.ts => selectionstore.mjs} (54%)
+ rename runtime/{server.ts => server.mjs} (63%)
+ rename runtime/{staging.ts => staging.mjs} (80%)
+ rename runtime/transport/{probes.ts => probes.mjs} (63%)
+ delete mode 100644 scripts/build.mjs
+ delete mode 100644 scripts/ensure-build.mjs
+ delete mode 100644 tests/helpers/ensure-build.ts
+ delete mode 100644 tests/helpers/global-setup.ts
+ delete mode 100644 tsconfig.runtime.json
+diff vs b8778c8 lines: 0
+runtime .mjs tracked: 60
+runtime .ts tracked: 0
+lib tracked: 97
+tsconfig.runtime.json present: no
+ROLLBACK package-version 2.6.2
+ROLLBACK build-script bash scripts/build.sh
+ROLLBACK old-engine-exports 87
+ROLLBACK old-fingerprint {"catalogHash":"1d401b938b69","families":34,"opsCount":228,"toolDetailKeys":7,"commandCatalogKeys":39}
+ROLLBACK old-server-health {"ok":true}
+ROLLBACK old-server-status {"version":"2.6.2","runtimeKeys":56}
+ROLLBACK old-server-routes 0
+ROLLBACK ROLLBACK SERVER PASS undefined
+
+=== C. build-level rollback note
+pre-migration build uses 'bash scripts/build.sh' and needs DSH_CHECKOUT with packages/: unavailable on this host
+release rollback uses the v2.6.2 tag/tarball, which carries lib/ and needs no rebuild
+DONE 2026-10-30T21:02:01+08:00

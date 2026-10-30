@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { AddonClient } from '../../../runtime/engine.mjs'
-import { detectProtocol } from '../../../runtime/addon-protocol.mjs'
+import { AddonClient } from '../../../runtime/engine.js'
+import { detectProtocol } from '../../../runtime/addon-protocol.js'
 import { startFakeAddon } from '../../helpers/fake-addon.mjs'
 
 const open: Array<{ close: () => Promise<void> }> = []

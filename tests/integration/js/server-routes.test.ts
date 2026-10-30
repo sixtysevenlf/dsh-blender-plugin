@@ -46,7 +46,7 @@ beforeAll(async () => {
   addon = await startFakeAddon()
   const port = await freePort()
   base = 'http://127.0.0.1:' + String(port)
-  child = spawn(process.execPath, [pkgPath('runtime', 'server.mjs'), '--port', String(port)], {
+  child = spawn(process.execPath, [pkgPath('lib', 'runtime', 'server.js'), '--port', String(port)], {
     cwd: pkgPath(),
     env: { ...process.env, DSH_BLENDER_ADDON_HOST: '127.0.0.1', DSH_BLENDER_ADDON_PORT: String(addon.port) },
     stdio: ['ignore', 'pipe', 'pipe'],

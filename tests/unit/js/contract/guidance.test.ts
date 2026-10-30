@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
-import { catalogPayload, planOpNames, MODELING_CLASS_GUIDE, classGuideStats, MODEL_FACING_TOOLS, renderHandoff } from '../../../../runtime/engine.mjs'
+import { catalogPayload, planOpNames, MODELING_CLASS_GUIDE, classGuideStats, MODEL_FACING_TOOLS, renderHandoff } from '../../../../runtime/engine.js'
 import { pkgPath } from '../../../helpers/pkg'
+
+interface CatalogDetailRow { family: string; not?: string }
+interface HandoffView { ok: boolean; text: string }
+const catalogFull = () => catalogPayload({ full: true }) as unknown as { detail: CatalogDetailRow[] }
+const handoffPayload = () => catalogPayload({ handoff: true }) as unknown as HandoffView
 
 // S6: the "which tool / which family" guidance cannot rot silently: every class
 // row is complete and hard-worded, every referenced op/tool exists, the pinned
@@ -38,7 +43,7 @@ describe('modeling class guidance', () => {
   })
 
   it('pins a hard warning on the self-invention-prone families', () => {
-    const catalog = catalogPayload({ full: true })
+    const catalog = catalogFull()
     const missing: string[] = []
     for (const family of PINNED) {
       const entry = catalog.detail.find((row: any) => row.family === family)
@@ -49,7 +54,7 @@ describe('modeling class guidance', () => {
   })
 
   it.fails('keeps the handoff block short and complete (pre-existing drift: 3503 > 3500, see evidence/T11/review.md)', () => {
-    const handoff = catalogPayload({ handoff: true })
+    const handoff = handoffPayload()
     expect(handoff.ok).toBe(true)
     expect(handoff.text.length).toBeGreaterThan(500)
     expect(handoff.text.length).toBeLessThanOrEqual(3500)
@@ -59,7 +64,7 @@ describe('modeling class guidance', () => {
   })
 
   it('keeps the handoff content complete (length gate tracked separately)', () => {
-    const handoff = catalogPayload({ handoff: true })
+    const handoff = handoffPayload()
     for (const row of MODELING_CLASS_GUIDE as any[]) expect(handoff.text).toContain(row.c)
     expect(handoff.text).toContain('禁止自造')
     expect(handoff.text).toContain('三条硬规则')

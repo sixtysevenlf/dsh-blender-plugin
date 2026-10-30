@@ -17,7 +17,7 @@ rows do not exist in `package.json` yet and must keep the marker until their tas
 | Task | Command | Status |
 |---|---|---|
 | Install dependencies | `npm ci --legacy-peer-deps` | available |
-| Build host `src/` → `lib/` | `DSH_CHECKOUT=/path/to/dsh-harness npm run build` | available; needs a DSH checkout |
+| Build `runtime/` + `src/` → `lib/` | `npm run build` (optional `DSH_CHECKOUT` links DSH host packages) | available (T15) |
 | Build / verify the addon zip | `npm run build:addon` / `npm run check:addon` | available (T9) |
 | Typecheck | `npm run typecheck` | available |
 | Unit tests | `npm run test:unit` | available |
@@ -44,12 +44,12 @@ never describe a target file as existing.
 |---|---|---|
 | Host entry | `src/index.ts` ≤150 lines, import/apply/export only | `src/index.ts` 2,888 lines, 15 tools inline (**T4**) |
 | Host modules | `src/tools/*` (one file per tool), `src/plan/*`, `src/host/*`, `src/ui/*`, `src/contracts/*`, `src/tui-host.ts` | absent until **T4**; `src/tui-host.ts` present |
-| Backend HTTP | `runtime/http/*` for routes, lease, host views | `runtime/server.mjs` 1,009 lines (**T7**) |
-| Backend engine | `runtime/core/*`, `runtime/execution/*`, `runtime/transport/*` | `runtime/engine.mjs` 3,189 lines (**T6**) |
-| Backend language | `runtime/**/*.ts` compiled to `lib/runtime/**/*.js` (**T15**) | 16 flat `runtime/*.mjs` files |
+| Backend HTTP | `runtime/http/*` for routes, lease, host views | `runtime/server.ts` facade, compiled to `lib/runtime/server.js` (**T7/T15** done) |
+| Backend engine | `runtime/core/*`, `runtime/execution/*`, `runtime/transport/*` | `runtime/engine.ts` facade + `runtime/core/engine.ts` assembly (**T6/T15** done) |
+| Backend language | `runtime/**/*.ts` compiled to `lib/runtime/**/*.js` (**T15**) | `runtime/**/*.ts` (60 modules, strict) built to `lib/runtime/**/*.js` (**T15** done) |
 | Python domains | `runtime/py/{core,geometry,assembly,render,export}` plus shims | 40 flat `runtime/*.py` files (**T8**) |
 | Blender addon | `addon/dsh_blender_bridge/` package, zip install | package + committed zip, 39 modules (**T9** done) |
-| Built output | `lib/` built by `prepack`, not committed | `lib/` committed; never hand-edit it |
+| Built output | `lib/` built by `prepack`, not committed | `lib/` removed from git (**T15** done); `prepack` rebuilds it, source maps carry inline sources |
 
 ## 3. Hard rules
 
@@ -78,7 +78,7 @@ never describe a target file as existing.
 | Install, deploy, configure, troubleshoot | [docs/操作教程.md](docs/操作教程.md) → [docs/配置参考.md](docs/配置参考.md) → [MIGRATIONS.md](MIGRATIONS.md) |
 | Use the plugin or model a scene | [skills/blender-modeling/SKILL.md](skills/blender-modeling/SKILL.md) → [docs/操作教程.md](docs/操作教程.md) |
 | Host side (`src/`) | [src/index.ts](src/index.ts) → [tests/README.md](tests/README.md) → [ADR 0001](docs/adr/0001-runtime-ts.md) |
-| Backend (`runtime/`) | [runtime/engine.mjs](runtime/engine.mjs) · [runtime/server.mjs](runtime/server.mjs) → [tests/README.md](tests/README.md) |
+| Backend (`runtime/`) | [runtime/engine.ts](runtime/engine.ts) · [runtime/server.ts](runtime/server.ts) → [tests/README.md](tests/README.md) |
 | Blender addon | [addon/README.md](addon/README.md) → [docs/宿主集成-接口契约-v2.3增补.md](docs/宿主集成-接口契约-v2.3增补.md) |
 | Catalog, op, or route change | section 1 count-sync commands → [tests/README.md](tests/README.md) contract tests |
 | Tests, CI, coverage | [tests/README.md](tests/README.md) → [docs/refactor/spec.md](docs/refactor/spec.md) |

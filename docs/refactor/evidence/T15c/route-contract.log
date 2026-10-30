@@ -1,0 +1,41 @@
+
+> @dsh-external/dsh-blender-plugin@2.6.2 test:contract
+> node scripts/test.mjs contract
+
+
+== Vitest (contract) ==
+
+ RUN  v3.2.7 D:/DSH/worktrees/refactor-r
+
+ ✓ tests/unit/js/contract/agents-doc.test.ts (22 tests) 16ms
+ ✓ tests/unit/js/contract/sidebar-injection.test.ts (4 tests) 10ms
+ ✓ tests/unit/js/contract/client-bundle.test.ts (3 tests) 5ms
+ ✓ tests/unit/js/contract/runtime-layout.test.ts (4 tests) 18ms
+ ✓ tests/unit/js/contract/docs-bilingual.test.ts (14 tests) 100ms
+ ✓ tests/unit/js/contract/security.test.ts (10 tests) 6ms
+ ✓ tests/unit/js/contract/behavior-matrix.test.ts (2 tests) 291ms
+ ✓ tests/unit/js/contract/route-contract.test.ts (4 tests) 5ms
+ ✓ tests/unit/js/contract/single-source.test.ts (4 tests) 4ms
+ ✓ tests/unit/js/contract/surface-fit.test.ts (3 tests) 3ms
+ ✓ tests/unit/js/contract/catalog.test.ts (4 tests) 5ms
+ ✓ tests/unit/js/contract/guidance.test.ts (7 tests) 8ms
+ ✓ tests/unit/js/contract/command-contract.test.ts (9 tests) 24ms
+ ✓ tests/unit/js/contract/lossless.test.ts (4 tests) 4ms
+ ✓ tests/unit/js/contract/skill-bundle.test.ts (7 tests) 8ms
+ ✓ tests/unit/js/contract/op-contract.test.ts (8 tests) 75ms
+ ✓ tests/unit/js/contract/tool-schema.test.ts (4 tests) 13ms
+ ✓ tests/unit/js/contract/tool-presenter.test.ts (5 tests) 15ms
+ ✓ tests/unit/js/contract/tool-cards.test.ts (6 tests) 18ms
+ ✓ tests/unit/js/contract/protocol-contract.test.ts (9 tests) 84ms
+ ✓ tests/unit/js/contract/description-budget.test.ts (6 tests) 117ms
+ ✓ tests/unit/js/contract/tool-execution.test.ts (20 tests) 357ms
+      1 [main] ps (27120) C:\Users\villa\.dsh\profiles\desktop\node_modules\@dsh-ops\bash-win32-x64\usr\bin\ps.exe: *** fatal error - NtCreateDirectoryObject(\BaseNamedObjects\msys-2.0S5-7fb45558b2430177): 0xC0000022
+      0 [main] ps (32832) C:\Users\villa\.dsh\profiles\desktop\node_modules\@dsh-ops\bash-win32-x64\usr\bin\ps.exe: *** fatal error - NtCreateDirectoryObject(\BaseNamedObjects\msys-2.0S5-7fb45558b2430177): 0xC0000022
+ ✓ tests/unit/js/contract/lifecycle-config.test.ts (13 tests) 987ms
+   ✓ backend lifecycle operations > starts against an existing backend, pauses on stop, and restarts in place  633ms
+
+ Test Files  23 passed (23)
+      Tests  172 passed (172)
+   Start at  21:00:41
+   Duration  2.15s (transform 1.10s, setup 0ms, collect 9.65s, tests 2.17s, environment 4ms, prepare 4.99s)
+
