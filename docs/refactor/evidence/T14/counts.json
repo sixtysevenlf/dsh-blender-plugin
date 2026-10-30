@@ -1,0 +1,20 @@
+{
+  "matrix": "tests/BEHAVIOR_MATRIX.md",
+  "total": 347,
+  "covered": 345,
+  "planned": 0,
+  "exempt": 2,
+  "tools": 15,
+  "commands": 39,
+  "families": 34,
+  "ops": 228,
+  "routes": 29,
+  "protocolRows": 8,
+  "lifecycleRows": 8,
+  "configRows": 5,
+  "installRows": 6,
+  "securityRows": 5,
+  "environmentRows": 4,
+  "addonProtocol": 11,
+  "addonCapabilities": 16
+}
