@@ -9,7 +9,7 @@
  *   node scripts/test.mjs unit       # Vitest unit only
  *   node scripts/test.mjs integration# Vitest integration only
  *
- * Legacy selftests stay available via `npm run test:legacy` until T11 finishes.
+ * The legacy selftest scripts were retired in T11; see tests/MIGRATION.md for the mapping.
  */
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'

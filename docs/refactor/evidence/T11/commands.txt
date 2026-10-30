@@ -1,0 +1,29 @@
+# Exact commands used (run from D:/DSH/t11-repo)
+
+# 1. Unit layer (Vitest) — 37 files / 252 passed / 1 skipped
+node node_modules/typescript/bin/tsc -p D:/DSH/tmp/tsconfig.tests-t11.json
+NODE_OPTIONS=--require D:/DSH/tmp/sandbox-shim.cjs node node_modules/vitest/vitest.mjs run --config vitest.sandbox.config.mjs --configLoader runner tests/unit
+# (executed via bash D:/DSH/tmp/run-vitest-t11.sh tests/unit, which compiles TS,
+#  rewrites extensionless relative imports, runs vitest and cleans generated .js)
+
+# 2. Integration layer (Vitest) — 17 files / 102 passed
+bash D:/DSH/tmp/run-vitest-t11.sh tests/integration
+
+# 3. Python unit + integration (default collection, blender/gui excluded) — 292 passed
+TEMP=D:/DSH/tmp TMP=D:/DSH/tmp PYTHONIOENCODING=utf-8 PYTHONUTF8=1 PYTHONPATH=D:/DSH/tmp/pyshim \
+  "D:/DSH/tools/dsh-test-venv/Scripts/python.exe" -m pytest -q --basetemp=D:/DSH/tmp/ptrunT11
+
+# 4. E2E collection + two real-Blender cases (geo, plan)
+pytest -q -m blender --collect-only tests/e2e
+pytest -q -m blender --basetemp=D:/DSH/tmp/ptrunE4 tests/e2e/blender/test_geo.py
+pytest -q -m blender --basetemp=D:/DSH/tmp/ptrunE5 tests/e2e/blender/test_plan.py
+
+# 5. Static gates
+node scripts/typecheck.mjs
+node node_modules/eslint/bin/eslint.js src tests/unit/js tests/integration/js tests/helpers scripts --max-warnings=0
+node scripts/check-build.mjs
+node scripts/check-structure.mjs
+node scripts/check-behavior-matrix.mjs
+
+# 6. Commit
+git add -A && git commit -m "test: migrate legacy test suites to layered tests (T11)"

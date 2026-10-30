@@ -5,7 +5,7 @@
  * 断言：
  *   ① src/index.ts ≤ 150 行，且只含 import / export（可选 apply(...) 调用）——不得有业务逻辑；
  *   ② 15 个 tool handler 全部下沉：14 个在 src/tools/*.ts，plan 在 src/plan/tool.ts，
- *      名称集合与 tests/capability.lock.json 一致；
+ *      名称集合与 tests/fixtures/capability.lock.json 一致；
  *   ③ §4.2 / §4.3 目标文件全部存在；
  *   ④ src 内部相对 import 图无环（.js 说明符映射回 .ts）。
  *
@@ -87,7 +87,7 @@ const toolFiles = fs.existsSync(TOOLS_DIR)
 for (const f of toolFiles) scanToolFile(path.join(TOOLS_DIR, f))
 scanToolFile(path.join(ROOT, 'src', 'plan', 'tool.ts'))
 
-const LOCK = path.join(ROOT, 'tests', 'capability.lock.json')
+const LOCK = path.join(ROOT, 'tests', 'fixtures', 'capability.lock.json')
 let expected = null
 if (fs.existsSync(LOCK)) {
   try {
@@ -104,7 +104,7 @@ if (expected) {
   for (const n of exp) if (!toolDecls.has(n)) failures.push('缺少 tool handler: ' + n)
   for (const n of names) if (!exp.includes(n)) failures.push('多出 tool handler: ' + n)
 } else {
-  failures.push('tests/capability.lock.json 不存在或没有 tools 列表，无法对拍 15 tool')
+  failures.push('tests/fixtures/capability.lock.json 不存在或没有 tools 列表，无法对拍 15 tool')
 }
 for (const [name, files] of toolDecls) {
   const inTools = files.some((f) => f.startsWith('src/tools/'))
