@@ -75,7 +75,6 @@ const SKIP_DIRS = new Set([
   '__pycache__',
   '.venv',
   'venv',
-  'docs/refactor/evidence',
 ])
 const SKIP_ANY = new Set(['node_modules', 'node_modules_symlink_backup', '__pycache__', '.git', '.vite', '.vite-temp', '.cache'])
 const TEXT_EXT = new Set(['.md', '.mdx', '.txt', '.json', '.yml', '.yaml', '.mjs', '.cjs', '.js', '.ts', '.py', '.sh', '.html', '.toml', '.cfg', '.ini'])

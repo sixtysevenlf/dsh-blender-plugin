@@ -1,6 +1,0 @@
-TBBmalloc: skip allocation functions replacement in ucrtbase.dll: unknown prologue for function _msize
-Traceback (most recent call last):
-  File "D:\DSH\tools\blender-win\blender-4.2.10-windows-x64\4.2\scripts\startup\bl_operators\userpref.py", line 881, in execute
-    context.area.tag_redraw()
-    ^^^^^^^^^^^^^^^^^^^^^^^
-AttributeError: 'NoneType' object has no attribute 'tag_redraw'

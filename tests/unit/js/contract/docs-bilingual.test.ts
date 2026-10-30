@@ -14,9 +14,9 @@ import {
 // The retired filename is assembled so this test file itself is clean of the residue it forbids.
 const RETIRED_README = ['README', 'zh-CN.md'].join('.')
 const README = readText('README.md')
-const ZH_README = readText('zh-README.md')
+const ZH_README = readText('docs/zh/README.md')
 const CONTRIBUTING = readText('CONTRIBUTING.md')
-const ZH_CONTRIBUTING = readText('zh-CONTRIBUTING.md')
+const ZH_CONTRIBUTING = readText('docs/zh/CONTRIBUTING.md')
 
 function top(text: string, lines = 8) {
   return text.split('\n').slice(0, lines).join('\n')
@@ -24,20 +24,20 @@ function top(text: string, lines = 8) {
 
 describe('human entry cross-links', () => {
   it('README points to the Chinese entry at the top', () => {
-    expect(top(README)).toContain('[简体中文](zh-README.md)')
+    expect(top(README)).toContain('[简体中文](docs/zh/README.md)')
   })
 
-  it('zh-README points back to English at the top', () => {
-    expect(top(ZH_README)).toContain('[English](README.md)')
+  it('Chinese README points back to English at the top', () => {
+    expect(top(ZH_README)).toContain('[English](../../README.md)')
   })
 
   it('CONTRIBUTING points to the Chinese entry at the top', () => {
-    expect(top(CONTRIBUTING)).toContain('[简体中文](zh-CONTRIBUTING.md)')
+    expect(top(CONTRIBUTING)).toContain('[简体中文](docs/zh/CONTRIBUTING.md)')
   })
 
-  it('zh-CONTRIBUTING points back to English and to zh-README at the top', () => {
-    expect(top(ZH_CONTRIBUTING)).toContain('[English](CONTRIBUTING.md)')
-    expect(top(ZH_CONTRIBUTING, 12)).toContain('zh-README.md')
+  it('Chinese CONTRIBUTING points back to English and to the Chinese README at the top', () => {
+    expect(top(ZH_CONTRIBUTING)).toContain('[English](../../CONTRIBUTING.md)')
+    expect(top(ZH_CONTRIBUTING, 12)).toContain('[中文 README](./README.md)')
   })
 
   it('keeps the development sections synchronized', () => {
@@ -59,18 +59,19 @@ describe('human entry cross-links', () => {
   })
 
   it('has no broken relative link in any human entry', () => {
-    for (const path of ['README.md', 'zh-README.md', 'CONTRIBUTING.md', 'zh-CONTRIBUTING.md']) {
+    for (const path of ['README.md', 'docs/zh/README.md', 'CONTRIBUTING.md', 'docs/zh/CONTRIBUTING.md']) {
       expect(brokenRelativeLinks(path), path + ' has broken links').toEqual([])
     }
   })
 })
 
 describe('no duplicate or stale Chinese documentation', () => {
-  it('does not keep the retired Chinese README file', () => {
+  it('keeps Chinese docs under docs/zh and no zh-* files at the root', () => {
     expect(fs.existsSync(repoPath(RETIRED_README))).toBe(false)
-    const extra = fs.readdirSync(repoPath())
-      .filter((name) => /^readme.*(zh|中文).*\.md$/i.test(name) && name !== 'zh-README.md')
-    expect(extra).toEqual([])
+    expect(fs.existsSync(repoPath('docs/zh/README.md'))).toBe(true)
+    expect(fs.existsSync(repoPath('docs/zh/CONTRIBUTING.md'))).toBe(true)
+    const rootZh = fs.readdirSync(repoPath()).filter((name) => /^zh-/i.test(name))
+    expect(rootZh, 'root must not contain zh-* files').toEqual([])
   })
 
   it('does not reference the retired filename anywhere in the repository', () => {
@@ -84,20 +85,21 @@ describe('no duplicate or stale Chinese documentation', () => {
   it('keeps AI documentation single-language', () => {
     expect(fs.existsSync(repoPath('zh-AGENTS.md'))).toBe(false)
     expect(fs.existsSync(repoPath('tests', RETIRED_README))).toBe(false)
-    expect(fs.existsSync(repoPath('tests/zh-README.md'))).toBe(false)
+    expect(fs.existsSync(repoPath('tests/docs/zh/README.md'))).toBe(false)
     expect(proseOnly(CONTRIBUTING)).not.toContain('中文摘要')
   })
 
   it('does not mention tools that were removed', () => {
-    for (const path of ['README.md', 'zh-README.md', 'CONTRIBUTING.md', 'zh-CONTRIBUTING.md', 'AGENTS.md', 'tests/README.md']) {
+    for (const path of ['README.md', 'docs/zh/README.md', 'CONTRIBUTING.md', 'docs/zh/CONTRIBUTING.md', 'AGENTS.md', 'tests/README.md']) {
       expect(readText(path), path + ' must not cite a deleted tool').not.toContain('blender_rt_pick')
     }
   })
 
-  it('keeps the deleted rule and metrics files deleted', () => {
-    for (const path of ['CLAUDE.md', 'docs/engineering-principles.md', 'docs/refactor/metrics.md']) {
+  it('keeps deleted rule files and local refactor docs out of the repo', () => {
+    for (const path of ['CLAUDE.md', 'docs/engineering-principles.md']) {
       expect(fs.existsSync(repoPath(path)), path + ' must stay deleted').toBe(false)
     }
+    expect(fs.existsSync(repoPath('docs/refactor')), 'docs/refactor must stay local-only').toBe(false)
   })
 })
 

@@ -2,7 +2,7 @@
 """T8 static layout contract: 5 domain packages + re-export-only flat shims.
 
 No bpy/numpy needed: everything here parses sources. The real import smoke runs
-inside Blender (see docs/refactor/evidence/T8/test.log).
+inside Blender.
 """
 import ast
 import json

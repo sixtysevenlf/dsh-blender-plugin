@@ -1,3 +1,0 @@
---- syntax check
-node --check OK: 43 modules
-engine import smoke OK; exports: 87

@@ -1,11 +1,11 @@
 # Contributing to DSH × Blender
 
-[简体中文](zh-CONTRIBUTING.md)
+[简体中文](docs/zh/CONTRIBUTING.md)
 
 Thanks for taking the time to help. This project gives AI agents a direct, verifiable interface to a live
 Blender session. Issues and pull requests are welcome in **English or Chinese**.
 
-Before you start, read [README.md](README.md) (or [zh-README.md](zh-README.md)) and [AGENTS.md](AGENTS.md).
+Before you start, read [README.md](README.md) (or [docs/zh/README.md](docs/zh/README.md)) and [AGENTS.md](AGENTS.md).
 AGENTS.md explains how the pieces fit together, what "installed correctly" means, and where the canonical
 commands live.
 
@@ -77,10 +77,10 @@ contract tests. Explain in the pull request why the lock changed; never hand-edi
 
 - One logical change, one task. Keep unrelated formatting out of the diff.
 - Conventional commit subjects: `feat:`, `fix:`, `docs:`, `test:`, `perf:`, `chore:`.
-- Use [.github/pull_request_template.md](.github/pull_request_template.md): scope, behavior-matrix row,
+- Use one of the [.github/PULL_REQUEST_TEMPLATE/](.github/PULL_REQUEST_TEMPLATE/) templates (`bug_fix`, `feature`, `docs_update`, `refactor`): scope, behavior-matrix row,
   test evidence, risk, rollback, disclosure, checklist.
-- Keep [README.md](README.md) and [zh-README.md](zh-README.md) in sync, and the same for
-  [CONTRIBUTING.md](CONTRIBUTING.md) and [zh-CONTRIBUTING.md](zh-CONTRIBUTING.md). They are two versions
+- Keep [README.md](README.md) and [docs/zh/README.md](docs/zh/README.md) in sync, and the same for
+  [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/zh/CONTRIBUTING.md](docs/zh/CONTRIBUTING.md). They are two versions
   of one document, not independent pages.
 - Update [CHANGELOG.md](CHANGELOG.md) under the next version heading, and [MIGRATIONS.md](MIGRATIONS.md)
   for any breaking change.
@@ -92,10 +92,10 @@ contract tests. Explain in the pull request why the lock changed; never hand-edi
 ## Release process
 
 The release flow is owned by the plan's T16 and by [ADR 0003](docs/adr/0003-addon-package-release.md) and
-[ADR 0004](docs/adr/0004-lib-build-release.md). In short: verify the gates in
-[docs/refactor/spec.md](docs/refactor/spec.md), bump the version in `package.json` and `PLUGIN_VERSION`
-in the same change, let `prepack` build `lib/`, attach the addon zip and the npm tarball to the release,
-and rehearse the rollback before tagging. The detailed checklist lives in the release evidence directory.
+[ADR 0004](docs/adr/0004-lib-build-release.md). In short: verify the release gates, bump the version in
+`package.json` and `PLUGIN_VERSION` in the same change, let `prepack` build `lib/`, attach the addon zip
+and the npm tarball to the release, and rehearse the rollback before tagging. The detailed checklist is
+kept in the local refactor workspace, not in this repository.
 
 ## License
 

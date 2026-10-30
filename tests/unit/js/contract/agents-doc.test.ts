@@ -10,8 +10,9 @@ import {
 } from '../../../helpers/docs'
 
 const AGENTS = readText('AGENTS.md')
-const SPEC = readText('docs/refactor/spec.md')
-const PR_TEMPLATE = readText('.github/pull_request_template.md')
+const PR_TEMPLATE_DIR = '.github/PULL_REQUEST_TEMPLATE'
+const PR_TEMPLATES = ['bug_fix.md', 'feature.md', 'docs_update.md', 'refactor.md']
+  .map((name) => ({ name, path: PR_TEMPLATE_DIR + '/' + name, text: readText(PR_TEMPLATE_DIR + '/' + name) }))
 const TESTS_README = readText('tests/README.md')
 const ADR_DIR = repoPath('docs/adr')
 const pkg = JSON.parse(readText('package.json'))
@@ -24,8 +25,10 @@ const AI_DOCS = [
   'docs/adr/0002-test-stack.md',
   'docs/adr/0003-addon-package-release.md',
   'docs/adr/0004-lib-build-release.md',
-  'docs/refactor/spec.md',
-  '.github/pull_request_template.md',
+  '.github/PULL_REQUEST_TEMPLATE/bug_fix.md',
+  '.github/PULL_REQUEST_TEMPLATE/feature.md',
+  '.github/PULL_REQUEST_TEMPLATE/docs_update.md',
+  '.github/PULL_REQUEST_TEMPLATE/refactor.md',
   'tests/README.md',
 ]
 
@@ -90,10 +93,12 @@ describe('AGENTS.md contract', () => {
   })
 
   it('does not reference deleted files or retired tools', () => {
-    for (const deleted of ['CLAUDE.md', 'docs/engineering-principles.md', 'docs/refactor/metrics.md']) {
+    for (const deleted of ['CLAUDE.md', 'docs/engineering-principles.md']) {
       expect(AGENTS).not.toContain(deleted)
       expect(fs.existsSync(repoPath(deleted))).toBe(false)
     }
+    expect(AGENTS).not.toContain('docs/refactor')
+    expect(fs.existsSync(repoPath('docs/refactor'))).toBe(false)
     expect(AGENTS).not.toContain('blender_rt_pick')
   })
 
@@ -139,8 +144,19 @@ describe('ADR set', () => {
   })
 })
 
-describe('pull request template', () => {
-  it('carries scope, matrix row, evidence, risk, rollback, disclosure, and checklist', () => {
+describe('pull request templates', () => {
+  it('replaces the single template with a typed chooser set', () => {
+    expect(fs.existsSync(repoPath('.github/pull_request_template.md'))).toBe(false)
+    expect(fs.existsSync(repoPath(PR_TEMPLATE_DIR))).toBe(true)
+    expect(PR_TEMPLATES.map((template) => template.name).sort()).toEqual([
+      'bug_fix.md',
+      'docs_update.md',
+      'feature.md',
+      'refactor.md',
+    ])
+  })
+
+  it.each(PR_TEMPLATES)('$name carries the common review fields', ({ text }) => {
     for (const heading of [
       '## Summary',
       '## Task',
@@ -153,72 +169,22 @@ describe('pull request template', () => {
       '## Disclosure',
       '## Checklist',
     ]) {
-      expect(PR_TEMPLATE).toContain(heading)
+      expect(text).toContain(heading)
     }
   })
 
-  it('links to AGENTS instead of restating the command table', () => {
-    expect(PR_TEMPLATE).toContain('AGENTS.md')
-    expect(PR_TEMPLATE).toContain('§6')
-  })
-})
-
-describe('refactor specification', () => {
-  it('contains the required sections', () => {
-    for (const heading of [
-      '## 1. Problem',
-      '## 2. Goals',
-      '## 3. Non-goals',
-      '## 4. Constraints',
-      '## 5. Normative clauses',
-      '## 6. Acceptance scenarios',
-      '## 7. Behavior matrix',
-      '## 8. Rollback',
-      '## 9. Metrics',
-      '## 10. Traceability',
-    ]) {
-      expect(SPEC).toContain(heading)
-    }
-    expect(SPEC).toContain('SHALL')
-    expect(SPEC).toContain('WHEN')
-    expect(SPEC).toContain('THEN')
-    expect(SPEC).toContain('BEHAVIOR_MATRIX.md')
+  it.each(PR_TEMPLATES)('$name links to the shared rules instead of restating them', ({ text }) => {
+    expect(text).toContain('AGENTS.md')
+    expect(text).toContain('§1')
+    expect(text).toContain('§6')
   })
 
-  it('has one clause for every release gate', () => {
-    const gates = [
-      ...Array.from({ length: 8 }, (_, index) => 'A' + (index + 1)),
-      ...Array.from({ length: 7 }, (_, index) => 'B' + (index + 1)),
-      ...Array.from({ length: 8 }, (_, index) => 'C' + (index + 1)),
-      ...Array.from({ length: 6 }, (_, index) => 'D' + (index + 1)),
-      ...Array.from({ length: 6 }, (_, index) => 'E' + (index + 1)),
-      ...Array.from({ length: 4 }, (_, index) => 'F' + (index + 1)),
-    ]
-    for (const gate of gates) {
-      expect(SPEC, gate + ' must be traceable to a clause').toContain('**' + gate + ' —')
-    }
-  })
-
-  it('records the delivery and collaboration metrics baseline', () => {
-    for (const metric of [
-      'Release interval',
-      'Change failure rate',
-      'Rollback count',
-      'PR size',
-      'Review time',
-      'Rework rate',
-      'Flaky rate',
-      'Agent first-pass rate',
-    ]) {
-      expect(SPEC).toContain(metric)
-    }
-    expect(SPEC).toContain('Not instrumented')
-    expect(SPEC).toMatch(/SHALL NOT be recorded as output/i)
-    expect(SPEC).toMatch(/Median 386/)
-  })
-
-  it('has no broken relative link', () => {
-    expect(brokenRelativeLinks('docs/refactor/spec.md')).toEqual([])
+  it('keeps the type-specific sections', () => {
+    const byName = Object.fromEntries(PR_TEMPLATES.map(({ name, text }) => [name, text]))
+    expect(byName['bug_fix.md']).toContain('## Reproduction')
+    expect(byName['feature.md']).toContain('## Motivation')
+    expect(byName['docs_update.md']).toContain('## Docs changed')
+    expect(byName['refactor.md']).toContain('## No behavior change')
   })
 })
 

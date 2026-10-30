@@ -1,6 +1,0 @@
-
-> @dsh-external/dsh-blender-plugin@2.6.2 format:check
-> prettier --check "src/**/*.ts" "scripts/check-*.mjs" "eslint.config.mjs" "tsconfig*.json" ".prettierrc.json" "tests/types/**/*.d.ts"
-
-Checking formatting...
-All matched files use Prettier code style!

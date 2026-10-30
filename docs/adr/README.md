@@ -76,5 +76,4 @@ Related ADRs, the specification section, and evidence.
 
 ## Links
 
-- Specification and gates: [docs/refactor/spec.md](../refactor/spec.md)
 - AI collaboration rules: [AGENTS.md](../../AGENTS.md)

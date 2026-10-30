@@ -1,8 +1,8 @@
 # AGENTS.md — repository guide for AI assistants
 
 > Loaded automatically by DSH, Claude Code, Cursor, and Codex. Read it before your first edit (~3 minutes).
-> Humans: [README.md](README.md) (English) · [zh-README.md](zh-README.md) (Chinese).
-> Contribution entry: [CONTRIBUTING.md](CONTRIBUTING.md) · [zh-CONTRIBUTING.md](zh-CONTRIBUTING.md).
+> Humans: [README.md](README.md) (English) · [docs/zh/README.md](docs/zh/README.md) (Chinese).
+> Contribution entry: [CONTRIBUTING.md](CONTRIBUTING.md) · [docs/zh/CONTRIBUTING.md](docs/zh/CONTRIBUTING.md).
 
 This repository is the **DSH × Blender plugin** (v3.0.0): a DeepSeek Harness plugin that drives a live
 Blender session over a loopback TCP bridge. Model surface: **15 tools**; planning surface:
@@ -68,8 +68,7 @@ never describe a target file as existing.
   use `gate_preflight` / `gate_checkpoint` / `gate_deliver` and `deliver_export(require_gate=true)`.
 - **Migrate in slices** ([ADR 0001](docs/adr/0001-runtime-ts.md)): one module or boundary per change,
   no behavior change while moving code, and the old file is deleted in the same change.
-- **No new rule files.** A lesson learned goes into this file, an ADR, or
-  [docs/refactor/spec.md](docs/refactor/spec.md).
+- **No new rule files.** A lesson learned goes into this file or an ADR.
 
 ## 4. Task routing
 
@@ -81,19 +80,17 @@ never describe a target file as existing.
 | Backend (`runtime/`) | [runtime/engine.ts](runtime/engine.ts) · [runtime/server.ts](runtime/server.ts) → [tests/README.md](tests/README.md) |
 | Blender addon | [addon/README.md](addon/README.md) → [docs/宿主集成-接口契约-v2.3增补.md](docs/宿主集成-接口契约-v2.3增补.md) |
 | Catalog, op, or route change | section 1 count-sync commands → [tests/README.md](tests/README.md) contract tests |
-| Tests, CI, coverage | [tests/README.md](tests/README.md) → [docs/refactor/spec.md](docs/refactor/spec.md) |
+| Tests, CI, coverage | [tests/README.md](tests/README.md) |
 | Architecture decision | [docs/adr/README.md](docs/adr/README.md): write an ADR first |
-| Refactor task or acceptance | [docs/refactor/spec.md](docs/refactor/spec.md) and `docs/refactor/evidence/<TASK>/` |
 
 ## 5. Definition of done
 
 - Typecheck and the tests for the touched layer pass; contract counts stay 15 tools / 34 families /
   228 ops / 39 addon commands / 29 routes / protocol 11 unless the task declares a change.
 - New behavior has a failing test first. No `skip`, no retry, and no relaxed assertion to hide a failure.
-- Docs are updated in the same change, both language versions stay in sync, and an evidence pack
-  exists under `docs/refactor/evidence/<TASK>/` (`env.txt`, `commands.txt`, raw logs, `acceptance.md`).
+- Docs are updated in the same change, and both language versions stay in sync.
 - No secrets, no build artifacts, no `node_modules` or venv; `lib/` is regenerated, never hand-edited.
-- The pull request uses [.github/pull_request_template.md](.github/pull_request_template.md).
+- The pull request uses one of the templates in [.github/PULL_REQUEST_TEMPLATE/](.github/PULL_REQUEST_TEMPLATE/): `bug_fix.md`, `feature.md`, `docs_update.md`, or `refactor.md`.
 
 ## 6. Disclosure
 
@@ -109,12 +106,11 @@ review failure.
 
 | Fact | Source |
 |---|---|
-| Install, upgrade, uninstall, troubleshooting | [README.md](README.md) · [zh-README.md](zh-README.md) · [docs/操作教程.md](docs/操作教程.md) |
+| Install, upgrade, uninstall, troubleshooting | [README.md](README.md) · [docs/zh/README.md](docs/zh/README.md) · [docs/操作教程.md](docs/操作教程.md) |
 | Install prompt for another AI assistant | [docs/AI-安装提示词.md](docs/AI-安装提示词.md) |
 | Config keys, ports, environment variables | [docs/配置参考.md](docs/配置参考.md) |
 | Tool parameters, ops, families | `blender_rt_plan(op="catalog")` · [docs/操作教程.md](docs/操作教程.md) |
 | Addon and host integration contract | [docs/宿主集成-接口契约-v2.3增补.md](docs/宿主集成-接口契约-v2.3增补.md) |
 | Decisions and their rationale | [docs/adr/README.md](docs/adr/README.md) |
-| Refactor scope, gates, metrics | [docs/refactor/spec.md](docs/refactor/spec.md) |
 | Test layers and fixtures | [tests/README.md](tests/README.md) |
 | Version history and migrations | [CHANGELOG.md](CHANGELOG.md) · [MIGRATIONS.md](MIGRATIONS.md) |

@@ -68,6 +68,5 @@ reinstall the plugin as well.
 
 ## Links
 
-- Specification: [docs/refactor/spec.md](../refactor/spec.md), gates B4, B6, D3, D5
 - Packaging and tarball checks: [ADR 0004](0004-lib-build-release.md)
 - Migration notes: [MIGRATIONS.md](../../MIGRATIONS.md)

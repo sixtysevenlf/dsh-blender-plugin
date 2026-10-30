@@ -66,6 +66,5 @@ before `npm pack` and before publish.
 
 ## Links
 
-- Specification: [docs/refactor/spec.md](../refactor/spec.md), gates B5, B6, D2, D5
 - Runtime language decision: [ADR 0001](0001-runtime-ts.md)
 - Release process: [CONTRIBUTING.md](../../CONTRIBUTING.md)

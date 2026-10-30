@@ -1,2 +1,0 @@
-# unit/integration import the TypeScript sources through .js specifiers (Vitest resolves them to .ts)
-// Shared integration harness: a real lib/runtime/server.js on an ephemeral port with

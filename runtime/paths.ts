@@ -42,7 +42,7 @@ export function blenderJoin(...parts: string[]): string {
  * "模块名 → 真实文件"的唯一映射。
  *
  * generator / uv_tools 不在计划 §4.7 的领域表里：保留为 runtime/ 下的真实模块（映射用 '.'），
- * 显式例外，见 docs/refactor/evidence/T8/review.md。
+ * 显式例外，见本地重构工作区的 T8 review 记录。
  */
 export const PY_DOMAINS = ['core', 'geometry', 'assembly', 'render', 'export'];
 const PY_MODULE_DOMAIN: Record<string, string> = {

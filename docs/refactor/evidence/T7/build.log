@@ -1,2 +1,0 @@
---- syntax check
-node --check OK: 23 modules

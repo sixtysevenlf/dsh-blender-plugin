@@ -85,5 +85,5 @@ v2.3 的原生选中 / 集合 / activity 依赖本仓 addon 的 5 条命令与 N
 2. Blender 里停用 v1.11 zip addon，重新安装 v2.6.2 自带的单文件 `dsh_blender_bridge.py`（或 v2.6.2 的 addon 产物），启用后 N → Connect；
 3. **重启 DSH**；`blender_rt_cmd get_addon_info` 应回到 v1.10 / protocol 11，`blender_rt_plan(op="catalog")` 应回到 34 family / 228 op。
 4. v2.6.2 tag 自带 `lib/` 与旧 `runtime/*.mjs`，不需要构建；v3.0.0 的 `lib/runtime` 与 `.ts` 不要混用。
-5. 回滚演练记录见 `docs/refactor/evidence/T15f/rollback.md` 与 v3.0.0 发布证据 `docs/refactor/evidence/T16/`。
+5. 回滚演练记录保存在本地重构工作区，不随仓库发布。
 

@@ -1,6 +1,6 @@
 # `dsh_blender_bridge` 包 —— Blender 侧 addon（本仓附带，唯一受支持版本）
 
-配套 [`@dsh-external/dsh-blender-plugin`](../zh-README.md) 的 Blender 内 addon。
+配套 [`@dsh-external/dsh-blender-plugin`](../docs/zh/README.md) 的 Blender 内 addon。
 
 > **v3.0 起 addon 以包 + zip 安装，单文件 `dsh_blender_bridge.py` 不再是安装入口，且已从本仓删除。**
 > 旧单文件安装过的用户请先在 Blender 里停用并移除它，再安装 `dsh_blender_bridge.zip`（见

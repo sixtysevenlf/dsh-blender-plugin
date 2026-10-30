@@ -16,7 +16,7 @@
 请帮我安装这个 DSH 插件：https://github.com/sixtysevenlf/dsh-blender-plugin
 
 动手前的要求（必须遵守）：
-1. 先完整阅读仓库里的 zh-README.md：§2 前置条件（5 条）、§3 安装（5 步）、§8 常见故障，以及 AGENTS.md。
+1. 先完整阅读仓库里的 docs/zh/README.md：§2 前置条件（5 条）、§3 安装（5 步）、§8 常见故障，以及 AGENTS.md。
 2. 逐条核对 5 条前置条件；缺哪条先告诉我，不要跳过，也不要替我决定。
    当前版本：插件 v3.0.0 / 15 个模型工具 / plan catalog 34 family 228 op / addon v1.11（protocol 11）。
    注意：仓库已提交 lib/，只有要改 src/ 时才必须构建。
@@ -40,7 +40,7 @@
 ## ② DSH 用户（仓库已在本地工作区）
 
 ~~~text
-读 dsh-blender-plugin/zh-README.md 的 §2 / §3 / §8 与 AGENTS.md，
+读 dsh-blender-plugin/docs/zh/README.md 的 §2 / §3 / §8 与 AGENTS.md，
 按 §3 的五步把这个插件装进我的 DSH profile（构建（可选）→ 配置 → 装进 profile → 起 Blender → 验证）。
 装完跑 blender_viewport(op="doctor")，kind=ok 才算成功；不是 kind=ok 就按 §8 排查，并把原始回执贴给我。
 （纯无头路线不装 addon 时，doctor 的 bpy 往返不可达属预期：改用 blender_rt_worker(op="start") + op="see" 出图自证。）

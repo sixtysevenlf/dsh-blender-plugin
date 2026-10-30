@@ -96,6 +96,5 @@ Phase R landed as one migration commit on `task/t15`, followed only by tests, pa
 
 ## Links
 
-- Specification: [docs/refactor/spec.md](../refactor/spec.md), gates B5 and B6
 - Build and packaging: [ADR 0004](0004-lib-build-release.md)
 - Commands: [AGENTS.md §1](../../AGENTS.md#1-commands-single-source)

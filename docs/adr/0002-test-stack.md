@@ -62,6 +62,5 @@ the exact installation path users take. We revisit the table once a year and on 
 
 ## Links
 
-- Specification: [docs/refactor/spec.md](../refactor/spec.md), gates C1-C8
 - Test layers and fixtures: [tests/README.md](../../tests/README.md)
 - Behavior matrix (owned by T14): [tests/BEHAVIOR_MATRIX.md](../../tests/BEHAVIOR_MATRIX.md)
