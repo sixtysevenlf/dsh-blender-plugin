@@ -1,0 +1,90 @@
+$ node scripts/build-addon.mjs
+{
+  "ok": true,
+  "zip": "addon/dsh_blender_bridge.zip",
+  "package_root": "dsh_blender_bridge",
+  "entries": 39,
+  "bytes": 330728,
+  "sha256": "e8f6b73ef8f1acaeaddfdcadbfed2a2f28cd6113be807da65a6c9e64ba178f86",
+  "versions": {
+    "bl_info_version": [
+      1,
+      11
+    ],
+    "addon_version": [
+      1,
+      11
+    ],
+    "protocol_version": 11
+  }
+}
+
+$ node scripts/build-addon.mjs --check
+{
+  "ok": true,
+  "check": true,
+  "zip": "addon/dsh_blender_bridge.zip",
+  "package_root": "dsh_blender_bridge",
+  "entries": 39,
+  "versions": {
+    "bl_info_version": [
+      1,
+      11
+    ],
+    "addon_version": [
+      1,
+      11
+    ],
+    "protocol_version": 11
+  },
+  "sha256": "e8f6b73ef8f1acaeaddfdcadbfed2a2f28cd6113be807da65a6c9e64ba178f86"
+}
+
+$ sha256sum addon/dsh_blender_bridge.zip
+e8f6b73ef8f1acaeaddfdcadbfed2a2f28cd6113be807da65a6c9e64ba178f86 *addon/dsh_blender_bridge.zip
+
+$ unzip -l addon/dsh_blender_bridge.zip
+Archive:  addon/dsh_blender_bridge.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+    13934  1980-01-01 00:00   dsh_blender_bridge/__init__.py
+       61  1980-01-01 00:00   dsh_blender_bridge/assets/__init__.py
+     7666  1980-01-01 00:00   dsh_blender_bridge/assets/io.py
+       63  1980-01-01 00:00   dsh_blender_bridge/commands/__init__.py
+     1409  1980-01-01 00:00   dsh_blender_bridge/commands/activity.py
+    33700  1980-01-01 00:00   dsh_blender_bridge/commands/assets_polyhaven.py
+    14671  1980-01-01 00:00   dsh_blender_bridge/commands/assets_polypizza.py
+    18573  1980-01-01 00:00   dsh_blender_bridge/commands/assets_sketchfab.py
+    25328  1980-01-01 00:00   dsh_blender_bridge/commands/core.py
+    17541  1980-01-01 00:00   dsh_blender_bridge/commands/generate_hunyuan.py
+    12547  1980-01-01 00:00   dsh_blender_bridge/commands/generate_hyper3d.py
+      918  1980-01-01 00:00   dsh_blender_bridge/commands/generate_premium.py
+     5741  1980-01-01 00:00   dsh_blender_bridge/commands/material.py
+    13468  1980-01-01 00:00   dsh_blender_bridge/commands/scene.py
+    12424  1980-01-01 00:00   dsh_blender_bridge/commands/selection.py
+     1860  1980-01-01 00:00   dsh_blender_bridge/commands/telemetry.py
+     6027  1980-01-01 00:00   dsh_blender_bridge/compat.py
+     4988  1980-01-01 00:00   dsh_blender_bridge/config.py
+       67  1980-01-01 00:00   dsh_blender_bridge/integrations/__init__.py
+     3974  1980-01-01 00:00   dsh_blender_bridge/integrations/hunyuan_client.py
+      517  1980-01-01 00:00   dsh_blender_bridge/integrations/hyper3d_client.py
+    24005  1980-01-01 00:00   dsh_blender_bridge/integrations/polyhaven_client.py
+     4748  1980-01-01 00:00   dsh_blender_bridge/integrations/polypizza_client.py
+      337  1980-01-01 00:00   dsh_blender_bridge/integrations/sketchfab_client.py
+       62  1980-01-01 00:00   dsh_blender_bridge/premium/__init__.py
+     9595  1980-01-01 00:00   dsh_blender_bridge/premium/client.py
+     7347  1980-01-01 00:00   dsh_blender_bridge/premium/jobs.py
+     2880  1980-01-01 00:00   dsh_blender_bridge/premium/ui.py
+     2843  1980-01-01 00:00   dsh_blender_bridge/protocol.py
+       64  1980-01-01 00:00   dsh_blender_bridge/recorders/__init__.py
+     8120  1980-01-01 00:00   dsh_blender_bridge/recorders/activity.py
+     2253  1980-01-01 00:00   dsh_blender_bridge/recorders/edit_capture.py
+     6354  1980-01-01 00:00   dsh_blender_bridge/recorders/user_edit.py
+    18482  1980-01-01 00:00   dsh_blender_bridge/server.py
+       57  1980-01-01 00:00   dsh_blender_bridge/ui/__init__.py
+     5790  1980-01-01 00:00   dsh_blender_bridge/ui/lists.py
+    12668  1980-01-01 00:00   dsh_blender_bridge/ui/operators.py
+    17952  1980-01-01 00:00   dsh_blender_bridge/ui/panels.py
+     5658  1980-01-01 00:00   dsh_blender_bridge/ui/preferences.py
+---------                     -------
+   324692                     39 files

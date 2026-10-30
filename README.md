@@ -30,7 +30,7 @@ DSH × Blender connects DeepSeek Harness to Blender so an agent can build, inspe
 
 ## Quick start
 
-**Before anything else: install the bundled addon first.** Use only the addon shipped in this repository: **addon/dsh_blender_bridge.py**. Do not install MCP for Blender or any other Blender addon. Install and enable this addon in Blender before the other steps. If the installation below does not work, first check that this exact addon is installed, enabled, and connected.
+**Before anything else: install the bundled addon first.** Use only the addon shipped in this repository: **addon/dsh_blender_bridge.zip**. Do not install MCP for Blender or any other Blender addon. Install and enable this addon in Blender before the other steps. If the installation below does not work, first check that this exact addon is installed, enabled, and connected.
 
 ### Requirements
 
@@ -43,7 +43,7 @@ DSH × Blender connects DeepSeek Harness to Blender so an agent can build, inspe
 
 Copy this prompt into an agent that can run commands:
 
-    First install and enable the bundled addon addon/dsh_blender_bridge.py
+    First install and enable the bundled addon addon/dsh_blender_bridge.zip
     from this repository; do not use MCP for Blender or any other addon.
     Then install the DSH × Blender plugin from
     https://github.com/sixtysevenlf/dsh-blender-plugin
@@ -64,7 +64,7 @@ Install the standalone modeling skill (only needed for hosts that do not load th
 
 1. **Install the bundled addon first.**
 
-   Download **addon/dsh_blender_bridge.py** from the addon/ folder of this repository. In Blender, open Edit > Preferences > Add-ons > Install, select that file, enable DSH Blender Bridge, open the N panel in the 3D view, and click Connect. The addon listens on 127.0.0.1:9876.
+   Download **addon/dsh_blender_bridge.zip** from the addon/ folder of this repository. In Blender, open Edit > Preferences > Add-ons > Install, select that zip, enable DSH Blender Bridge, open the N panel in the 3D view, and click Connect. The addon listens on 127.0.0.1:9876. If you previously installed the single-file `dsh_blender_bridge.py`, disable and remove it first: v3.0 installs only the package zip.
 
    Use only this addon. Disable MCP for Blender or any other Blender addon before continuing. If the rest of the installation does not work, check this step first.
 
@@ -178,7 +178,7 @@ The plugin exposes 15 tools. All planning, audit, assembly, export, and evaluati
 | Another session is writing to the same scene | Take the write lease with blender_viewport, or use separate headless workers for parallel work. |
 | An old MCP for Blender addon is installed | Disable it and install the bundled DSH Blender Bridge addon instead. |
 | Images are generated but not attached | Update to the latest build; the Windows path fix is included. If it persists, open the returned path directly. |
-| Followed the steps and it still does not work | Check the bundled addon first: only addon/dsh_blender_bridge.py is supported, and it must be enabled and connected. |
+| Followed the steps and it still does not work | Check the bundled addon first: only addon/dsh_blender_bridge.zip is supported, and it must be enabled and connected. |
 
 ## Development
 

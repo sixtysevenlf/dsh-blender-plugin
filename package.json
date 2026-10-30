@@ -92,6 +92,8 @@
   },
   "scripts": {
     "build": "bash scripts/build.sh",
+    "build:addon": "node scripts/build-addon.mjs",
+    "check:addon": "node scripts/build-addon.mjs --check",
     "typecheck": "node scripts/typecheck.mjs",
     "test": "node scripts/test.mjs",
     "test:discover": "node tests/discoverability_selftest.mjs",

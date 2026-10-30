@@ -1,30 +1,30 @@
 # MIGRATIONS —— 从旧版本迁到 v2.6
 
 > **当前版本（2026-10-20）**：插件 **v2.6.2** · **15 个模型工具** · plan catalog **34 family / 228 op** ·
-> addon **v1.10**（protocol **11**）· 后端 `127.0.0.1:9877` / addon `127.0.0.1:9876`。
+> addon **v1.11**（protocol **11**）· 后端 `127.0.0.1:9877` / addon `127.0.0.1:9876`。
 > **旧 `MCP for Blender` 自 v2.3 起不再支持**；v2.3/v2.4 的迁移变更与 addon v1.10 的面板更新仍然适用，
 > v2.6 以**新增字段/能力**为主，按下文 §0 最短路径迁完即可。
 
 ## 0. 最短路径（任何旧版 → v2.6.2）
 
 1. 更新 DSH 插件包到 **v2.6.2** → **重启 DSH**；旧「Blender 视口」tab / 点击进消息在 v2.3 已删除，这是预期。
-2. Blender 里停用旧 addon → 安装本仓 `addon/dsh_blender_bridge.py`（**v1.10**）→ 启用 → N → Connect。
-3. `blender_rt_cmd get_addon_info` → `addon_version=[1,10]`、`protocol=11`；
+2. Blender 里停用并移除旧 addon（含旧的单文件 `dsh_blender_bridge.py`）→ 安装本仓 `addon/dsh_blender_bridge.zip`（**v1.11**）→ 启用 → N → Connect。
+3. `blender_rt_cmd get_addon_info` → `addon_version=[1,11]`、`protocol=11`；
    GUI 路线 `curl http://127.0.0.1:9877/doctor` → `kind=ok`（纯无头路线用 `rt_worker(start)` + `see` 出图自证）；
    `blender_rt_plan(op="catalog")` → **34 family / 228 op**。
 4. 选中入口：Blender 原生选中 → `N` →「Selection → DSH」→ 发送（多选 / 集合）；编辑模式选点/面、姿态选骨骼也会一起发。
 5. 新能力（交互式无头、`img_*`、`asm_*`、`blockout`、`visualreport`、`shapesolve`、`eval_run`、强制门等）用
    `blender_rt_plan(op="catalog")` 查骨架；旧 op 不删除、只增不改。
 
-## 1. Blender 侧 addon：必须换成 `DSH Blender Bridge` v1.10+
+## 1. Blender 侧 addon：必须换成 `DSH Blender Bridge` v1.11（zip 包）
 
 v2.3 的原生选中 / 集合 / activity 依赖本仓 addon 的 5 条命令与 N 面板入口，旧 addon 没有。
 两个 addon 都默认监听 `127.0.0.1:9876`，**不能同时启用**。
 
 1. `Edit ▸ Preferences ▸ Add-ons` → 停用旧条目（`MCP for Blender` / `blender_mcp` / `blender_mcp_addon`）。
-2. `Install...` → 选本仓 [`addon/dsh_blender_bridge.py`](addon/dsh_blender_bridge.py) → 勾选启用 **DSH Blender Bridge**（v1.10 / protocol 11）。
+2. `Install...` → 选本仓 [`addon/dsh_blender_bridge.zip`](addon/dsh_blender_bridge.zip) → 勾选启用 **DSH Blender Bridge**（v1.11 / protocol 11）。v3.0 起不再支持单文件安装。
 3. 3D 视图按 `N` →「DSH Blender Bridge」→ **Connect**（端口 9876）；或直接 `blender_viewport(op="launch")`。
-4. `blender_rt_cmd get_addon_info` → `addon_version` 应为 `[1,10]`、`protocol=11`，capabilities 含
+4. `blender_rt_cmd get_addon_info` → `addon_version` 应为 `[1,11]`、`protocol=11`，capabilities 含
    `get_activity_state` / `get_selection` / `get_collections` / `send_*_to_dsh`。
 
 > 旧名 `blender_mcp` 的"已启用"记录是死引用，可以移除；插件**不再做双名回退**。
@@ -48,8 +48,9 @@ v2.3 的原生选中 / 集合 / activity 依赖本仓 addon 的 5 条命令与 N
 当前唯一真源是 [`docs/宿主集成-接口契约-v2.3增补.md`](docs/宿主集成-接口契约-v2.3增补.md) —— 该文件顶部有 **v2.6 兼容声明**
 （v2.3 契约仍适用；addon v1.10 / protocol 11；新增 P0–P2 op 见 catalog）。
 
-## 5. addon v1.10 / v2.6 追加（无需迁移动作）
+## 5. addon v1.10 / v1.11 / v2.6 追加（无需迁移动作）
 
+- **addon v1.11**：拆成包并改为 zip 安装；命令名、参数、返回结构与 pause 语义不变（protocol 11）。
 - **addon v1.10**：N 面板活动状态置顶、环境与角色模型 API 子面板、**暂停 AI 操作**（暂停后只放行只读命令，
   恢复只能由人在 Blender 点）。升级 addon 即可，无配置迁移。
 - **v2.6**：回执**只增字段**（`recovered / progress / heartbeat / warnings / scope` 等，不改旧字段语义）；

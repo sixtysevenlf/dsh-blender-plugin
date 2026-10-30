@@ -47,8 +47,9 @@ export DSH_CHECKOUT=/path/to/dsh-source-checkout
 npm run build
 ```
 
-Blender side: install `addon/dsh_blender_bridge.py`, enable it, and click **Connect**. The installation is
-considered good only when `curl -sS http://127.0.0.1:9877/doctor` returns `kind=ok`.
+Blender side: install `addon/dsh_blender_bridge.zip`, enable it, and click **Connect**. After changing the
+add-on sources under `addon/dsh_blender_bridge/`, rebuild the zip with `node scripts/build-addon.mjs`.
+The installation is considered good only when `curl -sS http://127.0.0.1:9877/doctor` returns `kind=ok`.
 
 ## Repository layout
 
@@ -57,7 +58,7 @@ considered good only when `curl -sS http://127.0.0.1:9877/doctor` returns `kind=
 | `src/` | TypeScript source for the plugin host side |
 | `lib/` | Committed build output of `src/` — **do not hand-edit** |
 | `runtime/` | Backend: server, engine, catalog, worker, headless runner |
-| `addon/` | The Blender addon (**v1.10 / protocol 11**) — the only supported addon |
+| `addon/` | The Blender addon package + `dsh_blender_bridge.zip` (**v1.11 / protocol 11**) — the only supported addon |
 | `skills/` | The bundled `blender-modeling` skill, registered automatically |
 | `tests/` | Node and Python self-tests |
 | `docs/` | Operation guide, configuration reference, contracts, SOPs |

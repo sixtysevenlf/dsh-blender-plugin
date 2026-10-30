@@ -4,7 +4,7 @@
 > 人类读者请直接看 [README.zh-CN.md](README.zh-CN.md)（[English](README.md)）。
 
 > **当前版本（2026-10-28）**：插件 **v2.6.2** · **15 个模型工具** · plan catalog **34 个 family / 228 个 op** ·
-> Blender 侧 addon **v1.10**（protocol **11**）· 后端 `127.0.0.1:9877` / addon `127.0.0.1:9876`。
+> Blender 侧 addon **v1.11**（protocol **11**）· 后端 `127.0.0.1:9877` / addon `127.0.0.1:9876`。
 > **验收判据**：GUI 路线 = `doctor` 回 `kind=ok`；纯无头路线（不装 addon）= `blender_rt_worker(start)` + `see` 出图自证
 > （此时 doctor 的 bpy 往返不可达属预期）。**GUI 优先（无头备用）**：GUI 首选，交互式无头（持久 worker + see/watch/reset）
 > 与 `rt_do/rt_see`（`session/auto`）、`blender_rt_plan(session="auto")` 都可独立工作。
@@ -15,7 +15,7 @@
 
 | 读哪节 | 为什么 |
 |---|---|
-| **§2 前置条件（5 条）** | 缺一条都装不起来。注意：Blender 侧 addon **只支持本包附带的 `addon/dsh_blender_bridge.py`（v1.10+ / protocol 11）**；旧 `MCP for Blender` 自 v2.3 起不支持，必须停用旧 addon 再启用本包 addon（见 [MIGRATIONS.md](MIGRATIONS.md)） |
+| **§2 前置条件（5 条）** | 缺一条都装不起来。注意：Blender 侧 addon **只支持本包附带的 `addon/dsh_blender_bridge.zip`（包形式，v1.11+ / protocol 11）**；旧单文件 `dsh_blender_bridge.py` 与旧 `MCP for Blender` 自 v3.0/v2.3 起不支持，必须停用旧 addon 再启用本包 addon（见 [MIGRATIONS.md](MIGRATIONS.md)） |
 | **§3 安装（5 步）** | 构建（**可选**，本仓已提交 `lib/`）→ 配置 → 装进 profile → 起 Blender（**GUI 首选**）→ 验证 |
 | **§8 常见故障**（英文 README 为 §9） | 报错先查表，别自己发明修法 |
 
@@ -98,7 +98,7 @@
   插件加载时注册 bundled provider（`ctx.inject(['skills'], …)`，rank 600；用户 `~/.dsh/skills` 的 400 副本仍优先）。
   **改 skill 直接改这里**，独立仓库 `dsh-skill-blender-modeling` 仅作非 DSH 宿主的镜像；改完跑 `node tests/skill_bundle_selftest.mjs`。
 - **选中桥（v2.3 起）**：DSH 侧视口面板 / `blender_rt_pick` / TUI 侧栏面板**已删除**（入口改到 Blender 原生选中）。
-  addon 侧 `ActivityTracker` + 5 条命令（`get_activity_state / get_selection / send_selection_to_dsh / get_collections / send_collection_to_dsh`，addon v1.10）；
+  addon 侧 `ActivityTracker` + 5 条命令（`get_activity_state / get_selection / send_selection_to_dsh / get_collections / send_collection_to_dsh`，addon v1.10+）；
   addon v1.10 起编辑模式点/线/面、姿态骨骼、曲线/晶格控制点也进入 `selection.sub`（见契约 §S1.3），N 面板另有「暂停 AI 操作」。
   契约唯一真源 `docs/宿主集成-接口契约-v2.3增补.md`（顶部有 v2.6 兼容声明）；回归
   `node tests/selection_store_selftest.mjs` + `node tests/client_bundle_selftest.mjs`（改后两者都必须在 `npm test` 里绿）。
