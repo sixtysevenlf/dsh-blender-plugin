@@ -45,3 +45,39 @@ def test_catalog_and_lock_agree_on_surface_ops():
     surface = next(f for f in lock["families"] if f["f"] == "surface")
     assert surface["ops"] == 11
     assert lock["ops_count"] == 228
+
+
+def _surface_fit_function():
+    """Compile the real surface_fit body without importing bpy/numpy."""
+    tree = _tree()
+    fn = next(
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "surface_fit"
+    )
+    namespace = {
+        "_err": lambda msg, **kw: {
+            "ok": False,
+            "error": str(msg),
+            "hint": kw.pop("hint", None),
+            **kw,
+        }
+    }
+    message = next(
+        node for node in tree.body
+        if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == "_M3_FIT_MSG" for target in node.targets)
+    )
+    exec(compile(ast.Module(body=[message, fn], type_ignores=[]), str(SURFACE), "exec"), namespace)
+    return namespace["surface_fit"]
+
+
+def test_surface_fit_executes_the_honest_refusal():
+    """A6: the op must actually refuse with ok:false + reason + next_action."""
+    receipt = _surface_fit_function()(points=[])
+    assert receipt["ok"] is False
+    assert receipt["stage"] == "M3"
+    assert receipt["op"] == "fit"
+    assert receipt["code"] == "M3_NOT_IMPLEMENTED"
+    assert "fit not implemented" in receipt["error"]
+    assert receipt["next_action"].strip()
+    assert receipt["hint"].strip()
