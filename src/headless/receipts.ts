@@ -284,7 +284,7 @@ export function headlessHumanText(res: any, ctx: any): string {
     parts.push(
       (r.stdoutTruncated ? '--- stdout 尾（已截断）---' : '--- stdout ---') +
         NLx +
-        (rj !== null && rj !== undefined ? clipText(so, 500, 800) : clipText(so, 1500, 2500))
+        (rj !== null && rj !== undefined ? clipText(redactSecrets(so), 500, 800) : clipText(redactSecrets(so), 1500, 2500))
     )
   const se = String(r.stderrTail !== undefined && r.stderrTail !== null ? r.stderrTail : r.stderr || '')
   if (se.trim()) parts.push('--- stderr（头+尾）---' + NLx + clipText(redactSecrets(se), 500, 1500))

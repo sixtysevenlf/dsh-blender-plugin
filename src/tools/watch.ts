@@ -5,7 +5,7 @@ import { ensureBackend, sleep } from '../host/backend.js'
 import { backendPost, fetchFrame, leasedText } from '../host/http.js'
 import { toAttachment, readLocalPng } from '../utils/image.js'
 import { renderOne } from '../ui/cards.js'
-import { toolError } from './errors.js'
+import { redactSecrets, toolError } from './errors.js'
 
 async function watchViaWorker(ctx: any, port: number, args: any, session?: string): Promise<any> {
   const size = Math.max(120, Math.min(1600, Number((args && args.max_size) || 420)))
@@ -113,7 +113,7 @@ export function registerWatch(ctx: any, port: number): void {
                 lt
                   ? lt
                   : r && r.ok
-                    ? 'ACT ok · ' + String(r.ms) + 'ms' + (r.stdout ? ' · stdout: ' + String(r.stdout).trim().slice(0, 600) : '')
+                    ? 'ACT ok · ' + String(r.ms) + 'ms' + (r.stdout ? ' · stdout: ' + redactSecrets(r.stdout).slice(0, 600) : '')
                     : 'ACT 失败 · ' + String((r && (r.error || r.raw)) || '')
               )
             }

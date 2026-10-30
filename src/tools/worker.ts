@@ -186,7 +186,7 @@ export function registerWorker(ctx: any, port: number): void {
               )
             if (res.status) parts2.push('status: ' + JSON.stringify(res.status))
             if (res.lastError) parts2.push('lastError: ' + String(res.lastError))
-            if (res.stdoutTail) parts2.push('worker stdout 尾：' + String(res.stdoutTail).slice(-800))
+            if (res.stdoutTail) parts2.push('worker stdout 尾：' + redactSecrets(res.stdoutTail).slice(-800))
             return { text: parts2.join('\n') }
           }
         })

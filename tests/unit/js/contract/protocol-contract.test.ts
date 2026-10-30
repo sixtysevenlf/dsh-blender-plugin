@@ -2,6 +2,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { PROTOCOLS, detectProtocol, resolveProtocol } from '../../../../runtime/addon-protocol.js'
 import { AddonClient } from '../../../../runtime/engine.js'
 import { startFakeAddon } from '../../../helpers/fake-addon.mjs'
+import { closedPort } from '../../../helpers/fake-backend.mjs'
 
 describe('flat addon protocol', () => {
   it('encodes requests without framing and decodes success envelopes', () => {
@@ -15,6 +16,12 @@ describe('flat addon protocol', () => {
   it('maps error envelopes to {ok:false,message} without throwing', () => {
     expect(PROTOCOLS.flat.decode('{"status":"error"}')).toEqual({ ok: false, message: 'addon error' })
     expect(PROTOCOLS.flat.decode('{"status":"error","message":"boom"}')).toEqual({ ok: false, message: 'boom' })
+  })
+
+  it('defaults plan params and returns null when no addon listens', async () => {
+    expect(PROTOCOLS.flat.plan('ping').wire).toEqual({ type: 'ping', params: {} })
+    const port = await closedPort()
+    expect(await detectProtocol('127.0.0.1', port, 200)).toBeNull()
   })
 
   it('treats only the flat protocol as supported', async () => {

@@ -44,8 +44,8 @@ async function doViaSession(ctx: any, port: number, opts: any): Promise<any | nu
       )
     }
     const parts: string[] = ['ACT(session=' + nm + ') ok · ' + String(rr.ms) + 'ms']
-    if (rr.stdout && String(rr.stdout).trim()) parts.push('stdout: ' + String(rr.stdout).trim().slice(0, 3000))
-    if (rr.stderr && String(rr.stderr).trim()) parts.push('stderr: ' + String(rr.stderr).trim().slice(0, 1200))
+    if (rr.stdout && String(rr.stdout).trim()) parts.push('stdout: ' + redactSecrets(rr.stdout).slice(0, 3000))
+    if (rr.stderr && String(rr.stderr).trim()) parts.push('stderr: ' + redactSecrets(rr.stderr).slice(0, 1200))
     let image: any = undefined
     const see = opts.see !== false
     if (see) {
