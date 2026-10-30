@@ -1,0 +1,1226 @@
+{
+  "pluginVersion": "2.6.2",
+  "addonVersion": [
+    1,
+    10
+  ],
+  "protocol": 11,
+  "tools": [
+    {
+      "name": "blender_rt_see",
+      "description": "【看视口】约 55–160 ms 出一帧：改一步看一眼就用它。GUI 不在或传 session 时自动走持久 worker 的 Workbench 离屏（无头也能同步看）。给 from/look_at（可配 lens / ortho / ortho_scale / view_size / shading / overlays / view_mode）走**自定义视角**：自建矩阵离屏绘制，不建相机、不改 scene.camera、不动用户视口。full=true + area=N 走整窗口截图（要看 Blender UI 时用）。回执带 coverage_estimate 与 frame_looks_empty 自诊断；同画面默认不重复附图（省视觉 token），要重发传 force=true。参数细节见 blender_rt_plan(op=\"catalog\", args={tool:\"rt_see\"})。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "max_size": {
+            "type": "integer",
+            "description": "最长边像素，默认 560（420 更快，900 更清晰）"
+          },
+          "session": {
+            "type": "string",
+            "description": "无头 worker 会话名（不走 GUI）"
+          },
+          "auto": {
+            "type": "boolean",
+            "description": "GUI 不可用时自动降级到无头 see（默认 true）"
+          },
+          "full": {
+            "type": "boolean",
+            "description": "整窗口/区域截图（screenshot_area 路径）：看 Blender UI 或其他编辑器时用；默认 false = 3D 视口离屏帧"
+          },
+          "area": {
+            "type": "integer",
+            "description": "full=true 时的区域序号，默认 0（第 1 个区域）"
+          },
+          "from": {
+            "type": "string",
+            "description": "【自定义视角】相机位置 \"x,y,z\"（世界坐标）。给 from + look_at 就走自定义视角出图：套用自建矩阵离屏绘制，完全不动物体、不动用户视口 —— 想\"从另一侧看看\"或做多角度校验时用它（约 100ms）"
+          },
+          "look_at": {
+            "type": "string",
+            "description": "【自定义视角】看向的点 \"x,y,z\""
+          },
+          "lens": {
+            "type": "number",
+            "description": "【自定义视角】焦距 mm，默认 50"
+          },
+          "ortho": {
+            "type": "boolean",
+            "description": "【自定义视角】正交投影（配合 ortho_scale）"
+          },
+          "ortho_scale": {
+            "type": "number",
+            "description": "【自定义视角】正交尺度（贴长边），默认 10"
+          },
+          "view_size": {
+            "type": "string",
+            "description": "【自定义视角】分辨率 \"宽x高\"，如 \"1280x720\"；默认按 max_size 出 16:9"
+          },
+          "shading": {
+            "type": "string",
+            "description": "【自定义视角】临时切换着色 WIREFRAME/SOLID/MATERIAL/RENDERED（出图后还原）"
+          },
+          "overlays": {
+            "type": "boolean",
+            "description": "【自定义视角】临时开关覆盖物（网格/坐标轴/gizmo），出图后还原"
+          },
+          "view_mode": {
+            "type": "string",
+            "description": "【自定义视角】viewport（默认，零场景改动，就是视口看到的样子）/ render（临时相机 + Workbench 快渲）"
+          },
+          "diagnostics": {
+            "type": "boolean",
+            "description": "【自定义视角】是否强制跑诊断三项（coverage_estimate / scene_bbox / objects_in_frame）。默认不跑（省 45–490 ms/次）；近空帧会自动补跑一次以保住 frame_looks_empty 告警。要逐张核对覆盖率时传 true"
+          },
+          "force": {
+            "type": "boolean",
+            "description": "上一帧与本帧 hash 完全相同时默认**不重复附图**（省模型侧 token）；传 true 强制重发这张图"
+          }
+        }
+      },
+      "output": {
+        "schema": {}
+      },
+      "timeoutMs": 300000,
+      "isConcurrencySafe": false
+    },
+    {
+      "name": "blender_rt_do",
+      "description": "实时驱动 Blender：在持久内核 K 里执行 Python（或直接跑 .py 文件），可选立刻回一帧视口。只补 op 没有的局部编辑；有 plan op 先用 op。GUI 可用时走 addon；传 session 时在持久无头 worker 里 exec+see（GUI 不可达自动降级，不是异步 job）；每步约 50–150 ms。持久内核：K.x = 1 这次写，下次调用还能读到；预置 bpy / math / mathutils / Vector。 异常也会回传 partial stdout / stderr / traceback（诊断信息不丢）； file 参数可直接执行工作区脚本（等价 K.run(path)，支持 WSL / Windows / 相对 .blend 三种路径）； 内置路径辅助 K.win_path / K.wsl_path / K.blend_path / K.out_dir； ④ 返回的 ms 即**主线程占用**，>1 s 会提示改走 blender_rt_headless / blender_rt_worker。 **P0 无头交互**：GUI 不在线或传 session 时，自动降级到持久无头会话（exec + Workbench see，同一 worker 热路径；不是 job/异步）。第一次会冷启动 worker，之后每步 ~50–150ms；session 名固定即复用同一个 Blender 会话。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Python 代码（在 Blender 主线程执行；预置 bpy/math/mathutils/Vector 与持久内核 K）。与 file 二选一"
+          },
+          "file": {
+            "type": "string",
+            "description": "要执行的 .py 文件路径（WSL / Windows / 相对当前 .blend 均可）—— 长脚本用这个，不必塞进入参"
+          },
+          "see": {
+            "type": "boolean",
+            "description": "是否同时回一帧视口（默认 true）"
+          },
+          "max_size": {
+            "type": "integer",
+            "description": "回帧最长边像素，默认 560"
+          },
+          "force": {
+            "type": "boolean",
+            "description": "回帧与上一帧 hash 完全相同时默认**不重复附图**；传 true 强制重发"
+          },
+          "session": {
+            "type": "string",
+            "description": "无头交互会话名（复用同一 blender -b）"
+          },
+          "auto": {
+            "type": "boolean",
+            "description": "GUI 不可用时降级无头 session（默认 true）"
+          },
+          "preload": {
+            "type": "string",
+            "description": "无头 session 预载模块（逗号分隔）"
+          },
+          "from": {
+            "type": "string",
+            "description": "无头 see 相机位置 \"x,y,z\""
+          },
+          "look_at": {
+            "type": "string",
+            "description": "无头 see 看向点 \"x,y,z\""
+          }
+        }
+      },
+      "output": {
+        "schema": {}
+      },
+      "timeoutMs": 300000,
+      "isConcurrencySafe": false
+    },
+    {
+      "name": "blender_rt_watch",
+      "description": "观察时间窗/帧序列：先跑 code，再采样最多 6 帧 + 逐帧 hash（判断动画/修改器有没有动）；gui 不可用时自动走无头 worker。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "可选：观察前先执行的 Python"
+          },
+          "seconds": {
+            "type": "number",
+            "description": "观察时长，默认 2 秒（0.2-20）"
+          },
+          "fps": {
+            "type": "number",
+            "description": "采样率，默认 4（0.5-8）"
+          },
+          "max_size": {
+            "type": "integer",
+            "description": "帧最长边像素，默认 420"
+          },
+          "session": {
+            "type": "string",
+            "description": "无头 worker 会话（不给则 GUI 失败自动降级）"
+          }
+        }
+      },
+      "output": {
+        "schema": {}
+      },
+      "timeoutMs": 600000,
+      "isConcurrencySafe": false
+    },
+    {
+      "name": "blender_rt_cmd",
+      "description": "直连调用 Blender addon 的任意命令（39 个名字：24 常驻 + 15 集成门控），含 get_world_state_snapshot / drain_human_activity / get_telemetry_consent / set_telemetry_consent / get_addon_info，以及资产类命令（PolyHaven / Sketchfab / Poly Pizza / Hyper3D / Hunyuan3D）。仅 GUI addon 在线时可用；纯无头请用 rt_worker / rt_headless。参数必须匹配 addon 真实签名：get_scene_info 无参、get_object_info 用 name（不是 object_name）。先用 blender_rt_commands 看清单与可用性。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "addon 命令名，如 get_world_state_snapshot、search_polyhaven_assets"
+          },
+          "params": {
+            "description": "参数对象（可选），如 {\"asset_type\":\"hdris\"}"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "description": "超时毫秒，默认 120000（下载/生成类可调大）"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "output": {
+        "schema": {}
+      },
+      "timeoutMs": 360000,
+      "isConcurrencySafe": false
+    },
+    {
+      "name": "blender_rt_commands",
+      "description": "列出直连通道当前可用的 addon 命令（19 常驻 + 15 集成门控）与 5 个集成的真实状态（开关是否打开、是否缺 API key）。调 blender_rt_cmd 之前先用它。",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      },
+      "output": {
+        "schema": {}
+      },
+      "timeoutMs": 60000,
+      "isConcurrencySafe": false
+    },
+    {
+      "name": "blender_rt_loop",
+      "description": "【内环搜索】把\"要试几十~几千组参数\"的活从模型回合搬进 Blender 主线程（bpy.app.timers，160 tick/s，迭代/时间双上限 + 急停）：你只写目标与区间，机器去搜。**任务形状对上了就用**：对齐 / 拟合 / 反推尺寸 / 参数扫描 —— 判据能写成一个数（轮廓 IoU、包围盒尺寸误差、剖面差，或你自写的 score），候选几十~几千组。只试 ≤5 组 → 用 rt_do 自己循环更省事。**GUI 走 timers（160 tick/s）；无头请传 target=\"session\"**（走 worker 的 dsh_loop_sync 阻塞循环，不依赖 timers；需 worker 已 start 且 preload 带 runner，工具会自动起）。setup 只跑一次，step/measure 共享 ns（预置 bpy/K/random/np/i/frac/penalize/anneal/record）；measure 必须给 ns[\"score\"]（参数写 ns[\"params\"]）；现成目标函数 K.dsh_measure = {silhouette_iou, aabb_err, profile_err}。节奏：op=start → status → board（候选表）→ export（best 落可复现脚本，setup 里定义 apply(p) 才会自动重放）。**内环只优化你写的目标函数：收敛后必须换另一条通路复核 + rt_see 看一眼**（防 Goodhart）；跑完场景停在最后一次迭代的参数上，不是 best。spec 字段、ns 契约与可照抄模板见 blender_rt_plan(op=\"catalog\", args={tool:\"rt_loop\"})。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "op": {
+            "type": "string",
+            "description": "start | status | stop | board | export | help | bench"
+          },
+          "target": {
+            "type": "string",
+            "description": "gui（默认，timers）| session（无头 worker 同步阻塞，推荐 headless 主路径）"
+          },
+          "session": {
+            "type": "string",
+            "description": "target=session 时的 worker 实例名（默认 dsh-loop）"
+          },
+          "spec": {
+            "description": "op=start 的规格：{setup, step, measure, iterations, budget_ms, interval, measure_every, minimize, top_k, group_key, redraw_every}"
+          },
+          "history": {
+            "type": "integer",
+            "description": "op=status 返回的指标尾迹长度，默认 8"
+          },
+          "board": {
+            "type": "integer",
+            "description": "op=status 时同时返回前 N 个候选（默认 0=不返回）"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "op=board 的候选条数，默认 10"
+          },
+          "groups": {
+            "type": "boolean",
+            "description": "op=board 是否包含分组候选（默认 true）"
+          },
+          "path": {
+            "type": "string",
+            "description": "op=export 写出脚本的路径（宿主可见路径，如 /tmp/xxx.py 或 D:\\out\\xxx.py），省略=只回文本"
+          },
+          "top": {
+            "type": "integer",
+            "description": "op=export 的变体数量（配 include_variants）"
+          },
+          "include_variants": {
+            "type": "boolean",
+            "description": "op=export 是否把候选表一起导出"
+          },
+          "note": {
+            "type": "string",
+            "description": "op=export 的备注（写进脚本头部）"
+          },
+          "iterations": {
+            "type": "integer",
+            "description": "op=bench 的迭代次数"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "output": {
+        "schema": {}
+      },
+      "timeoutMs": 360000,
+      "isConcurrencySafe": false
+    },
+    {
+      "name": "blender_rt_perf",
+      "description": "【渲染性能】Cycles CPU 瓶颈诊断与优化预设。op=analyze 差分实测「每轮同步 / 每采样 GPU 成本」（占主线程十几秒）；op=apply 应用预设（persistent_data / OptiX 降噪 / denoising_use_gpu / auto_tile off / 采样上限）；op=revert 还原 apply 之前；op=status 看当前设置与已存快照；op=help 契约。实测背景：2318 对象场景每轮 CPU 侧同步 ≈4.2 s、GPU 单采样 ≈0.2 s（1080p）、首次 kernel JIT ≈15 s；persistent_data 让重复渲染 14.6 s → 0.79 s。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "op": {
+            "type": "string",
+            "description": "status | analyze | apply | revert | help"
+          },
+          "args": {
+            "description": "analyze{pct=25,low=1,high=4}；apply{samples=1024,persistent=true,denoiser=\"OPTIX\",denoise_gpu=true,auto_tile=false}"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "output": {
+        "schema": {}
+      },
+      "timeoutMs": 660000,
+      "isConcurrencySafe": false
+    },
+    {
+      "name": "blender_rt_opt",
+      "description": "【对象精简】降 Cycles 每轮场景同步成本（实测 ≈1.4 ms/对象）。op=analyze 列出可安全合并的分组与预计节省；op=join 执行合并（**默认 dry_run=true 只报告**；dry_run=false 才真合并，强烈建议同时给 save_before=<.blend 绝对路径> 先存回退点）。合并规则：同集合 / 同材质 / 同父级 / 无修改器 / 无动画 / 无形态键 / 无自定义属性 / 无实例 / 非库链接。合并后**几何零损失**（面数与顶点数不变），合并对象名为 `<前缀>_MERGED_<材质>`。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "op": {
+            "type": "string",
+            "description": "analyze | join | help"
+          },
+          "args": {
+            "description": "join{dry_run=true, save_before=\"D:/.../xxx_before_join.blend\"}"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "output": {
+        "schema": {}
+      },
+      "timeoutMs": 660000,
+      "isConcurrencySafe": false
+    },
+    {
+      "name": "blender_rt_headless",
+      "description": "【无头 Blender · 备用】独立进程跑脚本（blender -b）：GUI 不可用/批处理/长活用；不占 GUI、不动场景。⚠ 给 Windows 路径（D:\\x\\y.py）；script_file 自动给 __file__ + sys.path。批量几何 / 校验 / 渲染 / 不需要\"人在回路看视口\"的活都先走这里；\"看一眼\"用 rt_do/rt_see。print(\"HEADLESS \" + json.dumps(obj)) 回传（单行 JSON）。默认 factory-startup + EEVEE 前导（engine=\"cycles\"|\"keep\"|\"none\" 可改）。**>100 s 或长渲染：as_job=true**（rt_job 收）；等待窗口到点回 promoted jobId，结果仍可收。attach_images 可回图；shots 多视角；preload 后直调 K.dsh_*_api。参数细节见 catalog(tool:rt_headless)。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "script": {
+            "type": "string",
+            "description": "Python 源码（注入 K + bpy/math/mathutils/Vector）"
+          },
+          "script_file": {
+            "type": "string",
+            "description": "直接跑一个 .py 文件（Windows/WSL 路径都行）；比 script= 省事"
+          },
+          "file": {
+            "type": "string",
+            "description": "要打开的 .blend（回执带 inputFile{size,mtime,md5}）；传 .py 会自动当脚本"
+          },
+          "outdir": {
+            "type": "string",
+            "description": "产物目录（WSL 路径也收）；跑完列出新文件，并追加到脚本 sys.argv"
+          },
+          "as_job": {
+            "type": "boolean",
+            "description": "true = 立刻后台化成作业（预期 >100 s 的活推荐直接用）"
+          },
+          "wait_s": {
+            "type": "number",
+            "description": "as_job 之后最多再等几秒，到点回 jobId"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "description": "子进程上限，默认 180000，上限 1800000（到点 SIGKILL）"
+          },
+          "engine": {
+            "type": "string",
+            "description": "eevee（默认）| cycles | keep | none（省 1–1.5 s）"
+          },
+          "preload": {
+            "type": "string",
+            "description": "预载 runtime 模块（逗号分隔，如 \"audit,qc,qc_render\"）→ K.dsh_*_api"
+          },
+          "shots": {
+            "description": "多视角出图 [{name,from,look_at,lens,res,samples}]"
+          },
+          "out_json": {
+            "type": "string",
+            "description": "结构化结果落盘路径（>4KB 也会自动落 results/）"
+          },
+          "env": {
+            "description": "子进程环境变量 {KEY:\"VALUE\"}"
+          },
+          "args": {
+            "type": "string",
+            "description": "追加到 -- 之后的命令行参数（脚本里读 sys.argv / K.args）"
+          },
+          "workdir": {
+            "type": "string",
+            "description": "脚本内 chdir + sys.path 首位"
+          },
+          "factory_startup": {
+            "type": "boolean",
+            "description": "默认 true；false = 用用户启动文件与偏好"
+          },
+          "use_user_config": {
+            "type": "boolean",
+            "description": "透传 BLENDER_USER_CONFIG/SCRIPTS 给无头进程"
+          },
+          "bootstrap": {
+            "type": "boolean",
+            "description": "默认 true = 注入持久内核 K"
+          },
+          "gpu": {
+            "type": "string",
+            "description": "仅 cycles：auto | true（必须 GPU）| false"
+          },
+          "include_noise": {
+            "type": "boolean",
+            "description": "产物清单含 __pycache__/*.blend1"
+          },
+          "attach_images": {
+            "description": "shots 附图：true=3 张，\"sheet\"=拼图"
+          },
+          "hard_exit": {
+            "type": "boolean",
+            "description": "done 后 os._exit(0) 跳过退出拆解；默认 true 规避 5.2.3 退出 AV，false=旧行为（atexit/handlers 照常）"
+          }
+        }
+      },
+      "output": {
+        "schema": {}
+      },
+      "timeoutMs": 1200000,
+      "isConcurrencySafe": false
+    },
+    {
+      "name": "blender_rt_plan",
+      "description": "【判定 / 验收 / 导出 / 造型】34 个 family · 228 个 op；有 op 不许自写等价几何/验收。**不确定用哪个就先问目录：op=\"catalog\"**（本地直出，不占 Blender 往返；含\"什么时候用 / 别用 / 最小骨架\"）；单族展开 op=\"catalog\", args={family:\"audit\"}；算子细节用各 family 自己的 <family>_help。常用：audit_* · qc_render_views|qc_compare · sculpt_* · fix_* · uv_* · print_report · sweep_* · deliver_* · motion_* · generator_save|run（save 用 **code=**）· material_* · render_lock|render_status · render_state|render_wait · asm_*（装配扫描/manifest/merge/gate）· blockout_* · img_digest|probe|measure|calib · gate_preflight|checkpoint|deliver · visualreport_report · shapesolve_solve · surface_loft|sweep|patch|validate。契约层判据见 docs/假设驱动建模-cookbook.md；写 op 过租约，只读 op 豁免。传 session=\"auto\" 或无头 worker 名时按 family 自动起 worker 同步执行（不依赖 GUI）；首次约 2 s，之后复用。op 名拼错回 did_you_mean（带骨架）；参数名写错回\"不认识的参数\"。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "op": {
+            "type": "string",
+            "description": "契约 op 或 plan_<op>（见工具描述；op=help / plan_help 出速查）"
+          },
+          "args": {
+            "description": "op 的参数对象，例如 {\"cid\":\"joint\",\"err\":184,\"tolerance\":220,\"identifiable\":[\"dy\"]}"
+          },
+          "path": {
+            "type": "string",
+            "description": "op=report 时的输出路径（Markdown）；省略则只回文本"
+          },
+          "attach_images": {
+            "type": "boolean",
+            "description": "产物图附图回模型（≤2 张；img_digest/qc_compare 默认开）"
+          },
+          "session": {
+            "type": "string",
+            "description": "无头 worker 会话；\"auto\"=自动起"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "output": {
+        "schema": {}
+      },
+      "timeoutMs": 360000,
+      "isConcurrencySafe": false
+    },
+    {
+      "name": "blender_rt_worker",
+      "description": "【交互式无头热会话】常驻 blender -b 进程：start 拉起 / exec 跑代码 / see 离屏出一帧（Workbench）/ watch 逐帧采样 / reset 清场景 / status / stop / restart / list。start 可带 preload（把 imgtools/assembly/blockout/visualreport/shapesolve 等模块注入 K）与 warmup；see 在无 GUI 时就是 AI 的视口，每步 50–100 ms。同一 session 的场景与 K 跨调用保留；空闲 TTL 默认 15 min（DSH_WORKER_TTL_MS 可调）。串行、无窗口：依赖 GUI 的 bpy.ops 可能失败；参数细节见 blender_rt_plan(op=\"catalog\", args={tool:\"rt_worker\"})。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "op": {
+            "type": "string",
+            "description": "start | exec | see | reset | status | stop | restart | list"
+          },
+          "name": {
+            "type": "string",
+            "description": "实例名（默认 default）；起多个热会话做批量小活，脏了用 restart 换新会话"
+          },
+          "code": {
+            "type": "string",
+            "description": "op=exec 的 Python 源码（预置 K/bpy/math/mathutils/Vector）"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "description": "op=exec 的响应超时，默认 120000；长代码调大"
+          },
+          "preload": {
+            "type": "string",
+            "description": "op=start 时预载模块（逗号分隔，如 \"audit,qc,runner\"）；preload 失败 start 直接报错"
+          },
+          "warmup": {
+            "type": "boolean",
+            "description": "op=start 预热渲染器（默认 true）"
+          },
+          "from": {
+            "type": "string",
+            "description": "op=see 相机位置 \"x,y,z\""
+          },
+          "look_at": {
+            "type": "string",
+            "description": "op=see 看向点 \"x,y,z\""
+          },
+          "lens": {
+            "type": "number",
+            "description": "op=see 焦距 mm"
+          },
+          "ortho": {
+            "type": "boolean",
+            "description": "op=see 正交投影"
+          },
+          "view_size": {
+            "type": "string",
+            "description": "op=see 分辨率 \"宽x高\""
+          },
+          "gpu": {
+            "type": "string",
+            "description": "op=start 的 GPU 语义（仅 cycles）：auto / true / false"
+          },
+          "engine": {
+            "type": "string",
+            "description": "op=start 的渲染引擎：eevee（默认）/ cycles / workbench / keep"
+          },
+          "purge_prefix": {
+            "type": "string",
+            "description": "op=exec 前清掉的模块前缀（逗号分隔）—— 改了用户模块必须清，否则 import 命中旧代码"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "output": {
+        "schema": {}
+      },
+      "timeoutMs": 1920000,
+      "isConcurrencySafe": false
+    },
+    {
+      "name": "blender_rt_txn",
+      "description": "【事务 / 回滚】两级快照：**文件级** snapshot/restore（整场景回退；写 .blend 副本，用 copy=True 所以不改当前 filepath；大场景有 MB 级成本，本机 300 对象工程实测约 97MB / 0.8s）+ **对象级** mark/revert（只记 transform / 材质槽 / 可见性 / 修改器开关，毫秒级、就地回滚）。用途：\"整个场景推倒重来之前先留个点\"（snapshot）、\"只改一处再对比\"（mark 再 revert）。restore 默认 into=\"auto\"：载入快照后把会话放回**快照的出处文件**（保存落回自己的工程，不写进快照目录），并在载入前自动留 pre_restore 备份；into=\"snapshot\" 非破坏（只看一眼、不写原文件）。⚠️ 边界：对象级**不含拓扑/UV/顶点级改动** —— Boolean、合并、删面之后回不去（revert 会跳过并报告），那种回滚请用文件级 snapshot/restore。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "op": {
+            "type": "string",
+            "description": "snapshot | restore | list | prune | mark | revert | marks | drop | help"
+          },
+          "label": {
+            "type": "string",
+            "description": "快照 / mark 的名字（snapshot 省略则用时间戳）"
+          },
+          "objects": {
+            "type": "string",
+            "description": "mark 时限定对象（逗号分隔；省略 = 全场景）"
+          },
+          "keep": {
+            "type": "integer",
+            "description": "prune 只保留最近 N 个快照，默认 5"
+          },
+          "note": {
+            "type": "string",
+            "description": "snapshot 备注"
+          },
+          "into": {
+            "type": "string",
+            "description": "restore 回写口径：auto（默认，回到快照的出处文件）| snapshot（非破坏，不写原文件）| original（必须能回写，否则失败）"
+          },
+          "backup": {
+            "type": "boolean",
+            "description": "restore 前是否自动留 pre_restore 备份（默认 true）"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "output": {
+        "schema": {}
+      },
+      "timeoutMs": 360000,
+      "isConcurrencySafe": false
+    },
+    {
+      "name": "blender_rt_preset",
+      "description": "【配方库】把「参数组合」变成可保存、可套用、可分发的资产：save / list / get / apply / delete / export / import / help。data 用点路径表达：材质节点 {\"inputs.Base Color\": [1,0,0,1]}、对象属性 {\"location\": [0,0,1]}、场景设置 {\"render.resolution_x\": 640}。apply 的 targets 用 MAT:材质名 / OBJ:对象名 / SCENE（逗号分隔）；不给 targets 只预览（dry_run），给了就实际写入并回报 applied/skipped/errors。export/import 走单个 JSON bundle，便于把配方分享到别的机器或会话。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "op": {
+            "type": "string",
+            "description": "save | list | get | apply | delete | export | import | help"
+          },
+          "name": {
+            "type": "string",
+            "description": "配方名（save / get / apply / delete）"
+          },
+          "kind": {
+            "type": "string",
+            "description": "分类（list 可按 kind 过滤），如 material / object / scene"
+          },
+          "tags": {
+            "type": "string",
+            "description": "标签（逗号分隔；list 可按 tag 过滤）"
+          },
+          "note": {
+            "type": "string",
+            "description": "备注（save）"
+          },
+          "data": {
+            "type": "string",
+            "description": "点路径 JSON 字符串（save），如 {\"inputs.Roughness\": 0.4}"
+          },
+          "targets": {
+            "type": "string",
+            "description": "apply 目标（逗号分隔）：MAT:材质名 / OBJ:对象名 / SCENE"
+          },
+          "path": {
+            "type": "string",
+            "description": "export 输出路径 / import 输入路径"
+          },
+          "names": {
+            "type": "string",
+            "description": "export 选定的配方名（逗号分隔；省略=全部）"
+          },
+          "overwrite": {
+            "type": "boolean",
+            "description": "save/import 是否覆盖同名（默认 true）"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "output": {
+        "schema": {}
+      },
+      "timeoutMs": 360000,
+      "isConcurrencySafe": false
+    },
+    {
+      "name": "blender_rt_job",
+      "description": "【作业层】长活后台化：op=start 立刻返回 jobId（不占客户端连接、不会被工具超时掐断）；status / collect / **wait** / kill / list。**wait 一次拿到结构化结果（默认 120 s/次，上限 600 s）—— 别再连发 status**（会撞宿主的重复调用检测）。与 headless 的分工：预期 <100 s 用 headless 直接拿结果；更长或已知要跑很久 → headless 的 as_job=true，或本工具 op=start。run 与 job **同一 id 空间**：headless 的 runId（run-…）也能用 status/collect/wait/kill 收；日志落 <outdir>/jobs/<id>/。参数细节见 blender_rt_plan(op=\"catalog\", args={tool:\"rt_job\"})。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "op": {
+            "type": "string",
+            "description": "start | status | collect | wait | kill | list"
+          },
+          "id": {
+            "type": "string",
+            "description": "status/collect/wait/kill 的 id（job-… 或 headless 的 run-…）"
+          },
+          "script": {
+            "type": "string",
+            "description": "Python 源码（与 headless 同一套前导与结果契约）"
+          },
+          "script_file": {
+            "type": "string",
+            "description": "直接跑 .py 文件（Windows/WSL 路径都收）"
+          },
+          "args": {
+            "type": "string",
+            "description": "命令行参数（空格分隔或数组）；脚本里读 sys.argv / K.args"
+          },
+          "env": {
+            "description": "额外环境变量 {KEY:\"VALUE\"}"
+          },
+          "file": {
+            "type": "string",
+            "description": "要打开的 .blend（回执带 inputFile{size,mtime,md5}）"
+          },
+          "outdir": {
+            "type": "string",
+            "description": "产物目录（WSL 路径也收）；日志在其 jobs/<id>/ 下"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "description": "作业上限，默认 3600000，上限 24 h；wait 时是本次等待上限（默认 120000，上限 600000）"
+          },
+          "engine": {
+            "type": "string",
+            "description": "eevee（默认）/ cycles / keep"
+          },
+          "preload": {
+            "type": "string",
+            "description": "预载 runtime 模块（逗号分隔）→ K.dsh_*_api"
+          },
+          "factory_startup": {
+            "type": "boolean",
+            "description": "默认 true = --factory-startup"
+          },
+          "bootstrap": {
+            "type": "boolean",
+            "description": "默认 true = 注入持久内核 K"
+          },
+          "workdir": {
+            "type": "string",
+            "description": "脚本内 chdir + sys.path 首位"
+          },
+          "include_noise": {
+            "type": "boolean",
+            "description": "产物清单是否含噪音文件（默认 false 过滤）"
+          },
+          "out_json": {
+            "type": "string",
+            "description": "结构化结果落盘路径（>4KB 自动落 results/）"
+          },
+          "tail": {
+            "type": "integer",
+            "description": "collect/wait 的 stdout/stderr 尾部字符数（默认 4000）"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "output": {
+        "schema": {}
+      },
+      "timeoutMs": 660000,
+      "isConcurrencySafe": false
+    },
+    {
+      "name": "blender_viewport",
+      "description": "实时通道后端（127.0.0.1:9877）运维入口：**status**（健康/视口区域/计数/版本）、**doctor**（真跑一次 bpy 往返的三级体检：未连 / 主线程忙 / addon 线程卡死 + 修法）、**start / stop / restart**（后端进程与 15 s 看护）、**who / lease / release**（写租约；被别人持有时写路由 409，只读 op 豁免）、**launch**（一键拉起 GUI Blender 并自动 Connect addon：写 boot 脚本 → detached spawn → **轮询 addon 端口**（唯一可信判据）→ 顺手 doctor；幂等）。参数细节见 blender_rt_plan(op=\"catalog\", args={tool:\"viewport\"})。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "op": {
+            "type": "string",
+            "description": "status | doctor | who | lease | release | start | stop | restart | launch"
+          },
+          "holder": {
+            "type": "string",
+            "description": "lease/release 的持有者名（默认本插件进程 pid 标识）"
+          },
+          "ttl_ms": {
+            "type": "integer",
+            "description": "lease 有效期毫秒，默认 600000；写操作会自动续期"
+          },
+          "force": {
+            "type": "boolean",
+            "description": "lease 时抢占别人的租约（默认 false，被占用返回 409）"
+          },
+          "scope": {
+            "type": "string",
+            "description": "【lease】写作用域（第二维）：collection:COL_Lights 或 prefix:LGT- ，逗号分隔；声明式，会出现在 who/lease/409 回执里（装配层用 K.route_collections() 真正归位）"
+          },
+          "wait_ms": {
+            "type": "integer",
+            "description": "【launch】等 addon 端口打开的上限，默认 90000"
+          },
+          "file": {
+            "type": "string",
+            "description": "【launch】启动时要打开的 .blend（WSL/Windows 路径都收）"
+          },
+          "exe": {
+            "type": "string",
+            "description": "【launch】显式指定 blender.exe（覆盖配置探测）"
+          },
+          "addon_module": {
+            "type": "string",
+            "description": "【launch】要 enable 的 addon 模块名（逗号分隔）；默认自动扫名字带 mcp / blender_bridge / dshbb 的模块（旧名与新名都能扫到）"
+          },
+          "addon_file": {
+            "type": "string",
+            "description": "【launch】按文件 import 的 addon .py 绝对路径（extension 布局兜底）"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "description": "【launch】true = 只回报将执行的命令，不真的启动"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "output": {
+        "schema": {
+          "type": "string"
+        }
+      },
+      "timeoutMs": 60000
+    }
+  ],
+  "commands": {
+    "ping": "存活探测（不碰 bpy 数据）",
+    "get_scene_info": "场景概览（无参）",
+    "get_world_state_snapshot": "世界状态快照：对象/选中/帧",
+    "get_addon_info": "addon 版本与协议号",
+    "get_object_info": "单对象详情（参数 name）",
+    "get_viewport_screenshot": "视口离屏截图（max_size, filepath, format）",
+    "describe_node_type": "查节点类型的全部 socket/属性（bl_idname, property_overrides）—— 建着色器/几何节点前先查，别猜 socket 顺序",
+    "bpy_api_lookup": "查 bpy API 参考（query，如 \"bpy.ops.mesh.primitive_cube_add\"）",
+    "export_scene": "导出场景/选择/名单到 glb|fbx|obj（filepath, format, object_names, selection_only, apply_modifiers）",
+    "get_activity_state": "统一活动状态 human/agent/idle/both + 原生选中摘要（无参；查询自身不算 agent）",
+    "get_selection": "当前 Blender 原生选中（名字/类型/活动对象/模式/场景；无参）",
+    "send_selection_to_dsh": "把当前选中 POST 给 DSH 后端（N 面板按钮的同一实现；timeout 可选）",
+    "get_collections": "列场景集合：名字 / 对象数 / 其中选中数（limit 可选；大装配体先选集合）",
+    "send_collection_to_dsh": "把整个集合 POST 给 DSH（collection 可选，缺省用 N 面板下拉的 dshbb_collection_target）",
+    "get_tripo_status": "Tripo 集成状态（premium 通道）",
+    "execute_code": "执行任意 Python（万能通道，预置 K/bpy/math/mathutils）",
+    "drain_human_activity": "取走\"人类操作\"事件缓冲",
+    "get_telemetry_consent": "读遥测同意开关",
+    "set_telemetry_consent": "写遥测同意开关（参数 consent）",
+    "get_polyhaven_status": "PolyHaven 集成状态",
+    "get_hyper3d_status": "Hyper3D Rodin 集成状态",
+    "get_sketchfab_status": "Sketchfab 集成状态",
+    "get_polypizza_status": "Poly Pizza 集成状态",
+    "get_hunyuan3d_status": "Hunyuan3D 集成状态",
+    "get_polyhaven_categories": "PolyHaven 分类（参数 asset_type: hdris/textures/models）",
+    "search_polyhaven_assets": "PolyHaven 搜索（asset_type, categories）",
+    "download_polyhaven_asset": "下载并导入 PolyHaven 资产（asset_id, asset_type, resolution）",
+    "set_texture": "把已下载贴图应用到对象（object_name, texture_id）",
+    "create_rodin_job": "Hyper3D Rodin 生成任务（文本/图片）",
+    "poll_rodin_job_status": "Rodin 任务轮询",
+    "import_generated_asset": "导入 Rodin 生成结果",
+    "search_sketchfab_models": "Sketchfab 搜索（query, categories, count）",
+    "get_sketchfab_model_preview": "Sketchfab 模型预览图",
+    "download_sketchfab_model": "下载并导入 Sketchfab 模型（uid）",
+    "search_polypizza_models": "Poly Pizza 搜索（query）",
+    "download_polypizza_model": "下载并导入 Poly Pizza 模型（model_id）",
+    "create_hunyuan_job": "Hunyuan3D 生成任务",
+    "poll_hunyuan_job_status": "Hunyuan3D 任务轮询",
+    "import_generated_asset_hunyuan": "导入 Hunyuan3D 生成结果"
+  },
+  "plan": [
+    {
+      "family": "sculpt",
+      "ops": [
+        "scan",
+        "setup",
+        "apply",
+        "filter",
+        "mask",
+        "remesh",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "fix",
+      "ops": [
+        "repair",
+        "decimate",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "uv",
+      "ops": [
+        "stats",
+        "smart_project",
+        "unwrap",
+        "project",
+        "pack",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "print",
+      "ops": [
+        "walls",
+        "overhang",
+        "report",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "sweep",
+      "ops": [
+        "analyze",
+        "build",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "audit",
+      "ops": [
+        "mesh",
+        "scene",
+        "duplicates",
+        "connectivity",
+        "gate",
+        "drift",
+        "measure",
+        "snap_floaters",
+        "overlap",
+        "interference",
+        "purge_orphans",
+        "selftest",
+        "gate_selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "qc",
+      "ops": [
+        "compare",
+        "compare_basic",
+        "compare_auto",
+        "align_iou",
+        "align_rotate",
+        "mask_auto",
+        "mask_sweep",
+        "metrics",
+        "profile",
+        "profile_diff",
+        "robustness_check",
+        "self_check",
+        "load",
+        "crop",
+        "mask",
+        "help"
+      ]
+    },
+    {
+      "family": "qc_render",
+      "ops": [
+        "views",
+        "catalog",
+        "help"
+      ]
+    },
+    {
+      "family": "pipe",
+      "ops": [
+        "run",
+        "put",
+        "get",
+        "list",
+        "clear",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "shape",
+      "ops": [
+        "draft",
+        "draft_check",
+        "plan",
+        "sections",
+        "loft",
+        "fit",
+        "search",
+        "regions",
+        "panels",
+        "revolve",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "vehicle",
+      "ops": [
+        "spec",
+        "package",
+        "sections",
+        "loft",
+        "panels",
+        "regions",
+        "fit",
+        "base",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "clearance",
+      "ops": [
+        "check",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "human",
+      "ops": [
+        "base",
+        "measure",
+        "spec",
+        "head",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "ext",
+      "ops": [
+        "gltf_validate",
+        "ext_mesh_check"
+      ]
+    },
+    {
+      "family": "face",
+      "ops": [
+        "ratios",
+        "compare",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "img",
+      "ops": [
+        "scan",
+        "rectify",
+        "crop",
+        "annotate",
+        "diff",
+        "digest",
+        "probe",
+        "measure",
+        "calib",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "assembly",
+      "ops": [
+        "scan",
+        "manifest",
+        "merge",
+        "repair",
+        "export",
+        "gate",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "blockout",
+      "ops": [
+        "base",
+        "batch",
+        "export",
+        "turntable",
+        "refsheet",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "eval",
+      "ops": [
+        "run",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "calib",
+      "ops": [
+        "run",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "visualreport",
+      "ops": [
+        "report",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "shapesolve",
+      "ops": [
+        "solve",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "surface",
+      "ops": [
+        "loft",
+        "sweep",
+        "patch",
+        "tessellate",
+        "validate",
+        "export",
+        "blend",
+        "offset",
+        "fit",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "gate",
+      "ops": [
+        "plan",
+        "run",
+        "preflight",
+        "checkpoint",
+        "deliver",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "material",
+      "ops": [
+        "scan",
+        "build",
+        "apply",
+        "bake",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "render_guard",
+      "ops": [
+        "render_state",
+        "render_wait",
+        "render_reset",
+        "render_guard_install",
+        "render_guard_selftest"
+      ]
+    },
+    {
+      "family": "render",
+      "ops": [
+        "lock",
+        "status",
+        "help"
+      ]
+    },
+    {
+      "family": "deliver",
+      "ops": [
+        "export",
+        "verify",
+        "help"
+      ]
+    },
+    {
+      "family": "motion",
+      "ops": [
+        "joints",
+        "joint",
+        "infer_axis",
+        "measure",
+        "export_urdf",
+        "export_usda",
+        "status",
+        "reset",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "generator",
+      "ops": [
+        "save",
+        "run",
+        "list",
+        "get",
+        "diff",
+        "selftest",
+        "help"
+      ]
+    },
+    {
+      "family": "plan",
+      "ops": [
+        "load",
+        "validate",
+        "order",
+        "build",
+        "graph",
+        "status",
+        "diag",
+        "help"
+      ]
+    },
+    {
+      "family": "contract",
+      "ops": [
+        "status",
+        "help",
+        "reset",
+        "register_component",
+        "register_connection",
+        "register_envelope",
+        "check_envelope",
+        "check_interference",
+        "check_interface",
+        "destructive_guard",
+        "evidence",
+        "ledger",
+        "report",
+        "verify",
+        "flip",
+        "advance",
+        "mate_check",
+        "fit_help",
+        "interference_report"
+      ]
+    },
+    {
+      "family": "gui",
+      "ops": [
+        "frame",
+        "shading",
+        "open",
+        "help"
+      ]
+    },
+    {
+      "family": "montage",
+      "ops": [
+        "montage",
+        "help"
+      ]
+    }
+  ]
+}

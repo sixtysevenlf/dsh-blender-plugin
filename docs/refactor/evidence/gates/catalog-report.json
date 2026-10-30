@@ -1,6 +1,7 @@
 {
   "families": 34,
   "ops": 228,
+  "tools": 15,
   "fingerprint": {
     "catalogHash": "1d401b938b69",
     "families": 34,
@@ -10,6 +11,7 @@
   },
   "planOpNames": 228,
   "planReadOnlyOps": 98,
+  "lockMatchesCommitted": true,
   "familiesDetail": [
     {
       "family": "sculpt",

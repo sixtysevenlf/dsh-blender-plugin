@@ -35,12 +35,35 @@ for (const r of rows) (bySurface[r.surface] ||= []).push(r)
 out('matrix-report.json', { total: rows.length, bySurface: Object.fromEntries(Object.entries(bySurface).map(([k, v]) => [k, v.length])), rows })
 
 const families = engine.PLAN_CATALOG.map((f) => ({ family: f.f, prefix: f.prefix, ops: f.ops.length, opNames: f.ops }))
+
+// A2: regenerate the capability lock from the live catalog and diff it against
+// the committed fixture. The lock is the frozen surface, not a second source.
+const lockPath = path.join(ROOT, 'tests/fixtures/capability.lock.json')
+const locked = JSON.parse(fs.readFileSync(lockPath, 'utf8'))
+const generatedLock = {
+  families_count: families.length,
+  ops_count: families.reduce((n, f) => n + f.ops, 0),
+  tools_count: engine.MODEL_FACING_TOOLS.length,
+  tools: [...engine.MODEL_FACING_TOOLS].sort(),
+  families: [...families].sort((a, b) => a.family.localeCompare(b.family)).map((f) => ({ f: f.family, ops: f.ops }))
+}
+const lockDiffs = []
+for (const key of ['families_count', 'ops_count', 'tools_count']) {
+  if (locked[key] !== generatedLock[key]) lockDiffs.push(key + ': lock=' + locked[key] + ' live=' + generatedLock[key])
+}
+if (JSON.stringify([...locked.tools].sort()) !== JSON.stringify(generatedLock.tools)) lockDiffs.push('tools list differs')
+if (JSON.stringify([...locked.families].sort((a, b) => a.f.localeCompare(b.f))) !== JSON.stringify(generatedLock.families)) lockDiffs.push('families/ops table differs')
+fs.writeFileSync(path.join(HERE, 'catalog-lock.diff'), lockDiffs.length ? lockDiffs.join('\n') + '\n' : '')
+if (lockDiffs.length) process.exitCode = 1
+
 out('catalog-report.json', {
   families: families.length,
   ops: families.reduce((n, f) => n + f.ops, 0),
+  tools: generatedLock.tools_count,
   fingerprint: engine.catalogFingerprint(),
   planOpNames: engine.planOpNames().length,
   planReadOnlyOps: engine.PLAN_READ_ONLY_OPS.length,
+  lockMatchesCommitted: lockDiffs.length === 0,
   familiesDetail: families
 })
 

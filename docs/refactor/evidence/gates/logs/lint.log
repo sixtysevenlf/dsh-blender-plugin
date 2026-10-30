@@ -1,0 +1,4 @@
+
+> @dsh-external/dsh-blender-plugin@3.0.0 lint
+> eslint src tests/unit/js tests/integration/js tests/helpers scripts runtime --max-warnings=0
+
