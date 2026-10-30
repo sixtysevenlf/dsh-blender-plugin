@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import * as plugin from '../../../../lib/index.js'
+import * as plugin from '../../../../src/index'
 import { snapshotJsonValue } from '@deepseek-ai/dsh-session'
 
 const { losslessSanitize, receiptEnvelope, headlessReceipt, promotedReceipt } = plugin.__internals

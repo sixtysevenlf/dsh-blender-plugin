@@ -1,5 +1,6 @@
 import { backendPost } from '../host/http.js'
 import { attachPaths, planImagePaths } from '../utils/image.js'
+import { redactSecrets } from '../tools/errors.js'
 
 /** P1：plan op → 无头 worker 的模块 API（不给 GUI 也能跑；op 前缀路由 + 别名） */
 export const PLAN_HEADLESS_MAP: any[] = [
@@ -79,12 +80,12 @@ export async function planViaWorker(ctx: any, port: number, op: string, payload:
       return {
         ok: false,
         error: '无头 plan 执行失败：' + String((r && (r.error || rr.error)) || 'unknown'),
-        hint: String(rr.traceback || '').slice(-1200)
+        hint: redactSecrets(rr.traceback || '').slice(-1200)
       }
     }
     return { ok: true, res: rr.result, via: 'worker:' + nm }
   } catch (e: any) {
-    return { ok: false, error: '无头 plan 异常：' + String((e && e.message) || e) }
+    return { ok: false, error: '无头 plan 异常：' + redactSecrets((e && e.message) || e) }
   }
 }
 /** plan 回执统一收尾：信封 + 附图（GUI/无头共用） */

@@ -4,7 +4,7 @@ import { T, BACKEND_HINT } from '../constants.js'
 import { ensureBackend } from '../host/backend.js'
 import { backendPost, leasedText } from '../host/http.js'
 import { renderOne } from '../ui/cards.js'
-import { toolError } from './errors.js'
+import { redactSecrets, toolError } from './errors.js'
 
 export function registerLoop(ctx: any, port: number): void {
   ctx.effect(
@@ -100,12 +100,11 @@ export function registerLoop(ctx: any, port: number): void {
               const r: any = await backendPost(port, '/worker', { op: 'exec', name: nm, code: code, isolated: true }, 300000)
               const rr = (r && r.result) || {}
               if (!r || r.ok !== true)
-                return {
-                  text:
-                    'LOOP session 失败 · ' +
-                    String((r && (r.error || rr.error)) || 'unknown') +
-                    (rr.traceback ? String.fromCharCode(10) + String(rr.traceback).slice(-1500) : '')
-                }
+                return toolError(
+                  'backend_error',
+                  'LOOP session 失败 · ' + redactSecrets((r && (r.error || rr.error)) || 'unknown'),
+                  '用 blender_rt_loop op=status 检查会话；必要时重新 op=start'
+                )
               return { text: 'LOOP ' + op + ' (session=' + nm + ') ok · ' + JSON.stringify(rr.result || rr).slice(0, 6000) }
             }
             const payload: any = {

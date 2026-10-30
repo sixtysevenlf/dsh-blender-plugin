@@ -6,7 +6,7 @@ import { backendPost, fetchFrame, fetchView, numTriple } from '../host/http.js'
 import { frameDedupe, dedupeNote } from '../utils/frame-cache.js'
 import { toAttachment, readLocalPng } from '../utils/image.js'
 import { renderOne } from '../ui/cards.js'
-import { toolError } from './errors.js'
+import { redactSecrets, toolError } from './errors.js'
 
 async function seeViaWorker(ctx: any, port: number, spec: any, name?: string): Promise<any | null> {
   try {
@@ -14,12 +14,12 @@ async function seeViaWorker(ctx: any, port: number, spec: any, name?: string): P
     if (!r || r.ok !== true) return null
     const res = r.result && typeof r.result === 'object' ? r.result : {}
     if (res.ok === false)
-      return {
-        text:
-          '无头 see 失败 · ' +
-          String(res.error || 'unknown') +
-          (res.traceback ? String.fromCharCode(10) + String(res.traceback).slice(-1200) : '')
-      }
+      return toolError(
+        'backend_error',
+        '无头 see 失败 · ' + String(res.error || 'unknown'),
+        '用 blender_rt_worker op=start 检查无头 worker；或改用 GUI 通道',
+        res.traceback ? redactSecrets(res.traceback).slice(-1200) : undefined
+      )
     let data: Uint8Array | null = null
     if (res.png_b64) {
       try {
@@ -130,9 +130,12 @@ export function registerSee(ctx: any, port: number): void {
               }
               const fb = await seeViaWorker(ctx, port, spec, wantSession)
               return (
-                fb || {
-                  text: '无头 see 失败：worker 会话 ' + wantSession + ' 不可用（先 blender_rt_worker op=start name=' + wantSession + '）'
-                }
+                fb ||
+                toolError(
+                  'backend_unreachable',
+                  '无头 see 失败：worker 会话 ' + wantSession + ' 不可用',
+                  '先 blender_rt_worker op=start name=' + wantSession + '，或改用 GUI 通道'
+                )
               )
             }
             if (frm || look) {

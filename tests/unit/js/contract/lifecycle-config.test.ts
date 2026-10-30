@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import * as plugin from '../../../../lib/index.js'
+import * as plugin from '../../../../src/index'
 import http from 'node:http'
 import fs from 'node:fs'
 import os from 'node:os'

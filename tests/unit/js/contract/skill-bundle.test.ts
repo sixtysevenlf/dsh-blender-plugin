@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
-import * as plugin from '../../../../lib/index.js'
+import * as plugin from '../../../../src/index'
 import { pkgPath } from '../../../helpers/pkg'
 
 // v2.2.0 bundled skill: the skill ships inside the plugin. Silent failure here

@@ -5,7 +5,7 @@ import { ensureBackend } from '../host/backend.js'
 import { backendPost, leasedText, numTriple } from '../host/http.js'
 import { toAttachment, readLocalPng } from '../utils/image.js'
 import { renderOne } from '../ui/cards.js'
-import { toolError } from './errors.js'
+import { redactSecrets, toolError } from './errors.js'
 
 export function registerWorker(ctx: any, port: number): void {
   ctx.effect(
@@ -75,9 +75,9 @@ export function registerWorker(ctx: any, port: number): void {
               const rr: any = (r && r.result) || {}
               const bits: string[] = []
               bits.push('WORKER ' + op + ' 失败 · ' + String((r && (r.error || rr.error)) || 'unknown'))
-              if (rr.traceback) bits.push('--- traceback ---' + String.fromCharCode(10) + String(rr.traceback).slice(0, 2000))
-              if (rr.stderr && String(rr.stderr).trim()) bits.push('stderr: ' + String(rr.stderr).trim().slice(0, 1200))
-              if (rr.stdout && String(rr.stdout).trim()) bits.push('stdout: ' + String(rr.stdout).trim().slice(0, 800))
+              if (rr.traceback) bits.push('--- traceback ---' + String.fromCharCode(10) + redactSecrets(rr.traceback).slice(0, 2000))
+              if (rr.stderr && String(rr.stderr).trim()) bits.push('stderr: ' + redactSecrets(rr.stderr).slice(0, 1200))
+              if (rr.stdout && String(rr.stdout).trim()) bits.push('stdout: ' + redactSecrets(rr.stdout).slice(0, 800))
               if (r && r.hint) bits.push(String(r.hint))
               return toolError(
                 'backend_error',
@@ -88,12 +88,12 @@ export function registerWorker(ctx: any, port: number): void {
             const res = (r && r.result) || {}
             if (op === 'see') {
               if (res.ok === false)
-                return {
-                  text:
-                    'WORKER see 失败 · ' +
-                    String(res.error || 'unknown') +
-                    (res.traceback ? String.fromCharCode(10) + String(res.traceback).slice(-1200) : '')
-                }
+                return toolError(
+                  'backend_error',
+                  'WORKER see 失败 · ' + String(res.error || 'unknown'),
+                  '用 blender_rt_worker op=start 检查无头 worker；或改用 blender_rt_see',
+                  res.traceback ? redactSecrets(res.traceback).slice(-1200) : undefined
+                )
               let data: Uint8Array | null = null
               if (res.png_b64) {
                 try {
@@ -123,23 +123,27 @@ export function registerWorker(ctx: any, port: number): void {
                 : { text: text + String.fromCharCode(10) + '⚠ 图片未回传：' + String(att.why || '未知原因') }
             }
             if (op === 'reset') {
-              return {
-                text:
-                  'WORKER reset ' +
-                  (res.ok ? 'ok' : '失败') +
-                  ' · objects=' +
-                  String(res.objects) +
-                  (res.error ? ' · ' + String(res.error) : '')
-              }
+              if (!res.ok)
+                return toolError(
+                  'backend_error',
+                  'WORKER reset 失败 · ' + String(res.error || 'unknown'),
+                  '用 blender_rt_worker op=list 查看会话；必要时重新 op=start'
+                )
+              return { text: 'WORKER reset ok · objects=' + String(res.objects) }
             }
             if (op === 'exec') {
+              if (!res.ok)
+                return toolError(
+                  'backend_error',
+                  'WORKER exec 失败 · ' + String(res.error || 'unknown'),
+                  '用 blender_rt_worker op=start 检查会话；或改用 blender_rt_headless',
+                  res.traceback ? redactSecrets(res.traceback).slice(0, 1500) : undefined
+                )
               const parts: string[] = []
-              parts.push((res.ok ? 'WORKER exec ok' : 'WORKER exec 失败') + ' · ' + String(res.ms) + 'ms')
+              parts.push('WORKER exec ok · ' + String(res.ms) + 'ms')
               if (res.result) parts.push('result: ' + JSON.stringify(res.result).slice(0, 2000))
-              if (res.error) parts.push('error: ' + String(res.error))
-              if (res.stdout && String(res.stdout).trim()) parts.push('--- stdout ---\n' + String(res.stdout).slice(-2500))
-              if (res.stderr && String(res.stderr).trim()) parts.push('--- stderr ---\n' + String(res.stderr).slice(-1200))
-              if (res.traceback) parts.push('--- traceback ---' + String.fromCharCode(10) + String(res.traceback).slice(0, 1500))
+              if (res.stdout && String(res.stdout).trim()) parts.push('--- stdout ---\n' + redactSecrets(res.stdout).slice(-2500))
+              if (res.stderr && String(res.stderr).trim()) parts.push('--- stderr ---\n' + redactSecrets(res.stderr).slice(-1200))
               return { text: parts.join('\n') }
             }
             if (op === 'list') {

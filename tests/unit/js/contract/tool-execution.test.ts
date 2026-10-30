@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import * as plugin from '../../../../lib/index.js'
+import * as plugin from '../../../../src/index'
 import { createFakeContext, type CapturedTool } from '../../../helpers/fake-context'
 import { closedPort, startFakeBackend } from '../../../helpers/fake-backend.mjs'
 

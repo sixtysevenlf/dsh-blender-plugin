@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import fs from 'node:fs'
-import * as plugin from '../../../../lib/index.js'
+import * as plugin from '../../../../src/index'
 import { createFakeContext, type CapturedTool } from '../../../helpers/fake-context'
 import { pkgPath } from '../../../helpers/pkg'
 
@@ -11,7 +11,7 @@ let fake: ReturnType<typeof createFakeContext>
 
 beforeAll(() => {
   fake = createFakeContext()
-  plugin.apply(fake.ctx, { autoStart: false, tui: false })
+  plugin.apply(fake.ctx, { autoStart: false, tui: false, port: 9897 })
   tools = fake.tools
 })
 

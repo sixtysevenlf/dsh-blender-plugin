@@ -6,7 +6,7 @@ import { backendPost, fetchFrame, leasedText, numTriple } from '../host/http.js'
 import { frameDedupe, dedupeNote } from '../utils/frame-cache.js'
 import { toAttachment, readLocalPng } from '../utils/image.js'
 import { renderOne } from '../ui/cards.js'
-import { isHostAbort, toolError } from './errors.js'
+import { isHostAbort, redactSecrets, toolError } from './errors.js'
 
 /** 交互式无头一步：exec 代码 + 可选 see（持久 worker；不是 job / 不是异步回合）。 */
 async function doViaSession(ctx: any, port: number, opts: any): Promise<any | null> {
@@ -198,16 +198,22 @@ export function registerDo(ctx: any, port: number): void {
               if (s) return s
             }
             const parts: string[] = []
-            parts.push(r && r.ok ? 'ACT ok · ' + String(r.ms) + 'ms' : 'ACT 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'))
+            if (!r || r.ok !== true)
+              return toolError(
+                'backend_error',
+                'ACT 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
+                '用 blender_viewport op=status 确认后端与 addon；需要降级时保留 auto=true'
+              )
+            parts.push('ACT ok · ' + String(r.ms) + 'ms')
             if (r && Number(r.mainThreadMs) > 1000)
               parts.push(
                 '⚠️ 本次占用 Blender 主线程约 ' +
                   String(r.mainThreadMs) +
                   'ms —— 超过 ~1s 的重活建议改走 blender_rt_headless / blender_rt_worker（不卡 GUI）'
               )
-            if (r && r.stderr && String(r.stderr).trim()) parts.push('stderr: ' + String(r.stderr).trim().slice(0, 1200))
-            if (r && r.traceback) parts.push('--- traceback ---' + String.fromCharCode(10) + String(r.traceback).slice(0, 2000))
-            if (r && r.stdout) parts.push('stdout: ' + String(r.stdout).trim().slice(0, 3000))
+            if (r && r.stderr && String(r.stderr).trim()) parts.push('stderr: ' + redactSecrets(r.stderr).slice(0, 1200))
+            if (r && r.traceback) parts.push('--- traceback ---' + String.fromCharCode(10) + redactSecrets(r.traceback).slice(0, 2000))
+            if (r && r.stdout) parts.push('stdout: ' + redactSecrets(r.stdout).slice(0, 3000))
             let image: any = undefined
             const see = !(args && args.see === false)
             if (see) {

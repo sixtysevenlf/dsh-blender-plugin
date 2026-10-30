@@ -1,6 +1,7 @@
 import { HOLDER } from '../constants.js'
 import { backendJson, backendPost, leasedText } from '../host/http.js'
 import { clipText, safeStringify } from '../ui/cards.js'
+import { redactSecrets, toolError } from '../tools/errors.js'
 
 /**
  * v0.9.3（D1/F3）：客户端单次等待上限。超过它就**不干等**，转作业层并回 jobId（对齐 bash 的 promoted 语义）。
@@ -21,7 +22,12 @@ export async function startJobThenMaybeWait(port: number, body: any, waitS: numb
   const jr: any = await backendPost(port, '/headless', Object.assign({}, body, { asJob: true }), 60000)
   const lt = leasedText(jr)
   if (lt) return { text: lt }
-  if (!jr || jr.error) return { text: 'HEADLESS 转作业层失败 · ' + String((jr && (jr.error || jr.raw)) || 'unknown') }
+  if (!jr || jr.error)
+    return toolError(
+      'backend_error',
+      'HEADLESS 转作业层失败 · ' + String((jr && (jr.error || jr.raw)) || 'unknown'),
+      '检查后端 /headless 路由；或改用 blender_rt_job op=list 查看是否已建作业'
+    )
   // 后端 /headless 的回包是 {ok, ms, result:<引擎回执>} —— jobId 在 result 里
   const inner: any = jr.result && typeof jr.result === 'object' ? jr.result : jr
   const jobId = String(inner.jobId || (inner.job && inner.job.id) || '')
@@ -281,7 +287,7 @@ export function headlessHumanText(res: any, ctx: any): string {
         (rj !== null && rj !== undefined ? clipText(so, 500, 800) : clipText(so, 1500, 2500))
     )
   const se = String(r.stderrTail !== undefined && r.stderrTail !== null ? r.stderrTail : r.stderr || '')
-  if (se.trim()) parts.push('--- stderr（头+尾）---' + NLx + clipText(se, 500, 1500))
+  if (se.trim()) parts.push('--- stderr（头+尾）---' + NLx + clipText(redactSecrets(se), 500, 1500))
   if (r.expect) {
     const ex = r.expect,
       obs = ex.observed || {}
@@ -313,7 +319,7 @@ export function headlessHumanText(res: any, ctx: any): string {
     )
   if (r.noiseFiltered) parts.push('（已过滤 ' + String(r.noiseFiltered) + ' 个噪音产物）')
   if (r.hint) parts.push('提示：' + String(r.hint))
-  if (r.traceback) parts.push('--- traceback ---' + NLx + String(r.traceback).slice(0, 1200))
+  if (r.traceback) parts.push('--- traceback ---' + NLx + redactSecrets(r.traceback).slice(0, 1200))
   if (r.id && String(r.id).indexOf('job-') === 0) parts.push('作业号：' + String(r.id) + '（runId=' + String(r.runId || '-') + '）')
   if (r.runId)
     parts.push('运行号：' + String(r.runId) + '（blender_rt_job(op="status"/"collect"/"wait", id=…) 可查；后端重启后也能从磁盘台账查到）')

@@ -2,13 +2,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import * as plugin from '../../../../lib/index.js'
+import * as plugin from '../../../../src/index'
 import { createFakeContext } from '../../../helpers/fake-context'
-import { closedPort } from '../../../helpers/fake-backend.mjs'
+import { closedPort, startFakeBackend } from '../../../helpers/fake-backend.mjs'
 import { validateFileOpt } from '../../../../runtime/file_guard.js'
-import { setPaused } from '../../../../lib/host/backend.js'
+import { setPaused } from '../../../../src/host/backend'
 
-const { losslessSanitize, errorLine, redactSecrets, toolError } = plugin.__internals
+const { losslessSanitize, errorLine, redactSecrets, toolError, headlessReceipt } = plugin.__internals
 
 const CASES: Array<[string, Record<string, unknown>]> = [
   ['blender_rt_see', { max_size: 320 }],
@@ -100,6 +100,52 @@ describe('A8 error, lossless and security contract', () => {
       }
       expect(text, name).toContain('code:')
       expect(text, name).toContain('next_action:')
+    }
+  })
+
+  it('redacts online backend tracebacks and gives every failure a code', async () => {
+    const RAW =
+      'Traceback (most recent call last):\n  File "C:/secret.py", line 1\nsk-abcdefghijklmnop\nBearer abcdefghijkl'
+    const respond = (obj: unknown) => ({
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+      body: Buffer.from(JSON.stringify(obj))
+    })
+    const srv = await startFakeBackend({
+      handlers: {
+        'POST /act': () => respond({ ok: false, error: 'ACT boom', traceback: RAW }),
+        'POST /worker': (body: any) =>
+          body && body.op === 'start'
+            ? respond({ ok: true, result: { ok: true } })
+            : respond({ ok: true, result: { ok: false, error: 'worker boom', traceback: RAW } })
+      }
+    })
+    setPaused(false)
+    const own = createFakeContext()
+    plugin.apply(own.ctx, { autoStart: false, tui: false, port: srv.port })
+    try {
+      const doTool = own.tools.find((t) => t.name === 'blender_rt_do')!
+      const doOut: any = await (doTool.execute as any)({ code: 'x = 1', see: false, auto: false }, {})
+      expect(doOut.envelope.error.code).toBe('backend_error')
+      expect(doOut.envelope.error.next_action).toBeTruthy()
+      expect(String(doOut.text)).not.toContain('Traceback')
+      expect(String(doOut.text)).not.toContain('sk-abcdefghijklmnop')
+
+      const worker = own.tools.find((t) => t.name === 'blender_rt_worker')!
+      const wOut: any = await (worker.execute as any)({ op: 'exec', name: 'w1', code: 'x = 1' }, {})
+      expect(wOut.envelope.error.code).toBe('backend_error')
+      expect(wOut.envelope.error.next_action).toBeTruthy()
+      expect(String(wOut.text)).not.toContain('Traceback')
+      expect(String(wOut.text)).not.toContain('sk-abcdefghijklmnop')
+
+      const receipt = headlessReceipt({ ok: false, error: 'boom', traceback: RAW }, {})
+      expect(String(receipt.text)).not.toContain('Traceback')
+      expect(String(receipt.text)).not.toContain('sk-abcdefghijklmnop')
+      expect(String(receipt.text)).not.toContain('Bearer abcdefghijkl')
+    } finally {
+      own.dispose()
+      await srv.close()
+      setPaused(true)
     }
   })
 
