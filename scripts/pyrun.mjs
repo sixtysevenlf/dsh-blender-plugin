@@ -2,14 +2,14 @@
 /**
  * scripts/pyrun.mjs —— v0.9.6：用**可复现的顺序**找一个 python 解释器来跑 tests/*.py
  *
- * 为什么有它：本包有若干纯 python 自检（tests/generator_dispatch_selftest.py 等）不依赖 Blender，
+ * 为什么有它：本包有若干纯 python 自检（tests/unit/python/*.py 等）不依赖 Blender，
  * 但 `python3` 这个名字不是所有平台都有（Windows 上通常是 `python`，有的机器只有 `py`）。
  * 直接写 `python3 xxx.py` 会得到 `python3: not found` —— 没有上下文、没有修法。
  *
  * 顺序（不装任何东西）：env DSH_PYTHON → python3 → python → py -3
  * 找不到就打印逐候选诊断 + 修法，退出码 2（与测试自身的失败区分开）。
  *
- * 用法：node scripts/pyrun.mjs tests/generator_dispatch_selftest.py [附加参数…]
+ * 用法：node scripts/pyrun.mjs tests/unit/python/test_generator_dispatch.py [附加参数…]
  *      DSH_PYTHON=/usr/bin/python3.12 node scripts/pyrun.mjs tests/xxx.py
  */
 import path from 'node:path'

@@ -7,7 +7,7 @@ import { ABORT_HINT, HERE, HOSTNAME, SERVER_PATH } from '../constants.js'
 import { execSignal } from './exec-context.js'
 
 /**
- * 端口解析（与 runtime/config.mjs 同一套来源，避免两处配置漂移）：
+ * 端口解析（与 runtime/config.ts 同一套来源，避免两处配置漂移）：
  *   插件配置 port → DSH_BLENDER_HTTP_PORT → $DSH_BLENDER_CONFIG → <包根>/dsh-blender.config.json
  *   → ~/.dsh/dsh-blender.config.json → 9877
  */

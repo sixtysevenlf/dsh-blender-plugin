@@ -11,7 +11,7 @@ import path from 'node:path';
 import { CFG, winToWsl, wslToWin } from './config.js';
 import { WIN_TMP, BLENDER_EXE, USER_CONFIG_WIN, USER_SCRIPTS_WIN } from './paths.js';
 // S8 修：tcpProbe 原先定义在 engine.mjs，S3-c 把 launchBlender 搬出来时漏了导入 ⇒ op=launch/dry_run 直接 ReferenceError。
-// 复用 runtime/backend_probe.mjs 的 probeTcp（同一语义：能连上就算在监听），保持单一实现。
+// 复用 runtime/backend_probe.ts 的 probeTcp（同一语义：能连上就算在监听），保持单一实现。
 import { probeTcp } from './backend_probe.js';
 import { writeHeadlessScript } from './staging.js';
 import { baseChildEnv, withWslEnv, readJsonSafe } from './proc_env.js';   // S8：S3-c 搬移时漏了这个依赖

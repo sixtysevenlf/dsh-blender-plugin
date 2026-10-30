@@ -1,4 +1,4 @@
-// 版本/指纹自证、路径审计、场景卫生审计（T6）。ENGINE_SELF 指向 runtime/engine.mjs 门面。
+// 版本/指纹自证、路径审计、场景卫生审计（T6）。ENGINE_SELF 指向 runtime/engine.ts 门面。
 // @imports
 import fs from "node:fs";
 import { IS_MAC, PKG_ROOT } from "../config.js";

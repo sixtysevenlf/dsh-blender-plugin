@@ -1,0 +1,10 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.14, pytest-8.4.2, pluggy-1.7.0
+rootdir: D:\DSH\worktrees\refactor-j
+configfile: pytest.ini
+plugins: cov-7.1.0
+collected 7 items
+
+tests\e2e\blender\test_addon_e2e.py .......                              [100%]
+
+============================== 7 passed in 1.22s ==============================

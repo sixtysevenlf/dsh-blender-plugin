@@ -284,7 +284,6 @@ function parseArgs(argv) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2))
-  ensureBuild()
   const catalogs = await loadCatalogs()
   const rows = loadMatrix(options.matrix)
   const expected = expectedIds(catalogs)
@@ -350,9 +349,9 @@ async function main() {
     matrix: rel(options.matrix),
     sources: {
       tools: 'src/index.ts',
-      commands: 'lib/runtime/catalog.js + addon/dsh_blender_bridge/',
-      ops: 'lib/runtime/catalog.js',
-      routes: 'runtime/server.mjs'
+      commands: 'runtime/catalog.ts + addon/dsh_blender_bridge/',
+      ops: 'runtime/catalog.ts',
+      routes: 'lib/runtime/http/routes/index.js'
     },
     counts: {
       tools: catalogs.toolNames.length,

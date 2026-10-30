@@ -1,0 +1,211 @@
+## node scripts/build-addon.mjs --check
+{
+  "ok": true,
+  "check": true,
+  "zip": "addon/dsh_blender_bridge.zip",
+  "package_root": "dsh_blender_bridge",
+  "entries": 39,
+  "versions": {
+    "bl_info_version": [
+      1,
+      11
+    ],
+    "addon_version": [
+      1,
+      11
+    ],
+    "protocol_version": 11
+  },
+  "sha256": "e8f6b73ef8f1acaeaddfdcadbfed2a2f28cd6113be807da65a6c9e64ba178f86"
+}
+## blender --command extension validate (legacy bl_info zip; expected inapplicable)
+TBBmalloc: skip allocation functions replacement in ucrtbase.dll: unknown prologue for function _msize
+FATAL_ERROR: Error, archive has no manifest: "blender_manifest.toml"
+EXTENSION_VALIDATE_EXIT:1
+## tests/e2e/blender/package_check.py
+{
+  "zip": {
+    "zip": "D:\\DSH\\worktrees\\refactor-j\\addon\\dsh_blender_bridge.zip",
+    "entries": 39,
+    "manifest_matches_package": true,
+    "package_root_init": true,
+    "old_single_file_absent": true,
+    "no_cache_files": true,
+    "bl_info_version": true,
+    "protocol_version": true
+  },
+  "manifest": [
+    {
+      "name": "dsh_blender_bridge/__init__.py",
+      "size": 13934
+    },
+    {
+      "name": "dsh_blender_bridge/assets/__init__.py",
+      "size": 61
+    },
+    {
+      "name": "dsh_blender_bridge/assets/io.py",
+      "size": 7666
+    },
+    {
+      "name": "dsh_blender_bridge/commands/__init__.py",
+      "size": 63
+    },
+    {
+      "name": "dsh_blender_bridge/commands/activity.py",
+      "size": 1409
+    },
+    {
+      "name": "dsh_blender_bridge/commands/assets_polyhaven.py",
+      "size": 33700
+    },
+    {
+      "name": "dsh_blender_bridge/commands/assets_polypizza.py",
+      "size": 14671
+    },
+    {
+      "name": "dsh_blender_bridge/commands/assets_sketchfab.py",
+      "size": 18573
+    },
+    {
+      "name": "dsh_blender_bridge/commands/core.py",
+      "size": 25328
+    },
+    {
+      "name": "dsh_blender_bridge/commands/generate_hunyuan.py",
+      "size": 17541
+    },
+    {
+      "name": "dsh_blender_bridge/commands/generate_hyper3d.py",
+      "size": 12547
+    },
+    {
+      "name": "dsh_blender_bridge/commands/generate_premium.py",
+      "size": 918
+    },
+    {
+      "name": "dsh_blender_bridge/commands/material.py",
+      "size": 5741
+    },
+    {
+      "name": "dsh_blender_bridge/commands/scene.py",
+      "size": 13468
+    },
+    {
+      "name": "dsh_blender_bridge/commands/selection.py",
+      "size": 12424
+    },
+    {
+      "name": "dsh_blender_bridge/commands/telemetry.py",
+      "size": 1860
+    },
+    {
+      "name": "dsh_blender_bridge/compat.py",
+      "size": 6027
+    },
+    {
+      "name": "dsh_blender_bridge/config.py",
+      "size": 4988
+    },
+    {
+      "name": "dsh_blender_bridge/integrations/__init__.py",
+      "size": 67
+    },
+    {
+      "name": "dsh_blender_bridge/integrations/hunyuan_client.py",
+      "size": 3974
+    },
+    {
+      "name": "dsh_blender_bridge/integrations/hyper3d_client.py",
+      "size": 517
+    },
+    {
+      "name": "dsh_blender_bridge/integrations/polyhaven_client.py",
+      "size": 24005
+    },
+    {
+      "name": "dsh_blender_bridge/integrations/polypizza_client.py",
+      "size": 4748
+    },
+    {
+      "name": "dsh_blender_bridge/integrations/sketchfab_client.py",
+      "size": 337
+    },
+    {
+      "name": "dsh_blender_bridge/premium/__init__.py",
+      "size": 62
+    },
+    {
+      "name": "dsh_blender_bridge/premium/client.py",
+      "size": 9595
+    },
+    {
+      "name": "dsh_blender_bridge/premium/jobs.py",
+      "size": 7347
+    },
+    {
+      "name": "dsh_blender_bridge/premium/ui.py",
+      "size": 2880
+    },
+    {
+      "name": "dsh_blender_bridge/protocol.py",
+      "size": 2843
+    },
+    {
+      "name": "dsh_blender_bridge/recorders/__init__.py",
+      "size": 64
+    },
+    {
+      "name": "dsh_blender_bridge/recorders/activity.py",
+      "size": 8120
+    },
+    {
+      "name": "dsh_blender_bridge/recorders/edit_capture.py",
+      "size": 2253
+    },
+    {
+      "name": "dsh_blender_bridge/recorders/user_edit.py",
+      "size": 6354
+    },
+    {
+      "name": "dsh_blender_bridge/server.py",
+      "size": 18482
+    },
+    {
+      "name": "dsh_blender_bridge/ui/__init__.py",
+      "size": 57
+    },
+    {
+      "name": "dsh_blender_bridge/ui/lists.py",
+      "size": 5790
+    },
+    {
+      "name": "dsh_blender_bridge/ui/operators.py",
+      "size": 12668
+    },
+    {
+      "name": "dsh_blender_bridge/ui/panels.py",
+      "size": 17952
+    },
+    {
+      "name": "dsh_blender_bridge/ui/preferences.py",
+      "size": 5658
+    }
+  ],
+  "extension_validate": {
+    "command": [
+      "D:/DSH/tools/blender-win/blender-4.2.10-windows-x64/blender.exe",
+      "--command",
+      "extension",
+      "validate",
+      "D:\\DSH\\worktrees\\refactor-j\\addon\\dsh_blender_bridge.zip"
+    ],
+    "exit_code": 1,
+    "output_tail": [
+      "FATAL_ERROR: Error, archive has no manifest: \"blender_manifest.toml\"",
+      "TBBmalloc: skip allocation functions replacement in ucrtbase.dll: unknown prologue for function _msize"
+    ],
+    "applicable": false,
+    "reason": "legacy bl_info add-on zip: extension validate requires blender_manifest.toml; the real validation is the install/enable E2E"
+  }
+}

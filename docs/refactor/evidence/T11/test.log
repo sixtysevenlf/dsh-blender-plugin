@@ -1,0 +1,121 @@
+===== unit.log =====
+RUN  v3.2.7 D:/DSH/t11-repo
+
+ ✓ tests/unit/js/headless-file-guard.test.js (6 tests) 15ms
+ ✓ tests/unit/js/ledger-recover.test.js (12 tests) 72ms
+ ✓ tests/unit/js/contract/agents-doc.test.js (22 tests) 29ms
+ ✓ tests/unit/js/contract/sidebar-injection.test.js (4 tests) 14ms
+ ✓ tests/unit/js/contract/security.test.js (10 tests) 8ms
+ ✓ tests/unit/js/contract/docs-bilingual.test.js (14 tests) 164ms
+ ✓ tests/unit/js/contract/client-bundle.test.js (3 tests) 7ms
+ ✓ tests/unit/js/contract/runtime-layout.test.js (4 tests) 28ms
+ ✓ tests/unit/js/static/windows-hide.test.js (1 test) 112ms
+ ✓ tests/unit/js/http-lease.test.js (5 tests) 198ms
+ ✓ tests/unit/js/headless-hard-exit.test.js (4 tests) 12ms
+ ✓ tests/unit/js/contract/guidance.test.js (7 tests) 16ms
+ ✓ tests/unit/js/contract/command-contract.test.js (9 tests) 38ms
+ ✓ tests/unit/js/smoke.test.js (1 test) 2ms
+ ✓ tests/unit/js/contract/catalog.test.js (4 tests) 10ms
+ ✓ tests/unit/js/contract/protocol-contract.test.js (9 tests) 99ms
+ ✓ tests/unit/js/shape-search.test.js (10 tests) 43ms
+ ✓ tests/unit/js/engine-surface.test.js (3 tests) 11ms
+ ✓ tests/unit/js/contract/single-source.test.js (4 tests) 13ms
+ ✓ tests/unit/js/contract/surface-fit.test.js (3 tests) 5ms
+ ✓ tests/unit/js/contract/op-contract.test.js (8 tests) 315ms
+ ✓ tests/unit/js/workdir.test.js (4 tests) 1257ms
+   ✓ workDir Windows visibility > substitutes a non-shared workDir loudly (or proves the shared one untouched)  732ms
+   ✓ workDir Windows visibility > never substitutes an already-shared workDir  520ms
+ ✓ tests/unit/js/lease-stale.test.js (6 tests) 1016ms
+   ✓ stale write lease reclaim > proves a dead holder dead, a live holder alive and an unknown scheme unknowable  335ms
+   ✓ stale write lease reclaim > reclaims a lease whose holder process no longer exists  310ms
+   ✓ stale write lease reclaim > lets the next live writer in through the gate after the reclaim  368ms
+ ✓ tests/unit/js/contract/route-contract.test.js (4 tests) 9ms
+ ✓ tests/unit/js/contract/behavior-matrix.test.js (2 tests) 1368ms
+   ✓ behavior matrix release gate > passes against the live catalogs and source files  716ms
+   ✓ behavior matrix release gate > exits nonzero when a planned row survives the release gate  650ms
+ ✓ tests/unit/js/contract/description-budget.test.js (6 tests) 544ms
+   ✓ tool description budget > keeps the catalog self-verifying provenance  520ms
+ ✓ tests/unit/js/frame-dedupe.test.js (5 tests) 4ms
+ ✓ tests/unit/js/contract/skill-bundle.test.js (7 tests) 15ms
+ ✓ tests/unit/js/contract/lossless.test.js (4 tests) 12ms
+ ✓ tests/unit/js/contract/tool-presenter.test.js (5 tests) 29ms
+ ✓ tests/unit/js/contract/tool-cards.test.js (6 tests) 37ms
+ ✓ tests/unit/js/contract/tool-schema.test.js (4 tests) 36ms
+ ✓ tests/unit/js/platform-paths.test.js (15 tests | 1 skipped) 656ms
+   ✓ macOS branch (runs only on macOS) > compiles the Blender-side path helpers with Python (macOS identity)  650ms
+ ✓ tests/unit/js/scene-hygiene.test.js (5 tests) 32ms
+ ✓ tests/unit/js/contract/tool-execution.test.js (20 tests) 399ms
+ ✓ tests/unit/js/provenance.test.js (4 tests) 2377ms
+ ✓ tests/unit/js/contract/lifecycle-config.test.js (13 tests) 1424ms
+   ✓ backend lifecycle operations > starts against an existing backend, pauses on stop, and restarts in place  575ms
+
+ Test Files  37 passed (37)
+      Tests  252 passed | 1 skipped (253)
+   Start at  20:33:56
+   Duration  4.77s (transform 5.46s, setup 0ms, collect 33.33s, tests 10.42s, environment 10ms, prepare 26.19s)
+
+===== integration.log =====
+RUN  v3.2.7 D:/DSH/t11-repo
+
+ ✓ tests/integration/js/tui-commands.test.js (10 tests) 187ms
+ ✓ tests/integration/js/tui-selection.test.js (9 tests) 141ms
+ ✓ tests/integration/js/tui-footer.test.js (8 tests) 764ms
+ ✓ tests/integration/js/selection-store.test.js (15 tests) 36ms
+ ✓ tests/integration/js/smoke.test.js (1 test) 17ms
+ ✓ tests/integration/js/host-jobs.test.js (5 tests) 790ms
+ ✓ tests/integration/js/lease-scope.test.js (5 tests) 868ms
+ ✓ tests/integration/js/server-routes.test.js (5 tests) 754ms
+ ✓ tests/integration/js/ledger-recover-e2e.test.js (5 tests) 742ms
+ ✓ tests/integration/js/host-selection.test.js (5 tests) 772ms
+ ✓ tests/integration/js/fake-addon.test.js (7 tests) 266ms
+ ✓ tests/integration/js/dsh-api-compat.test.js (5 tests) 51ms
+ ✓ tests/integration/js/launch.test.js (6 tests) 1006ms
+   ✓ launch through a real backend > is idempotent when the addon is already listening  492ms
+ ✓ tests/integration/js/backend-probe.test.js (4 tests) 2120ms
+   ✓ backend probe and start decision > waits for a late server and returns false on a pure timeout  2076ms
+ ✓ tests/integration/js/backend-routes.test.js (7 tests) 5910ms
+ ✓ tests/integration/js/host-scene-items.test.js (2 tests) 6315ms
+   ✓ host scene items failure path > 502s when no addon is reachable at all  5476ms
+ ✓ tests/integration/js/package-contract.test.js (3 tests) 12335ms
+   ✓ npm package install contract > packs the runtime, addon, docs, skills, and tests without bundled environments  3343ms
+   ✓ npm package install contract > installs the tarball offline and exposes a syntax-valid entry point  8680ms
+
+ Test Files  17 passed (17)
+      Tests  102 passed (102)
+   Start at  20:34:08
+   Duration  13.50s (transform 1.18s, setup 0ms, collect 3.76s, tests 33.07s, environment 6ms, prepare 7.74s)
+
+===== pytest.log =====
+........................................................................ [ 24%]
+........................................................................ [ 49%]
+........................................................................ [ 73%]
+........................................................................ [ 98%]
+....                                                                     [100%]
+
+===== typecheck.log =====
+typecheck: 用 D:\DSH\t11-repo\node_modules\typescript\lib\tsc.js（来源 local）
+
+===== lint.log =====
+
+
+===== build.log =====
+check-build: PASS
+  ✓ resolve-tsc — D:\DSH\t11-repo\node_modules\typescript\lib\tsc.js
+  ✓ tsc-emit
+  ✓ artifacts — lib/index.js, lib/plugin.js, lib/tools/index.js, lib/tools/viewport.js, lib/plan/tool.js, lib/host/backend.js, lib/host/http.js, lib/ui/cards.js, lib/headless/receipts.js, lib/types/index.d.ts
+  ✓ entry-bytes — 809 B
+  ✓ no-ts-nocheck — clean
+  ✓ check-structure — check-structure: PASS
+  ✓ build-client-check — build-client --check: 最新 ✅  lib\client.js  sha256 31e693ec7197 / 27928 B
+
+===== e2e.log =====
+### e2e collection
+tests/e2e/blender/test_visualreport.py: 1
+tests/e2e/gui/test_gui_channel.py: 1
+
+
+### geo_selftest.py (real Blender 4.2.10)
+.                                                                        [100%]
+
+### plan_selftest.py (real Blender 4.2.10, preload=view)
+.                                                                        [100%]

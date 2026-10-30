@@ -1,4 +1,4 @@
-// runtime/engine.mjs —— 公开门面（T6）。
+// runtime/engine.ts —— 公开门面（T6）。
 // 行为冻结：本文件只做 re-export + createEngine 装配入口；实现位于 core/、execution/、transport/。
 export { launchBlender } from './launch.js';
 export { PLUGIN_VERSION, engineProvenance, sceneHygieneAudit } from './core/evidence.js';

@@ -13,7 +13,7 @@ const sleepMs = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, 
 
 /** 按 /proc 扫出"占着本端口的同族后端"（供 SIGKILL 用；无 /proc 的平台返回 []）。
  *  ★ 必须按 **argv token** 精确匹配，绝不能拿整条 cmdline 做子串匹配：
- *    实测踩过（2026-09-29）—— 调用方的 `bash -c "... node runtime/server.mjs --port 9899 ..."`
+ *    实测踩过（2026-09-29）—— 调用方的 `bash -c "... node lib/runtime/server.js --port 9899 ..."`
  *    命令行里同样含这两个串，子串匹配会把调用方自己的 shell 一起 SIGKILL 掉（自伤）。 */
 function samePortHolders(port: unknown): number[] {
   const out: number[] = [];

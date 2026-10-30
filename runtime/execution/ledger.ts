@@ -113,7 +113,7 @@ export function createLedger(_E?: unknown) {
    *   summary.json / resultPath / stdout 终态（DSH_STAGE done、HEADLESS、Traceback）
    * 对得上 ⇒ status=done|failed + recovered=true（证据在 recoveredFrom/recoveredEvidence）；
    * 对不上才判 stale，并把 evidence（日志大小/lastStage）附回去。
-   * 纯逻辑在 runtime/recover.mjs，可脱离 Blender 单测（tests/ledger_recover_selftest.mjs）。
+   * 纯逻辑在 runtime/recover.ts，可脱离 Blender 单测（tests/unit/js/ledger-recover.test.ts）。
    */
   function reconcileLedger(rec: Record<string, unknown> | null): Record<string, unknown> | null {
     if (!rec || rec.status !== 'running') return rec;

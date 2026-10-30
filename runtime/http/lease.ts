@@ -79,7 +79,7 @@ function releaseStaleLease(why: unknown): string | null {
   stats.lastLeaseNote = '已回收死会话的写租约（holder=' + dead + '，' + String(why || '') + '）';
   return dead;
 }
-function leaseAcquire(holder: unknown, ttlMs: unknown, force: unknown, scope?: unknown): { denied: true; holder: string | null; expiresInMs: number } | { granted: true; lease: LeaseView } {
+function leaseAcquire(holder: unknown, ttlMs: unknown, force?: unknown, scope?: unknown): { denied: true; granted?: false; holder: string | null; expiresInMs: number } | { granted: true; lease: LeaseView } {
   const now = Date.now();
   const h = String(holder || 'anonymous');
   const v = leaseView();

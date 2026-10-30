@@ -1,4 +1,4 @@
-// 输出/目录：catalog 页、stdout 标记解析、路径改写与结果落盘（T6 自 runtime/engine.mjs 拆出）
+// 输出/目录：catalog 页、stdout 标记解析、路径改写与结果落盘（T6 自 runtime/engine.ts 拆出）
 // @imports
 import { engineProvenance } from "./evidence.js";
 import type { Provenance } from "./evidence.js";

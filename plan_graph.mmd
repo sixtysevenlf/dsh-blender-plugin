@@ -1,0 +1,8 @@
+graph LR
+  seat["seat (component)"]
+  backrest["backrest (component)"]
+  tenon["tenon (component)"]
+  seat -- "joint [proposed]" --> backrest
+  slats(("slats (feature)"))
+  backrest --> slats
+  joint --> slats
