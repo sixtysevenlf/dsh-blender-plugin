@@ -1,7 +1,7 @@
 // 作业层：start/status/collect/wait/kill/list（T6）
 // @imports
 import { winToWsl, wslToWin } from "../config.mjs";
-import { BLENDER_EXE, GPU_PRELUDE, WIN_TMP } from "../paths.mjs";
+import { BLENDER_EXE, GPU_PRELUDE, WIN_TMP, pyModuleFile, pyModuleNames } from "../paths.mjs";
 import path from "node:path";
 import fs from "node:fs";
 import { PLUGIN_VERSION, pathAudit, pidAlive, sceneHygieneAudit } from "../core/evidence.mjs";
@@ -133,12 +133,13 @@ export function createJobsApi(E) {
     for (const m of jobMods) {
       const name = String(m).trim().replace(/\.py$/, '');
       if (!name) continue;
-      const f = path.join(HERE, name + '.py');
-      if (!fs.existsSync(f)) {
+      // T8：模块真实文件在 runtime/py/<domain>/ 下；旧 runtime/<name>.py 只是 re-export shim，
+      // 注入通道必须是真实文件，否则 exec 出去的只是 import 语句。
+      let f = null;
+      try { f = pyModuleFile(name); } catch (e2) { f = null; }
+      if (!f || !fs.existsSync(f)) {
         // S9（④）：报错直接给可用模块名 —— 现场「要 preload=vehicle」只能靠试。
-        let avail = [];
-        try { avail = fs.readdirSync(HERE).filter((x) => x.endsWith('.py')).map((x) => x.slice(0, -3)); } catch (e2) { /* ignore */ }
-        throw new Error('preload 找不到模块：' + f + '（可用模块名：' + avail.join(', ') + '）—— preload 取 runtime/<name>.py 的文件名，例如 preload="vehicle,audit"；离线（后端挂了）见 runtime/offline_bootstrap.py');
+        throw new Error('preload 找不到模块：' + name + '（可用模块名：' + pyModuleNames().join(', ') + '）—— preload 取模块名（runtime/py/<domain>/<name>.py，旧 runtime/<name>.py 是兼容 shim），例如 preload="vehicle,audit"；离线（后端挂了）见 runtime/py/core/offline_bootstrap.py');
       }
       parts.push(preloadChunk(name));
     }

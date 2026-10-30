@@ -25,7 +25,7 @@ rows do not exist in `package.json` yet and must keep the marker until their tas
 | Full suite (Vitest + pytest) | `npm test` | available |
 | Python tests only | `npm run test:python` with `PYTHON=/path/to/venv/python` | available |
 | Legacy selftests (shrink-only until T11) | `npm run test:legacy` | available |
-| Lint / format gate | `npm run lint` | **planned (T5)** |
+| Lint / format gate | `npm run lint` | available (T5) |
 | Package contents check | `npm pack --dry-run` | available |
 | Refresh counts after catalog edits | `node scripts/sync_counts.mjs` then `node tests/capability_lock.mjs --update` | available |
 

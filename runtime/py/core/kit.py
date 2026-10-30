@@ -1,0 +1,457 @@
+# -*- coding: utf-8 -*-
+"""DSH 共享内核（kit）—— **唯一实现**：JSON/API 样板、单位、几何、度量、回执骨架。
+
+为什么存在：此前 26 个模块各自复制了 `class _DshApi` / `def _j` / dispatch / 单位换算 / BVH / IoU，
+同一套管道代码 ~800-1500 行，且约定会在复制中漂移（contract.py 与 deliver.py 各自踩过同一个 dict-vs-Api 坑）。
+
+怎么用：kit 由 KERNEL_BOOTSTRAP 注入（注册为 K.dsh_kit），所以**每条注入路径都有它**：
+    K = sys.modules.get("dsh_rt_kernel")
+    _KIT = getattr(K, "dsh_kit", None)          # None 时说明没走 bootstrap（自建脚本要自己兜）
+    _j = _KIT.j ; Api = _KIT.Api ; dispatch = _KIT.dispatch ; units = _KIT.units
+
+约定：kit 只放"**每个模块都要写一遍**"的东西；领域逻辑一律留在各模块。
+"""
+import json
+import os
+import sys
+import types
+
+KIT_VERSION = 1
+
+# T8（Phase E）：领域包布局。runtime/py/<domain>/ 是真实实现；runtime/<name>.py 只留 shim。
+RUNTIME_DOMAINS = ("core", "geometry", "assembly", "render", "export")
+
+
+def _kernel():
+    K = sys.modules.get("dsh_rt_kernel")
+    if K is None:
+        K = types.ModuleType("dsh_rt_kernel")
+        sys.modules["dsh_rt_kernel"] = K
+    return K
+
+
+def find_runtime_file(name):
+    """按文件名定位 runtime 侧文件（T8）：领域包优先，旧扁平布局兜底。
+
+    背景：模块不再都在 runtime/ 同一层。qc.py 找 qc_render.py、qc_render.py 找 montage.py、
+    contract.py 找 assembly_features.json —— 都改走这里，避免各自硬编码。
+
+    查找顺序：
+      1) K.runtime_dir（引擎注入的 runtime 根）：py/<domain>/ → py/ → 根目录；
+      2) 本文件所在目录（常规 import：py/core）：同目录 → 兄弟领域包 → runtime 根。
+    K.runtime_dir 可能本身就是 py/core（离线 bootstrap 传 runtime_dir 的旧用法），
+    此时第 1 步全 miss，第 2 步按 kit.py 的实际位置兜住。
+    """
+    name = str(name or "")
+    if not name:
+        return None
+    try:
+        K = _kernel()
+        rd = getattr(K, "runtime_dir", None)
+    except Exception:
+        rd = None
+    cands = []
+    if rd:
+        rd = str(rd)
+        for d in RUNTIME_DOMAINS:
+            cands.append(os.path.join(rd, "py", d, name))
+        cands.append(os.path.join(rd, "py", name))
+        cands.append(os.path.join(rd, name))
+    try:
+        here = os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        here = ""
+    if here:
+        cands.append(os.path.join(here, name))
+        up = os.path.dirname(here)
+        for d in RUNTIME_DOMAINS:
+            cands.append(os.path.join(up, d, name))
+        cands.append(os.path.join(os.path.dirname(up), name))
+    seen = set()
+    for c in cands:
+        if c in seen:
+            continue
+        seen.add(c)
+        try:
+            if os.path.isfile(c):
+                return c
+        except Exception:
+            continue
+    return None
+
+
+# ────────────────────────────── JSON / 回执 ──────────────────────────────
+def j(obj):
+    """统一 JSON 序列化（中文不转义；非 JSON 类型退化为 str）。"""
+    return json.dumps(obj, ensure_ascii=False, default=str)
+
+
+def err(msg, **kw):
+    """统一错误回执。"""
+    d = {"ok": False, "error": str(msg)[:300]}
+    d.update(kw)
+    return j(d)
+
+
+def receipt(ok=None, state=None, verdict=None, **kw):
+    """统一回执骨架：ok / state / verdict / units 四件套 + 任意附加字段。
+
+    state 与 verdict 的关系（与 gate v3 一致）：state 用于"这一项成没成"，verdict 用于三态判定；
+    调用方给哪个就带哪个，不给就不编。
+    """
+    d = {}
+    if ok is not None:
+        d["ok"] = bool(ok)
+    if state is not None:
+        d["state"] = state
+    if verdict is not None:
+        d["verdict"] = verdict
+    d["units"] = {"mm_per_unit": units()}
+    d.update(kw)
+    return d
+
+
+# ────────────────────────────── 单位 ──────────────────────────────
+def units():
+    """mm_per_unit = scene.unit_settings.scale_length * 1000（Blender 默认 1 单位 = 1 m ⇒ 1000）。"""
+    try:
+        import bpy
+        return float(bpy.context.scene.unit_settings.scale_length or 1.0) * 1000.0
+    except Exception:
+        return 1000.0
+
+
+def mm(v):
+    """Blender 单位 → 毫米。"""
+    return float(v) * units()
+
+
+# ────────────────────────────── 跨模块 API ──────────────────────────────
+def api(name):
+    """取另一个模块的 API（`K.dsh_<name>_api`）；没注入返回 None。"""
+    return getattr(_kernel(), "dsh_%s_api" % name, None)
+
+
+class Api(dict):
+    """模块 API 的标准形态：dict 可下标访问 + 可直接调用（进程内 `api(op, args)`）。
+
+    历史坑：API 曾是普通 dict ⇒ 进程内 `api(args)` 报 TypeError: dict object is not callable；
+    两个模块各自写了转换 shim。这里统一定义，模块不要再自己造。
+    """
+
+    def __call__(self, op=None, args=None, **kw):
+        if op is None or isinstance(op, dict):
+            args, op = (op if isinstance(op, dict) else args), "help"
+        payload = args if isinstance(args, str) else j(dict(args or {}, **kw))
+        out = self["dispatch"](str(op), payload)
+        return out if isinstance(out, dict) else json.loads(out)
+
+    def call(self, op, args=None, **kw):
+        return self(op, args, **kw)
+
+
+def register(name, version, ops, dispatch=None, extra=None):
+    """把 `K.dsh_<name>_api` 注册成标准 Api（模块尾部一行搞定，别再手写 _DshApi）。
+
+    ops: {"op名": 可调用}  —— 同时成为 API 的键，便于 `K.dsh_x_api["op"](...)` 直接调。
+    """
+    def _default_dispatch(op, args_json):
+        return dispatch_table(ops, op, args_json)
+    d = {"version": version, "dispatch": dispatch or _default_dispatch}
+    for k, v in (ops or {}).items():
+        d[k] = v
+    d.update(extra or {})
+    a = Api(d)
+    setattr(_kernel(), "dsh_%s_api" % name, a)
+    return a
+
+
+def resolve_refs(value, skip_keys=("out", "steps")):
+    """把 args 里的 "@工件[.路径]" 解析成真值（递归 dict/list）—— **单发 op 与 pipe_run 共用同一套语义**。
+
+    工件表在 K.dsh_artifacts（pipe_put / pipe_run 的 out= 写入）。引用不存在时抛 KeyError，
+    skip_keys 里的键**不解析**（如 pipe_run 的 out="@名字" 是输出名；steps 由 pipe_run 自己按序解析）。
+    路由层会把它变成可见的报错（而不是静默把字符串当参数用）。
+    """
+    reg = getattr(_kernel(), "dsh_artifacts", None) or {}
+
+    def _walk(v):
+        if isinstance(v, str) and v.startswith("@"):
+            body = v[1:]
+            parts = body.split(".")
+            nm = parts[0]
+            if nm not in reg:
+                raise KeyError("引用了不存在的工件 @%s（现有：%s）" % (nm, ", ".join(sorted(reg.keys())) or "无"))
+            cur = reg[nm].get("value") if isinstance(reg[nm], dict) else reg[nm]
+            for p in parts[1:]:
+                cur = cur[int(p)] if isinstance(cur, list) else cur[p]
+            return cur
+        if isinstance(v, dict):
+            return {k: (x if k in skip_keys else _walk(x)) for k, x in v.items()}
+        if isinstance(v, list):
+            return [_walk(x) for x in v]
+        return v
+
+    return _walk(value)
+
+
+def kapi(name):
+    """模块 API 一行式访问器（K.dsh_<name>_api）；找不到时列出已加载模块，别让人靠猜 preload 名。"""
+    K = _kernel()
+    api = getattr(K, "dsh_%s_api" % str(name), None)
+    if api is None:
+        have = sorted(k[len("dsh_"):-len("_api")] for k in dir(K) if k.startswith("dsh_") and k.endswith("_api"))
+        raise RuntimeError("内核里没有 K.dsh_%s_api（已加载：%s）—— 在线路径请把它加进 preload（例如 preload=%s）；离线路径用 runtime/py/core/offline_bootstrap.py" % (name, have, name))
+    return api
+
+
+def install_kernel(ns=None):
+    """把 K（与 kapi）装进命名空间；不给就装进调用方的 globals。
+
+    为什么需要它：K 只注入「被执行脚本的 globals」，而 `import` 进来的 lib/*.py 有自己的 globals
+    ⇒ 直接写 K.dsh_vehicle_api 会 NameError。官方推荐两选一：
+      * 文件顶部一行：`import sys; K = sys.modules["dsh_rt_kernel"]`
+      * 或调用：`K.dsh_kit.install_kernel()` / `K.dsh_kit.kapi("vehicle")`
+    """
+    K = _kernel()
+    target = ns if isinstance(ns, dict) else sys._getframe(1).f_globals
+    target["K"] = K
+    if getattr(K, "dsh_kit", None) is not None:
+        target["kapi"] = K.dsh_kit.kapi
+    return K
+
+
+def comp_tree(scene=None):
+    """拿合成器节点树：Blender 5.2 起 scene.node_tree 已移除（搬到 scene.compositing_node_group）。
+
+    现场：5.2 上访问 scene.node_tree、或 Glare 的 mix、Mix 的 blend_type 会从助手函数深处抛 AttributeError。
+    统一从这里取，版本差异只在一处处理；拿不到就明确说清版本口径。
+    """
+    import bpy
+    sc = scene or bpy.context.scene
+    for attr in ("compositing_node_group", "node_tree"):
+        holder = getattr(sc, attr, None)
+        if holder is None:
+            continue
+        tree = getattr(holder, "node_tree", holder)
+        if tree is not None:
+            return tree
+    raise RuntimeError("拿不到合成器节点树：Blender 5.2 起改用 scene.compositing_node_group（旧的 scene.node_tree 已移除）；取到后注意 Glare 的 mix 与 Mix 的 blend_type/mix 都改名了，用 getattr 兜底")
+
+def wrap_dispatch(base, extra=None):
+    """给已有 dispatch 挂附加 op（如 selftest）：命中 extra 走额外表，否则交回原 dispatch。
+
+    用途：模块的 op 表是各自手写的（形态不一），补 op 时不该去改它的内部结构。
+    """
+    extra = extra or {}
+
+    def _d(op, args_json=None):
+        fn = extra.get(str(op))
+        if fn is not None:
+            return dispatch_table({str(op): fn}, op, args_json)
+        if callable(base):
+            return base(op, args_json)
+        return err("unknown op", op=op, ops=sorted(extra.keys()))
+
+    return _d
+
+def flatten(args):
+    """参数摊平：`{"args": {...}}` 与顶层键等价（历史两种写法都支持）。"""
+    out = {}
+    if isinstance(args, str):
+        try:
+            args = json.loads(args) if args.strip() else {}
+        except Exception:
+            args = {}
+    for k, v in (args or {}).items():
+        if k == "args" and isinstance(v, dict):
+            out.update(v)
+        else:
+            out[k] = v
+    return out
+
+
+def dispatch_table(ops, op, args_json=None):
+    """标准 dispatch：解析 → 摊平 → 查表 → 调用 → 统一错误回执。"""
+    kw = flatten(args_json)
+    try:
+        kw = resolve_refs(kw)   # S5-b：单发 op 也支持 "@工件[.路径]"
+    except KeyError as e:
+        return err("引用解析失败: %s" % str(e)[:160], op=op)
+    fn = ops.get(str(op))
+    if fn is None:
+        return err("unknown op", op=op, ops=sorted(ops))
+    try:
+        out = fn(**kw)
+        return out if isinstance(out, str) else j(out)
+    except TypeError as e:
+        return err("参数不匹配: %s" % str(e)[:200], op=op)
+    except Exception as e:
+        return err("%s: %s" % (type(e).__name__, str(e)[:200]), op=op)
+
+
+# ────────────────────────────── 几何 / 度量 ──────────────────────────────
+def objects(names, strict=True):
+    """名字列表 → 对象列表；strict 时返回 (objs, missing)。"""
+    import bpy
+    if isinstance(names, str):
+        names = [names]
+    objs = [bpy.data.objects.get(str(n)) for n in (names or [])]
+    missing = [n for n, o in zip(names or [], objs) if o is None]
+    return (objs, missing) if strict else [o for o in objs if o is not None]
+
+
+def world_tris(objs, include_hidden=True):
+    """一组对象的**世界三角面**（用 evaluated mesh：修改器/阵列都算进去）。"""
+    import bpy
+    dg = bpy.context.evaluated_depsgraph_get()
+    tris = []
+    for ob in objs:
+        if ob is None or ob.type != "MESH":
+            continue
+        if not include_hidden:
+            try:
+                if not ob.visible_get():
+                    continue
+            except Exception:
+                pass
+        ev = ob.evaluated_get(dg)
+        me = ev.to_mesh()
+        try:
+            me.calc_loop_triangles()
+            mw = ob.matrix_world
+            for t in me.loop_triangles:
+                tris.append([tuple(mw @ me.vertices[i].co) for i in t.vertices])
+        finally:
+            ev.to_mesh_clear()
+    return tris
+
+
+def bvh(tris):
+    """三角面 → BVH（空输入返回 None）。"""
+    from mathutils.bvhtree import BVHTree
+    if not tris:
+        return None
+    V = [v for t in tris for v in t]
+    polys = [(3 * i, 3 * i + 1, 3 * i + 2) for i in range(len(tris))]
+    return BVHTree.FromPolygons(V, polys, all_triangles=True)
+
+
+def iou(mask_a, mask_b):
+    """布尔掩码 IoU —— **唯一实现**（imgtools / qc / qc_render 都该用这个）。
+
+    返回 (iou, inter, union)；空并集返回 (None, 0, 0)。
+    """
+    import numpy as np
+    a = np.asarray(mask_a).astype(bool)
+    b = np.asarray(mask_b).astype(bool)
+    inter = int(np.count_nonzero(a & b))
+    union = int(np.count_nonzero(a | b))
+    return ((inter / union) if union else None), inter, union
+
+
+def pairwise_clearance(objs_a, objs_b, samples=1200, seed=0):
+    """两组对象的最近距离（米）与是否互穿 —— 采样法（顶点+面心 ↔ 对面 BVH）。
+
+    返回 dict：{"gap_m": float|None, "interpenetrating": bool, "overlap_tri_pairs": int}
+    诚实边界：间隙是采样点距离（大曲面平行贴合可能高估）；互穿判定精确（三角面相交）。
+    """
+    import random
+    ta, tb = world_tris(objs_a), world_tris(objs_b)
+    if not ta or not tb:
+        return {"gap_m": None, "interpenetrating": False, "overlap_tri_pairs": 0, "error": "empty_mesh"}
+    ba, bb = bvh(ta), bvh(tb)
+    ov = ba.overlap(bb) or []
+    rng = random.Random(int(seed))
+    best = None
+    for tris, other in ((ta, bb), (tb, ba)):
+        pts = []
+        for t in tris:
+            pts.append(t[0]); pts.append(t[1]); pts.append(t[2])
+            pts.append(((t[0][0] + t[1][0] + t[2][0]) / 3.0,
+                        (t[0][1] + t[1][1] + t[2][1]) / 3.0,
+                        (t[0][2] + t[1][2] + t[2][2]) / 3.0))
+        if len(pts) > int(samples):
+            pts = rng.sample(pts, int(samples))
+        for p in pts:
+            r = other.find_nearest(p)
+            if r is None or r[0] is None:
+                continue
+            import mathutils
+            d = (r[0] - mathutils.Vector(p)).length
+            if best is None or d < best:
+                best = d
+    return {"gap_m": best, "interpenetrating": len(ov) > 0, "overlap_tri_pairs": len(ov)}
+
+
+def selftest():
+    """内核自检：JSON/单位/回执/派遣/几何/IoU —— 每条都当场验。"""
+    ev = {}
+    ev["j"] = j({"a": 1}) == '{"a": 1}'
+    ev["flatten"] = flatten({"args": {"x": 1}, "y": 2}) == {"x": 1, "y": 2}
+    ev["dispatch_unknown"] = '"unknown op"' in dispatch_table({"a": lambda: "{}"}, "nope")
+    ev["dispatch_ok"] = dispatch_table({"a": lambda **k: j({"ok": True, **k})}, "a", '{"z": 3}') == '{"ok": true, "z": 3}'
+    ev["api_callable"] = isinstance(Api({"dispatch": lambda o, a: '{"ok": true}'}), dict)
+    ev["units_positive"] = units() > 0
+    m = Api({"dispatch": lambda o, a: '{"ok": true}'})
+    ev["api_call"] = m("help", {}) == {"ok": True}
+    try:
+        import numpy as np
+        i, inter, uni = iou(np.array([[1, 0], [1, 0]]), np.array([[1, 1], [0, 0]]))
+        ev["iou"] = abs(float(i) - 1.0 / 3.0) < 1e-9 and inter == 1 and uni == 3
+    except Exception as e:
+        ev["iou"] = "skip: %s" % str(e)[:40]
+    ok = all(v is True for v in ev.values())
+    return j({"ok": bool(ok), "version": KIT_VERSION, "evidence": ev})
+
+
+# ────────────────────────────── 批量 update ──────────────────────────────
+class BatchUpdates:
+    """多步数据写入 + 单次 `view_layer.update()` 的显式批次工具（v2.6.1 性能）。
+
+    用法：
+        batch = _KIT.BatchUpdates()
+        batch.flush()                    # 可选：起始基线
+        for ob in objs: ...              # 只写数据，不 update
+        batch.flush()                    # 需要读 evaluated 数据前再刷
+
+    纪律：任何 `evaluated_get()/to_mesh()/BVH/bake/render` 之前必须 flush；
+    合并 update 会减少 `depsgraph_update_post` 的触发次数（活动追踪等依赖该事件
+    的代码要复核粒度是否仍够）。
+    """
+
+    def __init__(self, view_layer=None):
+        import bpy
+        self.vl = view_layer or bpy.context.view_layer
+        self.stages = 0
+        self.updates = 0
+
+    def stage(self, fn, *args, **kwargs):
+        """执行一个写入阶段（只改数据，不 update）。"""
+        result = fn(*args, **kwargs)
+        self.stages += 1
+        return result
+
+    def flush(self):
+        """把当前批次写入推给依赖图（读 evaluated 数据前调用）。"""
+        self.vl.update()
+        self.updates += 1
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.flush()
+        return False
+
+
+# 注册：KERNEL_BOOTSTRAP 会执行本文件 ⇒ K.dsh_kit 在任何注入路径里都存在
+_K = _kernel()
+_K.dsh_kit = types.SimpleNamespace(
+    version=KIT_VERSION, j=j, err=err, receipt=receipt, units=units, mm=mm, api=api,
+    Api=Api, register=register, flatten=flatten, dispatch_table=dispatch_table,
+    objects=objects, world_tris=world_tris, bvh=bvh, iou=iou,
+    find_runtime_file=find_runtime_file, RUNTIME_DOMAINS=RUNTIME_DOMAINS,
+    pairwise_clearance=pairwise_clearance, selftest=selftest, kernel=_kernel, wrap_dispatch=wrap_dispatch, resolve_refs=resolve_refs, kapi=kapi, install_kernel=install_kernel, comp_tree=comp_tree, BatchUpdates=BatchUpdates,
+)

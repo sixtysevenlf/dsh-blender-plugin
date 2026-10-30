@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { IS_MAC, PKG_ROOT } from "../config.mjs";
 import { createHash } from "node:crypto";
 import { catalogFingerprint, probeDiskCatalog } from "../catalog.mjs";
+import { pyModuleFile } from "../paths.mjs";
 
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,24 +32,25 @@ const ENGINE_SELF = (() => {
 const _fpCache = new Map();
 function runtimeFingerprint() {
   const out = {};
-  const walk = (dir, prefix) => {
-    let ents = [];
-    try { ents = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return; }
-    for (const ent of ents) {
-      const p = path.join(dir, ent.name);
-      const rel = prefix ? prefix + "/" + ent.name : ent.name;
-      if (ent.isDirectory()) { if (ent.name !== "ext") walk(p, rel); continue; }
-      if (!/.(py|mjs)$/.test(ent.name)) continue;
-      try {
-        const st = fs.statSync(p);
-        const key = String(st.size) + ":" + String(Math.round(st.mtimeMs));
-        let hit = _fpCache.get(p);
-        if (!hit || hit.key !== key) { hit = { key: key, hash: sha12(fs.readFileSync(p)) }; _fpCache.set(p, hit); }
-        out[rel] = hit.hash;
-      } catch (e) { /* ignore */ }
-    }
+  const add = (p, key) => {
+    const st = fs.statSync(p);
+    const cacheKey = String(st.size) + ":" + String(Math.round(st.mtimeMs));
+    let hit = _fpCache.get(p);
+    if (!hit || hit.key !== cacheKey) { hit = { key: cacheKey, hash: sha12(fs.readFileSync(p)) }; _fpCache.set(p, hit); }
+    out[key] = hit.hash;
   };
-  walk(RUNTIME_DIR, "");
+  try {
+    for (const f of fs.readdirSync(RUNTIME_DIR)) {
+      if (!/\.(py|mjs)$/.test(f)) continue;
+      // T8：键集合保持原样（行为冻结），但 .py 键的哈希取自 runtime/py/<domain>/ 的真实实现，
+      // 否则改实现文件时自证指纹不动。generator / uv_tools 无领域包，仍取扁平真实文件。
+      let src = path.join(RUNTIME_DIR, f);
+      if (f.endsWith(".py")) {
+        try { src = pyModuleFile(f); } catch (e) { /* 非 §4.7 模块仍用扁平文件 */ }
+      }
+      add(src, f);
+    }
+  } catch (e) { /* ignore */ }
   return out;
 }
 

@@ -1,6 +1,6 @@
 // Blender 持久内核：KERNEL_BOOTSTRAP、模块注入与 ensure* 链（T6）
 // @imports
-import { ASSEMBLY_PATH, AUDIT_PATH, BLOCKOUT_PATH, CALIB_PATH, CLEARANCE_PATH, CONTRACT_PATH, DELIVER_PATH, EVALHARNESS_PATH, FACE_PATH, FIX_PATH, GATE_PATH, GENERATOR_PATH, GEO_SRC, HUMAN_PATH, IMG_PATH, KIT_HASH, KIT_SRC, MATERIAL_PATH, MONTAGE_PATH, MOTION_PATH, PATH_HELPERS, PERF_PATH, PIPELINE_PATH, PLANNER_PATH, PRESET_PATH, PRINT_PATH, QC_PATH, QC_RENDER_PATH, RENDER_GUARD_PATH, RUNNER_PATH, SCULPT_PATH, SHAPESOLVE_PATH, SHAPE_PATH, SURFACE_PATH, SWEEP_PATH, TXN_PATH, UV_PATH, VEHICLE_PATH, VIEW_PATH, VISUALREPORT_PATH, WIN_TMP } from "../paths.mjs";
+import { pyModuleFile, pyModuleNames, ASSEMBLY_PATH, AUDIT_PATH, BLOCKOUT_PATH, CALIB_PATH, CLEARANCE_PATH, CONTRACT_PATH, DELIVER_PATH, EVALHARNESS_PATH, FACE_PATH, FIX_PATH, GATE_PATH, GENERATOR_PATH, GEO_SRC, HUMAN_PATH, IMG_PATH, KIT_HASH, KIT_SRC, MATERIAL_PATH, MONTAGE_PATH, MOTION_PATH, PATH_HELPERS, PERF_PATH, PIPELINE_PATH, PLANNER_PATH, PRESET_PATH, PRINT_PATH, QC_PATH, QC_RENDER_PATH, RENDER_GUARD_PATH, RUNNER_PATH, SCULPT_PATH, SHAPESOLVE_PATH, SHAPE_PATH, SURFACE_PATH, SWEEP_PATH, TXN_PATH, UV_PATH, VEHICLE_PATH, VIEW_PATH, VISUALREPORT_PATH, WIN_TMP } from "../paths.mjs";
 import fs from "node:fs";
 import { slipFixPath } from "./output.mjs";
 import { winToWsl, wslToWin } from "../config.mjs";
@@ -120,7 +120,7 @@ export function createKernel(E) {
                         VISUALREPORT_READY: 'dsh_visualreport_api', SHAPESOLVE_READY: 'dsh_shapesolve_api',
                         EVALHARNESS_READY: 'dsh_evalharness_api', SURFACE_READY: 'dsh_surface_api' };
   /** 读 runtime 下的 python 模块源码（preload / 作业脚本拼接用） */
-  const readModuleSource = (name) => fs.readFileSync(path.join(RUNTIME_DIR, String(name).replace(/\.py$/, '') + '.py'), 'utf8');
+  const readModuleSource = (name) => fs.readFileSync(pyModuleFile(name), 'utf8');
   /**
    * v0.9.1（93-B3）：脚本路径解析。headless 的 `file=` 语义是 **.blend**（老成员误传 .py 会拿到
    * `File format is not supported`），现在：显式 `scriptFile=` 收 .py；`file=` 传 .py 时自动改当脚本并给提示。

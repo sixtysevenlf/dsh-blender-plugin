@@ -68,7 +68,10 @@ export function createPlanDispatch(E) {
     const wslPath = /^[A-Za-z]:[\\/]/.test(winPath)
       ? ('/mnt/' + winPath[0].toLowerCase() + winPath.slice(2).replace(/\\/g, '/'))
       : winPath;
-    const runner = path.join(extDir, op === 'gltf_validate' ? 'gltf_validate_runner.mjs' : 'open3d_check.py');
+    // T8：open3d_check.py 已随导出域移入 runtime/py/export/；ext/ 只留 venv 与 gltf_validate_runner.mjs。
+    const runner = op === 'gltf_validate'
+      ? path.join(extDir, 'gltf_validate_runner.mjs')
+      : path.join(RUNTIME_DIR, 'py', 'export', 'open3d_check.py');
     // 后端跑在 WSL 时 node 看到的是 Linux 文件系统：**先给 WSL 路径**；在 Windows 时反过来。
     const isWin = process.platform === 'win32';
     const first = isWin ? winPath : wslPath;

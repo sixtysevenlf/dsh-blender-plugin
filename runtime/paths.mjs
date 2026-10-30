@@ -30,83 +30,124 @@ export function blenderJoin(...parts) {
   if (IS_WIN) return path.win32.join(...parts);
   return wslToWin(path.join(...parts));
 }
+/**
+ * T8（Phase E）：Python 领域包布局。真实实现在 runtime/py/<domain>/；旧 runtime/<name>.py
+ * 只保留一版 re-export shim。**公开模块名不变**（preload / module 字段照旧），这里维护
+ * "模块名 → 真实文件"的唯一映射。
+ *
+ * generator / uv_tools 不在计划 §4.7 的领域表里：保留为 runtime/ 下的真实模块（映射用 '.'），
+ * 显式例外，见 docs/refactor/evidence/T8/review.md。
+ */
+export const PY_DOMAINS = ['core', 'geometry', 'assembly', 'render', 'export'];
+const PY_MODULE_DOMAIN = {
+  // core
+  kit: 'core', contract: 'core', gate: 'core', txn: 'core', runner: 'core', worker: 'core',
+  planner: 'core', presets: 'core', pipeline: 'core', perf: 'core', evalharness: 'core',
+  motion: 'core', sweep: 'core', audit: 'core', offline_bootstrap: 'core',
+  // geometry
+  geo: 'geometry', mesh_fix: 'geometry', sculpt: 'geometry', shapegen: 'geometry',
+  shapesolve: 'geometry', faceeval: 'geometry', blockout: 'geometry', surface: 'geometry',
+  // assembly
+  assembly: 'assembly', clearance: 'assembly', vehicle: 'assembly', human: 'assembly',
+  // render
+  view: 'render', qc: 'render', qc_render: 'render', render_guard: 'render', material: 'render',
+  visualreport: 'render', imgtools: 'render', calib: 'render', montage: 'render',
+  // export
+  deliver: 'export', printcheck: 'export', open3d_check: 'export',
+  // §4.7 未收录：保持旧扁平路径的真实模块（不是 shim）
+  generator: '.', uv_tools: '.',
+};
+/** 公开模块名 → 真实 .py 文件（旧 runtime/<name>.py 是 shim，不能给注入通道用）。 */
+export function pyModuleFile(name) {
+  const n = String(name == null ? '' : name).trim().replace(/\.py$/, '');
+  const d = Object.prototype.hasOwnProperty.call(PY_MODULE_DOMAIN, n) ? PY_MODULE_DOMAIN[n] : null;
+  if (!d) throw new Error('未知的 runtime Python 模块：' + n + '（plan §4.7 未收录；可用：' + pyModuleNames().join(', ') + '）');
+  return d === '.' ? path.join(HERE, n + '.py') : path.join(HERE, 'py', d, n + '.py');
+}
+/** 全部公开模块名（preload 报错时列出用；不随文件系统变化）。 */
+export function pyModuleNames() {
+  return Object.keys(PY_MODULE_DOMAIN).sort();
+}
+export function pyModuleExists(name) {
+  try { return fs.existsSync(pyModuleFile(name)); } catch (e) { return false; }
+}
 /** 共享内核（kit）：JSON/API 样板·单位·几何·度量·回执骨架的唯一实现 */
-export const KIT_PATH = path.join(HERE, 'kit.py');
+export const KIT_PATH = pyModuleFile('kit');
 /** 几何底座（geo）：**机制层** —— 布尔/开孔/开槽/镜像/阵列/拉伸/放样/倒角/自动平滑。
  *  只给动词、不给名词（不含任何形状默认值）；与 kit 同等由 KERNEL_BOOTSTRAP 保证在场。 */
-export const GEO_PATH = path.join(HERE, 'geo.py');
-export const RUNNER_PATH = path.join(HERE, 'runner.py');
-export const PERF_PATH = path.join(HERE, 'perf.py');
-export const VIEW_PATH = path.join(HERE, 'view.py');
+export const GEO_PATH = pyModuleFile('geo');
+export const RUNNER_PATH = pyModuleFile('runner');
+export const PERF_PATH = pyModuleFile('perf');
+export const VIEW_PATH = pyModuleFile('view');
 /** 契约层（S1+S2）：组件/连接注册、包络/干涉/接口校验、破坏性门控、证据账本、三态判定 */
-export const CONTRACT_PATH = path.join(HERE, 'contract.py');
+export const CONTRACT_PATH = pyModuleFile('contract');
 /** 规划器（S3）：对象图 → 诊断 → 编译到 bpy → 图导出 */
-export const PLANNER_PATH = path.join(HERE, 'planner.py');
-export const WORKER_PATH = path.join(HERE, 'worker.py');
-export const TXN_PATH = path.join(HERE, 'txn.py');
+export const PLANNER_PATH = pyModuleFile('planner');
+export const WORKER_PATH = pyModuleFile('worker');
+export const TXN_PATH = pyModuleFile('txn');
 /** 内置 QC（v0.7.0）：掩膜 / IoU / 剖面 / 对照图 + 内环 measure 预置 */
-export const QC_PATH = path.join(HERE, 'qc.py');
+export const QC_PATH = pyModuleFile('qc');
 /** 渲染 harness（v0.8.8 / P2-1）：自动取景 + 固定三点光 + 逐张 jsonl 计时 + 预算判定 */
-export const QC_RENDER_PATH = path.join(HERE, 'qc_render.py');
+export const QC_RENDER_PATH = pyModuleFile('qc_render');
 /** 配方库（v0.8.2）：参数组合的保存 / 套用 / 导出 */
-export const PRESET_PATH = path.join(HERE, 'presets.py');
+export const PRESET_PATH = pyModuleFile('presets');
 /** 网格体检（v0.9.0 接通）：audit_* 前缀 op 走这里。
  *  此前 audit.py 只存在于 preload 通道，docs 里文档化的 blender_rt_plan(op="audit_mesh") 其实没有路由。 */
-export const AUDIT_PATH = path.join(HERE, 'audit.py');
+export const AUDIT_PATH = pyModuleFile('audit');
 /** 拼图（v0.9.0 接通）：montage op 走这里（证据分级 L2：裁切拼图给眼看的少数格） */
-export const MONTAGE_PATH = path.join(HERE, 'montage.py');
+export const MONTAGE_PATH = pyModuleFile('montage');
 /** 铰接/机构（v0.9.0）：关节实测 + 扫掠验证 + URDF/USDA 导出（motion_* 前缀 op） */
-export const MOTION_PATH = path.join(HERE, 'motion.py');
+export const MOTION_PATH = pyModuleFile('motion');
 /** 交付导出（v0.9.0）：单位盒归一化 + 多组 OBJ/MTL + manifest(md5)（deliver_* 前缀 op） */
-export const DELIVER_PATH = path.join(HERE, 'deliver.py');
-/** 生成器注册表（v0.9.0 · #18 代码化建模通道的 Blender 原生轻量版）：程序即形状 + 编译门 + 缓存 + diff */
-export const GENERATOR_PATH = path.join(HERE, 'generator.py');
+export const DELIVER_PATH = pyModuleFile('deliver');
+/** 生成器注册表（v0.9.0 · #18 代码化建模通道的 Blender 原生轻量版）：**§4.7 未收录，保留旧扁平路径** */
+export const GENERATOR_PATH = pyModuleFile('generator');
 /** 程序化雕刻（v0.9.6 · 上游整合 A1）：sculpt_* 前缀 op 走这里。
  *  上游两家都做不到程序化雕刻（blend-ai 自述不能模拟笔触；mcp-for-blender 没有雕刻），
  *  本模块用 numpy 位移笔刷 + 拓扑准备 + 遮罩把"雕刻"变成可复算的几何操作。 */
-export const SCULPT_PATH = path.join(HERE, 'sculpt.py');
+export const SCULPT_PATH = pyModuleFile('sculpt');
 /** 网格修复闭环（v0.9.6 · 上游整合 A2）：fix_* 前缀 op —— audit 只诊断，这里负责治。 */
-export const FIX_PATH = path.join(HERE, 'mesh_fix.py');
-/** UV 四件套（v0.9.6 · 上游整合 A3）：uv_* 前缀 op（smart project / unwrap / projection / pack）。 */
-export const UV_PATH = path.join(HERE, 'uv_tools.py');
+export const FIX_PATH = pyModuleFile('mesh_fix');
+/** UV 四件套（v0.9.6 · 上游整合 A3）：**§4.7 未收录，保留旧扁平路径** */
+export const UV_PATH = pyModuleFile('uv_tools');
 /** 制造检查（v0.9.6 · 上游整合 A4）：print_* 前缀 op（薄壁 / 悬垂 / 壳体 / 汇总）。 */
-export const PRINT_PATH = path.join(HERE, 'printcheck.py');
+export const PRINT_PATH = pyModuleFile('printcheck');
 /** 沿路径扫掠（v0.9.6 · 上游整合 A5）：sweep_* 前缀 op（管路/线缆/轨道 + 弯折半径先算后建）。 */
-export const SWEEP_PATH = path.join(HERE, 'sweep.py');
+export const SWEEP_PATH = pyModuleFile('sweep');
 /** 材质节点图（v0.9.6 · A6）：material_* 前缀 op —— 实测 2,732 次节点连线 / 204 个脚本在重复造轮子 */
-export const MATERIAL_PATH = path.join(HERE, 'material.py');
+export const MATERIAL_PATH = pyModuleFile('material');
 /** 渲染状态跟踪（v0.9.6 · A7）：渲染开始写磁盘标记、结束删；后端读文件秒判 busy */
-export const RENDER_GUARD_PATH = path.join(HERE, 'render_guard.py');
+export const RENDER_GUARD_PATH = pyModuleFile('render_guard');
 /** 规格驱动门包（v0.9.6 · 现场反馈 #3）：一份 spec 跑完所有门（三态判定） */
-export const GATE_PATH = path.join(HERE, 'gate.py');
+export const GATE_PATH = pyModuleFile('gate');
 /** 参考图量具（P0 整合方案）：量成数字 / 裁出来放大 / 画回去 / 差分 */
-export const IMG_PATH = path.join(HERE, 'imgtools.py');
+export const IMG_PATH = pyModuleFile('imgtools');
 /** 门标定套件（P0）：注入 8 类缺陷量门抓得住几类 + 健康基线对照 */
-export const CALIB_PATH = path.join(HERE, 'calib.py');
+export const CALIB_PATH = pyModuleFile('calib');
 /** 人脸比例门（P1）：landmarks → 6 个无量纲比例 → 与经典/参考比差 */
-export const FACE_PATH = path.join(HERE, 'faceeval.py');
+export const FACE_PATH = pyModuleFile('faceeval');
 /** 人形素体（P2 零素材）：关节坐标+半径 → Skin+Subsurf → 比例正确的假人 */
-export const HUMAN_PATH = path.join(HERE, 'human.py');
+export const HUMAN_PATH = pyModuleFile('human');
 /** 成对间隙门（P3）：规则表驱动的最近距离 + 互穿判定 */
-export const CLEARANCE_PATH = path.join(HERE, 'clearance.py');
+export const CLEARANCE_PATH = pyModuleFile('clearance');
 /** 车辆外壳（P3）：纵向剖面 → 放样成壳（解析轮眉）+ 比例门 */
-export const VEHICLE_PATH = path.join(HERE, 'vehicle.py');
+export const VEHICLE_PATH = pyModuleFile('vehicle');
 /** 参考图通用还原方法层（P4）：类别协议 + 通用量具/放样/拟合/分件/旋转体 */
-export const SHAPE_PATH = path.join(HERE, 'shapegen.py');
+export const SHAPE_PATH = pyModuleFile('shapegen');
 /** S5 流水线：工件注册表 + 步骤编排 */
-export const PIPELINE_PATH = path.join(HERE, 'pipeline.py');
+export const PIPELINE_PATH = pyModuleFile('pipeline');
 /** P0 装配：manifest / 全对全分类扫描 / 合并 / 装配门 */
-export const ASSEMBLY_PATH = path.join(HERE, 'assembly.py');
+export const ASSEMBLY_PATH = pyModuleFile('assembly');
 /** P0 白模：声明式 blockout + 3 视图 + GLB 导出 */
-export const BLOCKOUT_PATH = path.join(HERE, 'blockout.py');
+export const BLOCKOUT_PATH = pyModuleFile('blockout');
 /** P1 同机位 QC 视觉报告（verdict-first） */
-export const VISUALREPORT_PATH = path.join(HERE, 'visualreport.py');
+export const VISUALREPORT_PATH = pyModuleFile('visualreport');
 /** P1 无头多视轮廓拟合（解析投影，不渲染） */
-export const SHAPESOLVE_PATH = path.join(HERE, 'shapesolve.py');
+export const SHAPESOLVE_PATH = pyModuleFile('shapesolve');
 /** P2 缺陷注入/基线回放评估（evalharness） */
-export const EVALHARNESS_PATH = path.join(HERE, 'evalharness.py');
+export const EVALHARNESS_PATH = pyModuleFile('evalharness');
 /** 曲面算法包：loft/sweep/patch/validate（M0-M2/M4） */
-export const SURFACE_PATH = path.join(HERE, 'surface.py');
+export const SURFACE_PATH = pyModuleFile('surface');
 /**
  * 用户 Blender 配置目录（GPU 偏好所在）—— 无头进程默认读不到它，Cycles 会静默回落 CPU。
  * 分享版默认 null（用系统默认配置）；要继承某套配置就设 DSH_BLENDER_USER_CONFIG / 配置项 blenderUserConfig。

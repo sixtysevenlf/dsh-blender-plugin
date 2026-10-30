@@ -2,7 +2,7 @@
 // @imports
 import { clipMiddle, slipFixPath } from "../core/output.mjs";
 import { IS_MAC, IS_WIN, winToWsl, wslToWin } from "../config.mjs";
-import { BLENDER_EXE, GPU_PRELUDE, USER_CONFIG_WIN, USER_SCRIPTS_WIN, WIN_TMP } from "../paths.mjs";
+import { BLENDER_EXE, GPU_PRELUDE, USER_CONFIG_WIN, USER_SCRIPTS_WIN, WIN_TMP, pyModuleFile } from "../paths.mjs";
 import { describeMissingInput, headlessLogNames, noInputFileWarning, validateFileOpt } from "../file_guard.mjs";
 import fs from "node:fs";
 import { PATH_GUARD, envPrelude, fileFingerprint, scriptFileBlock, shotsBlock, workdirBlock } from "../core/scripts.mjs";
@@ -61,8 +61,9 @@ export function createHeadlessRun(E) {
       for (const m of mods) {
         const name = String(m).trim().replace(/\.py$/, '');
         if (!name) continue;
-        const f = path.join(HERE, name + '.py');
-        if (!fs.existsSync(f)) throw new Error('preload 找不到模块：' + f);
+        // T8：同作业层，取 runtime/py/<domain>/ 的真实文件（旧路径是 shim）。
+        const f = pyModuleFile(name);
+        if (!fs.existsSync(f)) throw new Error('preload 找不到模块：' + name + '（' + f + '）');
         pre += preloadChunk(name) + '\n';
       }
       // ---- 引擎前导（v0.8.0）：默认 eevee + 光追；可选 cycles / keep（向后兼容 gpu:"false"=keep）

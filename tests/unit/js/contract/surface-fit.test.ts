@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import { catalogPayload } from '../../../../runtime/engine.mjs'
 import { pkgPath } from '../../../helpers/pkg'
 
-const surfacePy = fs.readFileSync(pkgPath('runtime', 'surface.py'), 'utf8')
+const surfacePy = fs.readFileSync(pkgPath('runtime', 'py', 'geometry', 'surface.py'), 'utf8')
 const lock = JSON.parse(fs.readFileSync(pkgPath('tests', 'fixtures', 'capability.lock.json'), 'utf8'))
 
 describe('surface fit honesty contract', () => {

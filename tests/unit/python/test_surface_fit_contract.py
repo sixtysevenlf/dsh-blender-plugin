@@ -1,14 +1,14 @@
 """Static contract for the honest surface_fit receipt (T2).
 
-This test never imports bpy: it parses runtime/surface.py and asserts the
-catalog-declared `fit` op is actually registered with an explicit M3 refusal.
+This test never imports bpy: it parses runtime/py/geometry/surface.py and asserts
+the catalog-declared `fit` op is actually registered with an explicit M3 refusal.
 """
 import ast
 import json
 import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
-SURFACE = ROOT / "runtime" / "surface.py"
+SURFACE = ROOT / "runtime" / "py" / "geometry" / "surface.py"
 LOCK = ROOT / "tests" / "fixtures" / "capability.lock.json"
 
 

@@ -65,10 +65,10 @@ describe('AGENTS.md contract', () => {
     }
   })
 
-  it('marks lint as planned instead of claiming it works today', () => {
+  it('claims lint only now that T5 delivered the script', () => {
     const lintLine = AGENTS.split('\n').find((line) => line.includes('npm run lint')) ?? ''
-    expect(lintLine).toMatch(/planned/i)
-    expect(scripts).not.toHaveProperty('lint')
+    expect(lintLine).not.toMatch(/planned/i)
+    expect(scripts).toHaveProperty('lint')
   })
 
   it('names only files and scripts that exist on disk', () => {
