@@ -4,6 +4,7 @@ import { T, BACKEND_HINT } from '../constants.js'
 import { ensureBackend } from '../host/backend.js'
 import { backendPost, jsonPayload, leasedText } from '../host/http.js'
 import { renderOne } from '../ui/cards.js'
+import { toolError } from './errors.js'
 
 export function registerOpt(ctx: any, port: number): void {
   ctx.effect(
@@ -21,7 +22,8 @@ export function registerOpt(ctx: any, port: number): void {
           isConcurrencySafe: () => false,
           timeoutMs: T.opt,
           async execute(args: any) {
-            if (!(await ensureBackend(port))) return { text: '后端不可用（127.0.0.1:' + String(port) + '）。' + BACKEND_HINT }
+            if (!(await ensureBackend(port)))
+              return toolError('backend_unreachable', '后端不可用（127.0.0.1:' + String(port) + '）', BACKEND_HINT)
             const op = String((args && args.op) || 'analyze')
             const oargs = jsonPayload(args && args.args)
             const r = await backendPost(
@@ -32,7 +34,12 @@ export function registerOpt(ctx: any, port: number): void {
             )
             const lt = leasedText(r)
             if (lt) return { text: lt }
-            if (!r || r.ok !== true) return { text: 'OPT ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown') }
+            if (!r || r.ok !== true)
+              return toolError(
+                'backend_error',
+                'OPT ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
+                '核对 op 名称；blender_rt_opt op=list'
+              )
             return { text: 'OPT ' + op + ' ' + JSON.stringify(r.result) }
           }
         })

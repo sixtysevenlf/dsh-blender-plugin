@@ -6,6 +6,7 @@ import { backendPost, leasedText, splitArgs } from '../host/http.js'
 import { renderStructured, clipText, safeStringify } from '../ui/cards.js'
 import { headlessReceipt, promotedReceipt } from '../headless/receipts.js'
 import { detectFileAlias } from '../../lib/runtime/file_guard.js'
+import { toolError } from './errors.js'
 
 export function registerJob(ctx: any, port: number): void {
   ctx.effect(
@@ -45,25 +46,32 @@ export function registerJob(ctx: any, port: number): void {
           isConcurrencySafe: () => true,
           timeoutMs: T.job,
           async execute(args: any) {
-            if (!(await ensureBackend(port))) return { text: '后端不可用（127.0.0.1:' + String(port) + '）' }
+            if (!(await ensureBackend(port)))
+              return toolError(
+                'backend_unreachable',
+                '后端不可用（127.0.0.1:' + String(port) + '）',
+                '先 blender_viewport op=start 拉起后端，再重试'
+              )
             const op = String((args && args.op) || 'list')
             // F-09 一致性：op=start/run 的 file= 与 rt_headless 同一套拦截（引擎 job 路径已有 validateFileOpt 兜底）
             if (op === 'start' || op === 'run') {
               const aliasKeys = detectFileAlias(args)
               if (aliasKeys.length)
-                return {
-                  text:
-                    'blender_rt_job 没有参数 ' +
+                return toolError(
+                  'invalid_params',
+                  'blender_rt_job 没有参数 ' +
                     aliasKeys.join(', ') +
                     '；打开 .blend 请用 file=。（收到的键：' +
                     Object.keys(args || {}).join(', ') +
-                    '）'
-                }
+                    '）',
+                  '用 file=<.blend 路径>；参数名是 file，不是 blend/path'
+                )
               if (args && typeof args.file === 'string' && !args.file.trim())
-                return {
-                  text:
-                    'file= 传了空字符串 —— 本次不会打开任何 .blend' + '（脚本会拿到出厂空场景）；要么给真实 .blend 路径，要么就不要传 file='
-                }
+                return toolError(
+                  'invalid_params',
+                  'file= 传了空字符串 —— 本次不会打开任何 .blend（脚本会拿到出厂空场景）',
+                  '给真实 .blend 路径，或不要传 file='
+                )
             }
             const body: any = { op: op }
             if (args && args.id) body.id = String(args.id)
@@ -87,7 +95,12 @@ export function registerJob(ctx: any, port: number): void {
             const r = await backendPost(port, '/job', body, budget)
             const lt = leasedText(r)
             if (lt) return { text: lt }
-            if (!r || r.ok !== true) return { text: 'JOB ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown') }
+            if (!r || r.ok !== true)
+              return toolError(
+                'backend_error',
+                'JOB ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
+                '用 blender_rt_job op=list 查看作业'
+              )
             if (op === 'list') {
               const js: any[] = (r && r.jobs) || []
               if (!js.length) return { text: '没有作业' }

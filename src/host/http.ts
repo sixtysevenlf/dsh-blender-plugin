@@ -157,7 +157,9 @@ export function leasedText(r: any): string | undefined {
     String(Math.round(Number(r.expiresInMs || 0) / 1000)) +
     's）。' +
     String(r.hint || '') +
-    '；要强抢：blender_viewport op=lease force=true'
+    '；要强抢：blender_viewport op=lease force=true' +
+    '\ncode: lease_conflict' +
+    '\nnext_action: 等租约释放后重试，或 blender_viewport op=lease force=true 强抢'
   )
 }
 

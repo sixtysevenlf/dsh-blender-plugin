@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import {
   FILE_ALIAS_KEYS,
@@ -7,15 +8,18 @@ import {
   detectFileAlias,
   headlessLogNames,
   noInputFileWarning,
-  validateFileOpt,
+  validateFileOpt
 } from '../../../../runtime/file_guard.js'
 import { pkgPath } from '../../../helpers/pkg'
 
 function readTree(dir: string, ext: string): string {
-  return fs.readdirSync(dir, { withFileTypes: true }).map((entry) => {
-    const full = path.join(dir, entry.name)
-    return entry.isDirectory() ? readTree(full, ext) : entry.name.endsWith(ext) ? fs.readFileSync(full, 'utf8') : ''
-  }).join('\n')
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .map((entry) => {
+      const full = path.join(dir, entry.name)
+      return entry.isDirectory() ? readTree(full, ext) : entry.name.endsWith(ext) ? fs.readFileSync(full, 'utf8') : ''
+    })
+    .join('\n')
 }
 const addonSource = readTree(pkgPath('addon', 'dsh_blender_bridge'), '.py')
 const serverSource = readTree(pkgPath('runtime', 'http'), '.ts')
@@ -38,16 +42,49 @@ describe('file= parameter guard', () => {
 
   it('rejects empty, whitespace, object, and multi-element inputs by code', () => {
     for (const raw of ['', '   ']) {
-      try { validateFileOpt(raw); throw new Error('expected rejection') } catch (e: any) { expect(e.code).toBe('file-empty') }
+      try {
+        validateFileOpt(raw)
+        throw new Error('expected rejection')
+      } catch (e: any) {
+        expect(e.code).toBe('file-empty')
+      }
     }
     for (const raw of [{}, ['a', 'b'], 42]) {
-      try { validateFileOpt(raw); throw new Error('expected rejection') } catch (e: any) { expect(e.code).toBe('file-type') }
+      try {
+        validateFileOpt(raw)
+        throw new Error('expected rejection')
+      } catch (e: any) {
+        expect(e.code).toBe('file-type')
+      }
     }
   })
 
-  it('passes file= paths through without claiming symlink containment', () => {
-    const link = 'D:/tmp/link-to-secret.blend'
-    expect(validateFileOpt(link)).toBe(link)
+  it('rejects symlinked file= paths instead of following them', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-symlink-'))
+    const target = path.join(dir, 'target.blend')
+    const link = path.join(dir, 'link.blend')
+    fs.writeFileSync(target, 'x')
+    try {
+      try {
+        fs.symlinkSync(target, link, 'file')
+      } catch (e: any) {
+        // Windows without Developer Mode cannot create symlinks; fixtures that
+        // cannot be created are not evidence either way.
+        expect(['EPERM', 'EACCES', 'UNKNOWN'].includes(String(e.code))).toBe(true)
+        return
+      }
+      expect(validateFileOpt(target)).toBe(target)
+      try {
+        validateFileOpt(link)
+        throw new Error('expected rejection')
+      } catch (e: any) {
+        expect(e.code).toBe('file-symlink')
+      }
+    } finally {
+      try {
+        fs.rmSync(dir, { recursive: true, force: true })
+      } catch {}
+    }
   })
 
   it('explains missing input instead of returning a bare null', () => {
@@ -85,7 +122,7 @@ describe('archive and lease security boundaries', () => {
   it('keeps write routes behind the lease gate while read-only ops bypass it', () => {
     expect(serverSource).toContain('function leaseGate(payload')
     expect(serverSource).toContain("error: 'leased'")
-    expect(serverSource).toContain("const gate = leaseGate(payload);")
+    expect(serverSource).toContain('const gate = leaseGate(payload);')
     expect(serverSource).toContain("const gate = isReadOnly('/loop', op) ? null : leaseGate(payload);")
     expect(serverSource).toContain("const gate = isReadOnly('/plan', op) ? null : leaseGate(payload);")
     expect(serverSource).toContain("'/plan': PLAN_READ_ONLY_OPS")

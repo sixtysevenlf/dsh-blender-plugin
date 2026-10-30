@@ -283,6 +283,8 @@ export function registerViewport(ctx: any, port: number): void {
                 running: false,
                 url: base(port) + '/',
                 error: String((e && e.message) || e),
+                code: 'backend_unreachable',
+                next_action: '用 blender_viewport op=start 拉起后端；仍失败看 op=doctor',
                 hint: '用 blender_viewport op=start 拉起'
               })
             }

@@ -4,6 +4,7 @@ import { T, BACKEND_HINT } from '../constants.js'
 import { ensureBackend } from '../host/backend.js'
 import { backendPost, leasedText } from '../host/http.js'
 import { renderOne } from '../ui/cards.js'
+import { toolError } from './errors.js'
 
 export function registerCmd(ctx: any, port: number): void {
   ctx.effect(
@@ -22,9 +23,15 @@ export function registerCmd(ctx: any, port: number): void {
           isConcurrencySafe: () => false,
           timeoutMs: T.cmd,
           async execute(args: any) {
-            if (!(await ensureBackend(port))) return { text: '后端不可用（127.0.0.1:' + String(port) + '）。' + BACKEND_HINT }
+            if (!(await ensureBackend(port)))
+              return toolError('backend_unreachable', '后端不可用（127.0.0.1:' + String(port) + '）', BACKEND_HINT)
             const name = String((args && args.name) || '')
-            if (!name) return { text: 'blender_rt_cmd 需要 name 参数' }
+            if (!name)
+              return toolError(
+                'invalid_params',
+                'blender_rt_cmd 需要 name 参数',
+                '传 name=<addon 命令>；blender_rt_commands 查看 39 条命令'
+              )
             const r = await backendPost(
               port,
               '/cmd',
@@ -33,7 +40,12 @@ export function registerCmd(ctx: any, port: number): void {
             )
             const lt = leasedText(r)
             if (lt) return { text: lt }
-            if (!r || r.ok !== true) return { text: 'CMD ' + name + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown') }
+            if (!r || r.ok !== true)
+              return toolError(
+                'backend_error',
+                'CMD ' + name + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
+                '用 blender_rt_commands 核对命令名与参数'
+              )
             const payload = JSON.stringify(r.result)
             const head = 'CMD ' + name + ' ok · ' + String(r.ms) + 'ms · ' + String(payload.length) + ' chars'
             return { text: head + '\n' + (payload.length > 3000 ? payload.slice(0, 3000) + '\n…(已截断)' : payload) }

@@ -10,6 +10,8 @@
  *  - tests/headless_file_guard_selftest.mjs（离线单测，不需要 Blender / 后端）
  */
 
+import fs from 'node:fs';
+
 /** file= 的常见误用参数名。工具端见到这些键存在（≠undefined）就必须明确报错，
  *  而不是静默当成"没传"——静默丢参数正是 F-09 签名之一（blend=<好路径> → 空场景 ok=true）。 */
 export const FILE_ALIAS_KEYS = ['blend', 'blendFile', 'path', 'filepath', 'blend_file', 'input'];
@@ -45,6 +47,19 @@ export function validateFileOpt(raw: unknown): string | undefined {
       hint: '要么给真实 .blend 路径，要么就不要传 file=；若本意是 .blend 却传成 .py，'
            + '会被当成脚本内联执行而不会开档（见 fileLooksPython）。',
     });
+  }
+  try {
+    if (fs.lstatSync(v).isSymbolicLink()) {
+      throw Object.assign(new Error('file= 指向符号链接，拒绝跟随：' + v), {
+        code: 'file-symlink',
+        hint: '传真实 .blend 路径；符号链接可能绕过工作区边界。',
+      });
+    }
+  } catch (e) {
+    const code =
+      e && typeof e === 'object' && 'code' in e ? String((e as { code?: unknown }).code) : '';
+    if (code === 'file-symlink') throw e;
+    if (code && !['ENOENT', 'ENOTDIR', 'EACCES', 'EPERM', 'EINVAL'].includes(code)) throw e;
   }
   return v;
 }

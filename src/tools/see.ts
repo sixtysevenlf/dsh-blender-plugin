@@ -6,6 +6,7 @@ import { backendPost, fetchFrame, fetchView, numTriple } from '../host/http.js'
 import { frameDedupe, dedupeNote } from '../utils/frame-cache.js'
 import { toAttachment, readLocalPng } from '../utils/image.js'
 import { renderOne } from '../ui/cards.js'
+import { toolError } from './errors.js'
 
 async function seeViaWorker(ctx: any, port: number, spec: any, name?: string): Promise<any | null> {
   try {
@@ -101,7 +102,8 @@ export function registerSee(ctx: any, port: number): void {
           isConcurrencySafe: () => true,
           timeoutMs: T.see,
           async execute(args: any) {
-            if (!(await ensureBackend(port))) return { text: '后端不可用（127.0.0.1:' + String(port) + '）。' + BACKEND_HINT }
+            if (!(await ensureBackend(port)))
+              return toolError('backend_unreachable', '后端不可用（127.0.0.1:' + String(port) + '）', BACKEND_HINT)
             const size = Math.max(120, Math.min(1600, Number((args && args.max_size) || 560)))
             const full = !!(args && args.full)
             const area = Number((args && args.area) || 0)
@@ -163,7 +165,11 @@ export function registerSee(ctx: any, port: number): void {
                   const fb = await seeViaWorker(ctx, port, spec, args && args.session)
                   if (fb) return fb
                 }
-                throw e
+                return toolError(
+                  'backend_unreachable',
+                  '取帧失败 · 127.0.0.1:' + String(port) + ' · ' + String((e && (e as Error).message) || e),
+                  BACKEND_HINT
+                )
               }
               // v0.9.4（P0-2）：同一视角签名 + 同一 hash ⇒ 不重复附图
               const dkey =
@@ -252,7 +258,11 @@ export function registerSee(ctx: any, port: number): void {
                 )
                 if (fb) return fb
               }
-              throw e
+              return toolError(
+                'backend_unreachable',
+                '取帧失败 · 127.0.0.1:' + String(port) + ' · ' + String((e && (e as Error).message) || e),
+                BACKEND_HINT
+              )
             }
             // v0.9.4（P0-2）：默认视口帧同样去重（键含 size / area，互不串味）
             const dd = frameDedupe(full ? 'area:' + String(area) : 'viewport:' + String(size), f.hash, !!(args && args.force))

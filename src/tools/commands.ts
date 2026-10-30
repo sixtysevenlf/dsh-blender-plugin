@@ -4,6 +4,7 @@ import { T, BACKEND_HINT } from '../constants.js'
 import { ensureBackend } from '../host/backend.js'
 import { backendJson } from '../host/http.js'
 import { renderOne } from '../ui/cards.js'
+import { toolError } from './errors.js'
 
 export function registerCommands(ctx: any, port: number): void {
   ctx.effect(
@@ -18,9 +19,15 @@ export function registerCommands(ctx: any, port: number): void {
           isConcurrencySafe: () => true,
           timeoutMs: T.commands,
           async execute() {
-            if (!(await ensureBackend(port))) return { text: '后端不可用（127.0.0.1:' + String(port) + '）。' + BACKEND_HINT }
+            if (!(await ensureBackend(port)))
+              return toolError('backend_unreachable', '后端不可用（127.0.0.1:' + String(port) + '）', BACKEND_HINT)
             const r = await backendJson(port, '/commands', 120000)
-            if (!r || r.ok !== true) return { text: 'COMMANDS 失败 · ' + String((r && (r.error || r.raw)) || 'unknown') }
+            if (!r || r.ok !== true)
+              return toolError(
+                'backend_error',
+                'COMMANDS 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
+                '先 blender_viewport op=status 确认后端与 addon'
+              )
             const lines: string[] = []
             lines.push('场景 ' + String(r.scene) + (r.file ? ' · 文件 ' + String(r.file) : ' · 未保存文件'))
             lines.push('可用命令 ' + String(r.total) + ' 条；被集成开关挡住 ' + String((r.disabled || []).length) + ' 条')

@@ -11,6 +11,7 @@ import { backendPost } from './host/http.js'
 import { ensureBackend, isPaused, killBackendByCmd, killChildHandle, probe, resolveHttpPort, sleep, startBackend } from './host/backend.js'
 import { registerSchemaDiagnostic } from './tools/schema-diagnostic.js'
 import { registerTools } from './tools/index.js'
+import { errorLine, redactSecrets, toolError } from './tools/errors.js'
 import {
   BUNDLED_SKILL_DIR,
   BUNDLED_SKILL_PROVIDER,
@@ -137,6 +138,9 @@ export const __internals = {
   frameDedupe: frameDedupe,
   resetFrameCache: resetFrameCache,
   losslessSanitize: losslessSanitize,
+  toolError: toolError,
+  redactSecrets: redactSecrets,
+  errorLine: errorLine,
   receiptEnvelope: receiptEnvelope,
   headlessReceipt: headlessReceipt,
   promotedReceipt: promotedReceipt,

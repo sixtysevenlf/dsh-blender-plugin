@@ -6,6 +6,7 @@ import { backendPost, fetchFrame, leasedText, numTriple } from '../host/http.js'
 import { frameDedupe, dedupeNote } from '../utils/frame-cache.js'
 import { toAttachment, readLocalPng } from '../utils/image.js'
 import { renderOne } from '../ui/cards.js'
+import { isHostAbort, toolError } from './errors.js'
 
 /** 交互式无头一步：exec 代码 + 可选 see（持久 worker；不是 job / 不是异步回合）。 */
 async function doViaSession(ctx: any, port: number, opts: any): Promise<any | null> {
@@ -19,7 +20,12 @@ async function doViaSession(ctx: any, port: number, opts: any): Promise<any | nu
         { op: 'start', name: nm, preload: preload, engine: 'workbench', warmup: true, isolated: true },
         120000
       )
-      if (!st || st.ok !== true) return { text: '无头会话启动失败 · ' + String((st && (st.error || st.raw)) || 'unknown') }
+      if (!st || st.ok !== true)
+        return toolError(
+          'backend_error',
+          '无头会话启动失败 · ' + String((st && (st.error || st.raw)) || 'unknown'),
+          '先 blender_rt_worker op=start 启动持久 worker，或检查后端 /worker 路由'
+        )
     }
     let code = String(opts.code || '')
     if (!code && opts.file) {
@@ -31,12 +37,11 @@ async function doViaSession(ctx: any, port: number, opts: any): Promise<any | nu
     const r: any = await backendPost(port, '/worker', { op: 'exec', name: nm, code: code, isolated: true }, 180000)
     const rr = (r && r.result) || {}
     if (!r || r.ok !== true) {
-      return {
-        text:
-          'ACT(session) 失败 · ' +
-          String((r && (r.error || rr.error)) || 'unknown') +
-          (rr.traceback ? String.fromCharCode(10) + String(rr.traceback).slice(-1800) : '')
-      }
+      return toolError(
+        'backend_error',
+        'ACT(session) 失败 · ' + String((r && (r.error || rr.error)) || 'unknown'),
+        '先 blender_rt_worker op=start name=' + nm + '，或检查后端 /worker 路由'
+      )
     }
     const parts: string[] = ['ACT(session=' + nm + ') ok · ' + String(rr.ms) + 'ms']
     if (rr.stdout && String(rr.stdout).trim()) parts.push('stdout: ' + String(rr.stdout).trim().slice(0, 3000))
@@ -137,10 +142,11 @@ export function registerDo(ctx: any, port: number): void {
           isConcurrencySafe: () => false,
           timeoutMs: T.act,
           async execute(args: any) {
-            if (!(await ensureBackend(port))) return { text: '后端不可用（127.0.0.1:' + String(port) + '）。' + BACKEND_HINT }
+            if (!(await ensureBackend(port)))
+              return toolError('backend_unreachable', '后端不可用（127.0.0.1:' + String(port) + '）', BACKEND_HINT)
             const code = String((args && args.code) || '')
             const file = args && args.file ? String(args.file) : null
-            if (!code && !file) return { text: '需要 code 或 file 之一' }
+            if (!code && !file) return toolError('invalid_params', '需要 code 或 file 之一', '传 code=<python> 或 file=<脚本路径>')
             const sessOpts = {
               code: code,
               file: file,
@@ -158,7 +164,14 @@ export function registerDo(ctx: any, port: number): void {
             // P0：显式 session → 不探 GUI，直接持久无头会话（exec + see，同一 turn 内可连续调用）
             if (args && args.session) {
               const s = await doViaSession(ctx, port, sessOpts)
-              return s || { text: '无头交互会话失败：worker 不可用（先 blender_rt_worker op=start name=' + String(args.session) + '）' }
+              return (
+                s ||
+                toolError(
+                  'backend_unreachable',
+                  '无头交互会话失败：worker 不可用（session=' + String(args.session) + '）',
+                  '先 blender_rt_worker op=start name=' + String(args.session) + '，再重试'
+                )
+              )
             }
             const body: any = { code: code }
             if (file) body.file = file
@@ -166,11 +179,16 @@ export function registerDo(ctx: any, port: number): void {
             try {
               r = await backendPost(port, '/act', body, 180000)
             } catch (e: any) {
+              if (isHostAbort(e)) throw e
               if (!(args && args.auto === false)) {
                 const s = await doViaSession(ctx, port, sessOpts)
                 if (s) return s
               }
-              throw e
+              return toolError(
+                'backend_unreachable',
+                'ACT 失败 · 127.0.0.1:' + String(port) + ' · ' + String((e && (e as Error).message) || e),
+                BACKEND_HINT
+              )
             }
             const lt = leasedText(r)
             if (lt) return { text: lt }

@@ -4,6 +4,7 @@ import { T } from '../constants.js'
 import { ensureBackend } from '../host/backend.js'
 import { backendPost, leasedText } from '../host/http.js'
 import { renderOne } from '../ui/cards.js'
+import { toolError } from './errors.js'
 
 export function registerPreset(ctx: any, port: number): void {
   ctx.effect(
@@ -32,7 +33,12 @@ export function registerPreset(ctx: any, port: number): void {
           isConcurrencySafe: () => false,
           timeoutMs: T.preset,
           async execute(args: any) {
-            if (!(await ensureBackend(port))) return { text: '后端不可用（127.0.0.1:' + String(port) + '）' }
+            if (!(await ensureBackend(port)))
+              return toolError(
+                'backend_unreachable',
+                '后端不可用（127.0.0.1:' + String(port) + '）',
+                '先 blender_viewport op=start 拉起后端，再重试'
+              )
             const op = String((args && args.op) || 'list')
             const a: any = {}
             if (args && args.name) a.name = String(args.name)
@@ -58,14 +64,23 @@ export function registerPreset(ctx: any, port: number): void {
               try {
                 a.data = JSON.parse(String(args.data))
               } catch (e: any) {
-                return { text: 'data 不是合法 JSON: ' + String((e as Error).message).slice(0, 120) }
+                return toolError(
+                  'invalid_params',
+                  'data 不是合法 JSON: ' + String((e as Error).message).slice(0, 120),
+                  '传 JSON 对象字符串，例如 data="{\"k\":1}"'
+                )
               }
             }
             if (args && args.overwrite === false) a.overwrite = false
             const r = await backendPost(port, '/preset', { op: op, args: a }, 300000)
             const lt = leasedText(r)
             if (lt) return { text: lt }
-            if (!r || r.ok !== true) return { text: 'PRESET ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown') }
+            if (!r || r.ok !== true)
+              return toolError(
+                'backend_error',
+                'PRESET ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
+                '核对 preset 数据与 op'
+              )
             const res: any = (r && r.result) || {}
             const parts: string[] = []
             parts.push('PRESET ' + op + ' ok')

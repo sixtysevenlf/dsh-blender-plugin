@@ -5,6 +5,7 @@ import { ensureBackend } from '../host/backend.js'
 import { backendPost, leasedText, numTriple } from '../host/http.js'
 import { toAttachment, readLocalPng } from '../utils/image.js'
 import { renderOne } from '../ui/cards.js'
+import { toolError } from './errors.js'
 
 export function registerWorker(ctx: any, port: number): void {
   ctx.effect(
@@ -40,7 +41,8 @@ export function registerWorker(ctx: any, port: number): void {
           isConcurrencySafe: () => false,
           timeoutMs: T.worker,
           async execute(args: any) {
-            if (!(await ensureBackend(port))) return { text: '后端不可用（127.0.0.1:' + String(port) + '）。' + BACKEND_HINT }
+            if (!(await ensureBackend(port)))
+              return toolError('backend_unreachable', '后端不可用（127.0.0.1:' + String(port) + '）', BACKEND_HINT)
             const op = String((args && args.op) || 'status')
             const body: any = { op: op, isolated: true }
             if (args && args.code !== undefined) body.code = String(args.code)
@@ -77,7 +79,11 @@ export function registerWorker(ctx: any, port: number): void {
               if (rr.stderr && String(rr.stderr).trim()) bits.push('stderr: ' + String(rr.stderr).trim().slice(0, 1200))
               if (rr.stdout && String(rr.stdout).trim()) bits.push('stdout: ' + String(rr.stdout).trim().slice(0, 800))
               if (r && r.hint) bits.push(String(r.hint))
-              return { text: bits.join(String.fromCharCode(10)) }
+              return toolError(
+                'backend_error',
+                bits.join(String.fromCharCode(10)),
+                '检查后端 /worker 路由；先 blender_viewport op=doctor 看进程与端口'
+              )
             }
             const res = (r && r.result) || {}
             if (op === 'see') {

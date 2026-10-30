@@ -4,6 +4,7 @@ import { T, BACKEND_HINT } from '../constants.js'
 import { ensureBackend } from '../host/backend.js'
 import { backendPost, leasedText } from '../host/http.js'
 import { renderOne } from '../ui/cards.js'
+import { toolError } from './errors.js'
 
 export function registerLoop(ctx: any, port: number): void {
   ctx.effect(
@@ -45,7 +46,8 @@ export function registerLoop(ctx: any, port: number): void {
           isConcurrencySafe: () => false,
           timeoutMs: T.loop,
           async execute(args: any) {
-            if (!(await ensureBackend(port))) return { text: '后端不可用（127.0.0.1:' + String(port) + '）。' + BACKEND_HINT }
+            if (!(await ensureBackend(port)))
+              return toolError('backend_unreachable', '后端不可用（127.0.0.1:' + String(port) + '）', BACKEND_HINT)
             const op = String((args && args.op) || 'status')
             const target = String((args && args.target) || 'gui')
             if (target === 'session') {
@@ -56,7 +58,12 @@ export function registerLoop(ctx: any, port: number): void {
                 { op: 'start', name: nm, preload: 'runner', engine: 'workbench', warmup: true, isolated: true },
                 120000
               )
-              if (!st || st.ok !== true) return { text: 'LOOP session 启动失败 · ' + String((st && (st.error || st.raw)) || 'unknown') }
+              if (!st || st.ok !== true)
+                return toolError(
+                  'backend_error',
+                  'LOOP session 启动失败 · ' + String((st && (st.error || st.raw)) || 'unknown'),
+                  '先 blender_rt_worker op=start 启动 worker，或改用 GUI 通道'
+                )
               const specJ = JSON.stringify(JSON.stringify((args && args.spec) || {}))
               const code =
                 op === 'start'
@@ -117,7 +124,12 @@ export function registerLoop(ctx: any, port: number): void {
             const r = await backendPost(port, '/loop', payload, 300000)
             const lt = leasedText(r)
             if (lt) return { text: lt }
-            if (!r || r.ok !== true) return { text: 'LOOP ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown') }
+            if (!r || r.ok !== true)
+              return toolError(
+                'backend_error',
+                'LOOP ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
+                '用 blender_rt_loop op=status 检查会话'
+              )
             return { text: 'LOOP ' + op + ' ' + JSON.stringify(r.result) }
           }
         })

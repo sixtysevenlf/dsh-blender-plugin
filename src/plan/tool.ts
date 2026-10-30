@@ -5,6 +5,7 @@ import { ensureBackend } from '../host/backend.js'
 import { backendPost, jsonPayload, leasedText } from '../host/http.js'
 import { renderStructured } from '../ui/cards.js'
 import { finishPlanResponse, planViaWorker } from './headless-target.js'
+import { toolError } from '../tools/errors.js'
 
 export function registerPlan(ctx: any, port: number): void {
   ctx.effect(
@@ -38,7 +39,8 @@ export function registerPlan(ctx: any, port: number): void {
           isConcurrencySafe: () => false,
           timeoutMs: T.plan,
           async execute(argsIn: any) {
-            if (!(await ensureBackend(port))) return { text: '后端不可用（127.0.0.1:' + String(port) + '）。' + BACKEND_HINT }
+            if (!(await ensureBackend(port)))
+              return toolError('backend_unreachable', '后端不可用（127.0.0.1:' + String(port) + '）', BACKEND_HINT)
             const op = String((argsIn && argsIn.op) || 'status')
             const payload: any = jsonPayload(argsIn && argsIn.args)
             if (
@@ -48,30 +50,38 @@ export function registerPlan(ctx: any, port: number): void {
               argsIn.args.trim() &&
               argsIn.args.trim() !== '{}'
             ) {
-              return { text: 'PLAN ' + op + ' 失败 · args 不是合法 JSON 对象：' + String(argsIn.args).slice(0, 200) }
+              return toolError(
+                'invalid_params',
+                'PLAN ' + op + ' 失败 · args 不是合法 JSON 对象：' + String(argsIn.args).slice(0, 200),
+                'args 传 JSON 对象，例如 {"family":"audit"}'
+              )
             }
             if (op === 'report' && argsIn && argsIn.path) payload.path = String(argsIn.path)
             const sessRaw = argsIn && argsIn.session ? String(argsIn.session) : ''
             if (sessRaw) {
               const pr = await planViaWorker(ctx, port, op, payload, sessRaw === 'auto' ? undefined : sessRaw)
               if (!pr || pr.ok !== true) {
-                return {
-                  text:
-                    'PLAN ' +
+                return toolError(
+                  'backend_error',
+                  'PLAN ' +
                     op +
                     ' 无头执行失败 · ' +
                     String((pr && pr.error) || 'unknown') +
-                    (pr && pr.hint ? String.fromCharCode(10) + String(pr.hint) : '') +
-                    String.fromCharCode(10) +
-                    '提示：先 blender_rt_worker(op="start", name="…", preload="…")，或传 session="auto"'
-                }
+                    (pr && pr.hint ? String.fromCharCode(10) + String(pr.hint) : ''),
+                  '先 blender_rt_worker(op="start", name="…", preload="…")，或传 session="auto"'
+                )
               }
               return await finishPlanResponse(ctx, op, pr.res, argsIn)
             }
             const r = await backendPost(port, '/plan', { op: op, args: payload }, 300000)
             const lt = leasedText(r)
             if (lt) return { text: lt }
-            if (!r || r.ok !== true) return { text: 'PLAN ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown') }
+            if (!r || r.ok !== true)
+              return toolError(
+                'backend_error',
+                'PLAN ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
+                '检查后端 /plan 路由与 op 名；不确定先 op=catalog'
+              )
             return await finishPlanResponse(ctx, op, r.result, argsIn)
           }
         })

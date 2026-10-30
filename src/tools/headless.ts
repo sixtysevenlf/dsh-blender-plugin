@@ -14,6 +14,7 @@ import {
   startJobThenMaybeWait
 } from '../headless/receipts.js'
 import { detectFileAlias } from '../../lib/runtime/file_guard.js'
+import { toolError } from './errors.js'
 
 export function registerHeadless(ctx: any, port: number): void {
   ctx.effect(
@@ -62,25 +63,31 @@ export function registerHeadless(ctx: any, port: number): void {
           timeoutMs: T.headless,
           async execute(args: any) {
             if (!(await ensureBackend(port)))
-              return { text: '后端不可用（127.0.0.1:' + String(port) + '）；无头通道由后端进程代管，先 blender_viewport op=start' }
+              return toolError(
+                'backend_unreachable',
+                '后端不可用（127.0.0.1:' + String(port) + '）',
+                '无头通道由后端进程代管，先 blender_viewport op=start'
+              )
             // F-09：工具端必须自己拦 ALIAS / 空串 —— 旧写法 `(args && args.file) || undefined` 在 body 组装前
             // 就把 falsy 剥成 undefined，引擎侧守卫对工具路径永不触发；参数名误写（blend= 等）静默丢参数＝空场景 ok=true。
             const aliasKeys = detectFileAlias(args)
             if (aliasKeys.length)
-              return {
-                text:
-                  'blender_rt_headless 没有参数 ' +
+              return toolError(
+                'invalid_params',
+                'blender_rt_headless 没有参数 ' +
                   aliasKeys.join(', ') +
                   '；打开 .blend 请用 file=。（收到的键：' +
                   Object.keys(args || {}).join(', ') +
-                  '）'
-              }
+                  '）',
+                '用 file=<.blend 路径> 打开场景；参数名是 file，不是 blend/path'
+              )
             const rawFile = args ? args.file : undefined
             if (typeof rawFile === 'string' && !rawFile.trim())
-              return {
-                text:
-                  'file= 传了空字符串 —— 本次不会打开任何 .blend' + '（脚本会拿到出厂空场景）；要么给真实 .blend 路径，要么就不要传 file='
-              }
+              return toolError(
+                'invalid_params',
+                'file= 传了空字符串 —— 本次不会打开任何 .blend（脚本会拿到出厂空场景）',
+                '给真实 .blend 路径，或不要传 file='
+              )
             const runId = newRunId()
             const asJob = !!(args && args.as_job)
             const waitS = args && args.wait_s !== undefined && args.wait_s !== null && args.wait_s !== '' ? Number(args.wait_s) : null
@@ -139,12 +146,13 @@ export function registerHeadless(ctx: any, port: number): void {
             const lt = leasedText(res)
             if (lt) return { text: lt }
             if (!res || res.error)
-              return {
-                text:
-                  'HEADLESS 失败 · ' +
+              return toolError(
+                'backend_error',
+                'HEADLESS 失败 · ' +
                   String((res && (res.error || res.raw)) || 'unknown') +
-                  (res && res.hint ? '\n' + String(res.hint) : '')
-              }
+                  (res && res.hint ? '\n' + String(res.hint) : ''),
+                '检查 Blender 路径/Dsh 后端；详情见 blender_viewport op=doctor 与 headless 日志'
+              )
             // 后端 /headless 的信封是 {ok, ms, result:<引擎回执>} —— 结构化字段在 result 里（v0.9.3 起与 job 快照同形）
             const bodyRes: any = res && res.result && typeof res.result === 'object' ? res.result : null
             // 注意：**不能**拿 "resultJson 为空" 当缺字段 —— 脚本末行不是 JSON 时 resultJson 本来就该是 null（D3）。

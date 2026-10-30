@@ -4,6 +4,7 @@ import { T } from '../constants.js'
 import { ensureBackend } from '../host/backend.js'
 import { backendPost, leasedText } from '../host/http.js'
 import { renderOne } from '../ui/cards.js'
+import { toolError } from './errors.js'
 
 export function registerTxn(ctx: any, port: number): void {
   ctx.effect(
@@ -33,7 +34,12 @@ export function registerTxn(ctx: any, port: number): void {
           isConcurrencySafe: () => false,
           timeoutMs: T.txn,
           async execute(args: any) {
-            if (!(await ensureBackend(port))) return { text: '后端不可用（127.0.0.1:' + String(port) + '）' }
+            if (!(await ensureBackend(port)))
+              return toolError(
+                'backend_unreachable',
+                '后端不可用（127.0.0.1:' + String(port) + '）',
+                '先 blender_viewport op=start 拉起后端，再重试'
+              )
             const op = String((args && args.op) || 'list')
             const a: any = {}
             if (args && args.label) a.label = String(args.label)
@@ -49,7 +55,12 @@ export function registerTxn(ctx: any, port: number): void {
             const r = await backendPost(port, '/txn', { op: op, args: a }, 300000)
             const lt = leasedText(r)
             if (lt) return { text: lt }
-            if (!r || r.ok !== true) return { text: 'TXN ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown') }
+            if (!r || r.ok !== true)
+              return toolError(
+                'backend_error',
+                'TXN ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
+                '用 blender_rt_txn op=list 查看快照'
+              )
             const res = (r && r.result) || {}
             const parts: string[] = []
             parts.push('TXN ' + op + ' ok')

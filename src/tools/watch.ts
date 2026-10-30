@@ -5,6 +5,7 @@ import { ensureBackend, sleep } from '../host/backend.js'
 import { backendPost, fetchFrame, leasedText } from '../host/http.js'
 import { toAttachment, readLocalPng } from '../utils/image.js'
 import { renderOne } from '../ui/cards.js'
+import { toolError } from './errors.js'
 
 async function watchViaWorker(ctx: any, port: number, args: any, session?: string): Promise<any> {
   const size = Math.max(120, Math.min(1600, Number((args && args.max_size) || 420)))
@@ -20,7 +21,12 @@ async function watchViaWorker(ctx: any, port: number, args: any, session?: strin
     await backendPost(port, '/worker', { op: 'start', name: nm, engine: 'workbench', warmup: true, isolated: true }, 120000)
     const r: any = await backendPost(port, '/worker', { op: 'watch', name: nm, spec: spec, isolated: true }, 180000)
     const res = (r && r.result) || {}
-    if (!r || r.ok !== true || res.ok !== true) return { text: 'WATCH 无头失败 · ' + String((r && (r.error || res.error)) || 'unknown') }
+    if (!r || r.ok !== true || res.ok !== true)
+      return toolError(
+        'backend_error',
+        'WATCH 无头失败 · ' + String((r && (r.error || res.error)) || 'unknown'),
+        '先 blender_rt_worker op=start 启动 worker，或改用 GUI 通道'
+      )
     const fr: any[] = res.frames || []
     const hashes = fr.filter((x) => x && x.ok).map((x) => x.hash)
     const distinct = new Set(hashes).size
@@ -93,7 +99,8 @@ export function registerWatch(ctx: any, port: number): void {
           isConcurrencySafe: () => false,
           timeoutMs: T.watch,
           async execute(args: any) {
-            if (!(await ensureBackend(port))) return { text: '后端不可用（127.0.0.1:' + String(port) + '）。' + BACKEND_HINT }
+            if (!(await ensureBackend(port)))
+              return toolError('backend_unreachable', '后端不可用（127.0.0.1:' + String(port) + '）', BACKEND_HINT)
             const seconds = Math.max(0.2, Math.min(20, Number((args && args.seconds) || 2)))
             const fps = Math.max(0.5, Math.min(8, Number((args && args.fps) || 4)))
             const size = Math.max(120, Math.min(1600, Number((args && args.max_size) || 420)))
