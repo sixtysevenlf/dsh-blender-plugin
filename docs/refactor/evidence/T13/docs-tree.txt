@@ -1,0 +1,53 @@
+# T13 documentation tree
+# generated: 2026-10-30T19:27:44+0800 on ASUS
+
+## git status --short
+ M AGENTS.md
+ M CHANGELOG.md
+D  CLAUDE.md
+ M CONTRIBUTING.md
+ M README.md
+ M addon/README.md
+ M "docs/AI-\345\256\211\350\243\205\346\217\220\347\244\272\350\257\215.md"
+ M "docs/v2.6.0-\346\233\264\346\226\260\350\257\264\346\230\216.md"
+ M "docs/\346\217\222\344\273\266\344\270\216\346\212\200\350\203\275\344\274\230\345\214\226\351\252\214\346\224\266.md"
+ M llms.txt
+ M tests/README.md
+RM README.zh-CN.md -> zh-README.md
+?? .github/pull_request_template.md
+?? docs/adr/
+?? docs/refactor/evidence/T13/
+?? docs/refactor/spec.md
+?? node_modules_symlink_backup/
+?? tests/BEHAVIOR_MATRIX.md
+?? tests/helpers/docs.ts
+?? tests/unit/js/contract/agents-doc.test.ts
+?? tests/unit/js/contract/docs-bilingual.test.ts
+?? zh-CONTRIBUTING.md
+
+## T13 deliverables
+.github/pull_request_template.md
+AGENTS.md
+CONTRIBUTING.md
+README.md
+docs/refactor/spec.md
+tests/BEHAVIOR_MATRIX.md
+tests/README.md
+zh-CONTRIBUTING.md
+zh-README.md
+
+## docs/adr
+0001-runtime-ts.md
+0002-test-stack.md
+0003-addon-package-release.md
+0004-lib-build-release.md
+README.md
+
+## retired-file check
+absent CLAUDE.md
+absent docs/engineering-principles.md
+absent docs/refactor/metrics.md
+absent README.zh-CN.md
+
+## retired-name scan (excluding evidence and vendored trees)
+no reference found

@@ -14,5 +14,6 @@ One directory per task, created when the task is accepted. Each contains at leas
 | T1 layered test skeleton | self-checked | docs/refactor/evidence/T1/ |
 | T2 first contract-test batch | self-checked | docs/refactor/evidence/T2/ |
 | T3 fake addon channel | self-checked | docs/refactor/evidence/T3/ |
+| T13 AI collaboration docs + bilingual entries | self-checked (E4 open) | docs/refactor/evidence/T13/ |
 
 Logs are raw command output; do not translate or rewrite them.

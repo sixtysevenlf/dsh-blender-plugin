@@ -1,127 +1,104 @@
 # Contributing to DSH × Blender
 
+[简体中文](zh-CONTRIBUTING.md)
+
 Thanks for taking the time to help. This project gives AI agents a direct, verifiable interface to a live
 Blender session. Issues and pull requests are welcome in **English or Chinese**.
 
-Before you start, read [`README.md`](README.md) (or [`README.zh-CN.md`](README.zh-CN.md)) and
-[`AGENTS.md`](AGENTS.md). `AGENTS.md` is the short version of how the pieces fit together and what
-"installed correctly" means.
+Before you start, read [README.md](README.md) (or [zh-README.md](zh-README.md)) and [AGENTS.md](AGENTS.md).
+AGENTS.md explains how the pieces fit together, what "installed correctly" means, and where the canonical
+commands live.
 
 ## Ways to contribute
 
-- **Bug reports** with a reproduction, the exact version (`package.json` → `version`), and the output of
-  `curl -sS http://127.0.0.1:9877/doctor`.
-- **Documentation**: both READMEs, `docs/`, and the bundled skill under `skills/blender-modeling/`.
-- **Tests**: a failing self-test that reproduces a real bug is more valuable than a fix without one.
-- **Code**: `src/` (TypeScript), `runtime/` (backend), `addon/` (Blender side).
+- **Bug reports** with a reproduction, the exact version from `package.json`, and the output of the
+  `doctor` endpoint.
+- **Documentation**: both READMEs, `docs/`, the ADRs, and the bundled skill under
+  `skills/blender-modeling/`. The Chinese user guides stay Chinese; AI-facing docs stay English.
+- **Tests**: a failing test that reproduces a real bug is more valuable than a fix without one.
+- **Code**: `src/` (TypeScript host), `runtime/` (backend), `addon/` (Blender side).
 
 ## Before you open an issue
 
 1. Search existing issues and the troubleshooting section of the README.
 2. Reproduce on the latest release, not on an old tag.
-3. **Security issues go to [`SECURITY.md`](SECURITY.md)**, never to a public issue.
+3. **Security issues go to [SECURITY.md](SECURITY.md)**, never to a public issue.
 
-For anything larger than a bug fix — a new tool, a protocol change, a new dependency — open an issue
-first so we can agree on the shape before you spend time on the implementation.
+For anything larger than a bug fix — a new tool, a protocol change, a new dependency — open an issue first
+so the shape can be agreed before you spend time on the implementation.
 
 ## Development setup
 
 Requirements:
 
-- Node.js **20+**
-- Blender **4.x or 5.x** (GUI mode needs the bundled addon; headless mode only needs the executable)
-- Optional: a DSH source checkout, only if you need to rebuild `lib/`
+- Node.js **22** for development and tests; Node.js 20 or newer runs the backend.
+- Blender **4.2 LTS or 5.x** (GUI mode needs the bundled addon; headless mode only needs the executable).
+- Python **3.11+** in a virtualenv with `pytest`; select it with `PYTHON`
+  (`PYTHONIOENCODING=utf-8` and `PYTHONUTF8=1` on Windows).
+- Optional: a DSH source checkout, only if you need to rebuild `lib/`.
 
-```bash
-git clone https://github.com/sixtysevenlf/dsh-blender-plugin.git
-cd dsh-blender-plugin
-npm install
-npm run typecheck
-```
+The install, build, typecheck, test, lint, and package commands are defined once in
+[AGENTS.md §1](AGENTS.md#1-commands-single-source). Use those commands; do not copy variants from older
+documents. A normal clone no longer ships `lib/`: build it before running the backend locally.
 
-The repository ships a prebuilt `lib/`, so users never need to build. **If you change `src/`, rebuild and
-commit the regenerated `lib/`:**
-
-```bash
-export DSH_CHECKOUT=/path/to/dsh-source-checkout
-npm run build
-```
-
-Blender side: install `addon/dsh_blender_bridge.py`, enable it, and click **Connect**. The installation is
-considered good only when `curl -sS http://127.0.0.1:9877/doctor` returns `kind=ok`.
+Blender side: install the addon package from the release zip, enable it, and click **Connect**. The
+installation is good only when `doctor` returns `kind=ok` (GUI route), or the worker plus `see` returns
+a frame (headless-only route).
 
 ## Repository layout
 
 | Path | What it is |
 |---|---|
-| `src/` | TypeScript source for the plugin host side |
-| `lib/` | Committed build output of `src/` — **do not hand-edit** |
-| `runtime/` | Backend: server, engine, catalog, worker, headless runner |
-| `addon/` | The Blender addon (**v1.10 / protocol 11**) — the only supported addon |
+| `src/` | TypeScript source for the plugin host side, split into tools, host, plan, and contracts |
+| `lib/` | Build output — generated, never committed after 3.0.0, never hand-edited |
+| `runtime/` | Backend: engine, server, catalog, worker, headless runner, Python domains |
+| `addon/` | The Blender addon package — the only supported addon |
 | `skills/` | The bundled `blender-modeling` skill, registered automatically |
-| `tests/` | Node and Python self-tests |
-| `docs/` | Operation guide, configuration reference, contracts, SOPs |
+| `tests/` | Unit, integration, and end-to-end layers; see [tests/README.md](tests/README.md) |
+| `docs/` | User guides (Chinese), ADRs, the refactor specification, and evidence packs |
 
 ## Tests
 
-Run the full suite before opening a pull request:
+The layers and their commands are described in [tests/README.md](tests/README.md). Run the layer that
+matches your change while iterating, and the full pull-request gate before opening a pull request. Most
+tests need neither Blender nor a GUI; the end-to-end layer does, and it runs on labels and release
+candidates rather than on every pull request.
 
-```bash
-npm test
-```
+A test that fails is information. Do not add a skip, a retry, or a looser assertion to make it pass; fix
+the cause or report it. Flaky tests need an issue, an owner, and an expiry date.
 
-Useful subsets while iterating: `npm run test:lease`, `npm run test:scope`, `npm run test:recover`,
-`npm run test:hygiene`, `npm run test:client` — see `package.json` for the whole list. Python self-tests run
-through the same wrapper: `node scripts/pyrun.mjs tests/<name>.py`.
+## Changing the catalog
 
-Most self-tests need neither Blender nor a GUI. The `test:gui` probe does need a running Blender and is not
-part of `npm test`.
-
-## Adding or renaming an operation
-
-The catalog in `runtime/` is the **single source of truth** for families, operations and counts. After
-changing it:
-
-```bash
-node scripts/sync_counts.mjs          # refresh counts in src/, docs, README, package.json
-node tests/capability_lock.mjs --update   # regenerate tests/capability.lock.json
-npm test
-```
-
-Explain in the pull request why the lock file changed. Never hand-edit `tests/capability.lock.json`.
+The catalog in `runtime/` is the single source of truth for families, operations, and counts. After
+changing it, regenerate the counts and the capability lock with the commands in AGENTS.md §1, then run the
+contract tests. Explain in the pull request why the lock changed; never hand-edit the lock file.
 
 ## Pull requests
 
-- One logical change per pull request; keep unrelated formatting out of it.
+- One logical change, one task. Keep unrelated formatting out of the diff.
 - Conventional commit subjects: `feat:`, `fix:`, `docs:`, `test:`, `perf:`, `chore:`.
-- Keep [`README.md`](README.md) and [`README.zh-CN.md`](README.zh-CN.md) in sync — they are two versions of
-  the same document, not independent pages.
-- Update [`CHANGELOG.md`](CHANGELOG.md) under the next version heading.
-- Do not commit `node_modules`, virtualenvs, `__pycache__`, `.tgz` artifacts, or symlinks to dependencies.
-- There is no CI yet; please run `npm test` locally and paste a summary in the pull request
-  (CI on GitHub Actions is planned).
+- Use [.github/pull_request_template.md](.github/pull_request_template.md): scope, behavior-matrix row,
+  test evidence, risk, rollback, disclosure, checklist.
+- Keep [README.md](README.md) and [zh-README.md](zh-README.md) in sync, and the same for
+  [CONTRIBUTING.md](CONTRIBUTING.md) and [zh-CONTRIBUTING.md](zh-CONTRIBUTING.md). They are two versions
+  of one document, not independent pages.
+- Update [CHANGELOG.md](CHANGELOG.md) under the next version heading, and [MIGRATIONS.md](MIGRATIONS.md)
+  for any breaking change.
+- Add an ADR under [docs/adr/](docs/adr/README.md) when a decision is expensive to reverse.
+- Disclose AI assistance in both the commit trailer and the pull request; see AGENTS.md §6.
+- Do not commit `node_modules`, virtualenvs, `__pycache__`, `.tgz` artifacts, or symlinks to
+  dependencies. Keep a review-sized diff: the target is at most 400 changed lines per pull request.
 
 ## Release process
 
-1. Bump the version in **three places**: `package.json`, `PLUGIN_VERSION` in `src/index.ts`, and the rebuilt
-   `lib/`. Add the `CHANGELOG.md` section and update the version banner in both READMEs and `AGENTS.md`.
-2. `npm test` must be green before tagging.
-3. `npm pack` and check the package size (about 1.6 MB / 163 files; a much larger tarball means
-   `runtime/ext/venv` slipped past `files` / `.npmignore`).
-4. Tag `v<version>`, push `main` and the tag, then create the GitHub release and attach the resulting
-   `dsh-external-dsh-blender-plugin-<version>.tgz`.
+The release flow is owned by the plan's T16 and by [ADR 0003](docs/adr/0003-addon-package-release.md) and
+[ADR 0004](docs/adr/0004-lib-build-release.md). In short: verify the gates in
+[docs/refactor/spec.md](docs/refactor/spec.md), bump the version in `package.json` and `PLUGIN_VERSION`
+in the same change, let `prepack` build `lib/`, attach the addon zip and the npm tarball to the release,
+and rehearse the rollback before tagging. The detailed checklist lives in the release evidence directory.
 
 ## License
 
 The project is [BSD-3-Clause](LICENSE). By contributing you agree that your contribution is licensed under
 the same terms. Be respectful and assume good faith; disagreements about design are fine, personal attacks
 are not.
-
-## 中文摘要
-
-- 欢迎提交 issue 和 PR，中英文都可以；安全漏洞请走私密通道（见 `SECURITY.md`），不要开公开 issue。
-- 改 `src/` 之后必须 `npm run build`（需要 `DSH_CHECKOUT`）并一并提交重新生成的 `lib/`；`lib/` 不要手改。
-- 提交前跑 `npm test`；改过 catalog 的话先 `node scripts/sync_counts.mjs` 和
-  `node tests/capability_lock.mjs --update`，并在 PR 里说明锁文件为什么变。
-- 两个 README 是同一份文档的中英版本，改动要同步；新版本要更新 `CHANGELOG.md` 和 `package.json` 的版本号。
-- 目前还没有 CI，请在本地跑测试并在 PR 里贴结果。
