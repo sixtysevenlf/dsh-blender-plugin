@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -34,7 +35,10 @@ DEFAULT_BLENDER_CANDIDATES = (
 def blender_executable():
     configured = os.environ.get("DSH_BLENDER_EXE")
     if configured:
-        return configured if Path(configured).is_file() else None
+        candidate = Path(configured)
+        if candidate.is_file():
+            return str(candidate)
+        return shutil.which(configured)
     for raw in DEFAULT_BLENDER_CANDIDATES:
         candidate = Path(raw)
         if candidate.is_file():
@@ -52,7 +56,8 @@ def require_blender():
 def require_desktop():
     if os.environ.get("T10_SKIP_GUI") == "1":
         pytest.skip("T10_SKIP_GUI=1")
-    if os.environ.get("CI") and os.name != "nt":
+    has_display = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+    if os.environ.get("CI") and os.name != "nt" and not has_display:
         pytest.skip("no interactive display in this CI job")
 
 
@@ -93,6 +98,9 @@ def run_probe(tmp_path: Path, executable: str, timeout=240):
         (destination / "blender-gui.stderr.log").write_text(completed.stderr, encoding="utf-8")
         (destination / "blender-gui.results.json").write_text(
             json.dumps(report, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+        screenshot = work_dir / "gui-connect.png"
+        if screenshot.is_file():
+            (destination / "gui-connect.png").write_bytes(screenshot.read_bytes())
     return {
         "command": command,
         "returncode": completed.returncode,

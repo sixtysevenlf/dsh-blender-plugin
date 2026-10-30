@@ -196,11 +196,23 @@ def main():
                     "package_dir_removed": not os.path.isdir(package_dir),
                     "still_enabled": list(addon_utils.check(PACKAGE_NAME)),
                 })
+                shot = os.path.join(work_dir, "gui-connect.png")
+                try:
+                    bpy.ops.screen.screenshot(filepath=shot)
+                    report["screenshot"] = shot
+                except Exception as exc:
+                    report["screenshot_error"] = str(exc)
                 write_report()
                 bpy.ops.wm.quit_blender()
                 return None
             if time.time() - started_at > 45:
                 record("socket_roundtrip", False, {"error": "timeout waiting for the client"})
+                shot = os.path.join(work_dir, "gui-connect.png")
+                try:
+                    bpy.ops.screen.screenshot(filepath=shot)
+                    report["screenshot"] = shot
+                except Exception as exc:
+                    report["screenshot_error"] = str(exc)
                 write_report()
                 bpy.ops.wm.quit_blender()
                 return None

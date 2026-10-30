@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -34,8 +35,11 @@ DEFAULT_BLENDER_CANDIDATES = (
 
 def blender_executable():
     if os.environ.get("DSH_BLENDER_EXE"):
-        candidate = Path(os.environ["DSH_BLENDER_EXE"])
-        return str(candidate) if candidate.is_file() else None
+        configured = os.environ["DSH_BLENDER_EXE"]
+        candidate = Path(configured)
+        if candidate.is_file():
+            return str(candidate)
+        return shutil.which(configured)
     for raw in DEFAULT_BLENDER_CANDIDATES[1:]:
         candidate = Path(raw)
         if candidate.is_file():
