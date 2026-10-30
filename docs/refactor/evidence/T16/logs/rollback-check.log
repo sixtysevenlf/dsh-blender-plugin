@@ -1,0 +1,6 @@
+tag refactor-base-v2.6.2: 789ce2c751dda2e158b92243f6254e27347d93f2
+rollback package: 2.6.2
+lib tracked: 7
+runtime mjs: 17
+runtime ts: 0
+full drill: docs/refactor/evidence/T15f/rollback.md (v2.6.2 engine 87 exports, /health ok, /status 2.6.2)

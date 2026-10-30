@@ -1,5 +1,53 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
+## v3.0.0（2026-10-30）—— 工程健康化重构（breaking：addon 改 zip 包）
+
+> 模型工具仍 **15 个**；plan catalog 仍 **34 family / 228 op**；addon command 仍 **39 个**、**protocol 11**；
+> 本版不新增建模能力，只做结构、测试、类型、CI 与发布工程；B1 分数不与 v2.6.1 混算。
+
+### Breaking changes
+
+- **addon 安装方式改为 zip 包**：发布物是 `addon/dsh_blender_bridge.zip`（包内 `__init__.py`、`bl_info` v1.11、protocol 11）；
+  旧的单文件 `addon/dsh_blender_bridge.py` 不再随包发布，也不再是安装入口。升级时必须先在 Blender Preferences 里停用并移除旧单文件，再安装 zip、启用、N 面板 Connect。
+- **`lib/` 不再入库**：源码运行时由 `runtime/**/*.ts` strict 编译到 `lib/runtime/**/*.js`；从 git 使用先 `npm ci --legacy-peer-deps && npm run build`，`prepack` 会自动构建。npm 安装包仍自带 `lib/`。
+- 从 git 直接 `require` 旧 `runtime/*.mjs` 的用法不再成立（runtime 已无 `.mjs`）；请用包入口或构建后的 `lib/runtime/*.js`。
+
+### 结构重构
+
+- `src/index.ts` 缩为 13 行 entry-only；15 个 tool handler 拆到 `src/tools/*`，新增 `src/host`、`src/contracts`、`src/plan`、`src/ui`、`src/headless`、`src/utils` 等模块；
+  `scripts/check-structure.mjs` 校验 32/32 目标文件、147 条 import 边、0 环。
+- `runtime/engine.mjs` / `runtime/server.mjs` 拆为 facade + `runtime/core/*`、`runtime/execution/*`、`runtime/http/*`、`runtime/transport/*`；
+  engine 保留 87 个导出、server 保留 29 条路由；新增普通模块最大 457 行（无 >1,000 行模块）。
+- Python runtime 拆为 `runtime/py/{core,geometry,assembly,render,export}` 5 个领域包 + flat re-export shim；
+  `offline_bootstrap.py` 改为每模块独立命名空间，修复跨模块同名 helper 覆盖（assembly 的 `_num` 被 mesh_fix 覆盖）。
+- addon 单文件拆为 `addon/dsh_blender_bridge/`（39 个模块，最大 665 行）+ 提交 `addon/dsh_blender_bridge.zip`；launcher 校验包目录/zip、protocol 11、addon version >= 1.10/1.11。
+
+### Phase R：runtime TypeScript
+
+- 60 个 `runtime/*.mjs`（4,476 行）迁为 62 个 strict TS 模块，编译到 `lib/runtime/*.js`；`runtime/**/*.mjs` = 0，无 `@ts-nocheck`、无新增显式 `any`；
+  `SERVER_PATH` 指向 `lib/runtime/server.js`；JSON/子进程/路径/Python 桥边界补齐解析函数。
+- 构建顺序：runtime → host → client（src 依赖构建后的 lib/runtime）；ADR 0001 记录该偏离计划顺序的理由。
+- `npm pack` 产物含 `lib/runtime/**/*.js` 与 `runtime/**/*.py`，不含 `.ts`；clean clone / tarball 安装 smoke 均过。
+
+### 测试、CI 与质量门禁
+
+- 测试分三层：`npm run test:unit`（37 files / 251 passed）、`test:integration`（17 files / 102 passed）、`test:python`（pytest 295 passed）；默认集合不启动真 Blender/GUI。
+- 真实 Blender 4.2.10 E2E：headless 29 passed、GUI 6 passed（2 个 GUI 条件 skip 由 issue #53 批准）；覆盖 zip 安装、启用、Connect、doctor、selection、bpy、导出、卸载。
+- CI：`.github/workflows/pr.yml`（Node 22.17 + Python 3.11；typecheck/lint/format/build/structure/tests/matrix/pack + coverage）与 `.github/workflows/e2e.yml`（workflow_dispatch/label/tag，下载 Blender 4.2.10 headless + xvfb GUI）。
+- 行为矩阵 347 行（15 tools / 39 commands / 34 families / 228 ops / 29 routes；345 covered / 0 planned / 2 exempt）。
+- 旧测试迁移：67 个旧文件全部处置（tests/MIGRATION.md，无 pending），`test:legacy` 与 22 个别名移除。
+- 覆盖率：JS statements/lines 42.84%、branches 73.35%；diff-cover JS 32%、Python addon 32%（目标 80/70，EXEMPT 记录见 issue #52 与 docs/refactor/evidence/T12）。
+
+### 文档与仓库
+
+- 新增 ADR 0001-0004、`docs/refactor/spec.md`、`docs/refactor/ci.md`、`tests/BEHAVIOR_MATRIX.md`、`tests/MIGRATION.md`、PR 模板与 flaky issue 模板。
+- README / zh-README / CONTRIBUTING / zh-CONTRIBUTING / AGENTS / addon README 全部改为 zip 安装；英文 AI 文档保留英文，中文用户文档保留中文并互链。
+
+### 已知限制
+
+- C5 覆盖率未达计划目标（JS diff 32%、Python addon 32%），发布按 §8.0 暂缓；issue #52 记录补测与 ratchet。
+- T16 发布动作（tag v3.0.0 / GitHub Release / npm publish）在覆盖率决策后执行；本条目是发布候选说明。
+
 ## v2.6.2（2026-10-28）—— 曲面算法（surface_*）+ 文档/计数一致性
 
 > 模型工具仍 **15 个**；plan catalog 扩到 **34 family / 228 op**（+1 family / +11 op）；addon 仍 **v1.10 / protocol 11**。

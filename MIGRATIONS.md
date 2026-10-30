@@ -1,13 +1,12 @@
-# MIGRATIONS —— 从旧版本迁到 v2.6
+# MIGRATIONS —— 从旧版本迁到 v3.0
 
-> **当前版本（2026-10-20）**：插件 **v2.6.2** · **15 个模型工具** · plan catalog **34 family / 228 op** ·
+> **当前版本（2026-10-30）**：插件 **v3.0.0** · **15 个模型工具** · plan catalog **34 family / 228 op** ·
 > addon **v1.11**（protocol **11**）· 后端 `127.0.0.1:9877` / addon `127.0.0.1:9876`。
-> **旧 `MCP for Blender` 自 v2.3 起不再支持**；v2.3/v2.4 的迁移变更与 addon v1.10 的面板更新仍然适用，
-> v2.6 以**新增字段/能力**为主，按下文 §0 最短路径迁完即可。
+> **旧 `MCP for Blender` 自 v2.3 起不再支持**；v3.0 是工程重构 + addon 安装方式 breaking，按下文 §0/§1 迁。
 
-## 0. 最短路径（任何旧版 → v2.6.2）
+## 0. 最短路径（任何旧版 → v3.0.0）
 
-1. 更新 DSH 插件包到 **v2.6.2** → **重启 DSH**；旧「Blender 视口」tab / 点击进消息在 v2.3 已删除，这是预期。
+1. 更新 DSH 插件包到 **v3.0.0** → **重启 DSH**；旧「Blender 视口」tab / 点击进消息在 v2.3 已删除，这是预期。
 2. Blender 里停用并移除旧 addon（含旧的单文件 `dsh_blender_bridge.py`）→ 安装本仓 `addon/dsh_blender_bridge.zip`（**v1.11**）→ 启用 → N → Connect。
 3. `blender_rt_cmd get_addon_info` → `addon_version=[1,11]`、`protocol=11`；
    GUI 路线 `curl http://127.0.0.1:9877/doctor` → `kind=ok`（纯无头路线用 `rt_worker(start)` + `see` 出图自证）；
@@ -71,3 +70,20 @@ v2.3 的原生选中 / 集合 / activity 依赖本仓 addon 的 5 条命令与 N
 
 > **不覆盖 / 未安装依赖**（迁移后也不要承诺）：landmark/人脸（无 cv2/MediaPipe）、OCR、DXF、
 > Open3D / manifold3d / glTF-Validator 未安装，不在支持范围。
+
+## 7. 卸载与回滚（v3.0.0）
+
+### 7.1 卸载 v3.0.0
+
+1. Blender：`Edit ▸ Preferences ▸ Add-ons` → 停用 **DSH Blender Bridge** → 移除；如残留包目录，删除 `scripts/addons/dsh_blender_bridge/`（或你的 Blender 用户 addons 路径下的同名目录）。
+2. DSH：从 profile 的 `node_modules/@dsh-external/dsh-blender-plugin` 卸载插件包（或从 profile bundle 列表移除）→ **重启 DSH**；随包注册的 blender-modeling skill 会随插件移除，不需要手删用户技能目录。
+3. 旧单文件 `dsh_blender_bridge.py`（v2.6.1 及以前）在升级时就必须停用并移除；v3.0.0 不会再加载它。
+
+### 7.2 回滚到 v2.6.2
+
+1. 安装 v2.6.2 的插件包（tag `refactor-base-v2.6.2` / 对应 tarball），不要用 v3.0.0 的目录覆盖；
+2. Blender 里停用 v1.11 zip addon，重新安装 v2.6.2 自带的单文件 `dsh_blender_bridge.py`（或 v2.6.2 的 addon 产物），启用后 N → Connect；
+3. **重启 DSH**；`blender_rt_cmd get_addon_info` 应回到 v1.10 / protocol 11，`blender_rt_plan(op="catalog")` 应回到 34 family / 228 op。
+4. v2.6.2 tag 自带 `lib/` 与旧 `runtime/*.mjs`，不需要构建；v3.0.0 的 `lib/runtime` 与 `.ts` 不要混用。
+5. 回滚演练记录见 `docs/refactor/evidence/T15f/rollback.md` 与 v3.0.0 发布证据 `docs/refactor/evidence/T16/`。
+

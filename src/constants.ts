@@ -9,7 +9,7 @@ export const IS_WIN = process.platform === 'win32'
  * description 由**已加载的那份 lib** 生成 → 会话里一眼能看出自己跑的是哪一代，
  * 不会再出现「读的是新源码、跑的是旧 lib」那种排查事故（外部反馈 j20-build 的元教训）。
  */
-export const PLUGIN_VERSION = '2.6.2'
+export const PLUGIN_VERSION = '3.0.0'
 
 // 后端与 Blender 侧模块都放在插件包的 runtime/ 下 → 整个包可搬到任意目录（WSL 或 Windows）
 export const HERE = path.dirname(fileURLToPath(import.meta.url))

@@ -1,0 +1,38 @@
+
+> @dsh-external/dsh-blender-plugin@3.0.0 test:e2e
+> node scripts/test.mjs e2e
+
+
+== pytest (Blender headless E2E; set DSH_BLENDER_EXE) ==
+============================= test session starts =============================
+platform win32 -- Python 3.13.14, pytest-8.4.2, pluggy-1.7.0
+rootdir: D:\project\dsh-blender-plugin
+configfile: pytest.ini
+plugins: cov-7.1.0
+collected 37 items / 8 deselected / 29 selected
+
+tests\e2e\blender\test_addon_e2e.py .......                              [ 24%]
+tests\e2e\blender\test_assembly.py .                                     [ 27%]
+tests\e2e\blender\test_assembly_export.py .                              [ 31%]
+tests\e2e\blender\test_assembly_repair.py .                              [ 34%]
+tests\e2e\blender\test_audit_file.py .                                   [ 37%]
+tests\e2e\blender\test_audit_review.py .                                 [ 41%]
+tests\e2e\blender\test_blockout.py .                                     [ 44%]
+tests\e2e\blender\test_blockout_refsheet.py .                            [ 48%]
+tests\e2e\blender\test_deliver.py .                                      [ 51%]
+tests\e2e\blender\test_evalharness.py .                                  [ 55%]
+tests\e2e\blender\test_gate_review.py .                                  [ 58%]
+tests\e2e\blender\test_geo.py .                                          [ 62%]
+tests\e2e\blender\test_imgtools.py .                                     [ 65%]
+tests\e2e\blender\test_mate.py .                                         [ 68%]
+tests\e2e\blender\test_motion.py .                                       [ 72%]
+tests\e2e\blender\test_p0_real_modeling.py .                             [ 75%]
+tests\e2e\blender\test_plan.py .                                         [ 79%]
+tests\e2e\blender\test_shapesolve.py .                                   [ 82%]
+tests\e2e\blender\test_surface.py .                                      [ 86%]
+tests\e2e\blender\test_txn.py .                                          [ 89%]
+tests\e2e\blender\test_txn_restore.py .                                  [ 93%]
+tests\e2e\blender\test_upstream_integration.py .                         [ 96%]
+tests\e2e\blender\test_visualreport.py .                                 [100%]
+
+====================== 29 passed, 8 deselected in 29.87s ======================

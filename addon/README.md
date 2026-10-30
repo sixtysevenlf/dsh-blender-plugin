@@ -52,7 +52,7 @@ zip 内只有一个包根 `dsh_blender_bridge/`，不含 `__pycache__` / `.pyc`�
 3. 3D 视图按 `N` → 找到「DSH Blender Bridge」面板 → 点 **Connect**（端口 9876）。
 
 > 也可以让插件**一键拉起**：`blender_viewport(op="launch")` —— 拉起 GUI Blender 并**自动扫到并启用**
-> 本 addon（目录或 zip 形式的 `dsh_blender_bridge` / `dshbb_*`），并校验 addon v1.10+ / protocol 11。
+> 本 addon（目录或 zip 形式的 `dsh_blender_bridge` / `dshbb_*`），并校验 addon v1.11+ / protocol 11。
 
 ## 验证
 

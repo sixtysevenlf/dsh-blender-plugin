@@ -58,7 +58,7 @@ describe('npm package install contract', () => {
     const raw = npm(['pack', '--json', '--pack-destination', outDir])
     const meta = packMeta(raw)
     expect(meta.name).toBe('@dsh-external/dsh-blender-plugin')
-    expect(meta.version).toBe('2.6.2')
+    expect(meta.version).toBe(JSON.parse(fs.readFileSync(pkgPath('package.json'), 'utf8')).version)
     const files = meta.files.map((f: any) => f.path)
     expect(files).toContain('lib/index.js')
     expect(files).toContain('lib/runtime/server.js')
