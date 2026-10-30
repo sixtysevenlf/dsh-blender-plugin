@@ -4,7 +4,7 @@ import { base, childAlive, getChild, isPaused, killBackendByCmd, killChildHandle
 import { backendJson, backendPost } from '../host/http.js'
 import { schemaResolve } from '../contracts/tool.js'
 import { tuiHostSummary } from '../tui-host.js'
-import { probeHttp, waitHttp } from '../../runtime/backend_probe.mjs'
+import { probeHttp, waitHttp } from '../../lib/runtime/backend_probe.js'
 
 export function registerViewport(ctx: any, port: number): void {
   ctx.effect(

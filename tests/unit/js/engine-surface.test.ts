@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest'
-import { createEngine } from '../../../runtime/engine.mjs'
+import { createEngine } from '../../../runtime/engine.js'
 
-const engine = createEngine()
+const engine = createEngine() as any
 afterAll(() => engine.stop())
 
 describe('engine assembly (T6)', () => {

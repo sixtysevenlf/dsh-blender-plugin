@@ -8,14 +8,14 @@ import {
   planOpCrossChannelHint,
   planOpNames,
   planOpSuggestion,
-} from '../../../../runtime/catalog.mjs'
-import { catalogPayload } from '../../../../runtime/engine.mjs'
+} from '../../../../runtime/catalog.js'
+import { catalogPayload } from '../../../../runtime/engine.js'
 import { pkgPath } from '../../../helpers/pkg'
 
 const baseline = JSON.parse(fs.readFileSync(pkgPath('tests', 'fixtures', 'plan_readonly.baseline.json'), 'utf8'))
 const engineSource = [
-  fs.readFileSync(pkgPath('runtime', 'core', 'dispatch.mjs'), 'utf8'),
-  fs.readFileSync(pkgPath('runtime', 'core', 'plan-dispatch.mjs'), 'utf8'),
+  fs.readFileSync(pkgPath('runtime', 'core', 'dispatch.ts'), 'utf8'),
+  fs.readFileSync(pkgPath('runtime', 'core', 'plan-dispatch.ts'), 'utf8'),
 ].join('\n')
 
 function opsLine(family: string): string[] {

@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
-import { PLAN_CATALOG } from '../../../../runtime/catalog.mjs'
-import { CONTRACT_ROUTES, createRoutes } from '../../../../runtime/http/routes/index.mjs'
+import { PLAN_CATALOG } from '../../../../runtime/catalog.js'
+import { CONTRACT_ROUTES, createRoutes } from '../../../../runtime/http/routes/index.js'
 import { pkgPath } from '../../../helpers/pkg'
 
-const serverSource = fs.readFileSync(pkgPath('runtime', 'server.mjs'), 'utf8')
-const healthSource = fs.readFileSync(pkgPath('runtime', 'http', 'routes', 'health.mjs'), 'utf8')
+const serverSource = fs.readFileSync(pkgPath('runtime', 'server.ts'), 'utf8')
+const healthSource = fs.readFileSync(pkgPath('runtime', 'http', 'routes', 'health.ts'), 'utf8')
 const dispatchSource =
-  fs.readFileSync(pkgPath('runtime', 'core', 'dispatch.mjs'), 'utf8') +
-  fs.readFileSync(pkgPath('runtime', 'core', 'plan-dispatch.mjs'), 'utf8')
+  fs.readFileSync(pkgPath('runtime', 'core', 'dispatch.ts'), 'utf8') +
+  fs.readFileSync(pkgPath('runtime', 'core', 'plan-dispatch.ts'), 'utf8')
 
 const REQUIRED = [
   '/health', '/status', '/doctor', '/commands', '/plan', '/headless', '/job',
@@ -32,7 +32,7 @@ describe('backend route contract', () => {
   })
 
   it('registers a handler for every contract route', () => {
-    const routes = createRoutes({})
+    const routes = createRoutes({} as any)
     const paths = new Set<string>()
     let hostPrefix = false
     for (const r of routes) {

@@ -31,7 +31,7 @@ async function waitHealth(port: number, timeoutMs = 12000): Promise<void> {
 }
 
 function spawnServer(port: number, workDir: string): ChildProcess {
-  return spawn(process.execPath, [pkgPath('runtime', 'server.mjs'), '--port', String(port)], {
+  return spawn(process.execPath, [pkgPath('lib', 'runtime', 'server.js'), '--port', String(port)], {
     cwd: PKG_ROOT,
     env: {
       ...process.env,

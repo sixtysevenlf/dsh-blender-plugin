@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
-import { catalogPayload } from '../../../../runtime/engine.mjs'
+import { catalogPayload } from '../../../../runtime/engine.js'
 import { pkgPath } from '../../../helpers/pkg'
 
 const surfacePy = fs.readFileSync(pkgPath('runtime', 'py', 'geometry', 'surface.py'), 'utf8')
@@ -8,7 +8,7 @@ const lock = JSON.parse(fs.readFileSync(pkgPath('tests', 'fixtures', 'capability
 
 describe('surface fit honesty contract', () => {
   it('declares fit in the catalog and capability lock', () => {
-    const family = catalogPayload({ full: true }).detail.find((f: any) => f.family === 'surface')
+    const family = (catalogPayload({ full: true }) as any).detail.find((f: any) => f.family === 'surface')
     expect(family.ops).toContain('fit')
     const locked = lock.families.find((f: any) => f.f === 'surface')
     expect(locked.ops).toBe(family.ops.length)

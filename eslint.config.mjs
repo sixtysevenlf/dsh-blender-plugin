@@ -48,6 +48,24 @@ export default tseslint.config(
     }
   },
   {
+    // runtime 已迁 TypeScript（T15）：比 src/tests 更严 —— 禁止显式 any 与 @ts-* 关闭注释。
+    files: ['runtime/**/*.ts'],
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/ban-ts-comment': 'error',
+      '@typescript-eslint/no-unused-vars': noUnused,
+      '@typescript-eslint/no-require-imports': 'off',
+      '@typescript-eslint/no-this-alias': 'off',
+      'no-empty': ['error', { allowEmptyCatch: true }],
+      'no-constant-condition': ['error', { checkLoops: false }],
+      'no-control-regex': 'off',
+      'no-useless-escape': 'off',
+      'prefer-const': 'off',
+      'no-undef': 'off'
+    }
+  },
+  {
     // 入口层：只允许 re-export plugin 与 frame-cache 这两个公开面。
     files: ['src/index.ts'],
     rules: {

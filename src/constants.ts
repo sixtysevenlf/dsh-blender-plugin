@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -13,7 +13,27 @@ export const PLUGIN_VERSION = '2.6.2'
 
 // 后端与 Blender 侧模块都放在插件包的 runtime/ 下 → 整个包可搬到任意目录（WSL 或 Windows）
 export const HERE = path.dirname(fileURLToPath(import.meta.url))
-export const SERVER_PATH = process.env.DSH_BLENDER_SERVER || path.join(HERE, '..', 'runtime', 'server.mjs')
+/**
+ * Phase R（T15a）：runtime 源码已迁 TypeScript，运行时入口是构建产物 lib/runtime/server.js。
+ * - 生产/打包布局：HERE = <pkg>/lib → <pkg>/lib/runtime/server.js
+ * - 开发/测试布局：HERE = <pkg>/src → <pkg>/lib/runtime/server.js（先 build）
+ * DSH_BLENDER_SERVER 覆盖仍然最高优先级（排障/自定义安装位置用）。
+ */
+export function resolveServerPath(
+  here: string = HERE,
+  env: NodeJS.ProcessEnv = process.env,
+  exists: (p: string) => boolean = existsSync
+): string {
+  const override = env.DSH_BLENDER_SERVER
+  if (override) return override
+  const candidates = [path.join(here, 'runtime', 'server.js'), path.join(here, '..', 'lib', 'runtime', 'server.js')]
+  for (const candidate of candidates) {
+    if (exists(candidate)) return candidate
+  }
+  // 未构建时仍返回构建布局路径：错误信息指向真实缺失的产物，而不是已删除的旧 .mjs。
+  return candidates[0]
+}
+export const SERVER_PATH = resolveServerPath()
 export const HOSTNAME = '127.0.0.1'
 
 /** 后端未就绪时的统一提示（不假设任何本机路径） */

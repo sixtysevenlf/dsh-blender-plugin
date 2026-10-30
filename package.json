@@ -27,6 +27,11 @@
     "!runtime/ext/node_modules",
     "!runtime/ext/pkg.tgz",
     "!runtime/__pycache__",
+    "!runtime/**/*.ts",
+    "!runtime/**/*.mts",
+    "!runtime/**/*.d.ts",
+    "!lib/.build.lock",
+    "!lib/.build-ok",
     "!runtime/*.bak-*",
     "!runtime/*.v1-*",
     "skills",
@@ -38,7 +43,9 @@
     "dsh-blender.config.example.json",
     "README.md",
     "CHANGELOG.md",
-    "MIGRATIONS.md"
+    "MIGRATIONS.md",
+    "!tests/**/*.ts",
+    "!tests/**/*.mts"
   ],
   "license": "BSD-3-Clause",
   "dsh": {
@@ -95,19 +102,19 @@
     "vitest": "^3.2.7"
   },
   "scripts": {
-    "build": "bash scripts/build.sh",
+    "build": "node scripts/build.mjs all",
     "build:addon": "node scripts/build-addon.mjs",
     "check:addon": "node scripts/build-addon.mjs --check",
-    "typecheck": "node scripts/typecheck.mjs && node scripts/typecheck.mjs -p tsconfig.test.json",
-    "typecheck:src": "node scripts/typecheck.mjs",
+    "typecheck": "node scripts/typecheck.mjs -p tsconfig.runtime.json && node scripts/build.mjs runtime && node scripts/typecheck.mjs && node scripts/typecheck.mjs -p tsconfig.test.json",
+    "typecheck:src": "node scripts/build.mjs runtime && node scripts/typecheck.mjs",
     "typecheck:test": "node scripts/typecheck.mjs -p tsconfig.test.json",
-    "lint": "eslint src tests/unit/js tests/integration/js tests/helpers scripts --max-warnings=0",
-    "lint:fix": "eslint src tests/unit/js tests/integration/js tests/helpers scripts --fix",
+    "lint": "eslint src tests/unit/js tests/integration/js tests/helpers scripts runtime --max-warnings=0",
+    "lint:fix": "eslint src tests/unit/js tests/integration/js tests/helpers scripts runtime --fix",
     "format": "prettier --write \"src/**/*.ts\" \"scripts/check-*.mjs\" \"eslint.config.mjs\" \"tsconfig*.json\" \".prettierrc.json\" \"tests/types/**/*.d.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"scripts/check-*.mjs\" \"eslint.config.mjs\" \"tsconfig*.json\" \".prettierrc.json\" \"tests/types/**/*.d.ts\"",
     "check:structure": "node scripts/check-structure.mjs",
     "check:build": "node scripts/check-build.mjs",
-    "prepack": "node scripts/check-build.mjs",
+    "prepack": "npm run build && node scripts/check-build.mjs",
     "test": "node scripts/test.mjs",
     "test:matrix": "node scripts/check-behavior-matrix.mjs --release",
     "test:discover": "node tests/discoverability_selftest.mjs",
@@ -137,7 +144,11 @@
     "test:integration": "node scripts/test.mjs integration",
     "test:contract": "node scripts/test.mjs contract",
     "test:python": "node scripts/test.mjs python",
-    "test:watch": "node node_modules/vitest/vitest.mjs"
+    "test:watch": "node node_modules/vitest/vitest.mjs",
+    "build:host": "node scripts/build.mjs host",
+    "build:runtime": "node scripts/build.mjs runtime",
+    "typecheck:runtime": "node scripts/typecheck.mjs -p tsconfig.runtime.json",
+    "test:parity": "node scripts/check-parity.mjs"
   },
   "exports": {
     ".": {
