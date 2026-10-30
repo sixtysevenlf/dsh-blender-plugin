@@ -1,8 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest'
 import fs from 'node:fs'
-// @ts-expect-error - runtime is plain .mjs, no declaration file
 import { COMMAND_CATALOG } from '../../../../runtime/catalog.mjs'
-// @ts-expect-error - runtime is plain .mjs, no declaration file
 import { AddonClient } from '../../../../runtime/engine.mjs'
 import { startFakeAddon } from '../../../helpers/fake-addon.mjs'
 import { pkgPath } from '../../../helpers/pkg'

@@ -1,5 +1,4 @@
 import { afterAll, describe, expect, it } from 'vitest'
-// @ts-expect-error - runtime is plain .mjs, no declaration file
 import { createEngine } from '../../../runtime/engine.mjs'
 
 const engine = createEngine()

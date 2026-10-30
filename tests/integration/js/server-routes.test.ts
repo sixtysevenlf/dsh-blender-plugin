@@ -1,12 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { spawn } from "node:child_process"
 import net from 'node:net'
 import { pkgPath } from '../../helpers/pkg'
-// @ts-expect-error - JS helper, no declaration
 import { startFakeAddon } from '../../helpers/fake-addon.mjs'
 
 let addon: { port: number; close: () => Promise<void> }
-let child: ChildProcessWithoutNullStreams
+let child: ReturnType<typeof spawn>
 let base = ''
 let childLog = ''
 
@@ -52,8 +51,8 @@ beforeAll(async () => {
     env: { ...process.env, DSH_BLENDER_ADDON_HOST: '127.0.0.1', DSH_BLENDER_ADDON_PORT: String(addon.port) },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
-  child.stdout.on('data', (c) => { childLog += c.toString() })
-  child.stderr.on('data', (c) => { childLog += c.toString() })
+  child.stdout?.on('data', (c) => { childLog += c.toString() })
+  child.stderr?.on('data', (c) => { childLog += c.toString() })
   await waitHealth(base)
 }, 20000)
 
@@ -71,18 +70,18 @@ afterAll(async () => {
 
 describe('backend HTTP routes against a fake addon (T7)', () => {
   it('serves /health, /who and /host/state', async () => {
-    const h = await (await fetch(base + '/health')).json()
+    const h = await (await fetch(base + '/health')).json() as any
     expect(h.ok).toBe(true)
     expect(h.stats).toBeTruthy()
     expect(h.lease.active).toBe(false)
     expect(h.rtt.frame).toBeTruthy()
 
-    const w = await (await fetch(base + '/who')).json()
+    const w = await (await fetch(base + '/who')).json() as any
     expect(w.ok).toBe(true)
     expect(w.config.http).toBe(new URL(base).host)
     expect(w.metrics.inflight).toBe(0)
 
-    const s = await (await fetch(base + '/host/state')).json()
+    const s = await (await fetch(base + '/host/state')).json() as any
     expect(s.ok).toBe(true)
     expect(s.channel.aiPaused).toBe(false)
     expect(s.jobs.running).toBe(0)
@@ -91,7 +90,7 @@ describe('backend HTTP routes against a fake addon (T7)', () => {
   it('keeps gone and 404 semantics', async () => {
     const gone = await fetch(base + '/frame')
     expect(gone.status).toBe(410)
-    expect((await gone.json()).error).toBe('gone')
+    expect((await gone.json() as any).error).toBe('gone')
     expect((await fetch(base + '/nope')).status).toBe(404)
   })
 
@@ -99,27 +98,27 @@ describe('backend HTTP routes against a fake addon (T7)', () => {
     const holder = 'plugin-pid-' + String(child.pid)
     const granted = await post('/lease', { holder })
     expect(granted.status).toBe(200)
-    expect((await granted.json()).lease.holder).toBe(holder)
+    expect((await granted.json() as any).lease.holder).toBe(holder)
 
     const denied = await post('/cmd', { holder: 'plugin-other', name: 'ping' })
     expect(denied.status).toBe(409)
-    expect(await denied.json()).toMatchObject({ ok: false, error: 'leased', holder })
+    expect(await denied.json() as any).toMatchObject({ ok: false, error: 'leased', holder })
 
     const catalog = await post('/plan', { op: 'catalog', holder: 'plugin-other' })
     expect(catalog.status).toBe(200)
-    const cj = await catalog.json()
+    const cj = await catalog.json() as any
     expect(cj.ok).toBe(true)
     expect(cj.result.ops_count).toBe(228)
 
     const ok = await post('/cmd', { holder, name: 'ping', params: {} })
     expect(ok.status).toBe(200)
-    expect(await ok.json()).toMatchObject({ ok: true, result: { pong: true } })
+    expect(await ok.json() as any).toMatchObject({ ok: true, result: { pong: true } })
 
     const renewed = await post('/lease', { holder, renewOnly: true })
-    expect((await renewed.json()).renewed).toBe(true)
+    expect((await renewed.json() as any).renewed).toBe(true)
 
     const released = await post('/release', { holder })
-    expect((await released.json()).released).toBe(holder)
+    expect((await released.json() as any).released).toBe(holder)
   })
 
   it('keeps /host CORS rules exact', async () => {
@@ -133,7 +132,7 @@ describe('backend HTTP routes against a fake addon (T7)', () => {
   })
 
   it('lists jobs read-only without touching Blender', async () => {
-    const j = await (await fetch(base + '/host/jobs')).json()
+    const j = await (await fetch(base + '/host/jobs')).json() as any
     expect(j.ok).toBe(true)
     expect(Array.isArray(j.jobs)).toBe(true)
     // /host/jobs reads the shared on-disk ledger, so other runs may have left

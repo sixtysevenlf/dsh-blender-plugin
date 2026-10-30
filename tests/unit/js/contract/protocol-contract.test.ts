@@ -1,7 +1,5 @@
 import { afterAll, describe, expect, it } from 'vitest'
-// @ts-expect-error - runtime is plain .mjs, no declaration file
 import { PROTOCOLS, detectProtocol, resolveProtocol } from '../../../../runtime/addon-protocol.mjs'
-// @ts-expect-error - runtime is plain .mjs, no declaration file
 import { AddonClient } from '../../../../runtime/engine.mjs'
 import { startFakeAddon } from '../../../helpers/fake-addon.mjs'
 

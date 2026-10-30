@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { spawnSync } from 'node:child_process'
-// @ts-expect-error - runtime is plain .mjs, no declaration file
 import { LEASE, isReadOnly, leaseAcquire, leaseGate, leaseView, normalizeScope, releaseStaleLease } from '../../../runtime/http/lease.mjs'
 
 function resetLease() {

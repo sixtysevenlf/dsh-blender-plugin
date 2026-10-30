@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-// @ts-expect-error - built plugin entry has no declaration consumed here
 import * as plugin from '../../../../lib/index.js'
 import { createFakeContext, type CapturedTool } from '../../../helpers/fake-context'
 

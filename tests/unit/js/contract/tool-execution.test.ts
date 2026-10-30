@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-// @ts-expect-error - built plugin entry has no declaration consumed here
 import * as plugin from '../../../../lib/index.js'
 import { createFakeContext, type CapturedTool } from '../../../helpers/fake-context'
 import { closedPort, startFakeBackend } from '../../../helpers/fake-backend.mjs'
@@ -42,7 +41,7 @@ describe('model tool execution semantics', () => {
     const out = await run('blender_rt_see', { max_size: 320 })
     expect(out.text).toContain('视口帧 320px')
     expect(out.image?.attachmentId).toContain('viewport-')
-    expect(backend.requests.some((r) => r.method === 'GET' && r.path === '/frame.png' && r.search.includes('size=320'))).toBe(true)
+    expect(backend.requests.some((r: any) => r.method === 'GET' && r.path === '/frame.png' && r.search.includes('size=320'))).toBe(true)
   })
 
   it('tool blender_rt_do executes code and returns the follow-up frame', async () => {
@@ -50,7 +49,7 @@ describe('model tool execution semantics', () => {
     expect(out.text).toContain('ACT ok')
     expect(out.text).toContain('fake stdout')
     expect(out.image).toBeTruthy()
-    const act = backend.requests.find((r) => r.method === 'POST' && r.path === '/act')
+    const act = backend.requests.find((r: any) => r.method === 'POST' && r.path === '/act')
     expect(act?.body.code).toBe('print(1)')
   })
 
@@ -63,7 +62,7 @@ describe('model tool execution semantics', () => {
   it('tool blender_rt_cmd sends one addon command', async () => {
     const out = await run('blender_rt_cmd', { name: 'get_scene_info', params: { a: 1 } })
     expect(out.text).toContain('CMD get_scene_info ok')
-    const req = backend.requests.find((r) => r.method === 'POST' && r.path === '/cmd')
+    const req = backend.requests.find((r: any) => r.method === 'POST' && r.path === '/cmd')
     expect(req?.body).toMatchObject({ name: 'get_scene_info', params: { a: 1 } })
   })
 
@@ -76,7 +75,7 @@ describe('model tool execution semantics', () => {
   it('tool blender_rt_loop runs an inner-loop op', async () => {
     const out = await run('blender_rt_loop', { op: 'status' })
     expect(out.text).toContain('LOOP status')
-    expect(backend.requests.some((r) => r.path === '/loop' && r.body.op === 'status')).toBe(true)
+    expect(backend.requests.some((r: any) => r.path === '/loop' && r.body.op === 'status')).toBe(true)
   })
 
   it('tool blender_rt_perf runs a perf op', async () => {
@@ -87,7 +86,7 @@ describe('model tool execution semantics', () => {
   it('tool blender_rt_opt maps join to the canonical opt_join op', async () => {
     const out = await run('blender_rt_opt', { op: 'join', args: '{"dry_run":true}' })
     expect(out.text).toContain('OPT join')
-    const req = backend.requests.find((r) => r.path === '/opt')
+    const req = backend.requests.find((r: any) => r.path === '/opt')
     expect(req?.body.op).toBe('opt_join')
   })
 
@@ -95,7 +94,7 @@ describe('model tool execution semantics', () => {
     const out = await run('blender_rt_headless', { script: 'print(1)' })
     expect(out.text).toContain('HEADLESS')
     expect(out.envelope?.status).toBe('done')
-    const req = backend.requests.find((r) => r.path === '/headless')
+    const req = backend.requests.find((r: any) => r.path === '/headless')
     expect(req?.body.script).toBe('print(1)')
   })
 
@@ -169,7 +168,7 @@ describe('model tool execution semantics', () => {
     const before = backend.requests.length
     const out = await run('blender_rt_do', { code: 'x = 1', session: 'w1', see: false })
     expect(out.text).toContain('ACT(session=w1) ok')
-    const req = backend.requests.slice(before).find((r) => r.path === '/worker')
+    const req = backend.requests.slice(before).find((r: any) => r.path === '/worker')
     expect(req?.body).toMatchObject({ op: 'exec', name: 'w1', code: 'x = 1' })
   })
 })

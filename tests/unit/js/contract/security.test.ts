@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
-// @ts-expect-error - runtime is plain .mjs, no declaration file
 import {
   FILE_ALIAS_KEYS,
   describeMissingInput,
@@ -53,7 +52,7 @@ describe('file= parameter guard', () => {
 
   it('explains missing input instead of returning a bare null', () => {
     expect(describeMissingInput('x.py', true)).toMatchObject({ given: true, opened: false })
-    expect(describeMissingInput('   ', false).reason).toContain('为空')
+    expect((describeMissingInput('   ', false) as any).reason).toContain('为空')
     expect(describeMissingInput(undefined, false)).toMatchObject({ given: false, opened: false })
     expect(noInputFileWarning(true).code).toBe('no_input_file')
     expect(noInputFileWarning(false).hint).toContain('未传 file=')

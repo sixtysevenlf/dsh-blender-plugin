@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import { PLAN_CATALOG } from '../../../../runtime/catalog.mjs'
-// @ts-expect-error - runtime is plain .mjs, no declaration file
 import { CONTRACT_ROUTES, createRoutes } from '../../../../runtime/http/routes/index.mjs'
 import { pkgPath } from '../../../helpers/pkg'
 
@@ -64,6 +63,6 @@ describe('backend route contract', () => {
       expect(new Set(family.ops).size, family.f).toBe(family.ops.length)
     }
     expect(PLAN_CATALOG).toHaveLength(34)
-    expect(PLAN_CATALOG.reduce((n, f) => n + f.ops.length, 0)).toBe(228)
+    expect(PLAN_CATALOG.reduce((n: any, f: any) => n + f.ops.length, 0)).toBe(228)
   })
 })

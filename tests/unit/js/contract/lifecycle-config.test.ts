@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-// @ts-expect-error - built plugin entry has no declaration consumed here
 import * as plugin from '../../../../lib/index.js'
 import http from 'node:http'
 import fs from 'node:fs'
@@ -7,9 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
-// @ts-expect-error - runtime is plain .mjs, no declaration file
 import { decideStart, probeTcp, probeHttp, waitHttp } from '../../../../runtime/backend_probe.mjs'
-// @ts-expect-error - runtime is plain .mjs, no declaration file
 import { CFG, describeConfig } from '../../../../runtime/config.mjs'
 import { closedPort, startFakeBackend } from '../../../helpers/fake-backend.mjs'
 import { createFakeContext } from '../../../helpers/fake-context'

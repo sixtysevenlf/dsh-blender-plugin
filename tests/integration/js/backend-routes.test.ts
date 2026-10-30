@@ -85,22 +85,22 @@ describe('live HTTP route contract', () => {
   })
 
   it('serves health, status, who, and host state as JSON', async () => {
-    const health = await (await fetch('http://127.0.0.1:' + port + '/health')).json()
+    const health = await (await fetch('http://127.0.0.1:' + port + '/health')).json() as any
     expect(health.ok).toBe(true)
     expect(health.backend.pid).toBe(child.pid)
     expect(health.provenance).toBeTruthy()
 
-    const status = await (await fetch('http://127.0.0.1:' + port + '/status')).json()
+    const status = await (await fetch('http://127.0.0.1:' + port + '/status')).json() as any
     expect(typeof status.ok).toBe('boolean')
     expect(status.plugin.version).toMatch(/^\d+\.\d+\.\d+$/)
 
-    const who = await (await fetch('http://127.0.0.1:' + port + '/who')).json()
+    const who = await (await fetch('http://127.0.0.1:' + port + '/who')).json() as any
     expect(who.lease.active).toBe(false)
     expect(who.metrics).toBeTruthy()
 
     const doctorRes = await fetch('http://127.0.0.1:' + port + '/doctor')
     expect(doctorRes.status).toBe(200)
-    const doctor = await doctorRes.json()
+    const doctor = await doctorRes.json() as any
     expect(typeof doctor.ok).toBe('boolean')
     expect(doctor.config.http).toContain(String(port))
 
@@ -108,7 +108,7 @@ describe('live HTTP route contract', () => {
     const stateRes = await fetch('http://127.0.0.1:' + port + '/host/state', { headers: { origin } })
     expect(stateRes.status).toBe(200)
     expect(stateRes.headers.get('access-control-allow-origin')).toBe(origin)
-    const state = await stateRes.json()
+    const state = await stateRes.json() as any
     expect(state.ok).toBe(true)
     expect(state.channel).toBeTruthy()
     expect(state.jobs).toBeTruthy()
@@ -118,14 +118,14 @@ describe('live HTTP route contract', () => {
     for (const p of ['/frame', '/', '/index.html', '/stream.mjpg', '/input']) {
       const r = await fetch('http://127.0.0.1:' + port + p)
       expect(r.status, p).toBe(410)
-      expect((await r.json()).error, p).toBe('gone')
+      expect((await r.json() as any).error, p).toBe('gone')
     }
   })
 
   it('enforces the write lease and exempts read-only plan ops', async () => {
     const lease = await (await fetch('http://127.0.0.1:' + port + '/lease', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ holder: 'holder-a' }),
-    })).json()
+    })).json() as any
     expect(lease.ok).toBe(true)
     expect(lease.lease.active).toBe(true)
 
@@ -133,7 +133,7 @@ describe('live HTTP route contract', () => {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ holder: 'holder-b', code: 'x = 1' }),
     })
     expect(denied.status).toBe(409)
-    const deniedBody = await denied.json()
+    const deniedBody = await denied.json() as any
     expect(deniedBody.error).toBe('leased')
     expect(deniedBody.holder).toBe('holder-a')
 
@@ -141,12 +141,12 @@ describe('live HTTP route contract', () => {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ holder: 'holder-b', op: 'catalog', args: {} }),
     })
     expect(plan.status).toBe(200)
-    const planBody = await plan.json()
+    const planBody = await plan.json() as any
     expect(planBody.ok).toBe(true)
 
     const released = await (await fetch('http://127.0.0.1:' + port + '/release', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ holder: 'holder-a' }),
-    })).json()
+    })).json() as any
     expect(released.ok).toBe(true)
     expect(released.lease.active).toBe(false)
   })
@@ -157,17 +157,17 @@ describe('live HTTP route contract', () => {
       body: JSON.stringify({ selection: { names: ['Cube', 'Camera'], count: 2 }, scene: { name: 'Scene' } }),
     })
     expect(put.status).toBe(200)
-    const stored = await put.json()
+    const stored = await put.json() as any
     expect(stored.ok).toBe(true)
     expect(stored.seq).toBeGreaterThan(0)
 
-    const latest = await (await fetch('http://127.0.0.1:' + port + '/host/selection/latest')).json()
+    const latest = await (await fetch('http://127.0.0.1:' + port + '/host/selection/latest')).json() as any
     expect(latest.ok).toBe(true)
     expect(latest.selection.names).toEqual(['Cube', 'Camera'])
 
     const consumed = await (await fetch('http://127.0.0.1:' + port + '/host/selection/consume', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ seq: stored.seq }),
-    })).json()
+    })).json() as any
     expect(consumed.ok).toBe(true)
 
     const unknown = await fetch('http://127.0.0.1:' + port + '/host/nope')

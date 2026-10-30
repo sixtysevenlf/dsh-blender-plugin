@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
-// @ts-expect-error - runtime is plain .mjs, no declaration file
 import {
-  COMMAND_CATALOG,
   PLAN_CATALOG,
   PLAN_READ_ONLY,
   PLAN_READ_ONLY_OPS,
@@ -11,7 +9,6 @@ import {
   planOpNames,
   planOpSuggestion,
 } from '../../../../runtime/catalog.mjs'
-// @ts-expect-error - runtime is plain .mjs, no declaration file
 import { catalogPayload } from '../../../../runtime/engine.mjs'
 import { pkgPath } from '../../../helpers/pkg'
 
@@ -34,9 +31,9 @@ describe('plan op catalog contract', () => {
     const names = planOpNames()
     expect(names).toHaveLength(228)
     expect(new Set(names).size).toBe(227)
-    const dup = names.filter((n) => n === 'help')
+    const dup = names.filter((n: any) => n === 'help')
     expect(dup).toHaveLength(2)
-    expect(PLAN_CATALOG.filter((f) => f.prefix === '' && f.ops.includes('help')).map((f) => f.f)).toEqual(['contract', 'montage'])
+    expect(PLAN_CATALOG.filter((f: any) => f.prefix === '' && f.ops.includes('help')).map((f: any) => f.f)).toEqual(['contract', 'montage'])
   })
 
   it('maps every op to exactly one family and one canonical full name', () => {
@@ -72,8 +69,8 @@ describe('plan op catalog contract', () => {
     expect([...PLAN_READ_ONLY_OPS].sort()).toEqual([...baseline].sort())
     expect(PLAN_READ_ONLY_OPS).toHaveLength(98)
     const names = planOpNames()
-    expect(names.filter((name) => PLAN_READ_ONLY.has(name))).toHaveLength(91)
-    const writes = names.filter((name) => !PLAN_READ_ONLY.has(name))
+    expect(names.filter((name: any) => PLAN_READ_ONLY.has(name))).toHaveLength(91)
+    const writes = names.filter((name: any) => !PLAN_READ_ONLY.has(name))
     expect(writes).toHaveLength(137)
     expect(PLAN_READ_ONLY.has('catalog')).toBe(true)
     expect(PLAN_READ_ONLY.has('execute_code')).toBe(false)
