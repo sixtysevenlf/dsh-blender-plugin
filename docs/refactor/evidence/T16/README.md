@@ -30,5 +30,6 @@
 
 - logs/：版本同步、build、typecheck、lint、format、structure、build-check、test、unit、integration、matrix、addon-check、pack、pack-actual、pack-list、install-smoke、addon-extension-validate、rollback-check、e2e-headless、e2e-gui、install-migration。
 - e2e/：真实 Blender E2E results JSON、stdout/stderr、GUI Connect 截图。
+- clean-clone.log：从 T16 提交干净 clone 后跑 PR 门禁 + smoke:install 的输出。
 - release-notes.md：v3.0.0 发布说明草稿（与 CHANGELOG 一致）。
 - acceptance.md：§8.4 Gate D 逐项判定（D1–D6）。

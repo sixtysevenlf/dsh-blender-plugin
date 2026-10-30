@@ -4,7 +4,7 @@
 
 | Gate | 判定 | 证据 | 说明 |
 | --- | --- | --- | --- |
-| D1 干净环境 | PASS（R1，待 T16 clean clone 复验） | logs/install-smoke.log、T12 clean-clone.log、T16 clean-clone.log（提交后补） | Node 22.17；npm ci --legacy-peer-deps、build、typecheck、lint、unit、integration、python、matrix、pack 全 0；tarball 干净安装 doctor kind=ok、/health ok、/status 3.0.0。 |
+| D1 干净环境 | PASS（R1） | logs/install-smoke.log、clean-clone.log | Node 22.17；npm ci --legacy-peer-deps、build、typecheck、lint、unit、integration、python、matrix、pack 全 0；tarball 干净安装 doctor kind=ok、/health ok、/status 3.0.0。 |
 | D2 发布包 | PASS（R1） | logs/pack.log、logs/pack-actual.log、logs/pack-list.txt | npm pack 3.0.0：3.2 MB / 829 files；含 lib/runtime 62 个 JS、lib/index.js、addon zip；无单文件 addon、无 .ts 源码（仅 .d.ts）；体积较 v2.6.2（约 2.2 MB / 778）增加 1 MB，来自 62 个 runtime JS + sourcemap/d.ts + 文档证据，无 secrets/大资源异常。 |
 | D3 addon 安装迁移 | PASS（R1） | logs/install-migration.log、e2e/blender-gui.results.json、e2e/gui-connect.png、MIGRATIONS.md §1/§7 | 真 Blender 4.2.10 GUI：安装并启用 zip、Connect、socket roundtrip、get_addon_info、ping、bpy、selection、disconnect、停用无残留、移除全部 True；旧单文件停用/移除路径写在 MIGRATIONS.md §1/§7，并复用同一 Preferences addon_remove 路径。 |
 | D4 B1 小回归 | PENDING | 日志 /opt/bench/runs/b1/t16-d4.log；ledger /opt/bench/runs/b1/ledger.jsonl | 固定 v2.6.1 profile；P0 bw_0001 score=93.75、P0 bw_0023 22:12 进入 EVAL、P0 bw_0091 与 P1 三题未完成；不得在完成前勾选。 |
