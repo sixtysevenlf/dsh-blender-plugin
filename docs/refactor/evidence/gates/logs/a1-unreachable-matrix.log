@@ -1,0 +1,25 @@
+
+ RUN  v3.2.7 D:/project/dsh-blender-plugin
+
+ ✓ tests/unit/js/contract/tool-failure-matrix.test.ts > model tool unreachable-backend matrix > covers all 15 model-facing tools 1ms
+ ✓ tests/unit/js/contract/tool-failure-matrix.test.ts > model tool unreachable-backend matrix > blender_rt_see settles with a readable error 425ms
+ ✓ tests/unit/js/contract/tool-failure-matrix.test.ts > model tool unreachable-backend matrix > blender_rt_do settles with a readable error 75ms
+ ✓ tests/unit/js/contract/tool-failure-matrix.test.ts > model tool unreachable-backend matrix > blender_rt_watch settles with a readable error 277ms
+ ✓ tests/unit/js/contract/tool-failure-matrix.test.ts > model tool unreachable-backend matrix > blender_rt_cmd settles with a readable error 46ms
+ ✓ tests/unit/js/contract/tool-failure-matrix.test.ts > model tool unreachable-backend matrix > blender_rt_commands settles with a readable error 326ms
+ ✓ tests/unit/js/contract/tool-failure-matrix.test.ts > model tool unreachable-backend matrix > blender_rt_loop settles with a readable error 112ms
+ ✓ tests/unit/js/contract/tool-failure-matrix.test.ts > model tool unreachable-backend matrix > blender_rt_perf settles with a readable error 107ms
+ ✓ tests/unit/js/contract/tool-failure-matrix.test.ts > model tool unreachable-backend matrix > blender_rt_opt settles with a readable error 107ms
+ ✓ tests/unit/js/contract/tool-failure-matrix.test.ts > model tool unreachable-backend matrix > blender_rt_headless settles with a readable error 7ms
+ ✓ tests/unit/js/contract/tool-failure-matrix.test.ts > model tool unreachable-backend matrix > blender_rt_plan settles with a readable error 4ms
+ ✓ tests/unit/js/contract/tool-failure-matrix.test.ts > model tool unreachable-backend matrix > blender_rt_worker settles with a readable error 3ms
+ ✓ tests/unit/js/contract/tool-failure-matrix.test.ts > model tool unreachable-backend matrix > blender_rt_txn settles with a readable error 93ms
+ ✓ tests/unit/js/contract/tool-failure-matrix.test.ts > model tool unreachable-backend matrix > blender_rt_preset settles with a readable error 107ms
+ ✓ tests/unit/js/contract/tool-failure-matrix.test.ts > model tool unreachable-backend matrix > blender_rt_job settles with a readable error 5ms
+ ✓ tests/unit/js/contract/tool-failure-matrix.test.ts > model tool unreachable-backend matrix > blender_viewport settles with a readable error 51ms
+
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+   Start at  22:28:08
+   Duration  2.57s (transform 145ms, setup 0ms, collect 466ms, tests 1.76s, environment 0ms, prepare 120ms)
+
