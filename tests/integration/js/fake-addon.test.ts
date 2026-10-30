@@ -1,9 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
-// @ts-expect-error - runtime is plain .mjs, no declaration file
 import { AddonClient } from '../../../runtime/engine.mjs'
-// @ts-expect-error - runtime is plain .mjs, no declaration file
 import { detectProtocol } from '../../../runtime/addon-protocol.mjs'
-// @ts-expect-error - JS helper, no declaration
 import { startFakeAddon } from '../../helpers/fake-addon.mjs'
 
 const open: Array<{ close: () => Promise<void> }> = []

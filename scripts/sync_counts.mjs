@@ -17,7 +17,8 @@ const ops = cat.ops_count;
 const dry = process.argv.includes("--dry");
 
 const targets = [
-  { file: path.join(ROOT, "src", "index.ts"),
+  // T4 之后 plan 工具的描述在 src/plan/tool.ts（入口 src/index.ts 只做 re-export）。
+  { file: path.join(ROOT, "src", "plan", "tool.ts"),
     pairs: [[/(【判定 \/ 验收 \/ 导出 \/ 造型】)\d+ 个 family · \d+ 个 op/,
              "$1" + fams + " 个 family · " + ops + " 个 op"]] },
   // AGENTS.md 两份都要刷：工作区那份（single_source_selftest 校验）和**仓内那份**

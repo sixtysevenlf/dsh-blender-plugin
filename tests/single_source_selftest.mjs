@@ -39,9 +39,10 @@ ok("server.mjs 确实消费派生常量（不再手抄）",
   fs.readFileSync(path.join(ROOT, 'runtime', 'server.mjs'), 'utf8').includes("'/plan': PLAN_READ_ONLY_OPS"));
 
 // ② 计数：描述与 AGENTS.md 必须等于 catalog 现算值
-const SRC = fs.readFileSync(path.join(ROOT, 'src', 'index.ts'), 'utf8');
+// T4 之后 plan 工具的描述在 src/plan/tool.ts（入口 src/index.ts 只做 re-export）。
+const SRC = fs.readFileSync(path.join(ROOT, 'src', 'plan', 'tool.ts'), 'utf8');
 const mDesc = SRC.match(/【判定 \/ 验收 \/ 导出 \/ 造型】(\d+) 个 family · (\d+) 个 op/);
-ok("src/index.ts 描述里的计数 == catalog（" + fams + " family / " + ops + " op）",
+ok("src/plan/tool.ts 描述里的计数 == catalog（" + fams + " family / " + ops + " op）",
   !!mDesc && Number(mDesc[1]) === fams && Number(mDesc[2]) === ops, mDesc ? mDesc.slice(1) : null);
 
 const ag = path.join(ROOT, "..", "AGENTS.md");

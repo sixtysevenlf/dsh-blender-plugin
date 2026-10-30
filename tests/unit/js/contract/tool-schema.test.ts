@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import fs from 'node:fs'
-// @ts-expect-error - built plugin entry has no declaration consumed here
 import * as plugin from '../../../../lib/index.js'
 import { createFakeContext, type CapturedTool } from '../../../helpers/fake-context'
 import { pkgPath } from '../../../helpers/pkg'
@@ -46,8 +45,9 @@ describe('tool schema contract', () => {
     for (const t of tools) {
       if (t.name === 'blender_viewport') expect(t.isConcurrencySafe).toBeUndefined()
       else {
-        expect(typeof t.isConcurrencySafe, t.name).toBe('function')
-        expect(typeof (t.isConcurrencySafe as () => unknown)(), t.name).toBe('boolean')
+        const guard = t.isConcurrencySafe
+        expect(typeof guard, t.name).toBe('function')
+        if (typeof guard === 'function') expect(typeof guard(), t.name).toBe('boolean')
       }
     }
   })

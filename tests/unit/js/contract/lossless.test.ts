@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest'
-// @ts-expect-error - built plugin entry has no declaration consumed here
 import * as plugin from '../../../../lib/index.js'
-// @ts-expect-error - runtime package is JS-only from this package's point of view
 import { snapshotJsonValue } from '@deepseek-ai/dsh-session'
 
 const { losslessSanitize, receiptEnvelope, headlessReceipt, promotedReceipt } = plugin.__internals

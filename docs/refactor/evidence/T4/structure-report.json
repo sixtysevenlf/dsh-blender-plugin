@@ -1,0 +1,90 @@
+{
+  "ok": true,
+  "tool": "check-structure",
+  "generatedAt": "2026-10-30T11:35:25.071Z",
+  "node": "v22.17.0",
+  "index": {
+    "path": "src/index.ts",
+    "lines": 13,
+    "entryOnly": true,
+    "violations": []
+  },
+  "tools": {
+    "count": 15,
+    "names": [
+      "blender_rt_cmd",
+      "blender_rt_commands",
+      "blender_rt_do",
+      "blender_rt_headless",
+      "blender_rt_job",
+      "blender_rt_loop",
+      "blender_rt_opt",
+      "blender_rt_perf",
+      "blender_rt_plan",
+      "blender_rt_preset",
+      "blender_rt_see",
+      "blender_rt_txn",
+      "blender_rt_watch",
+      "blender_rt_worker",
+      "blender_viewport"
+    ],
+    "files": {
+      "blender_rt_cmd": [
+        "src/tools/cmd.ts"
+      ],
+      "blender_rt_commands": [
+        "src/tools/commands.ts"
+      ],
+      "blender_rt_do": [
+        "src/tools/do.ts"
+      ],
+      "blender_rt_headless": [
+        "src/tools/headless.ts"
+      ],
+      "blender_rt_job": [
+        "src/tools/job.ts"
+      ],
+      "blender_rt_loop": [
+        "src/tools/loop.ts"
+      ],
+      "blender_rt_opt": [
+        "src/tools/opt.ts"
+      ],
+      "blender_rt_perf": [
+        "src/tools/perf.ts"
+      ],
+      "blender_rt_preset": [
+        "src/tools/preset.ts"
+      ],
+      "blender_viewport": [
+        "src/tools/schema-diagnostic.ts",
+        "src/tools/viewport.ts"
+      ],
+      "blender_rt_see": [
+        "src/tools/see.ts"
+      ],
+      "blender_rt_txn": [
+        "src/tools/txn.ts"
+      ],
+      "blender_rt_watch": [
+        "src/tools/watch.ts"
+      ],
+      "blender_rt_worker": [
+        "src/tools/worker.ts"
+      ],
+      "blender_rt_plan": [
+        "src/plan/tool.ts"
+      ]
+    }
+  },
+  "targetFiles": {
+    "required": 32,
+    "missing": []
+  },
+  "importGraph": {
+    "files": 32,
+    "edges": 147,
+    "cycles": []
+  },
+  "failures": []
+}
