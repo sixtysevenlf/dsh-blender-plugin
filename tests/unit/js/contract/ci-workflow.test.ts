@@ -51,6 +51,16 @@ describe('CI workflow hygiene', () => {
     }
   })
 
+  it('builds before running check:build', () => {
+    for (const text of [pr, release]) {
+      const build = text.indexOf('npm run build\n')
+      const checkBuild = text.indexOf('npm run check:build')
+      expect(build).toBeGreaterThan(-1)
+      expect(checkBuild).toBeGreaterThan(-1)
+      expect(build).toBeLessThan(checkBuild)
+    }
+  })
+
   it('keeps manual CD inputs typed and gated', () => {
     expect(release).toContain('if: ${{ !inputs.dry_run }}')
     expect(release).toContain('if: ${{ !inputs.dry_run && inputs.publish_npm }}')

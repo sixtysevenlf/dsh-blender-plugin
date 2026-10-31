@@ -44,6 +44,7 @@ jobs:
         run: npm run format:check
       - name: Structure and build checks
         run: |
+          npm run build
           npm run check:structure
           npm run check:build
       - name: Unit and integration tests
