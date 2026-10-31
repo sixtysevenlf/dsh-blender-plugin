@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native E2E: audit_overlap / audit_interference / file= ops (T11b.4).
 
-Ported from cases/audit_file_selftest.py.  The archived top-level st_run()
+Ported from the archived audit_file_selftest.py.  The archived top-level st_run()
 became test_audit_file(ctx); every st_check reports through ctx.check, the
 temporary .blend dir lives under ctx.test_dir, and the module no longer emits
 its own HEADLESS report or calls sys.exit.

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native E2E: audit/calib false-pass regressions (T11b.2).
 
-Ported from cases/audit_review_regression.py.  Every archived t_* became a
+Ported from the archived audit_review_regression.py.  Every archived t_* became a
 ctx-based test_*; the runner factory-resets the scene per test, so the old
 per-case purge/main loop is gone.
 """

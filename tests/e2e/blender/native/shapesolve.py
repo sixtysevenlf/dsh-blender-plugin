@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native E2E: multi-view silhouette shape solve (T11b.4).
 
-Ported from cases/shapesolve_selftest.py.  The archived main() became test_shapesolve(ctx);
+Ported from the archived shapesolve_selftest.py.  The archived main() became test_shapesolve(ctx);
 every _rec assertion reports through ctx.check, generated files go under
 ctx.test_dir, and the archived main_safe/HEADLESS/sys.exit tail is gone.
 """

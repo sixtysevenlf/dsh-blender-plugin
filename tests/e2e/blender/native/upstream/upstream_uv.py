@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """上游整合 A2 UV 自检（原 upstream_integration_selftest.py 拆分）.
 
-Split from cases/upstream_integration_selftest.py by T11a; T11b.8 runs it through
+Split from the archived upstream_integration_selftest.py by T11a; T11b.8 runs it through
 the native runner. The support module binds K and the original helper names to ctx.
 """
 from __future__ import annotations

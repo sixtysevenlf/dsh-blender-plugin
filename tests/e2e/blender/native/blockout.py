@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native E2E: blockout 20-part white model + views + GLB (T11b.5).
 
-Ported from cases/blockout_selftest.py.  The archived main() became
+Ported from the archived blockout_selftest.py.  The archived main() became
 test_blockout(ctx); every check goes through ctx.check, K is the native ctx
 kernel, and render outputs stay under ctx.test_dir via K.out_dir.
 """

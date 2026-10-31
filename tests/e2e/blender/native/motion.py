@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native E2E: motion/keyframe checks (T11b.6).
 
-Ported from cases/motion_selftest.py. main() became test_motion(ctx); artefacts
+Ported from the archived motion_selftest.py. main() became test_motion(ctx); artefacts
 live under ctx.test_dir and every check also reports through ctx.check.
 """
 

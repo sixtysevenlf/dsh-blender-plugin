@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native E2E: gate F2/F8 false-green regressions (T11b.2).
 
-Ported from cases/gate_review_regression.py.  Every archived t_* became a
+Ported from the archived gate_review_regression.py.  Every archived t_* became a
 ctx-based test_*; the runner factory-resets the scene per test, so the old
 main()/global pass-fail accumulator is gone.  purge_prefix/park_foreign are
 kept because individual tests still use them.

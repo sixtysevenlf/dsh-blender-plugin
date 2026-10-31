@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native E2E: view diagnostics core without capture (T11b.2).
 
-Ported from cases/view_diag_selftest.py up to the OpenGL capture boundary.
+Ported from the archived view_diag_selftest.py up to the OpenGL capture boundary.
 The archived wrapper was GUI-only because bpy.ops.render.opengl needs an OpenGL
 context; this headless module keeps the projection/coverage/empty-frame
 diagnostics, while capture itself moves to gui/native/view_capture.py (T11b.7).

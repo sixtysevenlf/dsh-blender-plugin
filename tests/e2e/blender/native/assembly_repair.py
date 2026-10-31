@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native E2E: assembly repair plan/fix (T11b.3).
 
-Ported from cases/assembly_repair_selftest.py.  The archived main() became a ctx-based test; every
+Ported from the archived assembly_repair_selftest.py.  The archived main() became a ctx-based test; every
 _rec(...) assertion is now also reported through ctx.check, so the host runner
 localizes failures per check instead of only a top-level EVID map.
 """

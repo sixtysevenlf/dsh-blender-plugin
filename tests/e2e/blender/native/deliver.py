@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native E2E: deliver OBJ/STL/manifest export and verify (T11b.6).
 
-Ported from cases/deliver_selftest.py. main() became test_deliver(ctx) and all
+Ported from the archived deliver_selftest.py. main() became test_deliver(ctx) and all
 artefacts are written under ctx.test_dir; every check also reports through
 ctx.check.
 """

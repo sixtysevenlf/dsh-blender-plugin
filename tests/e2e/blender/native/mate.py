@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native E2E: mate_check / fit_help / interference_report (T11b.3).
 
-Ported from cases/mate_selftest.py.  The archived main() became test_mate(ctx);
+Ported from the archived mate_selftest.py.  The archived main() became test_mate(ctx);
 outdir is explicit (ctx.test_dir) and every check reports through ctx.check.
 """
 

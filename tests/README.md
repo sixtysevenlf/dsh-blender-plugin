@@ -42,11 +42,10 @@ T11b final shape (see plan §6.5.1):
   no Blender; skips with a reason when the backend is absent.
 - M manual probe: `node tools/gui-channel-probe.mjs` against a GUI Blender + add-on + backend.
 
-Some archived-case wrappers still exist as an intermediate state (`MIGRATION.md`); T11b.8/T11b.9
-converts and removes them.
+The archived-case/wrapper intermediate was removed in T11b.9 (see `MIGRATION.md`).
 
-Headless native: `DSH_BLENDER_EXE=/path/to/blender pytest tests/e2e -m "blender and not gui" -v`
-GUI + backend: `DSH_BLENDER_EXE=/path/to/blender pytest tests/e2e -m gui -v`
+Headless + add-on: `DSH_BLENDER_EXE=/path/to/blender npm run test:e2e`
+GUI + backend: `DSH_BLENDER_EXE=/path/to/blender npm run test:e2e:gui`
 
 ## Default run
 

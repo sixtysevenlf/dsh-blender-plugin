@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native E2E: blockout refsheet/turntable rendering (T11b.5).
 
-Ported from cases/blockout_refsheet_selftest.py.  main() became
+Ported from the archived blockout_refsheet_selftest.py.  main() became
 test_blockout_refsheet(ctx); all render outputs stay under ctx.test_dir via
 K.out_dir, and every check reports through ctx.check.
 """

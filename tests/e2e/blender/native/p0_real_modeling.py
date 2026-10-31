@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native E2E: P0 real-modeling smoke (T11b.5).
 
-Ported from cases/p0_real_modeling_selftest.py.  The archived top-level script
+Ported from the archived p0_real_modeling_selftest.py.  The archived top-level script
 became test_p0_real_modeling(ctx); OUT is ctx.test_dir/p0_e2e instead of the
 hard-coded D:/DSH/blender/tmp/p0_e2e, and the final ok is a ctx check.
 """

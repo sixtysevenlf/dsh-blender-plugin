@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native E2E: imgtools digest/probe/measure/calib (T11b.5).
 
-Ported from cases/img_digest_selftest.py.  The archived top-level script
+Ported from the archived img_digest_selftest.py.  The archived top-level script
 became test_imgtools(ctx); synthetic PNGs go under ctx.test_dir, every check
 reports through ctx.check, and the module no longer prints HEADLESS or exits.
 """

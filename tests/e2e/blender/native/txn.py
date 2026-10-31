@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native E2E port (T11b.6).
 
-Ported from cases/txn_selftest.py. main() became test_txn(ctx); every check goes
+Ported from the archived txn_selftest.py. main() became test_txn(ctx); every check goes
 through ctx.check and artefacts stay under ctx.test_dir.
 """
 

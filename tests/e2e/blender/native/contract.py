@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native E2E: contract core (S1/S2) in headless Blender (T11b.2).
 
-Ported from cases/contract_selftest.py.  The archived wrapper was marked GUI
+Ported from the archived contract_selftest.py.  The archived wrapper was marked GUI
 only because it also exercised view evidence (OpenGL capture).  This module
 preloads only contract and covers the headless core: registration, envelope,
 interference, interface, destructive guard, tri-state verify, fingerprint,

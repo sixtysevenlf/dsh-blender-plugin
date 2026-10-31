@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native E2E: evalharness suites and receipt (T11b.6).
 
-Ported from cases/evalharness_selftest.py. main()/main_safe() were replaced by
+Ported from the archived evalharness_selftest.py. main()/main_safe() were replaced by
 test_evalharness(ctx); out_json and temporary files stay under ctx.test_dir and
 every _rec also reports through ctx.check.
 """

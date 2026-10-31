@@ -4,7 +4,7 @@ Every file that lived in `tests/` before the refactor is listed here with a disp
 
 Targets were written first, then each legacy file was deleted (plan section 6.7). Unit and integration tests run in the default `npm test`; every real-Blender/GUI E2E case is release-gated and excluded from the default pytest collection.
 
-**E2E status:** the archived-case + `legacy.run_case` wrapper is the strangler phase of the migration, not the final test shape. T11a has split the upstream integration case into domain cases (`upstream_*_selftest.py`); T11b tracks rewriting the remaining wrappers (and the upstream wrappers) as native in-Blender pytest modules. C4/C8 remain open until T11b is complete.
+**E2E status (final):** the archived-case + legacy-runner intermediate is gone as of T11b.9. Every E2E legacy file now targets a native module: H headless (`tests/e2e/blender/native/`, `test_native_e2e.py`), G GUI (`tests/e2e/gui/native/`, `test_native_gui.py`), B host backend (`tests/e2e/gui/test_qc_backend.py`) or M manual probe (`tools/gui-channel-probe.mjs`). `npm run test:e2e` and `npm run test:e2e:gui` are green; C4/C8 evidence is in T11b.9.
 
 ## 1. Unit layer (JS)
 
@@ -46,7 +46,7 @@ Targets were written first, then each legacy file was deleted (plan section 6.7)
 | tests/selection_store_selftest.mjs | migrated | tests/integration/js/selection-store.test.ts | migrated | imports the pure module, no backend needed |
 | tests/dsh_api_compat_probe.mjs | migrated | tests/integration/js/dsh-api-compat.test.ts | migrated | matrix-driven; host-package probe skips when no DSH tree is installed |
 | tests/tui_host_selftest.mjs | split | tests/integration/js/tui-selection.test.ts + tui-footer.test.ts + tui-commands.test.ts | migrated |  |
-| tests/view_diag_selftest_runner.mjs | moved | tests/e2e/blender/test_view_diag.py | migrated | launcher superseded by tests/e2e/blender/legacy_runner.py |
+| tests/view_diag_selftest_runner.mjs | moved | tests/e2e/blender/native/view_diag.py + tests/e2e/gui/native/view_capture.py | migrated | T11b.9 final shape: headless diagnostics + GUI OpenGL capture split |
 | tests/gui_channel_probe.mjs | moved | tools/gui-channel-probe.mjs | migrated | T11b.7 manual probe (M layer): not a pytest test; needs a real GUI Blender + connected add-on + backend |`
 
 ## 3. Unit layer (Python)
@@ -57,37 +57,53 @@ Targets were written first, then each legacy file was deleted (plan section 6.7)
 | tests/generator_dispatch_selftest.py | migrated | tests/unit/python/test_generator_dispatch.py | migrated | code-vs-script and nested-args field bugs pinned |
 | tests/modules_selftest.py | replaced | tests/unit/python/test_import_smoke.py + per-module tests | migrated | Blender-only modules stay in the Blender E2E layer; dependency boundary pinned |`
 
-## 4. End-to-end layer (Blender, release-gated)
+## 4. End-to-end layer (final T11b shape)
 
-Each wrapper is `pytest.mark.blender`, executes the archived case in a real Blender 4.2 `--background --factory-startup` process via `tests/e2e/blender/legacy_runner.py`, and keeps the original assertions in `tests/e2e/blender/cases/`. The runner recreates the legacy `blender_rt_headless(preload=...)` environment with `runtime/py/core/offline_bootstrap.py`. Since T11b.7 the qc case is a host-side backend test (`tests/e2e/gui/test_qc_backend.py`, `pytest.mark.gui`) that never starts Blender and skips with a reason when no backend is listening.
+The archived-case + wrapper intermediate is gone: the legacy runner modules,
+upstream_support.py, tests/e2e/blender/cases/ and tests/e2e/gui/cases/ were deleted
+in T11b.9. The final layers are:
 
-| Legacy file | Disposition | Target wrapper | Status | Notes |
+- H native headless modules: tests/e2e/blender/native/*.py (plus native/upstream/*.py),
+  run inside a real Blender 4.2 --background process by native_runner.py; host launcher
+  test_native_e2e.py.
+- G native GUI modules: tests/e2e/gui/native/*.py (OpenGL capture/evidence), run in a
+  real non-background Blender window by the same runner; host launcher test_native_gui.py.
+- B host-side backend test: tests/e2e/gui/test_qc_backend.py talks HTTP to a running
+  backend and never starts Blender; skips with a reason when no backend is listening.
+- M manual probe: tools/gui-channel-probe.mjs, not collected by pytest.
+- Existing native E2E: test_addon_e2e.py, test_gui_connect.py, blender_42_headless.mjs.
+
+Commands: npm run test:e2e (H + addon; 76 passed on Blender 4.2.10) and
+npm run test:e2e:gui (G + B; 9 passed / 1 skipped without a backend, 10 passed with a
+running backend).
+
+| Legacy file | Disposition | Target | Status | Notes |
 | --- | --- | --- | --- | --- |
-| tests/assembly_selftest.py | migrated | tests/e2e/blender/test_assembly.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/assembly_export_selftest.py | migrated | tests/e2e/blender/test_assembly_export.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/assembly_repair_selftest.py | migrated | tests/e2e/blender/test_assembly_repair.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/audit_file_selftest.py | migrated | tests/e2e/blender/test_audit_file.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/audit_review_regression.py | migrated | tests/e2e/blender/test_audit_review.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/blockout_selftest.py | migrated | tests/e2e/blender/test_blockout.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/blockout_refsheet_selftest.py | migrated | tests/e2e/blender/test_blockout_refsheet.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/contract_selftest.py | migrated | tests/e2e/blender/test_contract.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/deliver_selftest.py | migrated | tests/e2e/blender/test_deliver.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/evalharness_selftest.py | migrated | tests/e2e/blender/test_evalharness.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/gate_review_regression.py | migrated | tests/e2e/blender/test_gate_review.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/geo_selftest.py | migrated | tests/e2e/blender/test_geo.py | migrated | Archived case + wrapper; executed in this task on Blender 4.2.10 (evidence/T11/e2e.log). |
-| tests/img_digest_selftest.py | migrated | tests/e2e/blender/test_imgtools.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/mate_selftest.py | migrated | tests/e2e/blender/test_mate.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/motion_selftest.py | migrated | tests/e2e/blender/test_motion.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/p0_real_modeling_selftest.py | migrated | tests/e2e/blender/test_p0_real_modeling.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/plan_selftest.py | migrated | tests/e2e/blender/test_plan.py | migrated | Archived case + wrapper; executed in this task on Blender 4.2.10 (evidence/T11/e2e.log) with preload=view. |
-| tests/qc_selftest.py | migrated | tests/e2e/gui/test_qc_backend.py | migrated | T11b.7 B layer: host pytest talks HTTP to 127.0.0.1:9877 (no Blender); gui-marked and skips with an explicit reason when the backend is absent. |
-| tests/shapesolve_selftest.py | migrated | tests/e2e/blender/test_shapesolve.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/surface_selftest.py | migrated | tests/e2e/blender/test_surface.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/txn_selftest.py | migrated | tests/e2e/blender/test_txn.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/txn_restore_selftest.py | migrated | tests/e2e/blender/test_txn_restore.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/upstream_integration_selftest.py | split | tests/e2e/blender/native/upstream/upstream_{sculpt,mesh_fix,uv,print,sweep,audit_smoke,material_render,gate,assembly_vehicle,shape,pipeline}.py | migrated | T11a split the 856-line / 23-function script into 11 single-topic cases; T11b.8 moved them to the native runner (one test per topic) and deleted the wrappers, `upstream_support.py`, `cases/upstream_*` and `cases/_upstream_common.py`. Original assertions preserved: 127 clause checks + one clean-scene guard per case = 138 checks, all true on Blender 4.2.10 headless. |
-| tests/view_diag_selftest.py | migrated | tests/e2e/blender/test_view_diag.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/visualreport_selftest.py | migrated | tests/e2e/blender/test_visualreport.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |`
+| tests/assembly_selftest.py | migrated | tests/e2e/blender/native/assembly.py | native | native/assembly.py (H) |
+| tests/assembly_export_selftest.py | migrated | tests/e2e/blender/native/assembly_export.py | native | native/assembly_export.py (H) |
+| tests/assembly_repair_selftest.py | migrated | tests/e2e/blender/native/assembly_repair.py | native | native/assembly_repair.py (H) |
+| tests/audit_file_selftest.py | migrated | tests/e2e/blender/native/audit_file.py | native | native/audit_file.py (H) |
+| tests/audit_review_regression.py | migrated | tests/e2e/blender/native/audit_review.py | native | native/audit_review.py (H) |
+| tests/blockout_selftest.py | migrated | tests/e2e/blender/native/blockout.py | native | native/blockout.py (H) |
+| tests/blockout_refsheet_selftest.py | migrated | tests/e2e/blender/native/blockout_refsheet.py | native | native/blockout_refsheet.py (H) |
+| tests/contract_selftest.py | migrated | tests/e2e/blender/native/contract.py + tests/e2e/gui/native/contract_evidence.py | native | native/contract.py (H core) + gui/native/contract_evidence.py (G evidence) |
+| tests/deliver_selftest.py | migrated | tests/e2e/blender/native/deliver.py | native | native/deliver.py (H) |
+| tests/evalharness_selftest.py | migrated | tests/e2e/blender/native/evalharness.py | native | native/evalharness.py (H) |
+| tests/gate_review_regression.py | migrated | tests/e2e/blender/native/gate_review.py | native | native/gate_review.py (H) |
+| tests/geo_selftest.py | migrated | tests/e2e/blender/native/geo.py | native | native/geo.py (H) |
+| tests/img_digest_selftest.py | migrated | tests/e2e/blender/native/imgtools.py | native | native/imgtools.py (H) |
+| tests/mate_selftest.py | migrated | tests/e2e/blender/native/mate.py | native | native/mate.py (H) |
+| tests/motion_selftest.py | migrated | tests/e2e/blender/native/motion.py | native | native/motion.py (H) |
+| tests/p0_real_modeling_selftest.py | migrated | tests/e2e/blender/native/p0_real_modeling.py | native | native/p0_real_modeling.py (H) |
+| tests/plan_selftest.py | migrated | tests/e2e/blender/native/plan.py | native | native/plan.py (H) |
+| tests/qc_selftest.py | migrated | tests/e2e/gui/test_qc_backend.py | native | gui/test_qc_backend.py (B; no Blender, skips without a backend) |
+| tests/shapesolve_selftest.py | migrated | tests/e2e/blender/native/shapesolve.py | native | native/shapesolve.py (H) |
+| tests/surface_selftest.py | migrated | tests/e2e/blender/native/surface.py | native | native/surface.py (H) |
+| tests/txn_selftest.py | migrated | tests/e2e/blender/native/txn.py | native | native/txn.py (H) |
+| tests/txn_restore_selftest.py | migrated | tests/e2e/blender/native/txn_restore.py | native | native/txn_restore.py (H) |
+| tests/view_diag_selftest.py | migrated | tests/e2e/blender/native/view_diag.py + tests/e2e/gui/native/view_capture.py | native | native/view_diag.py (H core) + gui/native/view_capture.py (G capture) |
+| tests/visualreport_selftest.py | migrated | tests/e2e/blender/native/visualreport.py | native | native/visualreport.py (H) |
+| tests/upstream_integration_selftest.py | split | tests/e2e/blender/native/upstream/upstream_{sculpt,mesh_fix,uv,print,sweep,audit_smoke,material_render,gate,assembly_vehicle,shape,pipeline}.py | native | T11a split the 856-line / 23-function script; T11b.8 moved the 11 topics to the native runner and deleted the wrappers, upstream_support.py and cases/. 138/138 checks (127 clauses + 11 clean-scene guards) true on Blender 4.2.10 headless. |
 
 ## 5. Moved or kept files
 

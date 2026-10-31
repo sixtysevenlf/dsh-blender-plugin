@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native E2E: visualreport pass/fail/unresolved reports (T11b.5).
 
-Ported from cases/visualreport_selftest.py.  main() became
+Ported from the archived visualreport_selftest.py.  main() became
 test_visualreport(ctx); report artifacts stay under ctx.test_dir via K.out_dir,
 and every check goes through ctx.check.
 """

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native E2E: surface loft/sweep/patch and validate (T11b.4).
 
-Ported from cases/surface_selftest.py.  The archived main() became test_surface(ctx);
+Ported from the archived surface_selftest.py.  The archived main() became test_surface(ctx);
 every _rec assertion reports through ctx.check, generated files go under
 ctx.test_dir, and the archived main_safe/HEADLESS/sys.exit tail is gone.
 """
