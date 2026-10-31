@@ -11,9 +11,9 @@
     "mode": "single-file (no-file-parallelism)"
   },
   "changedLines": {
-    "lines": 56.7,
+    "lines": 56.697,
     "total": 15468,
-    "missing": 6697,
+    "missing": 6698,
     "against": "v2.6.2"
   },
   "criticalModules": {

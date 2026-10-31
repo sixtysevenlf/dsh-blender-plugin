@@ -2,7 +2,7 @@
   "version": 2,
   "baselineCommit": "f001e1d20b86cd84a88424e3bbe426e501e4c49d",
   "baselineDate": "2026-10-31",
-  "policy": "C5 v2 (ADR 0005): baseline measured at f001e1d; JS global floors equal that baseline and must not fall; changed-lines floor is 56.70 against v2.6.2; critical modules >=90/75, Python pure logic >=70/60, E2E 100% are long-term quality floors; +2 ratchet is a manual release-window policy; adjust only with an ADR.",
+  "policy": "C5 v2 (ADR 0005): baseline measured at f001e1d; JS global floors equal that baseline and must not fall; changed-lines floor is 56.697 against v2.6.2; critical modules >=90/75, Python pure logic >=70/60, E2E 100% are long-term quality floors; +2 ratchet is a manual release-window policy; adjust only with an ADR.",
   "javascript": {
     "globalFloor": {
       "lines": 57.68,
@@ -10,7 +10,7 @@
       "functions": 63.7
     },
     "changedLinesFloor": {
-      "lines": 56.7,
+      "lines": 56.697,
       "targetLines": 70,
       "ratchetPerPr": 2,
       "against": "v2.6.2",

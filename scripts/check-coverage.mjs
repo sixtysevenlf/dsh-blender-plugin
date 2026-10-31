@@ -19,11 +19,11 @@ const norm = (s) => s.replace(/\\/g, '/')
 const fails = []
 const rows = []
 
-function check(name, actual, minimum, detail = '') {
+function check(name, actual, minimum, detail = '', digits = 2) {
   const ok = Number.isFinite(actual) && actual + 1e-9 >= minimum
   rows.push({
     name,
-    actual: Number.isFinite(actual) ? Number(actual.toFixed(2)) : null,
+    actual: Number.isFinite(actual) ? Number(actual.toFixed(digits)) : null,
     minimum,
     ok,
     detail,
@@ -64,6 +64,7 @@ check(
     '/PR (' +
     (thresholds.javascript.changedLinesFloor.ratchetMode || 'manual') +
     ')',
+  3,
 )
 
 // 3) Critical contract modules

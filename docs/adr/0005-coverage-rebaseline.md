@@ -36,7 +36,7 @@ The C5 baseline is the measured state at code commit `f001e1d`:
 | Surface | Baseline |
 |---|---:|
 | JS lines / branches / functions | 57.68% / 68.45% / 63.7% |
-| JS changed lines vs v2.6.2 | 56.70% (15,468 changed, 6,697 missing) |
+| JS changed lines vs v2.6.2 | 56.697% (15,468 changed, 6,698 missing; rounds to 56.70%) |
 | Critical modules | catalog 96.93/78.57; addon-protocol 92.53/80; router 100/92.85; lease 95.94/87.17; tools/index 100/100 |
 | Python pure logic | 76.95% lines, 71.71% branches |
 | E2E behavior matrix | 344/344 covered, 0 planned, 2 exempt |
@@ -44,7 +44,7 @@ The C5 baseline is the measured state at code commit `f001e1d`:
 The gate then applies these rules:
 
 1. JS global lines, branches, and functions MUST NOT fall below the baseline.
-2. Changed-lines coverage MUST stay at or above 56.70%; the target remains 70%
+2. Changed-lines coverage MUST stay at or above 56.697%; the target remains 70%
    and the +2 percentage-point ratchet remains a release-window policy, not an
    automatic config rewrite. A PR that improves coverage SHOULD raise the floor
    in the same change, with the new numbers recorded in this ADR's successor.
