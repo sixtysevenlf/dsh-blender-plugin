@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """Implementation package for qc_render.py; public facade keeps the original module path."""
-from .common import *  # noqa: F401,F403
-from .lock import *  # noqa: F401,F403
-from .geom import *  # noqa: F401,F403
-from .rig import *  # noqa: F401,F403
-from .parts import *  # noqa: F401,F403
-from .main import *  # noqa: F401,F403
-from .help import *  # noqa: F401,F403
-from .selftest import *  # noqa: F401,F403
-from .dispatch import *  # noqa: F401,F403
+from . import common, lock, geom, rig, parts, main, help, selftest, dispatch
 
-__all__ = [name for name in list(globals()) if not name.startswith("_")]
+__all__ = []
+for _module in (common, lock, geom, rig, parts, main, help, selftest, dispatch,):
+    for _name, _value in vars(_module).items():
+        if _name.startswith("__"):
+            continue
+        globals()[_name] = _value
+        if _name not in __all__:
+            __all__.append(_name)
+del _module, _name, _value

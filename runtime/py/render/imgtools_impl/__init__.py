@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """Implementation package for imgtools.py; public facade keeps the original module path."""
-from .common import *  # noqa: F401,F403
-from .ops_basic import *  # noqa: F401,F403
-from .analysis import *  # noqa: F401,F403
-from .contour import *  # noqa: F401,F403
-from .hough import *  # noqa: F401,F403
-from .cache import *  # noqa: F401,F403
-from .digest import *  # noqa: F401,F403
-from .measure import *  # noqa: F401,F403
-from .api import *  # noqa: F401,F403
+from . import common, ops_basic, analysis, contour, hough, cache, digest, measure, api
 
-__all__ = [name for name in list(globals()) if not name.startswith("_")]
+__all__ = []
+for _module in (common, ops_basic, analysis, contour, hough, cache, digest, measure, api,):
+    for _name, _value in vars(_module).items():
+        if _name.startswith("__"):
+            continue
+        globals()[_name] = _value
+        if _name not in __all__:
+            __all__.append(_name)
+del _module, _name, _value

@@ -68,9 +68,16 @@ RECEIPT = {
 }
 
 
+def _gate_sources():
+    paths = [GATE]
+    impl = os.path.join(ROOT, "runtime", "py", "core", "gate_impl")
+    if os.path.isdir(impl):
+        paths.extend(os.path.join(impl, name) for name in sorted(os.listdir(impl)) if name.endswith(".py"))
+    return paths
+
+
 def test_source_no_dynamic_eval_and_whitelist_is_the_entry(gate_module):
-    with open(GATE, encoding="utf-8") as fh:
-        src = fh.read()
+    src = "\n".join(open(path, encoding="utf-8").read() for path in _gate_sources())
     # Build the needle by concatenation on purpose: otherwise this test file
     # itself matches the scanner rule ("name" followed by an opening paren).
     eval_call = "ev" + "al("

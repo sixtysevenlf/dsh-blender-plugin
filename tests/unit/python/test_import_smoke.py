@@ -124,5 +124,5 @@ def test_blender_only_dependencies_fail_by_name(booted_runtime):
 def test_compatibility_shim_imports_real_implementation(booted_runtime):
     shim = importlib.import_module("runtime.gate")
     assert not hasattr(shim, "_eval_pass_if")  # star re-export: public surface only
-    assert shim.gate_dispatch.__module__ == "runtime.py.core.gate"
-    assert shim.gate_run.__module__ == "runtime.py.core.gate"
+    assert shim.gate_dispatch.__module__.startswith("runtime.py.core.gate")
+    assert shim.gate_run.__module__.startswith("runtime.py.core.gate")
