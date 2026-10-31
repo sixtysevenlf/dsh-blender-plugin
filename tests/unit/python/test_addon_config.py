@@ -46,7 +46,7 @@ def test_read_env_var_prefers_new_name_then_legacy(monkeypatch):
     assert config.read_env_var("DSHBB_NOT_MAPPED") is None
     assert set(config._LEGACY_ENV_VARS) == {
         "DSHBB_HYPER3D_API_KEY", "DSHBB_SKETCHFAB_API_KEY", "DSHBB_POLYPIZZA_API_KEY",
-        "DSHBB_HUNYUAN3D_SECRET_ID", "DSHBB_HUNYUAN3D_SECRET_KEY", "DSHBB_HUNYUAN3D_API_URL",
+        "DSHBB_HUNYUAN3D_SECRET_ID", "DSHBB_HUNYUAN3D_SECRET_KEY", "DSHBB_HUNYUAN3D_API_URL",  # gitleaks:allow
     }
 
 
