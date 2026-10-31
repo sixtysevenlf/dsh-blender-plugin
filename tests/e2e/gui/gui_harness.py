@@ -25,7 +25,6 @@ ZIP_PATH = REPO_ROOT / "addon" / "dsh_blender_bridge.zip"
 PROBE = Path(__file__).resolve().parent / "gui_connect_probe.py"
 
 DEFAULT_BLENDER_CANDIDATES = (
-    "D:/DSH/tools/blender-win/blender-4.2.10-windows-x64/blender.exe",
     "C:/Program Files/Blender Foundation/Blender 4.2/blender.exe",
     "/usr/bin/blender",
     "/Applications/Blender.app/Contents/MacOS/Blender",
@@ -39,6 +38,10 @@ def blender_executable():
         if candidate.is_file():
             return str(candidate)
         return shutil.which(configured)
+    for name in ("blender", "blender4.2"):
+        found = shutil.which(name)
+        if found:
+            return found
     for raw in DEFAULT_BLENDER_CANDIDATES:
         candidate = Path(raw)
         if candidate.is_file():
