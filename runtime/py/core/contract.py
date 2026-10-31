@@ -1557,7 +1557,9 @@ def c_interference_report(scope=None, use_bvh=True, limit=60, declared_ok=True,
             skipped.append({"a": oa.name, "b": ob_.name, "why": "零面积网格，采样失败"})
             continue
         closed = bool(ma["closed"] and mb["closed"])
-        if ma["tris_n"] <= INSIDE_MAX_TRIS and mb["tris_n"] <= INSIDE_MAX_TRIS:
+        if INSIDE_MAX_TRIS <= 0 or (
+            ma["tris_n"] <= INSIDE_MAX_TRIS and mb["tris_n"] <= INSIDE_MAX_TRIS
+        ):
             inB = _inside_mask(PA, mb["tris"])
             inA = _inside_mask(PB, ma["tris"])
             if use_bvh:
