@@ -22,11 +22,14 @@ export const HERE = path.dirname(fileURLToPath(import.meta.url))
 export function resolveServerPath(
   here: string = HERE,
   env: NodeJS.ProcessEnv = process.env,
-  exists: (p: string) => boolean = existsSync
+  exists: (p: string) => boolean = existsSync,
 ): string {
   const override = env.DSH_BLENDER_SERVER
   if (override) return override
-  const candidates = [path.join(here, 'runtime', 'server.js'), path.join(here, '..', 'lib', 'runtime', 'server.js')]
+  const candidates = [
+    path.join(here, 'runtime', 'server.js'),
+    path.join(here, '..', 'lib', 'runtime', 'server.js'),
+  ]
   for (const candidate of candidates) {
     if (exists(candidate)) return candidate
   }
@@ -66,7 +69,7 @@ export const T = {
   preset: 360000, // /preset 内部 300s
   // v0.9.3（D6.2）：job 新增 op=wait（服务端单次上限 600 s）→ 静态截止要盖住它
   job: 660000,
-  viewport: 60000 // status/doctor/lease + start/restart 的重试窗口
+  viewport: 60000, // status/doctor/lease + start/restart 的重试窗口
   // v1.2：等用户点选 —— 后端 TTL 默认 120 s（夹 [5,600]），静态截止留余量盖住最长 600 s + 收尾
 }
 
@@ -80,19 +83,26 @@ export const T = {
 function hostApiInfo(): string {
   try {
     const resolveFn = (import.meta as any).resolve
-    if (typeof resolveFn !== 'function') return 'dsh-tools: import.meta.resolve 不可用（node < 20.6?）'
+    if (typeof resolveFn !== 'function')
+      return 'dsh-tools: import.meta.resolve 不可用（node < 20.6?）'
     const url = String(resolveFn.call(import.meta, '@deepseek-ai/dsh-tools') || '')
     let p = url
     if (p.startsWith('file://')) p = fileURLToPath(p)
     let ver = '?'
     try {
-      ver = JSON.parse(readFileSync(path.join(path.dirname(path.dirname(p)), 'package.json'), 'utf8')).version
+      ver = JSON.parse(
+        readFileSync(path.join(path.dirname(path.dirname(p)), 'package.json'), 'utf8'),
+      ).version
     } catch (e: any) {
       /* 版本读不到不算错 */
     }
     return 'dsh-tools@' + String(ver) + ' @ ' + p
   } catch (e: any) {
-    return 'dsh-tools 解析失败：' + String((e && e.message) || e) + '（插件会在载入期就失败：检查全局安装位置是否变了）'
+    return (
+      'dsh-tools 解析失败：' +
+      String((e && e.message) || e) +
+      '（插件会在载入期就失败：检查全局安装位置是否变了）'
+    )
   }
 }
 export const HOST_API = hostApiInfo()

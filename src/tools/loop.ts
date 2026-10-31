@@ -21,33 +21,52 @@ export function registerLoop(ctx: any, port: number): void {
             '**内环只优化你写的目标函数：收敛后必须换另一条通路复核 + rt_see 看一眼**（防 Goodhart）；跑完场景停在最后一次迭代的参数上，不是 best。' +
             'spec 字段、ns 契约与可照抄模板见 blender_rt_plan(op="catalog", args={tool:"rt_loop"})。',
           parameters: {
-            op: { type: 'string', required: true, description: 'start | status | stop | board | export | help | bench' },
-            target: { type: 'string', description: 'gui（默认，timers）| session（无头 worker 同步阻塞，推荐 headless 主路径）' },
-            session: { type: 'string', description: 'target=session 时的 worker 实例名（默认 dsh-loop）' },
+            op: {
+              type: 'string',
+              required: true,
+              description: 'start | status | stop | board | export | help | bench',
+            },
+            target: {
+              type: 'string',
+              description:
+                'gui（默认，timers）| session（无头 worker 同步阻塞，推荐 headless 主路径）',
+            },
+            session: {
+              type: 'string',
+              description: 'target=session 时的 worker 实例名（默认 dsh-loop）',
+            },
             spec: {
               type: 'json',
               description:
-                'op=start 的规格：{setup, step, measure, iterations, budget_ms, interval, measure_every, minimize, top_k, group_key, redraw_every}'
+                'op=start 的规格：{setup, step, measure, iterations, budget_ms, interval, measure_every, minimize, top_k, group_key, redraw_every}',
             },
             history: { type: 'integer', description: 'op=status 返回的指标尾迹长度，默认 8' },
-            board: { type: 'integer', description: 'op=status 时同时返回前 N 个候选（默认 0=不返回）' },
+            board: {
+              type: 'integer',
+              description: 'op=status 时同时返回前 N 个候选（默认 0=不返回）',
+            },
             limit: { type: 'integer', description: 'op=board 的候选条数，默认 10' },
             groups: { type: 'boolean', description: 'op=board 是否包含分组候选（默认 true）' },
             path: {
               type: 'string',
-              description: 'op=export 写出脚本的路径（宿主可见路径，如 /tmp/xxx.py 或 D:\\out\\xxx.py），省略=只回文本'
+              description:
+                'op=export 写出脚本的路径（宿主可见路径，如 /tmp/xxx.py 或 D:\\out\\xxx.py），省略=只回文本',
             },
             top: { type: 'integer', description: 'op=export 的变体数量（配 include_variants）' },
             include_variants: { type: 'boolean', description: 'op=export 是否把候选表一起导出' },
             note: { type: 'string', description: 'op=export 的备注（写进脚本头部）' },
-            iterations: { type: 'integer', description: 'op=bench 的迭代次数' }
+            iterations: { type: 'integer', description: 'op=bench 的迭代次数' },
           },
           output: { schema: ANY_SCHEMA, render: renderOne },
           isConcurrencySafe: () => false,
           timeoutMs: T.loop,
           async execute(args: any) {
             if (!(await ensureBackend(port)))
-              return toolError('backend_unreachable', '后端不可用（127.0.0.1:' + String(port) + '）', BACKEND_HINT)
+              return toolError(
+                'backend_unreachable',
+                '后端不可用（127.0.0.1:' + String(port) + '）',
+                BACKEND_HINT,
+              )
             const op = String((args && args.op) || 'status')
             const target = String((args && args.target) || 'gui')
             if (target === 'session') {
@@ -55,14 +74,21 @@ export function registerLoop(ctx: any, port: number): void {
               const st: any = await backendPost(
                 port,
                 '/worker',
-                { op: 'start', name: nm, preload: 'runner', engine: 'workbench', warmup: true, isolated: true },
-                120000
+                {
+                  op: 'start',
+                  name: nm,
+                  preload: 'runner',
+                  engine: 'workbench',
+                  warmup: true,
+                  isolated: true,
+                },
+                120000,
               )
               if (!st || st.ok !== true)
                 return toolError(
                   'backend_error',
                   'LOOP session 启动失败 · ' + String((st && (st.error || st.raw)) || 'unknown'),
-                  '先 blender_rt_worker op=start 启动 worker，或改用 GUI 通道'
+                  '先 blender_rt_worker op=start 启动 worker，或改用 GUI 通道',
                 )
               const specJ = JSON.stringify(JSON.stringify((args && args.spec) || {}))
               const code =
@@ -95,17 +121,32 @@ export function registerLoop(ctx: any, port: number): void {
                         : op === 'stop'
                           ? 'print("HEADLESS " + K.dsh_loop_api["stop"]())'
                           : op === 'bench'
-                            ? 'print("HEADLESS " + K.dsh_loop_api["bench"](' + String(Number((args && args.iterations) || 5000)) + '))'
+                            ? 'print("HEADLESS " + K.dsh_loop_api["bench"](' +
+                              String(Number((args && args.iterations) || 5000)) +
+                              '))'
                             : 'print("HEADLESS " + K.dsh_loop_api["help"]())'
-              const r: any = await backendPost(port, '/worker', { op: 'exec', name: nm, code: code, isolated: true }, 300000)
+              const r: any = await backendPost(
+                port,
+                '/worker',
+                { op: 'exec', name: nm, code: code, isolated: true },
+                300000,
+              )
               const rr = (r && r.result) || {}
               if (!r || r.ok !== true)
                 return toolError(
                   'backend_error',
                   'LOOP session 失败 · ' + redactSecrets((r && (r.error || rr.error)) || 'unknown'),
-                  '用 blender_rt_loop op=status 检查会话；必要时重新 op=start'
+                  '用 blender_rt_loop op=status 检查会话；必要时重新 op=start',
                 )
-              return { text: 'LOOP ' + op + ' (session=' + nm + ') ok · ' + JSON.stringify(rr.result || rr).slice(0, 6000) }
+              return {
+                text:
+                  'LOOP ' +
+                  op +
+                  ' (session=' +
+                  nm +
+                  ') ok · ' +
+                  JSON.stringify(rr.result || rr).slice(0, 6000),
+              }
             }
             const payload: any = {
               op: op,
@@ -118,7 +159,7 @@ export function registerLoop(ctx: any, port: number): void {
               top: (args && args.top) || 1,
               include_variants: !!(args && args.include_variants),
               note: (args && args.note) || '',
-              iterations: (args && args.iterations) || 5000
+              iterations: (args && args.iterations) || 5000,
             }
             const r = await backendPost(port, '/loop', payload, 300000)
             const lt = leasedText(r)
@@ -127,12 +168,12 @@ export function registerLoop(ctx: any, port: number): void {
               return toolError(
                 'backend_error',
                 'LOOP ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
-                '用 blender_rt_loop op=status 检查会话'
+                '用 blender_rt_loop op=status 检查会话',
               )
             return { text: 'LOOP ' + op + ' ' + JSON.stringify(r.result) }
-          }
-        })
+          },
+        }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-loop'
+    '@dsh-external/dsh-blender-plugin: rt-loop',
   )
 }

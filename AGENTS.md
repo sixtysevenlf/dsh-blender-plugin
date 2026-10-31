@@ -26,7 +26,7 @@ rows do not exist in `package.json` yet and must keep the marker until their tas
 | Full suite (Vitest + pytest) | `npm test` | available |
 | Python tests only | `npm run test:python` with `PYTHON=/path/to/venv/python` | available |
 | Legacy selftests (retired in T11; see [tests/MIGRATION.md](tests/MIGRATION.md)) | — | retired |
-| Lint / format gate | `npm run lint` | available (T5) |
+| Lint / format gate | `npm run lint` / `npm run format:check` | available (T5) |
 | Package contents check | `npm pack --dry-run` | available |
 | Refresh counts after catalog edits | `node scripts/sync_counts.mjs` then update `tests/fixtures/capability.lock.json` ([tests/MIGRATION.md](tests/MIGRATION.md)) | available |
 

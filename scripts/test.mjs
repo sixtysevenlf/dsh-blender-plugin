@@ -20,7 +20,17 @@ import { fileURLToPath } from 'node:url'
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const PKG = path.resolve(HERE, '..')
 const mode = (process.argv[2] || 'all').toLowerCase()
-const VALID = new Set(['all', 'js', 'python', 'unit', 'integration', 'contract', 'addon-unit', 'e2e', 'e2e:gui'])
+const VALID = new Set([
+  'all',
+  'js',
+  'python',
+  'unit',
+  'integration',
+  'contract',
+  'addon-unit',
+  'e2e',
+  'e2e:gui',
+])
 if (!VALID.has(mode)) {
   console.error('test: unknown mode "' + mode + '"; expected one of ' + [...VALID].join(', '))
   process.exit(2)
@@ -60,21 +70,36 @@ function runPython() {
     fail('pytest is not available via "' + py + ' -m pytest"; install -r requirements-dev.txt')
   }
   if (mode === 'addon-unit') {
-    run(py, ['-m', 'pytest', 'tests/unit/python', '-k', 'addon'], 'pytest (Blender addon unit tests, bpy stubs, no Blender)')
+    run(
+      py,
+      ['-m', 'pytest', 'tests/unit/python', '-k', 'addon'],
+      'pytest (Blender addon unit tests, bpy stubs, no Blender)',
+    )
     return
   }
   if (mode === 'e2e') {
     // pytest.ini excludes blender/gui by default; clear addopts for the E2E layer.
-    run(py, ['-m', 'pytest', '-o', 'addopts=', '-m', 'blender and not gui', 'tests/e2e'], 'pytest (Blender headless E2E; set DSH_BLENDER_EXE)')
+    run(
+      py,
+      ['-m', 'pytest', '-o', 'addopts=', '-m', 'blender and not gui', 'tests/e2e'],
+      'pytest (Blender headless E2E; set DSH_BLENDER_EXE)',
+    )
     return
   }
   if (mode === 'e2e:gui') {
-    run(py, ['-m', 'pytest', '-o', 'addopts=', '-m', 'gui', 'tests/e2e/gui'], 'pytest (Blender GUI E2E; set DSH_BLENDER_EXE)')
+    run(
+      py,
+      ['-m', 'pytest', '-o', 'addopts=', '-m', 'gui', 'tests/e2e/gui'],
+      'pytest (Blender GUI E2E; set DSH_BLENDER_EXE)',
+    )
     return
   }
   run(py, ['-m', 'pytest'], 'pytest (unit + integration, blender/gui excluded)')
 }
 
-if (mode === 'all') { runJs(); runPython() }
-else if (mode === 'js' || mode === 'unit' || mode === 'integration' || mode === 'contract') runJs()
+if (mode === 'all') {
+  runJs()
+  runPython()
+} else if (mode === 'js' || mode === 'unit' || mode === 'integration' || mode === 'contract')
+  runJs()
 else runPython()

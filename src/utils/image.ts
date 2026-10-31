@@ -1,13 +1,19 @@
 import { readFileSync } from 'node:fs'
 
 /** PNG → durable attachment（v0.9.2 起失败**不再静默**：返回 {ref} 或 {why}，由调用方写进工具文本） */
-export async function toAttachment(ctx: any, data: Uint8Array, name: string): Promise<{ ref?: any; why?: string }> {
+export async function toAttachment(
+  ctx: any,
+  data: Uint8Array,
+  name: string,
+): Promise<{ ref?: any; why?: string }> {
   try {
     const attachments = ctx.get('attachments')
     if (!attachments) return { why: '宿主没有 attachments 服务（ctx.get("attachments") 为空）' }
     const mediaTypes: string[] = attachments.imageLimits?.mediaTypes ?? []
     if (!mediaTypes.includes('image/png'))
-      return { why: '宿主 imageLimits.mediaTypes 不含 image/png（' + JSON.stringify(mediaTypes) + '）' }
+      return {
+        why: '宿主 imageLimits.mediaTypes 不含 image/png（' + JSON.stringify(mediaTypes) + '）',
+      }
     const ref = await attachments.saveImage({ data, mediaType: 'image/png', name })
     return {
       ref: {
@@ -16,8 +22,8 @@ export async function toAttachment(ctx: any, data: Uint8Array, name: string): Pr
         bytes: ref.bytes,
         width: ref.width,
         height: ref.height,
-        ...(ref.name === undefined ? {} : { name: ref.name })
-      }
+        ...(ref.name === undefined ? {} : { name: ref.name }),
+      },
     }
   } catch (e: any) {
     return { why: 'saveImage 失败：' + String((e && e.message) || e) }
@@ -30,7 +36,8 @@ export function toWslPath(p: any): string {
   if (!s) return s
   // Windows 宿主：D:\... 本来就是本机可用路径，转成 /mnt/d/... 反而读不到（Windows 上无此挂载）。
   if (process.platform === 'win32') return s
-  if (/^[A-Za-z]:[\\/]/.test(s)) return '/mnt/' + s[0].toLowerCase() + s.slice(2).replace(/\\/g, '/')
+  if (/^[A-Za-z]:[\\/]/.test(s))
+    return '/mnt/' + s[0].toLowerCase() + s.slice(2).replace(/\\/g, '/')
   const m = s.match(/^\\\\wsl\.localhost\\[^\\]+\\(.*)$/i)
   if (m) return '/' + String(m[1]).replace(/\\/g, '/')
   return s
@@ -55,7 +62,7 @@ export async function attachPaths(
   ctx: any,
   paths: any[],
   tag: string,
-  max = 2
+  max = 2,
 ): Promise<{ images: any[]; used: string[]; failed: string[] }> {
   const images: any[] = [],
     used: string[] = [],
@@ -71,7 +78,11 @@ export async function attachPaths(
       failed.push(s + '（读不到）')
       continue
     }
-    const att = await toAttachment(ctx, data, tag + '-' + String(Date.now()) + '-' + String(images.length) + '.png')
+    const att = await toAttachment(
+      ctx,
+      data,
+      tag + '-' + String(Date.now()) + '-' + String(images.length) + '.png',
+    )
     if (att.ref) {
       images.push(att.ref)
       used.push(s)

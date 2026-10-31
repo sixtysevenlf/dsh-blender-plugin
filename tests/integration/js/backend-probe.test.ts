@@ -20,7 +20,10 @@ const listen = async (server: http.Server): Promise<number> => {
 
 describe('backend probe and start decision', () => {
   it('probes a live server as true, and a closed port as false', async () => {
-    const server = http.createServer((_req, res) => { res.writeHead(200); res.end('ok') })
+    const server = http.createServer((_req, res) => {
+      res.writeHead(200)
+      res.end('ok')
+    })
     const port = await listen(server)
     const url = 'http://127.0.0.1:' + String(port) + '/health'
     expect(await probeHttp(url, 800)).toBe(true)
@@ -37,7 +40,10 @@ describe('backend probe and start decision', () => {
   })
 
   it('waits for a late server and returns false on a pure timeout', async () => {
-    const server = http.createServer((_req, res) => { res.writeHead(200); res.end('ok') })
+    const server = http.createServer((_req, res) => {
+      res.writeHead(200)
+      res.end('ok')
+    })
     const port = await new Promise<number>((resolve) => {
       const probe = netPort()
       probe.then(resolve)
@@ -52,14 +58,18 @@ describe('backend probe and start decision', () => {
       })
     }
     const url = 'http://127.0.0.1:' + String(port) + '/health'
-    setTimeout(() => { server.listen(port, '127.0.0.1') }, 700)
+    setTimeout(() => {
+      server.listen(port, '127.0.0.1')
+    }, 700)
     expect(await waitHttp(url, 6000, 200)).toBe(true)
     await new Promise<void>((resolve) => server.close(() => resolve()))
     expect(await waitHttp(url, 1200, 200)).toBe(false)
   }, 20000)
 
   it('resolves the runtime module the lib side imports', async () => {
-    const mod = await import(pathToFileURL(path.join(pkgPath('lib', 'runtime', 'backend_probe.js'))).href)
+    const mod = await import(
+      pathToFileURL(path.join(pkgPath('lib', 'runtime', 'backend_probe.js'))).href
+    )
     expect(typeof mod.probeHttp).toBe('function')
     expect(typeof mod.decideStart).toBe('function')
   })

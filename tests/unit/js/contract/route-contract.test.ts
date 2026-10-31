@@ -11,10 +11,27 @@ const dispatchSource =
   fs.readFileSync(pkgPath('runtime', 'core', 'plan-dispatch.ts'), 'utf8')
 
 const REQUIRED = [
-  '/health', '/status', '/doctor', '/commands', '/plan', '/headless', '/job',
-  '/txn', '/preset', '/worker', '/loop', '/perf', '/opt', '/cmd', '/act',
-  '/host/scene-items', '/host/selection/latest', '/host/selection/consume',
-  '/host/state', '/host/jobs', '/host/jobs/log',
+  '/health',
+  '/status',
+  '/doctor',
+  '/commands',
+  '/plan',
+  '/headless',
+  '/job',
+  '/txn',
+  '/preset',
+  '/worker',
+  '/loop',
+  '/perf',
+  '/opt',
+  '/cmd',
+  '/act',
+  '/host/scene-items',
+  '/host/selection/latest',
+  '/host/selection/consume',
+  '/host/state',
+  '/host/jobs',
+  '/host/jobs/log',
 ]
 
 describe('backend route contract', () => {

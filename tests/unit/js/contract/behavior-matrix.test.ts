@@ -14,19 +14,16 @@ describe('behavior matrix release gate', () => {
       [pkgPath('scripts/check-behavior-matrix.mjs'), '--release'],
       { cwd: PKG_ROOT, encoding: 'utf8', timeout: 20000 },
     ).trim()
-    expect(output).toContain(
-      'OK behavior matrix: 347 rows (345 covered, 0 planned, 2 exempt)',
-    )
+    expect(output).toContain('OK behavior matrix: 347 rows (345 covered, 0 planned, 2 exempt)')
   })
 
   it('exits nonzero when a planned row survives the release gate', () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'dsh-behavior-matrix-'))
     const matrix = path.join(dir, 'BEHAVIOR_MATRIX.md')
     try {
-      const lines = readFileSync(
-        pkgPath('tests/BEHAVIOR_MATRIX.md'),
-        'utf8',
-      ).replace(/\r\n/g, '\n').split('\n')
+      const lines = readFileSync(pkgPath('tests/BEHAVIOR_MATRIX.md'), 'utf8')
+        .replace(/\r\n/g, '\n')
+        .split('\n')
       const index = lines.findIndex((line) => line.startsWith('| CMD-ping |'))
       expect(index).toBeGreaterThan(0)
       const cells = lines[index].split('|')

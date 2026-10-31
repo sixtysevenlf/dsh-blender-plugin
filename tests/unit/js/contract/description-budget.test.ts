@@ -1,11 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
-import { catalogPayload, planOpCrossChannelHint, planOpNames, planOpSuggestion } from '../../../../runtime/engine.js'
+import {
+  catalogPayload,
+  planOpCrossChannelHint,
+  planOpNames,
+  planOpSuggestion,
+} from '../../../../runtime/engine.js'
 import { pkgPath } from '../../../helpers/pkg'
 
-interface CatalogProvenance { catalogHash: string; note?: string; verdict?: string; diskVerdict: { ok?: boolean; catalogHash?: string } }
-interface CatalogDetailRow { family: string; not?: string }
+interface CatalogProvenance {
+  catalogHash: string
+  note?: string
+  verdict?: string
+  diskVerdict: { ok?: boolean; catalogHash?: string }
+}
+interface CatalogDetailRow {
+  family: string
+  not?: string
+}
 interface CatalogView {
   families: string[]
   ops_count: number
@@ -23,7 +36,10 @@ const payload = (opts?: unknown): CatalogView => catalogPayload(opts) as unknown
 // correcting wrong channel choices instead of failing silently.
 
 const TOOL_SOURCES = [
-  ...fs.readdirSync(pkgPath('src', 'tools')).filter((f) => f.endsWith('.ts')).map((f) => path.join('src', 'tools', f)),
+  ...fs
+    .readdirSync(pkgPath('src', 'tools'))
+    .filter((f) => f.endsWith('.ts'))
+    .map((f) => path.join('src', 'tools', f)),
   path.join('src', 'plan', 'tool.ts'),
 ]
 
@@ -31,7 +47,8 @@ function declaredTools(): Array<{ name: string; source: string }> {
   const found: Array<{ name: string; source: string }> = []
   for (const rel of TOOL_SOURCES) {
     const text = fs.readFileSync(pkgPath(rel), 'utf8')
-    for (const match of text.matchAll(/name: '(blender_rt_[a-z_]+|blender_viewport)'/g)) found.push({ name: match[1], source: rel })
+    for (const match of text.matchAll(/name: '(blender_rt_[a-z_]+|blender_viewport)'/g))
+      found.push({ name: match[1], source: rel })
   }
   return found
 }
@@ -41,8 +58,15 @@ function schemaChars(name: string, sourceRel: string): number {
   const start = text.indexOf("name: '" + name + "'")
   const desc = text.indexOf('description:', start)
   const params = text.indexOf('parameters:', desc)
-  const endMarkers = ['\n          output:', '\n          isConcurrencySafe:', '\n          timeoutMs:', '\n          async execute(', '\n          execute(']
-    .map((marker) => text.indexOf(marker, params)).filter((at) => at > params)
+  const endMarkers = [
+    '\n          output:',
+    '\n          isConcurrencySafe:',
+    '\n          timeoutMs:',
+    '\n          async execute(',
+    '\n          execute(',
+  ]
+    .map((marker) => text.indexOf(marker, params))
+    .filter((at) => at > params)
   const end = endMarkers.length > 0 ? Math.min(...endMarkers) : text.indexOf('\n        },', params)
   const segment = end > desc ? text.slice(desc, end) : text.slice(desc)
   return (segment.match(/'((?:[^'\\]|\\.)*)'/g) || []).join('').length
@@ -60,7 +84,9 @@ describe('tool description budget', () => {
   })
 
   it('keeps the total schema budget under 12000 characters', () => {
-    const rows = names.map((name) => [name, schemaChars(name, declared.find((t) => t.name === name)!.source)] as const)
+    const rows = names.map(
+      (name) => [name, schemaChars(name, declared.find((t) => t.name === name)!.source)] as const,
+    )
     const total = rows.reduce((sum, row) => sum + row[1], 0)
     expect(total).toBeLessThanOrEqual(12000)
     const worst = rows.slice().sort((a, b) => b[1] - a[1])[0]

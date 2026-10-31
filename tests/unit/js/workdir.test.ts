@@ -11,21 +11,29 @@ import { pkgPath } from '../../helpers/pkg'
 // receipt came back empty and looked like a broken lease. The workDir must be
 // judged (and substituted loudly) by mount-table visibility.
 
-type Staged = { staging?: any, win?: string, wsl?: string, exists?: boolean, error?: string }
+type Staged = { staging?: any; win?: string; wsl?: string; exists?: boolean; error?: string }
 
 function stageWith(workdirPath: string): Staged {
   const code = [
     "import { writeHeadlessScript } from './lib/runtime/engine.js';",
     "import fs from 'node:fs';",
-    "const r = writeHeadlessScript('print(\"probe\")');",
+    'const r = writeHeadlessScript(\'print("probe")\');',
     'console.log(JSON.stringify({ staging: r.staging, win: r.win, wsl: r.wsl, exists: fs.existsSync(r.wsl) }));',
   ].join(String.fromCharCode(10))
   const r = spawnSync(process.execPath, ['--input-type=module', '-e', code], {
-    cwd: pkgPath(), encoding: 'utf8',
+    cwd: pkgPath(),
+    encoding: 'utf8',
     env: Object.assign({}, process.env, { DSH_BLENDER_WORKDIR: workdirPath }),
   })
-  const line = String(r.stdout || '').trim().split(String.fromCharCode(10)).filter(Boolean).pop() || ''
-  try { return JSON.parse(line) } catch (error: any) {
+  const line =
+    String(r.stdout || '')
+      .trim()
+      .split(String.fromCharCode(10))
+      .filter(Boolean)
+      .pop() || ''
+  try {
+    return JSON.parse(line)
+  } catch (error: any) {
     return { error: String(error && error.message), wsl: String(r.stdout).slice(-300) }
   }
 }
@@ -57,9 +65,10 @@ describe('workDir Windows visibility', () => {
   })
 
   it('substitutes a non-shared workDir loudly (or proves the shared one untouched)', () => {
-    const probe = process.platform !== 'win32' && wslPathShared('/dev/shm/dsh-x').shared === false
-      ? '/dev/shm/dsh-workdir-probe'
-      : path.join(os.tmpdir(), 'dsh-workdir-probe-' + String(process.pid))
+    const probe =
+      process.platform !== 'win32' && wslPathShared('/dev/shm/dsh-x').shared === false
+        ? '/dev/shm/dsh-workdir-probe'
+        : path.join(os.tmpdir(), 'dsh-workdir-probe-' + String(process.pid))
     const run = stageWith(probe)
     expect(run.error).toBeUndefined()
     expect(run.exists).toBe(true)
@@ -88,7 +97,11 @@ describe('workDir Windows visibility', () => {
       expect(st.used).toBe(shared)
       expect(String(st.note)).toContain('通过')
     } finally {
-      try { fs.rmSync(shared, { recursive: true, force: true }) } catch { /* ignore */ }
+      try {
+        fs.rmSync(shared, { recursive: true, force: true })
+      } catch {
+        /* ignore */
+      }
     }
   })
 })

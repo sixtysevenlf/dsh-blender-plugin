@@ -3,7 +3,9 @@ import fs from 'node:fs'
 import { catalogPayload, planOpNames } from '../../../../runtime/engine.js'
 import { pkgPath } from '../../../helpers/pkg'
 
-const lock = JSON.parse(fs.readFileSync(pkgPath('tests', 'fixtures', 'capability.lock.json'), 'utf8'))
+const lock = JSON.parse(
+  fs.readFileSync(pkgPath('tests', 'fixtures', 'capability.lock.json'), 'utf8'),
+)
 
 describe('catalog contract', () => {
   const payload = catalogPayload({ full: true }) as any

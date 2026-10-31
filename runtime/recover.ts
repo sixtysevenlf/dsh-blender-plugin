@@ -15,7 +15,7 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import { errorMessage } from "./core/json.js";
+import { errorMessage } from './core/json.js'
 
 export const RECOVER_VERSION = '2.6.1'
 const NL = String.fromCharCode(10)
@@ -23,8 +23,8 @@ const STAGE_TAG = 'DSH_STAGE '
 const PROGRESS_TAG = 'DSH_PROGRESS '
 
 export interface MapPair {
-  winToWsl: (p: string) => string;
-  wslToWin: (p: string) => string;
+  winToWsl: (p: string) => string
+  wslToWin: (p: string) => string
 }
 
 /** 默认映射器（同 OS 时原样返回）—— engine 会注入真实的 winToWsl/wslToWin */
@@ -38,18 +38,18 @@ function toWsl(p: unknown, map: MapPair): string | null {
 }
 
 export interface LogEvidence {
-  path: string | null;
-  exists: boolean;
-  bytes: number;
-  mtime: number | null;
-  lastStage: string | null;
-  sawDone: boolean;
-  sawScriptEnd: boolean;
-  sawHeadless: boolean;
-  sawTraceback: boolean;
-  lastProgress: Record<string, unknown> | null;
-  tail: string | null;
-  error?: string;
+  path: string | null
+  exists: boolean
+  bytes: number
+  mtime: number | null
+  lastStage: string | null
+  sawDone: boolean
+  sawScriptEnd: boolean
+  sawHeadless: boolean
+  sawTraceback: boolean
+  lastProgress: Record<string, unknown> | null
+  tail: string | null
+  error?: string
 }
 
 /**
@@ -58,17 +58,33 @@ export interface LogEvidence {
  *        lastProgress, path, tail, error? }
  */
 export function logEvidence(pathWsl: string, maxBytes = 262144): LogEvidence {
-  const ev: LogEvidence = { path: pathWsl, exists: false, bytes: 0, mtime: null, lastStage: null,
-               sawDone: false, sawScriptEnd: false, sawHeadless: false, sawTraceback: false,
-               lastProgress: null, tail: null }
+  const ev: LogEvidence = {
+    path: pathWsl,
+    exists: false,
+    bytes: 0,
+    mtime: null,
+    lastStage: null,
+    sawDone: false,
+    sawScriptEnd: false,
+    sawHeadless: false,
+    sawTraceback: false,
+    lastProgress: null,
+    tail: null,
+  }
   try {
     const st = fs.statSync(pathWsl)
     if (!st.isFile()) return ev
-    ev.exists = true; ev.bytes = st.size; ev.mtime = st.mtimeMs
+    ev.exists = true
+    ev.bytes = st.size
+    ev.mtime = st.mtimeMs
     const len = Math.min(maxBytes, st.size)
     const buf = Buffer.alloc(len)
     const fd = fs.openSync(pathWsl, 'r')
-    try { fs.readSync(fd, buf, 0, len, st.size - len) } finally { fs.closeSync(fd) }
+    try {
+      fs.readSync(fd, buf, 0, len, st.size - len)
+    } finally {
+      fs.closeSync(fd)
+    }
     const txt = buf.toString('utf8')
     ev.tail = txt.slice(-4000)
     for (const raw of txt.split(NL)) {
@@ -81,12 +97,16 @@ export function logEvidence(pathWsl: string, maxBytes = 262144): LogEvidence {
             if (o.name === 'done') ev.sawDone = true
             if (o.name === 'script-end') ev.sawScriptEnd = true
           }
-        } catch (e) { /* 半行/坏行忽略 */ }
+        } catch (e) {
+          /* 半行/坏行忽略 */
+        }
       } else if (s.indexOf(PROGRESS_TAG) === 0) {
         try {
           const o = JSON.parse(s.slice(PROGRESS_TAG.length).trim()) as Record<string, unknown>
           if (o && typeof o === 'object') ev.lastProgress = o
-        } catch (e) { /* 坏行忽略 */ }
+        } catch (e) {
+          /* 坏行忽略 */
+        }
       } else if (s.indexOf('HEADLESS ') === 0) {
         ev.sawHeadless = true
       } else if (/^Traceback \(most recent call last\)/.test(s)) {
@@ -100,16 +120,16 @@ export function logEvidence(pathWsl: string, maxBytes = 262144): LogEvidence {
 }
 
 export interface RecoverOut {
-  found: boolean;
-  source: string | null;
-  status: string | null;
-  exitCode: unknown;
-  finishedAt: number | null;
-  artifacts: unknown[];
-  evidence: Record<string, unknown> | null;
-  stdoutLog: string | null;
-  stderrLog: string | null;
-  lastProgress: Record<string, unknown> | null;
+  found: boolean
+  source: string | null
+  status: string | null
+  exitCode: unknown
+  finishedAt: number | null
+  artifacts: unknown[]
+  evidence: Record<string, unknown> | null
+  stdoutLog: string | null
+  stderrLog: string | null
+  lastProgress: Record<string, unknown> | null
 }
 
 /**
@@ -117,10 +137,22 @@ export interface RecoverOut {
  * rec 可含：dir / jobDir / outdir / resultPath / stdoutLog / stdoutLogWsl / logs
  * map = {winToWsl, wslToWin}
  */
-export function recoverFromDisk(rec: Record<string, unknown> | null | undefined, map: MapPair = IDENTITY_MAP): RecoverOut {
-  const out: RecoverOut = { found: false, source: null, status: null, exitCode: undefined,
-                finishedAt: null, artifacts: [], evidence: null, stdoutLog: null, stderrLog: null,
-                lastProgress: null }
+export function recoverFromDisk(
+  rec: Record<string, unknown> | null | undefined,
+  map: MapPair = IDENTITY_MAP,
+): RecoverOut {
+  const out: RecoverOut = {
+    found: false,
+    source: null,
+    status: null,
+    exitCode: undefined,
+    finishedAt: null,
+    artifacts: [],
+    evidence: null,
+    stdoutLog: null,
+    stderrLog: null,
+    lastProgress: null,
+  }
   if (!rec || typeof rec !== 'object') return out
 
   // ① 作业终态摘要
@@ -131,18 +163,26 @@ export function recoverFromDisk(rec: Record<string, unknown> | null | undefined,
       const sPath = path.join(dirWsl, 'summary.json')
       const st = fs.statSync(sPath)
       const s = JSON.parse(fs.readFileSync(sPath, 'utf8')) as Record<string, unknown>
-      out.found = true; out.source = 'summary.json'
-      out.status = (s.status === 'failed' || s.status === 'killed') ? 'failed' : 'done'
+      out.found = true
+      out.source = 'summary.json'
+      out.status = s.status === 'failed' || s.status === 'killed' ? 'failed' : 'done'
       out.exitCode = s.exitCode
       out.finishedAt = typeof s.finishedAt === 'number' && s.finishedAt ? s.finishedAt : st.mtimeMs
       out.artifacts = Array.isArray(s.artifacts) ? s.artifacts : []
-      out.evidence = { path: map.wslToWin ? map.wslToWin(sPath) : sPath, mtime: st.mtimeMs,
-                       bytes: st.size, exitCode: s.exitCode == null ? null : s.exitCode,
-                       stage: s.stage || null, lastException: s.lastException || null }
+      out.evidence = {
+        path: map.wslToWin ? map.wslToWin(sPath) : sPath,
+        mtime: st.mtimeMs,
+        bytes: st.size,
+        exitCode: s.exitCode == null ? null : s.exitCode,
+        stage: s.stage || null,
+        lastException: s.lastException || null,
+      }
       out.stdoutLog = path.join(dirWsl, 'stdout.log')
       out.stderrLog = path.join(dirWsl, 'stderr.log')
       return out
-    } catch (e) { /* 没有摘要 → 看日志 */ }
+    } catch (e) {
+      /* 没有摘要 → 看日志 */
+    }
   }
 
   // ② 结构化结果落盘
@@ -150,11 +190,15 @@ export function recoverFromDisk(rec: Record<string, unknown> | null | undefined,
     try {
       const p = toWsl(rec.resultPath, map) as string
       const st = fs.statSync(p)
-      out.found = true; out.source = 'resultPath'; out.status = 'done'
+      out.found = true
+      out.source = 'resultPath'
+      out.status = 'done'
       out.finishedAt = st.mtimeMs
       out.evidence = { path: rec.resultPath, mtime: st.mtimeMs, bytes: st.size }
       return out
-    } catch (e) { /* 结果文件不存在 → 看日志 */ }
+    } catch (e) {
+      /* 结果文件不存在 → 看日志 */
+    }
   }
 
   // ③ stdout 日志（run 与 job 通用；候选按可信度排序）
@@ -174,13 +218,20 @@ export function recoverFromDisk(rec: Record<string, unknown> | null | undefined,
     seen.add(wsl)
     const ev = logEvidence(wsl)
     if (!ev.exists) continue
-    out.found = true; out.source = 'stdout.log'
+    out.found = true
+    out.source = 'stdout.log'
     out.stdoutLog = wsl
     out.stderrLog = wsl.replace(/stdout\.log$/, 'stderr.log')
     out.lastProgress = ev.lastProgress || null
-    out.evidence = { path: map.wslToWin ? map.wslToWin(wsl) : wsl, bytes: ev.bytes, mtime: ev.mtime,
-                     lastStage: ev.lastStage, sawDone: ev.sawDone, sawHeadless: ev.sawHeadless,
-                     sawTraceback: ev.sawTraceback }
+    out.evidence = {
+      path: map.wslToWin ? map.wslToWin(wsl) : wsl,
+      bytes: ev.bytes,
+      mtime: ev.mtime,
+      lastStage: ev.lastStage,
+      sawDone: ev.sawDone,
+      sawHeadless: ev.sawHeadless,
+      sawTraceback: ev.sawTraceback,
+    }
     if (ev.sawDone || ev.sawHeadless) out.status = ev.sawTraceback ? 'failed' : 'done'
     else if (ev.sawTraceback) out.status = 'failed'
     else out.status = 'incomplete'
@@ -196,11 +247,15 @@ export function recoverFromDisk(rec: Record<string, unknown> | null | undefined,
  *  - pid 没了但磁盘有终态证据 → status=done/failed + recovered:true
  *  - 否则 → status=stale（保留旧语义），但附 evidence 让调用方少一次破案
  */
-export function reconcileLedger(rec: Record<string, unknown> | null, map: MapPair = IDENTITY_MAP, isAlive: (pid: unknown) => boolean = () => false): Record<string, unknown> | null {
+export function reconcileLedger(
+  rec: Record<string, unknown> | null,
+  map: MapPair = IDENTITY_MAP,
+  isAlive: (pid: unknown) => boolean = () => false,
+): Record<string, unknown> | null {
   if (!rec || rec.status !== 'running') return rec
   if (rec.pid && isAlive(rec.pid)) return rec
   const deadWhy = rec.pid
-    ? ('pid ' + String(rec.pid) + ' 已不存在（进程被外部杀掉，或后端重启后丢了句柄）')
+    ? 'pid ' + String(rec.pid) + ' 已不存在（进程被外部杀掉，或后端重启后丢了句柄）'
     : '台账里没有 pid（后端重启前只记了 running）'
   const ev = recoverFromDisk(rec, map)
   if (ev.found && (ev.status === 'done' || ev.status === 'failed')) {
@@ -215,21 +270,30 @@ export function reconcileLedger(rec: Record<string, unknown> | null, map: MapPai
       exitCode: ev.exitCode === undefined ? rec.exitCode : ev.exitCode,
       finishedAt: ev.finishedAt || rec.finishedAt || null,
       stage: (ev.evidence && ev.evidence.lastStage) || rec.stage || null,
-      artifacts: (ev.artifacts && ev.artifacts.length) ? ev.artifacts : rec.artifacts,
+      artifacts: ev.artifacts && ev.artifacts.length ? ev.artifacts : rec.artifacts,
       staleReason: deadWhy,
-      hint: '**进程已不在，但磁盘产物对得上 → 判为已完成（recovered，证据：' + ev.source + '）**。'
-          + '结果/日志/产物照常可读：op=collect 会给 stdoutTail，op=list 里也看得到。'
-          + '要重跑请用同一命令再起一次 —— 不要拿这个 id 继续等。',
+      hint:
+        '**进程已不在，但磁盘产物对得上 → 判为已完成（recovered，证据：' +
+        ev.source +
+        '）**。' +
+        '结果/日志/产物照常可读：op=collect 会给 stdoutTail，op=list 里也看得到。' +
+        '要重跑请用同一命令再起一次 —— 不要拿这个 id 继续等。',
     })
   }
   return Object.assign({}, rec, {
-    status: 'stale', wasStatus: 'running', pidAlive: false, staleReason: deadWhy,
+    status: 'stale',
+    wasStatus: 'running',
+    pidAlive: false,
+    staleReason: deadWhy,
     evidence: ev.found ? ev.evidence : null,
     evidenceChecked: ['summary.json', 'resultPath', 'stdout.log'],
-    hint: '这条只是**磁盘台账**里的历史记录（内存句柄已丢）。'
-        + (ev.found
-          ? ('日志在但没跑出终态（lastStage=' + String((ev.evidence && ev.evidence.lastStage) || '?') + '）→ 判未完成。')
-          : '日志/产物都找不到 → 判未完成。')
-        + '确认进程：PowerShell Get-Process blender；清孤儿：Stop-Process。新作业用 op=kill 收。',
+    hint:
+      '这条只是**磁盘台账**里的历史记录（内存句柄已丢）。' +
+      (ev.found
+        ? '日志在但没跑出终态（lastStage=' +
+          String((ev.evidence && ev.evidence.lastStage) || '?') +
+          '）→ 判未完成。'
+        : '日志/产物都找不到 → 判未完成。') +
+      '确认进程：PowerShell Get-Process blender；清孤儿：Stop-Process。新作业用 op=kill 收。',
   })
 }

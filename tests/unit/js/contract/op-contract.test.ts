@@ -12,7 +12,9 @@ import {
 import { catalogPayload } from '../../../../runtime/engine.js'
 import { pkgPath } from '../../../helpers/pkg'
 
-const baseline = JSON.parse(fs.readFileSync(pkgPath('tests', 'fixtures', 'plan_readonly.baseline.json'), 'utf8'))
+const baseline = JSON.parse(
+  fs.readFileSync(pkgPath('tests', 'fixtures', 'plan_readonly.baseline.json'), 'utf8'),
+)
 const engineSource = [
   fs.readFileSync(pkgPath('runtime', 'core', 'dispatch.ts'), 'utf8'),
   fs.readFileSync(pkgPath('runtime', 'core', 'plan-dispatch.ts'), 'utf8'),
@@ -22,7 +24,10 @@ function opsLine(family: string): string[] {
   const text = String(catalogPayload({ family }).text || '')
   const line = text.split('\n').find((x) => x.startsWith('ops: '))
   if (!line) throw new Error('no ops line for ' + family)
-  return line.slice(5).split(' / ').map((x) => x.trim())
+  return line
+    .slice(5)
+    .split(' / ')
+    .map((x) => x.trim())
 }
 
 describe('plan op catalog contract', () => {
@@ -33,7 +38,11 @@ describe('plan op catalog contract', () => {
     expect(new Set(names).size).toBe(227)
     const dup = names.filter((n: any) => n === 'help')
     expect(dup).toHaveLength(2)
-    expect(PLAN_CATALOG.filter((f: any) => f.prefix === '' && f.ops.includes('help')).map((f: any) => f.f)).toEqual(['contract', 'montage'])
+    expect(
+      PLAN_CATALOG.filter((f: any) => f.prefix === '' && f.ops.includes('help')).map(
+        (f: any) => f.f,
+      ),
+    ).toEqual(['contract', 'montage'])
   })
 
   it('maps every op to exactly one family and one canonical full name', () => {

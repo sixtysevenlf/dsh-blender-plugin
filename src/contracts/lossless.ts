@@ -65,13 +65,19 @@ export function losslessSanitize(root: any): { value: any; fixes: string[] } {
       out = Number.isFinite(ms) ? v.toISOString() : null
     } else if (v instanceof Map) {
       fixes.push(at + '=Map→数组')
-      out = Array.from(v.entries()).map((e: any, i: number) => walk(e, at + '<map' + String(i) + '>'))
+      out = Array.from(v.entries()).map((e: any, i: number) =>
+        walk(e, at + '<map' + String(i) + '>'),
+      )
     } else if (v instanceof Set) {
       fixes.push(at + '=Set→数组')
-      out = Array.from(v.values()).map((e: any, i: number) => walk(e, at + '<set' + String(i) + '>'))
+      out = Array.from(v.values()).map((e: any, i: number) =>
+        walk(e, at + '<set' + String(i) + '>'),
+      )
     } else if (ArrayBuffer.isView(v) || v instanceof ArrayBuffer) {
       const n = (v as any).byteLength
-      fixes.push(at + '=二进制(' + String(n) + 'B)→{bytes}（要回传给模型请走 attachments/saveImage）')
+      fixes.push(
+        at + '=二进制(' + String(n) + 'B)→{bytes}（要回传给模型请走 attachments/saveImage）',
+      )
       out = { bytes: n, why: 'binary-not-json' }
     } else if (typeof v.toJSON === 'function' && !isPlainObjectLike(v)) {
       // 宿主没定义 toJSON 语义，但它至少比类实例更可能给出 JSON 形状；失败就退回自有键

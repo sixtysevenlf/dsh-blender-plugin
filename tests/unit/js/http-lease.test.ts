@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { spawnSync } from 'node:child_process'
-import { LEASE, isReadOnly, leaseAcquire, leaseGate, leaseView, normalizeScope, releaseStaleLease } from '../../../runtime/http/lease.js'
+import {
+  LEASE,
+  isReadOnly,
+  leaseAcquire,
+  leaseGate,
+  leaseView,
+  normalizeScope,
+  releaseStaleLease,
+} from '../../../runtime/http/lease.js'
 
 function resetLease() {
   LEASE.holder = null

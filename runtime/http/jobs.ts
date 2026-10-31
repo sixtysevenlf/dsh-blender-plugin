@@ -6,17 +6,20 @@
  * **纯函数、零 I/O** —— 这是 `/host/jobs` 能做到"零 Blender 往返"的前提。
  */
 function trimJob(j: unknown): Record<string, unknown> {
-  const src = ((j && typeof j === 'object') ? j : {}) as Record<string, unknown>;
-  let resultJson = (src.resultJson === undefined) ? null : src.resultJson;
-  let resultTruncated = false;
+  const src = (j && typeof j === 'object' ? j : {}) as Record<string, unknown>
+  let resultJson = src.resultJson === undefined ? null : src.resultJson
+  let resultTruncated = false
   if (resultJson !== null) {
     try {
-      const s = JSON.stringify(resultJson);
+      const s = JSON.stringify(resultJson)
       if (s !== undefined && s.length > 8192) {
-        resultJson = { truncated: true, preview: s.slice(0, 8192) };
-        resultTruncated = true;
+        resultJson = { truncated: true, preview: s.slice(0, 8192) }
+        resultTruncated = true
       }
-    } catch (e) { resultJson = null; resultTruncated = true; }
+    } catch (e) {
+      resultJson = null
+      resultTruncated = true
+    }
   }
   return {
     id: String(src.id === undefined ? '' : src.id),
@@ -41,14 +44,14 @@ function trimJob(j: unknown): Record<string, unknown> {
     resultJson: resultJson,
     resultTruncated: resultTruncated,
     fromLedger: !!src.fromLedger,
-  };
+  }
 }
 
 /** §8.3 clamp 口径：缺省/非数 → 默认值；给了数 → 夹进 [lo,hi]（**不报错**，照 §1.x 既有口径） */
 function clampIntParam(v: unknown, dflt: number, lo: number, hi: number): number {
-  if (v === null || v === undefined || v === '') return dflt;
-  const n = Number(v);
-  if (!Number.isFinite(n)) return dflt;
-  return Math.max(lo, Math.min(hi, Math.round(n)));
+  if (v === null || v === undefined || v === '') return dflt
+  const n = Number(v)
+  if (!Number.isFinite(n)) return dflt
+  return Math.max(lo, Math.min(hi, Math.round(n)))
 }
-export { trimJob, clampIntParam };
+export { trimJob, clampIntParam }

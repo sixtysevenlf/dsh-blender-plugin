@@ -10,7 +10,12 @@ import { redactSecrets, toolError } from './errors.js'
 
 async function seeViaWorker(ctx: any, port: number, spec: any, name?: string): Promise<any | null> {
   try {
-    const r: any = await backendPost(port, '/worker', { op: 'see', name: name || 'default', spec: spec || {}, isolated: true }, 90000)
+    const r: any = await backendPost(
+      port,
+      '/worker',
+      { op: 'see', name: name || 'default', spec: spec || {}, isolated: true },
+      90000,
+    )
     if (!r || r.ok !== true) return null
     const res = r.result && typeof r.result === 'object' ? r.result : {}
     if (res.ok === false)
@@ -18,7 +23,7 @@ async function seeViaWorker(ctx: any, port: number, spec: any, name?: string): P
         'backend_error',
         '无头 see 失败 · ' + String(res.error || 'unknown'),
         '用 blender_rt_worker op=start 检查无头 worker；或改用 GUI 通道',
-        res.traceback ? redactSecrets(res.traceback).slice(-1200) : undefined
+        res.traceback ? redactSecrets(res.traceback).slice(-1200) : undefined,
       )
     let data: Uint8Array | null = null
     if (res.png_b64) {
@@ -29,7 +34,9 @@ async function seeViaWorker(ctx: any, port: number, spec: any, name?: string): P
       }
     }
     if (!data && res.path) data = readLocalPng(res.path)
-    const att = data ? await toAttachment(ctx, data, 'headless-see-' + String(Date.now()) + '.png') : { why: '没有 png_b64/path' }
+    const att = data
+      ? await toAttachment(ctx, data, 'headless-see-' + String(Date.now()) + '.png')
+      : { why: '没有 png_b64/path' }
     const text =
       '无头 see（Workbench 离屏，GUI 未连接自动降级）· ' +
       String(res.ms) +
@@ -64,46 +71,69 @@ export function registerSee(ctx: any, port: number): void {
             'full=true + area=N 走整窗口截图（要看 Blender UI 时用）。回执带 coverage_estimate 与 frame_looks_empty 自诊断；同画面默认不重复附图（省视觉 token），要重发传 force=true。' +
             '参数细节见 blender_rt_plan(op="catalog", args={tool:"rt_see"})。',
           parameters: {
-            max_size: { type: 'integer', description: '最长边像素，默认 560（420 更快，900 更清晰）' },
+            max_size: {
+              type: 'integer',
+              description: '最长边像素，默认 560（420 更快，900 更清晰）',
+            },
             session: { type: 'string', description: '无头 worker 会话名（不走 GUI）' },
             auto: { type: 'boolean', description: 'GUI 不可用时自动降级到无头 see（默认 true）' },
             full: {
               type: 'boolean',
-              description: '整窗口/区域截图（screenshot_area 路径）：看 Blender UI 或其他编辑器时用；默认 false = 3D 视口离屏帧'
+              description:
+                '整窗口/区域截图（screenshot_area 路径）：看 Blender UI 或其他编辑器时用；默认 false = 3D 视口离屏帧',
             },
             area: { type: 'integer', description: 'full=true 时的区域序号，默认 0（第 1 个区域）' },
             from: {
               type: 'string',
               description:
-                '【自定义视角】相机位置 "x,y,z"（世界坐标）。给 from + look_at 就走自定义视角出图：套用自建矩阵离屏绘制，完全不动物体、不动用户视口 —— 想"从另一侧看看"或做多角度校验时用它（约 100ms）'
+                '【自定义视角】相机位置 "x,y,z"（世界坐标）。给 from + look_at 就走自定义视角出图：套用自建矩阵离屏绘制，完全不动物体、不动用户视口 —— 想"从另一侧看看"或做多角度校验时用它（约 100ms）',
             },
             look_at: { type: 'string', description: '【自定义视角】看向的点 "x,y,z"' },
             lens: { type: 'number', description: '【自定义视角】焦距 mm，默认 50' },
             ortho: { type: 'boolean', description: '【自定义视角】正交投影（配合 ortho_scale）' },
-            ortho_scale: { type: 'number', description: '【自定义视角】正交尺度（贴长边），默认 10' },
-            view_size: { type: 'string', description: '【自定义视角】分辨率 "宽x高"，如 "1280x720"；默认按 max_size 出 16:9' },
-            shading: { type: 'string', description: '【自定义视角】临时切换着色 WIREFRAME/SOLID/MATERIAL/RENDERED（出图后还原）' },
-            overlays: { type: 'boolean', description: '【自定义视角】临时开关覆盖物（网格/坐标轴/gizmo），出图后还原' },
+            ortho_scale: {
+              type: 'number',
+              description: '【自定义视角】正交尺度（贴长边），默认 10',
+            },
+            view_size: {
+              type: 'string',
+              description: '【自定义视角】分辨率 "宽x高"，如 "1280x720"；默认按 max_size 出 16:9',
+            },
+            shading: {
+              type: 'string',
+              description:
+                '【自定义视角】临时切换着色 WIREFRAME/SOLID/MATERIAL/RENDERED（出图后还原）',
+            },
+            overlays: {
+              type: 'boolean',
+              description: '【自定义视角】临时开关覆盖物（网格/坐标轴/gizmo），出图后还原',
+            },
             view_mode: {
               type: 'string',
-              description: '【自定义视角】viewport（默认，零场景改动，就是视口看到的样子）/ render（临时相机 + Workbench 快渲）'
+              description:
+                '【自定义视角】viewport（默认，零场景改动，就是视口看到的样子）/ render（临时相机 + Workbench 快渲）',
             },
             diagnostics: {
               type: 'boolean',
               description:
-                '【自定义视角】是否强制跑诊断三项（coverage_estimate / scene_bbox / objects_in_frame）。默认不跑（省 45–490 ms/次）；近空帧会自动补跑一次以保住 frame_looks_empty 告警。要逐张核对覆盖率时传 true'
+                '【自定义视角】是否强制跑诊断三项（coverage_estimate / scene_bbox / objects_in_frame）。默认不跑（省 45–490 ms/次）；近空帧会自动补跑一次以保住 frame_looks_empty 告警。要逐张核对覆盖率时传 true',
             },
             force: {
               type: 'boolean',
-              description: '上一帧与本帧 hash 完全相同时默认**不重复附图**（省模型侧 token）；传 true 强制重发这张图'
-            }
+              description:
+                '上一帧与本帧 hash 完全相同时默认**不重复附图**（省模型侧 token）；传 true 强制重发这张图',
+            },
           },
           output: { schema: ANY_SCHEMA, render: renderOne },
           isConcurrencySafe: () => true,
           timeoutMs: T.see,
           async execute(args: any) {
             if (!(await ensureBackend(port)))
-              return toolError('backend_unreachable', '后端不可用（127.0.0.1:' + String(port) + '）', BACKEND_HINT)
+              return toolError(
+                'backend_unreachable',
+                '后端不可用（127.0.0.1:' + String(port) + '）',
+                BACKEND_HINT,
+              )
             const size = Math.max(120, Math.min(1600, Number((args && args.max_size) || 560)))
             const full = !!(args && args.full)
             const area = Number((args && args.area) || 0)
@@ -120,7 +150,7 @@ export function registerSee(ctx: any, port: number): void {
                 ortho_scale: args.ortho_scale === undefined ? undefined : Number(args.ortho_scale),
                 shading: args.shading || undefined,
                 width: size,
-                height: Math.max(120, Math.round((size * 9) / 16))
+                height: Math.max(120, Math.round((size * 9) / 16)),
               }
               const vs = String((args && args.view_size) || '')
               const mm = vs.match(/^(\d+)\s*[x×]\s*(\d+)$/)
@@ -134,7 +164,7 @@ export function registerSee(ctx: any, port: number): void {
                 toolError(
                   'backend_unreachable',
                   '无头 see 失败：worker 会话 ' + wantSession + ' 不可用',
-                  '先 blender_rt_worker op=start name=' + wantSession + '，或改用 GUI 通道'
+                  '先 blender_rt_worker op=start name=' + wantSession + '，或改用 GUI 通道',
                 )
               )
             }
@@ -147,7 +177,7 @@ export function registerSee(ctx: any, port: number): void {
                 ortho_scale: args.ortho_scale === undefined ? undefined : Number(args.ortho_scale),
                 shading: args.shading || undefined,
                 overlays: args.overlays === undefined ? undefined : !!args.overlays,
-                mode: args.view_mode || undefined
+                mode: args.view_mode || undefined,
               }
               const vs = String((args && args.view_size) || '')
               const mm = vs.match(/^(\d+)\s*[x×]\s*(\d+)$/)
@@ -170,8 +200,11 @@ export function registerSee(ctx: any, port: number): void {
                 }
                 return toolError(
                   'backend_unreachable',
-                  '取帧失败 · 127.0.0.1:' + String(port) + ' · ' + String((e && (e as Error).message) || e),
-                  BACKEND_HINT
+                  '取帧失败 · 127.0.0.1:' +
+                    String(port) +
+                    ' · ' +
+                    String((e && (e as Error).message) || e),
+                  BACKEND_HINT,
                 )
               }
               // v0.9.4（P0-2）：同一视角签名 + 同一 hash ⇒ 不重复附图
@@ -187,7 +220,7 @@ export function registerSee(ctx: any, port: number): void {
                   spec.ortho_scale === undefined ? null : spec.ortho_scale,
                   spec.shading || null,
                   spec.overlays === undefined ? null : !!spec.overlays,
-                  spec.mode || null
+                  spec.mode || null,
                 ])
               const dd2 = frameDedupe(dkey, fv.hash, !!(args && args.force))
               const mt = fv.meta || {}
@@ -209,11 +242,13 @@ export function registerSee(ctx: any, port: number): void {
                   JSON.stringify(spec.from) +
                   ' → look_at ' +
                   JSON.stringify(spec.look_at) +
-                  (mt.fallback_from ? ' · (viewport 不可用已降级 render：' + String(mt.fallback_from) + ')' : '') +
+                  (mt.fallback_from
+                    ? ' · (viewport 不可用已降级 render：' + String(mt.fallback_from) + ')'
+                    : '') +
                   (mt.coverage_estimate === undefined || mt.coverage_estimate === null
                     ? ''
                     : ' · 覆盖 ' + (Number(mt.coverage_estimate) * 100).toFixed(2) + '%') +
-                  ' · 场景与用户视口均未改动'
+                  ' · 场景与用户视口均未改动',
               }
               // v0.9.1（93-D2）：自定义视角瞄空时直接告警 + 给出该怎么瞄（照 suggest 再出一次即可）
               if (mt.warning && mt.warning.code === 'frame_looks_empty') {
@@ -244,7 +279,9 @@ export function registerSee(ctx: any, port: number): void {
               } else {
                 const img2 = await toAttachment(ctx, fv.png, 'view-' + String(Date.now()) + '.png')
                 if (img2.ref) out2.image = img2.ref
-                else out2.text += String.fromCharCode(10) + '⚠ 图片未回传：' + String(img2.why || '未知原因')
+                else
+                  out2.text +=
+                    String.fromCharCode(10) + '⚠ 图片未回传：' + String(img2.why || '未知原因')
               }
               return out2
             }
@@ -256,19 +293,31 @@ export function registerSee(ctx: any, port: number): void {
                 const fb = await seeViaWorker(
                   ctx,
                   port,
-                  { from: [7, -7, 5], look_at: [0, 0, 1], width: size, height: Math.max(120, Math.round((size * 9) / 16)) },
-                  args && args.session
+                  {
+                    from: [7, -7, 5],
+                    look_at: [0, 0, 1],
+                    width: size,
+                    height: Math.max(120, Math.round((size * 9) / 16)),
+                  },
+                  args && args.session,
                 )
                 if (fb) return fb
               }
               return toolError(
                 'backend_unreachable',
-                '取帧失败 · 127.0.0.1:' + String(port) + ' · ' + String((e && (e as Error).message) || e),
-                BACKEND_HINT
+                '取帧失败 · 127.0.0.1:' +
+                  String(port) +
+                  ' · ' +
+                  String((e && (e as Error).message) || e),
+                BACKEND_HINT,
               )
             }
             // v0.9.4（P0-2）：默认视口帧同样去重（键含 size / area，互不串味）
-            const dd = frameDedupe(full ? 'area:' + String(area) : 'viewport:' + String(size), f.hash, !!(args && args.force))
+            const dd = frameDedupe(
+              full ? 'area:' + String(area) : 'viewport:' + String(size),
+              f.hash,
+              !!(args && args.force),
+            )
             const out: any = {
               text:
                 (full ? '区域截图（screenshot_area）· ' : '视口帧 ' + String(size) + 'px · ') +
@@ -276,19 +325,25 @@ export function registerSee(ctx: any, port: number): void {
                 'ms · ' +
                 String(f.png.length) +
                 'B · hash ' +
-                f.hash
+                f.hash,
             }
             if (dd.dup) {
               out.text += dedupeNote(dd.repeats)
             } else {
-              const img = await toAttachment(ctx, f.png, (full ? 'area-' : 'viewport-') + String(Date.now()) + '.png')
+              const img = await toAttachment(
+                ctx,
+                f.png,
+                (full ? 'area-' : 'viewport-') + String(Date.now()) + '.png',
+              )
               if (img.ref) out.image = img.ref
-              else out.text += String.fromCharCode(10) + '⚠ 图片未回传：' + String(img.why || '未知原因')
+              else
+                out.text +=
+                  String.fromCharCode(10) + '⚠ 图片未回传：' + String(img.why || '未知原因')
             }
             return out
-          }
-        })
+          },
+        }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-see'
+    '@dsh-external/dsh-blender-plugin: rt-see',
   )
 }

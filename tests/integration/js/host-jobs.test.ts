@@ -1,4 +1,3 @@
-
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { startBackend, type Backend } from '../../helpers/backend'
 
@@ -8,8 +7,12 @@ import { startBackend, type Backend } from '../../helpers/backend'
 
 let backend: Backend
 
-beforeAll(async () => { backend = await startBackend() })
-afterAll(async () => { await backend.stop() })
+beforeAll(async () => {
+  backend = await startBackend()
+})
+afterAll(async () => {
+  await backend.stop()
+})
 
 describe('read-only job routes', () => {
   it('answers a well-formed empty job list without Blender', async () => {
@@ -49,7 +52,9 @@ describe('read-only job routes', () => {
     expect(body.render).toMatchObject({ busy: expect.any(Boolean) })
     expect(body.jobs).toMatchObject({ running: expect.any(Number) })
     expect(body.backend).toMatchObject({ pid: expect.any(Number), uptimeMs: expect.any(Number) })
-    expect(body.channel.lastOkAgeMs === null || typeof body.channel.lastOkAgeMs === 'number').toBe(true)
+    expect(body.channel.lastOkAgeMs === null || typeof body.channel.lastOkAgeMs === 'number').toBe(
+      true,
+    )
   })
 
   it('stays fast because it never rounds-trips to Blender', async () => {

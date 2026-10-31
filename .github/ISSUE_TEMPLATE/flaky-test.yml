@@ -1,7 +1,7 @@
 name: Flaky test
 description: Track a flaky test with an owner and expiry date
-title: "[flaky] "
-labels: ["flaky", "test"]
+title: '[flaky] '
+labels: ['flaky', 'test']
 body:
   - type: input
     id: test

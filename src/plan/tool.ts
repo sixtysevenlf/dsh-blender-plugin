@@ -29,18 +29,36 @@ export function registerPlan(ctx: any, port: number): void {
             'op 名拼错回 did_you_mean（带骨架）；参数名写错回"不认识的参数"。',
 
           parameters: {
-            op: { type: 'string', required: true, description: '契约 op 或 plan_<op>（见工具描述；op=help / plan_help 出速查）' },
-            args: { type: 'json', description: 'op 的参数对象，例如 {"cid":"joint","err":184,"tolerance":220,"identifiable":["dy"]}' },
-            path: { type: 'string', description: 'op=report 时的输出路径（Markdown）；省略则只回文本' },
-            attach_images: { type: 'boolean', description: '产物图附图回模型（≤2 张；img_digest/qc_compare 默认开）' },
-            session: { type: 'string', description: '无头 worker 会话；"auto"=自动起' }
+            op: {
+              type: 'string',
+              required: true,
+              description: '契约 op 或 plan_<op>（见工具描述；op=help / plan_help 出速查）',
+            },
+            args: {
+              type: 'json',
+              description:
+                'op 的参数对象，例如 {"cid":"joint","err":184,"tolerance":220,"identifiable":["dy"]}',
+            },
+            path: {
+              type: 'string',
+              description: 'op=report 时的输出路径（Markdown）；省略则只回文本',
+            },
+            attach_images: {
+              type: 'boolean',
+              description: '产物图附图回模型（≤2 张；img_digest/qc_compare 默认开）',
+            },
+            session: { type: 'string', description: '无头 worker 会话；"auto"=自动起' },
           },
           output: { schema: ANY_SCHEMA, render: renderStructured },
           isConcurrencySafe: () => false,
           timeoutMs: T.plan,
           async execute(argsIn: any) {
             if (!(await ensureBackend(port)))
-              return toolError('backend_unreachable', '后端不可用（127.0.0.1:' + String(port) + '）', BACKEND_HINT)
+              return toolError(
+                'backend_unreachable',
+                '后端不可用（127.0.0.1:' + String(port) + '）',
+                BACKEND_HINT,
+              )
             const op = String((argsIn && argsIn.op) || 'status')
             const payload: any = jsonPayload(argsIn && argsIn.args)
             if (
@@ -52,14 +70,23 @@ export function registerPlan(ctx: any, port: number): void {
             ) {
               return toolError(
                 'invalid_params',
-                'PLAN ' + op + ' 失败 · args 不是合法 JSON 对象：' + String(argsIn.args).slice(0, 200),
-                'args 传 JSON 对象，例如 {"family":"audit"}'
+                'PLAN ' +
+                  op +
+                  ' 失败 · args 不是合法 JSON 对象：' +
+                  String(argsIn.args).slice(0, 200),
+                'args 传 JSON 对象，例如 {"family":"audit"}',
               )
             }
             if (op === 'report' && argsIn && argsIn.path) payload.path = String(argsIn.path)
             const sessRaw = argsIn && argsIn.session ? String(argsIn.session) : ''
             if (sessRaw) {
-              const pr = await planViaWorker(ctx, port, op, payload, sessRaw === 'auto' ? undefined : sessRaw)
+              const pr = await planViaWorker(
+                ctx,
+                port,
+                op,
+                payload,
+                sessRaw === 'auto' ? undefined : sessRaw,
+              )
               if (!pr || pr.ok !== true) {
                 return toolError(
                   'backend_error',
@@ -68,7 +95,7 @@ export function registerPlan(ctx: any, port: number): void {
                     ' 无头执行失败 · ' +
                     String((pr && pr.error) || 'unknown') +
                     (pr && pr.hint ? String.fromCharCode(10) + String(pr.hint) : ''),
-                  '先 blender_rt_worker(op="start", name="…", preload="…")，或传 session="auto"'
+                  '先 blender_rt_worker(op="start", name="…", preload="…")，或传 session="auto"',
                 )
               }
               return await finishPlanResponse(ctx, op, pr.res, argsIn)
@@ -80,12 +107,12 @@ export function registerPlan(ctx: any, port: number): void {
               return toolError(
                 'backend_error',
                 'PLAN ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
-                '检查后端 /plan 路由与 op 名；不确定先 op=catalog'
+                '检查后端 /plan 路由与 op 名；不确定先 op=catalog',
               )
             return await finishPlanResponse(ctx, op, r.result, argsIn)
-          }
-        })
+          },
+        }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-plan'
+    '@dsh-external/dsh-blender-plugin: rt-plan',
   )
 }

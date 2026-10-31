@@ -17,7 +17,7 @@ export function resolveHttpPort(): number {
   const cands = [
     process.env.DSH_BLENDER_CONFIG,
     path.join(HERE, '..', 'dsh-blender.config.json'),
-    path.join(os.homedir(), '.dsh', 'dsh-blender.config.json')
+    path.join(os.homedir(), '.dsh', 'dsh-blender.config.json'),
   ].filter(Boolean) as string[]
   for (const p of cands) {
     try {
@@ -74,7 +74,10 @@ export function childAlive(): boolean {
 }
 
 export function spawnChild(port: number): string {
-  child = spawn(process.execPath, [SERVER_PATH, '--port', String(port)], { stdio: 'ignore', detached: true })
+  child = spawn(process.execPath, [SERVER_PATH, '--port', String(port)], {
+    stdio: 'ignore',
+    detached: true,
+  })
   child.unref()
   return 'spawned pid=' + String(child.pid)
 }
@@ -136,7 +139,10 @@ export function killBackendByCmd(port: number, signal: NodeJS.Signals = 'SIGTERM
   // ② macOS / 通用 POSIX：ps 输出 pid + 完整命令行
   if (!listed) {
     try {
-      for (const line of execFileSync('ps', ['-ax', '-o', 'pid=,command='], { encoding: 'utf8', timeout: 5000 }).split('\n')) {
+      for (const line of execFileSync('ps', ['-ax', '-o', 'pid=,command='], {
+        encoding: 'utf8',
+        timeout: 5000,
+      }).split('\n')) {
         const m = /^\s*(\d+)\s+(.*)$/.exec(line)
         if (!m) continue
         const pid = Number(m[1])

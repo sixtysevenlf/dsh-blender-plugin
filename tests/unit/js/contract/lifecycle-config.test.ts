@@ -13,10 +13,17 @@ import { createFakeContext } from '../../../helpers/fake-context'
 import { pkgPath } from '../../../helpers/pkg'
 
 function readTree(dir: string, ext: string): string {
-  return fs.readdirSync(dir, { withFileTypes: true }).map((entry) => {
-    const full = path.join(dir, entry.name)
-    return entry.isDirectory() ? readTree(full, ext) : entry.name.endsWith(ext) ? fs.readFileSync(full, 'utf8') : ''
-  }).join('\n')
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .map((entry) => {
+      const full = path.join(dir, entry.name)
+      return entry.isDirectory()
+        ? readTree(full, ext)
+        : entry.name.endsWith(ext)
+          ? fs.readFileSync(full, 'utf8')
+          : ''
+    })
+    .join('\n')
 }
 const indexSource = readTree(pkgPath('src'), '.ts')
 const engineSource = [
@@ -35,7 +42,10 @@ describe('backend start decision table', () => {
   })
 
   it('probes TCP and HTTP with bounded timeouts', async () => {
-    const server = http.createServer((req, res) => { res.writeHead(200); res.end('ok') })
+    const server = http.createServer((req, res) => {
+      res.writeHead(200)
+      res.end('ok')
+    })
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
     const addr = server.address() as any
     try {
@@ -76,19 +86,27 @@ describe('configuration contract', () => {
     const file = path.join(dir, 'dsh-t14-config.json')
     fs.writeFileSync(file, JSON.stringify({ httpPort: 19876, workerPort: 19877 }), 'utf8')
     try {
-      const code = 'import(' + JSON.stringify(pathToFileURL(pkgPath('lib', 'runtime', 'config.js')).href) + ').then(m => console.log(JSON.stringify({ http: m.CFG.httpPort, worker: m.CFG.workerPort })))'
+      const code =
+        'import(' +
+        JSON.stringify(pathToFileURL(pkgPath('lib', 'runtime', 'config.js')).href) +
+        ').then(m => console.log(JSON.stringify({ http: m.CFG.httpPort, worker: m.CFG.workerPort })))'
       const raw = execFileSync(process.execPath, ['--input-type=module', '-e', code], {
         encoding: 'utf8',
         env: { ...process.env, DSH_BLENDER_CONFIG: file },
       })
       expect(JSON.parse(raw.trim().split('\n').pop()!)).toEqual({ http: 19876, worker: 19877 })
     } finally {
-      try { fs.rmSync(dir, { recursive: true, force: true }) } catch (e) {}
+      try {
+        fs.rmSync(dir, { recursive: true, force: true })
+      } catch (e) {}
     }
   })
 
   it('falls back to defaults for invalid numeric overrides', () => {
-    const code = 'import(' + JSON.stringify(pathToFileURL(pkgPath('lib', 'runtime', 'config.js')).href) + ').then(m => console.log(JSON.stringify({ addon: m.CFG.addonPort, http: m.CFG.httpPort, ttl: m.CFG.leaseTtlMs })))'
+    const code =
+      'import(' +
+      JSON.stringify(pathToFileURL(pkgPath('lib', 'runtime', 'config.js')).href) +
+      ').then(m => console.log(JSON.stringify({ addon: m.CFG.addonPort, http: m.CFG.httpPort, ttl: m.CFG.leaseTtlMs })))'
     const raw = execFileSync(process.execPath, ['--input-type=module', '-e', code], {
       encoding: 'utf8',
       env: {
@@ -99,11 +117,18 @@ describe('configuration contract', () => {
         DSH_BLENDER_LEASE_TTL_MS: 'NaN',
       },
     })
-    expect(JSON.parse(raw.trim().split('\n').pop()!)).toEqual({ addon: 9876, http: 9877, ttl: 600000 })
+    expect(JSON.parse(raw.trim().split('\n').pop()!)).toEqual({
+      addon: 9876,
+      http: 9877,
+      ttl: 600000,
+    })
   })
 
   it('honors every DSH_BLENDER_* environment override', () => {
-    const code = 'import(' + JSON.stringify(pathToFileURL(pkgPath('lib', 'runtime', 'config.js')).href) + ').then(m => console.log(JSON.stringify({ cfg: { host: m.CFG.addonHost, addonPort: m.CFG.addonPort, httpPort: m.CFG.httpPort, leaseTtlMs: m.CFG.leaseTtlMs, workerPort: m.CFG.workerPort, holder: m.CFG.holder }, summary: m.describeConfig() })))'
+    const code =
+      'import(' +
+      JSON.stringify(pathToFileURL(pkgPath('lib', 'runtime', 'config.js')).href) +
+      ').then(m => console.log(JSON.stringify({ cfg: { host: m.CFG.addonHost, addonPort: m.CFG.addonPort, httpPort: m.CFG.httpPort, leaseTtlMs: m.CFG.leaseTtlMs, workerPort: m.CFG.workerPort, holder: m.CFG.holder }, summary: m.describeConfig() })))'
     const raw = execFileSync(process.execPath, ['--input-type=module', '-e', code], {
       encoding: 'utf8',
       env: {
@@ -118,7 +143,14 @@ describe('configuration contract', () => {
       },
     })
     const out = JSON.parse(raw.trim().split('\n').pop()!)
-    expect(out.cfg).toMatchObject({ host: '127.0.0.2', addonPort: 19996, httpPort: 19995, leaseTtlMs: 1234, workerPort: 19994, holder: 'test-holder' })
+    expect(out.cfg).toMatchObject({
+      host: '127.0.0.2',
+      addonPort: 19996,
+      httpPort: 19995,
+      leaseTtlMs: 1234,
+      workerPort: 19994,
+      holder: 'test-holder',
+    })
     expect(out.summary.addon).toBe('127.0.0.2:19996')
     expect(out.summary.http).toBe('127.0.0.1:19995')
   })
@@ -183,6 +215,6 @@ describe('lifecycle source contract', () => {
     expect(serverSource).toContain('process.exit(0)')
     expect(serverSource).toContain('SIGTERM')
     expect(serverSource).toContain('SIGKILL')
-    expect(serverSource).toContain('process.on(\'SIGTERM\', shutdown)')
+    expect(serverSource).toContain("process.on('SIGTERM', shutdown)")
   })
 })

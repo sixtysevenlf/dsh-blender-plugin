@@ -16,21 +16,31 @@ export function registerOpt(ctx: any, port: number): void {
             '【对象精简】降 Cycles 每轮场景同步成本（实测 ≈1.4 ms/对象）。op=analyze 列出可安全合并的分组与预计节省；op=join 执行合并（**默认 dry_run=true 只报告**；dry_run=false 才真合并，强烈建议同时给 save_before=<.blend 绝对路径> 先存回退点）。合并规则：同集合 / 同材质 / 同父级 / 无修改器 / 无动画 / 无形态键 / 无自定义属性 / 无实例 / 非库链接。合并后**几何零损失**（面数与顶点数不变），合并对象名为 `<前缀>_MERGED_<材质>`。',
           parameters: {
             op: { type: 'string', required: true, description: 'analyze | join | help' },
-            args: { type: 'json', description: 'join{dry_run=true, save_before="D:/.../xxx_before_join.blend"}' }
+            args: {
+              type: 'json',
+              description: 'join{dry_run=true, save_before="D:/.../xxx_before_join.blend"}',
+            },
           },
           output: { schema: ANY_SCHEMA, render: renderOne },
           isConcurrencySafe: () => false,
           timeoutMs: T.opt,
           async execute(args: any) {
             if (!(await ensureBackend(port)))
-              return toolError('backend_unreachable', '后端不可用（127.0.0.1:' + String(port) + '）', BACKEND_HINT)
+              return toolError(
+                'backend_unreachable',
+                '后端不可用（127.0.0.1:' + String(port) + '）',
+                BACKEND_HINT,
+              )
             const op = String((args && args.op) || 'analyze')
             const oargs = jsonPayload(args && args.args)
             const r = await backendPost(
               port,
               '/opt',
-              { op: op === 'join' ? 'opt_join' : 'opt_analyze', args: Object.keys(oargs).length ? oargs : undefined },
-              600000
+              {
+                op: op === 'join' ? 'opt_join' : 'opt_analyze',
+                args: Object.keys(oargs).length ? oargs : undefined,
+              },
+              600000,
             )
             const lt = leasedText(r)
             if (lt) return { text: lt }
@@ -38,12 +48,12 @@ export function registerOpt(ctx: any, port: number): void {
               return toolError(
                 'backend_error',
                 'OPT ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
-                '核对 op 名称；blender_rt_opt op=list'
+                '核对 op 名称；blender_rt_opt op=list',
               )
             return { text: 'OPT ' + op + ' ' + JSON.stringify(r.result) }
-          }
-        })
+          },
+        }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-opt'
+    '@dsh-external/dsh-blender-plugin: rt-opt',
   )
 }

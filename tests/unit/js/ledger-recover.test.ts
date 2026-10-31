@@ -11,10 +11,17 @@ import { logEvidence, reconcileLedger, recoverFromDisk } from '../../../runtime/
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-recover-'))
 const NL = String.fromCharCode(10)
 const map = { winToWsl: (p: string) => p, wslToWin: (p: string) => p }
-const mk = (name: string) => { const d = path.join(TMP, name); fs.mkdirSync(d, { recursive: true }); return d }
+const mk = (name: string) => {
+  const d = path.join(TMP, name)
+  fs.mkdirSync(d, { recursive: true })
+  return d
+}
 const write = (p: string, s: string) => fs.writeFileSync(p, s, 'utf8')
-const rec = (extra: Record<string, unknown> = {}) => Object.assign(
-  { id: 'job-x', kind: 'job', status: 'running', pid: 999999, startedAt: Date.now() - 60000 }, extra)
+const rec = (extra: Record<string, unknown> = {}) =>
+  Object.assign(
+    { id: 'job-x', kind: 'job', status: 'running', pid: 999999, startedAt: Date.now() - 60000 },
+    extra,
+  )
 
 interface Recovered {
   status?: string
@@ -28,12 +35,27 @@ interface Recovered {
 }
 const R = (value: unknown): Recovered => value as Recovered
 
-afterAll(() => { try { fs.rmSync(TMP, { recursive: true, force: true }) } catch { /* ignore */ } })
+afterAll(() => {
+  try {
+    fs.rmSync(TMP, { recursive: true, force: true })
+  } catch {
+    /* ignore */
+  }
+})
 
 describe('ledger recovery', () => {
   it('recovers status from summary.json and keeps artifacts', () => {
     const d = mk('A')
-    write(path.join(d, 'summary.json'), JSON.stringify({ id: 'job-x', status: 'done', exitCode: 0, finishedAt: 123, artifacts: ['a.blend'] }))
+    write(
+      path.join(d, 'summary.json'),
+      JSON.stringify({
+        id: 'job-x',
+        status: 'done',
+        exitCode: 0,
+        finishedAt: 123,
+        artifacts: ['a.blend'],
+      }),
+    )
     const r = R(reconcileLedger(rec({ dir: d }), map, () => false))
     expect(r).toMatchObject({ status: 'done', recovered: true, recoveredFrom: 'summary.json' })
     expect(r.recoveredEvidence && r.recoveredEvidence.path).toBeTruthy()
@@ -42,21 +64,37 @@ describe('ledger recovery', () => {
 
   it('keeps a failed summary failed instead of calling it done', () => {
     const d = mk('A2')
-    write(path.join(d, 'summary.json'), JSON.stringify({ id: 'job-x', status: 'failed', exitCode: 1, finishedAt: 124 }))
-    expect(reconcileLedger(rec({ dir: d }), map, () => false)).toMatchObject({ status: 'failed', recovered: true })
+    write(
+      path.join(d, 'summary.json'),
+      JSON.stringify({ id: 'job-x', status: 'failed', exitCode: 1, finishedAt: 124 }),
+    )
+    expect(reconcileLedger(rec({ dir: d }), map, () => false)).toMatchObject({
+      status: 'failed',
+      recovered: true,
+    })
   })
 
   it('recovers from resultPath', () => {
     const d = mk('B')
     const rp = path.join(d, 'result.json')
     write(rp, '{"ok":true}')
-    expect(reconcileLedger(rec({ resultPath: rp }), map, () => false)).toMatchObject({ status: 'done', recoveredFrom: 'resultPath' })
+    expect(reconcileLedger(rec({ resultPath: rp }), map, () => false)).toMatchObject({
+      status: 'done',
+      recoveredFrom: 'resultPath',
+    })
   })
 
   it('recovers from a DSH_STAGE done line in stdout.log', () => {
     const d = mk('C')
     const so = path.join(d, 'stdout.log')
-    write(so, ['DSH_STAGE {"name": "boot", "run": "run-x"}', 'DSH_STAGE {"name": "done", "run": "run-x"}', ''].join(NL))
+    write(
+      so,
+      [
+        'DSH_STAGE {"name": "boot", "run": "run-x"}',
+        'DSH_STAGE {"name": "done", "run": "run-x"}',
+        '',
+      ].join(NL),
+    )
     const r = R(reconcileLedger(rec({ stdoutLog: so }), map, () => false))
     expect(r).toMatchObject({ status: 'done', recoveredFrom: 'stdout.log', stage: 'done' })
   })
@@ -65,20 +103,39 @@ describe('ledger recovery', () => {
     const d = mk('D')
     const so = path.join(d, 'stdout.log')
     write(so, ['noise', 'HEADLESS {"ok": true, "status": "done"}', ''].join(NL))
-    expect(R(reconcileLedger(rec({ stdoutLog: so }), map, () => false))).toMatchObject({ status: 'done', recovered: true })
+    expect(R(reconcileLedger(rec({ stdoutLog: so }), map, () => false))).toMatchObject({
+      status: 'done',
+      recovered: true,
+    })
   })
 
   it('treats a Traceback as failed, not done', () => {
     const d = mk('E')
     const so = path.join(d, 'stdout.log')
-    write(so, ['Traceback (most recent call last):', '  File "x.py", line 1', 'TypeError: boom', ''].join(NL))
-    expect(R(reconcileLedger(rec({ stdoutLog: so }), map, () => false))).toMatchObject({ status: 'failed', recovered: true })
+    write(
+      so,
+      ['Traceback (most recent call last):', '  File "x.py", line 1', 'TypeError: boom', ''].join(
+        NL,
+      ),
+    )
+    expect(R(reconcileLedger(rec({ stdoutLog: so }), map, () => false))).toMatchObject({
+      status: 'failed',
+      recovered: true,
+    })
   })
 
   it('reports stale (with lastStage) when logs exist without a terminal line', () => {
     const d = mk('F')
     const so = path.join(d, 'stdout.log')
-    write(so, ['DSH_STAGE {"name": "boot", "run": "run-x"}', 'DSH_STAGE {"name": "preload-done"}', 'building geometry...', ''].join(NL))
+    write(
+      so,
+      [
+        'DSH_STAGE {"name": "boot", "run": "run-x"}',
+        'DSH_STAGE {"name": "preload-done"}',
+        'building geometry...',
+        '',
+      ].join(NL),
+    )
     const r = R(reconcileLedger(rec({ stdoutLog: so }), map, () => false))
     expect(r.status).toBe('stale')
     expect(r.recovered).not.toBe(true)
@@ -111,7 +168,11 @@ describe('ledger recovery', () => {
   it('recovers a job-directory record through recoverFromDisk', () => {
     const d = mk('J')
     write(path.join(d, 'stdout.log'), 'HEADLESS {"ok":true}' + NL)
-    expect(recoverFromDisk(rec({ dir: d }), map)).toMatchObject({ found: true, status: 'done', source: 'stdout.log' })
+    expect(recoverFromDisk(rec({ dir: d }), map)).toMatchObject({
+      found: true,
+      status: 'done',
+      source: 'stdout.log',
+    })
   })
 
   it('returns a terminal record untouched', () => {

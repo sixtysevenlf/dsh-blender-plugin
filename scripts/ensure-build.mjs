@@ -31,7 +31,7 @@ const NEED = [
   'lib/runtime/catalog.js',
   'lib/runtime/config.js',
   'lib/runtime/file_guard.js',
-  'lib/runtime/backend_probe.js'
+  'lib/runtime/backend_probe.js',
 ]
 const WATCH_DIRS = ['src', 'runtime', 'scripts', 'tests/helpers']
 const WATCH_FILES = ['package.json', 'tsconfig.json', 'tsconfig.runtime.json', 'tsconfig.test.json']
@@ -39,7 +39,8 @@ const WATCH_FILES = ['package.json', 'tsconfig.json', 'tsconfig.runtime.json', '
 function collectTimes(dir, out) {
   if (!fs.existsSync(dir)) return
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name === 'node_modules' || entry.name === '__pycache__' || entry.name === 'venv') continue
+    if (entry.name === 'node_modules' || entry.name === '__pycache__' || entry.name === 'venv')
+      continue
     const full = path.join(dir, entry.name)
     if (entry.isDirectory()) collectTimes(full, out)
     else if (/\.(?:ts|mjs|json)$/.test(entry.name)) {
@@ -84,7 +85,7 @@ function build(log) {
   const result = spawnSync(process.execPath, [path.join(HERE, 'build.mjs'), 'all'], {
     cwd: ROOT,
     stdio: 'inherit',
-    env: process.env
+    env: process.env,
   })
   if (result.status !== 0) return false
   fs.writeFileSync(MARKER, JSON.stringify({ builtAt: new Date().toISOString() }, null, 2) + '\n')
@@ -136,5 +137,6 @@ export function ensureBuild(options = {}) {
   }
 }
 
-const invokedDirectly = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+const invokedDirectly =
+  process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 if (invokedDirectly) process.exit(ensureBuild({ force: process.argv.includes('--force') }) ? 0 : 1)

@@ -8,8 +8,12 @@ import { startBackend, type Backend } from '../../helpers/backend'
 
 let backend: Backend
 
-beforeAll(async () => { backend = await startBackend({ env: { DSH_BLENDER_HOLDER: 'scope-it' } }) })
-afterAll(async () => { await backend.stop() })
+beforeAll(async () => {
+  backend = await startBackend({ env: { DSH_BLENDER_HOLDER: 'scope-it' } })
+})
+afterAll(async () => {
+  await backend.stop()
+})
 
 describe('write lease scope (two dimensions)', () => {
   it('stores a null scope when the caller does not declare one', async () => {
@@ -19,7 +23,11 @@ describe('write lease scope (two dimensions)', () => {
   })
 
   it('normalises collection: and prefix: declarations', async () => {
-    const response = await backend.post('/lease', { holder: 'scope-A', ttlMs: 60000, scope: 'collection:COL_Lights, prefix:LGT-' })
+    const response = await backend.post('/lease', {
+      holder: 'scope-A',
+      ttlMs: 60000,
+      scope: 'collection:COL_Lights, prefix:LGT-',
+    })
     const scope = (response.json.lease && response.json.lease.scope) || []
     expect(scope).toHaveLength(2)
     expect(scope[0]).toMatchObject({ kind: 'collection', value: 'COL_Lights' })
@@ -39,7 +47,11 @@ describe('write lease scope (two dimensions)', () => {
   })
 
   it('infers collection / prefix from bare tokens on a forced takeover', async () => {
-    const response = await backend.post('/lease', { holder: 'scope-B', force: true, scope: 'COL_VFX,GEO-GZ-*' })
+    const response = await backend.post('/lease', {
+      holder: 'scope-B',
+      force: true,
+      scope: 'COL_VFX,GEO-GZ-*',
+    })
     const scope = (response.json.lease && response.json.lease.scope) || []
     expect(scope[0]).toMatchObject({ kind: 'collection', value: 'COL_VFX' })
     expect(scope[1]).toMatchObject({ kind: 'prefix', value: 'GEO-GZ-' })

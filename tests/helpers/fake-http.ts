@@ -1,4 +1,3 @@
-
 import http from 'node:http'
 
 // Tiny HTTP stand-in for the TUI client half. The real bridge only talks to the
@@ -18,19 +17,25 @@ export interface FakeHost {
   close: () => Promise<void>
 }
 
-export type FakeHandler = (request: FakeRequest) => { status?: number, json: unknown } | undefined
+export type FakeHandler = (request: FakeRequest) => { status?: number; json: unknown } | undefined
 
 export async function startFakeHost(handler: FakeHandler): Promise<FakeHost> {
   const requests: FakeRequest[] = []
   const server = http.createServer((req, res) => {
     let raw = ''
-    req.on('data', (chunk) => { raw += chunk.toString('utf8') })
+    req.on('data', (chunk) => {
+      raw += chunk.toString('utf8')
+    })
     req.on('end', () => {
       let body: any = null
-      try { body = raw ? JSON.parse(raw) : null } catch { body = raw }
+      try {
+        body = raw ? JSON.parse(raw) : null
+      } catch {
+        body = raw
+      }
       const request: FakeRequest = { method: String(req.method), path: String(req.url), body }
       requests.push(request)
-      let out: { status?: number, json: unknown } | undefined
+      let out: { status?: number; json: unknown } | undefined
       try {
         out = handler(request)
       } catch (error) {

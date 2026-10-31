@@ -25,7 +25,8 @@ export const vTool = (spec: any): any =>
           fixes.slice(0, 6).join(' · ') +
           (fixes.length > 6 ? ' …等' : '')
         try {
-          if (value && typeof value === 'object' && typeof value.text === 'string') value.text += String.fromCharCode(10) + note
+          if (value && typeof value === 'object' && typeof value.text === 'string')
+            value.text += String.fromCharCode(10) + note
           else if (value && typeof value === 'object') value.__losslessNote = note
           console.warn('[dsh-blender] ' + note)
         } catch (e: any) {
@@ -33,7 +34,7 @@ export const vTool = (spec: any): any =>
         }
       }
       return value
-    }
+    },
   })
 
 /**
@@ -53,7 +54,9 @@ export const vTool = (spec: any): any =>
  *      op=doctor 里可见（这类"静默整体消失"必须留下可读的现场）。
  */
 const SM_NAMES: string[] = ['@deepseek-ai/schemastery', 'schemastery']
-export const schemaResolve: { z?: typeof zt; via?: string; error?: string; tried: string[] } = { tried: [] }
+export const schemaResolve: { z?: typeof zt; via?: string; error?: string; tried: string[] } = {
+  tried: [],
+}
 /** 只取错误的首行 + 截断：诊断要能一行说完，不要把整个 stack 塞进状态输出 */
 const smErrLine = (e: any): string =>
   String((e && e.code) || (e && e.message) || e)
@@ -104,6 +107,10 @@ if (!schemaResolve.z) {
     'schemastery 解析失败，已尝试：' +
     schemaResolve.tried.join(' / ') +
     '。宿主需提供 schemastery —— 有 scope 的 @deepseek-ai/schemastery 或无 scope 的 schemastery 任一即可。'
-  console.error('[dsh-blender] ' + schemaResolve.error + '（降级加载：只注册一个诊断占位工具，不会再出现"15 个工具整体消失且真因被吞"）')
+  console.error(
+    '[dsh-blender] ' +
+      schemaResolve.error +
+      '（降级加载：只注册一个诊断占位工具，不会再出现"15 个工具整体消失且真因被吞"）',
+  )
 }
 export const z: any = schemaResolve.z

@@ -18,16 +18,29 @@ export function registerPreset(ctx: any, port: number): void {
             'apply 的 targets 用 MAT:材质名 / OBJ:对象名 / SCENE（逗号分隔）；不给 targets 只预览（dry_run），给了就实际写入并回报 applied/skipped/errors。' +
             'export/import 走单个 JSON bundle，便于把配方分享到别的机器或会话。',
           parameters: {
-            op: { type: 'string', required: true, description: 'save | list | get | apply | delete | export | import | help' },
+            op: {
+              type: 'string',
+              required: true,
+              description: 'save | list | get | apply | delete | export | import | help',
+            },
             name: { type: 'string', description: '配方名（save / get / apply / delete）' },
-            kind: { type: 'string', description: '分类（list 可按 kind 过滤），如 material / object / scene' },
+            kind: {
+              type: 'string',
+              description: '分类（list 可按 kind 过滤），如 material / object / scene',
+            },
             tags: { type: 'string', description: '标签（逗号分隔；list 可按 tag 过滤）' },
             note: { type: 'string', description: '备注（save）' },
-            data: { type: 'string', description: '点路径 JSON 字符串（save），如 {"inputs.Roughness": 0.4}' },
-            targets: { type: 'string', description: 'apply 目标（逗号分隔）：MAT:材质名 / OBJ:对象名 / SCENE' },
+            data: {
+              type: 'string',
+              description: '点路径 JSON 字符串（save），如 {"inputs.Roughness": 0.4}',
+            },
+            targets: {
+              type: 'string',
+              description: 'apply 目标（逗号分隔）：MAT:材质名 / OBJ:对象名 / SCENE',
+            },
             path: { type: 'string', description: 'export 输出路径 / import 输入路径' },
             names: { type: 'string', description: 'export 选定的配方名（逗号分隔；省略=全部）' },
-            overwrite: { type: 'boolean', description: 'save/import 是否覆盖同名（默认 true）' }
+            overwrite: { type: 'boolean', description: 'save/import 是否覆盖同名（默认 true）' },
           },
           output: { schema: ANY_SCHEMA, render: renderOne },
           isConcurrencySafe: () => false,
@@ -37,7 +50,7 @@ export function registerPreset(ctx: any, port: number): void {
               return toolError(
                 'backend_unreachable',
                 '后端不可用（127.0.0.1:' + String(port) + '）',
-                '先 blender_viewport op=start 拉起后端，再重试'
+                '先 blender_viewport op=start 拉起后端，再重试',
               )
             const op = String((args && args.op) || 'list')
             const a: any = {}
@@ -67,7 +80,7 @@ export function registerPreset(ctx: any, port: number): void {
                 return toolError(
                   'invalid_params',
                   'data 不是合法 JSON: ' + String((e as Error).message).slice(0, 120),
-                  '传 JSON 对象字符串，例如 data="{\"k\":1}"'
+                  `传 JSON 对象字符串，例如 data='{"k":1}'`,
                 )
               }
             }
@@ -79,7 +92,7 @@ export function registerPreset(ctx: any, port: number): void {
               return toolError(
                 'backend_error',
                 'PRESET ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
-                '核对 preset 数据与 op'
+                '核对 preset 数据与 op',
               )
             const res: any = (r && r.result) || {}
             const parts: string[] = []
@@ -89,7 +102,9 @@ export function registerPreset(ctx: any, port: number): void {
                 '共 ' +
                   String(res.count) +
                   ' 个：' +
-                  (res.presets || []).map((p: any) => p.name + '(' + p.kind + ',' + p.keys + '键)').join(' · ')
+                  (res.presets || [])
+                    .map((p: any) => p.name + '(' + p.kind + ',' + p.keys + '键)')
+                    .join(' · '),
               )
               parts.push('目录：' + String(res.dir || ''))
             } else if (op === 'apply') {
@@ -101,15 +116,17 @@ export function registerPreset(ctx: any, port: number): void {
                   JSON.stringify(res.targets) +
                   ' · 写入 ' +
                   String((rr.applied || []).length) +
-                  ' 项'
+                  ' 项',
               )
-              if ((rr.skipped || []).length) parts.push('跳过：' + JSON.stringify(rr.skipped).slice(0, 300))
-              if ((rr.errors || []).length) parts.push('错误：' + JSON.stringify(rr.errors).slice(0, 300))
+              if ((rr.skipped || []).length)
+                parts.push('跳过：' + JSON.stringify(rr.skipped).slice(0, 300))
+              if ((rr.errors || []).length)
+                parts.push('错误：' + JSON.stringify(rr.errors).slice(0, 300))
             } else parts.push(JSON.stringify(res).slice(0, 900))
             return { text: parts.join(String.fromCharCode(10)) }
-          }
-        })
+          },
+        }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-preset'
+    '@dsh-external/dsh-blender-plugin: rt-preset',
   )
 }

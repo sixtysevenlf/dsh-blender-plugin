@@ -1,4 +1,3 @@
-
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -16,14 +15,26 @@ import { pkgPath } from '../../helpers/pkg'
 const HOST_CANDIDATES = [
   process.env.DSH_HOST_PKGS,
   '/usr/lib/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai',
-  path.join(os.homedir(), 'AppData', 'Roaming', 'npm', 'node_modules', '@deepseek-ai', 'dsh', 'node_modules', '@deepseek-ai'),
+  path.join(
+    os.homedir(),
+    'AppData',
+    'Roaming',
+    'npm',
+    'node_modules',
+    '@deepseek-ai',
+    'dsh',
+    'node_modules',
+    '@deepseek-ai',
+  ),
 ].filter(Boolean) as string[]
 
 function findHostPkgs(): string | null {
   for (const candidate of HOST_CANDIDATES) {
     try {
       if (fs.statSync(path.join(candidate, 'dsh-tools')).isDirectory()) return candidate
-    } catch { /* not this candidate */ }
+    } catch {
+      /* not this candidate */
+    }
   }
   return null
 }
@@ -65,7 +76,11 @@ describe('plugin applies to the documented Cordis surface', () => {
     const manifest = JSON.parse(fs.readFileSync(pkgPath('package.json'), 'utf8'))
     expect(manifest.name).toBe('@dsh-external/dsh-blender-plugin')
     expect(manifest.type).toBe('module')
-    for (const dep of ['@deepseek-ai/cordis', '@deepseek-ai/dsh-tools', '@deepseek-ai/schemastery']) {
+    for (const dep of [
+      '@deepseek-ai/cordis',
+      '@deepseek-ai/dsh-tools',
+      '@deepseek-ai/schemastery',
+    ]) {
       expect(manifest.peerDependencies[dep], dep).toBeTruthy()
     }
     expect(manifest.exports['./client']).toBeTruthy()
@@ -86,11 +101,14 @@ describe('plugin applies to the documented Cordis surface', () => {
     const host = findHostPkgs()
     if (!host) return
     const manifest = JSON.parse(fs.readFileSync(pkgPath('package.json'), 'utf8'))
-    for (const [dep, range] of Object.entries(manifest.peerDependencies as Record<string, string>)) {
+    for (const [dep, range] of Object.entries(
+      manifest.peerDependencies as Record<string, string>,
+    )) {
       const bare = dep.split('/').pop() as string
       const dir = dep.startsWith('@deepseek-ai/') ? path.join(host, bare) : null
       if (!dir || !fs.existsSync(path.join(dir, 'package.json'))) continue
-      const version = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')).version as string
+      const version = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'))
+        .version as string
       expect(version, dep).toMatch(/^\d+\.\d+\.\d+/)
       expect(typeof range).toBe('string')
     }

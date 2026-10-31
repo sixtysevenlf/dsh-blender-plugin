@@ -4,11 +4,45 @@ import { pyModuleFile, pyModuleNames, PY_DOMAINS } from '../../../../runtime/pat
 import { pkgPath } from '../../../helpers/pkg'
 
 const DOMAINS: Record<string, string[]> = {
-  core: ['kit', 'contract', 'gate', 'txn', 'runner', 'worker', 'planner', 'presets', 'pipeline', 'perf',
-    'evalharness', 'motion', 'sweep', 'audit', 'offline_bootstrap'],
-  geometry: ['geo', 'mesh_fix', 'sculpt', 'shapegen', 'shapesolve', 'faceeval', 'blockout', 'surface'],
+  core: [
+    'kit',
+    'contract',
+    'gate',
+    'txn',
+    'runner',
+    'worker',
+    'planner',
+    'presets',
+    'pipeline',
+    'perf',
+    'evalharness',
+    'motion',
+    'sweep',
+    'audit',
+    'offline_bootstrap',
+  ],
+  geometry: [
+    'geo',
+    'mesh_fix',
+    'sculpt',
+    'shapegen',
+    'shapesolve',
+    'faceeval',
+    'blockout',
+    'surface',
+  ],
   assembly: ['assembly', 'clearance', 'vehicle', 'human'],
-  render: ['view', 'qc', 'qc_render', 'render_guard', 'material', 'visualreport', 'imgtools', 'calib', 'montage'],
+  render: [
+    'view',
+    'qc',
+    'qc_render',
+    'render_guard',
+    'material',
+    'visualreport',
+    'imgtools',
+    'calib',
+    'montage',
+  ],
   export: ['deliver', 'printcheck', 'open3d_check'],
 }
 const ALL = Object.values(DOMAINS).flat()
@@ -21,8 +55,11 @@ describe('runtime domain package layout (T8)', () => {
     for (const [dom, names] of Object.entries(DOMAINS)) {
       const dir = pkgPath('runtime', 'py', dom)
       expect(fs.existsSync(pkgPath('runtime', 'py', dom, '__init__.py'))).toBe(true)
-      const present = fs.readdirSync(dir).filter((f) => f.endsWith('.py') && f !== '__init__.py')
-        .map((f) => f.slice(0, -3)).sort()
+      const present = fs
+        .readdirSync(dir)
+        .filter((f) => f.endsWith('.py') && f !== '__init__.py')
+        .map((f) => f.slice(0, -3))
+        .sort()
       expect(present).toEqual([...names].sort())
     }
     expect(fs.existsSync(pkgPath('runtime', 'py', 'assembly', 'assembly_features.json'))).toBe(true)

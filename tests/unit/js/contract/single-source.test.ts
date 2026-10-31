@@ -4,7 +4,10 @@ import fs from 'node:fs'
 import { catalogPayload, PLAN_READ_ONLY_OPS } from '../../../../runtime/engine.js'
 import { pkgPath } from '../../../helpers/pkg'
 
-interface CatalogView { families: string[]; ops_count: number }
+interface CatalogView {
+  families: string[]
+  ops_count: number
+}
 const payload = (opts?: unknown): CatalogView => catalogPayload(opts) as unknown as CatalogView
 
 // S4: the read-only plan whitelist is derived from the engine, the frozen
@@ -12,7 +15,9 @@ const payload = (opts?: unknown): CatalogView => catalogPayload(opts) as unknown
 // the model-facing description must equal what the catalog computes.
 
 describe('single source of truth', () => {
-  const baseline: string[] = JSON.parse(fs.readFileSync(pkgPath('tests', 'fixtures', 'plan_readonly.baseline.json'), 'utf8'))
+  const baseline: string[] = JSON.parse(
+    fs.readFileSync(pkgPath('tests', 'fixtures', 'plan_readonly.baseline.json'), 'utf8'),
+  )
   const derived = [...PLAN_READ_ONLY_OPS]
 
   it('derives the read-only whitelist from the baseline', () => {
@@ -50,7 +55,7 @@ describe('single source of truth', () => {
     const out = execFileSync(process.execPath, [pkgPath('scripts', 'sync_counts.mjs'), '--dry'], {
       cwd: pkgPath(),
       encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     expect(out).toContain('需改 0 个文件')
   })

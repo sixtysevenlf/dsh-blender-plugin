@@ -8,7 +8,7 @@ import {
   detectFileAlias,
   headlessLogNames,
   noInputFileWarning,
-  validateFileOpt
+  validateFileOpt,
 } from '../../../../runtime/file_guard.js'
 import { pkgPath } from '../../../helpers/pkg'
 
@@ -17,7 +17,11 @@ function readTree(dir: string, ext: string): string {
     .readdirSync(dir, { withFileTypes: true })
     .map((entry) => {
       const full = path.join(dir, entry.name)
-      return entry.isDirectory() ? readTree(full, ext) : entry.name.endsWith(ext) ? fs.readFileSync(full, 'utf8') : ''
+      return entry.isDirectory()
+        ? readTree(full, ext)
+        : entry.name.endsWith(ext)
+          ? fs.readFileSync(full, 'utf8')
+          : ''
     })
     .join('\n')
 }
@@ -27,7 +31,14 @@ const indexSource = readTree(pkgPath('src'), '.ts')
 
 describe('file= parameter guard', () => {
   it('detects every documented alias spelling', () => {
-    expect(FILE_ALIAS_KEYS).toEqual(['blend', 'blendFile', 'path', 'filepath', 'blend_file', 'input'])
+    expect(FILE_ALIAS_KEYS).toEqual([
+      'blend',
+      'blendFile',
+      'path',
+      'filepath',
+      'blend_file',
+      'input',
+    ])
     expect(detectFileAlias({ blend: 'x' })).toEqual(['blend'])
     expect(detectFileAlias({ input: null, filepath: undefined, path: 'a' })).toEqual(['path'])
     expect(detectFileAlias(null)).toEqual([])
@@ -122,9 +133,13 @@ describe('archive and lease security boundaries', () => {
   it('keeps write routes behind the lease gate while read-only ops bypass it', () => {
     expect(serverSource).toContain('function leaseGate(payload')
     expect(serverSource).toContain("error: 'leased'")
-    expect(serverSource).toContain('const gate = leaseGate(payload);')
-    expect(serverSource).toContain("const gate = isReadOnly('/loop', op) ? null : leaseGate(payload);")
-    expect(serverSource).toContain("const gate = isReadOnly('/plan', op) ? null : leaseGate(payload);")
+    expect(serverSource).toContain('const gate = leaseGate(payload)')
+    expect(serverSource).toContain(
+      "const gate = isReadOnly('/loop', op) ? null : leaseGate(payload)",
+    )
+    expect(serverSource).toContain(
+      "const gate = isReadOnly('/plan', op) ? null : leaseGate(payload)",
+    )
     expect(serverSource).toContain("'/plan': PLAN_READ_ONLY_OPS")
   })
 

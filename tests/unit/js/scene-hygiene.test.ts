@@ -9,14 +9,29 @@ const NL = String.fromCharCode(10)
 
 describe('scene hygiene audit', () => {
   it('reports one warning with used/limit for a single overflow line', () => {
-    const warnings = sceneHygieneAudit('', 'Error: Shadow buffer full, may result in missing shadows and lower performance. (3040 / 2048)' + NL)
+    const warnings = sceneHygieneAudit(
+      '',
+      'Error: Shadow buffer full, may result in missing shadows and lower performance. (3040 / 2048)' +
+        NL,
+    )
     expect(warnings).toHaveLength(1)
-    expect(warnings[0]).toMatchObject({ code: 'eevee_shadow_pool_full', used_mb: 3040, limit_mb: 2048 })
+    expect(warnings[0]).toMatchObject({
+      code: 'eevee_shadow_pool_full',
+      used_mb: 3040,
+      limit_mb: 2048,
+    })
     expect(warnings[0].occurrences).toBe(1)
   })
 
   it('counts repeated overflows and keeps the last numeric pair', () => {
-    const warnings = sceneHygieneAudit('', ['x', 'Error: Shadow buffer full (10 / 2048)', 'Error: Shadow buffer full (3000 / 2048)'].join(NL))
+    const warnings = sceneHygieneAudit(
+      '',
+      [
+        'x',
+        'Error: Shadow buffer full (10 / 2048)',
+        'Error: Shadow buffer full (3000 / 2048)',
+      ].join(NL),
+    )
     expect(warnings).toHaveLength(1)
     expect(warnings[0].occurrences).toBe(2)
     expect(warnings[0].used_mb).toBe(3000)

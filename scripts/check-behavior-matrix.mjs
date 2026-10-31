@@ -26,7 +26,17 @@ import { ensureBuild } from './ensure-build.mjs'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(here, '..')
 const MATRIX = path.join(ROOT, 'tests', 'BEHAVIOR_MATRIX.md')
-const COLUMNS = ['id', 'surface', 'behavior', 'contract source', 'unit', 'integration', 'e2e', 'status', 'exception/owner']
+const COLUMNS = [
+  'id',
+  'surface',
+  'behavior',
+  'contract source',
+  'unit',
+  'integration',
+  'e2e',
+  'status',
+  'exception/owner',
+]
 const STATUSES = new Set(['covered', 'planned', 'exempt'])
 const PLACEHOLDER = new Set(['', '—', '-', 'n/a', 'N/A'])
 
@@ -39,7 +49,7 @@ const FIXED = {
     'PROTO-DISCONNECT',
     'PROTO-TIMEOUT',
     'PROTO-ERROR-ENVELOPE',
-    'PROTO-PAUSE'
+    'PROTO-PAUSE',
   ],
   lifecycle: [
     'LIFECYCLE-START',
@@ -49,19 +59,25 @@ const FIXED = {
     'LIFECYCLE-PORT-CONFLICT',
     'LIFECYCLE-CRASH',
     'LIFECYCLE-WORKER-TTL',
-    'LIFECYCLE-UNINSTALL'
+    'LIFECYCLE-UNINSTALL',
   ],
-  config: ['CONFIG-DEFAULTS', 'CONFIG-ENV', 'CONFIG-FILE', 'CONFIG-INVALID', 'CONFIG-MISSING-DSH-SERVICES'],
+  config: [
+    'CONFIG-DEFAULTS',
+    'CONFIG-ENV',
+    'CONFIG-FILE',
+    'CONFIG-INVALID',
+    'CONFIG-MISSING-DSH-SERVICES',
+  ],
   install: [
     'INSTALL-NPM-PACK',
     'INSTALL-TARBALL',
     'INSTALL-ADDON-ZIP',
     'INSTALL-OLD-ADDON-REMOVAL',
     'INSTALL-RESTART-DSH',
-    'INSTALL-DOCTOR'
+    'INSTALL-DOCTOR',
   ],
   security: ['SEC-FILE-GUARD', 'SEC-ZIP-SLIP', 'SEC-SYMLINK', 'SEC-INJECTION', 'SEC-LEASE-BYPASS'],
-  environment: ['ENV-BLENDER-42', 'ENV-BLENDER-5X', 'ENV-DSH-CURRENT', 'ENV-DSH-PREVIOUS']
+  environment: ['ENV-BLENDER-42', 'ENV-BLENDER-5X', 'ENV-DSH-CURRENT', 'ENV-DSH-PREVIOUS'],
 }
 
 const failures = []
@@ -123,7 +139,9 @@ function loadMatrix(matrixPath = MATRIX) {
       fail('row ' + (index + 1) + ' has ' + cells.length + ' cells, expected ' + COLUMNS.length)
       continue
     }
-    const row = Object.fromEntries(COLUMNS.map((column, columnIndex) => [column, cells[columnIndex]]))
+    const row = Object.fromEntries(
+      COLUMNS.map((column, columnIndex) => [column, cells[columnIndex]]),
+    )
     row.line = index + 1
     rows.push(row)
   }
@@ -160,7 +178,9 @@ async function loadCatalogs() {
     for (const op of family.ops || []) ops.push({ family: family.f, op })
   }
 
-  const routesModule = await import(pathToFileURL(path.join(ROOT, 'lib', 'runtime', 'http', 'routes', 'index.js')).href)
+  const routesModule = await import(
+    pathToFileURL(path.join(ROOT, 'lib', 'runtime', 'http', 'routes', 'index.js')).href
+  )
   const routes = Array.isArray(routesModule.CONTRACT_ROUTES) ? routesModule.CONTRACT_ROUTES : []
   if (routes.length === 0) fail('cannot find CONTRACT_ROUTES in lib/runtime/http/routes/index.js')
 
@@ -169,11 +189,24 @@ async function loadCatalogs() {
     .join('\n')
   const protocolMatch = addonSource.match(/ADDON_PROTOCOL_VERSION\s*=\s*(\d+)/)
   const protocol = protocolMatch ? Number(protocolMatch[1]) : null
-  const handshake = addonSource.slice(addonSource.indexOf('def get_addon_info'), addonSource.indexOf('def get_scene_info'))
+  const handshake = addonSource.slice(
+    addonSource.indexOf('def get_addon_info'),
+    addonSource.indexOf('def get_scene_info'),
+  )
   const capabilityMatch = handshake.match(/"capabilities":\s*sorted\(\[([\s\S]*?)\]\)/)
   const capabilityCount = capabilityMatch ? (capabilityMatch[1].match(/"[^"]+"/g) || []).length : 0
 
-  return { toolNames, commandCatalog, planCatalog, ops, families, routes, addonSource, protocol, capabilityCount }
+  return {
+    toolNames,
+    commandCatalog,
+    planCatalog,
+    ops,
+    families,
+    routes,
+    addonSource,
+    protocol,
+    capabilityCount,
+  }
 }
 
 function expectedIds(catalogs) {
@@ -181,7 +214,8 @@ function expectedIds(catalogs) {
   for (const name of catalogs.toolNames) ids.push('TOOL-' + name)
   for (const name of Object.keys(catalogs.commandCatalog)) ids.push('CMD-' + name)
   for (const entry of catalogs.ops) ids.push('OP-' + entry.family + '-' + entry.op)
-  for (const route of catalogs.routes) ids.push('ROUTE-' + route.replace(/^\//, '').replaceAll('/', '-'))
+  for (const route of catalogs.routes)
+    ids.push('ROUTE-' + route.replace(/^\//, '').replaceAll('/', '-'))
   for (const list of Object.values(FIXED)) ids.push(...list)
   return ids
 }
@@ -244,7 +278,9 @@ function checkExemption(row) {
 
 function checkAddonCommands(catalogs) {
   for (const name of Object.keys(catalogs.commandCatalog)) {
-    const pattern = new RegExp('["\\\']' + name.replace(/[.*+?^\${}()|[\]\\]/g, '\\$&') + '["\\\']\\s*:')
+    const pattern = new RegExp(
+      '["\\\']' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '["\\\']\\s*:',
+    )
     if (!pattern.test(catalogs.addonSource)) {
       fail('COMMAND_CATALOG command ' + name + ' has no handler in addon/dsh_blender_bridge/')
     }
@@ -308,7 +344,9 @@ async function main() {
     counts[row.status] += 1
     if (row.status === 'covered') {
       const e2eRef = /\.(?:ts|mjs)(?:::.*)?$/.test(row.e2e.trim()) ? [row.e2e] : []
-      const refs = [row.unit, row.integration, ...e2eRef].flatMap((cell) => cell.split(';')).map((value) => value.trim())
+      const refs = [row.unit, row.integration, ...e2eRef]
+        .flatMap((cell) => cell.split(';'))
+        .map((value) => value.trim())
       const real = refs.filter((value) => !PLACEHOLDER.has(value))
       if (real.length === 0) {
         fail(row.id + ': covered row has no unit/integration/e2e test reference')
@@ -352,7 +390,7 @@ async function main() {
       tools: 'src/index.ts',
       commands: 'runtime/catalog.ts + addon/dsh_blender_bridge/',
       ops: 'runtime/catalog.ts',
-      routes: 'lib/runtime/http/routes/index.js'
+      routes: 'lib/runtime/http/routes/index.js',
     },
     counts: {
       tools: catalogs.toolNames.length,
@@ -370,13 +408,13 @@ async function main() {
       expectedTotal: expectedSet.size,
       covered: counts.covered,
       planned: counts.planned,
-      exempt: counts.exempt
+      exempt: counts.exempt,
     },
     addon: {
       protocol: catalogs.protocol,
-      capabilities: catalogs.capabilityCount
+      capabilities: catalogs.capabilityCount,
     },
-    failures
+    failures,
   }
 
   if (options.report) {

@@ -11,8 +11,11 @@ import {
 
 const AGENTS = readText('AGENTS.md')
 const PR_TEMPLATE_DIR = '.github/PULL_REQUEST_TEMPLATE'
-const PR_TEMPLATES = ['bug_fix.md', 'feature.md', 'docs_update.md', 'refactor.md']
-  .map((name) => ({ name, path: PR_TEMPLATE_DIR + '/' + name, text: readText(PR_TEMPLATE_DIR + '/' + name) }))
+const PR_TEMPLATES = ['bug_fix.md', 'feature.md', 'docs_update.md', 'refactor.md'].map((name) => ({
+  name,
+  path: PR_TEMPLATE_DIR + '/' + name,
+  text: readText(PR_TEMPLATE_DIR + '/' + name),
+}))
 const TESTS_README = readText('tests/README.md')
 const ADR_DIR = repoPath('docs/adr')
 const pkg = JSON.parse(readText('package.json'))
@@ -53,16 +56,25 @@ describe('AGENTS.md contract', () => {
   })
 
   it('documents build, typecheck, test, lint, and pack', () => {
-    for (const command of ['npm run build', 'npm run typecheck', 'npm run test', 'npm run lint', 'npm pack']) {
+    for (const command of [
+      'npm run build',
+      'npm run typecheck',
+      'npm run test',
+      'npm run lint',
+      'npm pack',
+    ]) {
       expect(AGENTS).toContain(command)
     }
   })
 
   it('only names scripts that exist, except rows marked planned', () => {
-    const referenced = new Set([...AGENTS.matchAll(/npm run ([a-z0-9:_-]+)/gi)].map((match) => match[1]))
+    const referenced = new Set(
+      [...AGENTS.matchAll(/npm run ([a-z0-9:_-]+)/gi)].map((match) => match[1]),
+    )
     expect(referenced.size).toBeGreaterThan(4)
     for (const name of referenced) {
-      const line = AGENTS.split('\n').find((candidate) => candidate.includes('npm run ' + name)) ?? ''
+      const line =
+        AGENTS.split('\n').find((candidate) => candidate.includes('npm run ' + name)) ?? ''
       if (/planned/i.test(line)) continue
       expect(scripts, 'npm run ' + name + ' must exist in package.json').toHaveProperty([name])
     }
@@ -136,7 +148,12 @@ describe('ADR set', () => {
   it('gives every ADR the same reviewable structure', () => {
     for (const adr of adrs) {
       const text = readText('docs/adr/' + adr)
-      for (const heading of ['## Context', '## Decision', '## Consequences', '## Alternatives considered']) {
+      for (const heading of [
+        '## Context',
+        '## Decision',
+        '## Consequences',
+        '## Alternatives considered',
+      ]) {
         expect(text, adr + ' must contain ' + heading).toContain(heading)
       }
       expect(brokenRelativeLinks('docs/adr/' + adr), adr + ' has broken links').toEqual([])

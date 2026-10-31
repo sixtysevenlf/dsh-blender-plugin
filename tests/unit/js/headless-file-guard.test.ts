@@ -1,13 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import {
-  FILE_ALIAS_KEYS, detectFileAlias, headlessLogNames, noInputFileWarning, validateFileOpt,
+  FILE_ALIAS_KEYS,
+  detectFileAlias,
+  headlessLogNames,
+  noInputFileWarning,
+  validateFileOpt,
 } from '../../../runtime/file_guard.js'
 import { describeMissingInput as describeMissingRaw } from '../../../runtime/file_guard.js'
 
 // runtime/file_guard.d.mts types describeMissingInput as string; the frozen
 // receipt shape is {given, opened, reason}, so keep the runtime truth local.
-const describeMissingInput = describeMissingRaw as unknown as (a: unknown, b?: boolean) => { given: boolean, opened: boolean, reason: string }
+const describeMissingInput = describeMissingRaw as unknown as (
+  a: unknown,
+  b?: boolean,
+) => { given: boolean; opened: boolean; reason: string }
 import { headlessScriptName } from '../../../runtime/staging.js'
 import { pkgPath } from '../../helpers/pkg'
 
@@ -16,7 +23,12 @@ import { pkgPath } from '../../helpers/pkg'
 // mistake and the receipt must stay distinguishable.
 
 const throwsWith = (fn: () => unknown): string => {
-  try { fn(); return '<no-throw>' } catch (error: any) { return error && error.code ? error.code : 'plain:' + String(error && error.message) }
+  try {
+    fn()
+    return '<no-throw>'
+  } catch (error: any) {
+    return error && error.code ? error.code : 'plain:' + String(error && error.message)
+  }
 }
 
 describe('headless file option guard', () => {
@@ -26,7 +38,11 @@ describe('headless file option guard', () => {
     expect(throwsWith(() => validateFileOpt(123))).toBe('file-type')
     expect(throwsWith(() => validateFileOpt({ path: 'x.blend' }))).toBe('file-type')
     expect(throwsWith(() => validateFileOpt(['a.blend', 'b.blend']))).toBe('file-type')
-    try { validateFileOpt('') } catch (error: any) { expect(String(error.hint)).toContain('file') }
+    try {
+      validateFileOpt('')
+    } catch (error: any) {
+      expect(String(error.hint)).toContain('file')
+    }
   })
 
   it('keeps legacy conveniences and passes paths through untouched', () => {
@@ -42,7 +58,8 @@ describe('headless file option guard', () => {
     expect(detectFileAlias({ script: 'x', file: 'a.blend' })).toEqual([])
     expect(detectFileAlias({ blend: 'a.blend' })).toEqual(['blend'])
     expect(detectFileAlias({ path: 'a', filepath: 'b' })).toHaveLength(2)
-    for (const key of ['blend', 'blendFile', 'path', 'filepath', 'blend_file', 'input']) expect(FILE_ALIAS_KEYS).toContain(key)
+    for (const key of ['blend', 'blendFile', 'path', 'filepath', 'blend_file', 'input'])
+      expect(FILE_ALIAS_KEYS).toContain(key)
     expect(detectFileAlias({ file: 'a.blend', blend: undefined })).toEqual([])
     expect(detectFileAlias({ blend: null, script: 'x' })).toEqual([])
   })
@@ -80,7 +97,7 @@ describe('headless file option guard', () => {
     const headless = fs.readFileSync(pkgPath('runtime', 'execution', 'headless.ts'), 'utf8')
     const headlessTool = fs.readFileSync(pkgPath('src', 'tools', 'headless.ts'), 'utf8')
     const jobTool = fs.readFileSync(pkgPath('src', 'tools', 'job.ts'), 'utf8')
-    expect(jobs).toContain('from "../file_guard.js"')
+    expect(jobs).toMatch(/from ['"]\.\.\/file_guard\.js['"]/)
     expect(jobs).toContain('validateFileOpt(opts.file)')
     expect(jobs).toContain('describeMissingInput')
     expect(jobs).toContain('noInputFileWarning')

@@ -34,14 +34,20 @@ function defaults(key, body) {
   if (key === 'POST /launch') return json({ ok: true, already: true })
   if (key === 'POST /act') return json({ ok: true, ms: 4, mainThreadMs: 2, stdout: 'fake stdout' })
   if (key === 'GET /frame.png') {
-    return { status: 200, headers: { 'content-type': 'image/png', 'cache-control': 'no-store' }, body: TINY_PNG }
+    return {
+      status: 200,
+      headers: { 'content-type': 'image/png', 'cache-control': 'no-store' },
+      body: TINY_PNG,
+    }
   }
   if (key === 'POST /view') {
     return {
       status: 200,
       headers: {
         'content-type': 'image/png',
-        'x-dsh-view': encodeURIComponent(JSON.stringify({ mode: 'viewport', width: 560, height: 315 })),
+        'x-dsh-view': encodeURIComponent(
+          JSON.stringify({ mode: 'viewport', width: 560, height: 315 }),
+        ),
       },
       body: TINY_PNG,
     }
@@ -62,32 +68,63 @@ function defaults(key, body) {
   if (key === 'POST /perf') return json({ ok: true, op: body.op, result: { op: body.op } })
   if (key === 'POST /opt') return json({ ok: true, op: body.op, result: { op: body.op } })
   if (key === 'POST /headless') {
-    return json({ ok: true, ms: 8, result: { status: 'done', resultJson: { fake: true }, shots: [] } })
+    return json({
+      ok: true,
+      ms: 8,
+      result: { status: 'done', resultJson: { fake: true }, shots: [] },
+    })
   }
-  if (key === 'POST /plan') return json({ ok: true, ms: 5, result: { ok: true, verdict: 'pass', summary: 'fake plan' } })
+  if (key === 'POST /plan')
+    return json({ ok: true, ms: 5, result: { ok: true, verdict: 'pass', summary: 'fake plan' } })
   if (key === 'POST /worker') {
     if (body.op === 'see') {
       return json({
         ok: true,
-        result: { ok: true, png_b64: TINY_PNG.toString('base64'), ms: 3, width: 1, height: 1, bytes: TINY_PNG.length },
+        result: {
+          ok: true,
+          png_b64: TINY_PNG.toString('base64'),
+          ms: 3,
+          width: 1,
+          height: 1,
+          bytes: TINY_PNG.length,
+        },
       })
     }
-    if (body.op === 'exec') return json({ ok: true, result: { ok: true, ms: 3, result: 'fake exec' } })
+    if (body.op === 'exec')
+      return json({ ok: true, result: { ok: true, ms: 3, result: 'fake exec' } })
     if (body.op === 'list') return json({ ok: true, result: { ok: true, workers: [] } })
-    return json({ ok: true, result: { ok: true, name: body.name || 'default', alive: true, ready: true, pid: 1, port: 1 } })
+    return json({
+      ok: true,
+      result: { ok: true, name: body.name || 'default', alive: true, ready: true, pid: 1, port: 1 },
+    })
   }
-  if (key === 'POST /txn') return json({ ok: true, result: { snapshots: [], marks: [], snapshot_dir: '/tmp/fake' } })
-  if (key === 'POST /preset') return json({ ok: true, result: { count: 0, presets: [], dir: '/tmp/fake' } })
+  if (key === 'POST /txn')
+    return json({ ok: true, result: { snapshots: [], marks: [], snapshot_dir: '/tmp/fake' } })
+  if (key === 'POST /preset')
+    return json({ ok: true, result: { count: 0, presets: [], dir: '/tmp/fake' } })
   if (key === 'POST /job') {
-    if (body.op === 'list') return json({ ok: true, jobs: [{ id: 'job-1', status: 'done', artifacts: [], ms: 7 }] })
-    if (body.op === 'start') return json({ ok: true, job: { id: 'job-1', pid: 1, logDir: '/tmp/fake', status: 'running' } })
-    return json({ ok: true, job: { id: 'job-1', status: 'done', resultJson: { ok: true }, artifacts: [] } })
+    if (body.op === 'list')
+      return json({ ok: true, jobs: [{ id: 'job-1', status: 'done', artifacts: [], ms: 7 }] })
+    if (body.op === 'start')
+      return json({
+        ok: true,
+        job: { id: 'job-1', pid: 1, logDir: '/tmp/fake', status: 'running' },
+      })
+    return json({
+      ok: true,
+      job: { id: 'job-1', status: 'done', resultJson: { ok: true }, artifacts: [] },
+    })
   }
-  if (key === 'GET /who') return json({ ok: true, lease: { active: false }, metrics: {}, stats: {} })
+  if (key === 'GET /who')
+    return json({ ok: true, lease: { active: false }, metrics: {}, stats: {} })
   if (key === 'POST /lease') {
-    return json({ ok: true, lease: { active: true, holder: body.holder, expiresInMs: 600000, renewals: 0 } })
+    return json({
+      ok: true,
+      lease: { active: true, holder: body.holder, expiresInMs: 600000, renewals: 0 },
+    })
   }
-  if (key === 'POST /release') return json({ ok: true, released: body.holder || null, lease: { active: false } })
+  if (key === 'POST /release')
+    return json({ ok: true, released: body.holder || null, lease: { active: false } })
   return json({ ok: true, fake: key, op: body && body.op })
 }
 
@@ -104,13 +141,19 @@ export async function startFakeBackend(options = {}) {
     for await (const chunk of req) chunks.push(chunk)
     const raw = Buffer.concat(chunks).toString('utf8')
     let body = {}
-    try { body = raw ? JSON.parse(raw) : {} } catch { body = { __raw: raw } }
+    try {
+      body = raw ? JSON.parse(raw) : {}
+    } catch {
+      body = { __raw: raw }
+    }
     requests.push({ method: req.method, path: url.pathname, search: url.search, body })
 
     if (hang.has(key)) return
     const handler = handlers.get(key)
     let out
-    try { out = handler ? await handler(body, req) : defaults(key, body) } catch (e) {
+    try {
+      out = handler ? await handler(body, req) : defaults(key, body)
+    } catch (e) {
       out = json({ ok: false, error: String((e && e.message) || e) }, 500)
     }
     if (out && out.hang) return
@@ -118,7 +161,10 @@ export async function startFakeBackend(options = {}) {
     res.writeHead(out.status || 200, out.headers || {})
     res.end(out.body === undefined ? Buffer.alloc(0) : out.body)
   })
-  server.on('connection', (s) => { sockets.add(s); s.on('close', () => sockets.delete(s)) })
+  server.on('connection', (s) => {
+    sockets.add(s)
+    s.on('close', () => sockets.delete(s))
+  })
 
   await new Promise((resolve, reject) => {
     server.once('error', reject)
@@ -132,9 +178,16 @@ export async function startFakeBackend(options = {}) {
     requests,
     handlers,
     hang,
-    setHandler(key, fn) { if (fn) handlers.set(key, fn); else handlers.delete(key) },
-    hangOn(key) { hang.add(key) },
-    unhang(key) { hang.delete(key) },
+    setHandler(key, fn) {
+      if (fn) handlers.set(key, fn)
+      else handlers.delete(key)
+    },
+    hangOn(key) {
+      hang.add(key)
+    },
+    unhang(key) {
+      hang.delete(key)
+    },
     async close() {
       for (const s of sockets) s.destroy()
       sockets.clear()

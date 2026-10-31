@@ -4,7 +4,9 @@ import { fileURLToPath } from 'node:url'
 
 export const BUNDLED_SKILL_PROVIDER = 'dsh-blender-plugin'
 export const BUNDLED_SKILL_RANK = 600
-export const BUNDLED_SKILL_DIR = fileURLToPath(new URL('../../skills/blender-modeling/', import.meta.url))
+export const BUNDLED_SKILL_DIR = fileURLToPath(
+  new URL('../../skills/blender-modeling/', import.meta.url),
+)
 let bundledSkillCache: { name: string; description: string; content: string } | null | undefined
 let bundledSkillWarned = false
 
@@ -19,7 +21,8 @@ export function parseSkillFrontmatter(raw: string): { meta: Record<string, strin
     if (kv) {
       key = kv[1]
       let v = kv[2].trim()
-      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1)
+      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'")))
+        v = v.slice(1, -1)
       meta[key] = v
       continue
     }
@@ -62,7 +65,7 @@ export function createBundledSkillProvider(): any | null {
     rank: BUNDLED_SKILL_RANK,
     resourceBase,
     path: skillFile,
-    locator: skillFile
+    locator: skillFile,
   }
   return {
     name: BUNDLED_SKILL_PROVIDER,
@@ -78,8 +81,8 @@ export function createBundledSkillProvider(): any | null {
       provider: BUNDLED_SKILL_PROVIDER,
       resourceBase,
       path: skillFile,
-      content: skill.content
-    })
+      content: skill.content,
+    }),
   }
 }
 
@@ -94,7 +97,9 @@ export function registerBundledSkill(ctx: any): void {
     if (!bundledSkillWarned) {
       bundledSkillWarned = true
       try {
-        ctx?.logger?.warn?.('bundled skill 未注册：skills/blender-modeling/SKILL.md 缺失或 frontmatter 不合法（不影响工具面）')
+        ctx?.logger?.warn?.(
+          'bundled skill 未注册：skills/blender-modeling/SKILL.md 缺失或 frontmatter 不合法（不影响工具面）',
+        )
       } catch (e: any) {}
     }
     return
@@ -104,7 +109,9 @@ export function registerBundledSkill(ctx: any): void {
       c.skills.registerProvider(() => provider)
     } catch (e: any) {
       try {
-        ctx?.logger?.warn?.('bundled skill 注册失败：' + String((e && e.message) || e) + '（不影响工具面）')
+        ctx?.logger?.warn?.(
+          'bundled skill 注册失败：' + String((e && e.message) || e) + '（不影响工具面）',
+        )
       } catch (e2: any) {}
     }
   }
@@ -113,7 +120,9 @@ export function registerBundledSkill(ctx: any): void {
     else if (ctx?.skills && typeof ctx.skills.registerProvider === 'function') mount(ctx)
   } catch (e: any) {
     try {
-      ctx?.logger?.warn?.('bundled skill 挂载失败：' + String((e && e.message) || e) + '（不影响工具面）')
+      ctx?.logger?.warn?.(
+        'bundled skill 挂载失败：' + String((e && e.message) || e) + '（不影响工具面）',
+      )
     } catch (e2: any) {}
   }
 }

@@ -19,30 +19,59 @@ export function registerWorker(ctx: any, port: number): void {
             '同一 session 的场景与 K 跨调用保留；空闲 TTL 默认 15 min（DSH_WORKER_TTL_MS 可调）。' +
             '串行、无窗口：依赖 GUI 的 bpy.ops 可能失败；参数细节见 blender_rt_plan(op="catalog", args={tool:"rt_worker"})。',
           parameters: {
-            op: { type: 'string', required: true, description: 'start | exec | see | reset | status | stop | restart | list' },
-            name: { type: 'string', description: '实例名（默认 default）；起多个热会话做批量小活，脏了用 restart 换新会话' },
-            code: { type: 'string', description: 'op=exec 的 Python 源码（预置 K/bpy/math/mathutils/Vector）' },
-            timeout_ms: { type: 'integer', description: 'op=exec 的响应超时，默认 120000；长代码调大' },
-            preload: { type: 'string', description: 'op=start 时预载模块（逗号分隔，如 "audit,qc,runner"）；preload 失败 start 直接报错' },
+            op: {
+              type: 'string',
+              required: true,
+              description: 'start | exec | see | reset | status | stop | restart | list',
+            },
+            name: {
+              type: 'string',
+              description:
+                '实例名（默认 default）；起多个热会话做批量小活，脏了用 restart 换新会话',
+            },
+            code: {
+              type: 'string',
+              description: 'op=exec 的 Python 源码（预置 K/bpy/math/mathutils/Vector）',
+            },
+            timeout_ms: {
+              type: 'integer',
+              description: 'op=exec 的响应超时，默认 120000；长代码调大',
+            },
+            preload: {
+              type: 'string',
+              description:
+                'op=start 时预载模块（逗号分隔，如 "audit,qc,runner"）；preload 失败 start 直接报错',
+            },
             warmup: { type: 'boolean', description: 'op=start 预热渲染器（默认 true）' },
             from: { type: 'string', description: 'op=see 相机位置 "x,y,z"' },
             look_at: { type: 'string', description: 'op=see 看向点 "x,y,z"' },
             lens: { type: 'number', description: 'op=see 焦距 mm' },
             ortho: { type: 'boolean', description: 'op=see 正交投影' },
             view_size: { type: 'string', description: 'op=see 分辨率 "宽x高"' },
-            gpu: { type: 'string', description: 'op=start 的 GPU 语义（仅 cycles）：auto / true / false' },
-            engine: { type: 'string', description: 'op=start 的渲染引擎：eevee（默认）/ cycles / workbench / keep' },
+            gpu: {
+              type: 'string',
+              description: 'op=start 的 GPU 语义（仅 cycles）：auto / true / false',
+            },
+            engine: {
+              type: 'string',
+              description: 'op=start 的渲染引擎：eevee（默认）/ cycles / workbench / keep',
+            },
             purge_prefix: {
               type: 'string',
-              description: 'op=exec 前清掉的模块前缀（逗号分隔）—— 改了用户模块必须清，否则 import 命中旧代码'
-            }
+              description:
+                'op=exec 前清掉的模块前缀（逗号分隔）—— 改了用户模块必须清，否则 import 命中旧代码',
+            },
           },
           output: { schema: ANY_SCHEMA, render: renderOne },
           isConcurrencySafe: () => false,
           timeoutMs: T.worker,
           async execute(args: any) {
             if (!(await ensureBackend(port)))
-              return toolError('backend_unreachable', '后端不可用（127.0.0.1:' + String(port) + '）', BACKEND_HINT)
+              return toolError(
+                'backend_unreachable',
+                '后端不可用（127.0.0.1:' + String(port) + '）',
+                BACKEND_HINT,
+              )
             const op = String((args && args.op) || 'status')
             const body: any = { op: op, isolated: true }
             if (args && args.code !== undefined) body.code = String(args.code)
@@ -61,10 +90,11 @@ export function registerWorker(ctx: any, port: number): void {
                 look_at: numTriple(args && args.look_at) || [0, 0, 1],
                 lens: args && args.lens !== undefined ? Number(args.lens) : undefined,
                 ortho: args && args.ortho !== undefined ? !!args.ortho : undefined,
-                ortho_scale: args && args.ortho_scale !== undefined ? Number(args.ortho_scale) : undefined,
+                ortho_scale:
+                  args && args.ortho_scale !== undefined ? Number(args.ortho_scale) : undefined,
                 shading: (args && args.shading) || undefined,
                 width: mm ? Number(mm[1]) : 560,
-                height: mm ? Number(mm[2]) : 315
+                height: mm ? Number(mm[2]) : 315,
               }
             }
             const budget = 60000 + Number(body.timeoutMs || 120000)
@@ -74,15 +104,24 @@ export function registerWorker(ctx: any, port: number): void {
             if (!r || r.ok !== true) {
               const rr: any = (r && r.result) || {}
               const bits: string[] = []
-              bits.push('WORKER ' + op + ' 失败 · ' + String((r && (r.error || rr.error)) || 'unknown'))
-              if (rr.traceback) bits.push('--- traceback ---' + String.fromCharCode(10) + redactSecrets(rr.traceback).slice(0, 2000))
-              if (rr.stderr && String(rr.stderr).trim()) bits.push('stderr: ' + redactSecrets(rr.stderr).slice(0, 1200))
-              if (rr.stdout && String(rr.stdout).trim()) bits.push('stdout: ' + redactSecrets(rr.stdout).slice(0, 800))
+              bits.push(
+                'WORKER ' + op + ' 失败 · ' + String((r && (r.error || rr.error)) || 'unknown'),
+              )
+              if (rr.traceback)
+                bits.push(
+                  '--- traceback ---' +
+                    String.fromCharCode(10) +
+                    redactSecrets(rr.traceback).slice(0, 2000),
+                )
+              if (rr.stderr && String(rr.stderr).trim())
+                bits.push('stderr: ' + redactSecrets(rr.stderr).slice(0, 1200))
+              if (rr.stdout && String(rr.stdout).trim())
+                bits.push('stdout: ' + redactSecrets(rr.stdout).slice(0, 800))
               if (r && r.hint) bits.push(String(r.hint))
               return toolError(
                 'backend_error',
                 bits.join(String.fromCharCode(10)),
-                '检查后端 /worker 路由；先 blender_viewport op=doctor 看进程与端口'
+                '检查后端 /worker 路由；先 blender_viewport op=doctor 看进程与端口',
               )
             }
             const res = (r && r.result) || {}
@@ -92,7 +131,7 @@ export function registerWorker(ctx: any, port: number): void {
                   'backend_error',
                   'WORKER see 失败 · ' + String(res.error || 'unknown'),
                   '用 blender_rt_worker op=start 检查无头 worker；或改用 blender_rt_see',
-                  res.traceback ? redactSecrets(res.traceback).slice(-1200) : undefined
+                  res.traceback ? redactSecrets(res.traceback).slice(-1200) : undefined,
                 )
               let data: Uint8Array | null = null
               if (res.png_b64) {
@@ -103,7 +142,9 @@ export function registerWorker(ctx: any, port: number): void {
                 }
               }
               if (!data && res.path) data = readLocalPng(res.path)
-              const att = data ? await toAttachment(ctx, data, 'worker-see-' + String(Date.now()) + '.png') : { why: '没有 png_b64/path' }
+              const att = data
+                ? await toAttachment(ctx, data, 'worker-see-' + String(Date.now()) + '.png')
+                : { why: '没有 png_b64/path' }
               const text =
                 'WORKER see ok · ' +
                 String(res.ms) +
@@ -120,14 +161,20 @@ export function registerWorker(ctx: any, port: number): void {
                   : ' · 覆盖 ' + (Number(res.coverage_estimate) * 100).toFixed(2) + '%')
               return att.ref
                 ? { text: text, image: att.ref }
-                : { text: text + String.fromCharCode(10) + '⚠ 图片未回传：' + String(att.why || '未知原因') }
+                : {
+                    text:
+                      text +
+                      String.fromCharCode(10) +
+                      '⚠ 图片未回传：' +
+                      String(att.why || '未知原因'),
+                  }
             }
             if (op === 'reset') {
               if (!res.ok)
                 return toolError(
                   'backend_error',
                   'WORKER reset 失败 · ' + String(res.error || 'unknown'),
-                  '用 blender_rt_worker op=list 查看会话；必要时重新 op=start'
+                  '用 blender_rt_worker op=list 查看会话；必要时重新 op=start',
                 )
               return { text: 'WORKER reset ok · objects=' + String(res.objects) }
             }
@@ -137,13 +184,15 @@ export function registerWorker(ctx: any, port: number): void {
                   'backend_error',
                   'WORKER exec 失败 · ' + String(res.error || 'unknown'),
                   '用 blender_rt_worker op=start 检查会话；或改用 blender_rt_headless',
-                  res.traceback ? redactSecrets(res.traceback).slice(0, 1500) : undefined
+                  res.traceback ? redactSecrets(res.traceback).slice(0, 1500) : undefined,
                 )
               const parts: string[] = []
               parts.push('WORKER exec ok · ' + String(res.ms) + 'ms')
               if (res.result) parts.push('result: ' + JSON.stringify(res.result).slice(0, 2000))
-              if (res.stdout && String(res.stdout).trim()) parts.push('--- stdout ---\n' + redactSecrets(res.stdout).slice(-2500))
-              if (res.stderr && String(res.stderr).trim()) parts.push('--- stderr ---\n' + redactSecrets(res.stderr).slice(-1200))
+              if (res.stdout && String(res.stdout).trim())
+                parts.push('--- stdout ---\n' + redactSecrets(res.stdout).slice(-2500))
+              if (res.stderr && String(res.stderr).trim())
+                parts.push('--- stderr ---\n' + redactSecrets(res.stderr).slice(-1200))
               return { text: parts.join('\n') }
             }
             if (op === 'list') {
@@ -163,11 +212,16 @@ export function registerWorker(ctx: any, port: number): void {
                             String(Math.round(Number(w.uptimeMs || 0) / 1000)) +
                             's）'
                           : ' · 进程在但未就绪'
-                        : ' · 未启动（端口 ' + String(w.port) + '）')
+                        : ' · 未启动（端口 ' + String(w.port) + '）'),
                   )
                 : ['- （还没有任何 worker 实例；op=start 起一个）']
               return {
-                text: 'WORKER list ok · ' + String(ws.length) + ' 个实例' + String.fromCharCode(10) + lines.join(String.fromCharCode(10))
+                text:
+                  'WORKER list ok · ' +
+                  String(ws.length) +
+                  ' 个实例' +
+                  String.fromCharCode(10) +
+                  lines.join(String.fromCharCode(10)),
               }
             }
             const parts2: string[] = []
@@ -175,22 +229,32 @@ export function registerWorker(ctx: any, port: number): void {
               'WORKER ' +
                 op +
                 ' ok · ' +
-                JSON.stringify({ name: res.name, alive: res.alive, ready: res.ready, pid: res.pid, port: res.port, uptimeMs: res.uptimeMs })
+                JSON.stringify({
+                  name: res.name,
+                  alive: res.alive,
+                  ready: res.ready,
+                  pid: res.pid,
+                  port: res.port,
+                  uptimeMs: res.uptimeMs,
+                }),
             )
             if (res.gpu)
               parts2.push(
                 'GPU：' +
-                  (res.gpu.fell_back_to_cpu ? '⚠️ 回落 CPU' : '✅ ' + String((res.gpu.after || {}).device_type || '')) +
+                  (res.gpu.fell_back_to_cpu
+                    ? '⚠️ 回落 CPU'
+                    : '✅ ' + String((res.gpu.after || {}).device_type || '')) +
                   ' ' +
-                  String(((res.gpu.after || {}).gpu_enabled || []).join(','))
+                  String(((res.gpu.after || {}).gpu_enabled || []).join(',')),
               )
             if (res.status) parts2.push('status: ' + JSON.stringify(res.status))
             if (res.lastError) parts2.push('lastError: ' + String(res.lastError))
-            if (res.stdoutTail) parts2.push('worker stdout 尾：' + redactSecrets(res.stdoutTail).slice(-800))
+            if (res.stdoutTail)
+              parts2.push('worker stdout 尾：' + redactSecrets(res.stdoutTail).slice(-800))
             return { text: parts2.join('\n') }
-          }
-        })
+          },
+        }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-worker'
+    '@dsh-external/dsh-blender-plugin: rt-worker',
   )
 }

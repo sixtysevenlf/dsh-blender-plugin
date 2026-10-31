@@ -28,7 +28,8 @@ const scriptFile = path.resolve(PKG, args[0])
 const rest = args.slice(1)
 
 const cands = []
-if (process.env.DSH_PYTHON) cands.push({ cmd: process.env.DSH_PYTHON, pre: [], label: 'env DSH_PYTHON' })
+if (process.env.DSH_PYTHON)
+  cands.push({ cmd: process.env.DSH_PYTHON, pre: [], label: 'env DSH_PYTHON' })
 cands.push({ cmd: 'python3', pre: [], label: 'python3' })
 cands.push({ cmd: 'python', pre: [], label: 'python' })
 cands.push({ cmd: 'py', pre: ['-3'], label: 'py -3（Windows 启动器）' })
@@ -37,10 +38,25 @@ const tried = []
 for (const c of cands) {
   const probe = spawnSync(c.cmd, c.pre.concat(['-c', 'print(1)']), { encoding: 'utf8' })
   const ok = probe.status === 0 && String(probe.stdout).trim() === '1'
-  tried.push({ label: c.label, cmd: c.cmd, ok: ok, why: ok ? '可用' : (probe.error ? String(probe.error.message).slice(0, 80) : '退出码 ' + String(probe.status)) })
+  tried.push({
+    label: c.label,
+    cmd: c.cmd,
+    ok: ok,
+    why: ok
+      ? '可用'
+      : probe.error
+        ? String(probe.error.message).slice(0, 80)
+        : '退出码 ' + String(probe.status),
+  })
   if (!ok) continue
-  const r = spawnSync(c.cmd, c.pre.concat([scriptFile]).concat(rest), { stdio: 'inherit', cwd: PKG })
-  if (r.error) { console.error('pyrun: 执行失败：' + String(r.error.message || r.error)); process.exit(2) }
+  const r = spawnSync(c.cmd, c.pre.concat([scriptFile]).concat(rest), {
+    stdio: 'inherit',
+    cwd: PKG,
+  })
+  if (r.error) {
+    console.error('pyrun: 执行失败：' + String(r.error.message || r.error))
+    process.exit(2)
+  }
   process.exit(typeof r.status === 'number' ? r.status : 1)
 }
 

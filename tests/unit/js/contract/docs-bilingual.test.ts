@@ -53,13 +53,20 @@ describe('human entry cross-links', () => {
   it('keeps both language versions structurally paired', () => {
     expect(sectionHeadings(ZH_README).length).toBe(sectionHeadings(README).length)
     expect(sectionHeadings(ZH_CONTRIBUTING).length).toBe(sectionHeadings(CONTRIBUTING).length)
-    expect(lineCount(ZH_CONTRIBUTING)).toBeGreaterThanOrEqual(Math.floor(lineCount(CONTRIBUTING) * 0.7))
+    expect(lineCount(ZH_CONTRIBUTING)).toBeGreaterThanOrEqual(
+      Math.floor(lineCount(CONTRIBUTING) * 0.7),
+    )
     expect(lineCount(ZH_CONTRIBUTING)).toBeGreaterThan(60)
     expect(lineCount(ZH_README)).toBeGreaterThan(150)
   })
 
   it('has no broken relative link in any human entry', () => {
-    for (const path of ['README.md', 'docs/zh/README.md', 'CONTRIBUTING.md', 'docs/zh/CONTRIBUTING.md']) {
+    for (const path of [
+      'README.md',
+      'docs/zh/README.md',
+      'CONTRIBUTING.md',
+      'docs/zh/CONTRIBUTING.md',
+    ]) {
       expect(brokenRelativeLinks(path), path + ' has broken links').toEqual([])
     }
   })
@@ -90,8 +97,17 @@ describe('no duplicate or stale Chinese documentation', () => {
   })
 
   it('does not mention tools that were removed', () => {
-    for (const path of ['README.md', 'docs/zh/README.md', 'CONTRIBUTING.md', 'docs/zh/CONTRIBUTING.md', 'AGENTS.md', 'tests/README.md']) {
-      expect(readText(path), path + ' must not cite a deleted tool').not.toContain('blender_rt_pick')
+    for (const path of [
+      'README.md',
+      'docs/zh/README.md',
+      'CONTRIBUTING.md',
+      'docs/zh/CONTRIBUTING.md',
+      'AGENTS.md',
+      'tests/README.md',
+    ]) {
+      expect(readText(path), path + ' must not cite a deleted tool').not.toContain(
+        'blender_rt_pick',
+      )
     }
   })
 
@@ -99,7 +115,9 @@ describe('no duplicate or stale Chinese documentation', () => {
     for (const path of ['CLAUDE.md', 'docs/engineering-principles.md']) {
       expect(fs.existsSync(repoPath(path)), path + ' must stay deleted').toBe(false)
     }
-    expect(fs.existsSync(repoPath('docs/refactor')), 'docs/refactor must stay local-only').toBe(false)
+    expect(fs.existsSync(repoPath('docs/refactor')), 'docs/refactor must stay local-only').toBe(
+      false,
+    )
   })
 })
 

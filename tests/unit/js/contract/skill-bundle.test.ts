@@ -29,16 +29,23 @@ describe('bundled skill asset tree', () => {
   })
 
   it('ships references, LICENSE, NOTICE and README without temp files', () => {
-    for (const file of ['modeling-overview.md', 'multiview-calibration.md', '参考图通用还原SOP.md', '验收清单.md']) {
+    for (const file of [
+      'modeling-overview.md',
+      'multiview-calibration.md',
+      '参考图通用还原SOP.md',
+      '验收清单.md',
+    ]) {
       expect(fs.existsSync(path.join(SKILL_DIR, 'references', file)), file).toBe(true)
     }
-    for (const file of ['LICENSE', 'NOTICE.md', 'README.md']) expect(fs.existsSync(path.join(SKILL_DIR, file)), file).toBe(true)
+    for (const file of ['LICENSE', 'NOTICE.md', 'README.md'])
+      expect(fs.existsSync(path.join(SKILL_DIR, file)), file).toBe(true)
     const bad: string[] = []
     const walk = (dir: string) => {
       for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         const full = path.join(dir, entry.name)
         if (entry.isDirectory()) walk(full)
-        else if (/\.(bak|tmp|orig)$|\.bak-|~$/.test(entry.name)) bad.push(path.relative(pkgPath(), full))
+        else if (/\.(bak|tmp|orig)$|\.bak-|~$/.test(entry.name))
+          bad.push(path.relative(pkgPath(), full))
       }
     }
     walk(SKILL_DIR)
@@ -93,11 +100,19 @@ describe('bundled skill provider', () => {
 
   it('parses frontmatter edge cases', () => {
     const pf = bs.parseFrontmatter
-    expect(pf('---\nname: demo-skill\ndescription: "a quoted line"\n---\nbody\n').meta.name).toBe('demo-skill')
-    expect(pf('---\nname: demo-skill\ndescription: "a quoted line"\n---\nbody\n').meta.description).toBe('a quoted line')
-    expect(pf('---\nname: demo-skill\ndescription: "a quoted line"\n---\nbody\n').body).toBe('body\n')
+    expect(pf('---\nname: demo-skill\ndescription: "a quoted line"\n---\nbody\n').meta.name).toBe(
+      'demo-skill',
+    )
+    expect(
+      pf('---\nname: demo-skill\ndescription: "a quoted line"\n---\nbody\n').meta.description,
+    ).toBe('a quoted line')
+    expect(pf('---\nname: demo-skill\ndescription: "a quoted line"\n---\nbody\n').body).toBe(
+      'body\n',
+    )
     expect(pf("---\nname: x\ndescription: 'single'\n---\n").meta.description).toBe('single')
-    expect(pf('---\nname: x\ndescription: line one\n  line two\n---\nx').meta.description).toBe('line one line two')
+    expect(pf('---\nname: x\ndescription: line one\n  line two\n---\nx').meta.description).toBe(
+      'line one line two',
+    )
     expect(pf('no frontmatter here')).toMatchObject({ body: 'no frontmatter here' })
   })
 
@@ -108,7 +123,13 @@ describe('bundled skill provider', () => {
       logger: { warn() {} },
       inject(deps: string[], cb: (scope: any) => void) {
         injected = deps
-        cb({ skills: { registerProvider(factory: (ctx: any) => any) { registered = factory({}) } } })
+        cb({
+          skills: {
+            registerProvider(factory: (ctx: any) => any) {
+              registered = factory({})
+            },
+          },
+        })
       },
     }
     expect(() => bs.register(fakeCtx)).not.toThrow()
@@ -117,7 +138,16 @@ describe('bundled skill provider', () => {
     expect(await registered.list({ cwd: pkgPath() })).toHaveLength(1)
 
     let direct: any = null
-    expect(() => bs.register({ skills: { registerProvider(factory: (ctx: any) => any) { direct = factory({}) } }, logger: { warn() {} } })).not.toThrow()
+    expect(() =>
+      bs.register({
+        skills: {
+          registerProvider(factory: (ctx: any) => any) {
+            direct = factory({})
+          },
+        },
+        logger: { warn() {} },
+      }),
+    ).not.toThrow()
     expect(direct.name).toBe(bs.provider)
     expect(() => bs.register({ logger: { warn() {} } })).not.toThrow()
   })

@@ -20,22 +20,34 @@ export function registerCommands(ctx: any, port: number): void {
           timeoutMs: T.commands,
           async execute() {
             if (!(await ensureBackend(port)))
-              return toolError('backend_unreachable', '后端不可用（127.0.0.1:' + String(port) + '）', BACKEND_HINT)
+              return toolError(
+                'backend_unreachable',
+                '后端不可用（127.0.0.1:' + String(port) + '）',
+                BACKEND_HINT,
+              )
             const r = await backendJson(port, '/commands', 120000)
             if (!r || r.ok !== true)
               return toolError(
                 'backend_error',
                 'COMMANDS 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
-                '先 blender_viewport op=status 确认后端与 addon'
+                '先 blender_viewport op=status 确认后端与 addon',
               )
             const lines: string[] = []
-            lines.push('场景 ' + String(r.scene) + (r.file ? ' · 文件 ' + String(r.file) : ' · 未保存文件'))
-            lines.push('可用命令 ' + String(r.total) + ' 条；被集成开关挡住 ' + String((r.disabled || []).length) + ' 条')
+            lines.push(
+              '场景 ' + String(r.scene) + (r.file ? ' · 文件 ' + String(r.file) : ' · 未保存文件'),
+            )
+            lines.push(
+              '可用命令 ' +
+                String(r.total) +
+                ' 条；被集成开关挡住 ' +
+                String((r.disabled || []).length) +
+                ' 条',
+            )
             lines.push(
               '集成：' +
                 Object.keys(r.integrations || {})
                   .map((k: string) => k + '=' + (r.integrations[k].enabled ? 'on' : 'off'))
-                  .join(' · ')
+                  .join(' · '),
             )
             for (const k of Object.keys(r.integrations || {})) {
               const it = r.integrations[k]
@@ -44,9 +56,9 @@ export function registerCommands(ctx: any, port: number): void {
             if ((r.disabled || []).length) lines.push('被挡住：' + r.disabled.join(', '))
             lines.push('可用：' + (r.available || []).join(', '))
             return { text: lines.join('\n') }
-          }
-        })
+          },
+        }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-commands'
+    '@dsh-external/dsh-blender-plugin: rt-commands',
   )
 }

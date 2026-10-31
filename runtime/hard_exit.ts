@@ -17,16 +17,16 @@
 
 /** done 之后的硬退出 Python 行（顺序即契约：先冲刷、后 _exit —— 反过来就是丢输出）。 */
 export function hardExitJobParts(opts?: { hardExit?: boolean }): string[] {
-  if (opts && opts.hardExit === false) return [];
+  if (opts && opts.hardExit === false) return []
   return [
     'import sys as _dsh_sys',
     '_dsh_sys.stdout.flush(); _dsh_sys.stderr.flush()',
     'import os as _dsh_os; _dsh_os._exit(0)',
-  ];
+  ]
 }
 
 /** 同步路径的字符串拼接形态：前导 NL + 三行；关闭时返回空串（body 一字不动）。 */
 export function hardExitSyncTail(opts: { hardExit?: boolean } | undefined, NL: string): string {
-  const parts = hardExitJobParts(opts);
-  return parts.length ? (NL + parts.join(NL)) : '';
+  const parts = hardExitJobParts(opts)
+  return parts.length ? NL + parts.join(NL) : ''
 }

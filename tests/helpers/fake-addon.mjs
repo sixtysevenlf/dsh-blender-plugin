@@ -12,7 +12,10 @@ const DEFAULT_DELAY_MS = 250
 function defaultBehavior(type, params) {
   if (type === 'ping') return { status: 'success', result: { pong: true, server: 'fake-addon' } }
   if (type === 'get_addon_info') {
-    return { status: 'success', result: { name: 'DSH Blender Bridge', version: '1.8.0', protocol: 11, paused: false } }
+    return {
+      status: 'success',
+      result: { name: 'DSH Blender Bridge', version: '1.8.0', protocol: 11, paused: false },
+    }
   }
   if (type === 'fail') return { status: 'error', message: 'fake addon failure' }
   if (type === 'paused') return { status: 'error', message: 'AI 操作已暂停（fake addon）' }

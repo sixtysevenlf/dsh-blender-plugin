@@ -94,7 +94,8 @@ def _load_catalog():
     match = re.search(r"export const COMMAND_CATALOG\b[^\n]*=\s*\{", source)
     assert match, "COMMAND_CATALOG export not found in " + str(CATALOG_PATH)
     start = match.start()
-    block = source[start:source.index("\n};", start)]
+    # Prettier may drop the trailing semicolon after the object literal.
+    block = source[start : source.index("\n}", start)]
     entries = {}
     for match in re.finditer(r"^\s{2}([a-z0-9_]+):\s*\{([^}]*)\},?\s*$", block, re.MULTILINE):
         name, body = match.group(1), match.group(2)

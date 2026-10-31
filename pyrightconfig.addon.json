@@ -17,9 +17,7 @@
     "addon/dsh_blender_bridge/commands/activity.py",
     "addon/dsh_blender_bridge/commands/telemetry.py"
   ],
-  "exclude": [
-    "**/__pycache__"
-  ],
+  "exclude": ["**/__pycache__"],
   "typeCheckingMode": "basic",
   "reportMissingModuleSource": "none",
   "reportMissingTypeStubs": false

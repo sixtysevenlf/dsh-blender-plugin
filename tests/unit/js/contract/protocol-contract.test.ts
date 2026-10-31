@@ -9,13 +9,22 @@ describe('flat addon protocol', () => {
     const plan = PROTOCOLS.flat.plan('get_scene_info', { depth: 1 })
     expect(plan.wire).toEqual({ type: 'get_scene_info', params: { depth: 1 } })
     expect(PROTOCOLS.flat.encode(plan.wire)).toBe('{"type":"get_scene_info","params":{"depth":1}}')
-    expect(PROTOCOLS.flat.decode('{"status":"success","result":{"objects":[]}}')).toEqual({ ok: true, data: { objects: [] } })
+    expect(PROTOCOLS.flat.decode('{"status":"success","result":{"objects":[]}}')).toEqual({
+      ok: true,
+      data: { objects: [] },
+    })
     expect(PROTOCOLS.flat.decode('{"status":"success"}')).toEqual({ ok: true, data: {} })
   })
 
   it('maps error envelopes to {ok:false,message} without throwing', () => {
-    expect(PROTOCOLS.flat.decode('{"status":"error"}')).toEqual({ ok: false, message: 'addon error' })
-    expect(PROTOCOLS.flat.decode('{"status":"error","message":"boom"}')).toEqual({ ok: false, message: 'boom' })
+    expect(PROTOCOLS.flat.decode('{"status":"error"}')).toEqual({
+      ok: false,
+      message: 'addon error',
+    })
+    expect(PROTOCOLS.flat.decode('{"status":"error","message":"boom"}')).toEqual({
+      ok: false,
+      message: 'boom',
+    })
   })
 
   it('defaults plan params and returns null when no addon listens', async () => {
@@ -53,8 +62,12 @@ describe('flat protocol transport behavior', () => {
     let rejected: unknown
     client.pending = {
       proto: PROTOCOLS.flat,
-      resolve: (v: unknown) => { settled = v },
-      reject: (e: unknown) => { rejected = e },
+      resolve: (v: unknown) => {
+        settled = v
+      },
+      reject: (e: unknown) => {
+        rejected = e
+      },
       timer: setTimeout(() => {}, 1000),
       post: undefined,
     }
@@ -82,9 +95,10 @@ describe('flat protocol transport behavior', () => {
 
   it('lets the client decide on protocol mismatch instead of hard-gating', async () => {
     const old = await startFakeAddon({
-      behavior: (type: string) => type === 'get_addon_info'
-        ? { status: 'success', result: { protocol: 10, name: 'old' } }
-        : { status: 'success', result: { pong: true } },
+      behavior: (type: string) =>
+        type === 'get_addon_info'
+          ? { status: 'success', result: { protocol: 10, name: 'old' } }
+          : { status: 'success', result: { pong: true } },
     })
     const c = new AddonClient({ host: '127.0.0.1', port: old.port })
     try {

@@ -13,5 +13,6 @@ export function ensureBuild(): void {
     stdio: 'inherit',
     env: process.env,
   })
-  if (result.status !== 0) throw new Error('ensure-build failed with exit code ' + String(result.status))
+  if (result.status !== 0)
+    throw new Error('ensure-build failed with exit code ' + String(result.status))
 }

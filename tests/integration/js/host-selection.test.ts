@@ -1,4 +1,3 @@
-
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { startBackend, type Backend } from '../../helpers/backend'
 
@@ -8,8 +7,12 @@ import { startBackend, type Backend } from '../../helpers/backend'
 
 let backend: Backend
 
-beforeAll(async () => { backend = await startBackend() })
-afterAll(async () => { await backend.stop() })
+beforeAll(async () => {
+  backend = await startBackend()
+})
+afterAll(async () => {
+  await backend.stop()
+})
 
 const ORIGIN = 'http://127.0.0.1:3080'
 const marker = {
@@ -34,23 +37,37 @@ const marker = {
 describe('host selection flow', () => {
   it('serves CORS preflight and echoes only allowed origins', async () => {
     const preflight = await fetch(backend.base + '/host/selection', {
-      method: 'OPTIONS', headers: { origin: ORIGIN, 'access-control-request-method': 'POST' },
+      method: 'OPTIONS',
+      headers: { origin: ORIGIN, 'access-control-request-method': 'POST' },
     })
     expect(preflight.status).toBe(204)
     expect(await preflight.text()).toBe('')
     expect(preflight.headers.get('access-control-allow-origin')).toBe(ORIGIN)
-    expect(String(preflight.headers.get('access-control-allow-methods')).split(',').map((m) => m.trim())).toEqual(['GET', 'POST', 'OPTIONS'])
+    expect(
+      String(preflight.headers.get('access-control-allow-methods'))
+        .split(',')
+        .map((m) => m.trim()),
+    ).toEqual(['GET', 'POST', 'OPTIONS'])
 
     const app = await fetch(backend.base + '/host/state', { headers: { origin: 'dsh-app://app' } })
     expect(app.headers.get('access-control-allow-origin')).toBe('dsh-app://app')
 
-    const evil = await fetch(backend.base + '/host/state', { headers: { origin: 'http://evil.example' } })
+    const evil = await fetch(backend.base + '/host/state', {
+      headers: { origin: 'http://evil.example' },
+    })
     expect(evil.headers.get('access-control-allow-origin')).toBeNull()
   })
 
   it('404s the removed viewer and pane routes', async () => {
-    for (const route of ['/host/view/latest', '/host/view.png', '/host/view/capture', '/host/view/pick',
-      '/host/pick/request', '/host/pick/result', '/host/ready']) {
+    for (const route of [
+      '/host/view/latest',
+      '/host/view.png',
+      '/host/view/capture',
+      '/host/view/pick',
+      '/host/pick/request',
+      '/host/pick/result',
+      '/host/ready',
+    ]) {
       const response = await backend.get(route)
       expect(response.status, route).toBe(404)
       expect(response.json.ok).toBe(false)
@@ -74,7 +91,11 @@ describe('host selection flow', () => {
   })
 
   it('consumes the selection and hides it afterwards', async () => {
-    const consumed = await backend.post('/host/selection/consume', { seq: 1, ok: true, how: 'actions' })
+    const consumed = await backend.post('/host/selection/consume', {
+      seq: 1,
+      ok: true,
+      how: 'actions',
+    })
     expect(consumed.status).toBe(200)
     expect(consumed.json.ok).toBe(true)
     expect(consumed.json.consumed_seq).toBe(1)
@@ -91,14 +112,18 @@ describe('host selection flow', () => {
     expect(zero.json.error).toBe('invalid_seq')
 
     const invalid = await fetch(backend.base + '/host/selection', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify([1, 2]),
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify([1, 2]),
     })
     expect(invalid.status).toBe(400)
-    const invalidBody = await invalid.json() as { error: string }
+    const invalidBody = (await invalid.json()) as { error: string }
     expect(invalidBody.error).toBe('invalid_payload')
 
     const malformed = await fetch(backend.base + '/host/selection', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: '{not json',
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{not json',
     })
     expect(malformed.status).toBe(400)
   })

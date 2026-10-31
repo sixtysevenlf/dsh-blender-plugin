@@ -8,7 +8,16 @@ import { HOLDER, PLUGIN_VERSION } from './constants.js'
 import { z, schemaResolve } from './contracts/tool.js'
 import { losslessSanitize } from './contracts/lossless.js'
 import { backendPost } from './host/http.js'
-import { ensureBackend, isPaused, killBackendByCmd, killChildHandle, probe, resolveHttpPort, sleep, startBackend } from './host/backend.js'
+import {
+  ensureBackend,
+  isPaused,
+  killBackendByCmd,
+  killChildHandle,
+  probe,
+  resolveHttpPort,
+  sleep,
+  startBackend,
+} from './host/backend.js'
 import { registerSchemaDiagnostic } from './tools/schema-diagnostic.js'
 import { registerTools } from './tools/index.js'
 import { errorLine, redactSecrets, toolError } from './tools/errors.js'
@@ -19,11 +28,16 @@ import {
   createBundledSkillProvider,
   parseSkillFrontmatter,
   readBundledSkill,
-  registerBundledSkill
+  registerBundledSkill,
 } from './host/skill.js'
 import { registerTuiHost } from './tui-host.js'
 import { frameDedupe, resetFrameCache } from './utils/frame-cache.js'
-import { HEADLESS_WAIT_MS, headlessReceipt, promotedReceipt, receiptEnvelope } from './headless/receipts.js'
+import {
+  HEADLESS_WAIT_MS,
+  headlessReceipt,
+  promotedReceipt,
+  receiptEnvelope,
+} from './headless/receipts.js'
 import { CARD_SPECS, cardPresenters } from './ui/cards.js'
 
 export const name = '@dsh-external/dsh-blender-plugin'
@@ -41,7 +55,7 @@ export const Config = z
   ? z.object({
       port: z.natural().default(resolveHttpPort()),
       autoStart: z.boolean().default(true),
-      tui: z.boolean().default(true)
+      tui: z.boolean().default(true),
     })
   : undefined
 
@@ -58,7 +72,10 @@ export function apply(ctx: any, config: Config): void {
 
   // 防御性读配置：schema 正常时宿主会补默认值，但降级/宿主差异都不该让这里再抛。
   const cfgIn: any = config && typeof config === 'object' ? config : {}
-  const port = Number.isFinite(Number(cfgIn.port)) && Number(cfgIn.port) > 0 ? Number(cfgIn.port) : resolveHttpPort()
+  const port =
+    Number.isFinite(Number(cfgIn.port)) && Number(cfgIn.port) > 0
+      ? Number(cfgIn.port)
+      : resolveHttpPort()
   const autoStart = cfgIn.autoStart === undefined ? true : !!cfgIn.autoStart
 
   // v2.6.1：dsh-TUI 宿主半边（契约 v2.3 增补 §S6）。各块按接缝是否存在启用；Web / headless 上什么都不做。
@@ -119,7 +136,7 @@ export function apply(ctx: any, config: Config): void {
     () => () => {
       killChildHandle()
     },
-    '@dsh-external/dsh-blender-plugin: backend'
+    '@dsh-external/dsh-blender-plugin: backend',
   )
 
   // ---------- 工具面：15 个工具按 v2.6.2 原顺序注册（各工具的 ctx.effect 键不变） ----------
@@ -154,7 +171,7 @@ export const __internals = {
     read: readBundledSkill,
     createProvider: createBundledSkillProvider,
     register: registerBundledSkill,
-    parseFrontmatter: parseSkillFrontmatter
+    parseFrontmatter: parseSkillFrontmatter,
   },
-  cards: { specs: CARD_SPECS, presenters: cardPresenters }
+  cards: { specs: CARD_SPECS, presenters: cardPresenters },
 }

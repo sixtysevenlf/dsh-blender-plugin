@@ -10,17 +10,17 @@
  *  - tests/unit/js/headless-file-guard.test.ts（离线单测，不需要 Blender / 后端）
  */
 
-import fs from 'node:fs';
+import fs from 'node:fs'
 
 /** file= 的常见误用参数名。工具端见到这些键存在（≠undefined）就必须明确报错，
  *  而不是静默当成"没传"——静默丢参数正是 F-09 签名之一（blend=<好路径> → 空场景 ok=true）。 */
-export const FILE_ALIAS_KEYS = ['blend', 'blendFile', 'path', 'filepath', 'blend_file', 'input'];
+export const FILE_ALIAS_KEYS = ['blend', 'blendFile', 'path', 'filepath', 'blend_file', 'input']
 
 /** 返回 args 里出现过的 file= 别名键（用于报错文案点出"正名是 file"）。 */
 export function detectFileAlias(args: unknown): string[] {
-  if (!args || typeof args !== 'object') return [];
-  const rec = args as Record<string, unknown>;
-  return FILE_ALIAS_KEYS.filter((k) => rec[k] !== undefined && rec[k] !== null);
+  if (!args || typeof args !== 'object') return []
+  const rec = args as Record<string, unknown>
+  return FILE_ALIAS_KEYS.filter((k) => rec[k] !== undefined && rec[k] !== null)
 }
 
 /**
@@ -32,36 +32,43 @@ export function detectFileAlias(args: unknown): string[] {
  *    现在提前一步给出可读错误，错误路径不变式：ok=false）
  */
 export function validateFileOpt(raw: unknown): string | undefined {
-  if (raw === undefined || raw === null) return undefined;
-  let v = raw;
-  if (Array.isArray(v) && v.length === 1 && typeof v[0] === 'string') v = v[0];
+  if (raw === undefined || raw === null) return undefined
+  let v = raw
+  if (Array.isArray(v) && v.length === 1 && typeof v[0] === 'string') v = v[0]
   if (typeof v !== 'string') {
-    throw Object.assign(new Error('file= 必须是字符串路径，收到 ' + (Array.isArray(v) ? 'array' : typeof v)), {
-      code: 'file-type',
-      hint: '例：file="D:\\x\\y.blend"；要跑 .py 脚本请用 script_file=（file= 是 .blend）',
-    });
+    throw Object.assign(
+      new Error('file= 必须是字符串路径，收到 ' + (Array.isArray(v) ? 'array' : typeof v)),
+      {
+        code: 'file-type',
+        hint: '例：file="D:\\x\\y.blend"；要跑 .py 脚本请用 script_file=（file= 是 .blend）',
+      },
+    )
   }
   if (!v.trim()) {
-    throw Object.assign(new Error('file= 传了空字符串 —— 本次不会打开任何 .blend（脚本会拿到出厂空场景）'), {
-      code: 'file-empty',
-      hint: '要么给真实 .blend 路径，要么就不要传 file=；若本意是 .blend 却传成 .py，'
-           + '会被当成脚本内联执行而不会开档（见 fileLooksPython）。',
-    });
+    throw Object.assign(
+      new Error('file= 传了空字符串 —— 本次不会打开任何 .blend（脚本会拿到出厂空场景）'),
+      {
+        code: 'file-empty',
+        hint:
+          '要么给真实 .blend 路径，要么就不要传 file=；若本意是 .blend 却传成 .py，' +
+          '会被当成脚本内联执行而不会开档（见 fileLooksPython）。',
+      },
+    )
   }
   try {
     if (fs.lstatSync(v).isSymbolicLink()) {
       throw Object.assign(new Error('file= 指向符号链接，拒绝跟随：' + v), {
         code: 'file-symlink',
         hint: '传真实 .blend 路径；符号链接可能绕过工作区边界。',
-      });
+      })
     }
   } catch (e) {
     const code =
-      e && typeof e === 'object' && 'code' in e ? String((e as { code?: unknown }).code) : '';
-    if (code === 'file-symlink') throw e;
-    if (code && !['ENOENT', 'ENOTDIR', 'EACCES', 'EPERM', 'EINVAL'].includes(code)) throw e;
+      e && typeof e === 'object' && 'code' in e ? String((e as { code?: unknown }).code) : ''
+    if (code === 'file-symlink') throw e
+    if (code && !['ENOENT', 'ENOTDIR', 'EACCES', 'EPERM', 'EINVAL'].includes(code)) throw e
   }
-  return v;
+  return v
 }
 
 /**
@@ -71,24 +78,32 @@ export function validateFileOpt(raw: unknown): string | undefined {
  * 只把原 null 分支换成带语义的对象。仓内 truthiness 消费点（src/index.ts 的
  * `if (r.inputFile && r.inputFile.md5)`）由 .md5 存在性把关，不受影响。
  */
-export function describeMissingInput(fileOpt: unknown, fileLooksPython: boolean): { given: boolean; opened: boolean; reason: string } {
+export function describeMissingInput(
+  fileOpt: unknown,
+  fileLooksPython: boolean,
+): { given: boolean; opened: boolean; reason: string } {
   if (fileLooksPython) {
-    return { given: true, opened: false, reason: 'file= 是 .py —— 已按脚本内联执行，未打开任何 .blend' };
+    return {
+      given: true,
+      opened: false,
+      reason: 'file= 是 .py —— 已按脚本内联执行，未打开任何 .blend',
+    }
   }
   if (fileOpt !== undefined && fileOpt !== null && !String(fileOpt).trim()) {
-    return { given: true, opened: false, reason: 'file= 为空 —— 未打开任何 .blend' };
+    return { given: true, opened: false, reason: 'file= 为空 —— 未打开任何 .blend' }
   }
-  return { given: false, opened: false, reason: '本次未传 file=，Blender 以出厂空场景启动' };
+  return { given: false, opened: false, reason: '本次未传 file=，Blender 以出厂空场景启动' }
 }
 
 /** 「成功但没开档」不许再无声：升级为回执 warnings 里的显式条目（不必翻 scriptFile 中继数据才知道）。 */
 export function noInputFileWarning(fileLooksPython: boolean): { code: string; hint: string } {
   return {
     code: 'no_input_file',
-    hint: '本次执行没有打开任何 .blend（'
-        + (fileLooksPython ? 'file= 是 .py，已当脚本执行' : '未传 file=')
-        + '）。若你以为打开了文件，请检查参数名是否为 file（不是 blend/path）。',
-  };
+    hint:
+      '本次执行没有打开任何 .blend（' +
+      (fileLooksPython ? 'file= 是 .py，已当脚本执行' : '未传 file=') +
+      '）。若你以为打开了文件，请检查参数名是否为 file（不是 blend/path）。',
+  }
 }
 
 /**
@@ -96,10 +111,13 @@ export function noInputFileWarning(fileLooksPython: boolean): { code: string; hi
  * 旧档名只精确到毫秒，同毫秒两个 run 的 createWriteStream 追加写同一文件、stdout 互脏。
  * runId 每 run 唯一（客户端生成或引擎生成），拼进档名后同毫秒也不再相撞。
  */
-export function headlessLogNames(stamp: string, runId: string | null | undefined): { stdout: string; stderr: string } {
-  const tag = runId ? ('_' + String(runId).replace(/[^A-Za-z0-9_-]/g, '_')) : '';
+export function headlessLogNames(
+  stamp: string,
+  runId: string | null | undefined,
+): { stdout: string; stderr: string } {
+  const tag = runId ? '_' + String(runId).replace(/[^A-Za-z0-9_-]/g, '_') : ''
   return {
     stdout: 'dsh_headless_' + stamp + tag + '.stdout.log',
     stderr: 'dsh_headless_' + stamp + tag + '.stderr.log',
-  };
+  }
 }

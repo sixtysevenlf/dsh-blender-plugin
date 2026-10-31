@@ -27,7 +27,8 @@ function baseHandlers(): string[] {
 
 function gatedHandlers(): Record<string, string[]> {
   const out: Record<string, string[]> = {}
-  const re = /if bpy\.context\.scene\.(dshbb_use_\w+):\r?\n\s+\w+_handlers = \{([\s\S]*?)\r?\n\s+\}/g
+  const re =
+    /if bpy\.context\.scene\.(dshbb_use_\w+):\r?\n\s+\w+_handlers = \{([\s\S]*?)\r?\n\s+\}/g
   for (const m of source.matchAll(re)) out[m[1]!] = namesIn(m[2]!)
   return out
 }
@@ -60,7 +61,9 @@ describe('addon command surface', () => {
   })
 
   it('documents the off-catalog handlers separately', () => {
-    const extras = allSourceHandlers().filter((n) => !COMMAND_CATALOG[n]).sort()
+    const extras = allSourceHandlers()
+      .filter((n) => !COMMAND_CATALOG[n])
+      .sort()
     expect(extras).toEqual([
       'create_tripo_job',
       'get_polyhaven_asset_preview',
@@ -74,7 +77,9 @@ describe('addon command surface', () => {
     expect(source).toContain('return {"status": "success", "result": {"pong": True}}')
     expect(source).toContain('return {"status": "success", "result": result}')
     expect(source).toContain('return {"status": "error", "message": str(e)}')
-    expect(source).toContain('return {"status": "error", "message": f"Unknown command type: {cmd_type}"}')
+    expect(source).toContain(
+      'return {"status": "error", "message": f"Unknown command type: {cmd_type}"}',
+    )
   })
 
   it('gates write commands behind the scene switches', () => {
@@ -90,7 +95,10 @@ describe('addon command surface', () => {
   it('pauses every non-read command and keeps read-only ones safe', () => {
     expect(source).toContain('if _ai_paused() and not _is_pause_safe_command(command.get("type")):')
     expect(source).toContain('"AI_PAUSED"')
-    const pauseBlock = protocolSource.slice(protocolSource.indexOf('PAUSE_SAFE_COMMANDS = frozenset({'), protocolSource.indexOf('def _ai_paused'))
+    const pauseBlock = protocolSource.slice(
+      protocolSource.indexOf('PAUSE_SAFE_COMMANDS = frozenset({'),
+      protocolSource.indexOf('def _ai_paused'),
+    )
     expect(pauseBlock).toContain('"ping"')
     expect(pauseBlock).not.toContain('"execute_code"')
     expect(protocolSource).toContain('if cmd.startswith("get_"):')
@@ -99,7 +107,10 @@ describe('addon command surface', () => {
   it('advertises protocol 11 with a 16-name capability handshake', () => {
     const m = protocolSource.match(/ADDON_PROTOCOL_VERSION\s*=\s*(\d+)/)
     expect(m?.[1]).toBe('11')
-    const info = coreSource.slice(coreSource.indexOf('def get_addon_info'), coreSource.indexOf('def get_scene_info'))
+    const info = coreSource.slice(
+      coreSource.indexOf('def get_addon_info'),
+      coreSource.indexOf('def get_scene_info'),
+    )
     expect(info).toContain('"protocol_version": ADDON_PROTOCOL_VERSION')
     const caps = info.slice(info.indexOf('"capabilities"'), info.indexOf('"blender_version"'))
     expect([...caps.matchAll(/^\s+"([a-z0-9_]+)",?$/gm)]).toHaveLength(16)

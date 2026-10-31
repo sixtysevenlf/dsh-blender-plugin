@@ -38,7 +38,13 @@ const npmEnv = npmEnvFor({
 })
 
 function npm(args: string[]): string {
-  return execFileSync('npm', args, { cwd: PKG_ROOT, env: npmEnv, encoding: 'utf8', shell: true, timeout: 60000 })
+  return execFileSync('npm', args, {
+    cwd: PKG_ROOT,
+    env: npmEnv,
+    encoding: 'utf8',
+    shell: true,
+    timeout: 60000,
+  })
 }
 
 function packMeta(raw: string): any {
@@ -48,7 +54,9 @@ function packMeta(raw: string): any {
 }
 
 afterAll(() => {
-  try { fs.rmSync(tmpRoot, { recursive: true, force: true }) } catch (e) {}
+  try {
+    fs.rmSync(tmpRoot, { recursive: true, force: true })
+  } catch (e) {}
 })
 
 describe('npm package install contract', () => {
@@ -75,7 +83,9 @@ describe('npm package install contract', () => {
     expect(files.some((f: string) => f.endsWith('.pyc'))).toBe(false)
     // T15: runtime/source TypeScript must not ship; .d.ts declarations are allowed (package types).
     expect(files.some((f: string) => f.endsWith('.ts') && !f.endsWith('.d.ts'))).toBe(false)
-    expect(files.some((f: string) => f.startsWith('runtime/') && /\.(?:ts|mts)$/.test(f))).toBe(false)
+    expect(files.some((f: string) => f.startsWith('runtime/') && /\.(?:ts|mts)$/.test(f))).toBe(
+      false,
+    )
     expect(files.some((f: string) => f.startsWith('runtime/') && f.endsWith('.py'))).toBe(true)
     expect(meta.size).toBeLessThan(10 * 1024 * 1024)
     expect(meta.entryCount).toBeGreaterThan(200)
@@ -91,7 +101,17 @@ describe('npm package install contract', () => {
 
     const app = path.join(tmpRoot, 'app')
     fs.mkdirSync(app, { recursive: true })
-    const installOut = npm(['install', '--prefix', app, '--no-audit', '--no-fund', '--ignore-scripts', '--legacy-peer-deps', '--offline', tgz])
+    const installOut = npm([
+      'install',
+      '--prefix',
+      app,
+      '--no-audit',
+      '--no-fund',
+      '--ignore-scripts',
+      '--legacy-peer-deps',
+      '--offline',
+      tgz,
+    ])
     expect(installOut).toContain('added 1 package')
 
     const installed = path.join(app, 'node_modules', '@dsh-external', 'dsh-blender-plugin')
@@ -101,13 +121,23 @@ describe('npm package install contract', () => {
     expect(fs.existsSync(path.join(installed, 'lib', 'runtime', 'server.js'))).toBe(true)
     expect(fs.existsSync(path.join(installed, 'runtime', 'server.mjs'))).toBe(false)
     expect(fs.existsSync(path.join(installed, 'addon', 'dsh_blender_bridge.zip'))).toBe(true)
-    expect(fs.existsSync(path.join(installed, 'addon', 'dsh_blender_bridge', '__init__.py'))).toBe(true)
+    expect(fs.existsSync(path.join(installed, 'addon', 'dsh_blender_bridge', '__init__.py'))).toBe(
+      true,
+    )
     expect(fs.existsSync(path.join(installed, 'skills', 'blender-modeling', 'SKILL.md'))).toBe(true)
 
-    execFileSync(process.execPath, ['--check', path.join(installed, 'lib', 'index.js')], { encoding: 'utf8' })
+    execFileSync(process.execPath, ['--check', path.join(installed, 'lib', 'index.js')], {
+      encoding: 'utf8',
+    })
 
-    const addonInit = fs.readFileSync(path.join(installed, 'addon', 'dsh_blender_bridge', '__init__.py'), 'utf8')
-    const addonProtocol = fs.readFileSync(path.join(installed, 'addon', 'dsh_blender_bridge', 'protocol.py'), 'utf8')
+    const addonInit = fs.readFileSync(
+      path.join(installed, 'addon', 'dsh_blender_bridge', '__init__.py'),
+      'utf8',
+    )
+    const addonProtocol = fs.readFileSync(
+      path.join(installed, 'addon', 'dsh_blender_bridge', 'protocol.py'),
+      'utf8',
+    )
     expect(addonProtocol).toContain('ADDON_PROTOCOL_VERSION = 11')
     expect(addonInit).toContain('bl_info = {')
     expect(addonInit).toContain('"version": (1, 11)')

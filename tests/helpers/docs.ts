@@ -76,8 +76,33 @@ const SKIP_DIRS = new Set([
   '.venv',
   'venv',
 ])
-const SKIP_ANY = new Set(['node_modules', 'node_modules_symlink_backup', '__pycache__', '.git', '.vite', '.vite-temp', '.cache'])
-const TEXT_EXT = new Set(['.md', '.mdx', '.txt', '.json', '.yml', '.yaml', '.mjs', '.cjs', '.js', '.ts', '.py', '.sh', '.html', '.toml', '.cfg', '.ini'])
+const SKIP_ANY = new Set([
+  'node_modules',
+  'node_modules_symlink_backup',
+  '__pycache__',
+  '.git',
+  '.vite',
+  '.vite-temp',
+  '.cache',
+])
+const TEXT_EXT = new Set([
+  '.md',
+  '.mdx',
+  '.txt',
+  '.json',
+  '.yml',
+  '.yaml',
+  '.mjs',
+  '.cjs',
+  '.js',
+  '.ts',
+  '.py',
+  '.sh',
+  '.html',
+  '.toml',
+  '.cfg',
+  '.ini',
+])
 
 /** Repository text files, relative to the package root, skipping vendored and generated trees. */
 export function repositoryTextFiles(root: string = PKG_ROOT, prefix = ''): string[] {

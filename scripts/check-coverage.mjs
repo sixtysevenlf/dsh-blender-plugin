@@ -16,7 +16,13 @@ const rows = []
 
 function check(name, actual, minimum, detail = '') {
   const ok = Number.isFinite(actual) && actual + 1e-9 >= minimum
-  rows.push({ name, actual: Number.isFinite(actual) ? Number(actual.toFixed(2)) : null, minimum, ok, detail })
+  rows.push({
+    name,
+    actual: Number.isFinite(actual) ? Number(actual.toFixed(2)) : null,
+    minimum,
+    ok,
+    detail,
+  })
   if (!ok) fails.push(name + ': ' + actual + ' < ' + minimum + (detail ? ' (' + detail + ')' : ''))
 }
 
@@ -27,7 +33,12 @@ const baseline = readJson('config/coverage-baseline.json')
 const js = readJson('coverage/coverage-summary.json')
 check('js.global.lines', js.total?.lines?.pct, thresholds.javascript.globalFloor.lines)
 check('js.global.branches', js.total?.branches?.pct, thresholds.javascript.globalFloor.branches)
-check('js.global.functions', js.total?.functions?.pct, baseline.javascript.functions, 'baseline no-decrease')
+check(
+  'js.global.functions',
+  js.total?.functions?.pct,
+  baseline.javascript.functions,
+  'baseline no-decrease',
+)
 
 // 2) JavaScript changed logical lines, vs baseline
 const diff = readJson('coverage/diff-cover.json')
@@ -47,7 +58,7 @@ check(
     thresholds.javascript.changedLinesFloor.targetLines +
     ', ratchet +' +
     thresholds.javascript.changedLinesFloor.ratchetPerPr +
-    '/PR'
+    '/PR',
 )
 
 // 3) Critical contract modules
@@ -82,15 +93,24 @@ for (const mod of thresholds.python.scope) {
 const pyLinePct = pyLines ? (pyCovered / pyLines) * 100 : 0
 const pyBranchPct = pyBranches ? (pyBranchCovered / pyBranches) * 100 : 0
 check('python.pureLogic.lines', pyLinePct, thresholds.python.floor.lines, pyCovered + '/' + pyLines)
-check('python.pureLogic.branches', pyBranchPct, thresholds.python.floor.branches, pyBranchCovered + '/' + pyBranches)
+check(
+  'python.pureLogic.branches',
+  pyBranchPct,
+  thresholds.python.floor.branches,
+  pyBranchCovered + '/' + pyBranches,
+)
 
 // 5) E2E behavioral matrix, reported separately
 if (thresholds.e2e.behaviorMatrixRelease) {
-  const run = spawnSync(process.execPath, [path.join(root, 'scripts/check-behavior-matrix.mjs'), '--release'], {
-    cwd: root,
-    encoding: 'utf8',
-    env: { ...process.env, NODE_OPTIONS: '' }
-  })
+  const run = spawnSync(
+    process.execPath,
+    [path.join(root, 'scripts/check-behavior-matrix.mjs'), '--release'],
+    {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, NODE_OPTIONS: '' },
+    },
+  )
   const out = (run.stdout || '').trim()
   const m = out.match(/(\d+) rows \((\d+) covered, (\d+) planned, (\d+) exempt\)/)
   if (run.status !== 0 || !m) {
@@ -101,9 +121,10 @@ if (thresholds.e2e.behaviorMatrixRelease) {
       'e2e.scenarioCoverage',
       (covered / (total - exempt)) * 100,
       thresholds.e2e.scenarioCoverage,
-      covered + '/' + (total - exempt) + ' covered, ' + planned + ' planned, ' + exempt + ' exempt'
+      covered + '/' + (total - exempt) + ' covered, ' + planned + ' planned, ' + exempt + ' exempt',
     )
-    if (thresholds.e2e.plannedMustBeZero && planned !== 0) fails.push('e2e.planned: ' + planned + ' > 0')
+    if (thresholds.e2e.plannedMustBeZero && planned !== 0)
+      fails.push('e2e.planned: ' + planned + ' > 0')
   }
 }
 
@@ -119,11 +140,14 @@ const result = {
   thresholdsVersion: thresholds.version,
   rows,
   fails,
-  pass: fails.length === 0
+  pass: fails.length === 0,
 }
 try {
   fs.mkdirSync(path.join(root, 'coverage'), { recursive: true })
-  fs.writeFileSync(path.join(root, 'coverage/check-coverage-result.json'), JSON.stringify(result, null, 2) + '\n')
+  fs.writeFileSync(
+    path.join(root, 'coverage/check-coverage-result.json'),
+    JSON.stringify(result, null, 2) + '\n',
+  )
 } catch {}
 
 for (const r of rows) {
@@ -135,7 +159,7 @@ for (const r of rows) {
       String(r.actual).padStart(7) +
       '  >= ' +
       String(r.minimum).padStart(6) +
-      (r.detail ? '  ' + r.detail : '')
+      (r.detail ? '  ' + r.detail : ''),
   )
 }
 if (fails.length) {
@@ -144,5 +168,9 @@ if (fails.length) {
   process.exit(1)
 }
 console.log(
-  '\nCOVERAGE PASS (' + changedPct.toFixed(1) + '% changed lines, ' + ((pyCovered / pyLines) * 100).toFixed(1) + '% python pure logic)'
+  '\nCOVERAGE PASS (' +
+    changedPct.toFixed(1) +
+    '% changed lines, ' +
+    ((pyCovered / pyLines) * 100).toFixed(1) +
+    '% python pure logic)',
 )

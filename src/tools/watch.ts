@@ -14,24 +14,39 @@ async function watchViaWorker(ctx: any, port: number, args: any, session?: strin
     height: Math.max(120, Math.round((size * 9) / 16)),
     seconds: Math.max(0.2, Math.min(20, Number((args && args.seconds) || 2))),
     fps: Math.max(0.5, Math.min(8, Number((args && args.fps) || 4))),
-    code: args && args.code ? String(args.code) : undefined
+    code: args && args.code ? String(args.code) : undefined,
   }
   const nm = session ? String(session) : 'watch'
   try {
-    await backendPost(port, '/worker', { op: 'start', name: nm, engine: 'workbench', warmup: true, isolated: true }, 120000)
-    const r: any = await backendPost(port, '/worker', { op: 'watch', name: nm, spec: spec, isolated: true }, 180000)
+    await backendPost(
+      port,
+      '/worker',
+      { op: 'start', name: nm, engine: 'workbench', warmup: true, isolated: true },
+      120000,
+    )
+    const r: any = await backendPost(
+      port,
+      '/worker',
+      { op: 'watch', name: nm, spec: spec, isolated: true },
+      180000,
+    )
     const res = (r && r.result) || {}
     if (!r || r.ok !== true || res.ok !== true)
       return toolError(
         'backend_error',
         'WATCH 无头失败 · ' + String((r && (r.error || res.error)) || 'unknown'),
-        '先 blender_rt_worker op=start 启动 worker，或改用 GUI 通道'
+        '先 blender_rt_worker op=start 启动 worker，或改用 GUI 通道',
       )
     const fr: any[] = res.frames || []
     const hashes = fr.filter((x) => x && x.ok).map((x) => x.hash)
     const distinct = new Set(hashes).size
     const parts: string[] = []
-    if (res.code) parts.push('code: ' + (res.code.ok ? 'ok' : '失败') + (res.code.error ? ' · ' + String(res.code.error) : ''))
+    if (res.code)
+      parts.push(
+        'code: ' +
+          (res.code.ok ? 'ok' : '失败') +
+          (res.code.error ? ' · ' + String(res.code.error) : ''),
+      )
     parts.push(
       'WATCH(headless) ' +
         String(res.sampled || fr.length) +
@@ -42,14 +57,14 @@ async function watchViaWorker(ctx: any, port: number, args: any, session?: strin
         ' · ' +
         String(res.ms || 0) +
         'ms' +
-        (res.static_render ? ' · 无动画帧范围，静态重复采样' : '')
+        (res.static_render ? ' · 无动画帧范围，静态重复采样' : ''),
     )
     parts.push(
       'timeline: ' +
         fr
           .slice(0, 16)
           .map((x) => String(x.frame) + ':' + String(x.hash))
-          .join(' ')
+          .join(' '),
     )
     const images: any[] = []
     let whyNot = ''
@@ -69,12 +84,18 @@ async function watchViaWorker(ctx: any, port: number, args: any, session?: strin
         if (!whyNot) whyNot = '无 png_b64/path'
         continue
       }
-      const att = await toAttachment(ctx, data, 'watch-hl-' + String(p.frame) + '-' + String(p.hash) + '.png')
+      const att = await toAttachment(
+        ctx,
+        data,
+        'watch-hl-' + String(p.frame) + '-' + String(p.hash) + '.png',
+      )
       if (att.ref) images.push(att.ref)
       else if (!whyNot) whyNot = att.why || '未知原因'
     }
     parts.push('附帧：' + String(images.length) + ' 张' + (whyNot ? ' · ⚠ ' + whyNot : ''))
-    return images.length ? { text: parts.join(String.fromCharCode(10)), images: images } : { text: parts.join(String.fromCharCode(10)) }
+    return images.length
+      ? { text: parts.join(String.fromCharCode(10)), images: images }
+      : { text: parts.join(String.fromCharCode(10)) }
   } catch (e: any) {
     return { text: 'WATCH 无头异常 · ' + String((e && e.message) || e) }
   }
@@ -93,19 +114,24 @@ export function registerWatch(ctx: any, port: number): void {
             seconds: { type: 'number', description: '观察时长，默认 2 秒（0.2-20）' },
             fps: { type: 'number', description: '采样率，默认 4（0.5-8）' },
             max_size: { type: 'integer', description: '帧最长边像素，默认 420' },
-            session: { type: 'string', description: '无头 worker 会话（不给则 GUI 失败自动降级）' }
+            session: { type: 'string', description: '无头 worker 会话（不给则 GUI 失败自动降级）' },
           },
           output: { schema: ANY_SCHEMA, render: renderOne },
           isConcurrencySafe: () => false,
           timeoutMs: T.watch,
           async execute(args: any) {
             if (!(await ensureBackend(port)))
-              return toolError('backend_unreachable', '后端不可用（127.0.0.1:' + String(port) + '）', BACKEND_HINT)
+              return toolError(
+                'backend_unreachable',
+                '后端不可用（127.0.0.1:' + String(port) + '）',
+                BACKEND_HINT,
+              )
             const seconds = Math.max(0.2, Math.min(20, Number((args && args.seconds) || 2)))
             const fps = Math.max(0.5, Math.min(8, Number((args && args.fps) || 4)))
             const size = Math.max(120, Math.min(1600, Number((args && args.max_size) || 420)))
             const parts: string[] = []
-            if (args && args.session) return await watchViaWorker(ctx, port, args, String(args.session))
+            if (args && args.session)
+              return await watchViaWorker(ctx, port, args, String(args.session))
             if (args && args.code) {
               const r = await backendPost(port, '/act', { code: String(args.code) }, 180000)
               const lt = leasedText(r)
@@ -113,8 +139,11 @@ export function registerWatch(ctx: any, port: number): void {
                 lt
                   ? lt
                   : r && r.ok
-                    ? 'ACT ok · ' + String(r.ms) + 'ms' + (r.stdout ? ' · stdout: ' + redactSecrets(r.stdout).slice(0, 600) : '')
-                    : 'ACT 失败 · ' + String((r && (r.error || r.raw)) || '')
+                    ? 'ACT ok · ' +
+                      String(r.ms) +
+                      'ms' +
+                      (r.stdout ? ' · stdout: ' + redactSecrets(r.stdout).slice(0, 600) : '')
+                    : 'ACT 失败 · ' + String((r && (r.error || r.raw)) || ''),
               )
             }
             const total = Math.max(1, Math.min(32, Math.round(seconds * fps)))
@@ -137,7 +166,9 @@ export function registerWatch(ctx: any, port: number): void {
             }
             const hashes = shots.map((s) => s.hash)
             const distinct = Array.from(new Set(hashes)).length
-            const avgMs = Math.round(shots.reduce((a, s) => a + Math.max(0, s.ms), 0) / Math.max(1, shots.length))
+            const avgMs = Math.round(
+              shots.reduce((a, s) => a + Math.max(0, s.ms), 0) / Math.max(1, shots.length),
+            )
             parts.push(
               'WATCH ' +
                 String(seconds) +
@@ -150,9 +181,12 @@ export function registerWatch(ctx: any, port: number): void {
                 'ms/帧 · 不同画面 ' +
                 String(distinct) +
                 '/' +
-                String(hashes.length)
+                String(hashes.length),
             )
-            parts.push('timeline: ' + shots.map((s, i) => String(i) + '@' + String(s.t) + 'ms:' + s.hash).join(' '))
+            parts.push(
+              'timeline: ' +
+                shots.map((s, i) => String(i) + '@' + String(s.t) + 'ms:' + s.hash).join(' '),
+            )
             const picks: any[] = []
             const maxImages = 6
             if (shots.length <= maxImages) {
@@ -166,17 +200,26 @@ export function registerWatch(ctx: any, port: number): void {
             const images: any[] = []
             let whyNot: string | undefined
             for (let k = 0; k < picks.length; k++) {
-              const att = await toAttachment(ctx, picks[k].png, 'watch-' + String(k) + '-' + picks[k].hash + '.png')
+              const att = await toAttachment(
+                ctx,
+                picks[k].png,
+                'watch-' + String(k) + '-' + picks[k].hash + '.png',
+              )
               if (att.ref) images.push(att.ref)
               else if (!whyNot) whyNot = att.why
             }
-            parts.push('附帧：' + String(images.length) + ' 张（均匀抽取）' + (whyNot ? ' · ⚠ 有帧未回传：' + whyNot : ''))
+            parts.push(
+              '附帧：' +
+                String(images.length) +
+                ' 张（均匀抽取）' +
+                (whyNot ? ' · ⚠ 有帧未回传：' + whyNot : ''),
+            )
             const out: any = { text: parts.join('\n') }
             if (images.length) out.images = images
             return out
-          }
-        })
+          },
+        }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-watch'
+    '@dsh-external/dsh-blender-plugin: rt-watch',
   )
 }

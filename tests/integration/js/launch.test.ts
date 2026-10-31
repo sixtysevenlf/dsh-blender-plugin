@@ -1,4 +1,3 @@
-
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { ADDON_NAME_HINTS, LAUNCH_BOOT_PY, addonNameHit } from '../../../runtime/launch.js'
 import { startBackend, freePort, type Backend } from '../../helpers/backend'
@@ -22,8 +21,15 @@ describe('launch name hints and boot script', () => {
   })
 
   it('injects a boot script that scans, enables and reports', () => {
-    for (const marker of ['_name_hit', 'addon_utils', 'addon_utils.enable', 'spec_from_file_location',
-      'DSH_BLENDER_LAUNCH_STATUS', 'dsh_blender_bridge', '_report']) {
+    for (const marker of [
+      '_name_hit',
+      'addon_utils',
+      'addon_utils.enable',
+      'spec_from_file_location',
+      'DSH_BLENDER_LAUNCH_STATUS',
+      'dsh_blender_bridge',
+      '_report',
+    ]) {
       expect(LAUNCH_BOOT_PY, marker).toContain(marker)
     }
     expect(LAUNCH_BOOT_PY).not.toContain('blender_mcp')
@@ -41,7 +47,9 @@ describe('launch through a real backend', () => {
       env: { DSH_BLENDER_LAUNCH_AGENT_URL: 'off', DSH_BLENDER_LAUNCH_WAIT_MS: '2500' },
     })
   })
-  afterAll(async () => { await backend.stop() })
+  afterAll(async () => {
+    await backend.stop()
+  })
 
   it('is idempotent when the addon is already listening', async () => {
     const addon = await startFakeAddon()
@@ -74,7 +82,10 @@ describe('launch through a real backend', () => {
   })
 
   it('fails readably when the exe does not exist', async () => {
-    const response = await backend.post('/launch', { exe: '/definitely/missing/blender.exe', waitMs: 2000 })
+    const response = await backend.post('/launch', {
+      exe: '/definitely/missing/blender.exe',
+      waitMs: 2000,
+    })
     expect(response.json.ok).toBe(false)
     expect(String(response.json.error)).toContain('不存在')
     expect(String(response.json.hint)).toContain('DSH_BLENDER_EXE')

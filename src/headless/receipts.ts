@@ -18,26 +18,42 @@ export function newRunId(): string {
   return 'run-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
 }
 /** 后台化 + 可选等待（F3）：POST /headless asJob:true 拿 jobId，再 op=wait 等一小会儿 */
-export async function startJobThenMaybeWait(port: number, body: any, waitS: number | null): Promise<any> {
-  const jr: any = await backendPost(port, '/headless', Object.assign({}, body, { asJob: true }), 60000)
+export async function startJobThenMaybeWait(
+  port: number,
+  body: any,
+  waitS: number | null,
+): Promise<any> {
+  const jr: any = await backendPost(
+    port,
+    '/headless',
+    Object.assign({}, body, { asJob: true }),
+    60000,
+  )
   const lt = leasedText(jr)
   if (lt) return { text: lt }
   if (!jr || jr.error)
     return toolError(
       'backend_error',
       'HEADLESS 转作业层失败 · ' + String((jr && (jr.error || jr.raw)) || 'unknown'),
-      '检查后端 /headless 路由；或改用 blender_rt_job op=list 查看是否已建作业'
+      '检查后端 /headless 路由；或改用 blender_rt_job op=list 查看是否已建作业',
     )
   // 后端 /headless 的回包是 {ok, ms, result:<引擎回执>} —— jobId 在 result 里
   const inner: any = jr.result && typeof jr.result === 'object' ? jr.result : jr
   const jobId = String(inner.jobId || (inner.job && inner.job.id) || '')
-  const budget = waitS && waitS > 0 ? Math.min(Math.round(waitS * 1000), HEADLESS_WAIT_MS + 2000) : 0
+  const budget =
+    waitS && waitS > 0 ? Math.min(Math.round(waitS * 1000), HEADLESS_WAIT_MS + 2000) : 0
   if (!budget) return { jobId: jobId, job: inner.job || null, waited: false }
-  const wr: any = await backendPost(port, '/job', { op: 'wait', id: jobId, timeoutMs: budget }, budget + 30000)
+  const wr: any = await backendPost(
+    port,
+    '/job',
+    { op: 'wait', id: jobId, timeoutMs: budget },
+    budget + 30000,
+  )
   const lt2 = leasedText(wr)
   if (lt2) return { text: lt2 }
   const job = (wr && wr.job) || null
-  if (job && job.status && job.status !== 'running') return { jobId: jobId, job: job, waited: true, finished: true }
+  if (job && job.status && job.status !== 'running')
+    return { jobId: jobId, job: job, waited: true, finished: true }
   return { jobId: jobId, job: job || inner.job || null, waited: true, finished: false }
 }
 /** shots 回执归一化：sync 路径给 {rows:[…]}，job 快照给 qc_render 原样的 {views:[…]} */
@@ -55,18 +71,26 @@ export function normalizeShots(s: any): any {
         md5: (e && e.hash) || null,
         res: (e && e.res) || null,
         device: (e && e.device) || null,
-        coverage_estimate: cov
+        coverage_estimate: cov,
       }
-      if (cov !== null && cov < 0.05) row.warning = { code: 'subject_too_small', coverage_estimate: cov }
+      if (cov !== null && cov < 0.05)
+        row.warning = { code: 'subject_too_small', coverage_estimate: cov }
       return row
     })
   }
-  const covs = (rows || []).map((r: any) => r.coverage_estimate).filter((x: any) => typeof x === 'number')
+  const covs = (rows || [])
+    .map((r: any) => r.coverage_estimate)
+    .filter((x: any) => typeof x === 'number')
   return {
     ok: !!s.ok,
     count: (rows || []).length,
     rows: rows || [],
-    coverage_min: typeof s.coverage_min === 'number' ? s.coverage_min : covs.length ? Math.min.apply(null, covs) : null,
+    coverage_min:
+      typeof s.coverage_min === 'number'
+        ? s.coverage_min
+        : covs.length
+          ? Math.min.apply(null, covs)
+          : null,
     outdir: s.outdir || null,
     jsonl: s.jsonl || null,
     total_ms: s.total_ms || null,
@@ -74,7 +98,7 @@ export function normalizeShots(s: any): any {
     samples: s.samples || null,
     device_line: s.device_line || null,
     unknown_views: s.unknown_views || null,
-    error: s.error || null
+    error: s.error || null,
   }
 }
 /** 结构化信封（block 0）：稳定字段 + 有界大小（大结果只给 resultPath） */
@@ -84,7 +108,9 @@ export function receiptEnvelope(res: any, ctx: any): any {
   const rjStr = rj === null || rj === undefined ? null : safeStringify(rj)
   const ENV_LIMIT = 8000
   const big = !!(rjStr && rjStr.length > ENV_LIMIT)
-  const artifacts = (Array.isArray(r.artifacts) ? r.artifacts : []).slice(0, 40).map((a: any) => (typeof a === 'string' ? { name: a } : a))
+  const artifacts = (Array.isArray(r.artifacts) ? r.artifacts : [])
+    .slice(0, 40)
+    .map((a: any) => (typeof a === 'string' ? { name: a } : a))
   return {
     kind: ctx.mode === 'job' ? 'job' : r.kind || 'headless',
     mode: ctx.mode,
@@ -95,7 +121,10 @@ export function receiptEnvelope(res: any, ctx: any): any {
         ? r.ok
         : r.status === 'done' || r.status === 'finished'
           ? true
-          : r.status === 'failed' || r.status === 'killed' || r.status === 'timeout' || r.status === 'stale'
+          : r.status === 'failed' ||
+              r.status === 'killed' ||
+              r.status === 'timeout' ||
+              r.status === 'stale'
             ? false
             : null,
     runId: r.runId || ctx.runId || null,
@@ -116,8 +145,16 @@ export function receiptEnvelope(res: any, ctx: any): any {
     resultPathWsl: r.resultPathWsl || r.outJsonWsl || null,
     resultBytes: r.resultBytes || null,
     resultParseError: r.resultParseError || null,
-    stdoutTail: clipText(r.stdoutTail !== undefined && r.stdoutTail !== null ? r.stdoutTail : r.stdout, 1200, 1200),
-    stderrTail: clipText(r.stderrTail !== undefined && r.stderrTail !== null ? r.stderrTail : r.stderr, 800, 800),
+    stdoutTail: clipText(
+      r.stdoutTail !== undefined && r.stdoutTail !== null ? r.stdoutTail : r.stdout,
+      1200,
+      1200,
+    ),
+    stderrTail: clipText(
+      r.stderrTail !== undefined && r.stderrTail !== null ? r.stderrTail : r.stderr,
+      800,
+      800,
+    ),
     logs: r.logs || (r.stdoutLog ? { stdout: r.stdoutLog, stderr: r.stderrLog } : null),
     outdir: r.outdir || null,
     artifacts: artifacts,
@@ -136,13 +173,13 @@ export function receiptEnvelope(res: any, ctx: any): any {
       ? {
           ok: !!r.gpu.ok,
           fell_back_to_cpu: !!r.gpu.fell_back_to_cpu,
-          device: (r.gpu.after && r.gpu.after.device_type) || r.gpu.configured || null
+          device: (r.gpu.after && r.gpu.after.device_type) || r.gpu.configured || null,
         }
       : null,
     scriptFile: r.scriptFile || null,
     expect: r.expect || null,
     notes: ctx.notes || [],
-    hint: ctx.hint || null
+    hint: ctx.hint || null,
   }
 }
 /** 人读摘要（block 1）—— 沿用 v0.9.2 的叙述口径，读的是 v0.9.3 的结构化字段 */
@@ -155,7 +192,10 @@ export function headlessHumanText(res: any, ctx: any): string {
       ? r.ok
       : r.status === 'done' || r.status === 'finished'
         ? true
-        : r.status === 'failed' || r.status === 'killed' || r.status === 'timeout' || r.status === 'stale'
+        : r.status === 'failed' ||
+            r.status === 'killed' ||
+            r.status === 'timeout' ||
+            r.status === 'stale'
           ? false
           : null
   const st = r.status || (okFlag ? 'finished' : 'unknown')
@@ -166,14 +206,21 @@ export function headlessHumanText(res: any, ctx: any): string {
       (r.exitCode === undefined || r.exitCode === null ? '' : ' · exit=' + String(r.exitCode)) +
       (r.timedOut ? ' · 超时被杀' : '') +
       (typeof r.ms === 'number' ? ' · ' + String(r.ms) + 'ms' : '') +
-      (r.reason ? ' · ' + String(r.reason) : '')
+      (r.reason ? ' · ' + String(r.reason) : ''),
   )
-  if (ctx && ctx.mode === 'job') parts.push('模式：作业层（jobId=' + String(ctx.jobId || '') + '，等待窗口内已完成）')
+  if (ctx && ctx.mode === 'job')
+    parts.push('模式：作业层（jobId=' + String(ctx.jobId || '') + '，等待窗口内已完成）')
   if (r.failure_hint) parts.push('提示：' + String(r.failure_hint))
   if (r.session) parts.push('会话：' + String(r.session))
   if (r.script) parts.push('脚本：' + String(r.script))
   if (r.scriptFile)
-    parts.push('脚本文件：' + String(r.scriptFile.resolved || r.scriptFile.given) + '（' + String(r.scriptFile.bytes) + ' 字节）')
+    parts.push(
+      '脚本文件：' +
+        String(r.scriptFile.resolved || r.scriptFile.given) +
+        '（' +
+        String(r.scriptFile.bytes) +
+        ' 字节）',
+    )
   if (r.inputFile && r.inputFile.md5)
     parts.push(
       '输入文件：' +
@@ -184,10 +231,13 @@ export function headlessHumanText(res: any, ctx: any): string {
         String(r.inputFile.mtime || r.inputFile.mtimeMs) +
         ' · md5=' +
         String(r.inputFile.md5) +
-        (r.inputFile.md5Partial ? '（部分哈希）' : '')
+        (r.inputFile.md5Partial ? '（部分哈希）' : ''),
     )
   const engName = r.engine || (r.gpu && r.gpu.after && r.gpu.after.engine) || null
-  if (engName) parts.push('引擎：' + String(engName) + (r.engineMode ? '（mode=' + String(r.engineMode) + '）' : ''))
+  if (engName)
+    parts.push(
+      '引擎：' + String(engName) + (r.engineMode ? '（mode=' + String(r.engineMode) + '）' : ''),
+    )
   if (r.gpu) {
     const g = r.gpu
     parts.push(
@@ -198,17 +248,22 @@ export function headlessHumanText(res: any, ctx: any): string {
             String((g.after && g.after.device_type) || g.configured || '') +
             ' · ' +
             String(((g.after && g.after.gpu_enabled) || []).join(','))) +
-        (g.configured ? ' · 本次已自动配置 ' + String(g.configured) : '')
+        (g.configured ? ' · 本次已自动配置 ' + String(g.configured) : ''),
     )
   }
-  if (r.stage || r.stageName) parts.push('最后阶段（stage）：' + safeStringify(r.stage || r.stageName))
+  if (r.stage || r.stageName)
+    parts.push('最后阶段（stage）：' + safeStringify(r.stage || r.stageName))
   if (r.lastException) parts.push('最后异常：' + String(r.lastException))
-  if (r.logs) parts.push('日志：' + String(r.logs.stdout || '') + ' · ' + String(r.logs.stderr || ''))
+  if (r.logs)
+    parts.push('日志：' + String(r.logs.stdout || '') + ' · ' + String(r.logs.stderr || ''))
   const rj = r.resultJson !== undefined ? r.resultJson : r.result
   if (rj !== null && rj !== undefined) {
     const s = safeStringify(rj) || ''
     parts.push(
-      'result: ' + (s.length > 6000 ? s.slice(0, 6000) + NLx + '…[result 共 ' + String(s.length) + ' 字符；全文见 resultPath]' : s)
+      'result: ' +
+        (s.length > 6000
+          ? s.slice(0, 6000) + NLx + '…[result 共 ' + String(s.length) + ' 字符；全文见 resultPath]'
+          : s),
     )
   }
   if (r.resultPath)
@@ -218,7 +273,7 @@ export function headlessHumanText(res: any, ctx: any): string {
         (r.resultPathWsl ? '（WSL：' + String(r.resultPathWsl) + '）' : '') +
         ' · ' +
         String(r.resultBytes || 0) +
-        ' 字节，全量 JSON'
+        ' 字节，全量 JSON',
     )
   if (r.resultParseError)
     parts.push(
@@ -226,7 +281,7 @@ export function headlessHumanText(res: any, ctx: any): string {
         String(r.resultParseError.message || '') +
         NLx +
         '  该行：' +
-        String(r.resultParseError.line || '').slice(0, 300)
+        String(r.resultParseError.line || '').slice(0, 300),
     )
   if (Array.isArray(r.shots && r.shots.rows) ? r.shots.rows.length : false) {
     parts.push(
@@ -245,10 +300,12 @@ export function headlessHumanText(res: any, ctx: any): string {
               String(x.bytes) +
               'B · md5=' +
               String(x.md5) +
-              (typeof x.coverage_estimate === 'number' ? ' · coverage=' + (x.coverage_estimate * 100).toFixed(2) + '%' : '') +
-              (x.warning ? '  ⚠️ ' + String((x.warning && x.warning.hint) || x.warning.code) : '')
+              (typeof x.coverage_estimate === 'number'
+                ? ' · coverage=' + (x.coverage_estimate * 100).toFixed(2) + '%'
+                : '') +
+              (x.warning ? '  ⚠️ ' + String((x.warning && x.warning.hint) || x.warning.code) : ''),
           )
-          .join(NLx)
+          .join(NLx),
     )
     if (r.shots.jsonl) parts.push('shots jsonl：' + String(r.shots.jsonl))
   } else if (r.shots && r.shots.error) parts.push('⚠️ shots 失败：' + String(r.shots.error))
@@ -259,8 +316,17 @@ export function headlessHumanText(res: any, ctx: any): string {
         ' 条）：' +
         NLx +
         r.pathWarnings
-          .map((w: any) => '  · ' + String(w.code) + ' · ' + String(w.evidence || w.value || '') + NLx + '    ' + String(w.hint || ''))
-          .join(NLx)
+          .map(
+            (w: any) =>
+              '  · ' +
+              String(w.code) +
+              ' · ' +
+              String(w.evidence || w.value || '') +
+              NLx +
+              '    ' +
+              String(w.hint || ''),
+          )
+          .join(NLx),
     )
   }
   if (Array.isArray(r.warnings) && r.warnings.length) {
@@ -273,20 +339,28 @@ export function headlessHumanText(res: any, ctx: any): string {
           .map(
             (w: any) =>
               '  · ' +
-              (w && typeof w === 'object' ? String(w.code || '') + (w.hint ? ' — ' + String(w.hint) : JSON.stringify(w)) : String(w))
+              (w && typeof w === 'object'
+                ? String(w.code || '') + (w.hint ? ' — ' + String(w.hint) : JSON.stringify(w))
+                : String(w)),
           )
-          .join(NLx)
+          .join(NLx),
     )
   }
   if (r.stdoutTruncated) parts.push('（stdout 已截断：全量见 logs 路径 / resultPath）')
-  const so = String(r.stdoutTail !== undefined && r.stdoutTail !== null ? r.stdoutTail : r.stdout || '')
+  const so = String(
+    r.stdoutTail !== undefined && r.stdoutTail !== null ? r.stdoutTail : r.stdout || '',
+  )
   if (so)
     parts.push(
       (r.stdoutTruncated ? '--- stdout 尾（已截断）---' : '--- stdout ---') +
         NLx +
-        (rj !== null && rj !== undefined ? clipText(redactSecrets(so), 500, 800) : clipText(redactSecrets(so), 1500, 2500))
+        (rj !== null && rj !== undefined
+          ? clipText(redactSecrets(so), 500, 800)
+          : clipText(redactSecrets(so), 1500, 2500)),
     )
-  const se = String(r.stderrTail !== undefined && r.stderrTail !== null ? r.stderrTail : r.stderr || '')
+  const se = String(
+    r.stderrTail !== undefined && r.stderrTail !== null ? r.stderrTail : r.stderr || '',
+  )
   if (se.trim()) parts.push('--- stderr（头+尾）---' + NLx + clipText(redactSecrets(se), 500, 1500))
   if (r.expect) {
     const ex = r.expect,
@@ -305,7 +379,7 @@ export function headlessHumanText(res: any, ctx: any): string {
             String((obs.after || {}).objects) +
             '）'
           : '') +
-        ((ex.warnings || []).length ? NLx + '  ' + ex.warnings.join(NLx + '  ') : '')
+        ((ex.warnings || []).length ? NLx + '  ' + ex.warnings.join(NLx + '  ') : ''),
     )
   }
   const arts = Array.isArray(r.artifacts) ? r.artifacts : []
@@ -314,15 +388,22 @@ export function headlessHumanText(res: any, ctx: any): string {
       '产物：' +
         arts
           .slice(0, 12)
-          .map((a: any) => (typeof a === 'string' ? a : a.name + '(' + a.bytes + 'B' + (a.fresh ? ' 新' : '') + ')'))
-          .join(' · ')
+          .map((a: any) =>
+            typeof a === 'string' ? a : a.name + '(' + a.bytes + 'B' + (a.fresh ? ' 新' : '') + ')',
+          )
+          .join(' · '),
     )
   if (r.noiseFiltered) parts.push('（已过滤 ' + String(r.noiseFiltered) + ' 个噪音产物）')
   if (r.hint) parts.push('提示：' + String(r.hint))
   if (r.traceback) parts.push('--- traceback ---' + NLx + redactSecrets(r.traceback).slice(0, 1200))
-  if (r.id && String(r.id).indexOf('job-') === 0) parts.push('作业号：' + String(r.id) + '（runId=' + String(r.runId || '-') + '）')
+  if (r.id && String(r.id).indexOf('job-') === 0)
+    parts.push('作业号：' + String(r.id) + '（runId=' + String(r.runId || '-') + '）')
   if (r.runId)
-    parts.push('运行号：' + String(r.runId) + '（blender_rt_job(op="status"/"collect"/"wait", id=…) 可查；后端重启后也能从磁盘台账查到）')
+    parts.push(
+      '运行号：' +
+        String(r.runId) +
+        '（blender_rt_job(op="status"/"collect"/"wait", id=…) 可查；后端重启后也能从磁盘台账查到）',
+    )
   if (Array.isArray(ctx && ctx.notes)) for (const n of ctx.notes) parts.push('· ' + String(n))
   return parts.join(NLx)
 }
@@ -365,8 +446,11 @@ export function promotedReceipt(job: any, jobId: string, why: string): any {
     shots: normalizeShots(j.shots),
     inputFile: j.inputFile || null,
     pathWarnings: j.pathWarnings || [],
-    hint: '用 blender_rt_job(op="wait", id="' + jobId + '") 阻塞等结果，或 op="collect" 看进展（stage/idleMs）；op="list" 看全部作业',
-    notes: [why]
+    hint:
+      '用 blender_rt_job(op="wait", id="' +
+      jobId +
+      '") 阻塞等结果，或 op="collect" 看进展（stage/idleMs）；op="list" 看全部作业',
+    notes: [why],
   }
   const parts: string[] = []
   parts.push('⏳ 已后台化（**不是失败**）· ' + why)
@@ -376,16 +460,24 @@ export function promotedReceipt(job: any, jobId: string, why: string): any {
       ' · status=' +
       String(st) +
       (env.stage ? ' · stage=' + safeStringify(env.stage) : '') +
-      (typeof env.idleMs === 'number' ? ' · 最近输出 ' + String(Math.round(env.idleMs / 1000)) + 's 前' : '')
+      (typeof env.idleMs === 'number'
+        ? ' · 最近输出 ' + String(Math.round(env.idleMs / 1000)) + 's 前'
+        : ''),
   )
-  if (logs) parts.push('日志（运行期就有增量：PYTHONUNBUFFERED=1）：' + String(logs.stdout || '') + ' · ' + String(logs.stderr || ''))
+  if (logs)
+    parts.push(
+      '日志（运行期就有增量：PYTHONUNBUFFERED=1）：' +
+        String(logs.stdout || '') +
+        ' · ' +
+        String(logs.stderr || ''),
+    )
   if (env.stdoutTail) parts.push('--- stdout 尾 ---' + NLx + String(env.stdoutTail).slice(-1500))
   parts.push(
     '收结果：blender_rt_job(op="wait", id="' +
       jobId +
       '", timeout_ms=120000) —— 阻塞到完成或超时（不要连发 status 轮询，会撞重复调用检测）；' +
       '也可 op="collect"（随时看，未完成时也能看到 stage/日志尾），op="kill" 中止。' +
-      ' ⚠ 这个 id 是**Blender 侧台账** id，不是 DSH 的作业 id —— 拿它去 DSH 的 job_output 会回 unknown job。'
+      ' ⚠ 这个 id 是**Blender 侧台账** id，不是 DSH 的作业 id —— 拿它去 DSH 的 job_output 会回 unknown job。',
   )
   parts.push('提醒：下次这类长活直接 as_job=true（预期 >100 s 都建议），就不会占用调用窗口。')
   return { text: parts.join(NLx), envelope: env }
@@ -403,7 +495,7 @@ export async function promotedFromTimeout(port: number, runId: string, err: any)
       const cr: any = await backendJson(port, '/job', 15000, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ op: 'collect', id: runId, holder: HOLDER })
+        body: JSON.stringify({ op: 'collect', id: runId, holder: HOLDER }),
       })
       const cj = (cr && cr.job) || null
       if (cj && cj.status && cj.status !== 'running') {
@@ -411,7 +503,7 @@ export async function promotedFromTimeout(port: number, runId: string, err: any)
           mode: 'sync',
           jobId: null,
           runId: runId,
-          notes: ['客户端窗口到点时任务其实已经跑完 → 已直接取回结果（' + msg + '）']
+          notes: ['客户端窗口到点时任务其实已经跑完 → 已直接取回结果（' + msg + '）'],
         })
       }
     } catch (e2: any) {
@@ -427,7 +519,7 @@ export async function fetchJobStatus(port: number, id: string): Promise<any> {
     const r: any = await backendJson(port, '/job', 8000, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ op: 'status', id: id, holder: HOLDER })
+      body: JSON.stringify({ op: 'status', id: id, holder: HOLDER }),
     })
     return (r && r.job) || null
   } catch (e: any) {

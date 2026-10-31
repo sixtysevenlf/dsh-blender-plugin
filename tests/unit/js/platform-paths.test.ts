@@ -4,7 +4,14 @@ import os from 'node:os'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import {
-  CFG, IS_MAC, IS_WSL, PATHS, describeConfig, detectWsl, winToWsl, wslToWin,
+  CFG,
+  IS_MAC,
+  IS_WSL,
+  PATHS,
+  describeConfig,
+  detectWsl,
+  winToWsl,
+  wslToWin,
 } from '../../../runtime/config.js'
 import { PATH_GUARD, PATH_HELPERS, WIN_TMP, WSL_TMP, blenderJoin } from '../../../runtime/engine.js'
 import { pkgPath } from '../../helpers/pkg'
@@ -37,7 +44,13 @@ describe('detectWsl decision table (platform independent)', () => {
     ['win32 always false', 'win32', { WSL_DISTRO_NAME: 'Ubuntu' }, WSL2, false],
     ['darwin always false', 'darwin', { WSL_DISTRO_NAME: 'Ubuntu' }, WSL2, false],
     ['native linux without WSL vars', 'linux', {}, MANJARO, false],
-    ['WSL_INTEROP means interop is running', 'linux', { WSL_INTEROP: '/run/WSL/1_interop' }, MANJARO, true],
+    [
+      'WSL_INTEROP means interop is running',
+      'linux',
+      { WSL_INTEROP: '/run/WSL/1_interop' },
+      MANJARO,
+      true,
+    ],
     ['WSL_DISTRO_NAME is enough', 'linux', { WSL_DISTRO_NAME: 'Ubuntu' }, MANJARO, true],
     ['systemd service with empty env falls back to /proc/version', 'linux', {}, WSL2, true],
     ['unreadable /proc/version never guesses WSL', 'linux', {}, '', false],
@@ -64,7 +77,9 @@ describe('current platform branch', () => {
     })
   } else if (IS_WSL) {
     it('keeps UNC and /mnt drive mapping on WSL', () => {
-      expect(wslToWin('/home/x/f.png')).toBe('\\\\wsl.localhost\\' + String((CFG as any).distro) + '\\home\\x\\f.png')
+      expect(wslToWin('/home/x/f.png')).toBe(
+        '\\\\wsl.localhost\\' + String((CFG as any).distro) + '\\home\\x\\f.png',
+      )
       expect(wslToWin('/mnt/d/a/b.py')).toBe('D:\\a\\b.py')
     })
   } else {
@@ -83,14 +98,15 @@ describe('source guards (WSL/Windows branches still exist)', () => {
     const config = read('runtime/config.ts')
     expect(config).toContain('wsl.localhost')
     expect(config).toContain('^\\/mnt\\/([a-z])\\/')
-    expect(/if\s*\(!IS_WSL\)\s*return\s*s;/.test(config)).toBe(true)
+    expect(/if\s*\(!IS_WSL\)\s*return\s*s\b/.test(config)).toBe(true)
     expect(config).toContain('WSL_INTEROP')
     expect(config).toContain('/proc/version')
     expect(config).toContain('Blender Foundation')
     expect(config).toContain('where.exe')
   })
   it('keeps the WSL path-helper rewrite', () => {
-    const source = read('runtime/engine.ts') + NL + read('runtime/paths.ts') + NL + read('runtime/proc_env.ts')
+    const source =
+      read('runtime/engine.ts') + NL + read('runtime/paths.ts') + NL + read('runtime/proc_env.ts')
     expect(source).toContain('WSLENV')
     expect(source).toContain('startswith("/mnt/")')
   })

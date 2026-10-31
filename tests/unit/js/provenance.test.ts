@@ -41,7 +41,13 @@ beforeAll(async () => {
   origMd5 = md5(ENGINE)
 }, 60000)
 
-afterAll(() => { try { fs.rmSync(TMP, { recursive: true, force: true }) } catch { /* ignore */ } })
+afterAll(() => {
+  try {
+    fs.rmSync(TMP, { recursive: true, force: true })
+  } catch {
+    /* ignore */
+  }
+})
 
 describe('loaded version provenance', () => {
   it('reports current right after loading with a sha256:12 hash', () => {
@@ -70,7 +76,11 @@ describe('loaded version provenance', () => {
   })
 
   it('flags a real content change as stale and names both hashes', () => {
-    fs.writeFileSync(ENGINE, origEngine + String.fromCharCode(10) + '// provenance-stale-probe' + String.fromCharCode(10), 'utf8')
+    fs.writeFileSync(
+      ENGINE,
+      origEngine + String.fromCharCode(10) + '// provenance-stale-probe' + String.fromCharCode(10),
+      'utf8',
+    )
     const pr = mod.engineProvenance({ verify: true })
     expect(pr).toMatchObject({ verdict: 'stale', stale: true })
     expect(String(pr.staleReason)).toContain(pr.loadedHash)
@@ -80,7 +90,7 @@ describe('loaded version provenance', () => {
   })
 
   it('names a stale on-disk catalog FAIL when the loaded catalog is old', () => {
-    const mutated = fs.readFileSync(CATALOG, 'utf8').replace("{ f: 'sculpt',", "{ f: 'sculptx',")
+    const mutated = fs.readFileSync(CATALOG, 'utf8').replace("f: 'sculpt',", "f: 'sculptx',")
     expect(mutated).not.toBe(fs.readFileSync(CATALOG, 'utf8'))
     fs.writeFileSync(CATALOG, mutated, 'utf8')
     const cat = mod.catalogPayload({ verify: true })

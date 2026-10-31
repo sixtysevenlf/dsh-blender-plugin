@@ -97,7 +97,11 @@ if (fs.existsSync(LOCK)) {
   }
 }
 const names = [...toolDecls.keys()].sort()
-const toolReport = { count: names.length, names, files: Object.fromEntries([...toolDecls].map(([k, v]) => [k, v])) }
+const toolReport = {
+  count: names.length,
+  names,
+  files: Object.fromEntries([...toolDecls].map(([k, v]) => [k, v])),
+}
 if (names.length !== 15) failures.push('tool handler 数 ' + names.length + ' != 15')
 if (expected) {
   const exp = [...new Set(expected)].sort()
@@ -109,9 +113,11 @@ if (expected) {
 for (const [name, files] of toolDecls) {
   const inTools = files.some((f) => f.startsWith('src/tools/'))
   const inPlan = files.includes('src/plan/tool.ts')
-  if (!inTools && !inPlan) failures.push('tool ' + name + ' 未落在 src/tools/*.ts 或 src/plan/tool.ts: ' + files.join(','))
+  if (!inTools && !inPlan)
+    failures.push('tool ' + name + ' 未落在 src/tools/*.ts 或 src/plan/tool.ts: ' + files.join(','))
 }
-if (!fs.existsSync(path.join(TOOLS_DIR, 'index.ts'))) failures.push('src/tools/index.ts（注册汇总）不存在')
+if (!fs.existsSync(path.join(TOOLS_DIR, 'index.ts')))
+  failures.push('src/tools/index.ts（注册汇总）不存在')
 
 // ---------- ③ 目标文件地图 ----------
 const TARGET_FILES = [
@@ -147,7 +153,7 @@ const TARGET_FILES = [
   'src/tools/worker.ts',
   'src/tools/txn.ts',
   'src/tools/preset.ts',
-  'src/tools/job.ts'
+  'src/tools/job.ts',
 ]
 const missing = TARGET_FILES.filter((f) => !fs.existsSync(path.join(ROOT, f)))
 for (const f of missing) failures.push('目标文件缺失: ' + f)
@@ -219,7 +225,7 @@ const report = {
   tools: toolReport,
   targetFiles: { required: TARGET_FILES.length, missing },
   importGraph: { files: graph.size, edges, cycles },
-  failures
+  failures,
 }
 const text = JSON.stringify(report, null, 2) + '\n'
 if (outPath) {
@@ -231,9 +237,19 @@ if (jsonOnly) process.stdout.write(text)
 else {
   console.log('check-structure: ' + (report.ok ? 'PASS' : 'FAIL'))
   console.log('  index: ' + indexReport.lines + ' 行，entry-only=' + indexReport.entryOnly)
-  console.log('  tools: ' + names.length + ' 个 handler（' + Object.keys(toolReport.files).length + ' 个名字）')
-  console.log('  target files: ' + (TARGET_FILES.length - missing.length) + '/' + TARGET_FILES.length)
-  console.log('  import graph: ' + graph.size + ' 文件 / ' + edges + ' 边 / ' + cycles.length + ' 环')
+  console.log(
+    '  tools: ' +
+      names.length +
+      ' 个 handler（' +
+      Object.keys(toolReport.files).length +
+      ' 个名字）',
+  )
+  console.log(
+    '  target files: ' + (TARGET_FILES.length - missing.length) + '/' + TARGET_FILES.length,
+  )
+  console.log(
+    '  import graph: ' + graph.size + ' 文件 / ' + edges + ' 边 / ' + cycles.length + ' 环',
+  )
   for (const f of failures) console.log('  x ' + f)
   if (outPath) console.log('  报告: ' + outPath)
 }

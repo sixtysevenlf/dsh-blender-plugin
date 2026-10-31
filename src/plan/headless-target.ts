@@ -6,7 +6,11 @@ import { redactSecrets } from '../tools/errors.js'
 export const PLAN_HEADLESS_MAP: any[] = [
   ['visualreport_', 'dsh_visualreport_api', 'visualreport,qc,imgtools'],
   ['shapesolve_', 'dsh_shapesolve_api', 'shapesolve,imgtools'],
-  ['eval_', 'dsh_evalharness_api', 'evalharness,assembly,audit,contract,clearance,gate,imgtools,calib,mesh_fix'],
+  [
+    'eval_',
+    'dsh_evalharness_api',
+    'evalharness,assembly,audit,contract,clearance,gate,imgtools,calib,mesh_fix',
+  ],
   ['surface_', 'dsh_surface_api', 'surface,audit'],
   ['blockout_', 'dsh_blockout_api', 'blockout,qc,qc_render,montage'],
   ['asm_', 'dsh_assembly_api', 'assembly,audit,contract,clearance,gate,mesh_fix,geo,txn'],
@@ -27,17 +31,29 @@ export const PLAN_HEADLESS_MAP: any[] = [
   ['motion_', 'dsh_motion_api', 'motion'],
   ['generator_', 'dsh_generator_api', 'generator'],
   ['face_', 'dsh_face_api', 'faceeval'],
-  ['human_', 'dsh_human_api', 'human,imgtools']
+  ['human_', 'dsh_human_api', 'human,imgtools'],
 ]
 export const PLAN_HEADLESS_ALIAS: any = {
   qc_visual_report: ['dsh_visualreport_api', 'report', 'visualreport,qc,imgtools'],
   shape_solve: ['dsh_shapesolve_api', 'solve', 'shapesolve,imgtools'],
-  fix_clash: ['dsh_assembly_api', 'repair', 'assembly,audit,contract,clearance,gate,mesh_fix,geo,txn'],
-  fix_interference: ['dsh_assembly_api', 'fix_interference', 'assembly,audit,contract,clearance,gate,mesh_fix,geo,txn'],
-  audit_clash_all: ['dsh_assembly_api', 'scan', 'assembly,audit,contract,clearance,gate,mesh_fix,geo,txn'],
+  fix_clash: [
+    'dsh_assembly_api',
+    'repair',
+    'assembly,audit,contract,clearance,gate,mesh_fix,geo,txn',
+  ],
+  fix_interference: [
+    'dsh_assembly_api',
+    'fix_interference',
+    'assembly,audit,contract,clearance,gate,mesh_fix,geo,txn',
+  ],
+  audit_clash_all: [
+    'dsh_assembly_api',
+    'scan',
+    'assembly,audit,contract,clearance,gate,mesh_fix,geo,txn',
+  ],
   model_preflight: ['dsh_gate_api', 'preflight', 'gate,audit'],
   model_checkpoint: ['dsh_gate_api', 'checkpoint', 'gate,txn'],
-  model_deliver: ['dsh_gate_api', 'deliver', 'gate,audit,txn,deliver']
+  model_deliver: ['dsh_gate_api', 'deliver', 'gate,audit,txn,deliver'],
 }
 export function planHeadlessTarget(op: string): any {
   const o = String(op || '')
@@ -52,18 +68,36 @@ export function planHeadlessTarget(op: string): any {
   return null
 }
 /** 用持久 worker 执行一个 plan op（不依赖 GUI addon；模块由 preload 注入 K） */
-export async function planViaWorker(ctx: any, port: number, op: string, payload: any, session?: string): Promise<any> {
+export async function planViaWorker(
+  ctx: any,
+  port: number,
+  op: string,
+  payload: any,
+  session?: string,
+): Promise<any> {
   const t = planHeadlessTarget(op)
-  if (!t) return { ok: false, error: '该 plan op 没有无头映射（先 op="catalog" 查，或走 GUI 通道）' }
+  if (!t)
+    return { ok: false, error: '该 plan op 没有无头映射（先 op="catalog" 查，或走 GUI 通道）' }
   const nm = session ? String(session) : 'plan-' + String(t.api).replace(/^dsh_|_api$/g, '')
   try {
     const st: any = await backendPost(
       port,
       '/worker',
-      { op: 'start', name: nm, preload: t.preload, engine: 'workbench', warmup: false, isolated: true },
-      120000
+      {
+        op: 'start',
+        name: nm,
+        preload: t.preload,
+        engine: 'workbench',
+        warmup: false,
+        isolated: true,
+      },
+      120000,
     )
-    if (!st || st.ok !== true) return { ok: false, error: '无头 worker 启动失败：' + String((st && (st.error || st.raw)) || 'unknown') }
+    if (!st || st.ok !== true)
+      return {
+        ok: false,
+        error: '无头 worker 启动失败：' + String((st && (st.error || st.raw)) || 'unknown'),
+      }
     const code =
       'import json as _json\n_s = _json.dumps(_json.loads(' +
       JSON.stringify(JSON.stringify(payload || {})) +
@@ -74,13 +108,18 @@ export async function planViaWorker(ctx: any, port: number, op: string, payload:
       JSON.stringify(String(t.sub)) +
       ', _s)\n' +
       'print("HEADLESS " + (_r if isinstance(_r, str) else _json.dumps(_r, ensure_ascii=False)))'
-    const r: any = await backendPost(port, '/worker', { op: 'exec', name: nm, code: code, isolated: true }, 900000)
+    const r: any = await backendPost(
+      port,
+      '/worker',
+      { op: 'exec', name: nm, code: code, isolated: true },
+      900000,
+    )
     const rr = (r && r.result) || {}
     if (!r || r.ok !== true) {
       return {
         ok: false,
         error: '无头 plan 执行失败：' + String((r && (r.error || rr.error)) || 'unknown'),
-        hint: redactSecrets(rr.traceback || '').slice(-1200)
+        hint: redactSecrets(rr.traceback || '').slice(-1200),
       }
     }
     return { ok: true, res: rr.result, via: 'worker:' + nm }
@@ -89,21 +128,45 @@ export async function planViaWorker(ctx: any, port: number, op: string, payload:
   }
 }
 /** plan 回执统一收尾：信封 + 附图（GUI/无头共用） */
-export async function finishPlanResponse(ctx: any, op: string, res: any, argsIn: any): Promise<any> {
+export async function finishPlanResponse(
+  ctx: any,
+  op: string,
+  res: any,
+  argsIn: any,
+): Promise<any> {
   const txt = typeof res === 'string' ? res : JSON.stringify(res, null, 1)
   const CAP = 12000
   const env = planEnvelope(op, res)
   const attachWanted =
     argsIn && argsIn.attach_images !== undefined
       ? !!argsIn.attach_images
-      : ['img_digest', 'qc_compare', 'visualreport_report', 'qc_visual_report', 'shapesolve_solve'].indexOf(op) >= 0
+      : [
+          'img_digest',
+          'qc_compare',
+          'visualreport_report',
+          'qc_visual_report',
+          'shapesolve_solve',
+        ].indexOf(op) >= 0
   let images: any[] = []
   let attachNote = ''
   if (attachWanted) {
-    const att = await attachPaths(ctx, planImagePaths(res), 'plan-' + op.replace(/[^a-z0-9_]+/gi, '_'), 2)
+    const att = await attachPaths(
+      ctx,
+      planImagePaths(res),
+      'plan-' + op.replace(/[^a-z0-9_]+/gi, '_'),
+      2,
+    )
     images = att.images
-    if (att.used.length) attachNote = String.fromCharCode(10) + '附图：' + String(att.used.length) + ' 张（' + att.used.join(' · ') + '）'
-    if (att.failed.length) attachNote += String.fromCharCode(10) + '⚠ 部分图未附：' + att.failed.slice(0, 2).join(' · ')
+    if (att.used.length)
+      attachNote =
+        String.fromCharCode(10) +
+        '附图：' +
+        String(att.used.length) +
+        ' 张（' +
+        att.used.join(' · ') +
+        '）'
+    if (att.failed.length)
+      attachNote += String.fromCharCode(10) + '⚠ 部分图未附：' + att.failed.slice(0, 2).join(' · ')
   }
   const head =
     'PLAN ' +
@@ -126,13 +189,16 @@ export async function finishPlanResponse(ctx: any, op: string, res: any, argsIn:
           ' 字符；结构化全量见后端 results/ 目录或用 headless(outJson=…) 落盘]'
         : txt),
     envelope: env,
-    ...(images.length ? { images: images } : {})
+    ...(images.length ? { images: images } : {}),
   }
 }
 /** 弱模型契约 v2：verdict-first 信封（单行、≤2k）——plan 与 headless 共用口径 */
 export function planEnvelope(op: string, res: any): any {
   const r = res && typeof res === 'object' ? res : { value: res }
-  const verdict = r.verdict || r.state || (r.ok === false ? 'fail' : r.ok === true ? (r.clean === false ? 'degraded' : 'pass') : null)
+  const verdict =
+    r.verdict ||
+    r.state ||
+    (r.ok === false ? 'fail' : r.ok === true ? (r.clean === false ? 'degraded' : 'pass') : null)
   let defects: any[] = []
   for (const k of ['top_defects', 'offenders', 'defects', 'failures', 'errors']) {
     if (Array.isArray(r[k])) {
@@ -150,8 +216,12 @@ export function planEnvelope(op: string, res: any): any {
       object: d.object || d.a || d.name || null,
       measured:
         d.measured ||
-        (d.volume_mm3 !== undefined ? { volume_mm3: d.volume_mm3 } : d.depth_mm !== undefined ? { depth_mm: d.depth_mm } : null),
-      fix_hint: d.fix_hint || d.repair || null
+        (d.volume_mm3 !== undefined
+          ? { volume_mm3: d.volume_mm3 }
+          : d.depth_mm !== undefined
+            ? { depth_mm: d.depth_mm }
+            : null),
+      fix_hint: d.fix_hint || d.repair || null,
     }
   })
   const next = (Array.isArray(r.next) ? r.next : Array.isArray(r.repairs) ? r.repairs : [])
@@ -159,7 +229,11 @@ export function planEnvelope(op: string, res: any): any {
     .map((x: any) =>
       typeof x === 'string'
         ? { op: limit(x, 120) }
-        : { op: limit(x.op || x.name || 'next', 80), args: x.args || null, why: limit(x.why || '', 120) }
+        : {
+            op: limit(x.op || x.name || 'next', 80),
+            args: x.args || null,
+            why: limit(x.why || '', 120),
+          },
     )
   const env: any = {
     contract: 'receipt.v2',
@@ -169,12 +243,16 @@ export function planEnvelope(op: string, res: any): any {
     top_defects: top,
     next: next,
     images: planImagePaths(r).slice(0, 2),
-    provenance: { ms: typeof r.ms === 'number' ? r.ms : null }
+    provenance: { ms: typeof r.ms === 'number' ? r.ms : null },
   }
   const counts = r.counts || (r.totals ? r.totals : null)
   if (counts && typeof counts === 'object') env.counts = counts
   if (r.detail && typeof r.detail === 'object')
-    env.detail = { path: r.detail.path || null, bytes: r.detail.bytes || null, id: r.detail.id || null }
+    env.detail = {
+      path: r.detail.path || null,
+      bytes: r.detail.bytes || null,
+      id: r.detail.id || null,
+    }
   // 信封硬预算：超过 2k 就只保留最有用的三块（verdict / top3 / next2）
   try {
     if (JSON.stringify(env).length > 2000) {

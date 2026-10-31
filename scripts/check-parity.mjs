@@ -51,7 +51,7 @@ const ENV_KEYS = new Set([
   'mtimeMs',
   // The plugin version is a declared, user-visible release change (2.6.2 ->
   // 3.0.0), not a behavior change. Everything else in provenance stays strict.
-  'pluginVersion'
+  'pluginVersion',
 ])
 function normalize(v) {
   if (typeof v === 'string') return v.replace(HASH_RE, '<hash>')
@@ -81,7 +81,7 @@ function eq(id, label, base, cur) {
         '\n  base: ' +
         b.slice(Math.max(0, i - 120), i + 240) +
         '\n  cur:  ' +
-        c.slice(Math.max(0, i - 120), i + 240)
+        c.slice(Math.max(0, i - 120), i + 240),
     )
   }
 }
@@ -99,28 +99,42 @@ try {
   const list = spawnSync('git', ['ls-tree', '-r', '--name-only', BASE, 'runtime'], {
     cwd: ROOT,
     encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024
+    maxBuffer: 64 * 1024 * 1024,
   })
-  if (list.status !== 0) throw new Error('git ls-tree ' + BASE + ' failed: ' + String(list.stderr || '').slice(-800))
+  if (list.status !== 0)
+    throw new Error('git ls-tree ' + BASE + ' failed: ' + String(list.stderr || '').slice(-800))
   const baseFiles = String(list.stdout || '')
     .split(/\r?\n/)
     .filter((f) => f.endsWith('.mjs') || f.endsWith('.json'))
   for (const rel of baseFiles) {
-    const shown = spawnSync('git', ['show', BASE + ':' + rel], { cwd: ROOT, maxBuffer: 64 * 1024 * 1024 })
-    if (shown.status !== 0) throw new Error('git show ' + BASE + ':' + rel + ' failed: ' + String(shown.stderr || '').slice(-400))
+    const shown = spawnSync('git', ['show', BASE + ':' + rel], {
+      cwd: ROOT,
+      maxBuffer: 64 * 1024 * 1024,
+    })
+    if (shown.status !== 0)
+      throw new Error(
+        'git show ' + BASE + ':' + rel + ' failed: ' + String(shown.stderr || '').slice(-400),
+      )
     const dest = path.join(tmp, ...rel.split('/'))
     fs.mkdirSync(path.dirname(dest), { recursive: true })
     fs.writeFileSync(dest, shown.stdout)
   }
-  const pkgShown = spawnSync('git', ['show', BASE + ':package.json'], { cwd: ROOT, maxBuffer: 8 * 1024 * 1024 })
+  const pkgShown = spawnSync('git', ['show', BASE + ':package.json'], {
+    cwd: ROOT,
+    maxBuffer: 8 * 1024 * 1024,
+  })
   if (pkgShown.status !== 0) throw new Error('git show ' + BASE + ':package.json failed')
   fs.writeFileSync(path.join(tmp, 'package.json'), pkgShown.stdout)
   ensureBuild({ log: (m) => console.error('parity: ' + m) })
 
   const baseEngine = await import(pathToFileURL(path.join(tmp, 'runtime', 'engine.mjs')).href)
-  const baseRoutes = await import(pathToFileURL(path.join(tmp, 'runtime', 'http', 'routes', 'index.mjs')).href)
+  const baseRoutes = await import(
+    pathToFileURL(path.join(tmp, 'runtime', 'http', 'routes', 'index.mjs')).href
+  )
   const curEngine = await import(pathToFileURL(path.join(ROOT, 'lib', 'runtime', 'engine.js')).href)
-  const curRoutes = await import(pathToFileURL(path.join(ROOT, 'lib', 'runtime', 'http', 'routes', 'index.js')).href)
+  const curRoutes = await import(
+    pathToFileURL(path.join(ROOT, 'lib', 'runtime', 'http', 'routes', 'index.js')).href
+  )
 
   // 1. Public export set must be identical.
   const bKeys = Object.keys(baseEngine).sort()
@@ -141,11 +155,18 @@ try {
     ['tool', { tool: 'rt_headless' }],
     ['full', { full: true }],
     ['handoff', { handoff: true }],
-    ['verify', { verify: true }]
+    ['verify', { verify: true }],
   ]
   for (const [id, opts] of payloadForms) {
-    eq('catalog-' + id, 'catalogPayload(' + JSON.stringify(opts) + ')', baseEngine.catalogPayload(opts), curEngine.catalogPayload(opts))
-    ok('catalog-' + id + '-len', 'catalogPayload text length', { text: curEngine.catalogPayload(opts).text.length })
+    eq(
+      'catalog-' + id,
+      'catalogPayload(' + JSON.stringify(opts) + ')',
+      baseEngine.catalogPayload(opts),
+      curEngine.catalogPayload(opts),
+    )
+    ok('catalog-' + id + '-len', 'catalogPayload text length', {
+      text: curEngine.catalogPayload(opts).text.length,
+    })
   }
 
   // 4. Catalog / plan / command / tool tables (names + structure, not prose).
@@ -158,10 +179,15 @@ try {
     'GATE_FLAGS',
     'FLAGS_CODE',
     'MODELING_CLASS_GUIDE',
-    'PATH_GUARD'
+    'PATH_GUARD',
   ]
   for (const name of tables) {
-    eq('table-' + name, name, Object.keys(baseEngine[name] || {}).sort(), Object.keys(curEngine[name] || {}).sort())
+    eq(
+      'table-' + name,
+      name,
+      Object.keys(baseEngine[name] || {}).sort(),
+      Object.keys(curEngine[name] || {}).sort(),
+    )
     ok('table-' + name + '-entries', name + ' entries', Object.keys(curEngine[name] || {}).length)
   }
 
@@ -171,23 +197,38 @@ try {
 
   // 6. Pure helpers called by tooling / matrix.
   eq('plan-op-names', 'planOpNames()', baseEngine.planOpNames(), curEngine.planOpNames())
-  eq('plan-op-suggestion', 'planOpSuggestion()', baseEngine.planOpSuggestion('nonsense_op'), curEngine.planOpSuggestion('nonsense_op'))
+  eq(
+    'plan-op-suggestion',
+    'planOpSuggestion()',
+    baseEngine.planOpSuggestion('nonsense_op'),
+    curEngine.planOpSuggestion('nonsense_op'),
+  )
   eq(
     'plan-op-hint',
     'planOpCrossChannelHint()',
     baseEngine.planOpCrossChannelHint('headless'),
-    curEngine.planOpCrossChannelHint('headless')
+    curEngine.planOpCrossChannelHint('headless'),
   )
-  eq('class-guide-stats', 'classGuideStats()', baseEngine.classGuideStats(), curEngine.classGuideStats())
+  eq(
+    'class-guide-stats',
+    'classGuideStats()',
+    baseEngine.classGuideStats(),
+    curEngine.classGuideStats(),
+  )
   eq('render-handoff', 'renderHandoff()', baseEngine.renderHandoff(), curEngine.renderHandoff())
   eq(
     'render-class-text',
     'renderClassText()',
     baseEngine.renderClassText(baseEngine.MODELING_CLASS_GUIDE[0]),
-    curEngine.renderClassText(curEngine.MODELING_CLASS_GUIDE[0])
+    curEngine.renderClassText(curEngine.MODELING_CLASS_GUIDE[0]),
   )
   eq('plan-read-only', 'PLAN_READ_ONLY', baseEngine.PLAN_READ_ONLY, curEngine.PLAN_READ_ONLY)
-  eq('plan-read-only-ops', 'PLAN_READ_ONLY_OPS', baseEngine.PLAN_READ_ONLY_OPS, curEngine.PLAN_READ_ONLY_OPS)
+  eq(
+    'plan-read-only-ops',
+    'PLAN_READ_ONLY_OPS',
+    baseEngine.PLAN_READ_ONLY_OPS,
+    curEngine.PLAN_READ_ONLY_OPS,
+  )
 
   report = {
     ok: true,
@@ -202,9 +243,9 @@ try {
       ops: bFp.opsCount,
       commands: bFp.commandCatalogKeys,
       toolDetailKeys: bFp.toolDetailKeys,
-      routes: curRoutes.CONTRACT_ROUTES.length
+      routes: curRoutes.CONTRACT_ROUTES.length,
     },
-    parity: 'PASS'
+    parity: 'PASS',
   }
 } catch (e) {
   exitCode = 1
@@ -217,7 +258,7 @@ try {
     node: process.version,
     checks,
     error: message,
-    parity: 'FAIL'
+    parity: 'FAIL',
   }
   console.error('parity: FAIL - ' + message)
 } finally {
@@ -244,11 +285,12 @@ if (report && report.ok) {
       ', toolDetail ' +
       c.toolDetailKeys +
       ', routes ' +
-      c.routes
+      c.routes,
   )
   for (const chk of checks) if (chk.label) console.log('  ok  ' + chk.id + '  ' + chk.label)
 } else {
   console.error('parity: FAIL')
-  for (const chk of checks) if (!chk.ok) console.error('  fail  ' + chk.id + '  ' + (chk.error || chk.label))
+  for (const chk of checks)
+    if (!chk.ok) console.error('  fail  ' + chk.id + '  ' + (chk.error || chk.label))
 }
 process.exit(exitCode)

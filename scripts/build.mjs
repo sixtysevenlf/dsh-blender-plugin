@@ -19,7 +19,7 @@ const ROOT = path.resolve(HERE, '..')
 
 const TARGETS = {
   host: { config: 'tsconfig.json', label: 'host tsc (src → lib)' },
-  runtime: { config: 'tsconfig.runtime.json', label: 'runtime tsc (runtime → lib/runtime)' }
+  runtime: { config: 'tsconfig.runtime.json', label: 'runtime tsc (runtime → lib/runtime)' },
 }
 
 const target = (process.argv[2] || '').toLowerCase()
@@ -31,7 +31,7 @@ if (target !== 'all' && !TARGETS[target]) {
 const printed = spawnSync(process.execPath, [path.join(HERE, 'typecheck.mjs'), '--print'], {
   cwd: ROOT,
   encoding: 'utf8',
-  env: process.env
+  env: process.env,
 })
 if (printed.status !== 0) {
   console.error(String(printed.stderr || printed.stdout || '').trim())
@@ -45,7 +45,7 @@ function compile(name) {
   const r = spawnSync(process.execPath, [tsc, '-p', path.join(ROOT, spec.config)], {
     cwd: ROOT,
     stdio: 'inherit',
-    env: process.env
+    env: process.env,
   })
   return typeof r.status === 'number' ? r.status : 1
 }
@@ -54,7 +54,9 @@ function buildClient() {
   const script = path.join(HERE, 'build-client.mjs')
   console.log('build: client half (src/client → lib/client.js)')
   if (!fs.existsSync(script)) {
-    console.log('build: scripts/build-client.mjs 不存在 —— 跳过客户端半边（lib/client.js 不会更新）')
+    console.log(
+      'build: scripts/build-client.mjs 不存在 —— 跳过客户端半边（lib/client.js 不会更新）',
+    )
     return 0
   }
   const r = spawnSync(process.execPath, [script], { cwd: ROOT, stdio: 'inherit', env: process.env })

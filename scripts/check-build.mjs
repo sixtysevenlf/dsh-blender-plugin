@@ -36,17 +36,25 @@ function run(label, file, args) {
 // ⓪ runtime 构建：下面 host 的临时编译遇到 src→lib/runtime 边界 import，需要 lib/runtime/*.d.ts 已存在。
 run('build-runtime', process.execPath, [path.join(HERE, 'build.mjs'), 'runtime'])
 if (!failures.length) {
-  const runtimeArtifacts = ['lib/runtime/server.js', 'lib/runtime/engine.js', 'lib/runtime/catalog.js']
+  const runtimeArtifacts = [
+    'lib/runtime/server.js',
+    'lib/runtime/engine.js',
+    'lib/runtime/catalog.js',
+  ]
   const missingRuntime = runtimeArtifacts.filter((rel) => !fs.existsSync(path.join(ROOT, rel)))
   for (const rel of missingRuntime) failures.push('runtime 构建产物缺失: ' + rel)
-  steps.push({ step: 'runtime-artifacts', exit: missingRuntime.length ? 1 : 0, output: runtimeArtifacts.join(', ') })
+  steps.push({
+    step: 'runtime-artifacts',
+    exit: missingRuntime.length ? 1 : 0,
+    output: runtimeArtifacts.join(', '),
+  })
 }
 
 // ① tsc 解析
 const printed = spawnSync(process.execPath, [path.join(HERE, 'typecheck.mjs'), '--print'], {
   cwd: ROOT,
   encoding: 'utf8',
-  env: process.env
+  env: process.env,
 })
 if (printed.status !== 0) {
   failures.push('解析 tsc 失败: ' + (printed.stderr || printed.stdout || '').trim())
@@ -65,8 +73,8 @@ if (!failures.length) {
       declarationDir: path.join(tmp, 'lib', 'types'),
       sourceMap: false,
       incremental: false,
-      typeRoots: [path.join(ROOT, 'node_modules', '@types')]
-    }
+      typeRoots: [path.join(ROOT, 'node_modules', '@types')],
+    },
   }
   const cfgPath = path.join(tmp, 'tsconfig.json')
   fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2))
@@ -82,12 +90,14 @@ if (!failures.length) {
       'lib/host/http.js',
       'lib/ui/cards.js',
       'lib/headless/receipts.js',
-      'lib/types/index.d.ts'
+      'lib/types/index.d.ts',
     ]
     const missing = required.filter((f) => !fs.existsSync(path.join(tmp, f)))
     for (const f of missing) failures.push('构建产物缺失: ' + f)
     steps.push({ step: 'artifacts', exit: missing.length ? 1 : 0, output: required.join(', ') })
-    const entryBytes = fs.existsSync(path.join(tmp, 'lib', 'index.js')) ? fs.statSync(path.join(tmp, 'lib', 'index.js')).size : -1
+    const entryBytes = fs.existsSync(path.join(tmp, 'lib', 'index.js'))
+      ? fs.statSync(path.join(tmp, 'lib', 'index.js')).size
+      : -1
     steps.push({ step: 'entry-bytes', exit: 0, output: String(entryBytes) + ' B' })
   }
 }
@@ -112,7 +122,11 @@ function walk(dir) {
 walk(path.join(ROOT, 'src'))
 walk(path.join(ROOT, 'runtime'))
 for (const f of nocheck) failures.push('src 仍有 @ts-nocheck: ' + f)
-steps.push({ step: 'no-ts-nocheck', exit: nocheck.length ? 1 : 0, output: nocheck.join(', ') || 'clean' })
+steps.push({
+  step: 'no-ts-nocheck',
+  exit: nocheck.length ? 1 : 0,
+  output: nocheck.join(', ') || 'clean',
+})
 
 // ④ 结构门禁
 run('check-structure', process.execPath, [path.join(HERE, 'check-structure.mjs')])
@@ -132,21 +146,35 @@ walkRuntime(path.join(ROOT, 'runtime'))
 const relOf = (full) => path.relative(ROOT, full).split(path.sep).join('/')
 const strayMjs = runtimeFiles.filter((f) => f.endsWith('.mjs')).map(relOf)
 for (const rel of strayMjs) failures.push('runtime 仍有 .mjs 源文件: ' + rel)
-steps.push({ step: 'runtime-no-mjs', exit: strayMjs.length ? 1 : 0, output: strayMjs.join(', ') || '0 .mjs' })
+steps.push({
+  step: 'runtime-no-mjs',
+  exit: strayMjs.length ? 1 : 0,
+  output: strayMjs.join(', ') || '0 .mjs',
+})
 const runtimeTs = runtimeFiles.filter((f) => f.endsWith('.ts') && !f.endsWith('.d.ts'))
-const tsNocheck = runtimeTs.filter((f) => fs.readFileSync(f, 'utf8').includes('@ts-nocheck')).map(relOf)
+const tsNocheck = runtimeTs
+  .filter((f) => fs.readFileSync(f, 'utf8').includes('@ts-nocheck'))
+  .map(relOf)
 for (const rel of tsNocheck) failures.push('runtime 仍有 @ts-nocheck: ' + rel)
-steps.push({ step: 'runtime-ts', exit: tsNocheck.length ? 1 : 0, output: runtimeTs.length + ' .ts, ' + tsNocheck.length + ' @ts-nocheck' })
+steps.push({
+  step: 'runtime-ts',
+  exit: tsNocheck.length ? 1 : 0,
+  output: runtimeTs.length + ' .ts, ' + tsNocheck.length + ' @ts-nocheck',
+})
 
 // ⑦ git 卫生（T15）：lib/ 不再入库
 const trackedLib = spawnSync('git', ['ls-files', 'lib'], { cwd: ROOT, encoding: 'utf8' })
 const trackedLibFiles = String(trackedLib.stdout || '').trim()
-if (trackedLib.status !== 0) failures.push('git ls-files lib 失败: ' + String(trackedLib.stderr || '').trim())
-else if (trackedLibFiles) failures.push('lib/ 仍被 git 跟踪（应为构建产物）: ' + trackedLibFiles.split(/\r?\n/).length + ' files')
+if (trackedLib.status !== 0)
+  failures.push('git ls-files lib 失败: ' + String(trackedLib.stderr || '').trim())
+else if (trackedLibFiles)
+  failures.push(
+    'lib/ 仍被 git 跟踪（应为构建产物）: ' + trackedLibFiles.split(/\r?\n/).length + ' files',
+  )
 steps.push({
   step: 'lib-not-tracked',
   exit: trackedLibFiles ? 1 : 0,
-  output: trackedLibFiles ? trackedLibFiles.split(/\r?\n/).length + ' tracked' : 'untracked'
+  output: trackedLibFiles ? trackedLibFiles.split(/\r?\n/).length + ' tracked' : 'untracked',
 })
 
 // ⑤ 客户端产物同步
@@ -166,14 +194,22 @@ const report = {
   generatedAt: new Date().toISOString(),
   node: process.version,
   failures,
-  steps
+  steps,
 }
 if (jsonOnly) process.stdout.write(JSON.stringify(report, null, 2) + '\n')
 else {
   console.log('check-build: ' + (report.ok ? 'PASS' : 'FAIL'))
   for (const s of steps) {
-    const text = Array.isArray(s.output) ? s.output.join(String.fromCharCode(10)) : String(s.output || '')
-    console.log('  ' + (s.exit === 0 ? '✓' : '✗') + ' ' + s.step + (text ? ' — ' + text.split(/\r?\n/)[0] : ''))
+    const text = Array.isArray(s.output)
+      ? s.output.join(String.fromCharCode(10))
+      : String(s.output || '')
+    console.log(
+      '  ' +
+        (s.exit === 0 ? '✓' : '✗') +
+        ' ' +
+        s.step +
+        (text ? ' — ' + text.split(/\r?\n/)[0] : ''),
+    )
   }
   for (const f of failures) console.log('  x ' + f)
 }

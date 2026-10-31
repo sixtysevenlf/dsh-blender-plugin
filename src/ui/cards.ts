@@ -1,7 +1,8 @@
 export function renderOne(_args: unknown, value: any): any[] {
   const blocks: any[] = [{ type: 'text', text: String((value && value.text) || '') }]
   if (value && value.image) blocks.push({ type: 'image', attachment: value.image })
-  if (value && Array.isArray(value.images)) for (const im of value.images) blocks.push({ type: 'image', attachment: im })
+  if (value && Array.isArray(value.images))
+    for (const im of value.images) blocks.push({ type: 'image', attachment: im })
   return blocks
 }
 
@@ -46,7 +47,8 @@ export function renderStructured(_args: unknown, value: any): any[] {
   }
   blocks.push({ type: 'text', text: String((value && value.text) || '') })
   if (value && value.image) blocks.push({ type: 'image', attachment: value.image })
-  if (value && Array.isArray(value.images)) for (const im of value.images) blocks.push({ type: 'image', attachment: im })
+  if (value && Array.isArray(value.images))
+    for (const im of value.images) blocks.push({ type: 'image', attachment: im })
   return blocks
 }
 
@@ -90,7 +92,9 @@ function cardBaseName(p: any): string {
 function cardParams(p: any): string {
   if (p && typeof p === 'object' && !Array.isArray(p)) {
     const keys = Object.keys(p)
-    return keys.length ? '{' + keys.slice(0, 3).join(', ') + (keys.length > 3 ? ', …' : '') + '}' : ''
+    return keys.length
+      ? '{' + keys.slice(0, 3).join(', ') + (keys.length > 3 ? ', …' : '') + '}'
+      : ''
   }
   return typeof p === 'string' ? cardClip(p, 32) : ''
 }
@@ -100,7 +104,8 @@ function cardTitle(head: string, parts: any[]): string {
   return tail.length ? head + ' · ' + tail.join(' · ') : head
 }
 const cardSession = (a: any): string => (a.session ? '无头 ' + cardClip(a.session, 24) : '')
-const cardPython = (code: any): any => (typeof code === 'string' && code.trim() ? { label: 'Python', code: code } : null)
+const cardPython = (code: any): any =>
+  typeof code === 'string' && code.trim() ? { label: 'Python', code: code } : null
 
 export interface CardSpec {
   kind: string
@@ -115,16 +120,22 @@ export const CARD_SPECS: Record<string, CardSpec> = {
       a.full
         ? cardTitle('Blender 截窗口', ['区域 ' + String(a.area || 0)])
         : cardTitle('Blender 看视口', [
-            a.from || a.look_at ? '自定义视角 ' + cardClip(a.from || '?', 20) + ' → ' + cardClip(a.look_at || '?', 20) : '',
+            a.from || a.look_at
+              ? '自定义视角 ' + cardClip(a.from || '?', 20) + ' → ' + cardClip(a.look_at || '?', 20)
+              : '',
             a.shading,
             String(a.max_size || 560) + 'px',
-            cardSession(a)
-          ])
+            cardSession(a),
+          ]),
   },
   blender_rt_do: {
     kind: 'execute',
-    title: (a) => cardTitle('Blender 执行 Python', [a.code ? cardCodeHeadline(a.code) : cardBaseName(a.file), cardSession(a)]),
-    code: (a) => cardPython(a.code)
+    title: (a) =>
+      cardTitle('Blender 执行 Python', [
+        a.code ? cardCodeHeadline(a.code) : cardBaseName(a.file),
+        cardSession(a),
+      ]),
+    code: (a) => cardPython(a.code),
   },
   blender_rt_watch: {
     kind: 'execute',
@@ -133,15 +144,19 @@ export const CARD_SPECS: Record<string, CardSpec> = {
         a.seconds ? String(a.seconds) + 's' : '',
         a.fps ? String(a.fps) + 'fps' : '',
         cardCodeHeadline(a.code),
-        cardSession(a)
+        cardSession(a),
       ]),
-    code: (a) => cardPython(a.code)
+    code: (a) => cardPython(a.code),
   },
-  blender_rt_cmd: { kind: 'execute', title: (a) => cardTitle('Blender 命令', [a.name, cardParams(a.params)]) },
+  blender_rt_cmd: {
+    kind: 'execute',
+    title: (a) => cardTitle('Blender 命令', [a.name, cardParams(a.params)]),
+  },
   blender_rt_commands: { kind: 'search', title: () => 'Blender 命令清单' },
   blender_rt_loop: {
     kind: 'execute',
-    title: (a) => cardTitle('Blender 内环', [a.op, a.target, a.iterations ? String(a.iterations) + ' 次' : ''])
+    title: (a) =>
+      cardTitle('Blender 内环', [a.op, a.target, a.iterations ? String(a.iterations) + ' 次' : '']),
   },
   blender_rt_perf: { kind: 'other', title: (a) => cardTitle('Blender 性能', [a.op]) },
   blender_rt_opt: { kind: 'edit', title: (a) => cardTitle('Blender 精简', [a.op]) },
@@ -151,37 +166,54 @@ export const CARD_SPECS: Record<string, CardSpec> = {
       cardTitle('Blender 无头', [
         a.script_file ? cardBaseName(a.script_file) : cardCodeHeadline(a.script),
         cardBaseName(a.file),
-        a.as_job ? '作业' : ''
+        a.as_job ? '作业' : '',
       ]),
-    code: (a) => cardPython(a.script)
+    code: (a) => cardPython(a.script),
   },
-  blender_rt_plan: { kind: 'other', title: (a) => cardTitle('Blender 规划', [a.op, cardSession(a)]) },
+  blender_rt_plan: {
+    kind: 'other',
+    title: (a) => cardTitle('Blender 规划', [a.op, cardSession(a)]),
+  },
   blender_rt_worker: {
     kind: 'execute',
     title: (a) => cardTitle('Blender 热会话', [a.op, a.name, cardCodeHeadline(a.code)]),
-    code: (a) => cardPython(a.code)
+    code: (a) => cardPython(a.code),
   },
   blender_rt_txn: { kind: 'other', title: (a) => cardTitle('Blender 事务', [a.op, a.label]) },
   blender_rt_preset: { kind: 'other', title: (a) => cardTitle('Blender 配方', [a.op, a.name]) },
   blender_rt_job: {
     kind: 'execute',
-    title: (a) => cardTitle('Blender 作业', [a.op, a.id, a.script_file ? cardBaseName(a.script_file) : cardCodeHeadline(a.script)]),
-    code: (a) => cardPython(a.script)
+    title: (a) =>
+      cardTitle('Blender 作业', [
+        a.op,
+        a.id,
+        a.script_file ? cardBaseName(a.script_file) : cardCodeHeadline(a.script),
+      ]),
+    code: (a) => cardPython(a.script),
   },
-  blender_viewport: { kind: 'other', title: (a) => cardTitle('Blender 通道', [a.op || 'status']) }
+  blender_viewport: { kind: 'other', title: (a) => cardTitle('Blender 通道', [a.op || 'status']) },
 }
 
 /** 卡片正文里的代码段：一行标签 + 原样代码（过长时保留头尾） */
 function cardCodeSection(code: { label: string; code: string }): string {
   const body = code.code.replace(/\s+$/, '')
   const n = body.split(String.fromCharCode(10)).length
-  return '▸ ' + code.label + '（' + String(n) + ' 行）' + String.fromCharCode(10) + clipText(body, CARD_CODE_HEAD, CARD_CODE_TAIL)
+  return (
+    '▸ ' +
+    code.label +
+    '（' +
+    String(n) +
+    ' 行）' +
+    String.fromCharCode(10) +
+    clipText(body, CARD_CODE_HEAD, CARD_CODE_TAIL)
+  )
 }
 /** renderStructured 的第 0 块：单行、能 parse 成普通对象的 JSON */
 function isEnvelopeBlock(b: any): boolean {
   if (!b || b.type !== 'text' || typeof b.text !== 'string') return false
   const s = b.text.trim()
-  if (!s.startsWith('{') || !s.endsWith('}') || s.indexOf(String.fromCharCode(10)) >= 0) return false
+  if (!s.startsWith('{') || !s.endsWith('}') || s.indexOf(String.fromCharCode(10)) >= 0)
+    return false
   try {
     const v = JSON.parse(s)
     return !!v && typeof v === 'object' && !Array.isArray(v)
@@ -219,9 +251,13 @@ export function cardPresenters(spec: any): any {
         // 没有信封、也没有代码 ⇒ 原始回执本来就是人读文本，交给宿主照常显示
         if (human.length === texts.length && !code) return undefined
         // 一个 text block：dsh-TUI 拼接多个 text block 时不加换行
-        const parts = human.map((b: any) => String(b.text || '').replace(/\s+$/, '')).filter(Boolean)
+        const parts = human
+          .map((b: any) => String(b.text || '').replace(/\s+$/, ''))
+          .filter(Boolean)
         if (code) parts.push(cardCodeSection(code))
-        const content: any[] = parts.length ? [{ type: 'text', text: parts.join(String.fromCharCode(10, 10)) }] : []
+        const content: any[] = parts.length
+          ? [{ type: 'text', text: parts.join(String.fromCharCode(10, 10)) }]
+          : []
         for (const b of result.content) if (b && b.type !== 'text') content.push(b)
         return { card: 'generic', content: content }
       } catch (e: any) {

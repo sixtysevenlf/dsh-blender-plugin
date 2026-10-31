@@ -15,8 +15,9 @@ import os from 'node:os'
 import path from 'node:path'
 import { ensureBuild } from '../../scripts/ensure-build.mjs'
 
-const workDir = process.env.DSH_BLENDER_WORKDIR
-  || path.join(os.tmpdir(), 'dsh-t14-blender42-' + String(process.pid))
+const workDir =
+  process.env.DSH_BLENDER_WORKDIR ||
+  path.join(os.tmpdir(), 'dsh-t14-blender42-' + String(process.pid))
 mkdirSync(workDir, { recursive: true })
 process.env.DSH_BLENDER_WORKDIR = workDir
 
@@ -36,17 +37,23 @@ const result = await engine.headless({
   factoryStartup: true,
   timeoutMs: 120000,
 })
-const stdout = String(result && result.stdout || '')
-const ok = !!result && result.ok === true && result.exitCode === 0
-  && stdout.includes('T14_BLENDER_E2E 4.2.')
+const stdout = String((result && result.stdout) || '')
+const ok =
+  !!result && result.ok === true && result.exitCode === 0 && stdout.includes('T14_BLENDER_E2E 4.2.')
 if (!ok) {
-  console.error(JSON.stringify({
-    ok: result && result.ok,
-    exitCode: result && result.exitCode,
-    timedOut: result && result.timedOut,
-    reason: result && result.reason,
-    stdout: stdout.slice(0, 1200),
-  }, null, 2))
+  console.error(
+    JSON.stringify(
+      {
+        ok: result && result.ok,
+        exitCode: result && result.exitCode,
+        timedOut: result && result.timedOut,
+        reason: result && result.reason,
+        stdout: stdout.slice(0, 1200),
+      },
+      null,
+      2,
+    ),
+  )
   process.exit(1)
 }
 console.log('PASS Blender 4.2 headless E2E · ' + String(result.ms) + 'ms · ' + workDir)

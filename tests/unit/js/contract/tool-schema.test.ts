@@ -4,7 +4,9 @@ import * as plugin from '../../../../src/index'
 import { createFakeContext, type CapturedTool } from '../../../helpers/fake-context'
 import { pkgPath } from '../../../helpers/pkg'
 
-const lock = JSON.parse(fs.readFileSync(pkgPath('tests', 'fixtures', 'capability.lock.json'), 'utf8'))
+const lock = JSON.parse(
+  fs.readFileSync(pkgPath('tests', 'fixtures', 'capability.lock.json'), 'utf8'),
+)
 
 let tools: CapturedTool[] = []
 let fake: ReturnType<typeof createFakeContext>

@@ -23,16 +23,22 @@ describe('tool presenters', () => {
   })
 
   it('keeps card specs aligned with the registered tool set', () => {
-    expect(Object.keys(plugin.__internals.cards.specs).sort()).toEqual(tools.map((t) => t.name).sort())
+    expect(Object.keys(plugin.__internals.cards.specs).sort()).toEqual(
+      tools.map((t) => t.name).sort(),
+    )
   })
 
   it('preserves the model-facing render channel', () => {
     for (const t of tools) {
       expect(typeof (t.output as any)?.render, t.name).toBe('function')
-      const value = t.name === 'blender_viewport' ? 'hello' : { text: 'hello', envelope: { ok: true } }
+      const value =
+        t.name === 'blender_viewport' ? 'hello' : { text: 'hello', envelope: { ok: true } }
       const block = (t.output as any).render({}, value)
       expect(Array.isArray(block), t.name).toBe(true)
-      expect(block.every((b: any) => typeof b.text === 'string'), t.name).toBe(true)
+      expect(
+        block.every((b: any) => typeof b.text === 'string'),
+        t.name,
+      ).toBe(true)
       expect(block.map((b: any) => b.text).join('\n'), t.name).toContain('hello')
     }
   })
@@ -40,10 +46,16 @@ describe('tool presenters', () => {
   it('produces lossless card views for odd arguments', () => {
     for (const t of tools) {
       const call = (t.presentCall as any)({})
-      const result = (t.presentResult as any)({}, {
-        content: [{ type: 'text', text: JSON.stringify({ ok: true }) }, { type: 'text', text: 'x' }],
-        isError: false,
-      })
+      const result = (t.presentResult as any)(
+        {},
+        {
+          content: [
+            { type: 'text', text: JSON.stringify({ ok: true }) },
+            { type: 'text', text: 'x' },
+          ],
+          isError: false,
+        },
+      )
       for (const view of [call, result]) {
         if (view === undefined) continue
         expect(JSON.parse(JSON.stringify(view)), t.name).toEqual(view)

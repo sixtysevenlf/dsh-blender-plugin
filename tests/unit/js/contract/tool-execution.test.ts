@@ -23,7 +23,14 @@ beforeAll(async () => {
   const attachments = {
     imageLimits: { mediaTypes: ['image/png'] },
     async saveImage({ data, name }: { data: Uint8Array; name: string }) {
-      return { attachmentId: 'att-' + name, mediaType: 'image/png', bytes: data.length, width: 1, height: 1, name }
+      return {
+        attachmentId: 'att-' + name,
+        mediaType: 'image/png',
+        bytes: data.length,
+        width: 1,
+        height: 1,
+        name,
+      }
     },
   }
   fake.ctx.get = ((name: string) => (name === 'attachments' ? attachments : undefined)) as any
@@ -41,7 +48,11 @@ describe('model tool execution semantics', () => {
     const out = await run('blender_rt_see', { max_size: 320 })
     expect(out.text).toContain('视口帧 320px')
     expect(out.image?.attachmentId).toContain('viewport-')
-    expect(backend.requests.some((r: any) => r.method === 'GET' && r.path === '/frame.png' && r.search.includes('size=320'))).toBe(true)
+    expect(
+      backend.requests.some(
+        (r: any) => r.method === 'GET' && r.path === '/frame.png' && r.search.includes('size=320'),
+      ),
+    ).toBe(true)
   })
 
   it('tool blender_rt_do executes code and returns the follow-up frame', async () => {
@@ -54,7 +65,12 @@ describe('model tool execution semantics', () => {
   })
 
   it('tool blender_rt_watch samples a time window', async () => {
-    const out = await run('blender_rt_watch', { code: 'x = 1', seconds: 0.2, fps: 1, max_size: 120 })
+    const out = await run('blender_rt_watch', {
+      code: 'x = 1',
+      seconds: 0.2,
+      fps: 1,
+      max_size: 120,
+    })
     expect(out.text).toContain('WATCH 0.2s @1fps')
     expect(out.text).toContain('timeline:')
   })
@@ -75,7 +91,9 @@ describe('model tool execution semantics', () => {
   it('tool blender_rt_loop runs an inner-loop op', async () => {
     const out = await run('blender_rt_loop', { op: 'status' })
     expect(out.text).toContain('LOOP status')
-    expect(backend.requests.some((r: any) => r.path === '/loop' && r.body.op === 'status')).toBe(true)
+    expect(backend.requests.some((r: any) => r.path === '/loop' && r.body.op === 'status')).toBe(
+      true,
+    )
   })
 
   it('tool blender_rt_perf runs a perf op', async () => {
@@ -136,18 +154,32 @@ describe('model tool execution semantics', () => {
   it('rejects missing required parameters before touching the backend', async () => {
     expect((await run('blender_rt_do', {})).text).toContain('需要 code 或 file 之一')
     await expect(run('blender_rt_cmd', {})).rejects.toThrow('missing required property "name"')
-    expect((await run('blender_rt_headless', { blend: 'D:/x.blend' })).text).toContain('没有参数 blend')
+    expect((await run('blender_rt_headless', { blend: 'D:/x.blend' })).text).toContain(
+      '没有参数 blend',
+    )
     expect((await run('blender_rt_headless', { file: '   ' })).text).toContain('空字符串')
     expect((await run('blender_rt_job', { op: 'start', file: '' })).text).toContain('空字符串')
-    expect((await run('blender_rt_plan', { op: 'catalog', args: '{bad' })).text).toContain('args 不是合法 JSON 对象')
-    expect((await run('blender_rt_preset', { op: 'save', data: '{bad' })).text).toContain('data 不是合法 JSON')
+    expect((await run('blender_rt_plan', { op: 'catalog', args: '{bad' })).text).toContain(
+      'args 不是合法 JSON 对象',
+    )
+    expect((await run('blender_rt_preset', { op: 'save', data: '{bad' })).text).toContain(
+      'data 不是合法 JSON',
+    )
   })
 
   it('maps a backend lease conflict to a readable 409 message', async () => {
     backend.setHandler('POST /act', () => ({
       status: 409,
       headers: { 'content-type': 'application/json' },
-      body: Buffer.from(JSON.stringify({ ok: false, error: 'leased', holder: 'other', expiresInMs: 5000, hint: 'wait' })),
+      body: Buffer.from(
+        JSON.stringify({
+          ok: false,
+          error: 'leased',
+          holder: 'other',
+          expiresInMs: 5000,
+          hint: 'wait',
+        }),
+      ),
     }))
     const out = await run('blender_rt_do', { code: 'x = 1', see: false })
     expect(out.text).toContain('写通道被别的会话占用')
@@ -178,7 +210,10 @@ describe('model tool failure semantics', () => {
     const port = await closedPort()
     const f = createFakeContext()
     plugin.apply(f.ctx, { autoStart: false, tui: false, port })
-    const out = await (f.tools.find((t) => t.name === 'blender_viewport')!.execute as any)({ op: 'status' }, {})
+    const out = await (f.tools.find((t) => t.name === 'blender_viewport')!.execute as any)(
+      { op: 'status' },
+      {},
+    )
     const parsed = JSON.parse(out)
     expect(parsed.running).toBe(false)
     expect(parsed.error).toBeTruthy()

@@ -3,7 +3,12 @@ import { ABORT_HINT, HOLDER } from '../constants.js'
 import { execSignal } from './exec-context.js'
 import { base, withTimeout } from './backend.js'
 
-export async function backendJson(port: number, path: string, timeoutMs = 20000, init?: any): Promise<any> {
+export async function backendJson(
+  port: number,
+  path: string,
+  timeoutMs = 20000,
+  init?: any,
+): Promise<any> {
   const r = await withTimeout(base(port) + path, init, timeoutMs)
   const text = await r.text()
   try {
@@ -59,7 +64,12 @@ export function parseBackendBody(text: string): any {
     last.__streamLines = lines.length
     return last
   }
-  return { ok: false, raw: t.slice(-500), streamLines: lines.length, parseError: 'no JSON line found' }
+  return {
+    ok: false,
+    raw: t.slice(-500),
+    streamLines: lines.length,
+    parseError: 'no JSON line found',
+  }
 }
 
 /**
@@ -71,7 +81,12 @@ export function parseBackendBody(text: string): any {
  * 外层 run_code 的 deadline 一到就整段丢结果（正是 D1 报的现象）。
  * 现在把 text() 也放进同一个 AbortController：到点 abort → fetch / body 读取一起抛 AbortError。
  */
-export async function backendPost(port: number, path: string, body: any, timeoutMs = 60000): Promise<any> {
+export async function backendPost(
+  port: number,
+  path: string,
+  body: any,
+  timeoutMs = 60000,
+): Promise<any> {
   const ac = new AbortController()
   const ext = execSignal()
   let fired = false
@@ -85,7 +100,7 @@ export async function backendPost(port: number, path: string, body: any, timeout
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ ...(body || {}), holder: HOLDER }),
-      signal
+      signal,
     })
     const text = await r.text()
     const j: any = parseBackendBody(text)
@@ -166,11 +181,16 @@ export function leasedText(r: any): string | undefined {
 /** 拉一帧 PNG 字节（含耗时）；full=true 走 screenshot_area（整窗口/区域） */
 export async function fetchFrame(port: number, size: number, full = false, area = 0): Promise<any> {
   const t0 = Date.now()
-  const url = base(port) + '/frame.png?' + (full ? 'full=1&area=' + String(area) : 'size=' + String(size))
+  const url =
+    base(port) + '/frame.png?' + (full ? 'full=1&area=' + String(area) : 'size=' + String(size))
   const r = await withTimeout(url, {}, 60000)
   if (!r.ok) throw new Error('frame http ' + String(r.status))
   const buf = new Uint8Array(await r.arrayBuffer())
-  return { png: buf, ms: Date.now() - t0, hash: createHash('md5').update(buf).digest('hex').slice(0, 8) }
+  return {
+    png: buf,
+    ms: Date.now() - t0,
+    hash: createHash('md5').update(buf).digest('hex').slice(0, 8),
+  }
 }
 
 /** 自定义视角出图：POST /view（view.py）——不动物体、不动用户视口 */
@@ -181,9 +201,9 @@ export async function fetchView(port: number, spec: any, timeoutMs = 180000): Pr
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(spec || {})
+      body: JSON.stringify(spec || {}),
     },
-    timeoutMs
+    timeoutMs,
   )
   if (!r.ok) {
     const text = await r.text()
@@ -193,7 +213,9 @@ export async function fetchView(port: number, spec: any, timeoutMs = 180000): Pr
     } catch (e: any) {
       j = null
     }
-    throw new Error('view http ' + String(r.status) + ' · ' + String((j && j.error) || text.slice(0, 300)))
+    throw new Error(
+      'view http ' + String(r.status) + ' · ' + String((j && j.error) || text.slice(0, 300)),
+    )
   }
   let meta: any = null
   try {
@@ -205,7 +227,12 @@ export async function fetchView(port: number, spec: any, timeoutMs = 180000): Pr
     meta = null
   }
   const buf = new Uint8Array(await r.arrayBuffer())
-  return { png: buf, ms: Date.now() - t0, meta: meta, hash: createHash('md5').update(buf).digest('hex').slice(0, 8) }
+  return {
+    png: buf,
+    ms: Date.now() - t0,
+    meta: meta,
+    hash: createHash('md5').update(buf).digest('hex').slice(0, 8),
+  }
 }
 
 export function numTriple(v: any): number[] | undefined {

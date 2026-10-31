@@ -18,7 +18,12 @@ export function registerTxn(ctx: any, port: number): void {
             'restore 默认 into="auto"：载入快照后把会话放回**快照的出处文件**（保存落回自己的工程，不写进快照目录），并在载入前自动留 pre_restore 备份；into="snapshot" 非破坏（只看一眼、不写原文件）。' +
             '⚠️ 边界：对象级**不含拓扑/UV/顶点级改动** —— Boolean、合并、删面之后回不去（revert 会跳过并报告），那种回滚请用文件级 snapshot/restore。',
           parameters: {
-            op: { type: 'string', required: true, description: 'snapshot | restore | list | prune | mark | revert | marks | drop | help' },
+            op: {
+              type: 'string',
+              required: true,
+              description:
+                'snapshot | restore | list | prune | mark | revert | marks | drop | help',
+            },
             label: { type: 'string', description: '快照 / mark 的名字（snapshot 省略则用时间戳）' },
             objects: { type: 'string', description: 'mark 时限定对象（逗号分隔；省略 = 全场景）' },
             keep: { type: 'integer', description: 'prune 只保留最近 N 个快照，默认 5' },
@@ -26,9 +31,12 @@ export function registerTxn(ctx: any, port: number): void {
             into: {
               type: 'string',
               description:
-                'restore 回写口径：auto（默认，回到快照的出处文件）| snapshot（非破坏，不写原文件）| original（必须能回写，否则失败）'
+                'restore 回写口径：auto（默认，回到快照的出处文件）| snapshot（非破坏，不写原文件）| original（必须能回写，否则失败）',
             },
-            backup: { type: 'boolean', description: 'restore 前是否自动留 pre_restore 备份（默认 true）' }
+            backup: {
+              type: 'boolean',
+              description: 'restore 前是否自动留 pre_restore 备份（默认 true）',
+            },
           },
           output: { schema: ANY_SCHEMA, render: renderOne },
           isConcurrencySafe: () => false,
@@ -38,7 +46,7 @@ export function registerTxn(ctx: any, port: number): void {
               return toolError(
                 'backend_unreachable',
                 '后端不可用（127.0.0.1:' + String(port) + '）',
-                '先 blender_viewport op=start 拉起后端，再重试'
+                '先 blender_viewport op=start 拉起后端，再重试',
               )
             const op = String((args && args.op) || 'list')
             const a: any = {}
@@ -59,7 +67,7 @@ export function registerTxn(ctx: any, port: number): void {
               return toolError(
                 'backend_error',
                 'TXN ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
-                '用 blender_rt_txn op=list 查看快照'
+                '用 blender_rt_txn op=list 查看快照',
               )
             const res = (r && r.result) || {}
             const parts: string[] = []
@@ -77,22 +85,26 @@ export function registerTxn(ctx: any, port: number): void {
                   ' 对象' +
                   String.fromCharCode(10) +
                   '路径：' +
-                  String(res.snapshot.path)
+                  String(res.snapshot.path),
               )
             else if (op === 'restore')
               parts.push(
-                '已恢复：' + JSON.stringify(res.restored || {}).slice(0, 200) + String.fromCharCode(10) + String(res.warning || '')
+                '已恢复：' +
+                  JSON.stringify(res.restored || {}).slice(0, 200) +
+                  String.fromCharCode(10) +
+                  String(res.warning || ''),
               )
             else if (op === 'list') {
               parts.push(
                 '快照 ' +
                   String((res.snapshots || []).length) +
                   ' 个：' +
-                  (res.snapshots || []).map((s: any) => s.label + '(' + s.bytes + 'B)').join(' · ')
+                  (res.snapshots || []).map((s: any) => s.label + '(' + s.bytes + 'B)').join(' · '),
               )
               parts.push('mark：' + JSON.stringify(res.marks || []))
               parts.push('目录：' + String(res.snapshot_dir || ''))
-            } else if (op === 'mark') parts.push('已记 mark ' + String(res.mark) + ' · ' + String(res.objects) + ' 个对象')
+            } else if (op === 'mark')
+              parts.push('已记 mark ' + String(res.mark) + ' · ' + String(res.objects) + ' 个对象')
             else if (op === 'revert')
               parts.push(
                 '回滚 ' +
@@ -100,13 +112,15 @@ export function registerTxn(ctx: any, port: number): void {
                   '：改了 ' +
                   String(res.changed_count) +
                   ' 个' +
-                  (res.blocked && res.blocked.length ? ' · 跳过 ' + JSON.stringify(res.blocked).slice(0, 200) : '')
+                  (res.blocked && res.blocked.length
+                    ? ' · 跳过 ' + JSON.stringify(res.blocked).slice(0, 200)
+                    : ''),
               )
             else parts.push(JSON.stringify(res).slice(0, 800))
             return { text: parts.join(String.fromCharCode(10)) }
-          }
-        })
+          },
+        }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-txn'
+    '@dsh-external/dsh-blender-plugin: rt-txn',
   )
 }

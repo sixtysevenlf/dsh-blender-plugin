@@ -21,26 +21,52 @@ export function registerJob(ctx: any, port: number): void {
             'run 与 job **同一 id 空间**：headless 的 runId（run-…）也能用 status/collect/wait/kill 收；日志落 <outdir>/jobs/<id>/。' +
             '参数细节见 blender_rt_plan(op="catalog", args={tool:"rt_job"})。',
           parameters: {
-            op: { type: 'string', required: true, description: 'start | status | collect | wait | kill | list' },
-            id: { type: 'string', description: 'status/collect/wait/kill 的 id（job-… 或 headless 的 run-…）' },
-            script: { type: 'string', description: 'Python 源码（与 headless 同一套前导与结果契约）' },
+            op: {
+              type: 'string',
+              required: true,
+              description: 'start | status | collect | wait | kill | list',
+            },
+            id: {
+              type: 'string',
+              description: 'status/collect/wait/kill 的 id（job-… 或 headless 的 run-…）',
+            },
+            script: {
+              type: 'string',
+              description: 'Python 源码（与 headless 同一套前导与结果契约）',
+            },
             script_file: { type: 'string', description: '直接跑 .py 文件（Windows/WSL 路径都收）' },
-            args: { type: 'string', description: '命令行参数（空格分隔或数组）；脚本里读 sys.argv / K.args' },
+            args: {
+              type: 'string',
+              description: '命令行参数（空格分隔或数组）；脚本里读 sys.argv / K.args',
+            },
             env: { type: 'json', description: '额外环境变量 {KEY:"VALUE"}' },
-            file: { type: 'string', description: '要打开的 .blend（回执带 inputFile{size,mtime,md5}）' },
-            outdir: { type: 'string', description: '产物目录（WSL 路径也收）；日志在其 jobs/<id>/ 下' },
+            file: {
+              type: 'string',
+              description: '要打开的 .blend（回执带 inputFile{size,mtime,md5}）',
+            },
+            outdir: {
+              type: 'string',
+              description: '产物目录（WSL 路径也收）；日志在其 jobs/<id>/ 下',
+            },
             timeout_ms: {
               type: 'integer',
-              description: '作业上限，默认 3600000，上限 24 h；wait 时是本次等待上限（默认 120000，上限 600000）'
+              description:
+                '作业上限，默认 3600000，上限 24 h；wait 时是本次等待上限（默认 120000，上限 600000）',
             },
             engine: { type: 'string', description: 'eevee（默认）/ cycles / keep' },
             preload: { type: 'string', description: '预载 runtime 模块（逗号分隔）→ K.dsh_*_api' },
             factory_startup: { type: 'boolean', description: '默认 true = --factory-startup' },
             bootstrap: { type: 'boolean', description: '默认 true = 注入持久内核 K' },
             workdir: { type: 'string', description: '脚本内 chdir + sys.path 首位' },
-            include_noise: { type: 'boolean', description: '产物清单是否含噪音文件（默认 false 过滤）' },
+            include_noise: {
+              type: 'boolean',
+              description: '产物清单是否含噪音文件（默认 false 过滤）',
+            },
             out_json: { type: 'string', description: '结构化结果落盘路径（>4KB 自动落 results/）' },
-            tail: { type: 'integer', description: 'collect/wait 的 stdout/stderr 尾部字符数（默认 4000）' }
+            tail: {
+              type: 'integer',
+              description: 'collect/wait 的 stdout/stderr 尾部字符数（默认 4000）',
+            },
           },
           output: { schema: ANY_SCHEMA, render: renderStructured },
           isConcurrencySafe: () => true,
@@ -50,7 +76,7 @@ export function registerJob(ctx: any, port: number): void {
               return toolError(
                 'backend_unreachable',
                 '后端不可用（127.0.0.1:' + String(port) + '）',
-                '先 blender_viewport op=start 拉起后端，再重试'
+                '先 blender_viewport op=start 拉起后端，再重试',
               )
             const op = String((args && args.op) || 'list')
             // F-09 一致性：op=start/run 的 file= 与 rt_headless 同一套拦截（引擎 job 路径已有 validateFileOpt 兜底）
@@ -64,13 +90,13 @@ export function registerJob(ctx: any, port: number): void {
                     '；打开 .blend 请用 file=。（收到的键：' +
                     Object.keys(args || {}).join(', ') +
                     '）',
-                  '用 file=<.blend 路径>；参数名是 file，不是 blend/path'
+                  '用 file=<.blend 路径>；参数名是 file，不是 blend/path',
                 )
               if (args && typeof args.file === 'string' && !args.file.trim())
                 return toolError(
                   'invalid_params',
                   'file= 传了空字符串 —— 本次不会打开任何 .blend（脚本会拿到出厂空场景）',
-                  '给真实 .blend 路径，或不要传 file='
+                  '给真实 .blend 路径，或不要传 file=',
                 )
             }
             const body: any = { op: op }
@@ -86,12 +112,16 @@ export function registerJob(ctx: any, port: number): void {
             if (args && args.workdir) body.workdir = String(args.workdir)
             if (args && args.out_json) body.outJson = String(args.out_json)
             if (args && args.include_noise !== undefined) body.includeNoise = !!args.include_noise
-            if (args && args.factory_startup !== undefined) body.factoryStartup = !!args.factory_startup
+            if (args && args.factory_startup !== undefined)
+              body.factoryStartup = !!args.factory_startup
             if (args && args.bootstrap !== undefined) body.bootstrap = !!args.bootstrap
             if (args && args.tail) body.tail = Number(args.tail)
             if (args && args.timeout_ms) body.timeoutMs = Number(args.timeout_ms)
             // v0.9.3（D6.2）：op=wait 会阻塞 → 给足 HTTP 预算（服务端默认 120 s/次，上限 600 s）
-            const budget = op === 'wait' ? Math.min(600000, Number(args && args.timeout_ms) || 120000) + 30000 : 60000
+            const budget =
+              op === 'wait'
+                ? Math.min(600000, Number(args && args.timeout_ms) || 120000) + 30000
+                : 60000
             const r = await backendPost(port, '/job', body, budget)
             const lt = leasedText(r)
             if (lt) return { text: lt }
@@ -99,7 +129,7 @@ export function registerJob(ctx: any, port: number): void {
               return toolError(
                 'backend_error',
                 'JOB ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
-                '用 blender_rt_job op=list 查看作业'
+                '用 blender_rt_job op=list 查看作业',
               )
             if (op === 'list') {
               const js: any[] = (r && r.jobs) || []
@@ -115,9 +145,16 @@ export function registerJob(ctx: any, port: number): void {
                   (j.fromLedger ? ' · (磁盘台账)' : '') +
                   ' · 产物 ' +
                   String((j.artifacts || []).length) +
-                  ' 项'
+                  ' 项',
               )
-              return { text: '作业（' + String(js.length) + '）：' + String.fromCharCode(10) + lines.join(String.fromCharCode(10)) }
+              return {
+                text:
+                  '作业（' +
+                  String(js.length) +
+                  '）：' +
+                  String.fromCharCode(10) +
+                  lines.join(String.fromCharCode(10)),
+              }
             }
             const j: any = (r && r.job) || {}
             // ---- 统一回执：run/job 同一套字段（D2）
@@ -126,11 +163,16 @@ export function registerJob(ctx: any, port: number): void {
               jobId: String(j.id || '').indexOf('job-') === 0 ? j.id : null,
               runId: j.runId || null,
               notes: [],
-              hint: null
+              hint: null,
             }
             if (op === 'start') {
-              ctx2.notes.push('已后台化（pid ' + String(j.pid) + '，日志目录 ' + String(j.logDir || '') + '）')
-              ctx2.hint = '用 op=wait id=' + String(j.id) + ' 阻塞等结果，或 op=collect 看进展（stage/idleMs）；op=kill 中止'
+              ctx2.notes.push(
+                '已后台化（pid ' + String(j.pid) + '，日志目录 ' + String(j.logDir || '') + '）',
+              )
+              ctx2.hint =
+                '用 op=wait id=' +
+                String(j.id) +
+                ' 阻塞等结果，或 op=collect 看进展（stage/idleMs）；op=kill 中止'
               const out0 = promotedReceipt(j, String(j.id), 'op=start 已接受')
               out0.envelope.mode = 'job-start'
               out0.envelope.notes = ctx2.notes
@@ -140,8 +182,18 @@ export function registerJob(ctx: any, port: number): void {
             if (op === 'kill') {
               const t =
                 j.alreadyFinished || j.status === 'unknown'
-                  ? 'JOB kill · ' + String(j.id) + ' · ' + String(j.status) + '（' + String(j.note || '已结束/不存在，无需 kill') + '）'
-                  : 'JOB kill · ' + String(j.id) + ' · status=' + String(j.status) + '（已发 SIGKILL）'
+                  ? 'JOB kill · ' +
+                    String(j.id) +
+                    ' · ' +
+                    String(j.status) +
+                    '（' +
+                    String(j.note || '已结束/不存在，无需 kill') +
+                    '）'
+                  : 'JOB kill · ' +
+                    String(j.id) +
+                    ' · status=' +
+                    String(j.status) +
+                    '（已发 SIGKILL）'
               return {
                 text: t,
                 envelope: {
@@ -152,8 +204,8 @@ export function registerJob(ctx: any, port: number): void {
                   ok: true,
                   alreadyFinished: !!j.alreadyFinished,
                   note: j.note || null,
-                  fromLedger: !!j.fromLedger
-                }
+                  fromLedger: !!j.fromLedger,
+                },
               }
             }
             if (j.recovered) {
@@ -182,8 +234,8 @@ export function registerJob(ctx: any, port: number): void {
                   recoveredEvidence: j.recoveredEvidence || null,
                   resultJson: j.resultJson || null,
                   resultPath: j.resultPath || null,
-                  stdoutTail: clipText(j.stdoutTail, 1000, 1000)
-                }
+                  stdoutTail: clipText(j.stdoutTail, 1000, 1000),
+                },
               }
             }
             if (j.status === 'stale' || j.fromLedger) {
@@ -212,8 +264,8 @@ export function registerJob(ctx: any, port: number): void {
                   pidAlive: !!j.pidAlive,
                   resultJson: j.resultJson || null,
                   resultPath: j.resultPath || null,
-                  stdoutTail: clipText(j.stdoutTail, 1000, 1000)
-                }
+                  stdoutTail: clipText(j.stdoutTail, 1000, 1000),
+                },
               }
             }
             if (op === 'collect' && j.status === 'running') {
@@ -221,10 +273,14 @@ export function registerJob(ctx: any, port: number): void {
                 '任务仍在跑（不是失败）：stage=' +
                   safeStringify(j.stage || j.stageName) +
                   (j.progress ? ' · progress=' + safeStringify(j.progress) : '') +
-                  (j.heartbeat ? ' · 心跳 ' + String(Math.round(Number(Date.now() - j.heartbeat.at || 0) / 1000)) + 's 前' : '') +
+                  (j.heartbeat
+                    ? ' · 心跳 ' +
+                      String(Math.round(Number(Date.now() - j.heartbeat.at || 0) / 1000)) +
+                      's 前'
+                    : '') +
                   ' · 最近输出 ' +
                   String(Math.round(Number(j.idleMs || 0) / 1000)) +
-                  's 前'
+                  's 前',
               )
               const out1 = promotedReceipt(j, String(j.id), 'op=collect：任务还在跑')
               out1.envelope.mode = 'collect-running'
@@ -235,19 +291,31 @@ export function registerJob(ctx: any, port: number): void {
               const out2 = promotedReceipt(
                 j,
                 String(j.id),
-                'op=wait：等待窗口（' + String(Math.round(Number(j.waitedMs || 0) / 1000)) + 's）到点，任务仍在跑'
+                'op=wait：等待窗口（' +
+                  String(Math.round(Number(j.waitedMs || 0) / 1000)) +
+                  's）到点，任务仍在跑',
               )
               out2.envelope.mode = 'wait-timeout'
               return out2
             }
             const notes: string[] = []
-            if (op === 'wait') notes.push('op=wait 等到终态（等了 ' + String(Math.round(Number(j.waitedMs || 0) / 1000)) + 's）')
+            if (op === 'wait')
+              notes.push(
+                'op=wait 等到终态（等了 ' +
+                  String(Math.round(Number(j.waitedMs || 0) / 1000)) +
+                  's）',
+              )
             if (j.kind === 'headless' || String(j.id || '').indexOf('run-') === 0)
               notes.push('这是 blender_rt_headless 的运行台账（run 与 job 同一 id 空间）')
-            return headlessReceipt(j, { mode: 'job', jobId: ctx2.jobId, runId: j.runId || null, notes: notes })
-          }
-        })
+            return headlessReceipt(j, {
+              mode: 'job',
+              jobId: ctx2.jobId,
+              runId: j.runId || null,
+              notes: notes,
+            })
+          },
+        }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-job'
+    '@dsh-external/dsh-blender-plugin: rt-job',
   )
 }

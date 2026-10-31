@@ -1,6 +1,10 @@
-
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { blenderCommand, registerTuiHost, tuiHostSummary, __tuiHostInternals } from '../../../src/tui-host'
+import {
+  blenderCommand,
+  registerTuiHost,
+  tuiHostSummary,
+  __tuiHostInternals,
+} from '../../../src/tui-host'
 import type { TuiHostOptions } from '../../../src/tui-host'
 import { startFakeHost, type FakeHost } from '../../helpers/fake-http'
 
@@ -9,7 +13,12 @@ import { startFakeHost, type FakeHost } from '../../helpers/fake-http'
 // host that has them gets the footer field, @ mentions, command tree and the
 // selection bridge. Everything is driven by a scripted backend.
 
-const OPTS: TuiHostOptions = { port: 0, holder: 'plugin-pid-1', autoStart: false, tui: true } as TuiHostOptions
+const OPTS: TuiHostOptions = {
+  port: 0,
+  holder: 'plugin-pid-1',
+  autoStart: false,
+  tui: true,
+} as TuiHostOptions
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const STATE = {
@@ -28,21 +37,39 @@ beforeAll(async () => {
     const path = request.path
     if (path.startsWith('/host/state')) return { json: STATE }
     if (path.startsWith('/host/jobs?') || path === '/host/jobs') {
-      return { json: { ok: true, running: 1, total: 2, jobs: [
-        { id: 'job-1', status: 'running', ms: 42000, script: 'D:/work/bake.py' },
-        { id: 'job-0', status: 'done', ms: 3000 },
-      ] } }
+      return {
+        json: {
+          ok: true,
+          running: 1,
+          total: 2,
+          jobs: [
+            { id: 'job-1', status: 'running', ms: 42000, script: 'D:/work/bake.py' },
+            { id: 'job-0', status: 'done', ms: 3000 },
+          ],
+        },
+      }
     }
-    if (path.startsWith('/doctor')) return { json: { ok: true, addon: { kind: 'ok', summary: 'GUI 通道正常' } } }
-    if (path.startsWith('/host/selection/latest')) return { json: { ok: true, seq: 0, unconsumed: false } }
+    if (path.startsWith('/doctor'))
+      return { json: { ok: true, addon: { kind: 'ok', summary: 'GUI 通道正常' } } }
+    if (path.startsWith('/host/selection/latest'))
+      return { json: { ok: true, seq: 0, unconsumed: false } }
     if (path.startsWith('/host/selection/consume')) return { json: { ok: true } }
     if (path.startsWith('/host/scene-items')) {
-      return { json: { ok: true, objects: [{ name: 'Cube', type: 'MESH' }], materials: [{ name: 'Mat' }], collections: [{ name: 'COL_Asset' }] } }
+      return {
+        json: {
+          ok: true,
+          objects: [{ name: 'Cube', type: 'MESH' }],
+          materials: [{ name: 'Mat' }],
+          collections: [{ name: 'COL_Asset' }],
+        },
+      }
     }
     return { json: { ok: true } }
   })
 })
-afterAll(async () => { await host.close() })
+afterAll(async () => {
+  await host.close()
+})
 
 describe('/blender command', () => {
   it('explains status without a Blender round-trip', async () => {
@@ -86,7 +113,7 @@ describe('/blender command', () => {
 })
 
 function makeCtx(services: any) {
-  const calls: Array<{ kind: string, value: any }> = []
+  const calls: Array<{ kind: string; value: any }> = []
   const disposers: Array<() => void> = []
   const ctx = {
     inject(deps: string[], fn: (c: any) => void) {
@@ -102,7 +129,19 @@ function makeCtx(services: any) {
       return dispose
     },
   }
-  return { ctx, calls, dispose() { while (disposers.length) { try { disposers.pop()!() } catch { /* cleanup */ } } } }
+  return {
+    ctx,
+    calls,
+    dispose() {
+      while (disposers.length) {
+        try {
+          disposers.pop()!()
+        } catch {
+          /* cleanup */
+        }
+      }
+    },
+  }
 }
 
 describe('registerTuiHost wiring', () => {
@@ -121,12 +160,41 @@ describe('registerTuiHost wiring', () => {
     const chips: any[] = []
     const toasts: any[] = []
     const services = {
-      tuiStatus: { setField: (...args: any[]) => { fields.push(args); return () => {} } },
-      tuiMentions: { register: (spec: any) => { mentions.push(spec); return () => {} } },
-      commands: { register: (spec: any) => { commands.push(spec); return () => {} } },
-      tuiCommandTrees: { register: (spec: any) => { trees.push(spec); return () => {} } },
-      tuiContextChips: { attachContext: (spec: any) => { chips.push(spec); return true } },
-      tuiToast: { show: (text: string, options: any) => { toasts.push([text, options]) } },
+      tuiStatus: {
+        setField: (...args: any[]) => {
+          fields.push(args)
+          return () => {}
+        },
+      },
+      tuiMentions: {
+        register: (spec: any) => {
+          mentions.push(spec)
+          return () => {}
+        },
+      },
+      commands: {
+        register: (spec: any) => {
+          commands.push(spec)
+          return () => {}
+        },
+      },
+      tuiCommandTrees: {
+        register: (spec: any) => {
+          trees.push(spec)
+          return () => {}
+        },
+      },
+      tuiContextChips: {
+        attachContext: (spec: any) => {
+          chips.push(spec)
+          return true
+        },
+      },
+      tuiToast: {
+        show: (text: string, options: any) => {
+          toasts.push([text, options])
+        },
+      },
     }
     const f = makeCtx(services)
     try {
@@ -135,7 +203,11 @@ describe('registerTuiHost wiring', () => {
       expect(commands[0].input.hint).toContain('status')
       expect(commands[0].description).toContain('Blender 通道')
       expect(trees[0].root).toBe('blender')
-      expect(trees[0].children(['blender']).map((c: any) => c.name)).toEqual(['status', 'doctor', 'jobs'])
+      expect(trees[0].children(['blender']).map((c: any) => c.name)).toEqual([
+        'status',
+        'doctor',
+        'jobs',
+      ])
       expect(trees[0].children(['blender', 'status'])).toEqual([])
       expect(mentions[0]).toMatchObject({ id: 'blender', title: 'Blender' })
 
@@ -146,13 +218,20 @@ describe('registerTuiHost wiring', () => {
       expect(fields.length).toBeGreaterThan(0)
       expect(fields[0][0]).toBe('blender')
       expect(fields[0][1]).toContain('Blender')
-      expect(fields[0][2]).toMatchObject({ slot: 'right-head', tone: 'success', maxCells: 24, minColumns: 60 })
+      expect(fields[0][2]).toMatchObject({
+        slot: 'right-head',
+        tone: 'success',
+        maxCells: 24,
+        minColumns: 60,
+      })
       expect(tuiHostSummary()).toContain('页脚 ✅')
       expect(tuiHostSummary()).toContain('/blender ✅')
 
       const items = await mentions[0].complete('', new AbortController().signal)
       expect(items.length).toBeGreaterThanOrEqual(3)
-      expect(items.some((item: any) => item.insertText === '<blender-object>Cube</blender-object>')).toBe(true)
+      expect(
+        items.some((item: any) => item.insertText === '<blender-object>Cube</blender-object>'),
+      ).toBe(true)
 
       const listed = await blenderCommand('status', Object.assign({}, OPTS, { port: host.port }))
       expect(listed.kind).toBe('success')
@@ -165,9 +244,17 @@ describe('registerTuiHost wiring', () => {
 
   it('skips a seam that throws instead of crashing the host', () => {
     const f = makeCtx({
-      tuiMentions: { register: () => { throw new Error('host refuses') } },
+      tuiMentions: {
+        register: () => {
+          throw new Error('host refuses')
+        },
+      },
       commands: { register: () => () => {} },
-      tuiCommandTrees: { register: () => { throw new Error('duplicate') } },
+      tuiCommandTrees: {
+        register: () => {
+          throw new Error('duplicate')
+        },
+      },
     })
     expect(() => registerTuiHost(f.ctx, Object.assign({}, OPTS, { port: host.port }))).not.toThrow()
     f.dispose()
@@ -181,7 +268,11 @@ describe('registerTuiHost wiring', () => {
   })
 
   it('exposes the internals used by doctor output', () => {
-    expect(__tuiHostInternals.SUBCOMMANDS.map((s: any) => s.name)).toEqual(['status', 'doctor', 'jobs'])
+    expect(__tuiHostInternals.SUBCOMMANDS.map((s: any) => s.name)).toEqual([
+      'status',
+      'doctor',
+      'jobs',
+    ])
     expect(typeof __tuiHostInternals.wired).toBe('object')
     expect(typeof __tuiHostInternals.bridge).toBe('object')
   })

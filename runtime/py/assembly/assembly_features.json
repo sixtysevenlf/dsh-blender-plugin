@@ -37,7 +37,7 @@
       "blender": "孔 = nominal - 0.1（比公件小）；母件在 Blender 里仍造得比公件小，实机靠变形吃进去"
     },
     "snap": {
-      "per_side_mm": 0.20,
+      "per_side_mm": 0.2,
       "sign": "positive",
       "purpose": "卡扣工作间隙（悬臂要能先让开、再卡住）",
       "when": "snap_tab 穿过 snap_window 时要无干涉通过",
@@ -68,7 +68,16 @@
     ],
     "m_means": "公制螺纹标称直径 M<m>（mm）",
     "series_note": "标称上属 ISO 273 间隙孔，但源码这套偏移**不是**逐档同一系列：M3=3.6 / M4=4.8 / M5=5.8 / M6=6.8 / M8=9.0 与 ISO 273 coarse（粗装配）对得上，M12 处 m+1.0=13.0 落的是 fine 档。以源码为准 —— 别拿 ISO 表去「纠正」它，否则和上游生成件就不一致了。",
-    "examples": { "M2": 2.4, "M3": 3.6, "M4": 4.8, "M5": 5.8, "M6": 6.8, "M8": 9.0, "M10": 11.0, "M12": 13.0 }
+    "examples": {
+      "M2": 2.4,
+      "M3": 3.6,
+      "M4": 4.8,
+      "M5": 5.8,
+      "M6": 6.8,
+      "M8": 9.0,
+      "M10": 11.0,
+      "M12": 13.0
+    }
   },
 
   "features": [
@@ -93,7 +102,11 @@
       "kind": "female",
       "cn": "承孔 / 座孔（母）",
       "purpose": "与 peg 配对的下沉盲孔：孔径按 fit 档让料，口部外张做导向。",
-      "key_dims": { "d": "公件 nominal", "depth": "孔深（母件顶面在 z = depth 时向下钻）", "cls": "fit 档，默认 location" },
+      "key_dims": {
+        "d": "公件 nominal",
+        "depth": "孔深（母件顶面在 z = depth 时向下钻）",
+        "cls": "fit 档，默认 location"
+      },
       "formula": "bore = d + 2*asm_fit(cls)；lead = asm_lead(bore)；主体 = cylinder(h = depth + 0.02, d = bore) 位于 z = -0.01；口部 = cylinder(h = lead + 0.01, d1 = bore, d2 = bore + 2*lead) 位于 z = depth - lead",
       "pairs_with": "peg（同一 d）",
       "ops": "作为负形体 subtract：difference() { 母体; socket(...); }",
@@ -109,7 +122,12 @@
       "kind": "female",
       "cn": "螺钉过孔（母）",
       "purpose": "单颗公制螺钉的间隙孔：按 ISO 273 偏移量给孔径，入口带漏斗，可选沉孔。",
-      "key_dims": { "m": "螺纹标称 M<m>", "depth": "孔深", "cbore": "是否要沉孔（杯头螺钉）", "cbore_d / cbore_depth": "沉孔直径/深（0 = 自动取 cd+m / m）" },
+      "key_dims": {
+        "m": "螺纹标称 M<m>",
+        "depth": "孔深",
+        "cbore": "是否要沉孔（杯头螺钉）",
+        "cbore_d / cbore_depth": "沉孔直径/深（0 = 自动取 cd+m / m）"
+      },
       "formula": "cd = asm_bolt_clear_d(m)；lead = 0.6；cbd = cbore_d > 0 ? cbore_d : cd + m；cbh = cbore_depth > 0 ? cbore_depth : m；孔 = cylinder(h = depth + 0.02, d = cd) 位于 z = -depth；漏斗 = cylinder(h = lead + 0.01, d1 = cd, d2 = cd + 2*lead) 位于 z = -lead；沉孔 = cylinder(h = cbh + 0.02, d = cbd) 位于 z = -cbh",
       "pairs_with": "bolt_circle（阵列）、boss（对侧螺纹台）",
       "ops": "作为负形体 subtract",
@@ -125,7 +143,13 @@
       "kind": "female",
       "cn": "螺栓圆阵列（母）",
       "purpose": "节圆上均布的 count 个间隙孔（法兰/端盖）。",
-      "key_dims": { "bcd": "**节圆直径**（不是半径）", "count": "孔数", "m": "螺纹标称", "depth": "孔深", "phase": "起始相位角（度）" },
+      "key_dims": {
+        "bcd": "**节圆直径**（不是半径）",
+        "count": "孔数",
+        "m": "螺纹标称",
+        "depth": "孔深",
+        "phase": "起始相位角（度）"
+      },
       "formula": "for i in [0 : max(1,count)-1]：rotate_z(phase + i*360/max(1,count)) then translate_x(bcd/2) then bolt_hole(m, depth, cbore)",
       "pairs_with": "bolt_hole（单孔）、boss",
       "ops": "作为负形体 subtract（整组一次减）",
@@ -141,7 +165,13 @@
       "kind": "male_with_female",
       "cn": "螺柱台 / 支撑柱（公，自带螺纹底孔）",
       "purpose": "壁上凸起的圆柱台，中心带一个press 档的螺钉底孔（自攻/热熔铜螺母）。",
-      "key_dims": { "od": "外径", "screw_d": "螺钉标称/底孔 nominal", "height": "高度", "cls": "fit 档，默认 press", "fillet": "根部圆角环宽（默认 1）" },
+      "key_dims": {
+        "od": "外径",
+        "screw_d": "螺钉标称/底孔 nominal",
+        "height": "高度",
+        "cls": "fit 档，默认 press",
+        "fillet": "根部圆角环宽（默认 1）"
+      },
       "formula": "外 = cylinder(h = height, d = od) ∪ cylinder(h = fillet, d1 = od + 2*fillet, d2 = od)（根部圆角环）；底孔 = cylinder(h = height + 0.02, d = screw_d + 2*asm_fit(cls)) 位于 z = -0.01；结果 = difference(外, 底孔)",
       "pairs_with": "bolt_hole（对侧过孔）",
       "ops": "外 union 到零件；底孔 subtract",
@@ -156,7 +186,12 @@
       "kind": "male",
       "cn": "卡扣悬臂（公）",
       "purpose": "悬臂梁 + 钩子：插入时被斜坡顶开，到位后卡在窗沿上。",
-      "key_dims": { "width": "悬臂宽（Z 向挤出高度）", "length": "悬臂长（+Y）", "thick": "根部厚（X）", "hook": "钩子凸出量（默认 1.2）" },
+      "key_dims": {
+        "width": "悬臂宽（Z 向挤出高度）",
+        "length": "悬臂长（+Y）",
+        "thick": "根部厚（X）",
+        "hook": "钩子凸出量（默认 1.2）"
+      },
       "formula": "linear_extrude(height = width) 多边形：[(0,0), (thick,0), (thick, length-2*hook), (thick+hook, length-hook), (thick, length), (0, length)]",
       "pairs_with": "snap_window（+snap 档间隙）",
       "ops": "union 到自己的零件上",
@@ -172,7 +207,10 @@
       "kind": "female",
       "cn": "卡扣让位窗（母）",
       "purpose": "给卡扣钩子穿过的通透窗口，四周都留让位量，插入时钩子才能通过。",
-      "key_dims": { "width / length / thick": "对应 snap_tab 的宽/长/厚", "gap": "**单边**让位量，默认 0.3" },
+      "key_dims": {
+        "width / length / thick": "对应 snap_tab 的宽/长/厚",
+        "gap": "**单边**让位量，默认 0.3"
+      },
       "formula": "cube([thick + 2*gap, length + 2*gap, width + 2*gap])，起点 (-gap, -gap, -gap)",
       "pairs_with": "snap_tab",
       "ops": "作为负形体 subtract",
@@ -188,7 +226,12 @@
       "kind": "male",
       "cn": "定位舌（公）",
       "purpose": "矩形定位舌，尖端倒角自动找正进槽，防转动/定角度。",
-      "key_dims": { "width": "X 宽", "thick": "Y 厚", "length": "Z 长", "chamfer": "尖端倒角（默认 0.8）" },
+      "key_dims": {
+        "width": "X 宽",
+        "thick": "Y 厚",
+        "length": "Z 长",
+        "chamfer": "尖端倒角（默认 0.8）"
+      },
       "formula": "ch = min(chamfer, min(width, thick)/2 - 0.05)；hull(linear_extrude(0.01) square(width, thick), translate(ch, ch, length-0.01) linear_extrude(0.01) square(width-2ch, thick-2ch))",
       "pairs_with": "slot（同 width/thick，默认 location 档）",
       "ops": "union 到自己的零件上",
@@ -203,7 +246,11 @@
       "kind": "female",
       "cn": "定位槽（母）",
       "purpose": "与 tab 配对的矩形槽，尺寸 = tab + fit，口部漏斗。",
-      "key_dims": { "width / thick": "对应 tab 的宽/厚", "depth": "槽深", "cls": "fit 档，默认 location" },
+      "key_dims": {
+        "width / thick": "对应 tab 的宽/厚",
+        "depth": "槽深",
+        "cls": "fit 档，默认 location"
+      },
       "formula": "g = asm_fit(cls)；lead = 0.6；主体 = translate(-g,-g,-0.01) cube(width+2g, thick+2g, depth+0.02)；口部 = translate(0,0,depth-lead) hull(底面 square(width+2g, thick+2g), 顶面 translate(-lead,-lead,lead) square(width+2g+2lead, thick+2g+2lead))",
       "pairs_with": "tab",
       "ops": "作为负形体 subtract",

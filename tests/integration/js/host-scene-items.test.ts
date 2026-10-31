@@ -1,4 +1,3 @@
-
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { startBackend, type Backend } from '../../helpers/backend'
 import { startFakeAddon } from '../../helpers/fake-addon.mjs'
@@ -14,7 +13,11 @@ let addon: Awaited<ReturnType<typeof startFakeAddon>>
 beforeAll(async () => {
   addon = await startFakeAddon({
     behavior: (type: string) => {
-      if (type === 'get_addon_info') return { status: 'success', result: { name: 'fake', version: '1.8.0', protocol: 11, paused: false } }
+      if (type === 'get_addon_info')
+        return {
+          status: 'success',
+          result: { name: 'fake', version: '1.8.0', protocol: 11, paused: false },
+        }
       if (type === 'execute_code') return { status: 'error', message: 'scene items unavailable' }
       return { status: 'success', result: { type } }
     },
@@ -31,7 +34,9 @@ describe('host scene items failure path', () => {
     const response = await backend.get('/host/scene-items?q=Cu&limit=5')
     expect(response.status).toBe(502)
     expect(response.json.ok).toBe(false)
-    expect(String(response.json.error)).toMatch(/scene items|scene-items|execute_code|unavailable|失败/)
+    expect(String(response.json.error)).toMatch(
+      /scene items|scene-items|execute_code|unavailable|失败/,
+    )
   })
 
   it('502s when no addon is reachable at all', async () => {

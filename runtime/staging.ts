@@ -3,13 +3,12 @@
  *
  * 只管「Windows 侧看不看得见」；后端**自身** status/ledger 的可写性另见 server 侧 ensureWritableWorkDir。
  */
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { wslPathShared, wslToWin } from './config.js';
-import { WIN_TMP, WSL_TMP, PY_ROOT, blenderJoin } from './paths.js';
-import { errorMessage } from "./core/json.js";
-
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { wslPathShared, wslToWin } from './config.js'
+import { WIN_TMP, WSL_TMP, PY_ROOT, blenderJoin } from './paths.js'
+import { errorMessage } from './core/json.js'
 
 /**
  * 把无头脚本落到一个**两端都能读**的位置（v0.9.6 D3 起带共享性自证）。
@@ -26,65 +25,106 @@ import { errorMessage } from "./core/json.js";
  * 唯一性 = 毫秒 + 进程内单调序号（同进程零碰撞）+ 4 位随机（跨进程防撞）。
  * 纯命名逻辑，tests/unit/js/headless-file-guard.test.ts 直接对它做 5000 次碰撞测试。
  */
-let _nameSeq = 0;
+let _nameSeq = 0
 export function headlessScriptName(): string {
-  _nameSeq = (_nameSeq + 1) % 0x1000000;
-  const rand = Math.random().toString(36).slice(2).padEnd(4, '0').slice(0, 4);
-  return 'dsh_headless_' + Date.now().toString(36) + '_' + _nameSeq.toString(36) + rand + '.py';
+  _nameSeq = (_nameSeq + 1) % 0x1000000
+  const rand = Math.random().toString(36).slice(2).padEnd(4, '0').slice(0, 4)
+  return 'dsh_headless_' + Date.now().toString(36) + '_' + _nameSeq.toString(36) + rand + '.py'
 }
 
 export interface StagingInfo {
-  requested: string;
-  requestedShared: boolean | null;
-  requestedWhy: string;
-  used: string;
-  usedWin: string;
-  usedShared: boolean | null;
-  usedWhy: string;
-  label: string;
-  substituted: boolean;
-  note: string;
-  degraded?: boolean;
+  requested: string
+  requestedShared: boolean | null
+  requestedWhy: string
+  used: string
+  usedWin: string
+  usedShared: boolean | null
+  usedWhy: string
+  label: string
+  substituted: boolean
+  note: string
+  degraded?: boolean
 }
 interface StagingCandidate {
-  dir: string;
-  win: string | null;
-  label: string;
+  dir: string
+  win: string | null
+  label: string
 }
-export function writeHeadlessScript(code: string): { wsl: string; win: string; staging: StagingInfo } {
-  const name = headlessScriptName();
-  const requested = WSL_TMP;
-  const reqShared = wslPathShared(requested);
+export function writeHeadlessScript(code: string): {
+  wsl: string
+  win: string
+  staging: StagingInfo
+} {
+  const name = headlessScriptName()
+  const requested = WSL_TMP
+  const reqShared = wslPathShared(requested)
   // 候选：请求的 workDir（判为不可共享时降级）→ 用户 home（发行版根文件系统，Windows 可见）→ 包内 tmp
-  const wanted = { dir: requested, win: blenderJoin(WIN_TMP, name), label: 'workDir' };
-  const homeTmp = { dir: path.join(os.homedir(), '.dsh', 'dsh-blender-rt'), win: null, label: 'fallback:home' };
-  const pkgTmp = { dir: path.join(PY_ROOT, 'tmp'), win: null, label: 'fallback:pkg' };
-  const cands = (reqShared.shared === false) ? [homeTmp, pkgTmp, wanted] : [wanted, homeTmp, pkgTmp];
-  const errs: string[] = [];
+  const wanted = { dir: requested, win: blenderJoin(WIN_TMP, name), label: 'workDir' }
+  const homeTmp = {
+    dir: path.join(os.homedir(), '.dsh', 'dsh-blender-rt'),
+    win: null,
+    label: 'fallback:home',
+  }
+  const pkgTmp = { dir: path.join(PY_ROOT, 'tmp'), win: null, label: 'fallback:pkg' }
+  const cands = reqShared.shared === false ? [homeTmp, pkgTmp, wanted] : [wanted, homeTmp, pkgTmp]
+  const errs: string[] = []
   const tryWrite = (c: StagingCandidate): { wsl: string; win: string; staging: StagingInfo } => {
-    fs.mkdirSync(c.dir, { recursive: true });
-    const wsl = path.join(c.dir, name);
-    fs.writeFileSync(wsl, code, 'utf8');
-    const sh = wslPathShared(c.dir);
-    const substituted = path.resolve(c.dir) !== path.resolve(requested);
-    return { wsl: wsl, win: c.win || wslToWin(wsl),
-             staging: { requested: requested, requestedShared: reqShared.shared, requestedWhy: reqShared.why,
-                        used: c.dir, usedWin: c.win || wslToWin(wsl), usedShared: sh.shared, usedWhy: sh.why,
-                        label: c.label, substituted: substituted,
-                        note: substituted
-                          ? ('workDir ' + requested + ' 在 Windows 侧不保证可见（' + reqShared.why + '）→ 本次脚本改落 '
-                             + c.dir + '（shared=' + String(sh.shared) + '，' + sh.why + '）；无头脚本必须放在 Blender 读得到的地方')
-                          : 'workDir 共享性检查通过（' + sh.why + '）' } };
-  };
+    fs.mkdirSync(c.dir, { recursive: true })
+    const wsl = path.join(c.dir, name)
+    fs.writeFileSync(wsl, code, 'utf8')
+    const sh = wslPathShared(c.dir)
+    const substituted = path.resolve(c.dir) !== path.resolve(requested)
+    return {
+      wsl: wsl,
+      win: c.win || wslToWin(wsl),
+      staging: {
+        requested: requested,
+        requestedShared: reqShared.shared,
+        requestedWhy: reqShared.why,
+        used: c.dir,
+        usedWin: c.win || wslToWin(wsl),
+        usedShared: sh.shared,
+        usedWhy: sh.why,
+        label: c.label,
+        substituted: substituted,
+        note: substituted
+          ? 'workDir ' +
+            requested +
+            ' 在 Windows 侧不保证可见（' +
+            reqShared.why +
+            '）→ 本次脚本改落 ' +
+            c.dir +
+            '（shared=' +
+            String(sh.shared) +
+            '，' +
+            sh.why +
+            '）；无头脚本必须放在 Blender 读得到的地方'
+          : 'workDir 共享性检查通过（' + sh.why + '）',
+      },
+    }
+  }
   for (const c of cands) {
-    if (wslPathShared(c.dir).shared === false) { errs.push(c.label + ' ' + c.dir + '：Windows 侧不保证可见，跳过'); continue; }
-    try { return tryWrite(c); } catch (e) { errs.push(c.dir + ': ' + errorMessage(e)); }
+    if (wslPathShared(c.dir).shared === false) {
+      errs.push(c.label + ' ' + c.dir + '：Windows 侧不保证可见，跳过')
+      continue
+    }
+    try {
+      return tryWrite(c)
+    } catch (e) {
+      errs.push(c.dir + ': ' + errorMessage(e))
+    }
   }
   // 兜底：所有共享候选都写不了 → 宁可写进（可能不共享的）workDir，也不要静默无脚本
   for (const c of cands) {
-    try { const r = tryWrite(c); r.staging.degraded = true;
-          r.staging.note += ' ⚠ 这是**降级**路径：共享候选全部写失败，脚本可能被 Windows 侧 Blender 读不到。'; return r; }
-    catch (e) { errs.push(c.dir + ': ' + errorMessage(e)); }
+    try {
+      const r = tryWrite(c)
+      r.staging.degraded = true
+      r.staging.note +=
+        ' ⚠ 这是**降级**路径：共享候选全部写失败，脚本可能被 Windows 侧 Blender 读不到。'
+      return r
+    } catch (e) {
+      errs.push(c.dir + ': ' + errorMessage(e))
+    }
   }
-  throw new Error('无法写无头脚本：' + errs.join(' · '));
+  throw new Error('无法写无头脚本：' + errs.join(' · '))
 }

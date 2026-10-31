@@ -22,7 +22,7 @@ const CASES: Array<[string, Record<string, unknown>]> = [
   ['blender_rt_txn', { op: 'list' }],
   ['blender_rt_preset', { op: 'list' }],
   ['blender_rt_job', { op: 'list' }],
-  ['blender_viewport', { op: 'status' }]
+  ['blender_viewport', { op: 'status' }],
 ]
 
 let port: number
@@ -50,11 +50,13 @@ describe('model tool unreachable-backend matrix', () => {
     try {
       out = await Promise.race([
         (tool.execute as any)(args, {}),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('tool hung for 5s')), 5000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('tool hung for 5s')), 5000)),
       ])
     } catch (error) {
       // A thrown transport error is acceptable only if it names the failure.
-      expect(String(error)).toMatch(/backend|连接|connect|ECONNREFUSED|不可用|启动|http \d{3}|frame/i)
+      expect(String(error)).toMatch(
+        /backend|连接|connect|ECONNREFUSED|不可用|启动|http \d{3}|frame/i,
+      )
       expect(Date.now() - started).toBeLessThan(5000)
       return
     }

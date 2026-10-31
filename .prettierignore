@@ -1,13 +1,21 @@
-# 构建产物 / 依赖 / 历史运行时（Phase R 后再纳入）
+# Dependencies and generated output
 node_modules/
 lib/
 coverage/
-runtime/
-# T4 要求 tui-host.ts 保持原样（不参与本次格式化）
-src/tui-host.ts
+.venv/
+runtime/ext/
+
+# Vendored / generated assets
 addon/
 skills/
-docs/
 tests/fixtures/
 tests/capability.lock.json
 *.min.js
+*.tgz
+*.zip
+
+# Local docs/evidence are maintained outside the package formatting scope
+docs/
+
+# Editor and OS metadata
+.vscode/

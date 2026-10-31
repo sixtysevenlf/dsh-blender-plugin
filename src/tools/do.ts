@@ -17,14 +17,21 @@ async function doViaSession(ctx: any, port: number, opts: any): Promise<any | nu
       const st: any = await backendPost(
         port,
         '/worker',
-        { op: 'start', name: nm, preload: preload, engine: 'workbench', warmup: true, isolated: true },
-        120000
+        {
+          op: 'start',
+          name: nm,
+          preload: preload,
+          engine: 'workbench',
+          warmup: true,
+          isolated: true,
+        },
+        120000,
       )
       if (!st || st.ok !== true)
         return toolError(
           'backend_error',
           '无头会话启动失败 · ' + String((st && (st.error || st.raw)) || 'unknown'),
-          '先 blender_rt_worker op=start 启动持久 worker，或检查后端 /worker 路由'
+          '先 blender_rt_worker op=start 启动持久 worker，或检查后端 /worker 路由',
         )
     }
     let code = String(opts.code || '')
@@ -34,18 +41,25 @@ async function doViaSession(ctx: any, port: number, opts: any): Promise<any | nu
       code = Buffer.from(data).toString('utf8')
     }
     if (!code) return null
-    const r: any = await backendPost(port, '/worker', { op: 'exec', name: nm, code: code, isolated: true }, 180000)
+    const r: any = await backendPost(
+      port,
+      '/worker',
+      { op: 'exec', name: nm, code: code, isolated: true },
+      180000,
+    )
     const rr = (r && r.result) || {}
     if (!r || r.ok !== true) {
       return toolError(
         'backend_error',
         'ACT(session) 失败 · ' + String((r && (r.error || rr.error)) || 'unknown'),
-        '先 blender_rt_worker op=start name=' + nm + '，或检查后端 /worker 路由'
+        '先 blender_rt_worker op=start name=' + nm + '，或检查后端 /worker 路由',
       )
     }
     const parts: string[] = ['ACT(session=' + nm + ') ok · ' + String(rr.ms) + 'ms']
-    if (rr.stdout && String(rr.stdout).trim()) parts.push('stdout: ' + redactSecrets(rr.stdout).slice(0, 3000))
-    if (rr.stderr && String(rr.stderr).trim()) parts.push('stderr: ' + redactSecrets(rr.stderr).slice(0, 1200))
+    if (rr.stdout && String(rr.stdout).trim())
+      parts.push('stdout: ' + redactSecrets(rr.stdout).slice(0, 3000))
+    if (rr.stderr && String(rr.stderr).trim())
+      parts.push('stderr: ' + redactSecrets(rr.stderr).slice(0, 1200))
     let image: any = undefined
     const see = opts.see !== false
     if (see) {
@@ -57,7 +71,7 @@ async function doViaSession(ctx: any, port: number, opts: any): Promise<any | nu
         ortho: opts.ortho === undefined ? undefined : !!opts.ortho,
         ortho_scale: opts.ortho_scale === undefined ? undefined : Number(opts.ortho_scale),
         width: size,
-        height: Math.max(120, Math.round((size * 9) / 16))
+        height: Math.max(120, Math.round((size * 9) / 16)),
       }
       const vs = String(opts.view_size || '')
       const mm = vs.match(/^(\d+)\s*[x×]\s*(\d+)$/)
@@ -65,7 +79,12 @@ async function doViaSession(ctx: any, port: number, opts: any): Promise<any | nu
         spec.width = Number(mm[1])
         spec.height = Number(mm[2])
       }
-      const sr: any = await backendPost(port, '/worker', { op: 'see', name: nm, spec: spec, isolated: true }, 90000)
+      const sr: any = await backendPost(
+        port,
+        '/worker',
+        { op: 'see', name: nm, spec: spec, isolated: true },
+        90000,
+      )
       const sres = (sr && sr.result) || {}
       if (sres.ok !== false) {
         let data: Uint8Array | null = null
@@ -77,7 +96,9 @@ async function doViaSession(ctx: any, port: number, opts: any): Promise<any | nu
           }
         }
         if (!data && sres.path) data = readLocalPng(sres.path)
-        const att = data ? await toAttachment(ctx, data, 'session-see-' + String(Date.now()) + '.png') : { why: '没有 png_b64/path' }
+        const att = data
+          ? await toAttachment(ctx, data, 'session-see-' + String(Date.now()) + '.png')
+          : { why: '没有 png_b64/path' }
         if (att.ref) image = att.ref
         parts.push(
           'SEE(session) ' +
@@ -89,7 +110,7 @@ async function doViaSession(ctx: any, port: number, opts: any): Promise<any | nu
             'ms' +
             (sres.coverage_estimate === null || sres.coverage_estimate === undefined
               ? ''
-              : ' · 覆盖 ' + (Number(sres.coverage_estimate) * 100).toFixed(2) + '%')
+              : ' · 覆盖 ' + (Number(sres.coverage_estimate) * 100).toFixed(2) + '%'),
         )
         if (!image) parts.push('⚠ 图片未回传：' + String(att.why || '未知原因'))
       } else {
@@ -123,30 +144,44 @@ export function registerDo(ctx: any, port: number): void {
           parameters: {
             code: {
               type: 'string',
-              description: 'Python 代码（在 Blender 主线程执行；预置 bpy/math/mathutils/Vector 与持久内核 K）。与 file 二选一'
+              description:
+                'Python 代码（在 Blender 主线程执行；预置 bpy/math/mathutils/Vector 与持久内核 K）。与 file 二选一',
             },
             file: {
               type: 'string',
-              description: '要执行的 .py 文件路径（WSL / Windows / 相对当前 .blend 均可）—— 长脚本用这个，不必塞进入参'
+              description:
+                '要执行的 .py 文件路径（WSL / Windows / 相对当前 .blend 均可）—— 长脚本用这个，不必塞进入参',
             },
             see: { type: 'boolean', description: '是否同时回一帧视口（默认 true）' },
             max_size: { type: 'integer', description: '回帧最长边像素，默认 560' },
-            force: { type: 'boolean', description: '回帧与上一帧 hash 完全相同时默认**不重复附图**；传 true 强制重发' },
+            force: {
+              type: 'boolean',
+              description: '回帧与上一帧 hash 完全相同时默认**不重复附图**；传 true 强制重发',
+            },
             session: { type: 'string', description: '无头交互会话名（复用同一 blender -b）' },
             auto: { type: 'boolean', description: 'GUI 不可用时降级无头 session（默认 true）' },
             preload: { type: 'string', description: '无头 session 预载模块（逗号分隔）' },
             from: { type: 'string', description: '无头 see 相机位置 "x,y,z"' },
-            look_at: { type: 'string', description: '无头 see 看向点 "x,y,z"' }
+            look_at: { type: 'string', description: '无头 see 看向点 "x,y,z"' },
           },
           output: { schema: ANY_SCHEMA, render: renderOne },
           isConcurrencySafe: () => false,
           timeoutMs: T.act,
           async execute(args: any) {
             if (!(await ensureBackend(port)))
-              return toolError('backend_unreachable', '后端不可用（127.0.0.1:' + String(port) + '）', BACKEND_HINT)
+              return toolError(
+                'backend_unreachable',
+                '后端不可用（127.0.0.1:' + String(port) + '）',
+                BACKEND_HINT,
+              )
             const code = String((args && args.code) || '')
             const file = args && args.file ? String(args.file) : null
-            if (!code && !file) return toolError('invalid_params', '需要 code 或 file 之一', '传 code=<python> 或 file=<脚本路径>')
+            if (!code && !file)
+              return toolError(
+                'invalid_params',
+                '需要 code 或 file 之一',
+                '传 code=<python> 或 file=<脚本路径>',
+              )
             const sessOpts = {
               code: code,
               file: file,
@@ -159,7 +194,7 @@ export function registerDo(ctx: any, port: number): void {
               lens: args && args.lens,
               ortho: args && args.ortho,
               ortho_scale: args && args.ortho_scale,
-              view_size: args && args.view_size
+              view_size: args && args.view_size,
             }
             // P0：显式 session → 不探 GUI，直接持久无头会话（exec + see，同一 turn 内可连续调用）
             if (args && args.session) {
@@ -169,7 +204,7 @@ export function registerDo(ctx: any, port: number): void {
                 toolError(
                   'backend_unreachable',
                   '无头交互会话失败：worker 不可用（session=' + String(args.session) + '）',
-                  '先 blender_rt_worker op=start name=' + String(args.session) + '，再重试'
+                  '先 blender_rt_worker op=start name=' + String(args.session) + '，再重试',
                 )
               )
             }
@@ -186,8 +221,11 @@ export function registerDo(ctx: any, port: number): void {
               }
               return toolError(
                 'backend_unreachable',
-                'ACT 失败 · 127.0.0.1:' + String(port) + ' · ' + String((e && (e as Error).message) || e),
-                BACKEND_HINT
+                'ACT 失败 · 127.0.0.1:' +
+                  String(port) +
+                  ' · ' +
+                  String((e && (e as Error).message) || e),
+                BACKEND_HINT,
               )
             }
             const lt = leasedText(r)
@@ -202,17 +240,23 @@ export function registerDo(ctx: any, port: number): void {
               return toolError(
                 'backend_error',
                 'ACT 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
-                '用 blender_viewport op=status 确认后端与 addon；需要降级时保留 auto=true'
+                '用 blender_viewport op=status 确认后端与 addon；需要降级时保留 auto=true',
               )
             parts.push('ACT ok · ' + String(r.ms) + 'ms')
             if (r && Number(r.mainThreadMs) > 1000)
               parts.push(
                 '⚠️ 本次占用 Blender 主线程约 ' +
                   String(r.mainThreadMs) +
-                  'ms —— 超过 ~1s 的重活建议改走 blender_rt_headless / blender_rt_worker（不卡 GUI）'
+                  'ms —— 超过 ~1s 的重活建议改走 blender_rt_headless / blender_rt_worker（不卡 GUI）',
               )
-            if (r && r.stderr && String(r.stderr).trim()) parts.push('stderr: ' + redactSecrets(r.stderr).slice(0, 1200))
-            if (r && r.traceback) parts.push('--- traceback ---' + String.fromCharCode(10) + redactSecrets(r.traceback).slice(0, 2000))
+            if (r && r.stderr && String(r.stderr).trim())
+              parts.push('stderr: ' + redactSecrets(r.stderr).slice(0, 1200))
+            if (r && r.traceback)
+              parts.push(
+                '--- traceback ---' +
+                  String.fromCharCode(10) +
+                  redactSecrets(r.traceback).slice(0, 2000),
+              )
             if (r && r.stdout) parts.push('stdout: ' + redactSecrets(r.stdout).slice(0, 3000))
             let image: any = undefined
             const see = !(args && args.see === false)
@@ -223,9 +267,21 @@ export function registerDo(ctx: any, port: number): void {
                 // v0.9.4（P0-2）：连续 rt_do 里画面没变就不重复附图（迭代回路最常见的浪费）
                 const dd3 = frameDedupe('do-see:' + String(size), f.hash, !!(args && args.force))
                 if (dd3.dup) {
-                  parts.push('SEE ' + String(size) + 'px · ' + String(f.ms) + 'ms · hash ' + f.hash + dedupeNote(dd3.repeats))
+                  parts.push(
+                    'SEE ' +
+                      String(size) +
+                      'px · ' +
+                      String(f.ms) +
+                      'ms · hash ' +
+                      f.hash +
+                      dedupeNote(dd3.repeats),
+                  )
                 } else {
-                  const att2 = await toAttachment(ctx, f.png, 'viewport-' + String(Date.now()) + '.png')
+                  const att2 = await toAttachment(
+                    ctx,
+                    f.png,
+                    'viewport-' + String(Date.now()) + '.png',
+                  )
                   image = att2.ref
                   if (!image) parts.push('⚠ 图片未回传：' + String(att2.why || '未知原因'))
                   parts.push('SEE ' + String(size) + 'px · ' + String(f.ms) + 'ms · hash ' + f.hash)
@@ -237,9 +293,9 @@ export function registerDo(ctx: any, port: number): void {
             const out: any = { text: parts.join('\n') }
             if (image) out.image = image
             return out
-          }
-        })
+          },
+        }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-do'
+    '@dsh-external/dsh-blender-plugin: rt-do',
   )
 }

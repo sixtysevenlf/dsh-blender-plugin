@@ -15,35 +15,48 @@ export function registerPerf(ctx: any, port: number): void {
           description:
             '【渲染性能】Cycles CPU 瓶颈诊断与优化预设。op=analyze 差分实测「每轮同步 / 每采样 GPU 成本」（占主线程十几秒）；op=apply 应用预设（persistent_data / OptiX 降噪 / denoising_use_gpu / auto_tile off / 采样上限）；op=revert 还原 apply 之前；op=status 看当前设置与已存快照；op=help 契约。实测背景：2318 对象场景每轮 CPU 侧同步 ≈4.2 s、GPU 单采样 ≈0.2 s（1080p）、首次 kernel JIT ≈15 s；persistent_data 让重复渲染 14.6 s → 0.79 s。',
           parameters: {
-            op: { type: 'string', required: true, description: 'status | analyze | apply | revert | help' },
+            op: {
+              type: 'string',
+              required: true,
+              description: 'status | analyze | apply | revert | help',
+            },
             args: {
               type: 'json',
               description:
-                'analyze{pct=25,low=1,high=4}；apply{samples=1024,persistent=true,denoiser="OPTIX",denoise_gpu=true,auto_tile=false}'
-            }
+                'analyze{pct=25,low=1,high=4}；apply{samples=1024,persistent=true,denoiser="OPTIX",denoise_gpu=true,auto_tile=false}',
+            },
           },
           output: { schema: ANY_SCHEMA, render: renderOne },
           isConcurrencySafe: () => false,
           timeoutMs: T.perf,
           async execute(args: any) {
             if (!(await ensureBackend(port)))
-              return toolError('backend_unreachable', '后端不可用（127.0.0.1:' + String(port) + '）', BACKEND_HINT)
+              return toolError(
+                'backend_unreachable',
+                '后端不可用（127.0.0.1:' + String(port) + '）',
+                BACKEND_HINT,
+              )
             const op = String((args && args.op) || 'status')
             // ⚠ 无参时必须给 undefined（给 {} 会让 python 侧多收一个位置参数：实测 "_dsh_perf_status_cycles() takes 0 positional arguments"）
             const pargs = jsonPayload(args && args.args)
-            const r = await backendPost(port, '/perf', { op: op, args: Object.keys(pargs).length ? pargs : undefined }, 600000)
+            const r = await backendPost(
+              port,
+              '/perf',
+              { op: op, args: Object.keys(pargs).length ? pargs : undefined },
+              600000,
+            )
             const lt = leasedText(r)
             if (lt) return { text: lt }
             if (!r || r.ok !== true)
               return toolError(
                 'backend_error',
                 'PERF ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
-                '核对 op 名称；blender_rt_perf op=status'
+                '核对 op 名称；blender_rt_perf op=status',
               )
             return { text: 'PERF ' + op + ' ' + JSON.stringify(r.result) }
-          }
-        })
+          },
+        }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-perf'
+    '@dsh-external/dsh-blender-plugin: rt-perf',
   )
 }
