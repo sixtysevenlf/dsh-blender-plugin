@@ -89,6 +89,36 @@ HEADLESS_MODULES = (
         "preloads": ("surface", "audit"),
         "timeout": 600,
     },
+    {
+        "id": "blockout",
+        "path": "tests/e2e/blender/native/blockout.py",
+        "preloads": ("blockout", "qc", "qc_render"),
+        "timeout": 600,
+    },
+    {
+        "id": "blockout_refsheet",
+        "path": "tests/e2e/blender/native/blockout_refsheet.py",
+        "preloads": ("blockout", "qc", "qc_render", "montage"),
+        "timeout": 600,
+    },
+    {
+        "id": "imgtools",
+        "path": "tests/e2e/blender/native/imgtools.py",
+        "preloads": ("imgtools",),
+        "timeout": 600,
+    },
+    {
+        "id": "visualreport",
+        "path": "tests/e2e/blender/native/visualreport.py",
+        "preloads": ("visualreport", "qc", "imgtools"),
+        "timeout": 600,
+    },
+    {
+        "id": "p0_real_modeling",
+        "path": "tests/e2e/blender/native/p0_real_modeling.py",
+        "preloads": ("imgtools", "blockout", "assembly"),
+        "timeout": 600,
+    },
 )
 
 GUI_MODULES = ()
