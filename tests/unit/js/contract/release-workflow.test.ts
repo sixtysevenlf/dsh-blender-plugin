@@ -14,8 +14,9 @@ describe('manual CD workflow', () => {
     expect(workflow).toContain("default: '3.0.0'")
     expect(workflow).toMatch(/dry_run:[\s\S]*?default: true/)
     expect(workflow).toMatch(/publish_npm:[\s\S]*?default: false/)
-    expect(workflow).toContain("github.event.inputs.dry_run == 'false'")
-    expect(workflow).toContain("github.event.inputs.publish_npm == 'true'")
+    expect(workflow).toContain('if: ${{ !inputs.dry_run }}')
+    expect(workflow).toContain('if: ${{ !inputs.dry_run && inputs.publish_npm }}')
+    expect(workflow).not.toContain('github.event.inputs')
   })
 
   it('requires the release environment and only creates a draft release', () => {
@@ -27,5 +28,7 @@ describe('manual CD workflow', () => {
 
   it('publishes npm from the packed tarball with provenance', () => {
     expect(workflow).toContain('npm publish release/*.tgz --access public --provenance')
+    const pkg = JSON.parse(fs.readFileSync(repoPath('package.json'), 'utf8'))
+    expect(pkg.repository && pkg.repository.url).toContain('dsh-blender-plugin')
   })
 })
