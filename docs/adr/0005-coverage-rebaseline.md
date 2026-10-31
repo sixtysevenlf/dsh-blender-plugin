@@ -29,6 +29,10 @@ Vitest's parallel coverage merge was also non-deterministic: repeated runs repor
 merged from several workers. `npm run test:coverage` now runs with
 `--no-file-parallelism`, and the baseline uses the stable 68.45% measurement.
 
+Changed-lines coverage still has a one-line run-to-run tolerance: repeated deterministic
+runs reported 6,697 or 6,698 missing lines (56.70% vs 56.697%). The baseline records
+the worse 6,698 (56.697%) and the floor is that value, so either observation passes.
+
 ## Decision
 
 The C5 baseline is the measured state at code commit `f001e1d`:
