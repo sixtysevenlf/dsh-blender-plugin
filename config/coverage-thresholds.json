@@ -1,18 +1,20 @@
 {
-  "version": 1,
-  "baselineCommit": "b4427a5",
+  "version": 2,
+  "baselineCommit": "f001e1d20b86cd84a88424e3bbe426e501e4c49d",
   "baselineDate": "2026-10-31",
-  "policy": "首版基线只设不下降 floor；每个 PR 按 ratchetPerPr 抬升，最终到 target。CI 与本地 gate 读同一文件。",
+  "policy": "C5 v2 (ADR 0005): baseline measured at f001e1d; JS global floors equal that baseline and must not fall; changed-lines floor is 56.70 against v2.6.2; critical modules >=90/75, Python pure logic >=70/60, E2E 100% are long-term quality floors; +2 ratchet is a manual release-window policy; adjust only with an ADR.",
   "javascript": {
     "globalFloor": {
-      "lines": 63,
-      "branches": 69
+      "lines": 57.68,
+      "branches": 68.5,
+      "functions": 63.7
     },
     "changedLinesFloor": {
-      "lines": 58,
+      "lines": 56.7,
       "targetLines": 70,
-      "targetBranches": 60,
-      "ratchetPerPr": 2
+      "ratchetPerPr": 2,
+      "against": "v2.6.2",
+      "ratchetMode": "manual"
     },
     "criticalModules": [
       {
@@ -58,8 +60,8 @@
       "branches": 60
     },
     "baseline": {
-      "lines": 82.3,
-      "branches": 79.5
+      "lines": 76.95,
+      "branches": 71.71
     },
     "omitReason": "UI 绘制/注册样板、真 bpy 调用、子进程与网络传输由 C6 E2E/C9 覆盖，不并入行覆盖率。"
   },

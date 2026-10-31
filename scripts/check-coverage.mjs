@@ -10,6 +10,11 @@ import { spawnSync } from 'node:child_process'
 
 const root = path.resolve(import.meta.dirname, '..')
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(root, rel), 'utf8'))
+const errorMessage = (error) => (error instanceof Error ? error.message : String(error))
+const headCommit = () => {
+  const run = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' })
+  return run.status === 0 ? (run.stdout || '').trim() || null : null
+}
 const norm = (s) => s.replace(/\\/g, '/')
 const fails = []
 const rows = []
@@ -33,12 +38,7 @@ const baseline = readJson('config/coverage-baseline.json')
 const js = readJson('coverage/coverage-summary.json')
 check('js.global.lines', js.total?.lines?.pct, thresholds.javascript.globalFloor.lines)
 check('js.global.branches', js.total?.branches?.pct, thresholds.javascript.globalFloor.branches)
-check(
-  'js.global.functions',
-  js.total?.functions?.pct,
-  baseline.javascript.functions,
-  'baseline no-decrease',
-)
+check('js.global.functions', js.total?.functions?.pct, thresholds.javascript.globalFloor.functions)
 
 // 2) JavaScript changed logical lines, vs baseline
 const diff = readJson('coverage/diff-cover.json')
@@ -54,11 +54,16 @@ check(
   'js.changedLines',
   changedPct,
   thresholds.javascript.changedLinesFloor.lines,
-  'target ' +
+  changed +
+    ' changed, ' +
+    missing +
+    ' missing; target ' +
     thresholds.javascript.changedLinesFloor.targetLines +
-    ', ratchet +' +
+    '; +' +
     thresholds.javascript.changedLinesFloor.ratchetPerPr +
-    '/PR',
+    '/PR (' +
+    (thresholds.javascript.changedLinesFloor.ratchetMode || 'manual') +
+    ')',
 )
 
 // 3) Critical contract modules
@@ -130,13 +135,8 @@ if (thresholds.e2e.behaviorMatrixRelease) {
 
 const result = {
   at: new Date().toISOString(),
-  commit: (() => {
-    try {
-      return fs.readFileSync(path.join(root, '.git/HEAD'), 'utf8').trim()
-    } catch {
-      return null
-    }
-  })(),
+  commit: headCommit(),
+  baselineCommit: baseline.commit,
   thresholdsVersion: thresholds.version,
   rows,
   fails,
@@ -148,7 +148,10 @@ try {
     path.join(root, 'coverage/check-coverage-result.json'),
     JSON.stringify(result, null, 2) + '\n',
   )
-} catch {}
+} catch (error) {
+  fails.push('coverage result was not written: ' + errorMessage(error))
+  result.pass = false
+}
 
 for (const r of rows) {
   console.log(

@@ -136,9 +136,10 @@ describe('ADR set', () => {
     '0002-test-stack.md',
     '0003-addon-package-release.md',
     '0004-lib-build-release.md',
+    '0005-coverage-rebaseline.md',
   ]
 
-  it('has the index, the four decisions, and no separate template file', () => {
+  it('has the index, the decision set, and no separate template file', () => {
     expect(fs.existsSync(repoPath('docs/adr/README.md'))).toBe(true)
     for (const adr of adrs) expect(fs.existsSync(repoPath('docs/adr', adr))).toBe(true)
     const templateFiles = fs.readdirSync(ADR_DIR).filter((name) => /template/i.test(name))

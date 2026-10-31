@@ -123,10 +123,10 @@ jobs:
           python -m pytest tests/unit/python tests/integration/python --cov=addon --cov-branch --cov-report=json:coverage/python-coverage.json --cov-report=term
       - name: Coverage ratchet gate
         env:
-          BASE_REF: ${{ github.base_ref || 'main' }}
+          COVERAGE_BASE_REF: v2.6.2
         run: |
-          git fetch origin "$BASE_REF" --depth=1
-          diff-cover coverage/lcov.info --compare-branch="origin/$BASE_REF" --json-report=coverage/diff-cover.json
+          git rev-parse --verify "$COVERAGE_BASE_REF"
+          diff-cover coverage/lcov.info --compare-branch="$COVERAGE_BASE_REF" --json-report=coverage/diff-cover.json
           npm run check:coverage
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4

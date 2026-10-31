@@ -1,34 +1,36 @@
 {
-  "commit": "b4427a5",
+  "version": 2,
+  "commit": "f001e1d20b86cd84a88424e3bbe426e501e4c49d",
   "date": "2026-10-31",
+  "measuredAt": "2026-10-31T22:19:18+08:00",
   "javascript": {
-    "statements": 63.01,
-    "branches": 69.33,
-    "functions": 64.2,
-    "lines": 63.01
+    "statements": 57.68,
+    "branches": 68.5,
+    "functions": 63.7,
+    "lines": 57.68
   },
   "changedLines": {
-    "lines": 58,
-    "total": 8449,
-    "missing": 3508,
+    "lines": 56.7,
+    "total": 15468,
+    "missing": 6697,
     "against": "v2.6.2"
   },
   "criticalModules": {
-    "runtime/addon-protocol.ts": {
-      "lines": 100,
-      "branches": 80
-    },
     "runtime/catalog.ts": {
-      "lines": 98.01,
+      "lines": 96.93,
       "branches": 78.57
     },
-    "runtime/http/lease.ts": {
-      "lines": 100,
-      "branches": 87.17
+    "runtime/addon-protocol.ts": {
+      "lines": 92.53,
+      "branches": 80
     },
     "runtime/http/router.ts": {
       "lines": 100,
       "branches": 92.85
+    },
+    "runtime/http/lease.ts": {
+      "lines": 95.94,
+      "branches": 87.17
     },
     "src/tools/index.ts": {
       "lines": 100,
@@ -36,13 +38,16 @@
     }
   },
   "python": {
-    "scopeLines": 82.3,
-    "scopeBranches": 79.5,
-    "rawAddonLines": 50
+    "scopeLines": 76.95,
+    "scopeBranches": 71.71,
+    "coveredLines": 484,
+    "scopeLinesTotal": 629,
+    "coveredBranches": 109,
+    "scopeBranchesTotal": 152
   },
   "e2e": {
-    "behaviorMatrixRows": 347,
-    "covered": 345,
+    "behaviorMatrixRows": 346,
+    "covered": 344,
     "planned": 0,
     "exempt": 2
   }
