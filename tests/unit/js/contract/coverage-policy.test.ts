@@ -51,6 +51,19 @@ describe('coverage policy', () => {
     }
   })
 
+  it('applies the T16c calibrated floors from the T16f clean-clone run', () => {
+    expect(thresholds.javascript.globalFloor).toEqual({
+      lines: 69.7,
+      branches: 68.45,
+      functions: 72.6,
+    })
+    expect(thresholds.javascript.changedLinesFloor.lines).toBe(69.8)
+    expect(thresholds.javascript.globalFloor.lines).toBeGreaterThan(baseline.javascript.lines)
+    expect(thresholds.javascript.changedLinesFloor.lines).toBeGreaterThan(
+      baseline.changedLines.lines,
+    )
+  })
+
   it('records a 100% E2E baseline and an explicit move manifest', () => {
     const e2e = baseline.e2e
     expect(e2e.planned).toBe(0)

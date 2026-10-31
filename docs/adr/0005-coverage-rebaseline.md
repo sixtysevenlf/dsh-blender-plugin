@@ -88,8 +88,33 @@ floors measured at T5b and recorded in `config/coverage-baseline.json`:
 
 These are ratchet floors, not a lower bar for contract modules: a change that
 drops one below its recorded floor fails C5, and improving one SHOULD raise its
-floor in the same PR. The global JS floors remain the f001e1d values; adding
-these modules does not lower them.
+floor in the same PR. The global JS floors were the f001e1d values at T5b; T16c later calibrated them
+against the T16f clean-clone run (see the T16c amendment). Adding these modules
+does not lower them.
+
+### T16c amendment (2026-11-01, provisional)
+
+T16a's remote CI could not run in this workspace because the user explicitly
+forbade pushing workflow files (m18274), so the canonical CI coverage data was
+unavailable. T16c therefore uses the T16f clean-clone run at `adfa3fc` as the
+canonical measurement environment: 71.24% lines, 69.22% branches, 74.13%
+functions, and 71.398% changed lines (16,090 changed / 4,602 missing).
+
+Applying the T16c rule (floor the measured value to 0.1pp, subtract 1.5pp, and
+never go below the previous floor) yields:
+
+| Surface | T16f clean clone | New floor |
+|---|---:|---:|
+| JS lines | 71.24% | 69.7% |
+| JS branches | 69.22% | 68.45% (previous floor kept; the formula gives 67.7%) |
+| JS functions | 74.13% | 72.6% |
+| JS changed lines vs v2.6.2 | 71.398% | 69.8% |
+
+Critical-module and execution-module floors are unchanged. This amendment is
+provisional: when T16a becomes possible, the CI run URL and its coverage numbers
+MUST be recorded here. If CI is lower than these floors, the coverage/CI setup
+must be fixed rather than lowering the floor; if CI is higher, the next ratchet
+MAY raise the floors.
 
 C5 is an R2 gate: author self-check plus review spot-check. This ADR is the
 decision record; the reproducible logs live in the local evidence workspace
@@ -99,9 +124,10 @@ under `docs/refactor/evidence/C5-20261031-f001e1d/`.
 
 - C5 is green for the current refactor without weakening the contract floors or
   adding coverage-only tests.
-- A global floor equal to the measured baseline is strict: adding a large
-  untested module will fail until it is tested or the baseline is deliberately
-  raised through the PR ratchet. That is the intended behaviour.
+- The calibrated floors are above the f001e1d baseline and leave a 1.5pp
+  buffer below the T16f clean-clone measurement; adding a large untested module
+  will fail until it is tested or the floor is deliberately raised through the
+  PR ratchet. That is the intended behaviour.
 - Changed-lines coverage is still measured against v2.6.2. Until 3.0.0 ships
   this is stable; after release the baseline must be re-measured against the
   new release tag, not against the old refactor base.
