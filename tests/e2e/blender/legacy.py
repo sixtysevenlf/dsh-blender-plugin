@@ -1,6 +1,6 @@
 """Runs one archived legacy E2E case in a real Blender process.
 
-The 25 legacy self-tests live in tests/e2e/blender/cases/. They were written for
+The legacy self-tests live in tests/e2e/blender/cases/. They were written for
 blender_rt_headless(preload=...): each one assumes the kernel + named module APIs
 are already in sys.modules and reports failures with sys.exit(1). This helper
 recreates that environment with runtime/py/core/offline_bootstrap.py inside a

@@ -63,6 +63,11 @@ def main():
         # Keep their original repo/tests/<name>.py location as the virtual file
         # name so that arithmetic keeps pointing at the real runtime/ and tests/.
         virtual_path = os.path.join(repo_root, "tests", os.path.basename(case_path))
+        # Split cases import their shared helper from the cases directory. Keep the
+        # virtual ``__file__`` above (legacy path arithmetic depends on it).
+        case_dir = os.path.dirname(os.path.abspath(case_path))
+        if case_dir not in sys.path:
+            sys.path.insert(0, case_dir)
         namespace.update({"__name__": "__main__", "__file__": virtual_path, "K": kernel})
         report["stage"] = "exec"
         with open(case_path, encoding="utf-8") as handle:

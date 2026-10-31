@@ -4,6 +4,8 @@ Every file that lived in `tests/` before the refactor is listed here with a disp
 
 Targets were written first, then each legacy file was deleted (plan section 6.7). Unit and integration tests run in the default `npm test`; every real-Blender/GUI E2E case is release-gated and excluded from the default pytest collection.
 
+**E2E status:** the archived-case + `legacy.run_case` wrapper is the strangler phase of the migration, not the final test shape. T11a has split the upstream integration case into domain cases (`upstream_*_selftest.py`); T11b tracks rewriting the remaining wrappers (and the upstream wrappers) as native in-Blender pytest modules. C4/C8 remain open until T11b is complete.
+
 ## 1. Unit layer (JS)
 
 | Legacy file | Disposition | Target | Status | Notes |
@@ -83,7 +85,7 @@ Each wrapper is `pytest.mark.blender`, executes the archived case in a real Blen
 | tests/surface_selftest.py | migrated | tests/e2e/blender/test_surface.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
 | tests/txn_selftest.py | migrated | tests/e2e/blender/test_txn.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
 | tests/txn_restore_selftest.py | migrated | tests/e2e/blender/test_txn_restore.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
-| tests/upstream_integration_selftest.py | migrated | tests/e2e/blender/test_upstream_integration.py | migrated | Archived case + wrapper; NOT split into six domain files because the script's main() is not separable without rewriting its 856 lines. The six-domain split from plan 6.5 is recorded as a deliberate deviation, not as pending work: one wrapper keeps the full assertion set. Splitting it would run the same script six times and add no coverage. |
+| tests/upstream_integration_selftest.py | split | tests/e2e/blender/test_sculpt.py, test_mesh_fix.py, test_uv.py, test_print.py, test_sweep.py, test_audit_smoke.py, test_material_render.py, test_gate_upstream.py, test_assembly_vehicle.py, test_shape_upstream.py, test_pipeline_upstream.py | migrated | T11a split the 856-line / 23-function script into 11 single-topic cases (`cases/_upstream_common.py` shared helpers); each wrapper runs one domain case. Original function assertions unchanged: 127 clause passes + one clean-scene guard per case (138 total), Blender 4.2.10 headless. The wrappers are still the strangler shape and are converted natively under T11b. |
 | tests/view_diag_selftest.py | migrated | tests/e2e/blender/test_view_diag.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
 | tests/visualreport_selftest.py | migrated | tests/e2e/blender/test_visualreport.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |`
 
