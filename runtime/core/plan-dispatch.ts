@@ -322,7 +322,7 @@ export function createPlanDispatch(E: PlanDispatchDeps) {
     const setupSrc = (function () {
       /**
        * 代码块归一化（实测踩过：apply 写成"首行顶格 + 续行缩进"时，pyIndent 会把续行多加 4 格
-       * ⇒ 生成的 Python 直接 IndentationError；只做字符串断言抓不到，tests/shape_search_selftest.mjs
+       * ⇒ 生成的 Python 直接 IndentationError；只做字符串断言抓不到，tests/unit/js/shape-search.test.ts
        * 里有一条"用 python3 真编译"的回归）。
        * 两段式：① 按**首行**缩进整体去缩进；② 续行的**公共**缩进再收一次（保留嵌套块的相对层次）。
        */

@@ -5,23 +5,6 @@ Ported from the archived mate_selftest.py.  The archived main() became test_mate
 outdir is explicit (ctx.test_dir) and every check reports through ctx.check.
 """
 
-# -*- coding: utf-8 -*-
-"""S3 自检：配合门（mate_check）/ 装配特征库（fit_help）/ 干涉报告（interference_report）。
-
-跑法：
-    blender_rt_headless(preload="view,contract", engine="none", outdir="D:\\DSH\\blender\\tmp\\mate_new",
-        script="_p=K.win_path('/home/sixtyseven67/DSH/dsh-blender-plugin/tests/mate_selftest.py');"
-               "exec(compile(open(_p,encoding='utf-8').read(),'x','exec'),globals())")
-    # 或 blender -b --factory-startup --python tests/mate_selftest.py
-
-合成场景（绝不碰用户 GUI 场景：--factory-startup + 开头 clean()）：
-    MPlate/MPlate 真孔（cylinder + Boolean DIFFERENCE 并 Apply）+ MPin  = 正常 location 配合
-    同一对挪远 5 mm                                                    = 没搭上
-    DPlate/DPlate 盲孔 + DPin 顶到孔底再深 3 mm                          = 深穿模
-    IX/IY 深度穿插（4 mm）· JX/JY 浅穿插（0.1 mm，同父件 JParent）        = 干涉报告 + 白名单 + 分组
-
-判据不改松：断言全部对着"实测数字"写（接触占比、中位间隙、穿透深度），不达标就改代码不改断言。
-"""
 import bpy, json, math, os, sys
 
 MEAS = {}

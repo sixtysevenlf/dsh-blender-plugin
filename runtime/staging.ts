@@ -24,7 +24,7 @@ import { errorMessage } from "./core/json.js";
  * 无头脚本文件名（issue A1：旧名只到毫秒 → 同毫秒并发两个 run 共写同一个 .py，
  * 一方脚本被另一方覆写——"跑的不是我给的那份"这类难查症状的根）。
  * 唯一性 = 毫秒 + 进程内单调序号（同进程零碰撞）+ 4 位随机（跨进程防撞）。
- * 纯命名逻辑，tests/headless_file_guard_selftest.mjs 直接对它做 5000 次碰撞测试。
+ * 纯命名逻辑，tests/unit/js/headless-file-guard.test.ts 直接对它做 5000 次碰撞测试。
  */
 let _nameSeq = 0;
 export function headlessScriptName(): string {

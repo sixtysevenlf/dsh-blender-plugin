@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-"""在离线内核里跑 tests/motion_selftest.py（验证 _restore_transforms 批量改造后的还原语义）。"""
+"""DEPRECATED historical experiment.
+
+验证 _restore_transforms 批量改造后的还原语义。它引用的 tests/motion_selftest.py
+已在 T11b.6 迁移到 tests/e2e/blender/native/motion.py；本脚本仅作实验记录，
+不再适用于当前树。
+"""
 import importlib.util, os, sys
 
 RT = r"\\wsl.localhost\Ubuntu\home\sixtyseven67\DSH\.scratch\step12\runtime"

@@ -5,28 +5,6 @@ Ported from the archived motion_selftest.py. main() became test_motion(ctx); art
 live under ctx.test_dir and every check also reports through ctx.check.
 """
 
-# -*- coding: utf-8 -*-
-"""运动/铰接层（runtime/motion.py）的**独立**自检 —— 不依赖模块内置自检的场景。
-
-跑法（无头隔离进程，不碰 GUI 场景）：
-    blender -b --factory-startup --python tests/motion_selftest.py -- <outdir>
-    # 或插件通道：
-    blender_rt_headless(preload="motion", engine="none", factory_startup=True,
-        script="exec(open('<本文件>').read())", outdir="D:...")
-
-与 motion_selftest() 的分工：模块内置自检用**销（旋转对称）**定轴 + 沿 Z 的铰链；
-这里换一条**独立通路**：铰链沿 **Y**、无销、靠**父↔子接触带**定轴，外加一个 **prismatic 滑块**，
-避免"用同一套几何自证同一套判据"。
-
-覆盖：
-    ① 接触带定轴（无销薄板）→ supported 且与真轴夹角 < 5°
-    ② 沿 Y 扫掠零干涉 → supported；放挡块 → refuted 且点名
-    ③ prismatic 直线驱动扫掠 → supported
-    ④ 扫掠后逐对象 matrix_world 逐项还原（含无关对象）
-    ⑤ URDF / USDA 结构自检 + 网格文件落盘
-    ⑥ 空产出 / 无轴 / 未知对象的硬规则（必须 ok=false）
-    ⑦ dispatch 的 {"args": {...}} 解包 + status/help 形状
-"""
 import bpy
 import json
 import math

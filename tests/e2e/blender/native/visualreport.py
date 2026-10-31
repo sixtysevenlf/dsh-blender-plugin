@@ -6,32 +6,6 @@ test_visualreport(ctx); report artifacts stay under ctx.test_dir via K.out_dir,
 and every check goes through ctx.check.
 """
 
-# -*- coding: utf-8 -*-
-"""tests/visualreport_selftest.py —— runtime/visualreport.py 的真机自检（同机位 QC 视觉报告）。
-
-跑法（headless；qc/imgtools 用来验三级降级里的高档位，缺了也能过）：
-    blender_rt_headless(preload="visualreport,qc,imgtools", engine="none", factory_startup=True,
-        timeout_ms=300000,
-        script_file="<包路径>/tests/visualreport_selftest.py")
-
-断言（数字写死；不达标改代码，不改断言）：
-  A. op 面：help（version=1 / ops=report,selftest,help / verdict_rules / limits）、selftest op ok。
-  B. 同图：verdict=pass、IoU≈1、top_defects 空、overlay/sheet 落盘 bytes>0、metrics 兼容 JSON。
-  C. 平移 16px：verdict=fail、缺/多 px 都 >0、top_defects≥1、reasons 非空、crop（≤3）文件存在、
-     缺陷含 bbox_px/area_px/area_frac/center_px。
-  D. 缺角 26px：verdict=fail、missing>extra、缺陷 bbox 落右上角、area_px≈676（±15%）。
-  E. targets：px_per_mm=2 时 height 45±1 判 pass、期望 60 判 fail（verdict=fail）；
-     不给 px_per_mm → target status=unresolved 且 verdict=degraded。
-  F. bbox 归一：ref_box_px=[0,0,160,160]  vs 320×160 合成参考图的左半 → pass；
-     render_box_px=[160,0,320,160] vs 右半合成渲染图 → pass；不给框 → 有"未给 ref_box_px" warning 且 verdict≠pass。
-  G. 多视图：views=[ok,bad] → verdict=fail、两视图都进 views、top_defects 带 view 名、crops≤3。
-  H. 坏参数全部 ok:false（ref 缺失 / 没 render / render+views 同给 / max_defects=-1 / px_per_mm=0 /
-     target key 非法 / 空 box / 空 views / views 路径缺失 / 未知 op / iou_fail>iou_pass）。
-  I. 输出契约：verdict 是第一字段；metrics{iou_min,iou_mean,dice_min,missing_px_total,extra_px_total,
-     boundary_mean_px_max,views[]} 齐全；每视图 metrics 有 iou/dice/missing_px/extra_px/boundary；
-     images{overlay,sheet,crops,per_view}、fix_hint、warnings、method、run_dir、ms 都在。
-打印：HEADLESS {ok,pass,fail,verdicts,metrics,crops,ms,...}
-"""
 import json
 import os
 import time

@@ -6,32 +6,6 @@ ctx-based test_*; the runner factory-resets the scene per test, so the old
 per-case purge/main loop is gone.
 """
 
-# -*- coding: utf-8 -*-
-"""audit_mesh / calib 复审回归（v0.9.6 复审修复）—— 把这次抓到的 4 个"假通过"钉死。
-
-被钉死的缺陷（每一条都先复现、再修、再回归）：
-  A. **孤立点**：`loose_verts > 0` 却 `clean=true` —— loose_verts 没进 clean 判据。
-  B. **反向分离壳**：同一对象里"大正向壳 + 小分离反向壳"，聚合有符号体积恒为正（+8 + (−1) = +7）
-     ⇒ 旧代码 `normals_outward = vol > 0` 恒为 true，反向壳被吞掉。修法：逐**连通壳**判。
-  C. **合法空腔**：外层正向 + 内层反向且**确实嵌套**（空腔）是合法几何，不许误报成反向缺陷；
-     而 AABB 相交却无法确证嵌套/空腔时不许猜 —— 必须 `normals_state=unknown`（→ verdict=degraded）。
-  D. **自交检查跳过/异常**：`self_intersect=false`（跳过）或 BVH 抛异常时，旧代码留下 `self_intersections=0`
-     ⇒ `clean=true` 的假通过。修法：`self_intersections_analyzed/state` + verdict=degraded + clean=false。
-  E. **calib 任意失败算捕获**：旧 `caught = verdict != 'pass'` ⇒ 门 error（模块没注入 / pass_if 写错）
-     和 degraded 都被记成"抓到了"，捕获率虚高（实测：抽掉 print 模块后仍报 8/8，其中 thin_wall 名义上
-     只被 print"抓住"，而那条门其实 error）。修法：**只有对应门 state=='fail' 才算捕获**。
-  F. **calib 单位重置**：基线在 1 单位 = 1 mm 下跑，缺陷段却复位回场景单位 ⇒ 两段口径不同，
-     micro_gap(0.3mm)/min_mm(1.0) 的门径在两段之间漂移。修法：全段统一 CALIB_SCALE，finally 复位。
-
-跑法（无头 + factory-startup；绝不能拿 GUI 场景跑，因为要临时建对象）：
-    blender_rt_headless(preload="audit,calib,gate,printcheck", engine="none", factory_startup=True,
-        timeout_ms=300000, outdir="/home/sixtyseven67/DSH/blender-review-probes/audit",
-        script_file="/home/sixtyseven67/DSH/dsh-blender-plugin/tests/audit_review_regression.py")
-    # 或： blender -b --factory-startup --python tests/audit_review_regression.py
-
-判据全部是**数值/状态断言**（不靠肉眼）：健康必须 pass、反向分离壳必须 fail、合法空腔必须 pass、
-孤立点必须 fail、跳过/异常必须 degraded 且 clean=false、calib 必须逐类由对应门 fail 捕获。
-"""
 import json
 import mathutils
 import bmesh

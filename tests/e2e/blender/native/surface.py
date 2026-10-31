@@ -6,22 +6,6 @@ every _rec assertion reports through ctx.check, generated files go under
 ctx.test_dir, and the archived main_safe/HEADLESS/sys.exit tail is gone.
 """
 
-# -*- coding: utf-8 -*-
-"""tests/surface_selftest.py —— 曲面算法包（runtime/surface.py）真机自检。
-
-跑法：
-    blender_rt_headless(preload="surface,audit", engine="none", factory_startup=True,
-        timeout_ms=300000, script_file="<包路径>/tests/surface_selftest.py")
-
-覆盖：
-  * M0：help/ops、spec 校验（坏 kind/单位/tessellation/矩形控制网格 → ok:false）；
-  * M1：瓶身 loft / 翼子板 sweep / 头盔简化 patch 三基准生成（verts/tris/bbox/spec_hash/无 NaN）+ 确定性；
-  * M2：三基准 validate=pass；自交负例 fail、薄壁 fail、厚壁 pass、G1 不连续 fail；
-        开放曲面厚度为 n/a（不是 fail）；对象模式连续性只给参考值；
-  * tessellate：spec→对象、对象→烘焙对象；
-  * M5：blend/offset 必须 ok:false 且 error 含 OCCT（不假装实现）；
-  * 场景安全：测试对象 __surface_eval_ 前缀，结束清理；用户对象不变。
-"""
 import json
 import math
 import os

@@ -114,11 +114,11 @@ running backend).
 | tests/png_decode.py | moved | tests/helpers/png_decode.py | moved | shared helper |
 | tests/capability.lock.json | moved | tests/fixtures/capability.lock.json | moved | byte-identical duplicate removed |
 | tests/plan_readonly.baseline.json | moved | tests/fixtures/plan_readonly.baseline.json | moved | byte-identical duplicate removed |
-| tests/tests/README.md | kept | tests/README.md | rewritten | English rewrite, <=80 lines, three-layer description |`
+| tests/README.md | kept | tests/README.md | rewritten | English rewrite, <=80 lines, three-layer description |`
 
 ## 6. Removed scripts (package.json)
 
-Removed: `test:legacy` and its 22 per-selftest aliases (`test:matrix`, `test:discover`, `test:fileguard`, `test:hardexit`, `test:lease`, `test:workdir`, `test:provenance`, `test:recover`, `test:recover:e2e`, `test:hygiene`, `test:scope`, `test:generator`, `test:dedupe`, `test:diag`, `test:lossless`, `test:mac`, `test:linux`, `test:gui`, `test:lossless:live`, `test:dsh-api`, `test:routes`, `test:schema`, `test:search`). Retained entry points: `test`, `test:unit`, `test:integration`, `test:contract`, `test:python`, `test:watch` and the build/check/pack scripts.
+Removed: `test:legacy` and its 22 per-selftest aliases (`test:matrix`, `test:discover`, `test:fileguard`, `test:hardexit`, `test:lease`, `test:workdir`, `test:provenance`, `test:recover`, `test:recover:e2e`, `test:hygiene`, `test:scope`, `test:generator`, `test:dedupe`, `test:diag`, `test:lossless`, `test:mac`, `test:linux`, `test:gui`, `test:lossless:live`, `test:dsh-api`, `test:routes`, `test:schema`, `test:search`). Retained entry points: `test`, `test:unit`, `test:integration`, `test:contract`, `test:python`, `test:watch` and the build/check/pack scripts. Note: the old `test:matrix` alias was removed with the legacy selftests; the current `test:matrix` in package.json points at the behavior-matrix gate, not the removed per-case alias.
 
 
 ## 7. Row count

@@ -6,31 +6,6 @@ test_blockout(ctx); every check goes through ctx.check, K is the native ctx
 kernel, and render outputs stay under ctx.test_dir via K.out_dir.
 """
 
-# -*- coding: utf-8 -*-
-"""tests/blockout_selftest.py —— runtime/blockout.py 的真机自检（20 件白模 + 3 视图 512 + GLB）。
-
-跑法（headless，preload 必须带上 blockout；qc/qc_render 用来验"优先调 qc_render"这条路）：
-    blender_rt_headless(preload="blockout,qc,qc_render", engine="none", factory_startup=True,
-        timeout_ms=300000,
-        script_file="<包路径>/tests/blockout_selftest.py")
-
-断言（实测数字写死；不达标改代码，不改断言）：
-  A. 主模型：20 个 box（5×4 网格，90×90×60mm，底部贴地）
-     · ok:true、对象数 = 20、命名 BO-selftest20-*、total_tris = 240（20×12）
-     · bbox_mm 与输入一致（min=(-245,-195,0) max=(245,195,60)，±0.01mm）
-     · 每件都有 Bevel 修改器、宽度 1-2mm、**未 apply**（base mesh 仍是 8 顶点）
-  B. 渲染：3 视图（iso/front/right）@512×512
-     · 3 张 PNG 存在、bytes>0、md5 与文件一致、图片实际尺寸 512×512
-     · coverage_estimate > 0.02；preload 有 qc_render 时必须走 via=qc_render（不是回退）
-     · sheet 存在、bytes>0、尺寸 = 1548×512（3×512 + 2×6 间隙）
-  C. 导出：GLB 文件存在、bytes>0、前 4 字节 == b"glTF"、md5 与回执一致、nodes >= 20
-  D. audit：内建体检 ok（非流形边/零面积面/孤立点都为 0）
-  E. 附加：humanoid_prim 12 件且总高 1750mm；units=cm 换算（5cm 立方 → 50mm）；
-     export op 能对已建场景补视图/补 GLB（不重建）；batch 3 件逐件 GLB + cleanup 后零残留；
-     selftest/help 两个 op 可用；坏参数（空 parts / 坏 prim / 缺尺寸 / 坏视角 / 非 workbench 引擎 /
-     export 空调用 / 未知 op）全部 ok:false 且不污染场景。
-打印：HEADLESS {pass, fail, tris, bbox, views[], sheet, glb, ms{geom/views/export/total/wall}, ...}
-"""
 import bpy
 import hashlib
 import json

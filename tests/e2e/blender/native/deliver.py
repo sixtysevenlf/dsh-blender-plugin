@@ -6,25 +6,6 @@ artefacts are written under ctx.test_dir; every check also reports through
 ctx.check.
 """
 
-# -*- coding: utf-8 -*-
-"""deliver（#13 交付导出）自检 —— **纯无头可跑，自造合成场景，绝不碰 GUI 场景**。
-
-跑法：
-    blender_rt_headless(preload="deliver", engine="none", outdir="D:\\\\DSH\\\\blender\\\\tmp\\\\txn_v090",
-        script="_p=K.win_path('/home/sixtyseven67/DSH/dsh-blender-plugin/tests/deliver_selftest.py');"
-               "exec(compile(open(_p,encoding='utf-8').read(),'x','exec'),globals())")
-    # 或 blender -b --factory-startup --python tests/deliver_selftest.py -- <outdir>
-
-覆盖（每条都带数字）：
-  ⑦ OBJ+MTL+manifest 三件齐；md5/字节/面数/g/usemtl 逐项 PASS；单位块带单位；归一化可反推
-  ⑧ 故意改字节 / 追加面 → verify 必须 FAIL（证明校验真的咬人，而不是只会 ok:true）
-  ⑨ 空 scope / 空集合 / objects 全不存在 / 非法 fmt / 零尺寸 bbox → 一律 ok:false
-  ＋ STL 二进制：文件大小 = 84 + 50×面数、头声明面数一致、归一化最长边 = 2×target_half_extent
-  ＋ 求值后网格：带 Array 修改器的对象导出面数 = 求值后（不是基础网格）
-  ＋ include_hidden：hide_render 的对象默认不导出，include_hidden=True 才进
-  ＋ 确定性：同一场景连导两次，OBJ 的 md5 一致（归档可比对）
-  ＋ 配色来源：有材质走 Kd 真值；无材质 → 确定性灰阶且被点名（guessed_colors）
-"""
 import bpy
 import hashlib
 import json

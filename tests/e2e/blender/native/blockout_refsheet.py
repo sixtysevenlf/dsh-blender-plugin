@@ -6,33 +6,6 @@ test_blockout_refsheet(ctx); all render outputs stay under ctx.test_dir via
 K.out_dir, and every check reports through ctx.check.
 """
 
-# -*- coding: utf-8 -*-
-"""tests/blockout_refsheet_selftest.py —— P2-C：blockout 的 turntable / refsheet 真机自检。
-
-跑法（headless）：
-    blender_rt_headless(preload="blockout,qc,qc_render,montage", engine="none", factory_startup=True,
-        timeout_ms=300000,
-        script_file="<包路径>/tests/blockout_refsheet_selftest.py")
-
-断言（数字写死；不达标改代码，不改断言）：
-  A. base 建 12 件白模（4×3 网格 120mm 间距，100×80×60mm）→ 对象数=12、bbox=(-230,-160,0)..(230,160,60)。
-  B. refsheet（4 视图 256²、白底、正交 front/side/top + 透视 iso）：
-     · ok:true、4 张 PNG 存在/bytes>0/md5 与回执一致/PNG 魔数/尺寸 256²；
-     · 投影类型：front/side/top=ortho（有 ortho_scale_mm），iso=persp（lens 50）；
-     · 拼图 2×2（518×518）存在；refsheet.json 存在且 md5 与回执一致；
-     · JSON：schema/units(mm_per_unit=1000)/bbox 与 base 一致/forward_axis=-Y/
-       views 名与相机参数/每视图 md5 映射/fps/frame_count 齐全；
-     · 白底：角像素 ≥0.9 且 alpha=1；中性灰：模型像素（<0.85）占比 >5%。
-  C. 独立 turntable(frames=12, fps=24, 256²)：MP4（魔数 ftyp）+ bytes/md5/frames/fps/duration_s=0.5；
-     若本机 Blender 无 FFMPEG → 回退 PNG 序列（12 帧、degraded=true、ok=false）也算通过；
-     camera 参数（orbit_deg/elev_deg/distance/camera_distance/center_mm）齐全。
-  D. refsheet 内嵌 turntable（frames=4, fps=12, 128²）→ 4 视图+JSON 照出，JSON.turntable.frames=4；
-     内嵌产物 MP4 或回退序列均可（回执 warnings 留痕）。
-  E. 场景状态还原：engine/camera/resolution/媒体格式与调用前一致；用户对象/材质未改。
-  F. 坏参数全部 ok:false（turntable: 无对象/frames=0/fps=0/fmt=avi/background=pink；
-     refsheet: 无对象/views 未知/views 空/res=0/background=pink/未知 op）。
-  G. HEADLESS JSON 打印 pass/fail 与关键数字（不含 mp4 全量字节）。
-"""
 import json
 import os
 import time

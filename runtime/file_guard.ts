@@ -7,7 +7,7 @@
  *  - runtime/execution/headless.ts + runtime/execution/jobs.ts（直连 /headless 的兜底守卫 + 回执语义）
  *  - src/index.ts（工具端 ALIAS / 空串拦截 —— 工具端在 body 组装前就把 falsy 剥成
  *    undefined，引擎侧守卫对工具路径**永不触发**，所以 ALIAS 必须落在这一侧）
- *  - tests/headless_file_guard_selftest.mjs（离线单测，不需要 Blender / 后端）
+ *  - tests/unit/js/headless-file-guard.test.ts（离线单测，不需要 Blender / 后端）
  */
 
 import fs from 'node:fs';

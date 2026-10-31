@@ -253,7 +253,7 @@ export const PLAN_CATALOG: PlanFamily[] = [
  * 描述预算：重工具的参数长尾（从工具描述里搬出来的那部分）。
  * 取用：blender_rt_plan(op="catalog", args={tool:"rt_headless"})（后端本地直出）
  * 动机：15 个工具的 schema 是每轮固定开销；模型在"调用那一刻"只需要参数名 + 一句说明。
- * 维护：工具描述里删掉的解释性文字往这里放，别让它悄悄涨回去（tests/discoverability_selftest.mjs 有预算门）。
+ * 维护：工具描述里删掉的解释性文字往这里放，别让它悄悄涨回去（tests/unit/js/contract/description-budget.test.ts 有预算门）。
  */
 export const TOOL_DETAIL: Record<string, string> = {
  "rt_headless": "blender_rt_headless —— 无头 Blender 备用路径（独立进程，不动 GUI 场景；默认仍先走 GUI）\n\n【路径语义（现场踩过，先读这条）】headless 的 cwd 是 \\\\wsl.localhost\\<distro>\\home\\<user>\\DSH；**绝对 WSL 路径必须带开头 / **（漏了会被当相对路径接到 cwd 后面，症状是 ...\\DSH\\home\\<user>\\DSH\\测试\\...；当前版本会自动纠正并写后端 stderr）。script_file 是**内联**执行（拷进 D:\\DSH\\blender\\tmp\\dsh_headless_*.py），当前版本自动注入 DSH_SCRIPT_FILE + __file__（指回原脚本）+ 脚本目录进 sys.path —— 多文件工程不再需要手铺 sys.path。\n\n【结果契约】脚本里 print(\"HEADLESS \" + json.dumps(obj, separators=(\",\",\":\")))；必须是**单行 JSON**。\n  解析失败不顶掉输出：记在 resultParseError，stdoutTail/logs 保留原文；>4KB 的结果自动落盘并给 resultPath。\n【超时语义】timeout_ms 只决定服务端子进程跑多久；客户端等待窗口默认 100 s（DSH_HEADLESS_WAIT_MS 可调），\n  到点回 {kind:\"promoted\", jobId:\"run-…\"} —— 子进程照跑，用 blender_rt_job(op=\"wait\"|\"collect\", id=…) 收结果。\n  ⇒ 预期 >100 s 的活**直接 as_job=true**（可配 wait_s 先等几秒），别让外层 deadline 决定结果去向。\n【引擎】默认注入 EEVEE + 光追前导（回执回 engine/gpu）；engine=\"cycles\" 走 OptiX、engine=\"keep\" 保持现状、\n  engine=\"none\" 完全跳过前导与 GPU 探测（纯 numpy/图像类任务省 1–1.5 s）。gpu 只对 cycles 路径有意义。\n【路径】outdir/out_json/file/script_file 都收 WSL 路径（/home/… 内部映射成 \\wsl.localhost\\<distro>\\…），\n  回执给 Windows + WSL 两种真实路径；脚本把 POSIX 路径交给 Windows API 会被体检出来（pathWarnings）。\n【可观测】三处 spawn 注入 PYTHONUNBUFFERED=1（日志运行期就有增量）；脚本里 dsh_stage(\"building\") 打心跳，\n  blender_rt_job(op=\"status\") 回 stage/idleMs/lines/logBytes/pidAlive。\n【多视角一体化】shots=[{name, from, look_at, lens, res, samples}] 一次出 N 张（内置 harness：自动三点光 + 渲染锁 +\n  逐张 md5 + 实测设备）；回执 res.shots 每行带 coverage_estimate，主体占画面 <5% 会给 subject_too_small。\n【回执字段】result / resultJson / status / gpu / logs / lastException / traceback / artifacts / shots / inputFile。\n【脚本内可用】K（持久内核，与 rt_do 同一套）/ K.args / K.win_path / K.wsl_path / K.blend_path / K.out_dir / K.env；\n  预载模块用 preload=\"audit,qc,qc_render\" → K.dsh_audit_api / K.dsh_qc_api …\n【别做】长任务别连发 op=status 轮询（用 job op=wait）；GUI 会话里别连发 render.render()。\n【硬退出（F-14）】done 后默认 os._exit(0) 跳过 Blender 退出拆解（规避 5.2.3 退出期 AV：glTF 导出等场景产物完整、done 已打，却被 exitCode 顶成失败）；hard_exit=false 回旧行为（atexit / bpy.app.handlers / 延迟存档照常执行）。job 路径同语义（as_job=true 走本工具即可传；直连 /job 用 opts.hardExit）。\\n【常见坑】没传 outdir 时产物落在默认工作目录；file= 传了 .py 会被自动当脚本（并给提示）；\n  factory_startup=false 会加载用户 startup（其中本插件会尝试占 9876 端口，通常无害但有报错噪音）。",
@@ -450,7 +450,7 @@ export function renderFamilyText(e: PlanFamily): string {
  */
 /**
  * S4 · 单一事实源：/plan 通道的只读 op 白名单（唯一声明处）（本文件是唯一声明处）。
- * server.mjs 直接消费；tests/single_source_selftest.mjs 与冻结基线逐名对拍，防迁移丢项/多项。
+ * server.mjs 直接消费；tests/unit/js/contract/single-source.test.ts 与冻结基线逐名对拍，防迁移丢项/多项。
  * 判据：不改场景、不动对象变换、不注册 handler。新增只读 op 只改这一处。
  */
 export const PLAN_READ_ONLY_OPS: string[] = [

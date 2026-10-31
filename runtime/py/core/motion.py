@@ -1091,7 +1091,7 @@ def _restore_transforms(objs, snap, touched=None):
     """把 transform 还原到快照；只写"动过"的对象（没动的对象逐项对拍即可，绝不重写）。
 
     v2.6.1 性能：字段写入不再逐对象 update —— 先全部写完、一次 update 再统一核对；
-    只有兜底写矩阵的对象才需要额外 update。语义与旧实现一致（motion_selftest 第 ④ 条守）。
+    只有兜底写矩阵的对象才需要额外 update。语义与旧实现一致（native motion E2E 的逐对象 matrix_world 还原检查守）。
 
     返回 (mismatches, pre_delta, wrote)：pre_delta = 还原前发现的最大偏差，
     还原后的残余偏差写在各对象的对拍里（mismatches 为空即逐项相等）。

@@ -22,7 +22,7 @@ const STATE_POLL_MS = 3000
 const HTTP_TIMEOUT_MS = 1500
 /** toast 队列的发送间隔（见 ① 的说明：toast 必须在 tuiToast 自己的 inject 上下文里调） */
 const TOAST_DRAIN_MS = 250
-/** 与 lib/client.js 同口径（tests/tui_host_selftest.mjs 对拍两边的草稿文本） */
+/** 与 lib/client.js 同口径（tests/integration/js/tui-*.test.ts 对拍两边的草稿文本） */
 const SELECTION_DRAFT_NAME_LIMIT = 24
 const SUB_DRAFT_INDEX_LIMIT = 12
 const CHIP_KEY = 'selection'

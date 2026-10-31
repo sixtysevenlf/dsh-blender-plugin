@@ -3,6 +3,9 @@
 > 分支 `experiments/batch-update-step12`，基于 `main@22012d1`。只做提案的第 1、2 步：
 > **① runtime 内加批量 update 工具；② 按扫描结果合并可安全合并的 update。**
 > 第 3 步（addon `batch` 协议）不在本分支。
+>
+> **归档说明（T11b.6）：** `tests/motion_selftest.py` 已迁移到
+> `tests/e2e/blender/native/motion.py`；本目录仅保留实验记录，其中的命令不再适用于当前树。
 
 ## 改了什么
 

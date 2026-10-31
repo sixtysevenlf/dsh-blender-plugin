@@ -25,7 +25,7 @@
     K.dsh_surface_api("patch", {"control_grid": [[...]], "degree_u": 3, "degree_v": 3})
     K.dsh_surface_api("tessellate", {"spec_or_object": {...}|"ObjName", "quality": "normal"})
     K.dsh_surface_api("validate", {"spec_or_object": {...}|"ObjName"})
-真机自检：tests/surface_selftest.py（preload="surface,audit"）。
+真机自检：tests/e2e/blender/native/surface.py（由 tests/e2e/blender/native_runner.py 执行，preload="surface,audit"）。
 """
 import hashlib
 import json

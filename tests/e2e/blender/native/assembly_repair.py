@@ -6,27 +6,6 @@ _rec(...) assertion is now also reported through ctx.check, so the host runner
 localizes failures per check instead of only a top-level EVID map.
 """
 
-# -*- coding: utf-8 -*-
-"""tests/assembly_repair_selftest.py —— runtime/assembly.py 的 asm_repair / fix_clash / fix_interference 真机自检。
-
-跑法（插件无头通道）：
-    blender_rt_headless(preload="assembly,audit,contract,clearance,gate,mesh_fix,geo,txn",
-                        engine="none", factory_startup=True, timeout_ms=300000,
-                        script_file="<包路径>/tests/assembly_repair_selftest.py")
-
-独立跑（自己按序 exec kit/audit/contract/clearance/gate/mesh_fix/geo/txn/assembly）：
-    blender -b --factory-startup --python tests/assembly_repair_selftest.py
-
-覆盖：
-  1) 两立方体 2mm 互穿（+ 底板，保证复扫后仍连通不误报浮块）
-     → dry_run 有计划（translate）且场景指纹不变；dry_run=false 后 clash=0
-  2) 布尔：max_move_mm 不够 + allow_boolean=false ⇒ blocked；allow_boolean=true ⇒ subtract 计划；
-     执行后 clash=0 且 cutter 原件仍在（布尔用副本）
-  3) 浮块场景 → snap 计划（或 blocked 且写明原因）；dry_run 不动场景
-  4) fix_interference 规划器只读 + a/b 过滤；plan_only=false 拒绝
-  5) 别名 fix_clash 可用；help/ops 已注册；干净场景 dry_run ⇒ verdict=pass
-  6) 坏参数：负 max_move / 负 clearance / max_rounds=0 / dry_run 非布尔 / 空 objects / 未知参数 → ok:false
-"""
 import json
 import os
 import sys

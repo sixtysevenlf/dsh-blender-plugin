@@ -6,18 +6,6 @@ became test_imgtools(ctx); synthetic PNGs go under ctx.test_dir, every check
 reports through ctx.check, and the module no longer prints HEADLESS or exits.
 """
 
-# -*- coding: utf-8 -*-
-"""tests/img_digest_selftest.py —— imgtools v2（img_digest / img_probe / img_measure / img_calib）自检。
-
-跑法（真机 headless）：
-    blender_rt_headless(preload="imgtools", engine="none", timeout_ms=300000,
-                        script_file="/home/<user>/DSH/dsh-blender-plugin/tests/img_digest_selftest.py")
-
-自带合成图（bpy 写 RGBA PNG，alpha 就是真值）：矩形 / 圆孔+微小孔 / 45° 斜杆 / 镜像体。
-断言：bbox ±1px、aspect ±0.5%、px_per_mm ±0.5%、圆直径 ±2%、无标定 verdict=needs_scale、
-<8px 特征进 unreadable；probe 亚像素宽度、measure delta、calib 多视一致性、坏参数 ok:false。
-结果契约：print("HEADLESS " + json)；失败 exit 1。
-"""
 import json
 import math
 import os

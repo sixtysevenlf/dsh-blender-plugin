@@ -6,26 +6,6 @@ every _rec assertion reports through ctx.check, generated files go under
 ctx.test_dir, and the archived main_safe/HEADLESS/sys.exit tail is gone.
 """
 
-# -*- coding: utf-8 -*-
-"""tests/shapesolve_selftest.py —— 无头多视轮廓拟合（runtime/shapesolve.py）真机自检。
-
-跑法（插件无头通道）：
-    blender_rt_headless(preload="shapesolve", engine="none", factory_startup=True,
-        timeout_ms=300000, script_file="<包路径>/tests/shapesolve_selftest.py")
-
-或独立跑（自己 exec kit + shapesolve）：
-    blender -b --factory-startup --python tests/shapesolve_selftest.py
-
-覆盖：
-  * 三视（-Y / +X / +Z）正交参考图（解析矩形，**独立于模块光栅化器**）反演盒体三边：
-    相对误差 ≤5%、逐视 IoU ≥0.85、best_iou_mean ≥0.85；
-  * 敏感性：±1% 量程扰动 → strong/weak/unidentifiable 分类有输出，至少 1 个可辨识；
-  * 可复现：同 seed/同 args 两次结果完全一致；repro.script 含 seed；
-  * Otsu 通路：无 alpha 的灰度参考图（暗物亮底）也能分前景并收敛；
-  * 收尾：场景停在 best 参数（apply(best) 已再次应用）；
-  * 坏参数：空 params / 无 apply 的 setup / 参考图不存在 / from==look_at / iterations=0 /
-    越界 resolution / 未知 op / 未知参数 / init 未知键 → ok:false。
-"""
 import json
 import math
 import os

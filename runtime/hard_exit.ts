@@ -12,7 +12,7 @@
  * 两条装配路径共用本模块（Python 行与 issue 定稿逐字一致）：
  *  - 作业路径（engine.jobStart，parts.push 数组形态）→ hardExitJobParts(opts)
  *  - 同步路径（engine.headless，body += NL + 字符串拼接形态）→ hardExitSyncTail(opts, NL)
- * 纯函数，tests/headless_hard_exit_selftest.mjs 离线断言顺序与开关语义。
+ * 纯函数，tests/unit/js/headless-hard-exit.test.ts 离线断言顺序与开关语义。
  */
 
 /** done 之后的硬退出 Python 行（顺序即契约：先冲刷、后 _exit —— 反过来就是丢输出）。 */

@@ -17,9 +17,8 @@ out_json（路径 + md5）+ ms。**缺模块就 skipped + degraded，不假装�
   * 坏参数 ok:false；依赖缺失/套件崩 = skipped/degraded/fail，绝不静默当 pass；
   * 纯 bpy + numpy（不引 PIL/scipy/cv2），参考图用 bpy image 写 PNG。
 
-跑法：
-    blender_rt_headless(preload="evalharness,assembly,audit,contract,clearance,gate,imgtools,calib,mesh_fix",
-        engine="none", script_file="tests/evalharness_selftest.py")
+跑法（native E2E）：tests/e2e/blender/native/evalharness.py 由
+    tests/e2e/blender/native_runner.py 执行；host 入口 tests/e2e/blender/test_native_e2e.py。
 """
 import json
 import math

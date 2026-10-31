@@ -23,8 +23,7 @@ GUI/timers/bpy.render 在 headless 里都不可靠。本模块给一条**纯计�
 API 挂 K.dsh_shapesolve_api：solve / selftest / help（模块尾部 _KIT.register 一行）。
 纯 bpy + numpy，不引 PIL/scipy/cv2。
 
-无头跑法：
-    blender_rt_headless(preload="shapesolve", engine="none", script_file="tests/shapesolve_selftest.py")
+无头跑法：tests/e2e/blender/native/shapesolve.py（由 tests/e2e/blender/native_runner.py 执行）。
 """
 import json
 import math

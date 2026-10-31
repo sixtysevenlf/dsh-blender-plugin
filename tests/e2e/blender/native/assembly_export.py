@@ -6,27 +6,6 @@ _rec(...) assertion is now also reported through ctx.check, so the host runner
 localizes failures per check instead of only a top-level EVID map.
 """
 
-# -*- coding: utf-8 -*-
-"""tests/assembly_export_selftest.py —— asm_export（交付导出 manifest+ledger）与 asm_repair policy 真机自检。
-
-跑法（插件无头通道）：
-    blender_rt_headless(preload="assembly,audit,contract,clearance,gate,mesh_fix,geo,txn,deliver",
-                        engine="none", factory_startup=True, timeout_ms=300000,
-                        script_file="<包路径>/tests/assembly_export_selftest.py")
-
-独立跑（自己按序 exec kit/audit/contract/clearance/gate/mesh_fix/geo/txn/deliver/assembly）：
-    blender -b --factory-startup --python tests/assembly_export_selftest.py
-
-覆盖：
-  1) policy：safe 不自动做布尔（blocked 有 blocked_reason）/ aggressive 才规划 subtract /
-     manual 只规划不执行且不规划布尔 / plan[].risk 存在 / 坏 policy ok:false
-  2) asm_export merge=True（两 part .blend，manifest 允许 2mm 设计内交叠）：GLB/FBX/OBJ/manifest/ledger
-     都存在、GLB 魔数 glTF、FBX Kaydara 头、manifest_md5 可复算、逐文件 md5 与真实文件一致、
-     ledger ≥1 行且 export 事件带 manifest_md5/gate_verdict、merge gate=pass
-  3) 非合并导出（formats 逗号字符串）+ dry_run=true 只回计划不建目录
-  4) 坏参数：非法 formats / 空 formats / 空 name / merge 无 manifest / 非布尔 dry_run /
-     空 objects / 不存在对象 / 空场景 → ok:false
-"""
 import hashlib
 import json
 import os

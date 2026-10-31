@@ -44,7 +44,7 @@ export const IS_MAC = process.platform === 'darwin';
  *
  * 判据：环境变量优先（交互式 WSL 一定有）；再退回 /proc/version —— dsh 跑在 systemd 服务里时**不继承**
  * `WSL_DISTRO_NAME`（issue #6 现场），但那台机器确实是 WSL，不能因此误判成原生 Linux。
- * 剥成纯函数是为了能在**任何平台**上对拍判据（tests/linux_selftest.mjs [1]）。
+ * 剥成纯函数是为了能在**任何平台**上对拍判据（tests/unit/js/platform-paths.test.ts [1]）。
  */
 export function detectWsl(platform: string, env: Record<string, string | undefined> | undefined, procVersion: unknown): boolean {
   if (platform === 'win32' || platform === 'darwin') return false;

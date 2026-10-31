@@ -6,28 +6,6 @@ _rec(...) assertion is now also reported through ctx.check, so the host runner
 localizes failures per check instead of only a top-level EVID map.
 """
 
-# -*- coding: utf-8 -*-
-"""tests/assembly_selftest.py —— 装配层（runtime/assembly.py）真机自检。
-
-跑法（插件无头通道）：
-    blender_rt_headless(preload="assembly,audit,contract,clearance,gate", engine="none",
-        factory_startup=True, timeout_ms=300000,
-        script_file="<包路径>/tests/assembly_selftest.py")
-
-或独立跑（自己按序 exec kit/audit/contract/clearance/gate/assembly）：
-    blender -b --factory-startup --python tests/assembly_selftest.py
-
-覆盖：
-  D1 浅穿模（1mm 交叠）→ clash
-  D3 完全包含（小件在大件内、面不相交）→ contained（旧全对全会漏的分支）
-  D4 12mm 设计内隐藏交叠 + spec.allow → hidden_ok（允许对误报必须 0）
-  D5 面贴接触（gap=0）→ contact（不是 clash）
-  D7 小悬空件 → float（装配浮空必须报）
-  D8 法线朝内 → gate 不得 pass（unresolved/ fail，不许假通过）
-  D9 开口件相交 → unresolved（证据不足 ≠ pass）
-  manifest init/add_part/add_interface/add_allow/validate/seal/show + merge(dry_run) 确定性
-  坏参数：空 objects / 不存在的对象 / md5 不符 / basis 不正交 / 重复 id → ok:false
-"""
 import json
 import os
 import sys

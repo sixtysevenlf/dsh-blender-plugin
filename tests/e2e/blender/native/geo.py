@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native E2E: geometry base module (geo.py).
 
-Ported from the archived the archived geo_selftest.py.  The legacy case deliberately
+Ported from the archived geo_selftest.py.  The legacy case deliberately
 loads kit.py and geo.py itself instead of relying on kernel preloads; load_flat
 keeps that behavior.  Assertions are the same evidence keys plus ok/no-error.
 """

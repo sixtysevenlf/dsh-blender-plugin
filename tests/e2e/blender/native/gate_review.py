@@ -7,58 +7,6 @@ main()/global pass-fail accumulator is gone.  purge_prefix/park_foreign are
 kept because individual tests still use them.
 """
 
-# -*- coding: utf-8 -*-
-"""gate 复审回归（v0.9.6 复审修复 · F2 / 最终集成 · F8）—— 把"干净装配也拿不到 pass"与
-"没量过的门不许读成绿"两条钉死。
-
-被钉死的缺陷（每一条都先复现、再修、再回归）：
-  F2-a **mesh_health 没显式查自交**：`audit_scene` 默认 `self_intersect=false`，而新口径把"跳过检查"
-       如实读成 `state=degraded / clean=false` ⇒ preset 的 mesh 门没写 `self_intersect:true`，
-       **健康场景也 degraded**。修法：preset 的 mesh 门显式 `self_intersect:true`。
-  F2-b **no_floaters 读错字段**：preset 的 `pass_if = "state == 'pass'"`，而 `audit_connectivity`
-       **顶层没有 state/verdict**（顶层 `ok=true` 只表示"分析跑完了"；门结论在**嵌套 `gate`** 里：
-       `gate.state` / `gate.verdict`）⇒ 该门必 `error`（"pass_if 引用了回执里没有的字段"）。
-       修法：读回执自己给的已验证三态 `gate['verdict']`，并让 `_status_of` 认嵌套三态 ——
-       否则"未分析 / 未确认 ⇒ degraded"会在 pass_if 处被压成 fail（或更糟：被抬成 pass）。
-  F2-c **no_clash 无来源**：`audit_interference` 是**两两**算子（必须给 a/b 或 objects_a/objects_b 或
-       file_a/file_b），preset 无从知道"哪两件比" ⇒ 空参必 `error`。修法：该门声明 `skip_if_missing`，
-       未配置来源时记 `state=skipped`（显式列进回执的 `skipped[]` / `coverage`）；要真判就给来源
-       （`gate_run(preset="assembly", overrides={"no_clash":{...}})`，或自己写 spec）。
-  F8-a **`skipped` 不许当透明**（v3 · Lead 否决 `pass + skipped = pass`）：旧 `_aggregate` 把
-       `["pass","skipped"]` 判成 `pass` ⇒ assembly preset 默认（`no_clash` 未配置来源）会给一个**健康
-       但没量过干涉**的场景发绿。修法：`_aggregate` 最小修 —— **任一 skipped 或 degraded ⇒ 顶层
-       degraded（fail 优先）**；要 pass 必须**每一门都真跑过且都过**。
-       ⇒ 于是：默认 `gate_run(preset="assembly")` 的顶层是 `degraded / ok=false`（**正确行为，不是 bug**），
-       配上两侧来源后才是 `pass`（下面两条断言把两个方向都钉住）。
-  F8-b **print preset 的分辨率假通过**：`print_report` 顶层只有 `thin_samples_total` / `walls_ok`，
-       `min_mm` 低于本网格测量分辨率时 `print_walls` 只把"结论不可信"写进 **per-object** 的
-       `detail.walls.objects[].warning` / `resolution_mm`（顶层看不见）⇒ 旧 `pass_if` 会让
-       "**根本没量得出来**"读成绿。修法：该门加 `degrade_if`（读真实字段
-       `params.min_mm` vs `detail.walls.objects[0].resolution_mm`）⇒ 分辨率不可信时该门 `degraded`，
-       并用 `echo` 把真实读数带进回执。回归同时钉住**反向**：网格够细（分辨率 ≤ min_mm）时该门照常 pass。
-
-跑法（独立无头进程 + factory-startup；**不要拿 GUI 场景跑**：本测试会临时隐藏别人的 mesh 对象，
-才能让"干净装配"这句话成立；跑完复原）：
-
-    blender_rt_headless(preload="audit,gate,printcheck,uv_tools,material", engine="none",
-        factory_startup=True, timeout_ms=300000,
-        script_file="/home/sixtyseven67/DSH/dsh-blender-plugin/tests/gate_review_regression.py")
-    # 或： blender -b --factory-startup --python tests/gate_review_regression.py
-
-判据（全是状态/数值断言，不靠肉眼）：
-  * 健康多件相接装配（正好相贴 gap=0 / 0.2mm 设计间隙）⇒ 默认 `gate_run(preset="assembly")` **顶层
-    degraded**（`no_clash` 未配置来源 ⇒ skipped ⇒ 压成 degraded；没跑过的门不许读成绿）；
-    **配上两侧来源后 ⇒ verdict=pass / ok=true / skipped=[] / coverage.all_gates_ran=true**；
-    —— 审慎区分：**正好相贴**（gap=0）的两件在 precision=5 下顶点被焊接成 **1 个连通分量**，回执如实给
-    `evidence=single-body`（"这一坨是一体"≠"装配门判过跨件相接"）；"多件相接"的正面证据用 0.2mm 设计间隙
-    那一例（**2 个连通分量** + 逐件 `evidence=bbox+mesh` + `mesh_confirmed=true`）。
-  * 真浮块 ⇒ `no_floaters=fail` 且整包 `fail`（归因点 name 点名 no_floaters）；
-  * 强制未分析 / 未确认 ⇒ `no_floaters=degraded` 且整包 `degraded`（**不许 pass**）；
-  * 单件（1 个连通分量）⇒ 装配门的 pass 必须自带 `evidence=single-body` ——
-    "装配门对单件不适用（无从判'与其它分量不相接'）"这句话要能从回执读出来；
-  * print preset ⇒ 粗网格（分辨率 2000mm ≫ min_mm 2mm）**判 degraded 而不是假绿**，且 `echo` 里的
-    resolution_mm 与 receipt 里的真实字段逐位一致；细网格（分辨率 ≤ min_mm）⇒ pass。
-"""
 import json
 import mathutils
 import bmesh

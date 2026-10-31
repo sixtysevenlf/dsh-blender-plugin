@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Native E2E: planner S3 (object graph -> diagnostics -> compile -> graph).
 
-Ported from the archived the archived plan_selftest.py.  Preload is the same as the
+Ported from the archived plan_selftest.py.  Preload is the same as the
 legacy wrapper (view); planner and contract are loaded explicitly by load_flat
 like the archived case.  The only intentional harness change is the output
 directory: it is ctx.test_dir, never the repo root.

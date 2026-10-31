@@ -5,28 +5,6 @@ Ported from the archived txn_restore_selftest.py. main() became test_txn_restore
 through ctx.check and artefacts stay under ctx.test_dir.
 """
 
-# -*- coding: utf-8 -*-
-"""txn `restore` 的 filepath 语义自检 —— 回归外部反馈（文件级 restore 会把会话搬进快照目录）。
-
-问题（实测现象）：
-    restore 用 open_mainfile(<out_dir>/snapshots/<label>.blend) 把**整个会话**搬到快照文件上，
-    bpy.data.filepath 随之变成快照路径。原文件其实一直躺在原地没动 ——
-    但之后用户/助手**一保存就写进快照目录**，语义意外（"我明明在改自己的工程"）。
-
-判据（本文件逐条断言）：
-  ① 默认 restore 之后，会话必须回到**原来的用户文件**上（后续保存落回原文件）
-  ② 会话已经不在用户文件上（已在快照目录里）时，按快照记录里的 filepath 兜底 —— 仍要回到原文件
-  ③ 兜不到目标（未保存场景）时**不许乱写**：保持快照路径 + 明确告警，不许静默
-  ④ restore 之前自动留一份 pre_restore 备份（restore 会丢当前未保存状态，这条得能撤销）
-  ⑤ 非破坏模式 into="snapshot"：一个字节都不许写原文件
-  ⑥ 快照记录带 filepath（跨开文件后仍知道"原文件在哪"）
-
-跑法（headless）：
-    blender_rt_headless(preload="txn", engine="none", factory_startup=True,
-        outdir="<tmp>",
-        script="_p=K.win_path('<包路径>/tests/txn_restore_selftest.py');"
-               "exec(compile(open(_p,encoding='utf-8').read(),'x','exec'),globals())")
-"""
 import bpy
 import hashlib
 import json

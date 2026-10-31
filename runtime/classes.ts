@@ -7,7 +7,7 @@
  * 本表把这三样按**建模类型**写死，并让目录能按类查询：
  *   blender_rt_plan(op="catalog", args={classes:true})         → 全部类型
  *   blender_rt_plan(op="catalog", args={class:"recon"})        → 单类（入口/算子链/禁止自造/验收门）
- * 完整性由 tests/guidance_selftest.mjs 机械检查（缺字段/写错 op 名会红）。
+ * 完整性由 tests/unit/js/contract/guidance.test.ts 机械检查（缺字段/写错 op 名会红）。
  */
 
 export interface ModelingClassGuide {
@@ -129,7 +129,7 @@ export function renderClassText(r: ModelingClassGuide): string {
   return L.join(String.fromCharCode(10));
 }
 
-/** 供机械检查用：缺字段的类别会被 guidance_selftest 报红 */
+/** 供机械检查用：缺字段的类别会被 guidance contract test 报红 */
 export function classGuideStats(): { classes: number; keys: string[]; missing: string[] } {
   const need: (keyof ModelingClassGuide)[] = ["c", "name", "entry", "chain", "forbid", "gate"];
   const missing: string[] = [];
@@ -139,7 +139,7 @@ export function classGuideStats(): { classes: number; keys: string[]; missing: s
   return { classes: MODELING_CLASS_GUIDE.length, keys: MODELING_CLASS_GUIDE.map((r) => r.c), missing };
 }
 
-/** 模型侧工具清单（15 个；v2.3 删除 blender_rt_pick）—— 与 capability.lock.json 逐名对拍（guidance_selftest 守） */
+/** 模型侧工具清单（15 个；v2.3 删除 blender_rt_pick）—— 与 capability.lock.json 逐名对拍（guidance contract test 守） */
 export const MODEL_FACING_TOOLS = [
   "blender_rt_see", "blender_rt_do", "blender_rt_watch", "blender_rt_loop",
   "blender_rt_cmd", "blender_rt_commands", "blender_rt_perf", "blender_rt_opt",

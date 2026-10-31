@@ -7,24 +7,6 @@ temporary .blend dir lives under ctx.test_dir, and the module no longer emits
 its own HEADLESS report or calls sys.exit.
 """
 
-# -*- coding: utf-8 -*-
-"""audit.py 文件级算子自检（C1/C2）：audit_overlap / audit_interference / file= 三条 op + 清理证明。
-
-跑法（无头；engine=none 只为省引擎前导）：
-    blender_rt_headless(preload="audit", engine="none", factory_startup=True, timeout_ms=300000,
-        script="_p=K.win_path('/home/sixtyseven67/DSH/dsh-blender-plugin/tests/audit_file_selftest.py');"
-               "exec(compile(open(_p,encoding='utf-8').read(),'x','exec'),globals())")
-    # 也可以直接： blender -b --factory-startup --python tests/audit_file_selftest.py
-
-合成场景（**绝不碰用户 GUI 场景**：--factory-startup + 开头 st_clean_scene()，全在临时目录里造）：
-    A.blend   DSH_SELFTEST_CUBE，1×1×1 立方体 @ 世界原点        （单位盒 [-0.5,0.5]³）
-    B.blend   同一立方体沿 +X 平移 0.5                          （[0,1]×[-0.5,0.5]²）
-    C.blend   同 B 但删掉一个面（开放网格：boundary_edges=4）    → 必须 unresolved，缺证据不许猜
-    D.blend   同一立方体沿 +X 平移 2.0                          （AABB 不相交）
-解析解：A∩B = 0.5×1×1 = 0.5 单位³。本机 scene.unit_settings.scale_length = 1.0 → _units() = (1.0, 1000.0)
-        → 1 单位³ = 10⁹ mm³ → **5×10⁸ mm³**（脚本用返回值里的 units.mm_per_unit 现场复核，不硬套）。
-判据对着实测数字写：不达标改代码，不改断言。
-"""
 import json as _json
 import os as _os
 import shutil as _shutil

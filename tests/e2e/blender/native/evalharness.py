@@ -6,26 +6,6 @@ test_evalharness(ctx); out_json and temporary files stay under ctx.test_dir and
 every _rec also reports through ctx.check.
 """
 
-# -*- coding: utf-8 -*-
-"""tests/evalharness_selftest.py —— 评测基座（runtime/evalharness.py）真机自检。
-
-跑法（插件无头通道，任务约定）：
-    blender_rt_headless(preload="evalharness,assembly,audit,contract,clearance,gate,imgtools,calib,mesh_fix",
-        engine="none", factory_startup=True, timeout_ms=300000,
-        script_file="<包路径>/tests/evalharness_selftest.py")
-
-或独立跑：
-    blender -b --factory-startup --python tests/evalharness_selftest.py
-
-覆盖：
-  * assembly suite：capture_rate ≥0.8、6 类缺陷 cases 全 caught、baseline_pass=true、verdict pass；
-  * reference suite：capture_rate ≥0.8、false_positive=0、verdict pass；
-  * core suite：calib 在但缺 printcheck ⇒ skipped/degraded（不是 pass）；组合跑 verdict=degraded；
-  * out_json：文件存在、md5=64hex 且与文件 sha256 一致、JSON 可反序列化；
-  * 稳定性：同 suite 跑两次，verdict/capture_rate/missed/false_positive/baseline_pass/cases.ok 一致；
-  * 场景安全：用户对象前后不变、无 __eval_ 残留；
-  * 坏参数：未知 suite / min_capture 越界 / 未知参数 / 未知 op → ok:false。
-"""
 import hashlib
 import json
 import os
