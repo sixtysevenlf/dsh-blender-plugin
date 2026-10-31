@@ -66,7 +66,6 @@ class _Context:
         self.scene.dshbb_use_sketchfab = False
         self.scene.dshbb_use_polypizza = False
         self.scene.dshbb_use_hunyuan3d = False
-        self.scene.dshbb_use_tripo = False
         self.preferences = _Preferences()
         self.window_manager = _WindowManager()
         self.selected_objects = []

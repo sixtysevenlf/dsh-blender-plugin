@@ -12,7 +12,6 @@
     "addon/dsh_blender_bridge/integrations/polyhaven_client.py",
     "addon/dsh_blender_bridge/integrations/sketchfab_client.py",
     "addon/dsh_blender_bridge/integrations/polypizza_client.py",
-    "addon/dsh_blender_bridge/premium/client.py",
     "addon/dsh_blender_bridge/commands/selection.py",
     "addon/dsh_blender_bridge/commands/activity.py",
     "addon/dsh_blender_bridge/commands/telemetry.py"

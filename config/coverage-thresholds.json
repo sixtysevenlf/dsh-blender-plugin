@@ -47,8 +47,6 @@
       "addon/dsh_blender_bridge/protocol.py",
       "addon/dsh_blender_bridge/config.py",
       "addon/dsh_blender_bridge/recorders/activity.py",
-      "addon/dsh_blender_bridge/premium/jobs.py",
-      "addon/dsh_blender_bridge/premium/client.py",
       "addon/dsh_blender_bridge/commands/selection.py",
       "addon/dsh_blender_bridge/commands/activity.py",
       "addon/dsh_blender_bridge/integrations/hyper3d_client.py",

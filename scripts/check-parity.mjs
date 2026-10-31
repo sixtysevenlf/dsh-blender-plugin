@@ -28,6 +28,13 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const BASE = process.env.DSH_PARITY_BASE || 'b8778c8'
 const TMP_ROOT = process.env.DSH_TMP || os.tmpdir()
 
+// Declared contract removals: the base runtime is patched by deleting exactly
+// these catalog entries before import. This keeps the parity gate strict for
+// every other byte while making an intentional, reviewed contract change
+// explicit instead of silently weakening the comparison. v3.0.0 removes the
+// Premium/Tripo channel; nothing else may disappear without adding it here.
+const DECLARED_CATALOG_REMOVALS = ['get_tripo_status']
+
 function arg(name) {
   const i = process.argv.indexOf(name)
   return i >= 0 ? process.argv[i + 1] : null
@@ -119,6 +126,16 @@ try {
     fs.mkdirSync(path.dirname(dest), { recursive: true })
     fs.writeFileSync(dest, shown.stdout)
   }
+  // Apply the declared removals to the extracted base catalog source. The
+  // entries are one-line object properties, so a line-level filter is exact.
+  const baseCatalogPath = path.join(tmp, 'runtime', 'catalog.mjs')
+  const baseCatalogLines = fs
+    .readFileSync(baseCatalogPath, 'utf8')
+    .split(/\r?\n/)
+    .filter((line) => !DECLARED_CATALOG_REMOVALS.some((name) => line.startsWith('  ' + name + ':')))
+  fs.writeFileSync(baseCatalogPath, baseCatalogLines.join('\n'))
+  ok('declared-removals', 'declared catalog removals applied to base', DECLARED_CATALOG_REMOVALS)
+
   const pkgShown = spawnSync('git', ['show', BASE + ':package.json'], {
     cwd: ROOT,
     maxBuffer: 8 * 1024 * 1024,
@@ -142,7 +159,7 @@ try {
   eq('exports', 'engine export set', bKeys, cKeys)
   ok('exports-count', 'engine exports', bKeys.length)
 
-  // 2. Catalog fingerprint (34 families / 228 ops / 39 commands / 7 tool details).
+  // 2. Catalog fingerprint (34 families / 228 ops / 38 commands / 7 tool details).
   const bFp = baseEngine.catalogFingerprint()
   const cFp = curEngine.catalogFingerprint()
   eq('fingerprint', 'catalogFingerprint()', bFp, cFp)

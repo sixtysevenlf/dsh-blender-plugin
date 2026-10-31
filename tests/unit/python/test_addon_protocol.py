@@ -17,7 +17,7 @@ BASE_COMMANDS = [
     "drain_human_activity", "get_activity_state", "get_selection", "send_selection_to_dsh",
     "get_collections", "send_collection_to_dsh", "get_telemetry_consent", "set_telemetry_consent",
     "get_polyhaven_status", "get_hyper3d_status", "get_sketchfab_status", "get_polypizza_status",
-    "get_hunyuan3d_status", "get_tripo_status", "export_scene",
+    "get_hunyuan3d_status", "export_scene",
 ]
 GATED_COMMANDS = [
     "get_polyhaven_categories", "search_polyhaven_assets", "download_polyhaven_asset",
@@ -39,12 +39,12 @@ GATED_GROUPS = {
 }
 
 
-def test_registry_has_exactly_39_ordered_unique_commands():
-    assert len(protocol.COMMAND_NAMES) == 39
-    assert len(set(protocol.COMMAND_NAMES)) == 39
+def test_registry_has_exactly_38_ordered_unique_commands():
+    assert len(protocol.COMMAND_NAMES) == 38
+    assert len(set(protocol.COMMAND_NAMES)) == 38
     assert list(protocol.COMMAND_NAMES) == ALL_COMMANDS
     assert "ping" not in protocol.COMMAND_NAMES
-    assert sum(len(names) for _group, names in protocol.COMMAND_GROUPS) == 39
+    assert sum(len(names) for _group, names in protocol.COMMAND_GROUPS) == 38
 
 
 def test_command_groups_are_base_plus_five_gates():

@@ -9,7 +9,7 @@
 - 在 Blender 视口里原生选中 → `N` ›「DSH Blender Bridge」› **Selection → DSH** ›「发送选中到 DSH」；
   选中会进 **DSH 当前会话草稿**（不自动发送）。N 面板两种模式：**多选** / **集合**（大装配体整组发）。
   v2.3 已删除 DSH 侧视口面板与 `blender_rt_pick`；`@` 提及保留。
-- addon 新命令（常驻，总命令 39 = 24 常驻 + 15 集成门控）：
+- addon 新命令（常驻，总命令 38 = 22 常驻 + 16 集成门控）：
   `get_activity_state`（`idle/human/agent/both`，查询自身不计入 agent）· `get_selection` · `send_selection_to_dsh` ·
   `get_collections`（集合列表+件数）· `send_collection_to_dsh`（整组发送，大装配体免逐个选）。
 - 后端新路由（零 Blender 往返）：`POST /host/selection` · `GET /host/selection/latest` · `POST /host/selection/consume`；

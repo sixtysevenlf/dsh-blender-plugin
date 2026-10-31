@@ -9,7 +9,7 @@
 
 The Blender addon is one file: `addon/dsh_blender_bridge.py`, 7,515 lines and about 323 KB. Users
 install it through **Edit > Preferences > Add-ons > Install**, then enable it and click **Connect**. It
-registers 39 commands and speaks protocol 11 to the backend; the launcher checks for addon v1.10 or newer.
+registers 38 commands and speaks protocol 11 to the backend; the launcher checks for addon v1.10 or newer.
 
 A single file this size has three costs. Review is effectively impossible: a one-line change is buried in
 a file nobody reads end to end. Import order is fragile: everything is one module namespace, so a mistake
@@ -28,7 +28,7 @@ that directory.
 
 - At 3.0.0 the addon version is **1.11**, protocol stays **11**, and `bl_info` declares the package
   name, version, and minimum Blender version.
-- All 39 commands remain registered and behave identically; a register/unregister round trip is part of
+- All 38 commands remain registered and behave identically; a register/unregister round trip is part of
   the addon tests.
 - The zip is attached to the GitHub release; the npm package contains the addon directory, not the legacy
   single file.

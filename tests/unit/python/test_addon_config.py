@@ -47,7 +47,6 @@ def test_read_env_var_prefers_new_name_then_legacy(monkeypatch):
     assert set(config._LEGACY_ENV_VARS) == {
         "DSHBB_HYPER3D_API_KEY", "DSHBB_SKETCHFAB_API_KEY", "DSHBB_POLYPIZZA_API_KEY",
         "DSHBB_HUNYUAN3D_SECRET_ID", "DSHBB_HUNYUAN3D_SECRET_KEY", "DSHBB_HUNYUAN3D_API_URL",
-        "DSHBB_PREMIUM_LICENSE_KEY", "DSHBB_PREMIUM_INSTANCE_ID", "DSHBB_PREMIUM_API_URL",
     }
 
 

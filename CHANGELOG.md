@@ -2,13 +2,14 @@
 
 ## v3.0.0（2026-10-30）—— 工程健康化重构（breaking：addon 改 zip 包）
 
-> 模型工具仍 **15 个**；plan catalog 仍 **34 family / 228 op**；addon command 仍 **39 个**、**protocol 11**；
+> 模型工具仍 **15 个**；plan catalog 仍 **34 family / 228 op**；addon command **38 个**、**protocol 11**；
 > 本版不新增建模能力，只做结构、测试、类型、CI 与发布工程；B1 分数不与 v2.6.1 混算。
 
 ### Breaking changes
 
 - **addon 安装方式改为 zip 包**：发布物是 `addon/dsh_blender_bridge.zip`（包内 `__init__.py`、`bl_info` v1.11、protocol 11）；
   旧的单文件 `addon/dsh_blender_bridge.py` 不再随包发布，也不再是安装入口。升级时必须先在 Blender Preferences 里停用并移除旧单文件，再安装 zip、启用、N 面板 Connect。
+- **Premium / Tripo 生成通道移除**：删除 Premium 许可、额度、Supabase 客户端与 Tripo 开关；Hyper3D 与 Hunyuan3D 只保留自有 API key 通道。Tripo 无 BYOK 通道，因此整条命令与面板入口一并删除（总命令 39 → 38）。
 - **`lib/` 不再入库**：源码运行时由 `runtime/**/*.ts` strict 编译到 `lib/runtime/**/*.js`；从 git 使用先 `npm ci --legacy-peer-deps && npm run build`，`prepack` 会自动构建。npm 安装包仍自带 `lib/`。
 - 从 git 直接 `require` 旧 `runtime/*.mjs` 的用法不再成立（runtime 已无 `.mjs`）；请用包入口或构建后的 `lib/runtime/*.js`。
 
@@ -20,7 +21,7 @@
   engine 保留 87 个导出、server 保留 29 条路由；新增普通模块最大 457 行（无 >1,000 行模块）。
 - Python runtime 拆为 `runtime/py/{core,geometry,assembly,render,export}` 5 个领域包 + flat re-export shim；
   `offline_bootstrap.py` 改为每模块独立命名空间，修复跨模块同名 helper 覆盖（assembly 的 `_num` 被 mesh_fix 覆盖）。
-- addon 单文件拆为 `addon/dsh_blender_bridge/`（39 个模块，最大 665 行）+ 提交 `addon/dsh_blender_bridge.zip`；launcher 校验包目录/zip、protocol 11、addon version >= 1.10/1.11。
+- addon 单文件拆为 `addon/dsh_blender_bridge/`（34 个模块，最大 665 行）+ 提交 `addon/dsh_blender_bridge.zip`；launcher 校验包目录/zip、protocol 11、addon version >= 1.10/1.11。
 
 ### Phase R：runtime TypeScript
 
@@ -34,7 +35,7 @@
 - 测试分三层：`npm run test:unit`（37 files / 251 passed）、`test:integration`（17 files / 102 passed）、`test:python`（pytest 295 passed）；默认集合不启动真 Blender/GUI。
 - 真实 Blender 4.2.10 E2E：headless 29 passed、GUI 6 passed（2 个 GUI 条件 skip 由 issue #53 批准）；覆盖 zip 安装、启用、Connect、doctor、selection、bpy、导出、卸载。
 - CI：`.github/workflows/pr.yml`（Node 22.17 + Python 3.11；typecheck/lint/format/build/structure/tests/matrix/pack + coverage）与 `.github/workflows/e2e.yml`（workflow_dispatch/label/tag，下载 Blender 4.2.10 headless + xvfb GUI）。
-- 行为矩阵 347 行（15 tools / 39 commands / 34 families / 228 ops / 29 routes；345 covered / 0 planned / 2 exempt）。
+- 行为矩阵覆盖 15 tools / 38 commands / 34 families / 228 ops / 29 routes；0 planned。
 - 旧测试迁移：67 个旧文件全部处置（tests/MIGRATION.md，无 pending），`test:legacy` 与 22 个别名移除。
 - 覆盖率：JS statements/lines 42.84%、branches 73.35%；diff-cover JS 32%、Python addon 32%（目标 80/70，EXEMPT 记录见 issue #52 与本地重构工作区）。
 

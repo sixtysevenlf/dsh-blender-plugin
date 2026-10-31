@@ -13,8 +13,6 @@ import os.path as osp
 from contextlib import contextmanager, redirect_stdout, suppress
 
 from ..integrations.hunyuan_client import get_tencent_cloud_sign_headers, hunyuan_api_profile
-from ..premium.client import premium_active, premium_integration_status
-from ..premium.jobs import premium_create_hunyuan_job, premium_import_generated_asset_hunyuan, premium_poll_hunyuan_job_status
 
 class HunyuanCommands:
     @staticmethod
@@ -35,8 +33,6 @@ class HunyuanCommands:
 
     def get_hunyuan3d_status(self):
         """Get the current status of Hunyuan3D integration"""
-        if premium_active():
-            return premium_integration_status("hunyuan3d", bpy.context.scene.dshbb_use_hunyuan3d)
         enabled = bpy.context.scene.dshbb_use_hunyuan3d
         hunyuan3d_mode = bpy.context.scene.dshbb_hunyuan3d_mode
         secret_id = self._get_hunyuan3d_secret_id()
@@ -84,10 +80,7 @@ class HunyuanCommands:
                         3. Restart the connection to Claude"""
         }
 
-    def create_hunyuan_job(self, *args, quality=None, **kwargs):
-        # quality is Premium-only; your own Tencent key has no such option.
-        if premium_active():
-            return premium_create_hunyuan_job(*args, quality=quality, **kwargs)
+    def create_hunyuan_job(self, *args, **kwargs):
         match bpy.context.scene.dshbb_hunyuan3d_mode:
             case "OFFICIAL_API":
                 return self.create_hunyuan_job_main_site(*args, **kwargs)
@@ -248,8 +241,6 @@ class HunyuanCommands:
             return {"error": str(e)}
 
     def poll_hunyuan_job_status(self, *args, **kwargs):
-        if premium_active():
-            return premium_poll_hunyuan_job_status(*args, **kwargs)
         return self.poll_hunyuan_job_status_ai(*args, **kwargs)
 
     def poll_hunyuan_job_status_ai(self, job_id: str):
@@ -300,8 +291,6 @@ class HunyuanCommands:
             return {"error": str(e)}
 
     def import_generated_asset_hunyuan(self, *args, **kwargs):
-        if premium_active():
-            return premium_import_generated_asset_hunyuan(*args, **kwargs)
         return self.import_generated_asset_hunyuan_ai(*args, **kwargs)
 
     def _import_hunyuan_glb(self, name: str, glb_url: str):

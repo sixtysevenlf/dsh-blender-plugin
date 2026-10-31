@@ -11,10 +11,9 @@ const readAddon = (...parts: string[]) => fs.readFileSync(path.join(addonDir, ..
 const source = readAddon('server.py')
 const protocolSource = readAddon('protocol.py')
 const coreSource = readAddon('commands', 'core.py')
-const premiumSource = readAddon('commands', 'generate_premium.py')
 
 function namesIn(block: string): string[] {
-  return [...block.matchAll(/^\s+"([a-z0-9_]+)":\s*(?:self\.|premium_)/gm)].map((m) => m[1]!)
+  return [...block.matchAll(/^\s+"([a-z0-9_]+)":\s*self\./gm)].map((m) => m[1]!)
 }
 
 function baseHandlers(): string[] {
@@ -33,21 +32,15 @@ function gatedHandlers(): Record<string, string[]> {
   return out
 }
 
-function tripoHandlers(): string[] {
-  const start = premiumSource.indexOf('def premium_tripo_handlers()')
-  expect(start).toBeGreaterThan(0)
-  return namesIn(premiumSource.slice(start))
-}
-
 function allSourceHandlers(): string[] {
-  return [...baseHandlers(), ...Object.values(gatedHandlers()).flat(), ...tripoHandlers()]
+  return [...baseHandlers(), ...Object.values(gatedHandlers()).flat()]
 }
 
 describe('addon command surface', () => {
-  it('publishes 39 catalog commands and 24 always-on base handlers', () => {
-    expect(Object.keys(COMMAND_CATALOG)).toHaveLength(39)
-    expect(baseHandlers()).toHaveLength(23)
-    expect(new Set(allSourceHandlers()).size).toBe(42) // 38 catalog handlers + ping + 4 documented extras
+  it('publishes 38 catalog commands and 22 always-on base handlers', () => {
+    expect(Object.keys(COMMAND_CATALOG)).toHaveLength(38)
+    expect(baseHandlers()).toHaveLength(22)
+    expect(new Set(allSourceHandlers()).size).toBe(38)
   })
 
   it('keeps every catalog command backed by a real addon handler', () => {
@@ -64,12 +57,7 @@ describe('addon command surface', () => {
     const extras = allSourceHandlers()
       .filter((n) => !COMMAND_CATALOG[n])
       .sort()
-    expect(extras).toEqual([
-      'create_tripo_job',
-      'get_polyhaven_asset_preview',
-      'import_generated_asset_tripo',
-      'poll_tripo_job_status',
-    ])
+    expect(extras).toEqual(['get_polyhaven_asset_preview'])
   })
 
   it('routes ping before dispatch and returns the flat success/error envelope', () => {

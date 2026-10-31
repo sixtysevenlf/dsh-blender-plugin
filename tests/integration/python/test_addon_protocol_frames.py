@@ -20,9 +20,6 @@ server_module = importlib.import_module("addon.dsh_blender_bridge.server")
 
 
 def _running_server(monkeypatch):
-    monkeypatch.delenv("DSHBB_PREMIUM_LICENSE_KEY", raising=False)
-    monkeypatch.delenv("BLENDERMCP_PREMIUM_LICENSE_KEY", raising=False)
-    monkeypatch.setattr(server_module, "premium_tripo_status", lambda: {"handled": "get_tripo_status"})
     server = server_module.DSHBlenderBridgeServer(port=0)
     server.running = True
     return server

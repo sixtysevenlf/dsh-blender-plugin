@@ -36,7 +36,7 @@ The backend runtime SHALL be written in TypeScript under `runtime/` and compiled
   packed artifact use the built JavaScript from `lib/runtime/`.
 - The backend entry that `SERVER_PATH` resolves to is `lib/runtime/server.js`.
 - Source maps are emitted so a stack trace in a crash still points at the TypeScript line.
-- The published contracts do not move: 15 tools, 34 families, 228 ops, 39 addon commands, 29 HTTP routes,
+- The published contracts do not move: 15 tools, 34 families, 228 ops, 38 addon commands, 29 HTTP routes,
   protocol 11.
 
 **Migration order** is leaf-first, one module or one dependency edge per change:
@@ -73,7 +73,7 @@ Phase R landed as one migration commit on `task/t15`, followed only by tests, pa
 - Build order is runtime → host → client, not host first as plan §10.2 said: after T7 the host side
   imports boundary helpers from the built `lib/runtime/*.js`, so the runtime must compile before `src/`.
 - `npm run test:parity` compares the base `b8778c8` runtime with the built `lib/runtime`:
-  87 exports, 34 families / 228 ops / 39 commands / 29 routes / 7 tool-detail keys, the catalog
+  87 exports, 34 families / 228 ops / 38 commands / 29 routes / 7 tool-detail keys, the catalog
   fingerprint, and six `catalogPayload` shapes are identical after normalizing provenance hashes and
   environment fields.
 - The package (556 entries) contains 62 `lib/runtime/**/*.js`, 85 Python files, and no backend `.ts`

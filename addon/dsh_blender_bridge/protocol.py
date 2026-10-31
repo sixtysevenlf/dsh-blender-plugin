@@ -58,7 +58,7 @@ COMMAND_GROUPS = (
         "drain_human_activity", "get_activity_state", "get_selection", "send_selection_to_dsh",
         "get_collections", "send_collection_to_dsh", "get_telemetry_consent", "set_telemetry_consent",
         "get_polyhaven_status", "get_hyper3d_status", "get_sketchfab_status", "get_polypizza_status",
-        "get_hunyuan3d_status", "get_tripo_status", "export_scene",
+        "get_hunyuan3d_status", "export_scene",
     )),
     ("polyhaven", ("get_polyhaven_categories", "search_polyhaven_assets", "download_polyhaven_asset", "get_polyhaven_asset_preview", "set_texture")),
     ("hyper3d", ("create_rodin_job", "poll_rodin_job_status", "import_generated_asset")),

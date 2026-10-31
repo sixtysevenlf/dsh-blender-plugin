@@ -84,7 +84,7 @@ describe('model tool execution semantics', () => {
 
   it('tool blender_rt_commands renders the command catalog', async () => {
     const out = await run('blender_rt_commands', {})
-    expect(out.text).toContain('可用命令 39 条')
+    expect(out.text).toContain('可用命令 38 条')
     expect(out.text).toContain('polyhaven=off')
   })
 

@@ -85,7 +85,7 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
 ## 5. Definition of done
 
 - Typecheck and the tests for the touched layer pass; contract counts stay 15 tools / 34 families /
-  228 ops / 39 addon commands / 29 routes / protocol 11 unless the change declares a new count.
+  228 ops / 38 addon commands / 29 routes / protocol 11 unless the change declares a new count.
 - New behavior has a failing test first. No `skip`, no retry, and no relaxed assertion to hide a failure.
 - Docs are updated in the same change, and both language versions stay in sync.
 - No secrets, no build artifacts, no `node_modules` or venv; `lib/` is regenerated, never hand-edited.

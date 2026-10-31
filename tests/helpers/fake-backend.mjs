@@ -57,7 +57,7 @@ function defaults(key, body) {
       ok: true,
       scene: 'Scene',
       file: null,
-      total: 39,
+      total: 38,
       disabled: ['search_polyhaven_assets'],
       integrations: { polyhaven: { enabled: false, message: 'off' }, sketchfab: { enabled: true } },
       available: ['ping', 'get_scene_info'],

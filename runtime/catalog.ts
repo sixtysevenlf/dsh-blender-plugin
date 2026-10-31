@@ -909,7 +909,6 @@ export const COMMAND_CATALOG: Record<string, { d: string; gate: string | null }>
     d: '把整个集合 POST 给 DSH（collection 可选，缺省用 N 面板下拉的 dshbb_collection_target）',
     gate: null,
   },
-  get_tripo_status: { d: 'Tripo 集成状态（premium 通道）', gate: null },
   execute_code: { d: '执行任意 Python（万能通道，预置 K/bpy/math/mathutils）', gate: null },
   drain_human_activity: { d: '取走"人类操作"事件缓冲', gate: null },
   get_telemetry_consent: { d: '读遥测同意开关', gate: null },

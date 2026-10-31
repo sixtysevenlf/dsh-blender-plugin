@@ -11,7 +11,7 @@ from .config import _dshbb_register_auto_start, _dshbb_unregister_auto_start
 from .recorders.activity import _unregister_activity_handlers
 from .recorders.edit_capture import _unregister_edit_capture_handlers
 from .ui.lists import DSHBB_SelectionItem, DSHBB_UL_ObjectList, _dshbb_ui_list_timer, _on_show_collection_list_update, _on_show_selection_list_update
-from .ui.operators import DSHBB_OT_ListRowsDec, DSHBB_OT_ListRowsInc, DSHBB_OT_OpenTerms, DSHBB_OT_SendCollectionToDSH, DSHBB_OT_SendSelectionToDSH, DSHBB_OT_SetFreeTrialHyper3DAPIKey, DSHBB_OT_StartServer, DSHBB_OT_StopServer, DSHBB_OT_ToggleAIPause, DSHBB_OT_UseSelectionCollection, PREMIUM_CLASSES
+from .ui.operators import DSHBB_OT_ListRowsDec, DSHBB_OT_ListRowsInc, DSHBB_OT_OpenTerms, DSHBB_OT_SendCollectionToDSH, DSHBB_OT_SendSelectionToDSH, DSHBB_OT_SetFreeTrialHyper3DAPIKey, DSHBB_OT_StartServer, DSHBB_OT_StopServer, DSHBB_OT_ToggleAIPause, DSHBB_OT_UseSelectionCollection
 from .ui.panels import DSHBB_PT_EnvGen, DSHBB_PT_EnvModelAPI, DSHBB_PT_ModelGen, DSHBB_PT_Panel
 from .ui.preferences import DSHBB_AddonPreferences
 
@@ -217,12 +217,6 @@ def register():
         default=""
     )
 
-    bpy.types.Scene.dshbb_use_tripo = bpy.props.BoolProperty(
-        name="Use Tripo",
-        description="Enable Tripo 3D model generation (Premium)",
-        default=False
-    )
-
     bpy.types.Scene.dshbb_use_polypizza = bpy.props.BoolProperty(
         name="Use Poly Pizza",
         description="Enable Poly Pizza asset integration",
@@ -254,8 +248,6 @@ def register():
     bpy.utils.register_class(DSHBB_OT_UseSelectionCollection)
     bpy.utils.register_class(DSHBB_OT_StopServer)
     bpy.utils.register_class(DSHBB_OT_OpenTerms)
-    for cls in PREMIUM_CLASSES:
-        bpy.utils.register_class(cls)
 
     # Add-on registration can run before Blender has a stable UI/scene context.
     # Defer socket startup and retry after startup-file or .blend loads.
@@ -296,8 +288,6 @@ def unregister():
     bpy.utils.unregister_class(DSHBB_OT_UseSelectionCollection)
     bpy.utils.unregister_class(DSHBB_OT_StopServer)
     bpy.utils.unregister_class(DSHBB_OT_OpenTerms)
-    for cls in PREMIUM_CLASSES:
-        bpy.utils.unregister_class(cls)
     bpy.utils.unregister_class(DSHBB_AddonPreferences)
 
     del bpy.types.Scene.dshbb_port
@@ -322,7 +312,6 @@ def unregister():
     del bpy.types.Scene.dshbb_hyper3d_api_key
     del bpy.types.Scene.dshbb_use_sketchfab
     del bpy.types.Scene.dshbb_sketchfab_api_key
-    del bpy.types.Scene.dshbb_use_tripo
     del bpy.types.Scene.dshbb_use_polypizza
     del bpy.types.Scene.dshbb_polypizza_api_key
     del bpy.types.Scene.dshbb_use_hunyuan3d

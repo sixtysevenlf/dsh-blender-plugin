@@ -1,104 +1,13 @@
 """ Operators. """
 
 import bpy
-import socket
-from contextlib import contextmanager, redirect_stdout, suppress
+from contextlib import contextmanager, redirect_stdout
 
 from ..commands.selection import _best_collection_for_selection, _record_selection_send, send_collection_to_dsh, send_selection_to_dsh
 from .. import config
 from ..config import RODIN_FREE_TRIAL_KEY, get_dshbb_addon_preferences
-from ..premium.client import PREMIUM_INTEGRATIONS, PREMIUM_MANAGE_URL_DEFAULT, _premium_status, _premium_tag_redraw, premium_instance_id, premium_license_key, premium_request, premium_summary
 from ..protocol import _redraw_view3d_panels
 from ..server import DSHBlenderBridgeServer
-
-class DSHBB_OT_PremiumActivate(bpy.types.Operator):
-    bl_idname = "dshbb.premium_activate"
-    bl_label = "Activate Premium"
-    bl_description = "Activate this device with your Premium license key"
-
-    def execute(self, context):
-        prefs = get_dshbb_addon_preferences(context)
-        key = premium_license_key()
-        if not prefs or not key:
-            self.report({'ERROR'}, "Paste your license key first.")
-            return {'CANCELLED'}
-        result = premium_request("POST", "/activate", {
-            "license_key": key,
-            "device_name": socket.gethostname() or "Blender",
-        }, auth=False)
-        if result.get("code") or not result.get("instance_id"):
-            self.report({'ERROR'}, result.get("message") or "Activation failed.")
-            return {'CANCELLED'}
-        prefs.premium_instance_id = result["instance_id"]
-        prefs.generation_source = "PREMIUM"
-        # Premium covers every generator, so switch them all on in this scene.
-        for _label, prop in PREMIUM_INTEGRATIONS.values():
-            with suppress(Exception):
-                setattr(context.scene, prop, True)
-        _premium_tag_redraw()
-        self.report({'INFO'}, premium_summary())
-        return {'FINISHED'}
-
-
-class DSHBB_OT_PremiumDeactivate(bpy.types.Operator):
-    bl_idname = "dshbb.premium_deactivate"
-    bl_label = "Deactivate Premium"
-    bl_description = "Free this device's activation slot so the key can be used on another machine"
-
-    def execute(self, context):
-        prefs = get_dshbb_addon_preferences(context)
-        result = premium_request("POST", "/deactivate", {})
-        # A key the server no longer knows has nothing left to free.
-        if result.get("code") and result["code"] not in {"INVALID_KEY", "NOT_ACTIVATED"}:
-            self.report({'ERROR'}, result["message"])
-            return {'CANCELLED'}
-        if prefs:
-            prefs.premium_instance_id = ""
-            # Without an activation Premium can't generate, so go back to own keys.
-            # The license key stays filled in, so reactivating is one click.
-            prefs.generation_source = "BYOK"
-        _premium_status.clear()
-        # Deactivate runs from Preferences; the 3D Viewport sidebar won't redraw on its own.
-        _premium_tag_redraw()
-        self.report({'INFO'}, "This device was deactivated. Generation uses your own API keys again.")
-        return {'FINISHED'}
-
-
-class DSHBB_OT_PremiumRefresh(bpy.types.Operator):
-    bl_idname = "dshbb.premium_refresh"
-    bl_label = "Refresh Premium Status"
-    bl_description = "Fetch your plan and remaining generations"
-
-    def execute(self, context):
-        result = premium_request("GET", "/status")
-        if result.get("code"):
-            self.report({'ERROR'}, result["message"])
-            return {'CANCELLED'}
-        self.report({'INFO'}, premium_summary())
-        return {'FINISHED'}
-
-
-class DSHBB_OT_PremiumOpenAccount(bpy.types.Operator):
-    bl_idname = "dshbb.premium_open_account"
-    bl_label = "Manage Premium Account"
-    bl_description = "Upgrade, cancel or download invoices"
-
-    def execute(self, context):
-        # Portal links are per customer and short-lived, so fetch one per click.
-        url = PREMIUM_MANAGE_URL_DEFAULT
-        if premium_instance_id():
-            url = premium_request("GET", "/status?portal=1").get("manage_url") or url
-        bpy.ops.wm.url_open(url=url)
-        return {'FINISHED'}
-
-
-PREMIUM_CLASSES = (
-    DSHBB_OT_PremiumActivate,
-    DSHBB_OT_PremiumDeactivate,
-    DSHBB_OT_PremiumRefresh,
-    DSHBB_OT_PremiumOpenAccount,
-)
-
 
 class DSHBB_OT_ToggleAIPause(bpy.types.Operator):
     """暂停 / 继续 AI 操作（拒绝 DSH 发来的 Blender 写操作）"""

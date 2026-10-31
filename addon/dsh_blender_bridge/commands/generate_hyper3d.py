@@ -17,14 +17,10 @@ from ..integrations.hyper3d_client import (
     HYPER3D_MAIN_SITE_STATUS_URL,
 )
 from ..config import RODIN_FREE_TRIAL_KEY
-from ..premium.client import premium_active, premium_integration_status
-from ..premium.jobs import premium_create_rodin_job, premium_import_job, premium_poll_fal_job
 
 class Hyper3DCommands:
     def get_hyper3d_status(self):
         """Get the current status of Hyper3D Rodin integration"""
-        if premium_active():
-            return premium_integration_status("hyper3d", bpy.context.scene.dshbb_use_hyper3d)
         enabled = bpy.context.scene.dshbb_use_hyper3d
         hyper3d_api_key = self._get_hyper3d_api_key()
         if enabled:
@@ -54,8 +50,6 @@ class Hyper3DCommands:
             }
 
     def create_rodin_job(self, *args, **kwargs):
-        if premium_active():
-            return premium_create_rodin_job(*args, **kwargs)
         match bpy.context.scene.dshbb_hyper3d_mode:
             case "MAIN_SITE":
                 return self.create_rodin_job_main_site(*args, **kwargs)
@@ -134,8 +128,6 @@ class Hyper3DCommands:
             return {"error": str(e)}
 
     def poll_rodin_job_status(self, *args, **kwargs):
-        if premium_active():
-            return premium_poll_fal_job(kwargs.get("request_id") or kwargs.get("subscription_key"))
         match bpy.context.scene.dshbb_hyper3d_mode:
             case "MAIN_SITE":
                 return self.poll_rodin_job_status_main_site(*args, **kwargs)
@@ -184,8 +176,6 @@ class Hyper3DCommands:
         return clean_imported_glb(filepath, mesh_name)
 
     def import_generated_asset(self, *args, **kwargs):
-        if premium_active():
-            return premium_import_job(kwargs.get("request_id") or kwargs.get("task_uuid"), kwargs.get("name"))
         match bpy.context.scene.dshbb_hyper3d_mode:
             case "MAIN_SITE":
                 return self.import_generated_asset_main_site(*args, **kwargs)

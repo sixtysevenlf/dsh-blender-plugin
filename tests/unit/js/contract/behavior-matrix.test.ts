@@ -14,7 +14,7 @@ describe('behavior matrix release gate', () => {
       [pkgPath('scripts/check-behavior-matrix.mjs'), '--release'],
       { cwd: PKG_ROOT, encoding: 'utf8', timeout: 20000 },
     ).trim()
-    expect(output).toContain('OK behavior matrix: 347 rows (345 covered, 0 planned, 2 exempt)')
+    expect(output).toContain('OK behavior matrix: 346 rows (344 covered, 0 planned, 2 exempt)')
   })
 
   it('exits nonzero when a planned row survives the release gate', () => {

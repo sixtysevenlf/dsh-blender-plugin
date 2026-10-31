@@ -87,11 +87,11 @@ def test_zip_installs_as_package_and_registers_from_any_cwd(tmp_path, monkeypatc
                 del sys.modules[name]
 
 
-def test_zip_contains_the_39_module_package_without_the_old_single_file():
+def test_zip_contains_the_34_module_package_without_the_old_single_file():
     with zipfile.ZipFile(ZIP_PATH) as archive:
         names = archive.namelist()
     expected = [PACKAGE_ROOT + "/" + relative for relative in _package_python_files()]
-    assert len(expected) == 39
+    assert len(expected) == 34
     assert names == expected
     assert PACKAGE_ROOT + ".py" not in names
     assert not any(name.endswith("blender_manifest.toml") for name in names)

@@ -134,7 +134,7 @@ const engine: any = {
     ok('commands', {
       scene: 'Scene',
       file: null,
-      total: 39,
+      total: 38,
       available: ['ping'],
       disabled: [],
       integrations: {},
@@ -458,8 +458,8 @@ const NORMAL: Array<[string, () => Promise<string>]> = [
     async () => {
       const j = expectJson(await call('/commands'), 200)
       expect(j.ok).toBe(true)
-      expect(j.total).toBe(39)
-      return '200 application/json · ok=true total=39'
+      expect(j.total).toBe(38)
+      return '200 application/json · ok=true total=38'
     },
   ],
   [

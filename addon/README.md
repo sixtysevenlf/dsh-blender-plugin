@@ -12,12 +12,12 @@
 | 项 | 值 |
 |---|---|
 | 安装包 / 模块名 | `dsh_blender_bridge.zip`（包根 `dsh_blender_bridge/`） / `dsh_blender_bridge` |
-| 源码目录 | `addon/dsh_blender_bridge/`（`__init__.py` 为入口，子包 `commands/`、`recorders/`、`assets/`、`integrations/`、`premium/`、`ui/`） |
+| 源码目录 | `addon/dsh_blender_bridge/`（`__init__.py` 为入口，子包 `commands/`、`recorders/`、`assets/`、`integrations/`、`ui/`） |
 | 显示名（Blender 插件列表里） | **DSH Blender Bridge** |
 | 版本 / 协议 | addon **v1.11 / protocol 11** |
 | 标识前缀 | `dshbb_`（注册类 `bpy.types.dshbb_server`、5 个集成开关 `dshbb_use_*`） |
 | TCP 端口 | `127.0.0.1:9876`（只监听本机） |
-| 命令面 | 39 条（23 条常驻 + 16 条集成门控；命令名、参数、返回结构与 pause 语义与 v1.10 一致） |
+| 命令面 | 38 条（22 条常驻 + 16 条集成门控；命令名、参数、返回结构与 pause 语义与 v1.10 一致） |
 
 ## 来源与许可（MIT）
 
@@ -67,9 +67,9 @@ N 面板的对象 / 成员列表默认折叠，展开后带滚动条且高度可
 
 面板结构：活动状态置顶（AI 操作时显示红色警告）+「暂停 AI 操作」按钮；
 「环境与角色模型API调用」为父面板，内含「环境生成」（Poly Haven / Sketchfab / Poly Pizza）与
-「模型生成」（Hyper3D / Hunyuan3D / Tripo）两个子面板，默认全部折叠。暂停期间 socket 只放行只读命令。
+「模型生成」（Hyper3D / Hunyuan3D）两个子面板，默认全部折叠。暂停期间 socket 只放行只读命令。
 
 ## 环境变量（旧名仍兼容）
 
 新名优先、旧名回退：`DSHBB_HYPER3D_API_KEY` → 回退 `BLENDERMCP_HYPER3D_API_KEY`，其余同理
-（`SKETCHFAB` / `POLYPIZZA` / `HUNYUAN3D_*` / `PREMIUM_*`）。**你已设的旧变量不会失效**（这只是 key 名兼容，不代表支持旧 addon）。
+（`SKETCHFAB` / `POLYPIZZA` / `HUNYUAN3D_*`）。**你已设的旧变量不会失效**（这只是 key 名兼容，不代表支持旧 addon）。

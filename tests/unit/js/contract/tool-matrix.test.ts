@@ -182,7 +182,7 @@ const SUCCESS_CASES: Array<
       expect(req?.body).toMatchObject({ name: 'get_scene_info', params: { a: 1 } })
     },
   ],
-  ['blender_rt_commands', {}, ['可用命令 39 条', 'polyhaven=off']],
+  ['blender_rt_commands', {}, ['可用命令 38 条', 'polyhaven=off']],
   [
     'blender_rt_loop',
     { op: 'status' },
@@ -362,7 +362,7 @@ describe('A1 paramError：参数校验与工具级非法参数', () => {
 
   it('blender_rt_commands has no parameter fields to violate', async () => {
     const out = await run('blender_rt_commands', {})
-    expect(textOf(out)).toContain('可用命令 39 条')
+    expect(textOf(out)).toContain('可用命令 38 条')
     record(
       'blender_rt_commands',
       'paramError',

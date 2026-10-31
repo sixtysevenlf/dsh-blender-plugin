@@ -7,8 +7,6 @@ from ..commands import selection as selection_commands
 from ..commands.selection import _selection_collection_summary
 from ..config import DISCORD_URL, _dshbb_backend_url, get_dshbb_addon_preferences
 from ..integrations.polyhaven_client import POLYHAVEN_SITE
-from ..premium.client import premium_active
-from ..premium.ui import premium_draw_panel, premium_draw_upsell
 from ..protocol import _ai_paused
 from ..recorders.activity import get_activity_tracker
 from .lists import LIST_UI_CAP, _log_panel_error, _sub_mode_label
@@ -315,16 +313,9 @@ class DSHBB_PT_ModelGen(bpy.types.Panel):
         layout = self.layout
         scene = context.scene
         prefs = get_dshbb_addon_preferences(context)
-        premium = premium_active()
-        if premium:
-            premium_draw_panel(layout, prefs)
-        else:
-            premium_draw_upsell(layout)
 
         sub = _draw_api_toggle(layout, scene, "dshbb_use_hyper3d", "Hyper3D Rodin")
-        if sub and premium:
-            sub.label(text="Runs through Premium")
-        elif sub:
+        if sub:
             col = sub.column(align=True)
             col.prop(scene, "dshbb_hyper3d_mode", text="Mode")
             if prefs:
@@ -334,9 +325,7 @@ class DSHBB_PT_ModelGen(bpy.types.Panel):
             sub.operator("dshbb.set_hyper3d_free_trial_api_key", text="Set Free Trial API Key")
 
         sub = _draw_api_toggle(layout, scene, "dshbb_use_hunyuan3d", "Tencent Hunyuan 3D")
-        if sub and premium:
-            sub.label(text="Runs through Premium")
-        elif sub:
+        if sub:
             col = sub.column(align=True)
             col.prop(scene, "dshbb_hunyuan3d_mode", text="Mode")
             if scene.dshbb_hunyuan3d_mode == 'OFFICIAL_API':
@@ -357,8 +346,3 @@ class DSHBB_PT_ModelGen(bpy.types.Panel):
                 col.prop(scene, "dshbb_hunyuan3d_num_inference_steps", text="Inference Steps")
                 col.prop(scene, "dshbb_hunyuan3d_guidance_scale", text="Guidance Scale")
                 col.prop(scene, "dshbb_hunyuan3d_texture", text="Generate Texture")
-
-        if premium:
-            sub = _draw_api_toggle(layout, scene, "dshbb_use_tripo", "Tripo")
-            if sub:
-                sub.label(text="Runs through Premium")

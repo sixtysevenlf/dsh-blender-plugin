@@ -1,7 +1,7 @@
 """Dispatch-level integration tests for the split add-on package.
 
 Uses a bpy stub and calls the socket server's command executor directly. This
-checks the 39-name dispatch table and pause gate without opening a socket.
+checks the 38-name dispatch table and pause gate without opening a socket.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ BASE_COMMANDS = [
     "drain_human_activity", "get_activity_state", "get_selection", "send_selection_to_dsh",
     "get_collections", "send_collection_to_dsh", "get_telemetry_consent", "set_telemetry_consent",
     "get_polyhaven_status", "get_hyper3d_status", "get_sketchfab_status", "get_polypizza_status",
-    "get_hunyuan3d_status", "get_tripo_status", "export_scene",
+    "get_hunyuan3d_status", "export_scene",
 ]
 GATED_COMMANDS = [
     "get_polyhaven_categories", "search_polyhaven_assets", "download_polyhaven_asset",
@@ -39,9 +39,6 @@ ALL_COMMANDS = BASE_COMMANDS + GATED_COMMANDS
 
 
 def _server(monkeypatch):
-    monkeypatch.delenv("DSHBB_PREMIUM_LICENSE_KEY", raising=False)
-    monkeypatch.delenv("BLENDERMCP_PREMIUM_LICENSE_KEY", raising=False)
-    monkeypatch.setattr(server_module, "premium_tripo_status", lambda: {"handled": "get_tripo_status"})
     return server_module.DSHBlenderBridgeServer(port=0)
 
 
@@ -60,11 +57,11 @@ def test_real_get_addon_info_contract():
     assert len(info["capabilities"]) == 16
 
 
-def test_all_39_contract_commands_dispatch(monkeypatch):
+def test_all_38_contract_commands_dispatch(monkeypatch):
     server = _server(monkeypatch)
     _patch_dispatch_targets(server)
     for name in ("dshbb_use_polyhaven", "dshbb_use_hyper3d", "dshbb_use_sketchfab",
-                 "dshbb_use_polypizza", "dshbb_use_hunyuan3d", "dshbb_use_tripo"):
+                 "dshbb_use_polypizza", "dshbb_use_hunyuan3d"):
         setattr(bpy.context.scene, name, True)
 
     for name in ALL_COMMANDS:
@@ -75,7 +72,7 @@ def test_all_39_contract_commands_dispatch(monkeypatch):
         else:
             assert response["result"] == {"handled": name}, name
 
-    assert len(ALL_COMMANDS) == len(protocol.COMMAND_NAMES) == 39
+    assert len(ALL_COMMANDS) == len(protocol.COMMAND_NAMES) == 38
 
 
 def test_unknown_command_and_handler_exception_shapes(monkeypatch):
@@ -150,7 +147,7 @@ def test_gated_commands_are_unknown_while_their_toggle_is_off(monkeypatch):
     server = _server(monkeypatch)
     _patch_dispatch_targets(server)
     for name in ("dshbb_use_polyhaven", "dshbb_use_hyper3d", "dshbb_use_sketchfab",
-                 "dshbb_use_polypizza", "dshbb_use_hunyuan3d", "dshbb_use_tripo"):
+                 "dshbb_use_polypizza", "dshbb_use_hunyuan3d"):
         setattr(bpy.context.scene, name, False)
 
     for name in GATED_COMMANDS:
@@ -233,7 +230,7 @@ def test_every_read_safe_command_survives_the_pause_gate(monkeypatch):
     server = _server(monkeypatch)
     _patch_dispatch_targets(server)
     for name in ("dshbb_use_polyhaven", "dshbb_use_hyper3d", "dshbb_use_sketchfab",
-                 "dshbb_use_polypizza", "dshbb_use_hunyuan3d", "dshbb_use_tripo"):
+                 "dshbb_use_polypizza", "dshbb_use_hunyuan3d"):
         setattr(bpy.context.scene, name, True)
     bpy.context.scene.dshbb_ai_paused = True
     try:

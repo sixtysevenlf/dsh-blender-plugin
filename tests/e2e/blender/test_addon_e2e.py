@@ -66,7 +66,7 @@ def test_zip_installs_and_enables_the_package(blender_run):
     assert enabled["bl_info_version"] == [1, 11]
     assert enabled["addon_version"] == [1, 11]
     assert enabled["protocol"] == 11
-    assert enabled["commands"] == 39
+    assert enabled["commands"] == 38
     assert enabled["scene_prop"] is True
     assert enabled["enabled_pair"] == [True, True], enabled
     assert enabled["module_file"].replace("\\", "/").endswith("dsh_blender_bridge/__init__.py")

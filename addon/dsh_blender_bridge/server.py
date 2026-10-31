@@ -15,7 +15,6 @@ from .commands.assets_sketchfab import SketchfabCommands
 from .commands.core import CoreCommands
 from .commands.generate_hunyuan import HunyuanCommands
 from .commands.generate_hyper3d import Hyper3DCommands
-from .commands.generate_premium import premium_tripo_handlers, premium_tripo_status
 from .commands.material import MaterialCommands
 from .commands.scene import SceneCommands
 from .commands.selection import SelectionCommands
@@ -399,7 +398,6 @@ class DSHBlenderBridgeServer(
             "get_sketchfab_status": self.get_sketchfab_status,
             "get_polypizza_status": self.get_polypizza_status,
             "get_hunyuan3d_status": self.get_hunyuan3d_status,
-            "get_tripo_status": premium_tripo_status,
             "export_scene": self.export_scene,
         }
 
@@ -448,9 +446,6 @@ class DSHBlenderBridgeServer(
                 "import_generated_asset_hunyuan": self.import_generated_asset_hunyuan
             }
             handlers.update(hunyuan_handlers)
-
-        # Tripo is only offered through Premium
-        handlers.update(premium_tripo_handlers())
 
         handler = handlers.get(cmd_type)
         if handler:
