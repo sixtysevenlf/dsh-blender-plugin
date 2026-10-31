@@ -1808,6 +1808,13 @@ def _present_state_save(sc):
         st["misc"]["camera"] = sc.camera
     except Exception:
         pass
+    try:
+        st["misc"]["world"] = sc.world
+        if sc.world is not None:
+            st["misc"]["world_color"] = tuple(sc.world.color)
+            st["misc"]["world_use_nodes"] = bool(sc.world.use_nodes)
+    except Exception:
+        pass
     return st
 
 
@@ -1838,6 +1845,21 @@ def _present_state_restore(sc, st):
         _set(sc.view_settings, "view_transform", misc["view_transform"])
     if "camera" in misc:
         _set(sc, "camera", misc["camera"])
+    try:
+        original_world = misc.get("world")
+        if original_world is None:
+            world = sc.world
+            if world is not None and str(world.name).startswith("DSH_PRESENT_WORLD"):
+                sc.world = None
+                bpy.data.worlds.remove(world)
+        else:
+            sc.world = original_world
+            if "world_color" in misc:
+                _set(original_world, "color", misc["world_color"])
+            if "world_use_nodes" in misc:
+                _set(original_world, "use_nodes", misc["world_use_nodes"])
+    except Exception:
+        pass
 
 
 def _bg_rgb(background, what="background"):
@@ -1871,9 +1893,27 @@ def _unhide_objects(hidden):
 
 
 def _present_setup(sc, res, background, neutral=0.62):
-    """Workbench + 白底/透明 + 中性 SINGLE 色（不动物体材质）+ Standard 色彩变换。"""
+    """Workbench + 白底/透明 + 中性 SINGLE 色（不动物体材质）+ Standard 色彩变换。
+
+    Workbench 的 F12 渲染在 background_type=VIEWPORT 时仍会读 scene.world 的颜色；
+    scene.world 为空时 PNG 的 alpha 还会是 0。因此这里临时补一个纯色 World，并由
+    _present_state_save/_restore 负责恢复/删除（见 D3 refsheet B7 回归）。
+    """
     bg_val, bg_name, transparent = _bg_rgb(background)
     _configure_workbench(sc, res, film_transparent=transparent)
+    try:
+        world = sc.world
+        if world is None:
+            world = bpy.data.worlds.new("DSH_PRESENT_WORLD")
+            world.use_nodes = False
+            sc.world = world
+        try:
+            world.use_nodes = False
+        except Exception:
+            pass
+        world.color = (float(bg_val), float(bg_val), float(bg_val))
+    except Exception:
+        pass
     try:
         sc.view_settings.view_transform = "Standard"
     except Exception:
