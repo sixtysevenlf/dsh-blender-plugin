@@ -1,8 +1,19 @@
-export function renderOne(_args: unknown, value: any): any[] {
-  const blocks: any[] = [{ type: 'text', text: String((value && value.text) || '') }]
-  if (value && value.image) blocks.push({ type: 'image', attachment: value.image })
-  if (value && Array.isArray(value.images))
-    for (const im of value.images) blocks.push({ type: 'image', attachment: im })
+import { asArray, asRecord, text } from '../contracts/dynamic.js'
+
+export type CardBlock = { type: 'text'; text: string } | { type: 'image'; attachment: unknown }
+
+export interface CardValue {
+  text?: unknown
+  envelope?: unknown
+  image?: unknown
+  images?: unknown
+}
+
+export function renderOne(_args: unknown, value: unknown): CardBlock[] {
+  const v = asRecord(value)
+  const blocks: CardBlock[] = [{ type: 'text', text: String(v.text || '') }]
+  if (v.image) blocks.push({ type: 'image', attachment: v.image })
+  for (const im of asArray(v.images)) blocks.push({ type: 'image', attachment: im })
   return blocks
 }
 
@@ -17,15 +28,15 @@ export function renderOne(_args: unknown, value: any): any[] {
  * ──────────────────────────────────────────────────────────────────────────── */
 
 /** 安全 JSON.stringify（循环引用/大对象不炸；超长返回 null 由调用方给路径） */
-export function safeStringify(v: any): string | null {
+export function safeStringify(v: unknown): string | null {
   try {
     return JSON.stringify(v)
-  } catch (e: any) {
+  } catch {
     return null
   }
 }
 /** 截断（保留头尾，中间省略标记）—— 与后端 clipMiddle 同一口径 */
-export function clipText(s: any, head: number, tail: number): string {
+export function clipText(s: unknown, head: number, tail: number): string {
   const t = String(s == null ? '' : s)
   if (t.length <= head + tail) return t
   return (
@@ -39,23 +50,23 @@ export function clipText(s: any, head: number, tail: number): string {
   )
 }
 /** 带结构化信封的工具回执：value = {text, envelope?, image?, images?} */
-export function renderStructured(_args: unknown, value: any): any[] {
-  const blocks: any[] = []
-  if (value && value.envelope) {
-    const s = safeStringify(value.envelope)
+export function renderStructured(_args: unknown, value: unknown): CardBlock[] {
+  const v = asRecord(value)
+  const blocks: CardBlock[] = []
+  if (v.envelope) {
+    const s = safeStringify(v.envelope)
     if (s) blocks.push({ type: 'text', text: s })
   }
-  blocks.push({ type: 'text', text: String((value && value.text) || '') })
-  if (value && value.image) blocks.push({ type: 'image', attachment: value.image })
-  if (value && Array.isArray(value.images))
-    for (const im of value.images) blocks.push({ type: 'image', attachment: im })
+  blocks.push({ type: 'text', text: String(v.text || '') })
+  if (v.image) blocks.push({ type: 'image', attachment: v.image })
+  for (const im of asArray(v.images)) blocks.push({ type: 'image', attachment: im })
   return blocks
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
  * v2.6.1（工具卡片）：presentCall / presentResult —— **只管给人看的卡片**，模型侧回执
  * （render 的输出）一个字节都不动。宿主（dsh-TUI / Web）没有这两个方法时显示的是
- * `Blender_rt_do({"code":"import bpy\n…"})` 这种整段 JSON 参数 + 原始回执（含单行 JSON 信封）。
+ * 'Blender_rt_do({"code":"import bpy\n…"})' 这种整段 JSON 参数 + 原始回执（含单行 JSON 信封）。
  *   - 调用卡片：标题写成「Blender <动作> · <要点>」；带代码的调用把代码放进卡片正文。
  *   - 结果卡片：去掉 renderStructured 的单行 JSON 信封（那是给模型 JSON.parse 的），
  *     人读摘要放最前（TUI 折叠态只显示前 3 行），代码附在后面，图片块原样透传。
@@ -67,14 +78,14 @@ const CARD_CODE_HEAD = 3000
 const CARD_CODE_TAIL = 1000
 
 /** 压成一行并截断（卡片标题只放一行） */
-function cardClip(v: any, max = CARD_DETAIL_MAX): string {
+function cardClip(v: unknown, max = CARD_DETAIL_MAX): string {
   const one = String(v == null ? '' : v)
     .replace(/\s+/g, ' ')
     .trim()
   return one.length > max ? one.slice(0, max - 1) + '…' : one
 }
 /** 代码 → 「首个有意义的行（+N 行）」；全是注释/空行时回空串 */
-function cardCodeHeadline(code: any): string {
+function cardCodeHeadline(code: unknown): string {
   const lines = String(code == null ? '' : code)
     .split(String.fromCharCode(10))
     .map((l) => l.trim())
@@ -84,12 +95,12 @@ function cardCodeHeadline(code: any): string {
   return cardClip(first) + (lines.length > 1 ? '（+' + String(lines.length - 1) + ' 行）' : '')
 }
 /** 路径 → 文件名（Windows / POSIX 分隔符都认） */
-function cardBaseName(p: any): string {
+function cardBaseName(p: unknown): string {
   const parts = String(p == null ? '' : p).split(/[\\/]/)
   return parts[parts.length - 1] || ''
 }
 /** rt_cmd 的 params：对象列前 3 个键，字符串截一行 */
-function cardParams(p: any): string {
+function cardParams(p: unknown): string {
   if (p && typeof p === 'object' && !Array.isArray(p)) {
     const keys = Object.keys(p)
     return keys.length
@@ -99,19 +110,20 @@ function cardParams(p: any): string {
   return typeof p === 'string' ? cardClip(p, 32) : ''
 }
 /** 「头 · 要点1 · 要点2」，空要点跳过 */
-function cardTitle(head: string, parts: any[]): string {
+function cardTitle(head: string, parts: unknown[]): string {
   const tail = parts.map((x) => cardClip(x)).filter(Boolean)
   return tail.length ? head + ' · ' + tail.join(' · ') : head
 }
-const cardSession = (a: any): string => (a.session ? '无头 ' + cardClip(a.session, 24) : '')
-const cardPython = (code: any): any =>
+const cardSession = (a: Record<string, unknown>): string =>
+  a.session ? '无头 ' + cardClip(a.session, 24) : ''
+const cardPython = (code: unknown): { label: string; code: string } | null =>
   typeof code === 'string' && code.trim() ? { label: 'Python', code: code } : null
 
 export interface CardSpec {
   kind: string
-  title: (a: any) => string
+  title: (a: Record<string, unknown>) => string
   /** 这次调用执行的代码（有就进卡片正文，结果卡片里附在摘要后面） */
-  code?: (a: any) => { label: string; code: string } | null
+  code?: (a: Record<string, unknown>) => { label: string; code: string } | null
 }
 export const CARD_SPECS: Record<string, CardSpec> = {
   blender_rt_see: {
@@ -209,58 +221,66 @@ function cardCodeSection(code: { label: string; code: string }): string {
   )
 }
 /** renderStructured 的第 0 块：单行、能 parse 成普通对象的 JSON */
-function isEnvelopeBlock(b: any): boolean {
-  if (!b || b.type !== 'text' || typeof b.text !== 'string') return false
-  const s = b.text.trim()
+function isEnvelopeBlock(b: unknown): boolean {
+  const block = asRecord(b)
+  if (block.type !== 'text' || typeof block.text !== 'string') return false
+  const s = block.text.trim()
   if (!s.startsWith('{') || !s.endsWith('}') || s.indexOf(String.fromCharCode(10)) >= 0)
     return false
   try {
-    const v = JSON.parse(s)
+    const v: unknown = JSON.parse(s)
     return !!v && typeof v === 'object' && !Array.isArray(v)
-  } catch (e: any) {
+  } catch {
     return false
   }
 }
 
 /** vTool 用：按工具名给出 presentCall / presentResult（未登记的工具 / spec 自带的不覆盖） */
-export function cardPresenters(spec: any): any {
-  const card = spec && CARD_SPECS[spec.name]
+export function cardPresenters(spec: unknown): Record<string, unknown> {
+  const s = asRecord(spec)
+  const card = CARD_SPECS[text(s.name)]
   if (!card) return {}
-  const out: any = {}
-  if (!spec.presentCall) {
-    out.presentCall = (args: any) => {
+  const out: Record<string, unknown> = {}
+  if (!s.presentCall) {
+    out.presentCall = (args: unknown) => {
       try {
-        const a = args && typeof args === 'object' ? args : {}
-        const view: any = { card: 'generic', title: card.title(a), kind: card.kind }
+        const a = asRecord(args)
+        const view: Record<string, unknown> = {
+          card: 'generic',
+          title: card.title(a),
+          kind: card.kind,
+        }
         const code = card.code ? card.code(a) : null
         if (code) view.content = [{ type: 'text', text: cardCodeSection(code) }]
         return view
-      } catch (e: any) {
+      } catch {
         return undefined
       }
     }
   }
-  if (!spec.presentResult) {
-    out.presentResult = (args: any, result: any) => {
+  if (!s.presentResult) {
+    out.presentResult = (args: unknown, result: unknown) => {
       try {
-        if (!result || result.isError || !Array.isArray(result.content)) return undefined
-        const texts = result.content.filter((b: any) => b && b.type === 'text')
+        const r = asRecord(result)
+        if (!r || r.isError || !Array.isArray(r.content)) return undefined
+        const content = asArray(r.content)
+        const texts = content.filter((b) => asRecord(b).type === 'text')
         const human = texts.length > 1 && isEnvelopeBlock(texts[0]) ? texts.slice(1) : texts
-        const a = args && typeof args === 'object' ? args : {}
+        const a = asRecord(args)
         const code = card.code ? card.code(a) : null
         // 没有信封、也没有代码 ⇒ 原始回执本来就是人读文本，交给宿主照常显示
         if (human.length === texts.length && !code) return undefined
         // 一个 text block：dsh-TUI 拼接多个 text block 时不加换行
         const parts = human
-          .map((b: any) => String(b.text || '').replace(/\s+$/, ''))
+          .map((b) => String(asRecord(b).text || '').replace(/\s+$/, ''))
           .filter(Boolean)
         if (code) parts.push(cardCodeSection(code))
-        const content: any[] = parts.length
+        const blocks: CardBlock[] = parts.length
           ? [{ type: 'text', text: parts.join(String.fromCharCode(10, 10)) }]
           : []
-        for (const b of result.content) if (b && b.type !== 'text') content.push(b)
-        return { card: 'generic', content: content }
-      } catch (e: any) {
+        for (const b of content) if (asRecord(b).type !== 'text') blocks.push(b as CardBlock)
+        return { card: 'generic', content: blocks }
+      } catch {
         return undefined
       }
     }

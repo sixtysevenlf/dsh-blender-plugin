@@ -1,20 +1,22 @@
 /**
  * @dsh-external/dsh-blender-plugin —— dsh-TUI 宿主半边（v2.6.1，host 侧 / Node 进程内）。
  *
- * Web 的客户端半边（lib/client.js，`dsh.client.platform = "web"`）在 dsh-TUI 里不加载，
- * 所以 v2.3 的「Blender 原生选中 → 草稿」和 `@` 提及在 TUI 里一直是断的（契约 v2.3 增补 §S5.2）。
+ * Web 的客户端半边（lib/client.js，'dsh.client.platform = "web"'）在 dsh-TUI 里不加载，
+ * 所以 v2.3 的「Blender 原生选中 → 草稿」和 '@' 提及在 TUI 里一直是断的（契约 v2.3 增补 §S5.2）。
  * 这里用 dsh-TUI 的**宿主接缝**补上同一套体验（契约 v2.3 增补 §S6）：
- *   ① Blender 原生选中 → 输入框上下文 chip（`ctx.tuiContextChips`）+ toast（`ctx.tuiToast`）
- *   ② 页脚状态字段（`ctx.tuiStatus.setField`）：通道 / AI 暂停 / 渲染 / 租约 / 作业
- *   ③ `@` 提及 Blender 对象 / 材质 / 集合（`ctx.tuiMentions`）
- *   ④ `/blender status|doctor|jobs` 命令（`ctx.commands` 是 DSH 核心接缝，Web 也有）+ 子命令补全（`ctx.tuiCommandTrees`）
+ *   ① Blender 原生选中 → 输入框上下文 chip（ctx.tuiContextChips）+ toast（ctx.tuiToast）
+ *   ② 页脚状态字段（ctx.tuiStatus.setField）：通道 / AI 暂停 / 渲染 / 租约 / 作业
+ *   ③ '@' 提及 Blender 对象 / 材质 / 集合（ctx.tuiMentions）
+ *   ④ '/blender status|doctor|jobs' 命令（ctx.commands 是 DSH 核心接缝，Web 也有）+ 子命令补全（ctx.tuiCommandTrees）
  *
  * 纪律：
- *   - 每块都按服务是否存在启用（`ctx.inject` 懒等）：Web / headless / 没有这些接缝的旧版 dsh-TUI 上什么都不做；
- *   - 只读后端（`/host/state` `/host/selection/*` `/host/jobs` 零 Blender 往返；`@` 提及与 `/blender doctor` 才碰 Blender）；
+ *   - 每块都按服务是否存在启用（ctx.inject 懒等）：Web / headless / 没有这些接缝的旧版 dsh-TUI 上什么都不做；
+ *   - 只读后端（/host/state /host/selection/* /host/jobs 零 Blender 往返；'@' 提及与 '/blender doctor' 才碰 Blender）；
  *   - 任何失败都静默降级，绝不影响 15 个模型工具；
  *   - 选中**不自动发送**：chip 只在用户自己发下一条消息时随消息走，用户可以删掉。
  */
+
+import { asArray, asRecord, isRecord, text } from './contracts/dynamic.js'
 
 const SELECTION_POLL_MS = 100 // v2.6.1 性能实测：1200→100ms（契约 §S3.2）
 const STATE_POLL_MS = 3000
@@ -27,15 +29,83 @@ const SUB_DRAFT_INDEX_LIMIT = 12
 const CHIP_KEY = 'selection'
 const FIELD_KEY = 'blender'
 const MENTION_LIMIT = 50
-/** `@` 提及的场景条目缓存：dsh-TUI 每次查询只给约 300 ms，而 /host/scene-items 要两次 bpy 往返，直接查经常超时 */
+/** '@' 提及的场景条目缓存：dsh-TUI 每次查询只给约 300 ms，而 /host/scene-items 要两次 bpy 往返，直接查经常超时 */
 const SCENE_CACHE_MS = 5000
 const SCENE_CACHE_LIMIT = 1000
 const NL = String.fromCharCode(10)
+
+type Json = Record<string, unknown>
 
 export interface TuiHostOptions {
   port: number
   /** 本插件的写租约 holder（页脚区分「本会话持有 / 别的会话持有」） */
   holder: string
+}
+
+export interface MentionItem {
+  label: string
+  detail: string
+  insertText: string
+}
+
+interface ChipService {
+  attachContext(input: { key: string; title: string; content: string }): unknown
+}
+
+interface ToastService {
+  show(text: string, opts: { color: string }): void
+}
+
+interface StatusService {
+  setField(key: string, value: string, opts: Record<string, unknown>): unknown
+}
+
+interface MentionsService {
+  register(def: {
+    id: string
+    title: string
+    complete: (query: string, signal: AbortSignal) => Promise<MentionItem[]>
+  }): unknown
+}
+
+interface CommandInvocation {
+  rawInput?: string
+  signal?: AbortSignal
+}
+
+interface CommandsService {
+  register(def: {
+    name: string
+    description: string
+    input: { hint: string }
+    handler: (inv: CommandInvocation) => Promise<{ kind: string; text: string }>
+  }): unknown
+}
+
+interface CommandTreeService {
+  register(def: {
+    root: string
+    children: (path: readonly string[]) => readonly { name: string; description: string }[]
+  }): unknown
+}
+
+interface TuiServices {
+  tuiToast?: ToastService
+  tuiContextChips?: ChipService
+  tuiStatus?: StatusService
+  tuiMentions?: MentionsService
+  commands?: CommandsService
+  tuiCommandTrees?: CommandTreeService
+  effect(fn: () => void | (() => void), label: string): void
+}
+
+interface TuiContext {
+  inject(names: string[], fn: (c: TuiServices) => void): void
+}
+
+interface SelectionState {
+  lastSeq: number
+  fails: number
 }
 
 /** doctor 用的接线现场：哪些接缝挂上了、选中桥最近一次结果 */
@@ -70,18 +140,19 @@ async function getJson(
   path: string,
   signal?: AbortSignal,
   timeoutMs = HTTP_TIMEOUT_MS,
-): Promise<any> {
+): Promise<Json | null> {
   try {
     const r = await fetch(base(port) + path, {
       cache: 'no-store',
       signal: withTimeout(timeoutMs, signal),
     })
-    return await r.json()
-  } catch (e) {
+    const body: unknown = await r.json()
+    return isRecord(body) ? body : null
+  } catch {
     return null
   }
 }
-async function postJson(port: number, path: string, body: any): Promise<any> {
+async function postJson(port: number, path: string, body: unknown): Promise<Json | null> {
   try {
     const r = await fetch(base(port) + path, {
       method: 'POST',
@@ -89,8 +160,9 @@ async function postJson(port: number, path: string, body: any): Promise<any> {
       body: JSON.stringify(body),
       signal: withTimeout(HTTP_TIMEOUT_MS),
     })
-    return await r.json()
-  } catch (e) {
+    const parsed: unknown = await r.json()
+    return isRecord(parsed) ? parsed : null
+  } catch {
     return null
   }
 }
@@ -100,20 +172,21 @@ async function postJson(port: number, path: string, body: any): Promise<any> {
 // ──────────────────────────────────────────────────────────────────────────
 
 /** v2.4 子元素选中（网格点/边/面、骨骼、曲线/晶格控制点）→ 文本。逐字对齐 lib/client.js 的 subSelectionText。 */
-export function subSelectionText(sel: any): string | null {
-  const sub = sel && sel.sub
-  if (!sub || typeof sub !== 'object') return null
-  const type = String(sub.type || '')
-  const obj = String(sub.object || '')
-  const counts = sub.counts && typeof sub.counts === 'object' ? sub.counts : {}
+export function subSelectionText(sel: unknown): string | null {
+  const s = asRecord(sel)
+  const sub = isRecord(s.sub) ? s.sub : null
+  if (!sub) return null
+  const type = text(sub.type)
+  const obj = text(sub.object)
+  const counts = asRecord(sub.counts)
   const more = sub.truncated === true
   if (type === 'MESH') {
     const v = Number(counts.vertices || 0),
       e = Number(counts.edges || 0),
       f = Number(counts.faces || 0)
-    let text =
+    let txt =
       'Blender 编辑模式（网格）「' + obj + '」：已选 ' + v + ' 顶点 / ' + e + ' 边 / ' + f + ' 面。'
-    const idx = sub.indices && typeof sub.indices === 'object' ? sub.indices : {}
+    const idx = asRecord(sub.indices)
     const labels: Record<string, string> = {
       vertices: '顶点索引',
       edges: '边索引',
@@ -121,28 +194,28 @@ export function subSelectionText(sel: any): string | null {
     }
     const parts: string[] = []
     for (const k of Object.keys(labels)) {
-      const arr = Array.isArray(idx[k]) ? idx[k] : []
+      const arr = asArray(idx[k])
       if (!arr.length) continue
       let shown = arr.slice(0, SUB_DRAFT_INDEX_LIMIT).join(',')
       if (arr.length > SUB_DRAFT_INDEX_LIMIT || more) shown += '…'
       parts.push(labels[k] + '：' + shown)
     }
-    if (parts.length) text += parts.join('；') + '。'
-    return text + '用 bpy / BMesh 精确修改这些元素；用户说"这些点/线/面"时指它们。'
+    if (parts.length) txt += parts.join('；') + '。'
+    return txt + '用 bpy / BMesh 精确修改这些元素；用户说"这些点/线/面"时指它们。'
   }
   if (type === 'ARMATURE') {
-    const bones = Array.isArray(sub.bones) ? sub.bones : []
+    const bones = asArray(sub.bones)
     const boneCount = Number(counts.bones || bones.length)
     let head =
       'Blender 骨骼（骨架）「' +
       obj +
       '」' +
-      (String(sub.mode || '') === 'POSE' ? '姿势模式' : '编辑模式') +
+      (text(sub.mode) === 'POSE' ? '姿势模式' : '编辑模式') +
       '：已选 ' +
       boneCount +
       ' 根'
     if (bones.length) {
-      head += '：' + bones.slice(0, SUB_DRAFT_INDEX_LIMIT).join('、')
+      head += '：' + bones.slice(0, SUB_DRAFT_INDEX_LIMIT).map(String).join('、')
       if (bones.length > SUB_DRAFT_INDEX_LIMIT || more) head += '…'
     }
     return (
@@ -153,15 +226,15 @@ export function subSelectionText(sel: any): string | null {
     )
   }
   if (type === 'CURVE' || type === 'LATTICE') {
-    const pts = Array.isArray(sub.points) ? sub.points : []
+    const pts = asArray(sub.points)
     const pcount = Number(counts.points || pts.length)
     const label = type === 'CURVE' ? '曲线/曲面控制点' : '晶格控制点'
-    let txt =
-      'Blender ' + label + '「' + obj + '」：' + String(sub.mode || '') + '，已选 ' + pcount + ' 个'
+    let txt = 'Blender ' + label + '「' + obj + '」：' + text(sub.mode) + '，已选 ' + pcount + ' 个'
     if (pts.length) {
-      const sample = pts
-        .slice(0, SUB_DRAFT_INDEX_LIMIT)
-        .map((p: any) => (Array.isArray(p) ? String(p[0]) + ':' + String(p[1]) : String(p)))
+      const sample = pts.slice(0, SUB_DRAFT_INDEX_LIMIT).map((p) => {
+        const pair = asArray(p)
+        return pair.length >= 2 ? String(pair[0]) + ':' + String(pair[1]) : String(p)
+      })
       txt += '：' + sample.join('、')
       if (pts.length > SUB_DRAFT_INDEX_LIMIT || more) txt += '…'
     }
@@ -170,11 +243,11 @@ export function subSelectionText(sel: any): string | null {
   if (type === 'OTHER') {
     return (
       'Blender ' +
-      String(sub.mode || '编辑模式') +
+      (text(sub.mode) || '编辑模式') +
       '（对象「' +
       obj +
       '」）：' +
-      String(sub.note || '子元素暂未展开，请用 Python 读当前选择集') +
+      (text(sub.note) || '子元素暂未展开，请用 Python 读当前选择集') +
       '。'
     )
   }
@@ -182,13 +255,11 @@ export function subSelectionText(sel: any): string | null {
 }
 
 /** selection payload → 给模型的文本（空选中回 null）。逐字对齐 lib/client.js 的 selectionMessageText。 */
-export function selectionMessageText(payload: any): string | null {
-  const sel = payload && payload.selection ? payload.selection : null
-  if (!sel) return null
+export function selectionMessageText(payload: unknown): string | null {
+  const sel = asRecord(asRecord(payload).selection)
+  if (!isRecord(payload) || !Object.keys(sel).length) return null
   const kind = sel.kind === 'collection' ? 'collection' : 'objects'
-  const names = Array.isArray(sel.names)
-    ? sel.names.filter((n: any) => typeof n === 'string' && n.length > 0)
-    : []
+  const names = asArray(sel.names).filter((n): n is string => typeof n === 'string' && n.length > 0)
   const count = typeof sel.count === 'number' ? sel.count : names.length
   if (kind === 'collection') {
     const coll =
@@ -211,35 +282,36 @@ export function selectionMessageText(payload: any): string | null {
   if (subText) return subText
   if (!names.length) return null
   const drawn = names.slice(0, SELECTION_DRAFT_NAME_LIMIT)
-  let text = 'Blender 选中：' + drawn.join('、')
+  let out = 'Blender 选中：' + drawn.join('、')
   if (sel.truncated || count > drawn.length || names.length > drawn.length)
-    text += '（共 ' + count + ' 件，只列前 ' + drawn.length + ' 件）'
-  text += '。'
-  if (sel.active) text += '活动对象：' + sel.active + '。'
-  if (sel.mode) text += '模式：' + sel.mode + '。'
-  if (Array.isArray(sel.collections) && sel.collections.length && count > 1) {
-    const summary = sel.collections
-      .slice(0, 4)
-      .map((c: any) => String(c.name) + '(' + Number(c.count || 0) + ')')
-    text += '涉及集合：' + summary.join('、') + '。'
+    out += '（共 ' + count + ' 件，只列前 ' + drawn.length + ' 件）'
+  out += '。'
+  if (sel.active) out += '活动对象：' + text(sel.active) + '。'
+  if (sel.mode) out += '模式：' + text(sel.mode) + '。'
+  const collections = asArray(sel.collections)
+  if (collections.length && count > 1) {
+    const summary = collections.slice(0, 4).map((c) => {
+      const rec = asRecord(c)
+      return text(rec.name) + '(' + Number(rec.count || 0) + ')'
+    })
+    out += '涉及集合：' + summary.join('、') + '。'
   }
-  return text + '用户说"这个/这些"时指它们；对象名在 bpy.data.objects 里可直接用。'
+  return out + '用户说"这个/这些"时指它们；对象名在 bpy.data.objects 里可直接用。'
 }
 
 /** chip 标题（一行，≤ 80 cell）：同一个 key 重发会**替换**上一条，所以标题只说「是什么、多少」 */
-export function selectionChipTitle(sel: any): string {
-  const clip = (s: any, n = 24) => {
-    const t = String(s == null ? '' : s)
+export function selectionChipTitle(sel: unknown): string {
+  const s = asRecord(sel)
+  const clip = (v: unknown, n = 24) => {
+    const t = String(v == null ? '' : v)
     return t.length > n ? t.slice(0, n - 1) + '…' : t
   }
-  if (sel && sel.kind === 'collection')
-    return (
-      'Blender 集合 · ' + clip(sel.collection) + '（' + String(Number(sel.count) || 0) + ' 件）'
-    )
-  const sub = sel && sel.sub
-  if (sub && typeof sub === 'object' && sub.type) return 'Blender 子元素 · ' + clip(sub.object)
-  const names = sel && Array.isArray(sel.names) ? sel.names : []
-  const count = sel && typeof sel.count === 'number' ? sel.count : names.length
+  if (s.kind === 'collection')
+    return 'Blender 集合 · ' + clip(s.collection) + '（' + String(Number(s.count) || 0) + ' 件）'
+  const sub = asRecord(s.sub)
+  if (sub.type) return 'Blender 子元素 · ' + clip(sub.object)
+  const names = asArray(s.names)
+  const count = typeof s.count === 'number' ? s.count : names.length
   return count === 1 && names[0]
     ? 'Blender 选中 · ' + clip(names[0])
     : 'Blender 选中 · ' + String(count) + ' 件'
@@ -252,26 +324,27 @@ export function selectionChipTitle(sel: any): string {
  */
 export async function selectionTick(deps: {
   port: number
-  chips: any
+  chips: ChipService
   notify?: (text: string, color: string) => void
-  state: any
+  state: SelectionState
 }): Promise<void> {
   const { port, chips, notify, state } = deps
   const body = await getJson(port, '/host/selection/latest')
   if (!body || body.ok !== true || body.unconsumed !== true || !body.selection) return
   const seq = Number(body.seq) || 0
   if (seq <= state.lastSeq) return
-  const text = selectionMessageText({ selection: body.selection })
-  const done = async (ok: boolean, extra: any) => {
+  const selection = body.selection
+  const txt = selectionMessageText({ selection: selection })
+  const done = async (ok: boolean, extra: Record<string, unknown>) => {
     state.lastSeq = seq
     state.fails = 0
     bridge.lastSeq = seq
     bridge.lastOk = ok
-    bridge.lastReason = ok ? null : String(extra.reason || '')
+    bridge.lastReason = ok ? null : text(extra.reason)
     bridge.lastAt = Date.now()
     await postJson(port, '/host/selection/consume', Object.assign({ seq: seq, ok: ok }, extra))
   }
-  if (!text) {
+  if (!txt) {
     await done(false, { reason: '没有对象名可插入（空选中）' })
     return
   }
@@ -280,10 +353,10 @@ export async function selectionTick(deps: {
     staged =
       chips.attachContext({
         key: CHIP_KEY,
-        title: selectionChipTitle(body.selection),
-        content: text,
+        title: selectionChipTitle(selection),
+        content: txt,
       }) === true
-  } catch (e) {
+  } catch {
     staged = false
   }
   if (staged) {
@@ -301,13 +374,14 @@ export async function selectionTick(deps: {
 // ② 页脚状态字段
 // ──────────────────────────────────────────────────────────────────────────
 
-/** `/host/state` 响应 → 页脚一格（文本 / tone / 悬停说明）。纯函数，导出给自检。 */
+/** '/host/state' 响应 → 页脚一格（文本 / tone / 悬停说明）。纯函数，导出给自检。 */
 export function footerField(
-  state: any,
+  state: unknown,
   holder: string,
   port: number,
 ): { text: string; tone: string; detail: string } {
-  if (!state || state.ok !== true) {
+  const st = asRecord(state)
+  if (st.ok !== true) {
     return {
       text: 'Blender ○',
       tone: 'dim',
@@ -317,9 +391,9 @@ export function footerField(
         '）· 让模型跑 blender_viewport(op="start")，或 /blender doctor',
     }
   }
-  const ch = state.channel || {}
-  const lease = state.lease || {}
-  const jobs = Number((state.jobs && state.jobs.running) || 0)
+  const ch = asRecord(st.channel)
+  const lease = asRecord(st.lease)
+  const jobs = Number(asRecord(st.jobs).running || 0)
   const jobsTail = jobs > 0 ? ' · 作业 ' + String(jobs) : ''
   const jobsDetail = jobs > 0 ? ' · ' + String(jobs) + ' 个 headless 作业在跑（/blender jobs）' : ''
   if (ch.aiPaused) {
@@ -329,8 +403,9 @@ export function footerField(
       detail: 'Blender 里暂停了 AI 操作：N 面板「活动状态」点「继续 AI 操作」' + jobsDetail,
     }
   }
-  if (state.render && state.render.busy) {
-    const s = Math.round(Number(state.render.ageMs || 0) / 1000)
+  const render = asRecord(st.render)
+  if (render.busy) {
+    const s = Math.round(Number(render.ageMs || 0) / 1000)
     return {
       text: 'Blender ● 渲染中' + jobsTail,
       tone: 'warning',
@@ -377,23 +452,24 @@ export function footerField(
 // ③ @ 提及
 // ──────────────────────────────────────────────────────────────────────────
 
-/** `/host/scene-items` 响应 → 提及条目。插进草稿的是与 Web codec 同一份模型文本（`<blender-object>名字</blender-object>`）。 */
-export function mentionItems(body: any, limit = MENTION_LIMIT): any[] {
-  if (!body || body.ok !== true) return []
-  const out: any[] = []
+/** '/host/scene-items' 响应 → 提及条目。插进草稿的是与 Web codec 同一份模型文本（'<blender-object>名字</blender-object>'）。 */
+export function mentionItems(body: unknown, limit = MENTION_LIMIT): MentionItem[] {
+  if (asRecord(body).ok !== true) return []
+  const b = asRecord(body)
+  const out: MentionItem[] = []
   const groups: Array<[string, string, string | null]> = [
     ['objects', 'object', null],
     ['materials', 'material', '材质'],
     ['collections', 'collection', '集合'],
   ]
   for (const [field, kind, label] of groups) {
-    const list = Array.isArray(body[field]) ? body[field] : []
-    for (const it of list) {
-      if (!it || !it.name || out.length >= limit) continue
-      const name = String(it.name)
+    for (const it of asArray(b[field])) {
+      const rec = asRecord(it)
+      if (!rec.name || out.length >= limit) continue
+      const name = text(rec.name)
       out.push({
         label: name,
-        detail: label || String(it.type || 'OBJECT'),
+        detail: label || text(rec.type) || 'OBJECT',
         insertText: '<blender-' + kind + '>' + name + '</blender-' + kind + '>',
       })
     }
@@ -402,11 +478,11 @@ export function mentionItems(body: any, limit = MENTION_LIMIT): any[] {
 }
 
 /** 本地过滤：label 含 query（不分大小写）；空 query 给前 50 条。宿主会再按自己的模糊打分排序。 */
-export function filterMentionItems(items: any[], query: string): any[] {
+export function filterMentionItems(items: MentionItem[], query: string): MentionItem[] {
   const q = String(query || '')
     .trim()
     .toLowerCase()
-  const out: any[] = []
+  const out: MentionItem[] = []
   for (const it of items) {
     if (out.length >= MENTION_LIMIT) break
     if (!q || String(it.label).toLowerCase().indexOf(q) >= 0) out.push(it)
@@ -415,14 +491,18 @@ export function filterMentionItems(items: any[], query: string): any[] {
 }
 
 /**
- * `@` 提及的数据源：第一次查询拉一份全量（≤ 1000 条）缓存起来，之后在本地过滤、立即返回；
+ * '@' 提及的数据源：第一次查询拉一份全量（≤ 1000 条）缓存起来，之后在本地过滤、立即返回；
  * 缓存超过 5 s 就在后台刷新一次（不等它）。冷启动那一次可能超过宿主的单次时限、被丢弃，
- * 但缓存会填上，下一次按键就有结果。只在用户真的打 `@` 时才碰 Blender，不轮询。
+ * 但缓存会填上，下一次按键就有结果。只在用户真的打 '@' 时才碰 Blender，不轮询。
  */
 export function createSceneMentionSource(
   port: number,
-): (query: string, signal: AbortSignal) => Promise<any[]> {
-  const cache = { at: 0, items: null as any[] | null, inflight: null as Promise<void> | null }
+): (query: string, signal: AbortSignal) => Promise<MentionItem[]> {
+  const cache: {
+    at: number
+    items: MentionItem[] | null
+    inflight: Promise<void> | null
+  } = { at: 0, items: null, inflight: null }
   const refresh = (): Promise<void> => {
     if (cache.inflight) return cache.inflight
     cache.inflight = getJson(
@@ -467,13 +547,13 @@ const SUBCOMMANDS = [
   { name: 'jobs', description: 'headless 作业列表' },
 ]
 
-function ago(ms: any): string {
+function ago(ms: unknown): string {
   if (ms == null) return '从未'
   const s = Math.round(Number(ms) / 1000)
   return s < 60 ? String(s) + ' s 前' : String(Math.round(s / 60)) + ' min 前'
 }
 
-/** `/blender <sub>` → 文本。导出给自检。 */
+/** '/blender <sub>' → 文本。导出给自检。 */
 export async function blenderCommand(
   rawInput: string,
   opts: TuiHostOptions,
@@ -488,8 +568,8 @@ export async function blenderCommand(
     const st = await getJson(port, '/host/state', signal)
     const f = footerField(st, opts.holder, port)
     if (!st || st.ok !== true) return { kind: 'success', text: f.text + NL + f.detail }
-    const ch = st.channel || {}
-    const lease = st.lease || {}
+    const ch = asRecord(st.channel)
+    const lease = asRecord(st.lease)
     const lines = [
       f.text + ' — ' + f.detail,
       '通道：上次成功 ' +
@@ -497,19 +577,19 @@ export async function blenderCommand(
         ' · 进行中 ' +
         String(ch.inflight || 0) +
         ' · 上次命令 ' +
-        String(ch.lastCmd || '-'),
+        (text(ch.lastCmd) || '-'),
       '租约：' +
         (lease.active
-          ? String(lease.holder) + (lease.holder === opts.holder ? '（本会话）' : '')
+          ? text(lease.holder) + (lease.holder === opts.holder ? '（本会话）' : '')
           : '空闲'),
       '渲染：' +
-        (st.render && st.render.busy
-          ? '进行中（' + ago(st.render.ageMs).replace(' 前', '') + '）'
+        (asRecord(st.render).busy
+          ? '进行中（' + ago(asRecord(st.render).ageMs).replace(' 前', '') + '）'
           : '无'),
-      '作业：' + String((st.jobs && st.jobs.running) || 0) + ' 个在跑',
+      '作业：' + String(asRecord(st.jobs).running || 0) + ' 个在跑',
     ]
     if (ch.lastError)
-      lines.push('最近错误（' + ago(ch.lastErrorAgeMs) + '）：' + String(ch.lastError))
+      lines.push('最近错误（' + ago(ch.lastErrorAgeMs) + '）：' + text(ch.lastError))
     return { kind: 'success', text: lines.join(NL) }
   }
   if (sub === 'doctor') {
@@ -522,35 +602,32 @@ export async function blenderCommand(
           String(port) +
           '）· 让模型跑 blender_viewport(op="start")',
       }
-    const a = d.addon || {}
-    const lines = ['诊断：' + String(a.kind || (d.ok ? 'ok' : 'unknown'))]
-    if (a.summary) lines.push('结论：' + String(a.summary))
-    if (a.fix) lines.push('修法：' + String(a.fix))
+    const a = asRecord(d.addon)
+    const lines = ['诊断：' + (text(a.kind) || (d.ok ? 'ok' : 'unknown'))]
+    if (a.summary) lines.push('结论：' + text(a.summary))
+    if (a.fix) lines.push('修法：' + text(a.fix))
     return { kind: d.ok ? 'success' : 'error', text: lines.join(NL) }
   }
   if (sub === 'jobs') {
     const j = await getJson(port, '/host/jobs?limit=10', signal)
     if (!j || j.ok !== true)
       return { kind: 'error', text: '取作业列表失败：后端不可达（127.0.0.1:' + String(port) + '）' }
-    if (!Array.isArray(j.jobs) || !j.jobs.length)
-      return { kind: 'success', text: '没有 headless 作业' }
+    const jobs = asArray(j.jobs)
+    if (!jobs.length) return { kind: 'success', text: '没有 headless 作业' }
     const lines = [
-      '作业 ' +
-        String(j.running || 0) +
-        ' 个在跑 / 共 ' +
-        String(j.total || j.jobs.length) +
-        ' 个：',
+      '作业 ' + String(j.running || 0) + ' 个在跑 / 共 ' + String(j.total || jobs.length) + ' 个：',
     ]
-    for (const job of j.jobs) {
+    for (const job of jobs) {
+      const rec = asRecord(job)
       lines.push(
         '  ' +
-          String(job.id || '?') +
+          (text(rec.id) || '?') +
           ' · ' +
-          String(job.status || '?') +
+          (text(rec.status) || '?') +
           ' · ' +
-          String(Math.round(Number(job.ms || 0) / 1000)) +
+          String(Math.round(Number(rec.ms || 0) / 1000)) +
           ' s' +
-          (job.script ? ' · ' + String(job.script).split(/[\\/]/).pop() : ''),
+          (rec.script ? ' · ' + (text(rec.script).split(/[\\/]/).pop() ?? '') : ''),
       )
     }
     return { kind: 'success', text: lines.join(NL) }
@@ -565,7 +642,7 @@ export async function blenderCommand(
 // 接线
 // ──────────────────────────────────────────────────────────────────────────
 
-function every(c: any, ms: number, fn: () => Promise<void>, label: string): void {
+function every(c: TuiServices, ms: number, fn: () => Promise<void>, label: string): void {
   c.effect(() => {
     let busy = false
     const run = () => {
@@ -585,18 +662,19 @@ function every(c: any, ms: number, fn: () => Promise<void>, label: string): void
 }
 
 /** apply() 调这个；宿主没有对应服务的块永远不会启用。 */
-export function registerTuiHost(ctx: any, opts: TuiHostOptions): void {
-  if (!ctx || typeof ctx.inject !== 'function') return
+export function registerTuiHost(ctx: unknown, opts: TuiHostOptions): void {
+  const host = ctx as TuiContext
+  if (!host || typeof host.inject !== 'function') return
   const tag = '@dsh-external/dsh-blender-plugin: tui '
 
   // ① 选中 → chip（toast 可选：有就提示，没有也照常挂 chip）
   //    dsh-TUI 按**当前异步上下文所属的 activation** 认调用方：toast 只能在 tuiToast 自己的 inject 里调，
   //    所以选中桥只把提示排进队列，由这里的小定时器发出去（实测：跨 inject 直接调会被拒）。
   const toastQueue: Array<[string, string]> = []
-  const notify = (text: string, color: string) => {
-    if (wired.toast && toastQueue.length < 5) toastQueue.push([text, color])
+  const notify = (txt: string, color: string) => {
+    if (wired.toast && toastQueue.length < 5) toastQueue.push([txt, color])
   }
-  ctx.inject(['tuiToast'], (c: any) => {
+  host.inject(['tuiToast'], (c) => {
     const svc = c.tuiToast
     if (!svc || typeof svc.show !== 'function') return
     c.effect(() => {
@@ -605,10 +683,10 @@ export function registerTuiHost(ctx: any, opts: TuiHostOptions): void {
         while (toastQueue.length) {
           const item = toastQueue.shift()
           if (!item) break
-          const [text, color] = item
+          const [txt, color] = item
           try {
-            svc.show(text, { color: color })
-          } catch (e) {
+            svc.show(txt, { color: color })
+          } catch {
             /* toast 只是提示 */
           }
         }
@@ -621,10 +699,10 @@ export function registerTuiHost(ctx: any, opts: TuiHostOptions): void {
       }
     }, tag + 'toast')
   })
-  ctx.inject(['tuiContextChips'], (c: any) => {
+  host.inject(['tuiContextChips'], (c) => {
     const chips = c.tuiContextChips
     if (!chips || typeof chips.attachContext !== 'function') return
-    const state = { lastSeq: 0, fails: 0 }
+    const state: SelectionState = { lastSeq: 0, fails: 0 }
     c.effect(() => {
       wired.chips = true
       return () => {
@@ -640,12 +718,12 @@ export function registerTuiHost(ctx: any, opts: TuiHostOptions): void {
   })
 
   // ② 页脚字段（tuiStatus.setField 是 dsh-TUI 较新的接缝：旧版只有 set()，这里不退化成整行状态）
-  ctx.inject(['tuiStatus'], (c: any) => {
+  host.inject(['tuiStatus'], (c) => {
     const status = c.tuiStatus
     if (!status || typeof status.setField !== 'function') return
     wired.status = true
     let last = ''
-    let clear: any
+    let clear: unknown
     let misses = 0
     every(
       c,
@@ -675,7 +753,7 @@ export function registerTuiHost(ctx: any, opts: TuiHostOptions): void {
         wired.status = false
         try {
           if (typeof clear === 'function') clear()
-        } catch (e) {
+        } catch {
           /* 宿主随 activation 清理 */
         }
       },
@@ -684,16 +762,16 @@ export function registerTuiHost(ctx: any, opts: TuiHostOptions): void {
   })
 
   // ③ @ 提及
-  ctx.inject(['tuiMentions'], (c: any) => {
+  host.inject(['tuiMentions'], (c) => {
     const mentions = c.tuiMentions
     if (!mentions || typeof mentions.register !== 'function') return
     c.effect(() => {
-      let dispose: any
+      let dispose: unknown
       const complete = createSceneMentionSource(opts.port)
       // register 对非法 / 重复 / 超额直接抛（与 tuiCommandTrees 同口径）：注册不上就当没有这块
       try {
         dispose = mentions.register({ id: 'blender', title: 'Blender', complete: complete })
-      } catch (e) {
+      } catch {
         dispose = undefined
       }
       wired.mentions = typeof dispose === 'function'
@@ -705,7 +783,7 @@ export function registerTuiHost(ctx: any, opts: TuiHostOptions): void {
   })
 
   // ④ /blender 命令（DSH 核心接缝；Web 也会有）+ dsh-TUI 子命令补全
-  ctx.inject(['commands'], (c: any) => {
+  host.inject(['commands'], (c) => {
     const commands = c.commands
     if (!commands || typeof commands.register !== 'function') return
     c.effect(() => {
@@ -714,7 +792,7 @@ export function registerTuiHost(ctx: any, opts: TuiHostOptions): void {
         name: 'blender',
         description: 'Blender 通道：status / doctor / jobs',
         input: { hint: 'status | doctor | jobs' },
-        handler: (inv: any) => blenderCommand(inv && inv.rawInput, opts, inv && inv.signal),
+        handler: (inv) => blenderCommand(inv.rawInput ?? '', opts, inv.signal),
       })
       return () => {
         wired.commands = false
@@ -722,18 +800,18 @@ export function registerTuiHost(ctx: any, opts: TuiHostOptions): void {
       }
     }, tag + 'command')
   })
-  ctx.inject(['tuiCommandTrees'], (c: any) => {
+  host.inject(['tuiCommandTrees'], (c) => {
     const trees = c.tuiCommandTrees
     if (!trees || typeof trees.register !== 'function') return
     c.effect(() => {
       wired.commandTree = true
-      let dispose: any
+      let dispose: unknown
       try {
         dispose = trees.register({
           root: 'blender',
           children: (path: readonly string[]) => (path.length === 1 ? SUBCOMMANDS : []),
         })
-      } catch (e) {
+      } catch {
         dispose = undefined
       }
       return () => {
