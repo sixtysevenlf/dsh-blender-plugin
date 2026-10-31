@@ -36,6 +36,8 @@ import { createEngine, engineProvenance, PLAN_READ_ONLY_OPS } from './engine.mjs
 import { CFG, describeConfig } from './config.mjs';
 // v2.3（Blender 原生选中 → DSH）：addon 推来的选中事件（纯内存；轮询方零 Blender 往返）
 import { createSelectionStore } from './selectionstore.mjs';
+// issue #51：Windows 上没有 /proc，残留后端/端口占用者的探测走 win_proc（非 Windows 侧零影响）
+import { winSamePortHolders, winKillPids } from './win_proc.mjs';
 
 const argv = process.argv.slice(2);
 const portArg = argv.indexOf('--port');
@@ -889,7 +891,12 @@ function samePortHolders(port) {
         if (isServer && portOk && !isShell) out.push(Number(d));
       } catch (e) { /* 进程刚好退出 */ }
     }
-  } catch (e) { /* 无 /proc（macOS/Windows）→ 不夺，交给看护报错 */ }
+  } catch (e) { /* 无 /proc（macOS/Windows）→ 落到下面的 win32 分支 / 交给看护报错 */ }
+  // issue #51：Windows 没有 /proc，原先这里恒返回 [] —— 即"EADDRINUSE 自愈在 win32 上等于没有"。
+  // 只有 win32 才走这一支（macOS 仍维持"不夺"的既定行为）。
+  if (!out.length && process.platform === 'win32') {
+    try { return winSamePortHolders(port); } catch (e) { /* 探测失败则不夺 */ }
+  }
   return out;
 }
 
@@ -903,8 +910,14 @@ async function holderResponsive(port, ms = 1200) {
 }
 
 function killHolders(port, signal) {
+  const holders = samePortHolders(port);
+  // issue #51：Windows 上 process.kill 只能杀父进程（且没有优雅信号语义），
+  // 残留后端可能还带着 headless 子进程 → 统一走 taskkill /T /F。
+  if (process.platform === 'win32') {
+    try { return winKillPids(holders).map(Number); } catch (e) { return []; }
+  }
   const killed = [];
-  for (const pid of samePortHolders(port)) {
+  for (const pid of holders) {
     try { process.kill(pid, signal); killed.push(pid); } catch (e) { /* 已退出 */ }
   }
   return killed;

@@ -1,5 +1,27 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
+## 未发布 —— issue #51（Windows 子进程与端口清理）
+
+> 只影响 win32 宿主；Linux / macOS 的既有路径一行未改（回归：`npm test` 里的 `tests/win_spawn_selftest.mjs`）。
+
+### 修复：win32 上后端拉不起来时把 dsh-desktop-host 一起打死
+
+- **`src/index.ts` `spawnChild`**：spawn options 显式带 `env: { …process.env, ELECTRON_RUN_AS_NODE: '1' }` 与
+  `windowsHide: true`；并在 `unref()` **之前**挂 `child.on('error')`。
+  现场：宿主跑在 Electron 里时 `process.execPath` 是 GUI 可执行体；spawn 失败（EPERM/EACCES/ENOENT）是异步
+  `'error'` 事件，没有监听会冒成宿主 `uncaughtException` —— 看护每 15 s 重试一次，于是整个 desktop-host 每 15 s 被打死一次，
+  且残留后端继续占着端口。现在失败只降级为「后端不可用」，宿主照常运行。
+- **`runtime/win_proc.mjs`（新增）**：Windows 的「进程 / 端口占用」原语 ——
+  ① 命令行归属（CIM `Win32_Process`：独立 argv 含 `server.mjs` 且 `--port <n>` 精确匹配）；
+  ② `netstat -ano` 的 LISTENING 精确端口；③ `tasklist` 映像名过滤（只认与当前进程同名的可执行体）。
+  全部 `execFileSync + windowsHide`，非 Windows 一律返回空数组。
+- **`src/index.ts` `killBackendByCmd`**：win32 分支改走 ①/②，并用 `taskkill /T /F` 结束进程树。
+  现场：原先只认 `/proc` 与 `ps -ax`，Windows 上两路都失败后静默返回 `[]` —— op=stop / op=restart 之后僵尸后端永远清不掉。
+- **`runtime/server.mjs` `samePortHolders` / `killHolders`**：win32 同样走 win_proc（EADDRINUSE 自愈在 Windows 上原本等于没有）。
+- **`runtime/catalog.mjs` `probeDiskCatalog`**：干净 node 探测的 env 补 `ELECTRON_RUN_AS_NODE=1`（同族，普通 node 是 no-op）。
+- **`tests/win_spawn_selftest.mjs`（新增，进 `npm test` 主链）**：静态钉住上面三处接线 + 顺序（error 监听先于 unref），
+  纯函数覆盖 netstat/tasklist 真实输出样例（无需 Windows）。
+
 ## v2.6.2（2026-10-28）—— 曲面算法（surface_*）+ 文档/计数一致性
 
 > 模型工具仍 **15 个**；plan catalog 扩到 **34 family / 228 op**（+1 family / +11 op）；addon 仍 **v1.10 / protocol 11**。
