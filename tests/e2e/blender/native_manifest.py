@@ -71,6 +71,24 @@ HEADLESS_MODULES = (
         "preloads": ("view", "contract"),
         "timeout": 600,
     },
+    {
+        "id": "audit_file",
+        "path": "tests/e2e/blender/native/audit_file.py",
+        "preloads": ("audit",),
+        "timeout": 600,
+    },
+    {
+        "id": "shapesolve",
+        "path": "tests/e2e/blender/native/shapesolve.py",
+        "preloads": ("shapesolve",),
+        "timeout": 600,
+    },
+    {
+        "id": "surface",
+        "path": "tests/e2e/blender/native/surface.py",
+        "preloads": ("surface", "audit"),
+        "timeout": 600,
+    },
 )
 
 GUI_MODULES = ()
