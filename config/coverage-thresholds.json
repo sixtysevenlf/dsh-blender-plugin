@@ -2,7 +2,7 @@
   "version": 2,
   "baselineCommit": "f001e1d20b86cd84a88424e3bbe426e501e4c49d",
   "baselineDate": "2026-10-31",
-  "policy": "C5 v2 (ADR 0005): baseline measured at f001e1d; JS global floors equal that baseline and must not fall; changed-lines floor is 56.697 against v2.6.2; critical modules >=90/75, Python pure logic >=70/60, E2E 100% are long-term quality floors; +2 ratchet is a manual release-window policy; adjust only with an ADR.",
+  "policy": "C5 v2 (ADR 0005): baseline measured at f001e1d; JS global floors equal that baseline and must not fall; changed-lines floor is 56.697 against v2.6.2; critical contract modules >=90/75; execution-lifecycle modules are tracked at their measured ratchet floors (>=80/55, see executionModules) so the T5b engine tests cannot silently regress; Python pure logic >=70/60; E2E 100%; +2 ratchet is a manual release-window policy; adjust only with an ADR.",
   "javascript": {
     "globalFloor": {
       "lines": 57.68,
@@ -41,6 +41,53 @@
         "module": "src/tools/index.ts",
         "lines": 90,
         "branches": 75
+      }
+    ],
+    "executionModules": [
+      {
+        "module": "runtime/core/plan-dispatch.ts",
+        "lines": 90,
+        "branches": 75
+      },
+      {
+        "module": "runtime/core/plan/render-guard.ts",
+        "lines": 90,
+        "branches": 75
+      },
+      {
+        "module": "runtime/core/plan/shape-search.ts",
+        "lines": 90,
+        "branches": 75
+      },
+      {
+        "module": "runtime/execution/jobs.ts",
+        "lines": 80,
+        "branches": 55
+      },
+      {
+        "module": "runtime/execution/workers.ts",
+        "lines": 85,
+        "branches": 58
+      },
+      {
+        "module": "runtime/execution/headless/index.ts",
+        "lines": 90,
+        "branches": 75
+      },
+      {
+        "module": "runtime/execution/headless/options.ts",
+        "lines": 90,
+        "branches": 75
+      },
+      {
+        "module": "runtime/execution/headless/process.ts",
+        "lines": 85,
+        "branches": 60
+      },
+      {
+        "module": "runtime/execution/headless/result.ts",
+        "lines": 80,
+        "branches": 55
       }
     ]
   },

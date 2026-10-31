@@ -41,6 +41,16 @@ describe('coverage policy', () => {
     expect(baseline.python.coveredBranches).toBeLessThanOrEqual(baseline.python.scopeBranchesTotal)
   })
 
+  it('tracks execution-engine modules with measured ratchet floors', () => {
+    expect(Array.isArray(thresholds.javascript.executionModules)).toBe(true)
+    for (const mod of thresholds.javascript.executionModules) {
+      const measured = baseline.executionModules[mod.module]
+      expect(measured, mod.module).toBeDefined()
+      expect(measured.lines).toBeGreaterThanOrEqual(mod.lines)
+      expect(measured.branches).toBeGreaterThanOrEqual(mod.branches)
+    }
+  })
+
   it('records a 100% E2E baseline and an explicit move manifest', () => {
     const e2e = baseline.e2e
     expect(e2e.planned).toBe(0)

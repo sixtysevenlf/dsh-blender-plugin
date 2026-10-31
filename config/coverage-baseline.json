@@ -51,5 +51,44 @@
     "covered": 344,
     "planned": 0,
     "exempt": 2
-  }
+  },
+  "executionModules": {
+    "runtime/core/plan-dispatch.ts": {
+      "lines": 98.07,
+      "branches": 89.47
+    },
+    "runtime/core/plan/render-guard.ts": {
+      "lines": 100,
+      "branches": 96.29
+    },
+    "runtime/core/plan/shape-search.ts": {
+      "lines": 90.46,
+      "branches": 79.38
+    },
+    "runtime/execution/jobs.ts": {
+      "lines": 82.68,
+      "branches": 58.21
+    },
+    "runtime/execution/workers.ts": {
+      "lines": 88.31,
+      "branches": 60.43
+    },
+    "runtime/execution/headless/index.ts": {
+      "lines": 98.21,
+      "branches": 87.8
+    },
+    "runtime/execution/headless/options.ts": {
+      "lines": 92.3,
+      "branches": 81.94
+    },
+    "runtime/execution/headless/process.ts": {
+      "lines": 89.92,
+      "branches": 63.63
+    },
+    "runtime/execution/headless/result.ts": {
+      "lines": 83.48,
+      "branches": 57.14
+    }
+  },
+  "executionModulesMeasuredAt": "2026-11-01T00:56:00+08:00 (T5b, coverage with --no-file-parallelism)"
 }

@@ -29,6 +29,7 @@ node_modules
 
 # T12: coverage artifacts
 coverage/
+.coverage
 
 # Local-only working notes and evidence: never commit
 /docs/refactor/

@@ -66,6 +66,31 @@ The gate then applies these rules:
 6. A future rebaseline MUST be a new ADR with the same level of detail. A
    silent edit to a floor is a gate failure.
 
+### T5b amendment (2026-11-01)
+
+T5b split the headless orchestrator and plan dispatch, added deterministic
+execution tests, and made the execution lifecycle part of the gate. Those modules
+did not exist in their current shape at `f001e1d`, so they cannot be compared to
+that commit mechanically. They are tracked in `javascript.executionModules` with
+floors measured at T5b and recorded in `config/coverage-baseline.json`:
+
+| Module | Measured lines / branches | Floor |
+|---|---:|---:|
+| runtime/core/plan-dispatch.ts | 98.07 / 89.47 | 90 / 75 |
+| runtime/core/plan/render-guard.ts | 100 / 96.29 | 90 / 75 |
+| runtime/core/plan/shape-search.ts | 90.46 / 79.38 | 90 / 75 |
+| runtime/execution/jobs.ts | 82.68 / 58.21 | 80 / 55 |
+| runtime/execution/workers.ts | 88.31 / 60.43 | 85 / 58 |
+| runtime/execution/headless/index.ts | 95.08 / 81.25 | 90 / 75 |
+| runtime/execution/headless/options.ts | 92.42 / 81.94 | 90 / 75 |
+| runtime/execution/headless/process.ts | 89.92 / 63.63 | 85 / 60 |
+| runtime/execution/headless/result.ts | 82.43 / 59.37 | 80 / 55 |
+
+These are ratchet floors, not a lower bar for contract modules: a change that
+drops one below its recorded floor fails C5, and improving one SHOULD raise its
+floor in the same PR. The global JS floors remain the f001e1d values; adding
+these modules does not lower them.
+
 C5 is an R2 gate: author self-check plus review spot-check. This ADR is the
 decision record; the reproducible logs live in the local evidence workspace
 under `docs/refactor/evidence/C5-20261031-f001e1d/`.

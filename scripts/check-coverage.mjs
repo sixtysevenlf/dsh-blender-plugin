@@ -78,6 +78,17 @@ for (const mod of thresholds.javascript.criticalModules) {
   check('critical ' + mod.module + '.branches', js[key].branches?.pct, mod.branches)
 }
 
+// 3b) Execution-engine lifecycle modules (T5b ratchet floors, see config)
+for (const mod of thresholds.javascript.executionModules || []) {
+  const key = Object.keys(js).find((k) => k !== 'total' && norm(k).endsWith(mod.module))
+  if (!key) {
+    fails.push('execution module missing from coverage: ' + mod.module)
+    continue
+  }
+  check('execution ' + mod.module + '.lines', js[key].lines?.pct, mod.lines)
+  check('execution ' + mod.module + '.branches', js[key].branches?.pct, mod.branches)
+}
+
 // 4) Python pure-logic scope (UI/bpy/registration/network transport omitted, see config)
 const py = readJson('coverage/python-coverage.json')
 let pyLines = 0,
