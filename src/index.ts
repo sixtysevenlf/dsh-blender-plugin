@@ -330,6 +330,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 import { probeHttp, decideStart, waitHttp } from '../runtime/backend_probe.mjs'
 import { detectFileAlias } from '../runtime/file_guard.mjs'
+// issue #51：win32 上没有 /proc 与 ps —— 残留后端的清理原语单独一块（纯解析器可单测）
+import { winSamePortHolders, winKillPids } from '../runtime/win_proc.mjs'
 
 async function probe(port: number, timeoutMs = 1500): Promise<boolean> {
   const ac = new AbortController()
@@ -361,9 +363,31 @@ function childAlive(): boolean {
 }
 
 function spawnChild(port: number): string {
-  child = spawn(process.execPath, [SERVER_PATH, '--port', String(port)], { stdio: 'ignore', detached: true })
-  child.unref()
-  return 'spawned pid=' + String(child.pid)
+  // issue #51（win32 宿主）：三处都必须显式给，不能靠环境继承。
+  //   ① ELECTRON_RUN_AS_NODE：host 跑在 Electron 里时 process.execPath 是 **GUI 可执行体**，
+  //      不带这个变量会另起一个 GUI 实例（或直接被单实例锁吞掉），而不是 node 子进程；
+  //   ② windowsHide：console-subsystem 可执行体在"宿主无控制台"时会新配一个控制台（#38/#43 同族）；
+  //   ③ detached：win32 上等价 DETACHED_PROCESS，宿主退出后后端继续活着（既定语义）。
+  const spawned = spawn(process.execPath, [SERVER_PATH, '--port', String(port)], {
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+    stdio: 'ignore',
+    detached: true,
+    windowsHide: true,
+  })
+  child = spawned
+  // ★ 先挂监听、再 unref：spawn 的失败（EPERM / EACCES / ENOENT）是**异步 'error' 事件**。
+  //   没有监听时它会冒到宿主的 uncaughtException —— 现场（#51）表现为 dsh-desktop-host 每 15 s
+  //   整个被打死一次（看护间隔 ENSURE_INTERVAL_MS 一到就重试），并且残留后端占着端口。
+  //   有监听则只降级为"后端不可用"，宿主照常跑。
+  spawned.on('error', (err: any) => {
+    if (child === spawned) child = null
+    try {
+      console.error('[dsh-blender] 后端子进程启动失败（已降级，宿主不受影响）：' + String((err && err.message) || err))
+    } catch (e) { /* 日志失败不影响主流程 */ }
+  })
+  spawned.on('exit', () => { if (child === spawned) child = null })
+  spawned.unref()
+  return 'spawned pid=' + String(spawned.pid)
 }
 
 /**
@@ -394,6 +418,12 @@ async function startBackend(port: number): Promise<string> {
 function killBackendByCmd(port: number, signal: NodeJS.Signals = 'SIGTERM'): string[] {
   const killed: string[] = []
   const wantPort = String(port)
+  // issue #51（win32）：下面两条候选链（/proc、ps -ax）在 Windows 上都不存在 —— 原先一路
+  // 静默 catch 后返回 []，于是 op=stop / op=restart 之后僵尸后端仍占着端口，永远清不掉。
+  // 改走 win_proc：先按命令行归属（server.mjs + --port 精确匹配），再按"端口监听者 ∩ 同名映像"兜底。
+  if (IS_WIN) {
+    try { return winKillPids(winSamePortHolders(port)) } catch (e) { return [] }
+  }
   // macOS 支持：把「列进程」抽成一条可移植的候选链 —— /proc 只有 Linux 有，
   // macOS 没有；原先只读 /proc，在 mac 上静默返回 []（热重载后残留后端停不掉）。
   const rows: Array<{ pid: number; toks: string[] }> = []

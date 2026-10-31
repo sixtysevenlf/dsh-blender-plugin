@@ -383,7 +383,10 @@ export function probeDiskCatalog(timeoutMs) {
     // ⚠ 故意不给 --input-type/-e 之外的任何"装依赖"动作：只用当前 node，不联网、不装包。
     const out = execFileSync(process.execPath, ['-e', js], {
       encoding: 'utf8', timeout: Math.max(2000, Math.min(30000, Number(timeoutMs) || 8000)),
-      stdio: ['ignore', 'pipe', 'pipe'], env: Object.assign({}, process.env, { DSH_PROVENANCE_PROBE: '1' }),
+      stdio: ['ignore', 'pipe', 'pipe'],
+      // ELECTRON_RUN_AS_NODE：宿主跑在 Electron 里时 process.execPath 是 GUI 可执行体，
+      // 不带这个变量就不是"干净 node 进程"（issue #51 同族；对普通 node 是 no-op）。
+      env: Object.assign({}, process.env, { DSH_PROVENANCE_PROBE: '1', ELECTRON_RUN_AS_NODE: '1' }),
       // windowsHide: node.exe 是 console-subsystem，宿主无控制台时会被新配控制台（issue #43；非 Windows no-op）
       windowsHide: true,
     });
