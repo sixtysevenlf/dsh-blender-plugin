@@ -220,8 +220,10 @@ for (const c of cycles) failures.push('import 环: ' + c.join(' -> '))
 // ---------- ⑤ 生产源码单文件行预算 ----------
 // B9 / ADR 0006：src 与 runtime 的 TypeScript、addon 的 Python 单文件 ≤600 行；
 // 唯一例外是 runtime/catalog.ts（纯数据表，不是逻辑）。runtime/ext 是第三方
-// 生成代码，runtime/py 是 Blender 侧脚本库，均不在本预算范围（见 ADR 0006）。
+// 生成代码，不在本预算范围。B10 / ADR 0007：runtime/py 的 Blender 侧脚本库
+// 使用 1000 行预算（单体函数本身较宽），同样禁止继续膨胀。
 const LINE_BUDGET = 600
+const PY_LINE_BUDGET = 1000
 const BUDGET_EXEMPT = new Set(['runtime/catalog.ts'])
 function walkSource(dir, out, exts) {
   if (!fs.existsSync(dir)) return
@@ -255,6 +257,22 @@ const budgetReport = {
   exempt: [...BUDGET_EXEMPT],
   violations: budgetViolations,
 }
+const pyBudgetFiles = []
+walkSource(path.join(ROOT, 'runtime', 'py'), pyBudgetFiles, ['.py'])
+const pyBudgetViolations = []
+for (const file of pyBudgetFiles) {
+  const key = rel(file)
+  const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/).length
+  if (lines > PY_LINE_BUDGET) {
+    pyBudgetViolations.push({ path: key, lines })
+    failures.push('单文件行预算: ' + key + ' ' + lines + ' > ' + PY_LINE_BUDGET)
+  }
+}
+const pyBudgetReport = {
+  budget: PY_LINE_BUDGET,
+  files: pyBudgetFiles.length,
+  violations: pyBudgetViolations,
+}
 
 const report = {
   ok: failures.length === 0,
@@ -266,6 +284,7 @@ const report = {
   targetFiles: { required: TARGET_FILES.length, missing },
   importGraph: { files: graph.size, edges, cycles },
   lineBudget: budgetReport,
+  pyLineBudget: pyBudgetReport,
   failures,
 }
 const text = JSON.stringify(report, null, 2) + '\n'
@@ -298,6 +317,14 @@ else {
       budgetFiles.length +
       ' 文件 ≤ ' +
       LINE_BUDGET,
+  )
+  console.log(
+    '  py line budget: ' +
+      (pyBudgetFiles.length - pyBudgetViolations.length) +
+      '/' +
+      pyBudgetFiles.length +
+      ' 文件 ≤ ' +
+      PY_LINE_BUDGET,
   )
   for (const f of failures) console.log('  x ' + f)
   if (outPath) console.log('  报告: ' + outPath)

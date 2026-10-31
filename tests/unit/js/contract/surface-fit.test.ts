@@ -3,7 +3,17 @@ import fs from 'node:fs'
 import { catalogPayload } from '../../../../runtime/engine.js'
 import { pkgPath } from '../../../helpers/pkg'
 
-const surfacePy = fs.readFileSync(pkgPath('runtime', 'py', 'geometry', 'surface.py'), 'utf8')
+const surfaceImplDir = pkgPath('runtime', 'py', 'geometry', 'surface_impl')
+const surfacePy = [
+  fs.readFileSync(pkgPath('runtime', 'py', 'geometry', 'surface.py'), 'utf8'),
+  ...fs
+    .readdirSync(surfaceImplDir)
+    .filter((name) => name.endsWith('.py'))
+    .sort()
+    .map((name) =>
+      fs.readFileSync(pkgPath('runtime', 'py', 'geometry', 'surface_impl', name), 'utf8'),
+    ),
+].join('\n')
 const lock = JSON.parse(
   fs.readFileSync(pkgPath('tests', 'fixtures', 'capability.lock.json'), 'utf8'),
 )

@@ -1,6 +1,6 @@
 # 0006. Cap production source files at 600 lines
 
-- **Status**: Accepted
+- **Status**: Accepted; runtime/py scope extended by [0007](0007-runtime-py-line-budget.md)
 - **Date**: 2026-11-01
 - **Deciders**: plugin maintainers
 - **Target**: gate B9 (validated by T5c, enforced by `check:structure`)
@@ -39,11 +39,10 @@ a new ADR.
 non-exempt file exceeds the budget. CI runs the same script, so local and remote
 cannot drift.
 
-`runtime/py/**` is **out of scope** for this budget. It is the Blender-side
-script library (some files are 2k-4k lines) and was not part of the 3.0 runtime
-TypeScript refactor; splitting it is a separate, higher-risk change. It is
-recorded as post-release structural debt rather than silently counted as
-compliant.
+`runtime/py/**` is **out of scope for the 600-line rule**, but no longer
+unbounded: [ADR 0007](0007-runtime-py-line-budget.md) gives the Blender-side
+script library its own 1,000-line budget and loader-visible facade pattern.
+`check:structure` now reports both budgets.
 
 ## Consequences
 
@@ -53,7 +52,7 @@ compliant.
   author either splits it or writes an ADR explaining why this one is different.
 - The budget is intentionally on physical lines, not statements: it is cheap,
   deterministic, and easy for a reviewer to check.
-- `runtime/py` remains a known outlier; the ADR names it instead of hiding it.
+- `runtime/py` is governed separately by [ADR 0007](0007-runtime-py-line-budget.md); this ADR still names it instead of hiding it.
 
 ## Alternatives considered
 
@@ -61,9 +60,10 @@ compliant.
   orchestrator and 898-line dispatch were allowed to grow in the first place.
 - **A 1,000-line budget.** Rejected: it would pass every current file and
   therefore enforce nothing.
-- **Budget every language including `runtime/py`.** Rejected for now: the
-  split is large, risky, and unrelated to the runtime migration; deferring it
-  explicitly is more honest than a rushed mechanical split.
+- **Budget every language including `runtime/py` at 600 lines.** Rejected for
+  this ADR: the Blender-side split was large and higher-risk, and 600 lines
+  would have forced cosmetic splits. It is now handled at 1,000 lines by
+  [ADR 0007](0007-runtime-py-line-budget.md).
 - **Whitelist by path for each large file.** Rejected: it turns the budget into
   a list of exceptions and stops being a ratchet. The catalog is the one
   deliberate exception because it is data-first, not a logic module.
