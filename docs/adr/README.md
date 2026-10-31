@@ -16,6 +16,7 @@ inline below), and no decision lives only in a chat log.
 | [0003](0003-addon-package-release.md) | Ship the addon as a package and a zip, released with 3.0.0 | Accepted | 2026-10-30 |
 | [0004](0004-lib-build-release.md) | Stop committing `lib/`, build it in `prepack`, and verify the tarball | Accepted | 2026-10-30 |
 | [0005](0005-coverage-rebaseline.md) | Rebaseline coverage after the 3.0 refactor and keep fixed quality floors | Accepted | 2026-10-31 |
+| [0006](0006-file-size-budget.md) | Cap production source files at 600 lines and enforce it in check:structure | Accepted | 2026-11-01 |
 
 ## When to write one
 

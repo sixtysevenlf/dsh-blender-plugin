@@ -1,0 +1,11 @@
+export const SELECTION_POLL_MS = 100
+export const STATE_POLL_MS = 3000
+export const TOAST_DRAIN_MS = 250
+export const SELECTION_DRAFT_NAME_LIMIT = 24
+export const SUB_DRAFT_INDEX_LIMIT = 12
+export const CHIP_KEY = 'selection'
+export const FIELD_KEY = 'blender'
+export const MENTION_LIMIT = 50
+export const SCENE_CACHE_MS = 5000
+export const SCENE_CACHE_LIMIT = 1000
+export const NL = String.fromCharCode(10)

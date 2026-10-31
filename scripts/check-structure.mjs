@@ -7,7 +7,8 @@
  *   ② 15 个 tool handler 全部下沉：14 个在 src/tools/*.ts，plan 在 src/plan/tool.ts，
  *      名称集合与 tests/fixtures/capability.lock.json 一致；
  *   ③ 架构文件全部存在；
- *   ④ src 内部相对 import 图无环（.js 说明符映射回 .ts）。
+ *   ④ src 内部相对 import 图无环（.js 说明符映射回 .ts）；
+ *   ⑤ 生产源码单文件 ≤600 行（B9 / ADR 0006，runtime/catalog.ts 白名单）。
  *
  * 用法：
  *   node scripts/check-structure.mjs                 # 人读摘要，失败退出 1
@@ -216,6 +217,45 @@ for (const node of graph.keys()) dfs(node)
 const edges = [...graph].reduce((n, [, set]) => n + set.size, 0)
 for (const c of cycles) failures.push('import 环: ' + c.join(' -> '))
 
+// ---------- ⑤ 生产源码单文件行预算 ----------
+// B9 / ADR 0006：src 与 runtime 的 TypeScript、addon 的 Python 单文件 ≤600 行；
+// 唯一例外是 runtime/catalog.ts（纯数据表，不是逻辑）。runtime/ext 是第三方
+// 生成代码，runtime/py 是 Blender 侧脚本库，均不在本预算范围（见 ADR 0006）。
+const LINE_BUDGET = 600
+const BUDGET_EXEMPT = new Set(['runtime/catalog.ts'])
+function walkSource(dir, out, exts) {
+  if (!fs.existsSync(dir)) return
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, ent.name)
+    if (ent.isDirectory()) {
+      if (ent.name === 'ext' && rel(p) === 'runtime/ext') continue
+      if (ent.name === 'node_modules' || ent.name === '__pycache__') continue
+      walkSource(p, out, exts)
+    } else if (exts.some((ext) => ent.name.endsWith(ext)) && !ent.name.endsWith('.d.ts')) {
+      out.push(p)
+    }
+  }
+}
+const budgetFiles = []
+walkSource(path.join(ROOT, 'src'), budgetFiles, ['.ts'])
+walkSource(path.join(ROOT, 'runtime'), budgetFiles, ['.ts'])
+walkSource(path.join(ROOT, 'addon'), budgetFiles, ['.py'])
+const budgetViolations = []
+for (const file of budgetFiles) {
+  const key = rel(file)
+  const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/).length
+  if (lines > LINE_BUDGET && !BUDGET_EXEMPT.has(key)) {
+    budgetViolations.push({ path: key, lines })
+    failures.push('单文件行预算: ' + key + ' ' + lines + ' > ' + LINE_BUDGET)
+  }
+}
+const budgetReport = {
+  budget: LINE_BUDGET,
+  files: budgetFiles.length,
+  exempt: [...BUDGET_EXEMPT],
+  violations: budgetViolations,
+}
+
 const report = {
   ok: failures.length === 0,
   tool: 'check-structure',
@@ -225,6 +265,7 @@ const report = {
   tools: toolReport,
   targetFiles: { required: TARGET_FILES.length, missing },
   importGraph: { files: graph.size, edges, cycles },
+  lineBudget: budgetReport,
   failures,
 }
 const text = JSON.stringify(report, null, 2) + '\n'
@@ -249,6 +290,14 @@ else {
   )
   console.log(
     '  import graph: ' + graph.size + ' 文件 / ' + edges + ' 边 / ' + cycles.length + ' 环',
+  )
+  console.log(
+    '  line budget: ' +
+      (budgetFiles.length - budgetViolations.length) +
+      '/' +
+      budgetFiles.length +
+      ' 文件 ≤ ' +
+      LINE_BUDGET,
   )
   for (const f of failures) console.log('  x ' + f)
   if (outPath) console.log('  报告: ' + outPath)

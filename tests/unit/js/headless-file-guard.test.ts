@@ -94,6 +94,8 @@ describe('headless file option guard', () => {
 
   it('is wired into both execution paths and the tools', () => {
     const jobs = fs.readFileSync(pkgPath('runtime', 'execution', 'jobs.ts'), 'utf8')
+    const jobScript = fs.readFileSync(pkgPath('runtime', 'execution', 'jobs', 'script.ts'), 'utf8')
+    const jobStart = fs.readFileSync(pkgPath('runtime', 'execution', 'jobs', 'start.ts'), 'utf8')
     const headlessOptions = fs.readFileSync(
       pkgPath('runtime', 'execution', 'headless', 'options.ts'),
       'utf8',
@@ -112,10 +114,11 @@ describe('headless file option guard', () => {
     )
     const headlessTool = fs.readFileSync(pkgPath('src', 'tools', 'headless.ts'), 'utf8')
     const jobTool = fs.readFileSync(pkgPath('src', 'tools', 'job.ts'), 'utf8')
-    expect(jobs).toMatch(/from ['"]\.\.\/file_guard\.js['"]/)
-    expect(jobs).toContain('validateFileOpt(opts.file)')
-    expect(jobs).toContain('describeMissingInput')
-    expect(jobs).toContain('noInputFileWarning')
+    expect(jobScript).toMatch(/from ['"]\.\.\/\.\.\/file_guard\.js['"]/)
+    expect(jobScript).toContain('validateFileOpt(opts.file)')
+    expect(jobScript).toContain('describeMissingInput')
+    expect(jobStart).toMatch(/from ['"]\.\.\/\.\.\/file_guard\.js['"]/)
+    expect(jobStart).toContain('noInputFileWarning')
     expect(headlessOptions).toContain('validateFileOpt(opts.file)')
     expect(headlessOptions).toContain('describeMissingInput')
     expect(headlessIndex).toContain('finishRunWarnings(')

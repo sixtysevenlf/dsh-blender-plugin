@@ -21,11 +21,11 @@ EXPECTED_PACKAGE_FILES = [
     "__init__.py", "config.py", "protocol.py", "server.py", "compat.py",
     "commands/__init__.py", "commands/core.py", "commands/scene.py", "commands/selection.py",
     "commands/activity.py", "commands/material.py", "commands/telemetry.py",
-    "commands/assets_polyhaven.py", "commands/assets_sketchfab.py", "commands/assets_polypizza.py",
+    "commands/assets_polyhaven.py", "commands/polyhaven_import.py", "commands/scene_export.py", "commands/assets_sketchfab.py", "commands/assets_polypizza.py",
     "commands/generate_hyper3d.py", "commands/generate_hunyuan.py",
     "recorders/__init__.py", "recorders/user_edit.py", "recorders/activity.py", "recorders/edit_capture.py",
     "assets/__init__.py", "assets/io.py",
-    "integrations/__init__.py", "integrations/polyhaven_client.py",
+    "integrations/__init__.py", "integrations/polyhaven_client.py", "integrations/polyhaven_spec.py",
     "integrations/sketchfab_client.py", "integrations/polypizza_client.py",
     "integrations/hyper3d_client.py", "integrations/hunyuan_client.py",
     "ui/__init__.py", "ui/preferences.py", "ui/panels.py", "ui/operators.py", "ui/lists.py",
@@ -55,7 +55,7 @@ def test_package_layout_is_exactly_the_two_level_split():
     root = Path(pkg.__file__).resolve().parent
     actual = sorted(path.relative_to(root).as_posix() for path in root.rglob("*.py"))
     assert actual == sorted(EXPECTED_PACKAGE_FILES)
-    assert len(actual) == 34
+    assert len(actual) == 37
     assert not (root.parent / "dsh_blender_bridge.py").exists(), "single-file install entry must be gone"
     assert not (root / "__pycache__").exists() or (root / "__pycache__").is_dir()
 

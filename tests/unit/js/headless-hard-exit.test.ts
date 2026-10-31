@@ -49,18 +49,18 @@ describe('headless hard exit', () => {
   })
 
   it('is wired into both execution paths and the tool schema', () => {
-    const jobs = fs.readFileSync(pkgPath('runtime', 'execution', 'jobs.ts'), 'utf8')
+    const jobScript = fs.readFileSync(pkgPath('runtime', 'execution', 'jobs', 'script.ts'), 'utf8')
     const headless = fs.readFileSync(
       pkgPath('runtime', 'execution', 'headless', 'script.ts'),
       'utf8',
     )
     const tool = fs.readFileSync(pkgPath('src', 'tools', 'headless.ts'), 'utf8')
-    expect(jobs).toMatch(/from ['"]\.\.\/hard_exit\.js['"]/)
-    expect(jobs).toContain('hardExitJobParts(opts)')
+    expect(jobScript).toMatch(/from ['"]\.\.\/\.\.\/hard_exit\.js['"]/)
+    expect(jobScript).toContain('hardExitJobParts(opts)')
     expect(headless).toMatch(/from ['"]\.\.\/\.\.\/hard_exit\.js['"]/)
     expect(headless).toContain('body += hardExitSyncTail(opts, NL)')
-    expect(jobs.indexOf('hardExitJobParts(opts)')).toBeLessThan(
-      jobs.lastIndexOf('writeHeadlessScript'),
+    expect(jobScript.indexOf('hardExitJobParts(opts)')).toBeLessThan(
+      jobScript.lastIndexOf('writeHeadlessScript'),
     )
     expect(tool).toContain('hard_exit: {')
     expect(tool).toContain("type: 'boolean'")

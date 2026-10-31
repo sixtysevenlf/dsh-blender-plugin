@@ -137,6 +137,7 @@ describe('ADR set', () => {
     '0003-addon-package-release.md',
     '0004-lib-build-release.md',
     '0005-coverage-rebaseline.md',
+    '0006-file-size-budget.md',
   ]
 
   it('has the index, the decision set, and no separate template file', () => {

@@ -488,6 +488,95 @@ describe('jobs', () => {
     api.jobKill(snap.id)
   })
 
+  it('resolves status and collect from runs and the disk ledger', () => {
+    const outdir = mkTmp('status-collect')
+    const outLog = path.join(outdir, 'stdout.log')
+    const errLog = path.join(outdir, 'stderr.log')
+    fs.writeFileSync(outLog, 'run output')
+    fs.writeFileSync(errLog, 'run error')
+
+    const first = makeJobs()
+    first.ledger.runs.set('run-live', {
+      id: 'run-live',
+      kind: 'headless',
+      status: 'running',
+      logs: { stdoutWsl: outLog, stderrWsl: errLog },
+    })
+    const runStatus: any = first.api.jobStatus('run-live')
+    expect(runStatus).toMatchObject({ id: 'run-live', status: 'running', stale: false })
+    const runCollect: any = first.api.jobCollect('run-live')
+    expect(runCollect.stdoutTail).toBe('run output')
+    expect(runCollect.stderrTail).toBe('run error')
+    expect(String(runCollect.hint)).toContain('run 与 job')
+
+    h.ledgerRows = [{ id: 'led-done', kind: 'headless', status: 'done' }]
+    expect(first.api.jobStatus('led-done')).toMatchObject({
+      id: 'led-done',
+      status: 'done',
+      fromLedger: true,
+    })
+    expect(first.api.jobStatus('missing')).toMatchObject({ status: 'unknown' })
+    expect(first.api.jobCollect('missing')).toMatchObject({ status: 'unknown' })
+
+    const second = makeJobs()
+    second.ledger.reconcileLedger = (rec: any) => rec
+    h.ledgerRows = [
+      {
+        id: 'led-running',
+        kind: 'headless',
+        status: 'running',
+        stdoutLog: outLog,
+        stderrLog: errLog,
+      },
+    ]
+    const ledCollect: any = second.api.jobCollect('led-running')
+    expect(ledCollect.fromLedger).toBe(true)
+    expect(ledCollect.stdoutTail).toBe('run output')
+    expect(ledCollect.stderrTail).toBe('run error')
+  })
+
+  it('kills job, run and ledger records without throwing on unknown ids', () => {
+    const { api, ledger } = makeJobs()
+    const outdir = mkTmp('kill-paths')
+    const snap: any = api.jobStart({ outdir })
+    const child = lastSpawn()
+    child.kill = vi.fn(() => {
+      throw new Error('already gone')
+    })
+    expect(api.jobKill(snap.id)).toMatchObject({ status: 'killed' })
+    expect(child.kill).toHaveBeenCalled()
+
+    const runChild = {
+      kill: vi.fn(() => {
+        throw new Error('already gone')
+      }),
+    }
+    ledger.runs.set('run-kill', {
+      id: 'run-kill',
+      kind: 'headless',
+      status: 'running',
+      startedAt: Date.now() - 5,
+      child: runChild,
+    })
+    expect(api.jobKill('run-kill')).toMatchObject({ status: 'killed' })
+    expect(runChild.kill).toHaveBeenCalled()
+    expect(ledger.appended.some((row: any) => row.id === 'run-kill')).toBe(true)
+
+    h.ledgerRows = [{ id: 'led-done', kind: 'headless', status: 'done' }]
+    expect(api.jobKill('led-done')).toMatchObject({
+      id: 'led-done',
+      status: 'done',
+      alreadyFinished: true,
+      fromLedger: true,
+    })
+    expect(api.jobKill('nope')).toMatchObject({
+      id: 'nope',
+      status: 'unknown',
+      alreadyFinished: true,
+      fromLedger: false,
+    })
+  })
+
   it('artifacts skip noise, respect the 40 entry cap and sort by mtime', () => {
     const { api } = makeJobs()
     const outdir = mkTmp('artifacts')

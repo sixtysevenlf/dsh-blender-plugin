@@ -21,7 +21,7 @@
   engine 保留 87 个导出、server 保留 29 条路由；新增普通模块最大 457 行（无 >1,000 行模块）。
 - Python runtime 拆为 `runtime/py/{core,geometry,assembly,render,export}` 5 个领域包 + flat re-export shim；
   `offline_bootstrap.py` 改为每模块独立命名空间，修复跨模块同名 helper 覆盖（assembly 的 `_num` 被 mesh_fix 覆盖）。
-- addon 单文件拆为 `addon/dsh_blender_bridge/`（34 个模块，最大 665 行）+ 提交 `addon/dsh_blender_bridge.zip`；launcher 校验包目录/zip、protocol 11、addon version >= 1.10/1.11。
+- addon 单文件拆为 `addon/dsh_blender_bridge/`（37 个模块，最大 558 行）+ 提交 `addon/dsh_blender_bridge.zip`；launcher 校验包目录/zip、protocol 11、addon version >= 1.10/1.11。
 
 ### Phase R：runtime TypeScript
 
