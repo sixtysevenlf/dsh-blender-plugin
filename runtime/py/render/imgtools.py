@@ -36,7 +36,7 @@ def _dsh_root():
 def _dsh_impl():
     root = _dsh_root()
     if root is None:
-        raise RuntimeError("imgtools facade 找不到插件根（runtime\py\render\imgtools_impl\__init__.py）")
+        raise RuntimeError("imgtools facade 找不到插件根（runtime/py/render/imgtools_impl/__init__.py）")
     if root not in sys.path:
         sys.path.insert(0, root)
     import importlib
