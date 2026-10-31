@@ -18,6 +18,9 @@ const baseline = JSON.parse(
 const engineSource = [
   fs.readFileSync(pkgPath('runtime', 'core', 'dispatch.ts'), 'utf8'),
   fs.readFileSync(pkgPath('runtime', 'core', 'plan-dispatch.ts'), 'utf8'),
+  fs.readFileSync(pkgPath('runtime', 'core', 'plan', 'ext-check.ts'), 'utf8'),
+  fs.readFileSync(pkgPath('runtime', 'core', 'plan', 'render-guard.ts'), 'utf8'),
+  fs.readFileSync(pkgPath('runtime', 'core', 'plan', 'shape-search.ts'), 'utf8'),
 ].join('\n')
 
 function opsLine(family: string): string[] {

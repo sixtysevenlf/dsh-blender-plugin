@@ -94,17 +94,33 @@ describe('headless file option guard', () => {
 
   it('is wired into both execution paths and the tools', () => {
     const jobs = fs.readFileSync(pkgPath('runtime', 'execution', 'jobs.ts'), 'utf8')
-    const headless = fs.readFileSync(pkgPath('runtime', 'execution', 'headless.ts'), 'utf8')
+    const headlessOptions = fs.readFileSync(
+      pkgPath('runtime', 'execution', 'headless', 'options.ts'),
+      'utf8',
+    )
+    const headlessIndex = fs.readFileSync(
+      pkgPath('runtime', 'execution', 'headless', 'index.ts'),
+      'utf8',
+    )
+    const headlessLogs = fs.readFileSync(
+      pkgPath('runtime', 'execution', 'headless', 'logs.ts'),
+      'utf8',
+    )
+    const headlessResult = fs.readFileSync(
+      pkgPath('runtime', 'execution', 'headless', 'result.ts'),
+      'utf8',
+    )
     const headlessTool = fs.readFileSync(pkgPath('src', 'tools', 'headless.ts'), 'utf8')
     const jobTool = fs.readFileSync(pkgPath('src', 'tools', 'job.ts'), 'utf8')
     expect(jobs).toMatch(/from ['"]\.\.\/file_guard\.js['"]/)
     expect(jobs).toContain('validateFileOpt(opts.file)')
     expect(jobs).toContain('describeMissingInput')
     expect(jobs).toContain('noInputFileWarning')
-    expect(headless).toContain('validateFileOpt(opts.file)')
-    expect(headless).toContain('describeMissingInput')
-    expect(headless).toContain('noInputFileWarning')
-    expect(headless).toContain('headlessLogNames(stamp, runId)')
+    expect(headlessOptions).toContain('validateFileOpt(opts.file)')
+    expect(headlessOptions).toContain('describeMissingInput')
+    expect(headlessIndex).toContain('finishRunWarnings(')
+    expect(headlessResult).toContain('noInputFileWarning')
+    expect(headlessLogs).toContain('headlessLogNames(stamp, runId)')
     expect(jobs).not.toContain('headlessLogNames(')
     expect(headlessTool).toContain('detectFileAlias(args)')
     expect(headlessTool).toContain('file= 传了空字符串')
