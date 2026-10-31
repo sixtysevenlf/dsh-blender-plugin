@@ -2,19 +2,31 @@ import { createHash } from 'node:crypto'
 import { ABORT_HINT, HOLDER } from '../constants.js'
 import { execSignal } from './exec-context.js'
 import { base, withTimeout } from './backend.js'
+import { asRecord, isRecord, text } from '../contracts/dynamic.js'
+
+export interface FrameResult {
+  png: Uint8Array
+  ms: number
+  hash: string
+}
+
+export interface ViewResult extends FrameResult {
+  meta: Record<string, unknown> | null
+}
 
 export async function backendJson(
   port: number,
   path: string,
   timeoutMs = 20000,
-  init?: any,
-): Promise<any> {
+  init?: RequestInit,
+): Promise<Record<string, unknown>> {
   const r = await withTimeout(base(port) + path, init, timeoutMs)
-  const text = await r.text()
+  const body = await r.text()
   try {
-    return JSON.parse(text)
-  } catch (e: any) {
-    return { ok: false, raw: text.slice(0, 500) }
+    const parsed: unknown = JSON.parse(body)
+    return isRecord(parsed) ? parsed : { value: parsed }
+  } catch {
+    return { ok: false, raw: body.slice(0, 500) }
   }
 }
 
@@ -25,37 +37,37 @@ export async function backendJson(
  * 旧实现整段 JSON.parse，于是任何 **超过 15 s** 的调用都会抛 Extra data → 调用方只看到 exit=undefined（子进程其实跑完了）。
  * 现在：解析失败就按行往前找最后一条非心跳 JSON；同时把心跳条数记进 __heartbeats 供工具层提示。
  */
-export function parseBackendBody(text: string): any {
-  const t = String(text == null ? '' : text)
+export function parseBackendBody(body: unknown): Record<string, unknown> {
+  const t = String(body == null ? '' : body)
   try {
-    const o = JSON.parse(t)
-    if (o && typeof o === 'object') return o
-  } catch (e: any) {
+    const parsed: unknown = JSON.parse(t)
+    if (isRecord(parsed)) return parsed
+  } catch {
     /* 流式响应，往下走 */
   }
   const lines = t
     .split('\n')
     .map((s) => s.trim())
     .filter(Boolean)
-  let last: any = null
+  let last: Record<string, unknown> | null = null
   let beats = 0
   for (let i = lines.length - 1; i >= 0; i--) {
-    let o: any = null
+    let parsed: unknown = null
     try {
-      o = JSON.parse(lines[i])
-    } catch (e: any) {
+      parsed = JSON.parse(lines[i]) as unknown
+    } catch {
       continue
     }
-    if (!o || typeof o !== 'object') continue
-    if (o.heartbeat === true) continue
-    last = o
+    if (!isRecord(parsed)) continue
+    if (parsed.heartbeat === true) continue
+    last = parsed
     break
   }
   for (let i = 0; i < lines.length; i++) {
     try {
-      const o = JSON.parse(lines[i])
-      if (o && o.heartbeat === true) beats++
-    } catch (e: any) {
+      const parsed: unknown = JSON.parse(lines[i]) as unknown
+      if (isRecord(parsed) && parsed.heartbeat === true) beats++
+    } catch {
       /* 非 JSON 行 */
     }
   }
@@ -84,9 +96,9 @@ export function parseBackendBody(text: string): any {
 export async function backendPost(
   port: number,
   path: string,
-  body: any,
+  body: unknown,
   timeoutMs = 60000,
-): Promise<any> {
+): Promise<Record<string, unknown>> {
   const ac = new AbortController()
   const ext = execSignal()
   let fired = false
@@ -99,14 +111,14 @@ export async function backendPost(
     const r = await fetch(base(port) + path, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ...(body || {}), holder: HOLDER }),
+      body: JSON.stringify({ ...asRecord(body), holder: HOLDER }),
       signal,
     })
-    const text = await r.text()
-    const j: any = parseBackendBody(text)
-    j.__status = r.status
-    return j
-  } catch (e: any) {
+    const bodyText = await r.text()
+    const parsed = parseBackendBody(bodyText)
+    parsed.__status = r.status
+    return parsed
+  } catch (e) {
     if (!fired && ext && ext.aborted) throw new Error(ABORT_HINT)
     throw e
   } finally {
@@ -114,25 +126,25 @@ export async function backendPost(
   }
 }
 
-/** v0.9.1：工具入参容错 —— harness 的 `type:"json"` 有时把对象给成**字符串**（实测同一会话里两种形态都出现过），
- *  旧写法 `typeof x === 'object'` 会静默丢参（表现为"参数没生效却 ok:true"，非常难查）。 */
-export function jsonPayload(v: any): any {
+/** v0.9.1：工具入参容错 —— harness 的 type:"json" 有时把对象给成**字符串**（实测同一会话里两种形态都出现过），
+ *  旧写法 typeof x === 'object' 会静默丢参（表现为"参数没生效却 ok:true"，非常难查）。 */
+export function jsonPayload(v: unknown): Record<string, unknown> {
   if (v === undefined || v === null || v === '') return {}
   if (typeof v === 'string') {
     try {
-      const p = JSON.parse(v)
-      return p && typeof p === 'object' && !Array.isArray(p) ? p : {}
-    } catch (e: any) {
+      const parsed: unknown = JSON.parse(v)
+      return isRecord(parsed) ? parsed : {}
+    } catch {
       return {}
     }
   }
-  if (typeof v === 'object' && !Array.isArray(v)) return { ...v }
+  if (typeof v === 'object' && !Array.isArray(v)) return { ...asRecord(v) }
   return {}
 }
 
 /** 把 "‑‑flag \"a b\" c" 这样的字符串切成 argv（引号成对时不当分隔符；v0.8.9 修 headless 的 args 引号问题）
- *  v0.9.1：数组直接透传（旧版 `String([...])` 会变成 "[delta]" 这种带方括号的单个 token） */
-export function splitArgs(s: any): string[] {
+ *  v0.9.1：数组直接透传（旧版 String([...]) 会变成 "[delta]" 这种带方括号的单个 token） */
+export function splitArgs(s: unknown): string[] {
   if (Array.isArray(s)) return s.map((x) => String(x))
   const str = String(s == null ? '' : s)
   const out: string[] = []
@@ -163,15 +175,16 @@ export function splitArgs(s: any): string[] {
 }
 
 /** 409 leased → 给模型一句能照着做的话（而不是丢一段 JSON） */
-export function leasedText(r: any): string | undefined {
-  if (!r || r.error !== 'leased') return undefined
+export function leasedText(r: unknown): string | undefined {
+  const body = asRecord(r)
+  if (body.error !== 'leased') return undefined
   return (
     '写通道被别的会话占用（holder=' +
-    String(r.holder) +
+    text(body.holder) +
     '，剩余 ' +
-    String(Math.round(Number(r.expiresInMs || 0) / 1000)) +
+    String(Math.round(Number(body.expiresInMs || 0) / 1000)) +
     's）。' +
-    String(r.hint || '') +
+    text(body.hint) +
     '；要强抢：blender_viewport op=lease force=true' +
     '\ncode: lease_conflict' +
     '\nnext_action: 等租约释放后重试，或 blender_viewport op=lease force=true 强抢'
@@ -179,7 +192,12 @@ export function leasedText(r: any): string | undefined {
 }
 
 /** 拉一帧 PNG 字节（含耗时）；full=true 走 screenshot_area（整窗口/区域） */
-export async function fetchFrame(port: number, size: number, full = false, area = 0): Promise<any> {
+export async function fetchFrame(
+  port: number,
+  size: number,
+  full = false,
+  area = 0,
+): Promise<FrameResult> {
   const t0 = Date.now()
   const url =
     base(port) + '/frame.png?' + (full ? 'full=1&area=' + String(area) : 'size=' + String(size))
@@ -194,36 +212,45 @@ export async function fetchFrame(port: number, size: number, full = false, area 
 }
 
 /** 自定义视角出图：POST /view（view.py）——不动物体、不动用户视口 */
-export async function fetchView(port: number, spec: any, timeoutMs = 180000): Promise<any> {
+export async function fetchView(
+  port: number,
+  spec: unknown,
+  timeoutMs = 180000,
+): Promise<ViewResult> {
   const t0 = Date.now()
   const r = await withTimeout(
     base(port) + '/view',
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(spec || {}),
+      body: JSON.stringify(asRecord(spec)),
     },
     timeoutMs,
   )
   if (!r.ok) {
-    const text = await r.text()
-    let j: any = null
+    const bodyText = await r.text()
+    let parsed: Record<string, unknown> | null = null
     try {
-      j = JSON.parse(text)
-    } catch (e: any) {
-      j = null
+      const candidate: unknown = JSON.parse(bodyText)
+      parsed = isRecord(candidate) ? candidate : null
+    } catch {
+      parsed = null
     }
     throw new Error(
-      'view http ' + String(r.status) + ' · ' + String((j && j.error) || text.slice(0, 300)),
+      'view http ' +
+        String(r.status) +
+        ' · ' +
+        String(parsed ? parsed.error : bodyText.slice(0, 300)),
     )
   }
-  let meta: any = null
+  let meta: Record<string, unknown> | null = null
   try {
     const rawHdr = String(r.headers.get('x-dsh-view') || 'null')
     // v0.9.1：头值 URL 编码（非 ASCII 不能进头）—— 老后端是裸 JSON，两种都兼容
     const txt = rawHdr.indexOf('%7B') === 0 ? decodeURIComponent(rawHdr) : rawHdr
-    meta = JSON.parse(txt)
-  } catch (e: any) {
+    const candidate: unknown = JSON.parse(txt)
+    meta = isRecord(candidate) ? candidate : null
+  } catch {
     meta = null
   }
   const buf = new Uint8Array(await r.arrayBuffer())
@@ -235,7 +262,7 @@ export async function fetchView(port: number, spec: any, timeoutMs = 180000): Pr
   }
 }
 
-export function numTriple(v: any): number[] | undefined {
+export function numTriple(v: unknown): number[] | undefined {
   if (v === undefined || v === null || v === '') return undefined
   if (Array.isArray(v)) return v.map((x) => Number(x))
   return String(v)

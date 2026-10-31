@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { asRecord, errorMessage } from './contracts/dynamic.js'
 
 export const IS_WIN = process.platform === 'win32'
 
@@ -82,7 +83,8 @@ export const T = {
  */
 function hostApiInfo(): string {
   try {
-    const resolveFn = (import.meta as any).resolve
+    const meta = import.meta as ImportMeta & { resolve?: (specifier: string) => string }
+    const resolveFn = meta.resolve
     if (typeof resolveFn !== 'function')
       return 'dsh-tools: import.meta.resolve 不可用（node < 20.6?）'
     const url = String(resolveFn.call(import.meta, '@deepseek-ai/dsh-tools') || '')
@@ -90,17 +92,18 @@ function hostApiInfo(): string {
     if (p.startsWith('file://')) p = fileURLToPath(p)
     let ver = '?'
     try {
-      ver = JSON.parse(
+      const parsed: unknown = JSON.parse(
         readFileSync(path.join(path.dirname(path.dirname(p)), 'package.json'), 'utf8'),
-      ).version
-    } catch (e: any) {
+      )
+      ver = String(asRecord(parsed).version || '?')
+    } catch {
       /* 版本读不到不算错 */
     }
     return 'dsh-tools@' + String(ver) + ' @ ' + p
-  } catch (e: any) {
+  } catch (e: unknown) {
     return (
       'dsh-tools 解析失败：' +
-      String((e && e.message) || e) +
+      errorMessage(e) +
       '（插件会在载入期就失败：检查全局安装位置是否变了）'
     )
   }

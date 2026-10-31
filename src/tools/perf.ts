@@ -5,8 +5,10 @@ import { ensureBackend } from '../host/backend.js'
 import { backendPost, jsonPayload, leasedText } from '../host/http.js'
 import { renderOne } from '../ui/cards.js'
 import { toolError } from './errors.js'
+import { text } from '../contracts/dynamic.js'
+import type { HostContext } from '../host/context.js'
 
-export function registerPerf(ctx: any, port: number): void {
+export function registerPerf(ctx: HostContext, port: number): void {
   ctx.effect(
     () =>
       ctx.tools.register(
@@ -29,16 +31,16 @@ export function registerPerf(ctx: any, port: number): void {
           output: { schema: ANY_SCHEMA, render: renderOne },
           isConcurrencySafe: () => false,
           timeoutMs: T.perf,
-          async execute(args: any) {
+          async execute(args: Record<string, unknown>) {
             if (!(await ensureBackend(port)))
               return toolError(
                 'backend_unreachable',
                 '后端不可用（127.0.0.1:' + String(port) + '）',
                 BACKEND_HINT,
               )
-            const op = String((args && args.op) || 'status')
+            const op = text(args.op) || 'status'
             // ⚠ 无参时必须给 undefined（给 {} 会让 python 侧多收一个位置参数：实测 "_dsh_perf_status_cycles() takes 0 positional arguments"）
-            const pargs = jsonPayload(args && args.args)
+            const pargs = jsonPayload(args.args)
             const r = await backendPost(
               port,
               '/perf',
@@ -50,7 +52,7 @@ export function registerPerf(ctx: any, port: number): void {
             if (!r || r.ok !== true)
               return toolError(
                 'backend_error',
-                'PERF ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
+                'PERF ' + op + ' 失败 · ' + text(r.error || r.raw || 'unknown'),
                 '核对 op 名称；blender_rt_perf op=status',
               )
             return { text: 'PERF ' + op + ' ' + JSON.stringify(r.result) }

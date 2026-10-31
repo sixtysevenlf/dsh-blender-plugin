@@ -1,13 +1,25 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { errorMessage } from '../contracts/dynamic.js'
+import type { HostContext } from './context.js'
 
 export const BUNDLED_SKILL_PROVIDER = 'dsh-blender-plugin'
 export const BUNDLED_SKILL_RANK = 600
 export const BUNDLED_SKILL_DIR = fileURLToPath(
   new URL('../../skills/blender-modeling/', import.meta.url),
 )
-let bundledSkillCache: { name: string; description: string; content: string } | null | undefined
+export interface BundledSkill {
+  name: string
+  description: string
+  content: string
+}
+export interface BundledSkillProvider {
+  name: string
+  list: () => Promise<unknown[]>
+  get: () => Promise<unknown>
+}
+let bundledSkillCache: BundledSkill | null | undefined
 let bundledSkillWarned = false
 
 /** 解析 SKILL.md 的 YAML frontmatter（只取本插件需要的 name/description；不引 yaml 依赖）。 */
@@ -32,7 +44,7 @@ export function parseSkillFrontmatter(raw: string): { meta: Record<string, strin
   return { meta, body: raw.slice(m[0].length) }
 }
 
-export function readBundledSkill(): { name: string; description: string; content: string } | null {
+export function readBundledSkill(): BundledSkill | null {
   if (bundledSkillCache !== undefined) return bundledSkillCache
   try {
     const raw = readFileSync(path.join(BUNDLED_SKILL_DIR, 'SKILL.md'), 'utf8')
@@ -45,13 +57,13 @@ export function readBundledSkill(): { name: string; description: string; content
     }
     bundledSkillCache = { name, description, content: body }
     return bundledSkillCache
-  } catch (e: any) {
+  } catch {
     bundledSkillCache = null
     return null
   }
 }
 
-export function createBundledSkillProvider(): any | null {
+export function createBundledSkillProvider(): BundledSkillProvider | null {
   const skill = readBundledSkill()
   if (!skill) return null
   const skillFile = path.join(BUNDLED_SKILL_DIR, 'SKILL.md')
@@ -86,43 +98,42 @@ export function createBundledSkillProvider(): any | null {
   }
 }
 
+function warn(ctx: HostContext, message: string): void {
+  try {
+    ctx.logger?.warn?.(message)
+  } catch {
+    /* 日志失败不影响工具面 */
+  }
+}
+
 /**
  * 把随包 skill 注册进宿主的 skills 注册表（可选能力，失败只告警）。
  * 用 ctx.inject(['skills'], cb) 延迟到服务可用时再注册：宿主若没有 skill 服务，
  * 这个子 fiber 一直待命即可，**不会**让插件本身起不来。
  */
-export function registerBundledSkill(ctx: any): void {
+export function registerBundledSkill(ctx: HostContext): void {
   const provider = createBundledSkillProvider()
   if (provider === null) {
     if (!bundledSkillWarned) {
       bundledSkillWarned = true
-      try {
-        ctx?.logger?.warn?.(
-          'bundled skill 未注册：skills/blender-modeling/SKILL.md 缺失或 frontmatter 不合法（不影响工具面）',
-        )
-      } catch (e: any) {}
+      warn(
+        ctx,
+        'bundled skill 未注册：skills/blender-modeling/SKILL.md 缺失或 frontmatter 不合法（不影响工具面）',
+      )
     }
     return
   }
-  const mount = (c: any) => {
+  const mount = (c: HostContext) => {
     try {
-      c.skills.registerProvider(() => provider)
-    } catch (e: any) {
-      try {
-        ctx?.logger?.warn?.(
-          'bundled skill 注册失败：' + String((e && e.message) || e) + '（不影响工具面）',
-        )
-      } catch (e2: any) {}
+      c.skills?.registerProvider(() => provider)
+    } catch (e: unknown) {
+      warn(ctx, 'bundled skill 注册失败：' + errorMessage(e) + '（不影响工具面）')
     }
   }
   try {
-    if (typeof ctx?.inject === 'function') ctx.inject(['skills'], (c: any) => mount(c))
-    else if (ctx?.skills && typeof ctx.skills.registerProvider === 'function') mount(ctx)
-  } catch (e: any) {
-    try {
-      ctx?.logger?.warn?.(
-        'bundled skill 挂载失败：' + String((e && e.message) || e) + '（不影响工具面）',
-      )
-    } catch (e2: any) {}
+    if (typeof ctx.inject === 'function') ctx.inject(['skills'], (c: HostContext) => mount(c))
+    else if (ctx.skills && typeof ctx.skills.registerProvider === 'function') mount(ctx)
+  } catch (e: unknown) {
+    warn(ctx, 'bundled skill 挂载失败：' + errorMessage(e) + '（不影响工具面）')
   }
 }

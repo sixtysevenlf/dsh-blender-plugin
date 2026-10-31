@@ -1,4 +1,5 @@
 import { vTool } from '../contracts/tool.js'
+import type { HostContext } from '../host/context.js'
 import { ANY_SCHEMA, HINT_KERNEL } from './schema-diagnostic.js'
 import { T, BACKEND_HINT } from '../constants.js'
 import { ensureBackend } from '../host/backend.js'
@@ -6,15 +7,20 @@ import { backendPost, fetchFrame, leasedText, numTriple } from '../host/http.js'
 import { frameDedupe, dedupeNote } from '../utils/frame-cache.js'
 import { toAttachment, readLocalPng } from '../utils/image.js'
 import { renderOne } from '../ui/cards.js'
+import { asRecord, text } from '../contracts/dynamic.js'
 import { isHostAbort, redactSecrets, toolError } from './errors.js'
 
 /** 交互式无头一步：exec 代码 + 可选 see（持久 worker；不是 job / 不是异步回合）。 */
-async function doViaSession(ctx: any, port: number, opts: any): Promise<any | null> {
+async function doViaSession(
+  ctx: HostContext,
+  port: number,
+  opts: Record<string, unknown>,
+): Promise<unknown> {
   try {
     const nm = String(opts.session || 'interactive')
     const preload = opts.preload ? String(opts.preload) : ''
     if (preload) {
-      const st: any = await backendPost(
+      const st = await backendPost(
         port,
         '/worker',
         {
@@ -27,10 +33,10 @@ async function doViaSession(ctx: any, port: number, opts: any): Promise<any | nu
         },
         120000,
       )
-      if (!st || st.ok !== true)
+      if (st.ok !== true)
         return toolError(
           'backend_error',
-          '无头会话启动失败 · ' + String((st && (st.error || st.raw)) || 'unknown'),
+          '无头会话启动失败 · ' + text(st.error || st.raw || 'unknown'),
           '先 blender_rt_worker op=start 启动持久 worker，或检查后端 /worker 路由',
         )
     }
@@ -41,30 +47,30 @@ async function doViaSession(ctx: any, port: number, opts: any): Promise<any | nu
       code = Buffer.from(data).toString('utf8')
     }
     if (!code) return null
-    const r: any = await backendPost(
+    const r = await backendPost(
       port,
       '/worker',
       { op: 'exec', name: nm, code: code, isolated: true },
       180000,
     )
-    const rr = (r && r.result) || {}
-    if (!r || r.ok !== true) {
+    const rr = asRecord(r.result)
+    if (r.ok !== true) {
       return toolError(
         'backend_error',
-        'ACT(session) 失败 · ' + String((r && (r.error || rr.error)) || 'unknown'),
+        'ACT(session) 失败 · ' + text(r.error || rr.error || 'unknown'),
         '先 blender_rt_worker op=start name=' + nm + '，或检查后端 /worker 路由',
       )
     }
-    const parts: string[] = ['ACT(session=' + nm + ') ok · ' + String(rr.ms) + 'ms']
+    const parts: string[] = ['ACT(session=' + nm + ') ok · ' + text(rr.ms) + 'ms']
     if (rr.stdout && String(rr.stdout).trim())
       parts.push('stdout: ' + redactSecrets(rr.stdout).slice(0, 3000))
     if (rr.stderr && String(rr.stderr).trim())
       parts.push('stderr: ' + redactSecrets(rr.stderr).slice(0, 1200))
-    let image: any = undefined
+    let image: unknown = undefined
     const see = opts.see !== false
     if (see) {
       const size = Math.max(120, Math.min(1600, Number(opts.max_size || 560)))
-      const spec: any = {
+      const spec: Record<string, unknown> = {
         from: numTriple(opts.from) || [7, -7, 5],
         look_at: numTriple(opts.look_at) || [0, 0, 1],
         lens: opts.lens === undefined ? undefined : Number(opts.lens),
@@ -79,19 +85,19 @@ async function doViaSession(ctx: any, port: number, opts: any): Promise<any | nu
         spec.width = Number(mm[1])
         spec.height = Number(mm[2])
       }
-      const sr: any = await backendPost(
+      const sr = await backendPost(
         port,
         '/worker',
         { op: 'see', name: nm, spec: spec, isolated: true },
         90000,
       )
-      const sres = (sr && sr.result) || {}
+      const sres = asRecord(sr.result)
       if (sres.ok !== false) {
         let data: Uint8Array | null = null
         if (sres.png_b64) {
           try {
             data = Buffer.from(String(sres.png_b64), 'base64')
-          } catch (e: any) {
+          } catch {
             data = null
           }
         }
@@ -102,30 +108,30 @@ async function doViaSession(ctx: any, port: number, opts: any): Promise<any | nu
         if (att.ref) image = att.ref
         parts.push(
           'SEE(session) ' +
-            String(spec.width) +
+            text(spec.width) +
             'x' +
-            String(spec.height) +
+            text(spec.height) +
             ' · ' +
-            String(sres.ms) +
+            text(sres.ms) +
             'ms' +
             (sres.coverage_estimate === null || sres.coverage_estimate === undefined
               ? ''
               : ' · 覆盖 ' + (Number(sres.coverage_estimate) * 100).toFixed(2) + '%'),
         )
-        if (!image) parts.push('⚠ 图片未回传：' + String(att.why || '未知原因'))
+        if (!image) parts.push('⚠ 图片未回传：' + text(att.why || '未知原因'))
       } else {
-        parts.push('SEE(session) 失败: ' + String(sres.error || 'unknown'))
+        parts.push('SEE(session) 失败: ' + text(sres.error || 'unknown'))
       }
     }
-    const out: any = { text: parts.join(String.fromCharCode(10)) }
+    const out: Record<string, unknown> = { text: parts.join(String.fromCharCode(10)) }
     if (image) out.image = image
     return out
-  } catch (e: any) {
+  } catch {
     return null
   }
 }
 
-export function registerDo(ctx: any, port: number): void {
+export function registerDo(ctx: HostContext, port: number): void {
   ctx.effect(
     () =>
       ctx.tools.register(
@@ -167,37 +173,37 @@ export function registerDo(ctx: any, port: number): void {
           output: { schema: ANY_SCHEMA, render: renderOne },
           isConcurrencySafe: () => false,
           timeoutMs: T.act,
-          async execute(args: any) {
+          async execute(args: Record<string, unknown>) {
             if (!(await ensureBackend(port)))
               return toolError(
                 'backend_unreachable',
                 '后端不可用（127.0.0.1:' + String(port) + '）',
                 BACKEND_HINT,
               )
-            const code = String((args && args.code) || '')
-            const file = args && args.file ? String(args.file) : null
+            const code = String(args.code || '')
+            const file = args.file ? String(args.file) : null
             if (!code && !file)
               return toolError(
                 'invalid_params',
                 '需要 code 或 file 之一',
                 '传 code=<python> 或 file=<脚本路径>',
               )
-            const sessOpts = {
+            const sessOpts: Record<string, unknown> = {
               code: code,
               file: file,
-              session: args && args.session,
-              preload: args && args.preload,
-              see: !(args && args.see === false),
-              max_size: args && args.max_size,
-              from: args && args.from,
-              look_at: args && args.look_at,
-              lens: args && args.lens,
-              ortho: args && args.ortho,
-              ortho_scale: args && args.ortho_scale,
-              view_size: args && args.view_size,
+              session: args.session,
+              preload: args.preload,
+              see: !(args.see === false),
+              max_size: args.max_size,
+              from: args.from,
+              look_at: args.look_at,
+              lens: args.lens,
+              ortho: args.ortho,
+              ortho_scale: args.ortho_scale,
+              view_size: args.view_size,
             }
             // P0：显式 session → 不探 GUI，直接持久无头会话（exec + see，同一 turn 内可连续调用）
-            if (args && args.session) {
+            if (args.session) {
               const s = await doViaSession(ctx, port, sessOpts)
               return (
                 s ||
@@ -208,64 +214,61 @@ export function registerDo(ctx: any, port: number): void {
                 )
               )
             }
-            const body: any = { code: code }
+            const body: Record<string, unknown> = { code: code }
             if (file) body.file = file
-            let r: any = null
+            let r: Record<string, unknown> | null = null
             try {
               r = await backendPost(port, '/act', body, 180000)
-            } catch (e: any) {
+            } catch (e) {
               if (isHostAbort(e)) throw e
-              if (!(args && args.auto === false)) {
+              if (args.auto !== false) {
                 const s = await doViaSession(ctx, port, sessOpts)
                 if (s) return s
               }
               return toolError(
                 'backend_unreachable',
-                'ACT 失败 · 127.0.0.1:' +
-                  String(port) +
-                  ' · ' +
-                  String((e && (e as Error).message) || e),
+                'ACT 失败 · 127.0.0.1:' + String(port) + ' · ' + text(e),
                 BACKEND_HINT,
               )
             }
             const lt = leasedText(r)
             if (lt) return { text: lt }
             // GUI 不在线时 /act 会回 ok:false + connect timeout —— 自动降级到持久无头会话
-            if (r && r.ok === false && !(args && args.auto === false)) {
+            if (r.ok === false && args.auto !== false) {
               const s = await doViaSession(ctx, port, sessOpts)
               if (s) return s
             }
             const parts: string[] = []
-            if (!r || r.ok !== true)
+            if (r.ok !== true)
               return toolError(
                 'backend_error',
-                'ACT 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
+                'ACT 失败 · ' + text(r.error || r.raw || 'unknown'),
                 '用 blender_viewport op=status 确认后端与 addon；需要降级时保留 auto=true',
               )
-            parts.push('ACT ok · ' + String(r.ms) + 'ms')
-            if (r && Number(r.mainThreadMs) > 1000)
+            parts.push('ACT ok · ' + text(r.ms) + 'ms')
+            if (Number(r.mainThreadMs) > 1000)
               parts.push(
                 '⚠️ 本次占用 Blender 主线程约 ' +
-                  String(r.mainThreadMs) +
+                  text(r.mainThreadMs) +
                   'ms —— 超过 ~1s 的重活建议改走 blender_rt_headless / blender_rt_worker（不卡 GUI）',
               )
-            if (r && r.stderr && String(r.stderr).trim())
+            if (r.stderr && String(r.stderr).trim())
               parts.push('stderr: ' + redactSecrets(r.stderr).slice(0, 1200))
-            if (r && r.traceback)
+            if (r.traceback)
               parts.push(
                 '--- traceback ---' +
                   String.fromCharCode(10) +
                   redactSecrets(r.traceback).slice(0, 2000),
               )
-            if (r && r.stdout) parts.push('stdout: ' + redactSecrets(r.stdout).slice(0, 3000))
-            let image: any = undefined
-            const see = !(args && args.see === false)
+            if (r.stdout) parts.push('stdout: ' + redactSecrets(r.stdout).slice(0, 3000))
+            let image: unknown = undefined
+            const see = args.see !== false
             if (see) {
               try {
-                const size = Math.max(120, Math.min(1600, Number((args && args.max_size) || 560)))
+                const size = Math.max(120, Math.min(1600, Number(args.max_size || 560)))
                 const f = await fetchFrame(port, size)
                 // v0.9.4（P0-2）：连续 rt_do 里画面没变就不重复附图（迭代回路最常见的浪费）
-                const dd3 = frameDedupe('do-see:' + String(size), f.hash, !!(args && args.force))
+                const dd3 = frameDedupe('do-see:' + String(size), f.hash, !!args.force)
                 if (dd3.dup) {
                   parts.push(
                     'SEE ' +
@@ -283,14 +286,14 @@ export function registerDo(ctx: any, port: number): void {
                     'viewport-' + String(Date.now()) + '.png',
                   )
                   image = att2.ref
-                  if (!image) parts.push('⚠ 图片未回传：' + String(att2.why || '未知原因'))
+                  if (!image) parts.push('⚠ 图片未回传：' + text(att2.why || '未知原因'))
                   parts.push('SEE ' + String(size) + 'px · ' + String(f.ms) + 'ms · hash ' + f.hash)
                 }
-              } catch (e: any) {
-                parts.push('SEE 失败: ' + String((e && e.message) || e))
+              } catch (e) {
+                parts.push('SEE 失败: ' + text(e))
               }
             }
-            const out: any = { text: parts.join('\n') }
+            const out: Record<string, unknown> = { text: parts.join('\n') }
             if (image) out.image = image
             return out
           },

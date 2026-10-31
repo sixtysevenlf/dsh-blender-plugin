@@ -5,8 +5,10 @@ import { ensureBackend } from '../host/backend.js'
 import { backendPost, leasedText } from '../host/http.js'
 import { renderOne } from '../ui/cards.js'
 import { toolError } from './errors.js'
+import { asArray, asRecord, text } from '../contracts/dynamic.js'
+import type { HostContext } from '../host/context.js'
 
-export function registerTxn(ctx: any, port: number): void {
+export function registerTxn(ctx: HostContext, port: number): void {
   ctx.effect(
     () =>
       ctx.tools.register(
@@ -41,22 +43,22 @@ export function registerTxn(ctx: any, port: number): void {
           output: { schema: ANY_SCHEMA, render: renderOne },
           isConcurrencySafe: () => false,
           timeoutMs: T.txn,
-          async execute(args: any) {
+          async execute(args: Record<string, unknown>) {
             if (!(await ensureBackend(port)))
               return toolError(
                 'backend_unreachable',
                 '后端不可用（127.0.0.1:' + String(port) + '）',
                 '先 blender_viewport op=start 拉起后端，再重试',
               )
-            const op = String((args && args.op) || 'list')
-            const a: any = {}
-            if (args && args.label) a.label = String(args.label)
-            if (args && args.note) a.note = String(args.note)
-            if (args && args.keep) a.keep = Number(args.keep)
-            if (args && args.into) a.into = String(args.into)
-            if (args && typeof args.backup === 'boolean') a.backup = args.backup
-            if (args && args.objects)
-              a.objects = String(args.objects)
+            const op = text(args.op) || 'list'
+            const a: Record<string, unknown> = {}
+            if (args.label) a.label = text(args.label)
+            if (args.note) a.note = text(args.note)
+            if (args.keep) a.keep = Number(args.keep)
+            if (args.into) a.into = text(args.into)
+            if (typeof args.backup === 'boolean') a.backup = args.backup
+            if (args.objects)
+              a.objects = text(args.objects)
                 .split(',')
                 .map((s) => s.trim())
                 .filter(Boolean)
@@ -66,57 +68,63 @@ export function registerTxn(ctx: any, port: number): void {
             if (!r || r.ok !== true)
               return toolError(
                 'backend_error',
-                'TXN ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
+                'TXN ' + op + ' 失败 · ' + text(r.error || r.raw || 'unknown'),
                 '用 blender_rt_txn op=list 查看快照',
               )
-            const res = (r && r.result) || {}
+            const res = asRecord(r.result)
             const parts: string[] = []
             parts.push('TXN ' + op + ' ok')
+            const snapshot = asRecord(res.snapshot)
             if (op === 'snapshot' && res.snapshot)
               parts.push(
                 '快照 ' +
-                  String(res.snapshot.label) +
+                  text(snapshot.label) +
                   ' · ' +
-                  String(res.snapshot.bytes) +
+                  text(snapshot.bytes) +
                   'B · ' +
-                  String(res.snapshot.ms) +
+                  text(snapshot.ms) +
                   'ms · ' +
-                  String(res.snapshot.objects) +
+                  text(snapshot.objects) +
                   ' 对象' +
                   String.fromCharCode(10) +
                   '路径：' +
-                  String(res.snapshot.path),
+                  text(snapshot.path),
               )
             else if (op === 'restore')
               parts.push(
                 '已恢复：' +
                   JSON.stringify(res.restored || {}).slice(0, 200) +
                   String.fromCharCode(10) +
-                  String(res.warning || ''),
+                  text(res.warning),
               )
             else if (op === 'list') {
+              const snapshots = asArray(res.snapshots)
               parts.push(
                 '快照 ' +
-                  String((res.snapshots || []).length) +
+                  String(snapshots.length) +
                   ' 个：' +
-                  (res.snapshots || []).map((s: any) => s.label + '(' + s.bytes + 'B)').join(' · '),
+                  snapshots
+                    .map((raw) => {
+                      const s = asRecord(raw)
+                      return text(s.label) + '(' + text(s.bytes) + 'B)'
+                    })
+                    .join(' · '),
               )
               parts.push('mark：' + JSON.stringify(res.marks || []))
-              parts.push('目录：' + String(res.snapshot_dir || ''))
+              parts.push('目录：' + text(res.snapshot_dir))
             } else if (op === 'mark')
-              parts.push('已记 mark ' + String(res.mark) + ' · ' + String(res.objects) + ' 个对象')
-            else if (op === 'revert')
+              parts.push('已记 mark ' + text(res.mark) + ' · ' + text(res.objects) + ' 个对象')
+            else if (op === 'revert') {
+              const blocked = asArray(res.blocked)
               parts.push(
                 '回滚 ' +
-                  String(res.reverted) +
+                  text(res.reverted) +
                   '：改了 ' +
-                  String(res.changed_count) +
+                  text(res.changed_count) +
                   ' 个' +
-                  (res.blocked && res.blocked.length
-                    ? ' · 跳过 ' + JSON.stringify(res.blocked).slice(0, 200)
-                    : ''),
+                  (blocked.length ? ' · 跳过 ' + JSON.stringify(blocked).slice(0, 200) : ''),
               )
-            else parts.push(JSON.stringify(res).slice(0, 800))
+            } else parts.push(JSON.stringify(res).slice(0, 800))
             return { text: parts.join(String.fromCharCode(10)) }
           },
         }),

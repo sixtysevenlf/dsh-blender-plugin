@@ -4,9 +4,24 @@ import { T } from '../constants.js'
 import { ensureBackend } from '../host/backend.js'
 import { backendPost, leasedText } from '../host/http.js'
 import { renderOne } from '../ui/cards.js'
-import { toolError } from './errors.js'
+import { redactSecrets, toolError } from './errors.js'
+import { asArray, asRecord, text } from '../contracts/dynamic.js'
+import type { HostContext } from '../host/context.js'
 
-export function registerPreset(ctx: any, port: number): void {
+interface PresetRow {
+  name: string
+  kind: string
+  keys: number
+}
+
+function splitList(v: unknown): string[] {
+  return String(v)
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean)
+}
+
+export function registerPreset(ctx: HostContext, port: number): void {
   ctx.effect(
     () =>
       ctx.tools.register(
@@ -45,83 +60,81 @@ export function registerPreset(ctx: any, port: number): void {
           output: { schema: ANY_SCHEMA, render: renderOne },
           isConcurrencySafe: () => false,
           timeoutMs: T.preset,
-          async execute(args: any) {
+          async execute(args: Record<string, unknown>) {
             if (!(await ensureBackend(port)))
               return toolError(
                 'backend_unreachable',
                 '后端不可用（127.0.0.1:' + String(port) + '）',
                 '先 blender_viewport op=start 拉起后端，再重试',
               )
-            const op = String((args && args.op) || 'list')
-            const a: any = {}
-            if (args && args.name) a.name = String(args.name)
-            if (args && args.kind) a.kind = String(args.kind)
-            if (args && args.note) a.note = String(args.note)
-            if (args && args.path) a.path = String(args.path)
-            if (args && args.tags)
-              a.tags = String(args.tags)
-                .split(',')
-                .map((x) => x.trim())
-                .filter(Boolean)
-            if (args && args.names)
-              a.names = String(args.names)
-                .split(',')
-                .map((x) => x.trim())
-                .filter(Boolean)
-            if (args && args.targets)
-              a.targets = String(args.targets)
-                .split(',')
-                .map((x) => x.trim())
-                .filter(Boolean)
-            if (args && args.data) {
+            const op = text(args.op) || 'list'
+            const a: Record<string, unknown> = {}
+            if (text(args.name)) a.name = text(args.name)
+            if (text(args.kind)) a.kind = text(args.kind)
+            if (text(args.note)) a.note = text(args.note)
+            if (text(args.path)) a.path = text(args.path)
+            if (text(args.tags)) a.tags = splitList(args.tags)
+            if (text(args.names)) a.names = splitList(args.names)
+            if (text(args.targets)) a.targets = splitList(args.targets)
+            if (args.data) {
               try {
                 a.data = JSON.parse(String(args.data))
-              } catch (e: any) {
+              } catch (e: unknown) {
                 return toolError(
                   'invalid_params',
-                  'data 不是合法 JSON: ' + String((e as Error).message).slice(0, 120),
-                  `传 JSON 对象字符串，例如 data='{"k":1}'`,
+                  'data 不是合法 JSON: ' +
+                    (e instanceof Error ? e.message.slice(0, 120) : 'unknown'),
+                  '传 JSON 对象字符串，例如 data={"k":1}',
                 )
               }
             }
-            if (args && args.overwrite === false) a.overwrite = false
+            if (args.overwrite === false) a.overwrite = false
             const r = await backendPost(port, '/preset', { op: op, args: a }, 300000)
             const lt = leasedText(r)
             if (lt) return { text: lt }
             if (!r || r.ok !== true)
               return toolError(
                 'backend_error',
-                'PRESET ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
+                'PRESET ' + op + ' 失败 · ' + redactSecrets(text(r.error || r.raw || 'unknown')),
                 '核对 preset 数据与 op',
               )
-            const res: any = (r && r.result) || {}
+            const res = asRecord(r.result)
             const parts: string[] = []
             parts.push('PRESET ' + op + ' ok')
             if (op === 'list') {
+              const presets: PresetRow[] = asArray(res.presets).map((row) => {
+                const p = asRecord(row)
+                return {
+                  name: text(p.name),
+                  kind: text(p.kind),
+                  keys: Number(p.keys ?? 0),
+                }
+              })
               parts.push(
                 '共 ' +
-                  String(res.count) +
+                  String(res.count ?? presets.length) +
                   ' 个：' +
-                  (res.presets || [])
-                    .map((p: any) => p.name + '(' + p.kind + ',' + p.keys + '键)')
+                  presets
+                    .map((p) => p.name + '(' + p.kind + ',' + String(p.keys) + '键)')
                     .join(' · '),
               )
-              parts.push('目录：' + String(res.dir || ''))
+              parts.push('目录：' + text(res.dir))
             } else if (op === 'apply') {
-              const rr = res.report || {}
+              const rr = asRecord(res.report)
+              const applied = asArray(rr.applied)
+              const skipped = asArray(rr.skipped)
+              const errors = asArray(rr.errors)
               parts.push(
                 '配方 ' +
-                  String(res.preset) +
+                  text(res.preset) +
                   ' · 目标 ' +
                   JSON.stringify(res.targets) +
                   ' · 写入 ' +
-                  String((rr.applied || []).length) +
+                  String(applied.length) +
                   ' 项',
               )
-              if ((rr.skipped || []).length)
-                parts.push('跳过：' + JSON.stringify(rr.skipped).slice(0, 300))
-              if ((rr.errors || []).length)
-                parts.push('错误：' + JSON.stringify(rr.errors).slice(0, 300))
+              if (skipped.length) parts.push('跳过：' + JSON.stringify(skipped).slice(0, 300))
+              if (errors.length) parts.push('错误：' + JSON.stringify(errors).slice(0, 300))
             } else parts.push(JSON.stringify(res).slice(0, 900))
             return { text: parts.join(String.fromCharCode(10)) }
           },

@@ -3,11 +3,11 @@
  *
  * 背景（外部反馈 2026-09-25《M1A1 分件建模》）：宿主用 dsh-util-values 的 walkJsonValue 校验
  * 每个工具的返回值，规则**比 JSON.stringify 严格得多**，以下一律判
- * `tool "…" returned invalid output: value is not lossless JSON` 并把整条工具通道打死：
+ * tool returned invalid output: value is not lossless JSON 并把整条工具通道打死：
  *   - 自有可枚举键的值为 undefined（stringify 会丢键 → 肉眼看不出来）
  *   - NaN / ±Infinity（stringify 变 null）· -0（stringify 变 0，符号丢失）
  *   - Date / Map / Set / 类实例 / 函数 / Symbol / 循环引用 / 带符号或非枚举键的对象
- * 实测后果：v0.9.3 的 envelope 里一个 `promoted: undefined` 让
+ * 实测后果：v0.9.3 的 envelope 里一个 promoted: undefined 让
  * blender_rt_headless **每次都失败**（任务其实跑完了、结果也在磁盘上，只是回执被拒），
  * rt_job 的 status/collect/wait 同病 —— 即"任务能交出去但收不回来"。
  *
@@ -16,14 +16,15 @@
  *   bigint → number（超安全整数则 string）· Date → ISO 字符串 · Map/Set → 数组
  *   类实例 → 取自有可枚举属性 · 二进制视图 → {bytes:N} · 循环 → '[Circular]'
  */
-export function losslessSanitize(root: any): { value: any; fixes: string[] } {
+import { isRecord } from './dynamic.js'
+
+export function losslessSanitize(root: unknown): { value: unknown; fixes: string[] } {
   const fixes: string[] = []
-  const seen = new Set<any>()
-  const walk = (v: any, at: string): any => {
+  const seen = new Set<object>()
+  const walk = (v: unknown, at: string): unknown => {
     if (v === null) return null
-    const t = typeof v
-    if (t === 'string' || t === 'boolean') return v
-    if (t === 'number') {
+    if (typeof v === 'string' || typeof v === 'boolean') return v
+    if (typeof v === 'number') {
       if (!Number.isFinite(v)) {
         fixes.push(at + '=' + String(v) + '→null')
         return null
@@ -34,17 +35,17 @@ export function losslessSanitize(root: any): { value: any; fixes: string[] } {
       }
       return v
     }
-    if (t === 'undefined') {
+    if (typeof v === 'undefined') {
       fixes.push(at + '=undefined→丢弃')
       return undefined
     }
-    if (t === 'bigint') {
+    if (typeof v === 'bigint') {
       const n = Number(v)
       fixes.push(at + '=bigint→' + (Number.isSafeInteger(n) ? 'number' : 'string'))
       return Number.isSafeInteger(n) ? n : String(v)
     }
-    if (t === 'function' || t === 'symbol') {
-      fixes.push(at + '=' + t + '→丢弃')
+    if (typeof v === 'function' || typeof v === 'symbol') {
+      fixes.push(at + '=' + typeof v + '→丢弃')
       return undefined
     }
     if (seen.has(v)) {
@@ -52,12 +53,12 @@ export function losslessSanitize(root: any): { value: any; fixes: string[] } {
       return '[Circular]'
     }
     seen.add(v)
-    let out: any
+    let out: unknown
     if (Array.isArray(v)) {
       out = []
       for (let i = 0; i < v.length; i++) {
         const w = walk(v[i], at + '[' + String(i) + ']')
-        out.push(w === undefined ? null : w) // 数组元素不能用 undefined
+        ;(out as unknown[]).push(w === undefined ? null : w)
       }
     } else if (v instanceof Date) {
       const ms = v.getTime()
@@ -65,37 +66,37 @@ export function losslessSanitize(root: any): { value: any; fixes: string[] } {
       out = Number.isFinite(ms) ? v.toISOString() : null
     } else if (v instanceof Map) {
       fixes.push(at + '=Map→数组')
-      out = Array.from(v.entries()).map((e: any, i: number) =>
+      out = Array.from(v.entries()).map((e: [unknown, unknown], i: number) =>
         walk(e, at + '<map' + String(i) + '>'),
       )
     } else if (v instanceof Set) {
       fixes.push(at + '=Set→数组')
-      out = Array.from(v.values()).map((e: any, i: number) =>
+      out = Array.from(v.values()).map((e: unknown, i: number) =>
         walk(e, at + '<set' + String(i) + '>'),
       )
     } else if (ArrayBuffer.isView(v) || v instanceof ArrayBuffer) {
-      const n = (v as any).byteLength
+      const n = v.byteLength
       fixes.push(
         at + '=二进制(' + String(n) + 'B)→{bytes}（要回传给模型请走 attachments/saveImage）',
       )
       out = { bytes: n, why: 'binary-not-json' }
-    } else if (typeof v.toJSON === 'function' && !isPlainObjectLike(v)) {
+    } else if (typeof (v as { toJSON?: unknown }).toJSON === 'function' && !isPlainObjectLike(v)) {
       // 宿主没定义 toJSON 语义，但它至少比类实例更可能给出 JSON 形状；失败就退回自有键
       try {
-        return walk(v.toJSON(), at + '<toJSON>')
-      } catch (e: any) {
+        return walk((v as { toJSON: () => unknown }).toJSON(), at + '<toJSON>')
+      } catch {
         /* 退回自有可枚举键 */
       }
       out = {}
       for (const k of Object.keys(v)) {
-        const w = walk(v[k], at + '.' + k)
-        if (w !== undefined) out[k] = w
+        const w = walk((v as Record<string, unknown>)[k], at + '.' + k)
+        if (w !== undefined) (out as Record<string, unknown>)[k] = w
       }
     } else {
       out = {}
       for (const k of Object.keys(v)) {
-        const w = walk(v[k], at + '.' + k)
-        if (w !== undefined) out[k] = w // 丢键（宿主拒收 undefined 值）
+        const w = walk((v as Record<string, unknown>)[k], at + '.' + k)
+        if (w !== undefined) (out as Record<string, unknown>)[k] = w // 丢键（宿主拒收 undefined 值）
       }
     }
     seen.delete(v) // DAG 共享（非循环）可以重复出现
@@ -105,8 +106,9 @@ export function losslessSanitize(root: any): { value: any; fixes: string[] } {
   return { value: value === undefined ? null : value, fixes: fixes }
 }
 /** 普通对象/数组判定（用于决定是否走 toJSON 分支） */
-export function isPlainObjectLike(v: any): boolean {
+export function isPlainObjectLike(v: unknown): boolean {
   if (Array.isArray(v)) return true
+  if (!isRecord(v)) return false
   const proto = Object.getPrototypeOf(v)
   return proto === Object.prototype || proto === null
 }

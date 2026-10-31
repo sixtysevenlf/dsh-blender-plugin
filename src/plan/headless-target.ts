@@ -1,9 +1,13 @@
 import { backendPost } from '../host/http.js'
+import type { HostContext } from '../host/context.js'
 import { attachPaths, planImagePaths } from '../utils/image.js'
 import { redactSecrets } from '../tools/errors.js'
+import { asRecord, isRecord, text } from '../contracts/dynamic.js'
+
+export type HeadlessTarget = { api: string; sub: string; preload: string }
 
 /** P1：plan op → 无头 worker 的模块 API（不给 GUI 也能跑；op 前缀路由 + 别名） */
-export const PLAN_HEADLESS_MAP: any[] = [
+export const PLAN_HEADLESS_MAP: ReadonlyArray<readonly [string, string, string]> = [
   ['visualreport_', 'dsh_visualreport_api', 'visualreport,qc,imgtools'],
   ['shapesolve_', 'dsh_shapesolve_api', 'shapesolve,imgtools'],
   [
@@ -33,7 +37,7 @@ export const PLAN_HEADLESS_MAP: any[] = [
   ['face_', 'dsh_face_api', 'faceeval'],
   ['human_', 'dsh_human_api', 'human,imgtools'],
 ]
-export const PLAN_HEADLESS_ALIAS: any = {
+export const PLAN_HEADLESS_ALIAS: Record<string, readonly [string, string, string]> = {
   qc_visual_report: ['dsh_visualreport_api', 'report', 'visualreport,qc,imgtools'],
   shape_solve: ['dsh_shapesolve_api', 'solve', 'shapesolve,imgtools'],
   fix_clash: [
@@ -55,12 +59,10 @@ export const PLAN_HEADLESS_ALIAS: any = {
   model_checkpoint: ['dsh_gate_api', 'checkpoint', 'gate,txn'],
   model_deliver: ['dsh_gate_api', 'deliver', 'gate,audit,txn,deliver'],
 }
-export function planHeadlessTarget(op: string): any {
+export function planHeadlessTarget(op: string): HeadlessTarget | null {
   const o = String(op || '')
-  if (PLAN_HEADLESS_ALIAS[o]) {
-    const a = PLAN_HEADLESS_ALIAS[o]
-    return { api: a[0], sub: a[1], preload: a[2] }
-  }
+  const alias = PLAN_HEADLESS_ALIAS[o]
+  if (alias) return { api: alias[0], sub: alias[1], preload: alias[2] }
   for (const row of PLAN_HEADLESS_MAP) {
     const p = String(row[0])
     if (o.indexOf(p) === 0) return { api: row[1], sub: o.slice(p.length), preload: row[2] }
@@ -69,18 +71,18 @@ export function planHeadlessTarget(op: string): any {
 }
 /** 用持久 worker 执行一个 plan op（不依赖 GUI addon；模块由 preload 注入 K） */
 export async function planViaWorker(
-  ctx: any,
+  ctx: HostContext,
   port: number,
   op: string,
-  payload: any,
+  payload: unknown,
   session?: string,
-): Promise<any> {
+): Promise<Record<string, unknown>> {
   const t = planHeadlessTarget(op)
   if (!t)
     return { ok: false, error: '该 plan op 没有无头映射（先 op="catalog" 查，或走 GUI 通道）' }
   const nm = session ? String(session) : 'plan-' + String(t.api).replace(/^dsh_|_api$/g, '')
   try {
-    const st: any = await backendPost(
+    const st = await backendPost(
       port,
       '/worker',
       {
@@ -93,10 +95,10 @@ export async function planViaWorker(
       },
       120000,
     )
-    if (!st || st.ok !== true)
+    if (st.ok !== true)
       return {
         ok: false,
-        error: '无头 worker 启动失败：' + String((st && (st.error || st.raw)) || 'unknown'),
+        error: '无头 worker 启动失败：' + text(st.error || st.raw || 'unknown'),
       }
     const code =
       'import json as _json\n_s = _json.dumps(_json.loads(' +
@@ -108,38 +110,39 @@ export async function planViaWorker(
       JSON.stringify(String(t.sub)) +
       ', _s)\n' +
       'print("HEADLESS " + (_r if isinstance(_r, str) else _json.dumps(_r, ensure_ascii=False)))'
-    const r: any = await backendPost(
+    const r = await backendPost(
       port,
       '/worker',
       { op: 'exec', name: nm, code: code, isolated: true },
       900000,
     )
-    const rr = (r && r.result) || {}
-    if (!r || r.ok !== true) {
+    const rr = asRecord(r.result)
+    if (r.ok !== true) {
       return {
         ok: false,
-        error: '无头 plan 执行失败：' + String((r && (r.error || rr.error)) || 'unknown'),
+        error: '无头 plan 执行失败：' + text(r.error || rr.error || 'unknown'),
         hint: redactSecrets(rr.traceback || '').slice(-1200),
       }
     }
     return { ok: true, res: rr.result, via: 'worker:' + nm }
-  } catch (e: any) {
-    return { ok: false, error: '无头 plan 异常：' + redactSecrets((e && e.message) || e) }
+  } catch (e) {
+    return { ok: false, error: '无头 plan 异常：' + redactSecrets(e) }
   }
 }
 /** plan 回执统一收尾：信封 + 附图（GUI/无头共用） */
 export async function finishPlanResponse(
-  ctx: any,
+  ctx: HostContext,
   op: string,
-  res: any,
-  argsIn: any,
-): Promise<any> {
-  const txt = typeof res === 'string' ? res : JSON.stringify(res, null, 1)
+  res: unknown,
+  argsIn: unknown,
+): Promise<Record<string, unknown>> {
+  const txt = typeof res === 'string' ? res : String(JSON.stringify(res, null, 1) ?? '')
   const CAP = 12000
   const env = planEnvelope(op, res)
+  const args = asRecord(argsIn)
   const attachWanted =
-    argsIn && argsIn.attach_images !== undefined
-      ? !!argsIn.attach_images
+    args.attach_images !== undefined
+      ? !!args.attach_images
       : [
           'img_digest',
           'qc_compare',
@@ -147,7 +150,7 @@ export async function finishPlanResponse(
           'qc_visual_report',
           'shapesolve_solve',
         ].indexOf(op) >= 0
-  let images: any[] = []
+  let images: unknown[] = []
   let attachNote = ''
   if (attachWanted) {
     const att = await attachPaths(
@@ -174,8 +177,8 @@ export async function finishPlanResponse(
     ' ok · ' +
     String(txt.length) +
     ' chars · verdict=' +
-    String(env.verdict) +
-    (env.summary ? ' · ' + String(env.summary) : '') +
+    text(env.verdict) +
+    (env.summary ? ' · ' + text(env.summary) : '') +
     attachNote +
     String.fromCharCode(10)
   return {
@@ -193,22 +196,22 @@ export async function finishPlanResponse(
   }
 }
 /** 弱模型契约 v2：verdict-first 信封（单行、≤2k）——plan 与 headless 共用口径 */
-export function planEnvelope(op: string, res: any): any {
-  const r = res && typeof res === 'object' ? res : { value: res }
+export function planEnvelope(op: string, res: unknown): Record<string, unknown> {
+  const r = isRecord(res) ? res : { value: res }
   const verdict =
     r.verdict ||
     r.state ||
     (r.ok === false ? 'fail' : r.ok === true ? (r.clean === false ? 'degraded' : 'pass') : null)
-  let defects: any[] = []
+  let defects: unknown[] = []
   for (const k of ['top_defects', 'offenders', 'defects', 'failures', 'errors']) {
     if (Array.isArray(r[k])) {
-      defects = r[k]
+      defects = r[k] as unknown[]
       break
     }
   }
-  const limit = (t: any, n: number) => String(t == null ? '' : t).slice(0, n)
-  const top = defects.slice(0, 5).map((d: any, i: number) => {
-    if (!d || typeof d !== 'object') return { id: 'D' + String(i + 1), code: limit(d, 80) }
+  const limit = (t: unknown, n: number) => text(t).slice(0, n)
+  const top = defects.slice(0, 5).map((d, i) => {
+    if (!isRecord(d)) return { id: 'D' + String(i + 1), code: limit(d, 80) }
     return {
       id: d.id || 'D' + String(i + 1),
       code: limit(d.code || d.kind || d.class || d.error || 'issue', 60),
@@ -226,16 +229,16 @@ export function planEnvelope(op: string, res: any): any {
   })
   const next = (Array.isArray(r.next) ? r.next : Array.isArray(r.repairs) ? r.repairs : [])
     .slice(0, 3)
-    .map((x: any) =>
+    .map((x: unknown) =>
       typeof x === 'string'
         ? { op: limit(x, 120) }
         : {
-            op: limit(x.op || x.name || 'next', 80),
-            args: x.args || null,
-            why: limit(x.why || '', 120),
+            op: limit(asRecord(x).op || asRecord(x).name || 'next', 80),
+            args: asRecord(x).args || null,
+            why: limit(asRecord(x).why || '', 120),
           },
     )
-  const env: any = {
+  const env: Record<string, unknown> = {
     contract: 'receipt.v2',
     op: op,
     verdict: verdict,
@@ -246,8 +249,8 @@ export function planEnvelope(op: string, res: any): any {
     provenance: { ms: typeof r.ms === 'number' ? r.ms : null },
   }
   const counts = r.counts || (r.totals ? r.totals : null)
-  if (counts && typeof counts === 'object') env.counts = counts
-  if (r.detail && typeof r.detail === 'object')
+  if (isRecord(counts)) env.counts = counts
+  if (isRecord(r.detail))
     env.detail = {
       path: r.detail.path || null,
       bytes: r.detail.bytes || null,
@@ -259,11 +262,12 @@ export function planEnvelope(op: string, res: any): any {
       env.top_defects = top.slice(0, 3)
       env.next = next.slice(0, 2)
       delete env.counts
-      if (env.detail && env.detail.bytes && env.detail.bytes > 0) {
+      const detail = asRecord(env.detail)
+      if (detail.bytes && Number(detail.bytes) > 0) {
         /* keep path only */
       } else delete env.detail
     }
-  } catch (e: any) {
+  } catch {
     /* ignore */
   }
   return env

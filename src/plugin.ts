@@ -7,6 +7,7 @@
 import { HOLDER, PLUGIN_VERSION } from './constants.js'
 import { z, schemaResolve } from './contracts/tool.js'
 import { losslessSanitize } from './contracts/lossless.js'
+import { asRecord } from './contracts/dynamic.js'
 import { backendPost } from './host/http.js'
 import {
   ensureBackend,
@@ -39,6 +40,7 @@ import {
   receiptEnvelope,
 } from './headless/receipts.js'
 import { CARD_SPECS, cardPresenters } from './ui/cards.js'
+import type { HostContext } from './host/context.js'
 
 export const name = '@dsh-external/dsh-blender-plugin'
 export const inject = ['tools']
@@ -59,7 +61,7 @@ export const Config = z
     })
   : undefined
 
-export function apply(ctx: any, config: Config): void {
+export function apply(ctx: HostContext, config: Config): void {
   // v2.2.0：随包 skill 自动注册（可选能力；失败不影响工具面）。
   // 放在 degraded 分支之前 —— 即使 schemastery 解析失败、工具降级，技能内容也仍然可用。
   registerBundledSkill(ctx)
@@ -71,7 +73,7 @@ export function apply(ctx: any, config: Config): void {
   }
 
   // 防御性读配置：schema 正常时宿主会补默认值，但降级/宿主差异都不该让这里再抛。
-  const cfgIn: any = config && typeof config === 'object' ? config : {}
+  const cfgIn = asRecord(config)
   const port =
     Number.isFinite(Number(cfgIn.port)) && Number(cfgIn.port) > 0
       ? Number(cfgIn.port)
@@ -102,7 +104,7 @@ export function apply(ctx: any, config: Config): void {
             // 租约心跳：只在"本来就持有"时续期，空闲时不抢占别的会话
             try {
               await backendPost(port, '/lease', { renewOnly: true }, 5000)
-            } catch (e: any) {
+            } catch {
               /* 后端可能刚挂，下一轮再试 */
             }
             return
@@ -113,18 +115,18 @@ export function apply(ctx: any, config: Config): void {
             // SIGTERM → 1.2s → SIGKILL：事件循环被同步操作占死的进程只认 SIGKILL
             try {
               killBackendByCmd(port, 'SIGTERM')
-            } catch (e: any) {
+            } catch {
               /* 忽略 */
             }
             await sleep(1200)
             try {
               killBackendByCmd(port, 'SIGKILL')
-            } catch (e: any) {
+            } catch {
               /* 忽略 */
             }
           }
           await startBackend(port)
-        } catch (e: any) {
+        } catch {
           /* 看护失败静默，下一轮再试 */
         }
       })()

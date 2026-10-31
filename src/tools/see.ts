@@ -1,4 +1,5 @@
 import { vTool } from '../contracts/tool.js'
+import type { HostContext } from '../host/context.js'
 import { ANY_SCHEMA } from './schema-diagnostic.js'
 import { T, BACKEND_HINT } from '../constants.js'
 import { ensureBackend } from '../host/backend.js'
@@ -6,22 +7,28 @@ import { backendPost, fetchFrame, fetchView, numTriple } from '../host/http.js'
 import { frameDedupe, dedupeNote } from '../utils/frame-cache.js'
 import { toAttachment, readLocalPng } from '../utils/image.js'
 import { renderOne } from '../ui/cards.js'
+import { asRecord, text } from '../contracts/dynamic.js'
 import { redactSecrets, toolError } from './errors.js'
 
-async function seeViaWorker(ctx: any, port: number, spec: any, name?: string): Promise<any | null> {
+async function seeViaWorker(
+  ctx: HostContext,
+  port: number,
+  spec: Record<string, unknown>,
+  name?: string,
+): Promise<unknown> {
   try {
-    const r: any = await backendPost(
+    const r = await backendPost(
       port,
       '/worker',
       { op: 'see', name: name || 'default', spec: spec || {}, isolated: true },
       90000,
     )
-    if (!r || r.ok !== true) return null
-    const res = r.result && typeof r.result === 'object' ? r.result : {}
+    if (r.ok !== true) return null
+    const res = asRecord(r.result)
     if (res.ok === false)
       return toolError(
         'backend_error',
-        '无头 see 失败 · ' + String(res.error || 'unknown'),
+        '无头 see 失败 · ' + text(res.error || 'unknown'),
         '用 blender_rt_worker op=start 检查无头 worker；或改用 GUI 通道',
         res.traceback ? redactSecrets(res.traceback).slice(-1200) : undefined,
       )
@@ -29,7 +36,7 @@ async function seeViaWorker(ctx: any, port: number, spec: any, name?: string): P
     if (res.png_b64) {
       try {
         data = Buffer.from(String(res.png_b64), 'base64')
-      } catch (e: any) {
+      } catch {
         data = null
       }
     }
@@ -37,29 +44,31 @@ async function seeViaWorker(ctx: any, port: number, spec: any, name?: string): P
     const att = data
       ? await toAttachment(ctx, data, 'headless-see-' + String(Date.now()) + '.png')
       : { why: '没有 png_b64/path' }
-    const text =
+    const rendered =
       '无头 see（Workbench 离屏，GUI 未连接自动降级）· ' +
-      String(res.ms) +
+      text(res.ms) +
       'ms · ' +
-      String(res.width) +
+      text(res.width) +
       'x' +
-      String(res.height) +
+      text(res.height) +
       ' · ' +
-      String(res.bytes || 0) +
+      text(res.bytes || 0) +
       'B' +
       (res.coverage_estimate === null || res.coverage_estimate === undefined
         ? ''
         : ' · 覆盖 ' + (Number(res.coverage_estimate) * 100).toFixed(2) + '%') +
       ' · 场景与用户视口未改动'
     return att.ref
-      ? { text: text, image: att.ref }
-      : { text: text + String.fromCharCode(10) + '⚠ 图片未回传：' + String(att.why || '未知原因') }
-  } catch (e: any) {
+      ? { text: rendered, image: att.ref }
+      : {
+          text: rendered + String.fromCharCode(10) + '⚠ 图片未回传：' + text(att.why || '未知原因'),
+        }
+  } catch {
     return null
   }
 }
 
-export function registerSee(ctx: any, port: number): void {
+export function registerSee(ctx: HostContext, port: number): void {
   ctx.effect(
     () =>
       ctx.tools.register(
@@ -127,22 +136,22 @@ export function registerSee(ctx: any, port: number): void {
           output: { schema: ANY_SCHEMA, render: renderOne },
           isConcurrencySafe: () => true,
           timeoutMs: T.see,
-          async execute(args: any) {
+          async execute(args: Record<string, unknown>) {
             if (!(await ensureBackend(port)))
               return toolError(
                 'backend_unreachable',
                 '后端不可用（127.0.0.1:' + String(port) + '）',
                 BACKEND_HINT,
               )
-            const size = Math.max(120, Math.min(1600, Number((args && args.max_size) || 560)))
-            const full = !!(args && args.full)
-            const area = Number((args && args.area) || 0)
-            const frm = numTriple(args && args.from)
-            const look = numTriple(args && args.look_at)
+            const size = Math.max(120, Math.min(1600, Number(args.max_size || 560)))
+            const full = !!args.full
+            const area = Number(args.area || 0)
+            const frm = numTriple(args.from)
+            const look = numTriple(args.look_at)
             // P0：显式 session → 直接走无头 worker（不探 GUI）。
-            const wantSession = args && args.session ? String(args.session) : ''
+            const wantSession = args.session ? String(args.session) : ''
             if (wantSession) {
-              const spec: any = {
+              const spec: Record<string, unknown> = {
                 from: frm || [7, -7, 5],
                 look_at: look || [0, 0, 1],
                 lens: args.lens === undefined ? undefined : Number(args.lens),
@@ -152,7 +161,7 @@ export function registerSee(ctx: any, port: number): void {
                 width: size,
                 height: Math.max(120, Math.round((size * 9) / 16)),
               }
-              const vs = String((args && args.view_size) || '')
+              const vs = String(args.view_size || '')
               const mm = vs.match(/^(\d+)\s*[x×]\s*(\d+)$/)
               if (mm) {
                 spec.width = Number(mm[1])
@@ -169,7 +178,7 @@ export function registerSee(ctx: any, port: number): void {
               )
             }
             if (frm || look) {
-              const spec: any = {
+              const spec: Record<string, unknown> = {
                 from: frm || [7, -7, 5],
                 look_at: look || [0, 0, 1],
                 lens: args.lens === undefined ? undefined : Number(args.lens),
@@ -179,7 +188,7 @@ export function registerSee(ctx: any, port: number): void {
                 overlays: args.overlays === undefined ? undefined : !!args.overlays,
                 mode: args.view_mode || undefined,
               }
-              const vs = String((args && args.view_size) || '')
+              const vs = String(args.view_size || '')
               const mm = vs.match(/^(\d+)\s*[x×]\s*(\d+)$/)
               if (mm) {
                 spec.width = Number(mm[1])
@@ -189,21 +198,23 @@ export function registerSee(ctx: any, port: number): void {
                 spec.height = Math.max(120, Math.round((size * 9) / 16))
               }
               // v0.9.4（P0-1）：diagnostics 只在显式给出时透传（不传 = view.py 的默认：正常帧不跑、近空帧自动补跑）
-              if (args && args.diagnostics !== undefined) spec.diagnostics = !!args.diagnostics
-              let fv: any
+              if (args.diagnostics !== undefined) spec.diagnostics = !!args.diagnostics
+              let fv
               try {
                 fv = await fetchView(port, spec)
-              } catch (e: any) {
-                if (!(args && args.auto === false)) {
-                  const fb = await seeViaWorker(ctx, port, spec, args && args.session)
+              } catch (e) {
+                if (args.auto !== false) {
+                  const fb = await seeViaWorker(
+                    ctx,
+                    port,
+                    spec,
+                    args.session ? String(args.session) : undefined,
+                  )
                   if (fb) return fb
                 }
                 return toolError(
                   'backend_unreachable',
-                  '取帧失败 · 127.0.0.1:' +
-                    String(port) +
-                    ' · ' +
-                    String((e && (e as Error).message) || e),
+                  '取帧失败 · 127.0.0.1:' + String(port) + ' · ' + text(e),
                   BACKEND_HINT,
                 )
               }
@@ -222,20 +233,20 @@ export function registerSee(ctx: any, port: number): void {
                   spec.overlays === undefined ? null : !!spec.overlays,
                   spec.mode || null,
                 ])
-              const dd2 = frameDedupe(dkey, fv.hash, !!(args && args.force))
+              const dd2 = frameDedupe(dkey, fv.hash, !!args.force)
               const mt = fv.meta || {}
-              const out2: any = {
+              const out2: Record<string, unknown> = {
                 text:
                   '自定义视角 ' +
-                  String(mt.mode || spec.mode || 'viewport') +
+                  text(mt.mode || spec.mode || 'viewport') +
                   ' · ' +
-                  String(spec.width) +
+                  text(spec.width) +
                   'x' +
-                  String(spec.height) +
+                  text(spec.height) +
                   ' · ' +
-                  String(fv.ms) +
+                  text(fv.ms) +
                   'ms · ' +
-                  String(fv.png.length) +
+                  text(fv.png.length) +
                   'B · hash ' +
                   fv.hash +
                   ' · from ' +
@@ -243,7 +254,7 @@ export function registerSee(ctx: any, port: number): void {
                   ' → look_at ' +
                   JSON.stringify(spec.look_at) +
                   (mt.fallback_from
-                    ? ' · (viewport 不可用已降级 render：' + String(mt.fallback_from) + ')'
+                    ? ' · (viewport 不可用已降级 render：' + text(mt.fallback_from) + ')'
                     : '') +
                   (mt.coverage_estimate === undefined || mt.coverage_estimate === null
                     ? ''
@@ -251,45 +262,51 @@ export function registerSee(ctx: any, port: number): void {
                   ' · 场景与用户视口均未改动',
               }
               // v0.9.1（93-D2）：自定义视角瞄空时直接告警 + 给出该怎么瞄（照 suggest 再出一次即可）
-              if (mt.warning && mt.warning.code === 'frame_looks_empty') {
-                const w = mt.warning
-                out2.text +=
+              const warning = asRecord(mt.warning)
+              if (warning.code === 'frame_looks_empty') {
+                const sceneBbox = asRecord(warning.scene_bbox)
+                const suggest = asRecord(warning.suggest)
+                out2.text =
+                  text(out2.text) +
                   String.fromCharCode(10) +
                   '⚠ frame_looks_empty：' +
-                  String(w.why || '画面里几乎只剩底色') +
-                  (w.scene_bbox
+                  text(warning.why || '画面里几乎只剩底色') +
+                  (warning.scene_bbox
                     ? String.fromCharCode(10) +
                       '  场景 bbox：center=' +
-                      JSON.stringify(w.scene_bbox.center) +
+                      JSON.stringify(sceneBbox.center) +
                       ' span=' +
-                      String(w.scene_bbox.span) +
+                      text(sceneBbox.span) +
                       ' objects=' +
-                      String(w.scene_bbox.objects)
+                      text(sceneBbox.objects)
                     : '') +
-                  (w.suggest
+                  (warning.suggest
                     ? String.fromCharCode(10) +
                       '  建议照这组再出一次：from=' +
-                      JSON.stringify(w.suggest.from) +
+                      JSON.stringify(suggest.from) +
                       ' look_at=' +
-                      JSON.stringify(w.suggest.look_at)
-                    : String.fromCharCode(10) + '  ' + String(w.hint || ''))
+                      JSON.stringify(suggest.look_at)
+                    : String.fromCharCode(10) + '  ' + text(warning.hint))
               }
               if (dd2.dup) {
-                out2.text += dedupeNote(dd2.repeats)
+                out2.text = text(out2.text) + dedupeNote(dd2.repeats)
               } else {
                 const img2 = await toAttachment(ctx, fv.png, 'view-' + String(Date.now()) + '.png')
                 if (img2.ref) out2.image = img2.ref
                 else
-                  out2.text +=
-                    String.fromCharCode(10) + '⚠ 图片未回传：' + String(img2.why || '未知原因')
+                  out2.text =
+                    text(out2.text) +
+                    String.fromCharCode(10) +
+                    '⚠ 图片未回传：' +
+                    text(img2.why || '未知原因')
               }
               return out2
             }
-            let f: any
+            let f
             try {
               f = await fetchFrame(port, size, full, area)
-            } catch (e: any) {
-              if (!(args && args.auto === false)) {
+            } catch (e) {
+              if (args.auto !== false) {
                 const fb = await seeViaWorker(
                   ctx,
                   port,
@@ -299,16 +316,13 @@ export function registerSee(ctx: any, port: number): void {
                     width: size,
                     height: Math.max(120, Math.round((size * 9) / 16)),
                   },
-                  args && args.session,
+                  args.session ? String(args.session) : undefined,
                 )
                 if (fb) return fb
               }
               return toolError(
                 'backend_unreachable',
-                '取帧失败 · 127.0.0.1:' +
-                  String(port) +
-                  ' · ' +
-                  String((e && (e as Error).message) || e),
+                '取帧失败 · 127.0.0.1:' + String(port) + ' · ' + text(e),
                 BACKEND_HINT,
               )
             }
@@ -316,9 +330,9 @@ export function registerSee(ctx: any, port: number): void {
             const dd = frameDedupe(
               full ? 'area:' + String(area) : 'viewport:' + String(size),
               f.hash,
-              !!(args && args.force),
+              !!args.force,
             )
-            const out: any = {
+            const out: Record<string, unknown> = {
               text:
                 (full ? '区域截图（screenshot_area）· ' : '视口帧 ' + String(size) + 'px · ') +
                 String(f.ms) +
@@ -328,7 +342,7 @@ export function registerSee(ctx: any, port: number): void {
                 f.hash,
             }
             if (dd.dup) {
-              out.text += dedupeNote(dd.repeats)
+              out.text = text(out.text) + dedupeNote(dd.repeats)
             } else {
               const img = await toAttachment(
                 ctx,
@@ -337,8 +351,11 @@ export function registerSee(ctx: any, port: number): void {
               )
               if (img.ref) out.image = img.ref
               else
-                out.text +=
-                  String.fromCharCode(10) + '⚠ 图片未回传：' + String(img.why || '未知原因')
+                out.text =
+                  text(out.text) +
+                  String.fromCharCode(10) +
+                  '⚠ 图片未回传：' +
+                  text(img.why || '未知原因')
             }
             return out
           },

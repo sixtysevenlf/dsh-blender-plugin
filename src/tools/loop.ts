@@ -5,8 +5,10 @@ import { ensureBackend } from '../host/backend.js'
 import { backendPost, leasedText } from '../host/http.js'
 import { renderOne } from '../ui/cards.js'
 import { redactSecrets, toolError } from './errors.js'
+import { asRecord, text } from '../contracts/dynamic.js'
+import type { HostContext } from '../host/context.js'
 
-export function registerLoop(ctx: any, port: number): void {
+export function registerLoop(ctx: HostContext, port: number): void {
   ctx.effect(
     () =>
       ctx.tools.register(
@@ -60,18 +62,18 @@ export function registerLoop(ctx: any, port: number): void {
           output: { schema: ANY_SCHEMA, render: renderOne },
           isConcurrencySafe: () => false,
           timeoutMs: T.loop,
-          async execute(args: any) {
+          async execute(args: Record<string, unknown>) {
             if (!(await ensureBackend(port)))
               return toolError(
                 'backend_unreachable',
                 '后端不可用（127.0.0.1:' + String(port) + '）',
                 BACKEND_HINT,
               )
-            const op = String((args && args.op) || 'status')
-            const target = String((args && args.target) || 'gui')
+            const op = text(args.op) || 'status'
+            const target = text(args.target) || 'gui'
             if (target === 'session') {
-              const nm = String((args && args.session) || 'dsh-loop')
-              const st: any = await backendPost(
+              const nm = text(args.session) || 'dsh-loop'
+              const st = await backendPost(
                 port,
                 '/worker',
                 {
@@ -87,55 +89,61 @@ export function registerLoop(ctx: any, port: number): void {
               if (!st || st.ok !== true)
                 return toolError(
                   'backend_error',
-                  'LOOP session 启动失败 · ' + String((st && (st.error || st.raw)) || 'unknown'),
+                  'LOOP session 启动失败 · ' + text(st.error || st.raw || 'unknown'),
                   '先 blender_rt_worker op=start 启动 worker，或改用 GUI 通道',
                 )
-              const specJ = JSON.stringify(JSON.stringify((args && args.spec) || {}))
+              const specJ = JSON.stringify(JSON.stringify(args.spec || {}))
               const code =
                 op === 'start'
-                  ? 'import json as _json\n_s = _json.loads(' +
+                  ? 'import json as _json' +
+                    String.fromCharCode(10) +
+                    '_s = _json.loads(' +
                     specJ +
-                    ')\n_r = K.dsh_loop_api["sync"](_s)\nprint("HEADLESS " + (_r if isinstance(_r, str) else _json.dumps(_r, ensure_ascii=False)))'
+                    ')' +
+                    String.fromCharCode(10) +
+                    '_r = K.dsh_loop_api["sync"](_s)' +
+                    String.fromCharCode(10) +
+                    'print("HEADLESS " + (_r if isinstance(_r, str) else _json.dumps(_r, ensure_ascii=False)))'
                   : op === 'status'
                     ? 'print("HEADLESS " + K.dsh_loop_api["status"](' +
-                      String(Number((args && args.history) || 8)) +
+                      String(Number(args.history || 8)) +
                       ', ' +
-                      String(Number((args && args.board) || 0)) +
+                      String(Number(args.board || 0)) +
                       '))'
                     : op === 'board'
                       ? 'print("HEADLESS " + K.dsh_loop_api["board"](' +
-                        String(Number((args && args.limit) || 10)) +
+                        String(Number(args.limit || 10)) +
                         ', ' +
-                        (args && args.groups === false ? 'False' : 'True') +
+                        (args.groups === false ? 'False' : 'True') +
                         '))'
                       : op === 'export'
                         ? 'print("HEADLESS " + K.dsh_loop_api["export"](' +
-                          JSON.stringify(args && args.path ? String(args.path) : null) +
+                          JSON.stringify(args.path ? text(args.path) : null) +
                           ', ' +
-                          String(Number((args && args.top) || 1)) +
+                          String(Number(args.top || 1)) +
                           ', ' +
-                          (args && args.include_variants ? 'True' : 'False') +
+                          (args.include_variants ? 'True' : 'False') +
                           ', ' +
-                          JSON.stringify(String((args && args.note) || '')) +
+                          JSON.stringify(text(args.note)) +
                           '))'
                         : op === 'stop'
                           ? 'print("HEADLESS " + K.dsh_loop_api["stop"]())'
                           : op === 'bench'
                             ? 'print("HEADLESS " + K.dsh_loop_api["bench"](' +
-                              String(Number((args && args.iterations) || 5000)) +
+                              String(Number(args.iterations || 5000)) +
                               '))'
                             : 'print("HEADLESS " + K.dsh_loop_api["help"]())'
-              const r: any = await backendPost(
+              const r = await backendPost(
                 port,
                 '/worker',
                 { op: 'exec', name: nm, code: code, isolated: true },
                 300000,
               )
-              const rr = (r && r.result) || {}
+              const rr = asRecord(r.result)
               if (!r || r.ok !== true)
                 return toolError(
                   'backend_error',
-                  'LOOP session 失败 · ' + redactSecrets((r && (r.error || rr.error)) || 'unknown'),
+                  'LOOP session 失败 · ' + redactSecrets(text(r.error || rr.error || 'unknown')),
                   '用 blender_rt_loop op=status 检查会话；必要时重新 op=start',
                 )
               return {
@@ -145,21 +153,21 @@ export function registerLoop(ctx: any, port: number): void {
                   ' (session=' +
                   nm +
                   ') ok · ' +
-                  JSON.stringify(rr.result || rr).slice(0, 6000),
+                  JSON.stringify(rr.result || rr || r).slice(0, 6000),
               }
             }
-            const payload: any = {
+            const payload: Record<string, unknown> = {
               op: op,
-              spec: (args && args.spec) || {},
-              history: (args && args.history) || 8,
-              board: (args && args.board) || 0,
-              limit: (args && args.limit) || 10,
-              groups: !(args && args.groups === false),
-              path: args && args.path,
-              top: (args && args.top) || 1,
-              include_variants: !!(args && args.include_variants),
-              note: (args && args.note) || '',
-              iterations: (args && args.iterations) || 5000,
+              spec: args.spec || {},
+              history: args.history || 8,
+              board: args.board || 0,
+              limit: args.limit || 10,
+              groups: !(args.groups === false),
+              path: args.path,
+              top: args.top || 1,
+              include_variants: !!args.include_variants,
+              note: args.note || '',
+              iterations: args.iterations || 5000,
             }
             const r = await backendPost(port, '/loop', payload, 300000)
             const lt = leasedText(r)
@@ -167,7 +175,7 @@ export function registerLoop(ctx: any, port: number): void {
             if (!r || r.ok !== true)
               return toolError(
                 'backend_error',
-                'LOOP ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
+                'LOOP ' + op + ' 失败 · ' + text(r.error || r.raw || 'unknown'),
                 '用 blender_rt_loop op=status 检查会话',
               )
             return { text: 'LOOP ' + op + ' ' + JSON.stringify(r.result) }

@@ -5,8 +5,10 @@ import { ensureBackend } from '../host/backend.js'
 import { backendPost, leasedText } from '../host/http.js'
 import { renderOne } from '../ui/cards.js'
 import { toolError } from './errors.js'
+import { text } from '../contracts/dynamic.js'
+import type { HostContext } from '../host/context.js'
 
-export function registerCmd(ctx: any, port: number): void {
+export function registerCmd(ctx: HostContext, port: number): void {
   ctx.effect(
     () =>
       ctx.tools.register(
@@ -29,14 +31,14 @@ export function registerCmd(ctx: any, port: number): void {
           output: { schema: ANY_SCHEMA, render: renderOne },
           isConcurrencySafe: () => false,
           timeoutMs: T.cmd,
-          async execute(args: any) {
+          async execute(args: Record<string, unknown>) {
             if (!(await ensureBackend(port)))
               return toolError(
                 'backend_unreachable',
                 '后端不可用（127.0.0.1:' + String(port) + '）',
                 BACKEND_HINT,
               )
-            const name = String((args && args.name) || '')
+            const name = text(args.name)
             if (!name)
               return toolError(
                 'invalid_params',
@@ -48,8 +50,8 @@ export function registerCmd(ctx: any, port: number): void {
               '/cmd',
               {
                 name: name,
-                params: (args && args.params) || {},
-                timeoutMs: Number((args && args.timeout_ms) || 120000),
+                params: args.params || {},
+                timeoutMs: Number(args.timeout_ms || 120000),
               },
               300000,
             )
@@ -58,17 +60,18 @@ export function registerCmd(ctx: any, port: number): void {
             if (!r || r.ok !== true)
               return toolError(
                 'backend_error',
-                'CMD ' + name + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
+                'CMD ' + name + ' 失败 · ' + text(r.error || r.raw || 'unknown'),
                 '用 blender_rt_commands 核对命令名与参数',
               )
             const payload = JSON.stringify(r.result)
             const head =
-              'CMD ' + name + ' ok · ' + String(r.ms) + 'ms · ' + String(payload.length) + ' chars'
+              'CMD ' + name + ' ok · ' + text(r.ms) + 'ms · ' + String(payload.length) + ' chars'
+            const newline = String.fromCharCode(10)
             return {
               text:
                 head +
-                '\n' +
-                (payload.length > 3000 ? payload.slice(0, 3000) + '\n…(已截断)' : payload),
+                newline +
+                (payload.length > 3000 ? payload.slice(0, 3000) + newline + '…(已截断)' : payload),
             }
           },
         }),

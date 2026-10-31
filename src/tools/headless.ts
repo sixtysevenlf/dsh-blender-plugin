@@ -15,8 +15,10 @@ import {
 } from '../headless/receipts.js'
 import { detectFileAlias } from '../../lib/runtime/file_guard.js'
 import { toolError } from './errors.js'
+import { asArray, asRecord, text } from '../contracts/dynamic.js'
+import type { HostContext } from '../host/context.js'
 
-export function registerHeadless(ctx: any, port: number): void {
+export function registerHeadless(ctx: HostContext, port: number): void {
   ctx.effect(
     () =>
       ctx.tools.register(
@@ -104,7 +106,7 @@ export function registerHeadless(ctx: any, port: number): void {
           output: { schema: ANY_SCHEMA, render: renderStructured },
           isConcurrencySafe: () => false,
           timeoutMs: T.headless,
-          async execute(args: any) {
+          async execute(args: Record<string, unknown>) {
             if (!(await ensureBackend(port)))
               return toolError(
                 'backend_unreachable',
@@ -137,29 +139,28 @@ export function registerHeadless(ctx: any, port: number): void {
               args && args.wait_s !== undefined && args.wait_s !== null && args.wait_s !== ''
                 ? Number(args.wait_s)
                 : null
-            const body: any = {
-              script: String((args && args.script) || ''),
+            const body: Record<string, unknown> = {
+              script: String(args.script || ''),
               file: rawFile === undefined || rawFile === null ? undefined : rawFile,
-              outdir: (args && args.outdir) || undefined,
-              timeoutMs: args && args.timeout_ms ? Number(args.timeout_ms) : undefined,
-              factoryStartup: !(args && args.factory_startup === false),
-              bootstrap: !(args && args.bootstrap === false),
-              preload: (args && args.preload) || undefined,
-              gpu: (args && args.gpu) || undefined,
-              engine: (args && args.engine) || undefined,
-              useUserConfig: !!(args && args.use_user_config),
-              includeNoise: !!(args && args.include_noise),
-              expect:
-                args && args.expect && typeof args.expect === 'object' ? args.expect : undefined,
-              workdir: (args && args.workdir) || undefined,
-              scriptFile: (args && args.script_file) || undefined,
-              env: args && args.env && typeof args.env === 'object' ? args.env : undefined,
-              outJson: (args && args.out_json) || undefined,
-              shots: (args && args.shots) || undefined,
+              outdir: args.outdir || undefined,
+              timeoutMs: args.timeout_ms ? Number(args.timeout_ms) : undefined,
+              factoryStartup: args.factory_startup !== false,
+              bootstrap: args.bootstrap !== false,
+              preload: args.preload || undefined,
+              gpu: args.gpu || undefined,
+              engine: args.engine || undefined,
+              useUserConfig: !!args.use_user_config,
+              includeNoise: !!args.include_noise,
+              expect: args.expect && typeof args.expect === 'object' ? args.expect : undefined,
+              workdir: args.workdir || undefined,
+              scriptFile: args.script_file || undefined,
+              env: args.env && typeof args.env === 'object' ? args.env : undefined,
+              outJson: args.out_json || undefined,
+              shots: args.shots || undefined,
               hardExit: args && typeof args.hard_exit === 'boolean' ? args.hard_exit : undefined,
               runId: runId, // v0.9.3（D1）：客户端生成 → 窗口到点时立刻有可用句柄
             }
-            if (args && args.args) body.args = splitArgs(args.args)
+            if (args.args) body.args = splitArgs(args.args)
             const serverBudget = 60000 + Number(body.timeoutMs || 180000)
             const autoJobMs = Number(process.env.DSH_HEADLESS_AUTO_JOB_MS) || 0
             // ---- v0.9.3（D1/F3）：路线决策
@@ -168,8 +169,8 @@ export function registerHeadless(ctx: any, port: number): void {
             //   否则                        → 先同步等，窗口到点就回 promoted 回执（结果永不丢）
             const wantJobFirst = asJob || (autoJobMs > 0 && serverBudget >= autoJobMs)
             if (wantJobFirst) {
-              const r2: any = await startJobThenMaybeWait(port, body, waitS)
-              if (r2.text) return { text: r2.text }
+              const r2 = await startJobThenMaybeWait(port, body, waitS)
+              if (r2.text) return { text: text(r2.text) }
               const why = asJob
                 ? 'as_job=true'
                 : '预计预算 ' +
@@ -180,7 +181,7 @@ export function registerHeadless(ctx: any, port: number): void {
               if (r2.finished && r2.job) {
                 return headlessReceipt(r2.job, {
                   mode: 'job',
-                  jobId: r2.jobId,
+                  jobId: text(r2.jobId),
                   notes: [
                     '已后台化并在等待窗口内完成（' + why + '）—— 这就是完整结果，不必再 collect',
                   ],
@@ -188,11 +189,11 @@ export function registerHeadless(ctx: any, port: number): void {
               }
               return promotedReceipt(
                 r2.job,
-                r2.jobId,
+                text(r2.jobId),
                 why + '：已后台化，等待窗口内没跑完（**不是失败**）',
               )
             }
-            let res: any = null
+            let res: Record<string, unknown> | null = null
             try {
               // 预算 = 等待窗口 + 2 s 余量：到点就转 promoted 回执（+8s 会让每次长活都多等 8 秒，实测浪费）
               res = await backendPost(
@@ -201,7 +202,7 @@ export function registerHeadless(ctx: any, port: number): void {
                 body,
                 Math.min(serverBudget, HEADLESS_WAIT_MS + 2000),
               )
-            } catch (e: any) {
+            } catch (e: unknown) {
               // v0.9.3（D1）：客户端窗口到点 / 宿主 exec.signal 取消 —— 服务端子进程仍在跑
               return await promotedFromTimeout(port, runId, e)
             }
@@ -216,8 +217,8 @@ export function registerHeadless(ctx: any, port: number): void {
                 '检查 Blender 路径/Dsh 后端；详情见 blender_viewport op=doctor 与 headless 日志',
               )
             // 后端 /headless 的信封是 {ok, ms, result:<引擎回执>} —— 结构化字段在 result 里（v0.9.3 起与 job 快照同形）
-            const bodyRes: any =
-              res && res.result && typeof res.result === 'object' ? res.result : null
+            const bodyRes =
+              res && res.result && typeof res.result === 'object' ? asRecord(res.result) : null
             // 注意：**不能**拿 "resultJson 为空" 当缺字段 —— 脚本末行不是 JSON 时 resultJson 本来就该是 null（D3）。
             // 这里只判"后端根本没给引擎回执"。
             if (
@@ -265,8 +266,9 @@ export function registerHeadless(ctx: any, port: number): void {
                 ' 条心跳后收到结果）'
             // P0：shots 附图（默认不附；attach_images=true → 最多 3 张；"sheet" → 只附拼图）
             if (args && args.attach_images) {
-              const rows = (out.envelope && out.envelope.shots && out.envelope.shots.rows) || []
-              const paths = rows.map((x: any) => x && x.path).filter(Boolean)
+              const shots = asRecord(out.envelope.shots)
+              const rows = asArray(shots.rows)
+              const paths = rows.map((x) => text(asRecord(x).path)).filter(Boolean)
               const wantSheet = String(args.attach_images) === 'sheet'
               const picked = wantSheet
                 ? []

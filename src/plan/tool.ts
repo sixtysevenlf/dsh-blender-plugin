@@ -6,8 +6,10 @@ import { backendPost, jsonPayload, leasedText } from '../host/http.js'
 import { renderStructured } from '../ui/cards.js'
 import { finishPlanResponse, planViaWorker } from './headless-target.js'
 import { toolError } from '../tools/errors.js'
+import { asRecord, text } from '../contracts/dynamic.js'
+import type { HostContext } from '../host/context.js'
 
-export function registerPlan(ctx: any, port: number): void {
+export function registerPlan(ctx: HostContext, port: number): void {
   ctx.effect(
     () =>
       ctx.tools.register(
@@ -52,33 +54,29 @@ export function registerPlan(ctx: any, port: number): void {
           output: { schema: ANY_SCHEMA, render: renderStructured },
           isConcurrencySafe: () => false,
           timeoutMs: T.plan,
-          async execute(argsIn: any) {
+          async execute(argsIn: Record<string, unknown>) {
             if (!(await ensureBackend(port)))
               return toolError(
                 'backend_unreachable',
                 '后端不可用（127.0.0.1:' + String(port) + '）',
                 BACKEND_HINT,
               )
-            const op = String((argsIn && argsIn.op) || 'status')
-            const payload: any = jsonPayload(argsIn && argsIn.args)
+            const op = text(argsIn.op) || 'status'
+            const payload = jsonPayload(argsIn.args)
             if (
               !Object.keys(payload).length &&
-              argsIn &&
               typeof argsIn.args === 'string' &&
               argsIn.args.trim() &&
               argsIn.args.trim() !== '{}'
             ) {
               return toolError(
                 'invalid_params',
-                'PLAN ' +
-                  op +
-                  ' 失败 · args 不是合法 JSON 对象：' +
-                  String(argsIn.args).slice(0, 200),
+                'PLAN ' + op + ' 失败 · args 不是合法 JSON 对象：' + argsIn.args.slice(0, 200),
                 'args 传 JSON 对象，例如 {"family":"audit"}',
               )
             }
-            if (op === 'report' && argsIn && argsIn.path) payload.path = String(argsIn.path)
-            const sessRaw = argsIn && argsIn.session ? String(argsIn.session) : ''
+            if (op === 'report' && argsIn.path) payload.path = text(argsIn.path)
+            const sessRaw = argsIn.session ? text(argsIn.session) : ''
             if (sessRaw) {
               const pr = await planViaWorker(
                 ctx,
@@ -87,18 +85,19 @@ export function registerPlan(ctx: any, port: number): void {
                 payload,
                 sessRaw === 'auto' ? undefined : sessRaw,
               )
-              if (!pr || pr.ok !== true) {
+              const prRec = asRecord(pr)
+              if (prRec.ok !== true) {
                 return toolError(
                   'backend_error',
                   'PLAN ' +
                     op +
                     ' 无头执行失败 · ' +
-                    String((pr && pr.error) || 'unknown') +
-                    (pr && pr.hint ? String.fromCharCode(10) + String(pr.hint) : ''),
+                    text(prRec.error || 'unknown') +
+                    (prRec.hint ? String.fromCharCode(10) + text(prRec.hint) : ''),
                   '先 blender_rt_worker(op="start", name="…", preload="…")，或传 session="auto"',
                 )
               }
-              return await finishPlanResponse(ctx, op, pr.res, argsIn)
+              return await finishPlanResponse(ctx, op, prRec.res, argsIn)
             }
             const r = await backendPost(port, '/plan', { op: op, args: payload }, 300000)
             const lt = leasedText(r)
@@ -106,7 +105,7 @@ export function registerPlan(ctx: any, port: number): void {
             if (!r || r.ok !== true)
               return toolError(
                 'backend_error',
-                'PLAN ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
+                'PLAN ' + op + ' 失败 · ' + text(r.error || r.raw || 'unknown'),
                 '检查后端 /plan 路由与 op 名；不确定先 op=catalog',
               )
             return await finishPlanResponse(ctx, op, r.result, argsIn)

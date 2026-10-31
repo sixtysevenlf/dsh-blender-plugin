@@ -1,7 +1,8 @@
 import { vTool } from '../contracts/tool.js'
 import { schemaResolve } from '../contracts/tool.js'
+import type { HostContext } from '../host/context.js'
 
-export const ANY_SCHEMA: any = { type: 'json' }
+export const ANY_SCHEMA: Record<string, unknown> = { type: 'json' }
 export const HINT_KERNEL =
   '持久内核：K.x = 1 这次写，下次调用还能读到；预置 bpy / math / mathutils / Vector。'
 
@@ -11,7 +12,7 @@ export const HINT_KERNEL =
  * 一调它就直接给出试过的名字、每条通道的真实错误与修法 —— 而不是旧版那样
  * "模块载入期 throw → 15 个工具整体消失 + 宿主只回一句 failed to import"。
  */
-export function registerSchemaDiagnostic(ctx: any): void {
+export function registerSchemaDiagnostic(ctx: HostContext): void {
   const text = [
     '⛔ @dsh-external/dsh-blender-plugin 以**降级模式**加载：schemastery 未能解析，15 个 blender_rt_* 工具都未注册（这是**可读的失败**，不是插件消失）。',
     '原因：' + String(schemaResolve.error || '(未知)'),

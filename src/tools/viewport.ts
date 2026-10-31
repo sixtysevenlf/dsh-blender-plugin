@@ -15,8 +15,12 @@ import { backendJson, backendPost } from '../host/http.js'
 import { schemaResolve } from '../contracts/tool.js'
 import { tuiHostSummary } from '../tui-host.js'
 import { probeHttp, waitHttp } from '../../lib/runtime/backend_probe.js'
+import { asArray, asRecord, errorMessage, text } from '../contracts/dynamic.js'
+import type { HostContext } from '../host/context.js'
 
-export function registerViewport(ctx: any, port: number): void {
+const NL = String.fromCharCode(10)
+
+export function registerViewport(ctx: HostContext, port: number): void {
   ctx.effect(
     () =>
       ctx.tools.register(
@@ -81,8 +85,8 @@ export function registerViewport(ctx: any, port: number): void {
             render: (_args: unknown, value: unknown) => [{ type: 'text', text: String(value) }],
           },
           timeoutMs: T.viewport,
-          async execute(args: any) {
-            const op = String((args && args.op) || 'status')
+          async execute(args: Record<string, unknown>) {
+            const op = text(args.op) || 'status'
             if (op === 'start') {
               setPaused(false)
               const url = base(port) + '/health'
@@ -125,18 +129,18 @@ export function registerViewport(ctx: any, port: number): void {
             if (op === 'who' || op === 'lease' || op === 'release') {
               try {
                 if (op === 'who') {
-                  const w: any = await backendJson(port, '/who', 15000)
-                  const lz = (w && w.lease) || {}
-                  const m = (w && w.metrics) || {}
+                  const w = await backendJson(port, '/who', 15000)
+                  const lz = asRecord(w.lease)
+                  const m = asRecord(w.metrics)
                   return [
                     '租约：' +
                       (lz.active
                         ? '持有者 ' +
-                          String(lz.holder) +
+                          text(lz.holder) +
                           '（剩余 ' +
                           String(Math.round(Number(lz.expiresInMs || 0) / 1000)) +
                           's，续期 ' +
-                          String(lz.renewals || 0) +
+                          text(lz.renewals || 0) +
                           ' 次）'
                         : '空闲（谁都能写）'),
                     '本会话 holder：' +
@@ -144,144 +148,136 @@ export function registerViewport(ctx: any, port: number): void {
                       (lz.active && lz.holder === HOLDER ? '（就是本会话）' : ''),
                     '写作用域：' + (lz.scope ? JSON.stringify(lz.scope) : '未声明（= 不限制）'),
                     '通道：calls=' +
-                      String(m.calls || 0) +
+                      text(m.calls || 0) +
                       ' errors=' +
-                      String(m.errors || 0) +
+                      text(m.errors || 0) +
                       ' timeouts=' +
-                      String(m.timeouts || 0) +
+                      text(m.timeouts || 0) +
                       ' inflight=' +
-                      String(m.inflight || 0) +
+                      text(m.inflight || 0) +
                       ' lastCmd=' +
-                      String(m.lastCmd || '-'),
-                    '统计：' + JSON.stringify((w && w.stats) || {}),
-                  ].join('\n')
+                      text(m.lastCmd || '-'),
+                    '统计：' + JSON.stringify(w.stats || {}),
+                  ].join(NL)
                 }
-                const body: any = { holder: String((args && args.holder) || HOLDER) }
-                if (args && args.ttl_ms) body.ttlMs = Number(args.ttl_ms)
-                if (op === 'lease' && args && args.force) body.force = true
-                if (op === 'lease' && args && args.scope) body.scope = String(args.scope)
-                const r: any = await backendPost(
+                const body: Record<string, unknown> = { holder: text(args.holder) || HOLDER }
+                if (args.ttl_ms) body.ttlMs = Number(args.ttl_ms)
+                if (op === 'lease' && args.force) body.force = true
+                if (op === 'lease' && args.scope) body.scope = text(args.scope)
+                const r = await backendPost(
                   port,
                   op === 'lease' ? '/lease' : '/release',
                   body,
                   20000,
                 )
-                if (op === 'lease' && r && r.error === 'leased') {
+                if (op === 'lease' && r.error === 'leased') {
                   return (
                     '租约被占用：holder=' +
-                    String(r.holder) +
+                    text(r.holder) +
                     '，剩余 ' +
                     String(Math.round(Number(r.expiresInMs || 0) / 1000)) +
-                    's\n' +
-                    String(r.hint || '') +
-                    '\n（确认对方在跑就知道为什么被挡；要强抢再加 force=true）'
+                    's' +
+                    NL +
+                    text(r.hint) +
+                    NL +
+                    '（确认对方在跑就知道为什么被挡；要强抢再加 force=true）'
                   )
                 }
                 return (op === 'lease' ? 'LEASE ' : 'RELEASE ') + JSON.stringify(r)
-              } catch (e: any) {
-                return (
-                  op +
-                  ' 失败：' +
-                  String((e && e.message) || e) +
-                  '（后端没起？blender_viewport op=start）'
-                )
+              } catch (e: unknown) {
+                return op + ' 失败：' + errorMessage(e) + '（后端没起？blender_viewport op=start）'
               }
             }
             // v0.9.4：一键拉起 GUI Blender + 自动 Connect addon（agent 没有人手点 N 面板）
             if (op === 'launch') {
               try {
-                const body: any = {}
-                if (args && args.wait_ms) body.waitMs = Number(args.wait_ms)
-                if (args && args.file) body.file = String(args.file)
-                if (args && args.exe) body.exe = String(args.exe)
-                if (args && args.addon_module) body.addonModule = String(args.addon_module)
-                if (args && args.addon_file) body.addonFile = String(args.addon_file)
-                if (args && args.dry_run) body.dryRun = true
-                const r: any = await backendPost(
+                const body: Record<string, unknown> = {}
+                if (args.wait_ms) body.waitMs = Number(args.wait_ms)
+                if (args.file) body.file = text(args.file)
+                if (args.exe) body.exe = text(args.exe)
+                if (args.addon_module) body.addonModule = text(args.addon_module)
+                if (args.addon_file) body.addonFile = text(args.addon_file)
+                if (args.dry_run) body.dryRun = true
+                const r = await backendPost(
                   port,
                   '/launch',
                   body,
-                  Math.max(30000, Number((args && args.wait_ms) || 90000) + 30000),
+                  Math.max(30000, Number(args.wait_ms || 90000) + 30000),
                 )
                 const lines: string[] = []
                 lines.push(
-                  (r && r.ok ? 'LAUNCH ok' : 'LAUNCH 未成功') +
-                    (r && r.already
+                  (r.ok ? 'LAUNCH ok' : 'LAUNCH 未成功') +
+                    (r.already
                       ? ' · 已经在监听（幂等，未重复启动）'
-                      : r && r.dryRun
+                      : r.dryRun
                         ? ' · dryRun（没启动）'
                         : '') +
-                    (r && r.launched ? ' · 已 spawn pid=' + String(r.pid) : '') +
+                    (r.launched ? ' · 已 spawn pid=' + text(r.pid) : '') +
                     ' · addon 端口 ' +
-                    String((r && r.addonPort) || '-') +
+                    text(r.addonPort || '-') +
                     ' · 等待 ' +
-                    String((r && r.waitedMs) || 0) +
+                    text(r.waitedMs || 0) +
                     'ms',
                 )
-                if (r && r.exe)
+                if (r.exe)
                   lines.push(
                     'blender.exe：' +
-                      String(r.exe) +
-                      (r.configFrom ? '（来源 ' + String(r.configFrom) + '）' : ''),
+                      text(r.exe) +
+                      (r.configFrom ? '（来源 ' + text(r.configFrom) + '）' : ''),
                   )
-                if (r && r.error) lines.push('错误：' + String(r.error))
-                if (r && r.hint) lines.push('提示：' + String(r.hint))
-                if (r && Array.isArray(r.steps))
-                  for (const s of r.steps) lines.push('· ' + String(s))
-                const b = r && r.boot
-                if (b) {
+                if (r.error) lines.push('错误：' + text(r.error))
+                if (r.hint) lines.push('提示：' + text(r.hint))
+                const steps = asArray(r.steps)
+                for (const s of steps) lines.push('· ' + text(s))
+                const b = asRecord(r.boot)
+                if (r.boot) {
                   lines.push(
                     'boot 结论（GUI 侧自己写的 launch-status.json）：loaded_by=' +
-                      String(b.loaded_by || '-') +
+                      text(b.loaded_by || '-') +
                       ' · server_running=' +
-                      String(b.server_running) +
+                      text(b.server_running) +
                       ' · enabled=' +
                       JSON.stringify(b.enabled || []),
                   )
-                  if (Array.isArray(b.errors) && b.errors.length)
-                    lines.push('boot 错误：' + b.errors.slice(0, 4).join(' | '))
+                  const bootErrors = asArray(b.errors)
+                  if (bootErrors.length)
+                    lines.push('boot 错误：' + bootErrors.slice(0, 4).map(text).join(' | '))
                   if (b.env) lines.push('boot 环境：' + JSON.stringify(b.env))
-                  if (Array.isArray(b.addon_modules_seen) && b.addon_modules_seen.length)
-                    lines.push(
-                      'GUI 里可见的 addon 模块：' + b.addon_modules_seen.slice(0, 20).join(', '),
-                    )
-                } else if (r && (r.launched || r.dryRun)) {
+                  const seen = asArray(b.addon_modules_seen)
+                  if (seen.length)
+                    lines.push('GUI 里可见的 addon 模块：' + seen.slice(0, 20).map(text).join(', '))
+                } else if (r.launched || r.dryRun) {
                   lines.push(
                     'boot 状态文件：' +
-                      String(r.statusFile || '?') +
+                      text(r.statusFile || '?') +
                       '（没读到：可能 Blender 还没走到脚本，或 exe 路径不对）',
                   )
                 }
-                const doc = r && r.doctor
-                if (doc && doc.addon)
+                const doc = asRecord(r.doctor)
+                const addon = asRecord(doc.addon)
+                if (doc.addon)
                   lines.push(
                     '启动后体检：' +
-                      String((doc.addon && doc.addon.summary) || JSON.stringify(doc.addon)).slice(
-                        0,
-                        400,
-                      ),
+                      (addon.summary ? text(addon.summary) : JSON.stringify(addon)).slice(0, 400),
                   )
-                if (r && r.bootScript)
-                  lines.push('boot 脚本：' + String(r.bootScript) + '（想手工排查就直接跑它）')
-                return lines.join(String.fromCharCode(10))
-              } catch (e: any) {
+                if (r.bootScript)
+                  lines.push('boot 脚本：' + text(r.bootScript) + '（想手工排查就直接跑它）')
+                return lines.join(NL)
+              } catch (e: unknown) {
                 return (
                   'launch 失败：' +
-                  String((e && e.message) || e) +
+                  errorMessage(e) +
                   '（后端没起？先 blender_viewport op=start —— 那是管**后端**进程的，本 op 才是管 Blender 的）'
                 )
               }
             }
             if (op === 'doctor') {
               try {
-                const d: any = await backendJson(port, '/doctor')
-                const m = (d && d.metrics) || {}
-                const diag = (d && d.diagnosis) || m.lastDiagnosis || null
+                const d = await backendJson(port, '/doctor')
+                const metrics = asRecord(d.metrics)
+                const diag = d.diagnosis ? asRecord(d.diagnosis) : asRecord(metrics.lastDiagnosis)
                 const lines: string[] = []
-                lines.push(
-                  '诊断：' +
-                    String((d && d.kind) || (diag && diag.kind) || (d && d.ok ? 'ok' : 'unknown')),
-                )
+                lines.push('诊断：' + text(d.kind || diag.kind || (d.ok ? 'ok' : 'unknown')))
                 lines.push('宿主 API：' + HOST_API) // v0.9.2（R2）：DSH 升级后一眼看出插件挂的是哪份 dsh-tools
                 lines.push(tuiHostSummary()) // v2.6.1：dsh-TUI 宿主半边接上了哪些接缝
                 lines.push('插件：v' + PLUGIN_VERSION + ' @ ' + HERE)
@@ -293,70 +289,75 @@ export function registerViewport(ctx: any, port: number): void {
                         String(schemaResolve.error || '未解析') +
                         ' —— 工具未注册（降级模式）'),
                 )
-                if (diag && diag.summary) lines.push('结论：' + diag.summary)
-                if (diag && diag.fix) lines.push('修法：' + diag.fix)
-                if (d && d.addon) lines.push('addon：' + JSON.stringify(d.addon))
-                const led = (d && d.ledger) || null
-                if (led)
+                if (diag.summary) lines.push('结论：' + text(diag.summary))
+                if (diag.fix) lines.push('修法：' + text(diag.fix))
+                if (d.addon) lines.push('addon：' + JSON.stringify(d.addon))
+                const ledger = d.ledger ? asRecord(d.ledger) : null
+                const workDir = ledger ? asRecord(ledger.workDir) : null
+                if (ledger)
                   lines.push(
                     '工作目录：' +
-                      String((led.workDir && led.workDir.wsl) || '?') +
-                      (led.workDir && led.workDir.writable
+                      text(workDir?.wsl || '?') +
+                      (workDir?.writable
                         ? '（可写）'
-                        : '（⚠️ **不可写** —— ' + String(led.lastError || '?') + '）'),
+                        : '（⚠️ **不可写** —— ' + text(ledger.lastError || '?') + '）'),
                   )
-                if (led && !led.writable && led.hint) lines.push('修法：' + String(led.hint))
-                lines.push('计数：' + JSON.stringify(d && d.stats ? d.stats : {}))
+                if (ledger && !ledger.writable && ledger.hint)
+                  lines.push('修法：' + text(ledger.hint))
+                lines.push('计数：' + JSON.stringify(d.stats || {}))
                 lines.push(
                   '指标：calls=' +
-                    String(m.calls || 0) +
+                    text(metrics.calls || 0) +
                     ' errors=' +
-                    String(m.errors || 0) +
+                    text(metrics.errors || 0) +
                     ' timeouts=' +
-                    String(m.timeouts || 0) +
+                    text(metrics.timeouts || 0) +
                     ' inflight=' +
-                    String(m.inflight || 0) +
+                    text(metrics.inflight || 0) +
                     ' lastCmd=' +
-                    String(m.lastCmd || '-') +
-                    (m.lastCmdAgeMs === null || m.lastCmdAgeMs === undefined
+                    text(metrics.lastCmd || '-') +
+                    (metrics.lastCmdAgeMs === null || metrics.lastCmdAgeMs === undefined
                       ? ''
-                      : ' (' + String(Math.round(Number(m.lastCmdAgeMs) / 1000)) + 's 前)') +
+                      : ' (' + String(Math.round(Number(metrics.lastCmdAgeMs) / 1000)) + 's 前)') +
                     ' views=' +
-                    String(m.views || 0) +
+                    text(metrics.views || 0) +
                     ' headlessRuns=' +
-                    String(m.headlessRuns || 0),
+                    text(metrics.headlessRuns || 0),
                 )
-                return lines.join('\n')
-              } catch (e: any) {
+                return lines.join(NL)
+              } catch (e: unknown) {
                 return (
-                  '体检失败：' +
-                  String((e && e.message) || e) +
-                  '（后端可能没起：blender_viewport op=start）'
+                  '体检失败：' + errorMessage(e) + '（后端可能没起：blender_viewport op=start）'
                 )
               }
             }
             try {
               const s = await backendJson(port, '/status')
-              const views = s && s.region && s.region.views ? s.region.views : []
-              const v = views[0] || null
+              const region = s.region ? asRecord(s.region) : null
+              const views = region ? asArray(region.views) : []
+              const v = views.length ? asRecord(views[0]) : null
+              const ledger = s.ledger ? asRecord(s.ledger) : null
+              const plugin = s.plugin ? asRecord(s.plugin) : null
+              const runs = asArray(s.runs)
+              const child = getChild()
               return JSON.stringify({
                 running: true,
                 paused: isPaused(),
-                child: getChild()
+                child: child
                   ? childAlive()
-                    ? 'alive pid=' + String(getChild().pid)
-                    : 'dead pid=' + String(getChild().pid)
+                    ? 'alive pid=' + String(child.pid)
+                    : 'dead pid=' + String(child.pid)
                   : 'none',
                 watchdog: '15s',
                 endpoint: base(port),
                 viewportRegion: v ? v.region : null,
                 shading: v ? v.shading : null,
-                window: s && s.region ? s.region.window : null,
+                window: region ? region.window : null,
                 stats: s.stats,
                 diagnosis: s.diagnosis || null,
                 addonError: s.addonError || null, // v0.9.3：addon 没连上也要能看到本地信息（台账/工作目录）
                 plugin: s.plugin || null, // v0.8.10（A0）：进程内 lib 的版本 + runtime 指纹
-                pluginVersion: s.plugin ? s.plugin.version : null,
+                pluginVersion: plugin ? plugin.version : null,
                 hostApi: HOST_API, // v0.9.2（R2）：插件侧解析到的宿主 dsh-tools
                 toolVersion: PLUGIN_VERSION,
                 // v1.0.1+S11（issue #10）：包名形态解析走哪条通道 / 为什么失败 —— 这类静默整体消失必须留现场
@@ -365,29 +366,31 @@ export function registerViewport(ctx: any, port: number): void {
                   error: schemaResolve.error || null,
                   tried: schemaResolve.tried,
                 },
-                recentRuns: (s.runs || []).map((x: any) => ({
-                  id: x.id,
-                  status: x.status,
-                  pid: x.pid,
-                  ms: x.ms,
-                  outdir: x.outdir,
-                  artifacts: x.artifactCount,
-                  expectOk: x.expect ? x.expect.ok : null,
-                })),
+                recentRuns: runs.map((raw) => {
+                  const x = asRecord(raw)
+                  const expect = asRecord(x.expect)
+                  return {
+                    id: x.id,
+                    status: x.status,
+                    pid: x.pid,
+                    ms: x.ms,
+                    outdir: x.outdir,
+                    artifacts: x.artifactCount,
+                    expectOk: x.expect ? expect.ok : null,
+                  }
+                }),
                 ledger: s.ledger || null, // v0.8.10（D4）：磁盘台账（后端重启后仍可查）
                 // v0.9.3：workDir 可写性自证（只读挂载上写台账/日志会静默失败 —— 这里必须说出来）
-                workDir: (s.ledger && s.ledger.workDir) || null,
-                workDirWritable: !!(s.ledger && s.ledger.writable),
+                workDir: ledger ? ledger.workDir || null : null,
+                workDirWritable: !!(ledger && ledger.writable),
                 workDirWarning:
-                  s.ledger && !s.ledger.writable
-                    ? String(s.ledger.hint || s.ledger.lastError || '')
-                    : null,
+                  ledger && !ledger.writable ? text(ledger.hint || ledger.lastError || '') : null,
               })
-            } catch (e: any) {
+            } catch (e: unknown) {
               return JSON.stringify({
                 running: false,
                 url: base(port) + '/',
-                error: String((e && e.message) || e),
+                error: errorMessage(e),
                 code: 'backend_unreachable',
                 next_action: '用 blender_viewport op=start 拉起后端；仍失败看 op=doctor',
                 hint: '用 blender_viewport op=start 拉起',

@@ -14,8 +14,9 @@ import { registerTxn } from './txn.js'
 import { registerPreset } from './preset.js'
 import { registerJob } from './job.js'
 import { registerViewport } from './viewport.js'
+import type { HostContext } from '../host/context.js'
 
-export function registerTools(ctx: any, port: number): void {
+export function registerTools(ctx: HostContext, port: number): void {
   // ---------- A. AI 实时交互原语 ----------
   registerSee(ctx, port)
   registerDo(ctx, port)

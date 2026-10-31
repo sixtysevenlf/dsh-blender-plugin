@@ -7,8 +7,18 @@ import { renderStructured, clipText, safeStringify } from '../ui/cards.js'
 import { headlessReceipt, promotedReceipt } from '../headless/receipts.js'
 import { detectFileAlias } from '../../lib/runtime/file_guard.js'
 import { toolError } from './errors.js'
+import { asArray, asRecord, optionalText, text } from '../contracts/dynamic.js'
+import type { HostContext } from '../host/context.js'
 
-export function registerJob(ctx: any, port: number): void {
+interface JobCtx {
+  mode: 'job'
+  jobId: string | null
+  runId: string | null
+  notes: string[]
+  hint: string | null
+}
+
+export function registerJob(ctx: HostContext, port: number): void {
   ctx.effect(
     () =>
       ctx.tools.register(
@@ -71,14 +81,14 @@ export function registerJob(ctx: any, port: number): void {
           output: { schema: ANY_SCHEMA, render: renderStructured },
           isConcurrencySafe: () => true,
           timeoutMs: T.job,
-          async execute(args: any) {
+          async execute(args: Record<string, unknown>) {
             if (!(await ensureBackend(port)))
               return toolError(
                 'backend_unreachable',
                 '后端不可用（127.0.0.1:' + String(port) + '）',
                 '先 blender_viewport op=start 拉起后端，再重试',
               )
-            const op = String((args && args.op) || 'list')
+            const op = text(args.op) || 'list'
             // F-09 一致性：op=start/run 的 file= 与 rt_headless 同一套拦截（引擎 job 路径已有 validateFileOpt 兜底）
             if (op === 'start' || op === 'run') {
               const aliasKeys = detectFileAlias(args)
@@ -88,65 +98,65 @@ export function registerJob(ctx: any, port: number): void {
                   'blender_rt_job 没有参数 ' +
                     aliasKeys.join(', ') +
                     '；打开 .blend 请用 file=。（收到的键：' +
-                    Object.keys(args || {}).join(', ') +
+                    Object.keys(args).join(', ') +
                     '）',
                   '用 file=<.blend 路径>；参数名是 file，不是 blend/path',
                 )
-              if (args && typeof args.file === 'string' && !args.file.trim())
+              if (typeof args.file === 'string' && !args.file.trim())
                 return toolError(
                   'invalid_params',
                   'file= 传了空字符串 —— 本次不会打开任何 .blend（脚本会拿到出厂空场景）',
                   '给真实 .blend 路径，或不要传 file=',
                 )
             }
-            const body: any = { op: op }
-            if (args && args.id) body.id = String(args.id)
-            if (args && args.script !== undefined) body.script = String(args.script)
-            if (args && args.script_file) body.scriptFile = String(args.script_file)
-            if (args && args.args) body.args = splitArgs(args.args)
-            if (args && args.env && typeof args.env === 'object') body.env = args.env
-            if (args && args.file) body.file = String(args.file)
-            if (args && args.outdir) body.outdir = String(args.outdir)
-            if (args && args.engine) body.engine = String(args.engine)
-            if (args && args.preload) body.preload = String(args.preload)
-            if (args && args.workdir) body.workdir = String(args.workdir)
-            if (args && args.out_json) body.outJson = String(args.out_json)
-            if (args && args.include_noise !== undefined) body.includeNoise = !!args.include_noise
-            if (args && args.factory_startup !== undefined)
-              body.factoryStartup = !!args.factory_startup
-            if (args && args.bootstrap !== undefined) body.bootstrap = !!args.bootstrap
-            if (args && args.tail) body.tail = Number(args.tail)
-            if (args && args.timeout_ms) body.timeoutMs = Number(args.timeout_ms)
+            const body: Record<string, unknown> = { op: op }
+            if (args.id) body.id = text(args.id)
+            if (args.script !== undefined) body.script = text(args.script)
+            if (args.script_file) body.scriptFile = text(args.script_file)
+            if (args.args) body.args = splitArgs(args.args)
+            if (args.env && typeof args.env === 'object') body.env = args.env
+            if (args.file) body.file = text(args.file)
+            if (args.outdir) body.outdir = text(args.outdir)
+            if (args.engine) body.engine = text(args.engine)
+            if (args.preload) body.preload = text(args.preload)
+            if (args.workdir) body.workdir = text(args.workdir)
+            if (args.out_json) body.outJson = text(args.out_json)
+            if (args.include_noise !== undefined) body.includeNoise = !!args.include_noise
+            if (args.factory_startup !== undefined) body.factoryStartup = !!args.factory_startup
+            if (args.bootstrap !== undefined) body.bootstrap = !!args.bootstrap
+            if (args.tail) body.tail = Number(args.tail)
+            if (args.timeout_ms) body.timeoutMs = Number(args.timeout_ms)
             // v0.9.3（D6.2）：op=wait 会阻塞 → 给足 HTTP 预算（服务端默认 120 s/次，上限 600 s）
             const budget =
-              op === 'wait'
-                ? Math.min(600000, Number(args && args.timeout_ms) || 120000) + 30000
-                : 60000
+              op === 'wait' ? Math.min(600000, Number(args.timeout_ms) || 120000) + 30000 : 60000
             const r = await backendPost(port, '/job', body, budget)
             const lt = leasedText(r)
             if (lt) return { text: lt }
             if (!r || r.ok !== true)
               return toolError(
                 'backend_error',
-                'JOB ' + op + ' 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
+                'JOB ' + op + ' 失败 · ' + text(r.error || r.raw || 'unknown'),
                 '用 blender_rt_job op=list 查看作业',
               )
             if (op === 'list') {
-              const js: any[] = (r && r.jobs) || []
+              const js = asArray(r.jobs)
               if (!js.length) return { text: '没有作业' }
-              const lines = js.map(
-                (j: any) =>
+              const lines = js.map((raw) => {
+                const j = asRecord(raw)
+                const artifacts = asArray(j.artifacts)
+                return (
                   '  ' +
-                  String(j.id) +
+                  text(j.id) +
                   ' · ' +
-                  String(j.status) +
-                  (j.stageName ? ' · stage=' + String(j.stageName) : '') +
+                  text(j.status) +
+                  (j.stageName ? ' · stage=' + text(j.stageName) : '') +
                   (typeof j.ms === 'number' ? ' · ' + String(Math.round(j.ms / 1000)) + 's' : '') +
                   (j.fromLedger ? ' · (磁盘台账)' : '') +
                   ' · 产物 ' +
-                  String((j.artifacts || []).length) +
-                  ' 项',
-              )
+                  String(artifacts.length) +
+                  ' 项'
+                )
+              })
               return {
                 text:
                   '作业（' +
@@ -156,24 +166,24 @@ export function registerJob(ctx: any, port: number): void {
                   lines.join(String.fromCharCode(10)),
               }
             }
-            const j: any = (r && r.job) || {}
+            const j = asRecord(r.job)
             // ---- 统一回执：run/job 同一套字段（D2）
-            const ctx2: any = {
+            const ctx2: JobCtx = {
               mode: 'job',
-              jobId: String(j.id || '').indexOf('job-') === 0 ? j.id : null,
-              runId: j.runId || null,
+              jobId: text(j.id).indexOf('job-') === 0 ? text(j.id) : null,
+              runId: optionalText(j.runId) || null,
               notes: [],
               hint: null,
             }
             if (op === 'start') {
               ctx2.notes.push(
-                '已后台化（pid ' + String(j.pid) + '，日志目录 ' + String(j.logDir || '') + '）',
+                '已后台化（pid ' + text(j.pid) + '，日志目录 ' + text(j.logDir) + '）',
               )
               ctx2.hint =
                 '用 op=wait id=' +
-                String(j.id) +
+                text(j.id) +
                 ' 阻塞等结果，或 op=collect 看进展（stage/idleMs）；op=kill 中止'
-              const out0 = promotedReceipt(j, String(j.id), 'op=start 已接受')
+              const out0 = promotedReceipt(j, text(j.id), 'op=start 已接受')
               out0.envelope.mode = 'job-start'
               out0.envelope.notes = ctx2.notes
               out0.envelope.hint = ctx2.hint
@@ -183,17 +193,13 @@ export function registerJob(ctx: any, port: number): void {
               const t =
                 j.alreadyFinished || j.status === 'unknown'
                   ? 'JOB kill · ' +
-                    String(j.id) +
+                    text(j.id) +
                     ' · ' +
-                    String(j.status) +
+                    text(j.status) +
                     '（' +
-                    String(j.note || '已结束/不存在，无需 kill') +
+                    text(j.note || '已结束/不存在，无需 kill') +
                     '）'
-                  : 'JOB kill · ' +
-                    String(j.id) +
-                    ' · status=' +
-                    String(j.status) +
-                    '（已发 SIGKILL）'
+                  : 'JOB kill · ' + text(j.id) + ' · status=' + text(j.status) + '（已发 SIGKILL）'
               return {
                 text: t,
                 envelope: {
@@ -214,15 +220,15 @@ export function registerJob(ctx: any, port: number): void {
                   'JOB ' +
                   op +
                   ' · ' +
-                  String(j.id || '') +
+                  text(j.id) +
                   ' · status=' +
-                  String(j.status) +
+                  text(j.status) +
                   String.fromCharCode(10) +
                   '（已完成 · 磁盘产物对账 recovered from ' +
-                  String(j.recoveredFrom || '?') +
+                  text(j.recoveredFrom || '?') +
                   '）' +
                   String.fromCharCode(10) +
-                  String(j.hint || ''),
+                  text(j.hint),
                 envelope: {
                   kind: 'job',
                   mode: 'job-' + op,
@@ -244,14 +250,14 @@ export function registerJob(ctx: any, port: number): void {
                   'JOB ' +
                   op +
                   ' · ' +
-                  String(j.id || '') +
+                  text(j.id) +
                   ' · status=' +
-                  String(j.status) +
+                  text(j.status) +
                   String.fromCharCode(10) +
                   '（磁盘台账记录）' +
-                  String(j.staleReason || '') +
+                  text(j.staleReason) +
                   String.fromCharCode(10) +
-                  String(j.hint || ''),
+                  text(j.hint),
                 envelope: {
                   kind: 'ledger',
                   mode: 'job-' + op,
@@ -269,20 +275,20 @@ export function registerJob(ctx: any, port: number): void {
               }
             }
             if (op === 'collect' && j.status === 'running') {
+              const hb = asRecord(j.heartbeat)
+              const at = Number(hb.at || 0)
               ctx2.notes.push(
                 '任务仍在跑（不是失败）：stage=' +
                   safeStringify(j.stage || j.stageName) +
                   (j.progress ? ' · progress=' + safeStringify(j.progress) : '') +
                   (j.heartbeat
-                    ? ' · 心跳 ' +
-                      String(Math.round(Number(Date.now() - j.heartbeat.at || 0) / 1000)) +
-                      's 前'
+                    ? ' · 心跳 ' + String(Math.round((Date.now() - at || 0) / 1000)) + 's 前'
                     : '') +
                   ' · 最近输出 ' +
                   String(Math.round(Number(j.idleMs || 0) / 1000)) +
                   's 前',
               )
-              const out1 = promotedReceipt(j, String(j.id), 'op=collect：任务还在跑')
+              const out1 = promotedReceipt(j, text(j.id), 'op=collect：任务还在跑')
               out1.envelope.mode = 'collect-running'
               out1.envelope.notes = ctx2.notes
               return out1
@@ -290,7 +296,7 @@ export function registerJob(ctx: any, port: number): void {
             if (op === 'wait' && j.waitTimedOut) {
               const out2 = promotedReceipt(
                 j,
-                String(j.id),
+                text(j.id),
                 'op=wait：等待窗口（' +
                   String(Math.round(Number(j.waitedMs || 0) / 1000)) +
                   's）到点，任务仍在跑',
@@ -305,12 +311,12 @@ export function registerJob(ctx: any, port: number): void {
                   String(Math.round(Number(j.waitedMs || 0) / 1000)) +
                   's）',
               )
-            if (j.kind === 'headless' || String(j.id || '').indexOf('run-') === 0)
+            if (j.kind === 'headless' || text(j.id).indexOf('run-') === 0)
               notes.push('这是 blender_rt_headless 的运行台账（run 与 job 同一 id 空间）')
             return headlessReceipt(j, {
               mode: 'job',
               jobId: ctx2.jobId,
-              runId: j.runId || null,
+              runId: ctx2.runId,
               notes: notes,
             })
           },

@@ -1,20 +1,27 @@
 import { vTool } from '../contracts/tool.js'
+import type { HostContext } from '../host/context.js'
 import { ANY_SCHEMA } from './schema-diagnostic.js'
 import { T, BACKEND_HINT } from '../constants.js'
 import { ensureBackend, sleep } from '../host/backend.js'
 import { backendPost, fetchFrame, leasedText } from '../host/http.js'
 import { toAttachment, readLocalPng } from '../utils/image.js'
 import { renderOne } from '../ui/cards.js'
+import { asRecord, text } from '../contracts/dynamic.js'
 import { redactSecrets, toolError } from './errors.js'
 
-async function watchViaWorker(ctx: any, port: number, args: any, session?: string): Promise<any> {
-  const size = Math.max(120, Math.min(1600, Number((args && args.max_size) || 420)))
-  const spec: any = {
+async function watchViaWorker(
+  ctx: HostContext,
+  port: number,
+  args: Record<string, unknown>,
+  session?: string,
+): Promise<unknown> {
+  const size = Math.max(120, Math.min(1600, Number(args.max_size || 420)))
+  const spec: Record<string, unknown> = {
     width: size,
     height: Math.max(120, Math.round((size * 9) / 16)),
-    seconds: Math.max(0.2, Math.min(20, Number((args && args.seconds) || 2))),
-    fps: Math.max(0.5, Math.min(8, Number((args && args.fps) || 4))),
-    code: args && args.code ? String(args.code) : undefined,
+    seconds: Math.max(0.2, Math.min(20, Number(args.seconds || 2))),
+    fps: Math.max(0.5, Math.min(8, Number(args.fps || 4))),
+    code: args.code ? String(args.code) : undefined,
   }
   const nm = session ? String(session) : 'watch'
   try {
@@ -24,38 +31,39 @@ async function watchViaWorker(ctx: any, port: number, args: any, session?: strin
       { op: 'start', name: nm, engine: 'workbench', warmup: true, isolated: true },
       120000,
     )
-    const r: any = await backendPost(
+    const r = await backendPost(
       port,
       '/worker',
       { op: 'watch', name: nm, spec: spec, isolated: true },
       180000,
     )
-    const res = (r && r.result) || {}
-    if (!r || r.ok !== true || res.ok !== true)
+    const res = asRecord(r.result)
+    if (r.ok !== true || res.ok !== true)
       return toolError(
         'backend_error',
-        'WATCH 无头失败 · ' + String((r && (r.error || res.error)) || 'unknown'),
+        'WATCH 无头失败 · ' + text(r.error || res.error || 'unknown'),
         '先 blender_rt_worker op=start 启动 worker，或改用 GUI 通道',
       )
-    const fr: any[] = res.frames || []
-    const hashes = fr.filter((x) => x && x.ok).map((x) => x.hash)
+    const fr = Array.isArray(res.frames) ? res.frames : []
+    const hashes = fr.filter((x) => asRecord(x).ok).map((x) => asRecord(x).hash)
     const distinct = new Set(hashes).size
     const parts: string[] = []
+    const codeInfo = asRecord(res.code)
     if (res.code)
       parts.push(
         'code: ' +
-          (res.code.ok ? 'ok' : '失败') +
-          (res.code.error ? ' · ' + String(res.code.error) : ''),
+          (codeInfo.ok ? 'ok' : '失败') +
+          (codeInfo.error ? ' · ' + text(codeInfo.error) : ''),
       )
     parts.push(
       'WATCH(headless) ' +
-        String(res.sampled || fr.length) +
+        text(res.sampled || fr.length) +
         ' 帧 · 不同画面 ' +
         String(distinct) +
         '/' +
         String(hashes.length) +
         ' · ' +
-        String(res.ms || 0) +
+        text(res.ms || 0) +
         'ms' +
         (res.static_render ? ' · 无动画帧范围，静态重复采样' : ''),
     )
@@ -63,19 +71,19 @@ async function watchViaWorker(ctx: any, port: number, args: any, session?: strin
       'timeline: ' +
         fr
           .slice(0, 16)
-          .map((x) => String(x.frame) + ':' + String(x.hash))
+          .map((x) => text(asRecord(x).frame) + ':' + text(asRecord(x).hash))
           .join(' '),
     )
-    const images: any[] = []
+    const images: unknown[] = []
     let whyNot = ''
     const picks = Array.isArray(res.picks) ? res.picks.slice(0, 6) : []
     for (let i = 0; i < picks.length; i++) {
-      const p = picks[i]
+      const p = asRecord(picks[i])
       let data: Uint8Array | null = null
       if (p.png_b64) {
         try {
           data = Buffer.from(String(p.png_b64), 'base64')
-        } catch (e: any) {
+        } catch {
           data = null
         }
       }
@@ -87,7 +95,7 @@ async function watchViaWorker(ctx: any, port: number, args: any, session?: strin
       const att = await toAttachment(
         ctx,
         data,
-        'watch-hl-' + String(p.frame) + '-' + String(p.hash) + '.png',
+        'watch-hl-' + text(p.frame) + '-' + text(p.hash) + '.png',
       )
       if (att.ref) images.push(att.ref)
       else if (!whyNot) whyNot = att.why || '未知原因'
@@ -96,12 +104,12 @@ async function watchViaWorker(ctx: any, port: number, args: any, session?: strin
     return images.length
       ? { text: parts.join(String.fromCharCode(10)), images: images }
       : { text: parts.join(String.fromCharCode(10)) }
-  } catch (e: any) {
-    return { text: 'WATCH 无头异常 · ' + String((e && e.message) || e) }
+  } catch (e) {
+    return { text: 'WATCH 无头异常 · ' + text(e) }
   }
 }
 
-export function registerWatch(ctx: any, port: number): void {
+export function registerWatch(ctx: HostContext, port: number): void {
   ctx.effect(
     () =>
       ctx.tools.register(
@@ -119,42 +127,41 @@ export function registerWatch(ctx: any, port: number): void {
           output: { schema: ANY_SCHEMA, render: renderOne },
           isConcurrencySafe: () => false,
           timeoutMs: T.watch,
-          async execute(args: any) {
+          async execute(args: Record<string, unknown>) {
             if (!(await ensureBackend(port)))
               return toolError(
                 'backend_unreachable',
                 '后端不可用（127.0.0.1:' + String(port) + '）',
                 BACKEND_HINT,
               )
-            const seconds = Math.max(0.2, Math.min(20, Number((args && args.seconds) || 2)))
-            const fps = Math.max(0.5, Math.min(8, Number((args && args.fps) || 4)))
-            const size = Math.max(120, Math.min(1600, Number((args && args.max_size) || 420)))
+            const seconds = Math.max(0.2, Math.min(20, Number(args.seconds || 2)))
+            const fps = Math.max(0.5, Math.min(8, Number(args.fps || 4)))
+            const size = Math.max(120, Math.min(1600, Number(args.max_size || 420)))
             const parts: string[] = []
-            if (args && args.session)
-              return await watchViaWorker(ctx, port, args, String(args.session))
-            if (args && args.code) {
+            if (args.session) return await watchViaWorker(ctx, port, args, String(args.session))
+            if (args.code) {
               const r = await backendPost(port, '/act', { code: String(args.code) }, 180000)
               const lt = leasedText(r)
               parts.push(
                 lt
                   ? lt
-                  : r && r.ok
+                  : r.ok
                     ? 'ACT ok · ' +
-                      String(r.ms) +
+                      text(r.ms) +
                       'ms' +
                       (r.stdout ? ' · stdout: ' + redactSecrets(r.stdout).slice(0, 600) : '')
-                    : 'ACT 失败 · ' + String((r && (r.error || r.raw)) || ''),
+                    : 'ACT 失败 · ' + text(r.error || r.raw || ''),
               )
             }
             const total = Math.max(1, Math.min(32, Math.round(seconds * fps)))
             const interval = (seconds * 1000) / total
-            const shots: any[] = []
+            const shots: Array<{ t: number; ms: number; hash: string; png: Uint8Array | null }> = []
             const t0 = Date.now()
             for (let i = 0; i < total; i++) {
               try {
                 const f = await fetchFrame(port, size)
                 shots.push({ t: Date.now() - t0, ms: f.ms, hash: f.hash, png: f.png })
-              } catch (e: any) {
+              } catch {
                 shots.push({ t: Date.now() - t0, ms: -1, hash: 'ERR', png: null })
               }
               const wait = (i + 1) * interval - (Date.now() - t0)
@@ -162,7 +169,8 @@ export function registerWatch(ctx: any, port: number): void {
             }
             if (shots.length && shots.every((s) => s.hash === 'ERR')) {
               const fb = await watchViaWorker(ctx, port, args, undefined)
-              if (fb && fb.text) return fb
+              const fbRecord = asRecord(fb)
+              if (fb && fbRecord.text) return fb
             }
             const hashes = shots.map((s) => s.hash)
             const distinct = Array.from(new Set(hashes)).length
@@ -187,7 +195,7 @@ export function registerWatch(ctx: any, port: number): void {
               'timeline: ' +
                 shots.map((s, i) => String(i) + '@' + String(s.t) + 'ms:' + s.hash).join(' '),
             )
-            const picks: any[] = []
+            const picks: Array<{ t: number; ms: number; hash: string; png: Uint8Array | null }> = []
             const maxImages = 6
             if (shots.length <= maxImages) {
               for (const s of shots) if (s.png) picks.push(s)
@@ -197,12 +205,12 @@ export function registerWatch(ctx: any, port: number): void {
                 if (shots[idx] && shots[idx].png) picks.push(shots[idx])
               }
             }
-            const images: any[] = []
+            const images: unknown[] = []
             let whyNot: string | undefined
             for (let k = 0; k < picks.length; k++) {
               const att = await toAttachment(
                 ctx,
-                picks[k].png,
+                picks[k].png as Uint8Array,
                 'watch-' + String(k) + '-' + picks[k].hash + '.png',
               )
               if (att.ref) images.push(att.ref)
@@ -214,7 +222,7 @@ export function registerWatch(ctx: any, port: number): void {
                 ' 张（均匀抽取）' +
                 (whyNot ? ' · ⚠ 有帧未回传：' + whyNot : ''),
             )
-            const out: any = { text: parts.join('\n') }
+            const out: Record<string, unknown> = { text: parts.join('\n') }
             if (images.length) out.images = images
             return out
           },

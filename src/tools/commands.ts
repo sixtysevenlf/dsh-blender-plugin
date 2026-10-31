@@ -5,8 +5,10 @@ import { ensureBackend } from '../host/backend.js'
 import { backendJson } from '../host/http.js'
 import { renderOne } from '../ui/cards.js'
 import { toolError } from './errors.js'
+import { asArray, asRecord, text } from '../contracts/dynamic.js'
+import type { HostContext } from '../host/context.js'
 
-export function registerCommands(ctx: any, port: number): void {
+export function registerCommands(ctx: HostContext, port: number): void {
   ctx.effect(
     () =>
       ctx.tools.register(
@@ -29,33 +31,39 @@ export function registerCommands(ctx: any, port: number): void {
             if (!r || r.ok !== true)
               return toolError(
                 'backend_error',
-                'COMMANDS 失败 · ' + String((r && (r.error || r.raw)) || 'unknown'),
+                'COMMANDS 失败 · ' + text(r.error || r.raw || 'unknown'),
                 '先 blender_viewport op=status 确认后端与 addon',
               )
+            const disabled = asArray(r.disabled)
+            const integrations = asRecord(r.integrations)
+            const available = asArray(r.available)
             const lines: string[] = []
             lines.push(
-              '场景 ' + String(r.scene) + (r.file ? ' · 文件 ' + String(r.file) : ' · 未保存文件'),
+              '场景 ' + text(r.scene) + (r.file ? ' · 文件 ' + text(r.file) : ' · 未保存文件'),
             )
             lines.push(
               '可用命令 ' +
-                String(r.total) +
+                text(r.total) +
                 ' 条；被集成开关挡住 ' +
-                String((r.disabled || []).length) +
+                String(disabled.length) +
                 ' 条',
             )
             lines.push(
               '集成：' +
-                Object.keys(r.integrations || {})
-                  .map((k: string) => k + '=' + (r.integrations[k].enabled ? 'on' : 'off'))
+                Object.keys(integrations)
+                  .map((k: string) => {
+                    const it = asRecord(integrations[k])
+                    return k + '=' + (it.enabled ? 'on' : 'off')
+                  })
                   .join(' · '),
             )
-            for (const k of Object.keys(r.integrations || {})) {
-              const it = r.integrations[k]
-              if (!it.enabled && it.message) lines.push('  [' + k + '] ' + it.message)
+            for (const k of Object.keys(integrations)) {
+              const it = asRecord(integrations[k])
+              if (!it.enabled && it.message) lines.push('  [' + k + '] ' + text(it.message))
             }
-            if ((r.disabled || []).length) lines.push('被挡住：' + r.disabled.join(', '))
-            lines.push('可用：' + (r.available || []).join(', '))
-            return { text: lines.join('\n') }
+            if (disabled.length) lines.push('被挡住：' + disabled.map(text).join(', '))
+            lines.push('可用：' + available.map(text).join(', '))
+            return { text: lines.join(String.fromCharCode(10)) }
           },
         }),
       ),

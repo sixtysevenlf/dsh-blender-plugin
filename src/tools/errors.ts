@@ -6,6 +6,8 @@
  * next_action (so it can recover without another probing turn), and it must
  * survive the DSH lossless-JSON gate (vTool sanitizes every return value).
  */
+import { isRecord } from '../contracts/dynamic.js'
+
 export interface ToolFailure {
   text: string
   envelope: {
@@ -45,22 +47,21 @@ export function redactSecrets(input: unknown): string {
 
 /** Host-side cancellation (exec.signal abort) must keep propagating, not become a tool result. */
 export function isHostAbort(error: unknown): boolean {
-  const text = String((error && (error as any).message) || error || '')
+  const text = String((isRecord(error) && error.message) || error || '')
   return /宿主取消了本次等待|exec\.signal.*abort|operation was aborted/i.test(text)
 }
 
 /** First readable line of an exception, with secrets/stack removed. */
 export function errorLine(error: unknown): string {
-  const raw =
-    error && typeof error === 'object' && 'message' in error ? (error as any).message : error
+  const raw = isRecord(error) && 'message' in error ? error.message : error
   const first =
     String(raw === undefined || raw === null ? 'unknown' : raw).split(/\r?\n/)[0] || 'unknown'
   return redactSecrets(first).slice(0, 240)
 }
 
 /**
- * Build a lossless tool failure. `text` keeps the human/model channel readable;
- * `envelope.error` is the machine-readable channel used by the A8 contract.
+ * Build a lossless tool failure. text keeps the human/model channel readable;
+ * envelope.error is the machine-readable channel used by the A8 contract.
  */
 export function toolError(
   code: string,

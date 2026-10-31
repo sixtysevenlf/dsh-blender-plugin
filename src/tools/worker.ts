@@ -6,8 +6,10 @@ import { backendPost, leasedText, numTriple } from '../host/http.js'
 import { toAttachment, readLocalPng } from '../utils/image.js'
 import { renderOne } from '../ui/cards.js'
 import { redactSecrets, toolError } from './errors.js'
+import { asArray, asRecord, text } from '../contracts/dynamic.js'
+import type { HostContext } from '../host/context.js'
 
-export function registerWorker(ctx: any, port: number): void {
+export function registerWorker(ctx: HostContext, port: number): void {
   ctx.effect(
     () =>
       ctx.tools.register(
@@ -65,34 +67,33 @@ export function registerWorker(ctx: any, port: number): void {
           output: { schema: ANY_SCHEMA, render: renderOne },
           isConcurrencySafe: () => false,
           timeoutMs: T.worker,
-          async execute(args: any) {
+          async execute(args: Record<string, unknown>) {
             if (!(await ensureBackend(port)))
               return toolError(
                 'backend_unreachable',
                 '后端不可用（127.0.0.1:' + String(port) + '）',
                 BACKEND_HINT,
               )
-            const op = String((args && args.op) || 'status')
-            const body: any = { op: op, isolated: true }
-            if (args && args.code !== undefined) body.code = String(args.code)
-            if (args && args.timeout_ms) body.timeoutMs = Number(args.timeout_ms)
-            if (args && args.gpu) body.gpu = String(args.gpu)
-            if (args && args.engine) body.engine = String(args.engine)
-            if (args && args.preload) body.preload = String(args.preload)
-            if (args && args.warmup !== undefined) body.warmup = !!args.warmup
-            if (args && args.purge_prefix) body.purgePrefix = String(args.purge_prefix)
-            if (args && args.name) body.name = String(args.name)
+            const op = text(args.op) || 'status'
+            const body: Record<string, unknown> = { op: op, isolated: true }
+            if (args.code !== undefined) body.code = text(args.code)
+            if (args.timeout_ms) body.timeoutMs = Number(args.timeout_ms)
+            if (args.gpu) body.gpu = text(args.gpu)
+            if (args.engine) body.engine = text(args.engine)
+            if (args.preload) body.preload = text(args.preload)
+            if (args.warmup !== undefined) body.warmup = !!args.warmup
+            if (args.purge_prefix) body.purgePrefix = text(args.purge_prefix)
+            if (args.name) body.name = text(args.name)
             if (op === 'see') {
-              const vs = String((args && args.view_size) || '560x315')
+              const vs = text(args.view_size) || '560x315'
               const mm = vs.match(/^(\d+)\s*[x×]\s*(\d+)$/)
               body.spec = {
-                from: numTriple(args && args.from) || [7, -7, 5],
-                look_at: numTriple(args && args.look_at) || [0, 0, 1],
-                lens: args && args.lens !== undefined ? Number(args.lens) : undefined,
-                ortho: args && args.ortho !== undefined ? !!args.ortho : undefined,
-                ortho_scale:
-                  args && args.ortho_scale !== undefined ? Number(args.ortho_scale) : undefined,
-                shading: (args && args.shading) || undefined,
+                from: numTriple(args.from) || [7, -7, 5],
+                look_at: numTriple(args.look_at) || [0, 0, 1],
+                lens: args.lens !== undefined ? Number(args.lens) : undefined,
+                ortho: args.ortho !== undefined ? !!args.ortho : undefined,
+                ortho_scale: args.ortho_scale !== undefined ? Number(args.ortho_scale) : undefined,
+                shading: args.shading || undefined,
                 width: mm ? Number(mm[1]) : 560,
                 height: mm ? Number(mm[2]) : 315,
               }
@@ -102,11 +103,9 @@ export function registerWorker(ctx: any, port: number): void {
             const lt = leasedText(r)
             if (lt) return { text: lt }
             if (!r || r.ok !== true) {
-              const rr: any = (r && r.result) || {}
+              const rr = asRecord(r.result)
               const bits: string[] = []
-              bits.push(
-                'WORKER ' + op + ' 失败 · ' + String((r && (r.error || rr.error)) || 'unknown'),
-              )
+              bits.push('WORKER ' + op + ' 失败 · ' + text(r.error || rr.error || 'unknown'))
               if (rr.traceback)
                 bits.push(
                   '--- traceback ---' +
@@ -117,27 +116,27 @@ export function registerWorker(ctx: any, port: number): void {
                 bits.push('stderr: ' + redactSecrets(rr.stderr).slice(0, 1200))
               if (rr.stdout && String(rr.stdout).trim())
                 bits.push('stdout: ' + redactSecrets(rr.stdout).slice(0, 800))
-              if (r && r.hint) bits.push(String(r.hint))
+              if (r.hint) bits.push(text(r.hint))
               return toolError(
                 'backend_error',
                 bits.join(String.fromCharCode(10)),
                 '检查后端 /worker 路由；先 blender_viewport op=doctor 看进程与端口',
               )
             }
-            const res = (r && r.result) || {}
+            const res = asRecord(r.result)
             if (op === 'see') {
               if (res.ok === false)
                 return toolError(
                   'backend_error',
-                  'WORKER see 失败 · ' + String(res.error || 'unknown'),
+                  'WORKER see 失败 · ' + text(res.error || 'unknown'),
                   '用 blender_rt_worker op=start 检查无头 worker；或改用 blender_rt_see',
                   res.traceback ? redactSecrets(res.traceback).slice(-1200) : undefined,
                 )
               let data: Uint8Array | null = null
               if (res.png_b64) {
                 try {
-                  data = Buffer.from(String(res.png_b64), 'base64')
-                } catch (e: any) {
+                  data = Buffer.from(text(res.png_b64), 'base64')
+                } catch {
                   data = null
                 }
               }
@@ -145,75 +144,85 @@ export function registerWorker(ctx: any, port: number): void {
               const att = data
                 ? await toAttachment(ctx, data, 'worker-see-' + String(Date.now()) + '.png')
                 : { why: '没有 png_b64/path' }
-              const text =
+              const textOut =
                 'WORKER see ok · ' +
-                String(res.ms) +
+                text(res.ms) +
                 'ms · ' +
-                String(res.width) +
+                text(res.width) +
                 'x' +
-                String(res.height) +
+                text(res.height) +
                 ' · ' +
-                String(res.bytes || 0) +
+                text(res.bytes || 0) +
                 'B · ' +
-                String(res.mode || 'workbench') +
+                text(res.mode || 'workbench') +
                 (res.coverage_estimate === null || res.coverage_estimate === undefined
                   ? ''
                   : ' · 覆盖 ' + (Number(res.coverage_estimate) * 100).toFixed(2) + '%')
               return att.ref
-                ? { text: text, image: att.ref }
+                ? { text: textOut, image: att.ref }
                 : {
                     text:
-                      text +
+                      textOut +
                       String.fromCharCode(10) +
                       '⚠ 图片未回传：' +
-                      String(att.why || '未知原因'),
+                      text(att.why || '未知原因'),
                   }
             }
             if (op === 'reset') {
               if (!res.ok)
                 return toolError(
                   'backend_error',
-                  'WORKER reset 失败 · ' + String(res.error || 'unknown'),
+                  'WORKER reset 失败 · ' + text(res.error || 'unknown'),
                   '用 blender_rt_worker op=list 查看会话；必要时重新 op=start',
                 )
-              return { text: 'WORKER reset ok · objects=' + String(res.objects) }
+              return { text: 'WORKER reset ok · objects=' + text(res.objects) }
             }
             if (op === 'exec') {
               if (!res.ok)
                 return toolError(
                   'backend_error',
-                  'WORKER exec 失败 · ' + String(res.error || 'unknown'),
+                  'WORKER exec 失败 · ' + text(res.error || 'unknown'),
                   '用 blender_rt_worker op=start 检查会话；或改用 blender_rt_headless',
                   res.traceback ? redactSecrets(res.traceback).slice(0, 1500) : undefined,
                 )
               const parts: string[] = []
-              parts.push('WORKER exec ok · ' + String(res.ms) + 'ms')
+              parts.push('WORKER exec ok · ' + text(res.ms) + 'ms')
               if (res.result) parts.push('result: ' + JSON.stringify(res.result).slice(0, 2000))
               if (res.stdout && String(res.stdout).trim())
-                parts.push('--- stdout ---\n' + redactSecrets(res.stdout).slice(-2500))
+                parts.push(
+                  '--- stdout ---' +
+                    String.fromCharCode(10) +
+                    redactSecrets(res.stdout).slice(-2500),
+                )
               if (res.stderr && String(res.stderr).trim())
-                parts.push('--- stderr ---\n' + redactSecrets(res.stderr).slice(-1200))
-              return { text: parts.join('\n') }
+                parts.push(
+                  '--- stderr ---' +
+                    String.fromCharCode(10) +
+                    redactSecrets(res.stderr).slice(-1200),
+                )
+              return { text: parts.join(String.fromCharCode(10)) }
             }
             if (op === 'list') {
-              const ws: any[] = (res && res.workers) || []
+              const ws = asArray(res.workers)
               const lines = ws.length
-                ? ws.map(
-                    (w) =>
+                ? ws.map((raw) => {
+                    const w = asRecord(raw)
+                    return (
                       '- ' +
-                      String(w.name) +
+                      text(w.name) +
                       (w.alive
                         ? w.ready
                           ? ' · 热（pid ' +
-                            String(w.pid) +
+                            text(w.pid) +
                             '，端口 ' +
-                            String(w.port) +
+                            text(w.port) +
                             '，已运行 ' +
                             String(Math.round(Number(w.uptimeMs || 0) / 1000)) +
                             's）'
                           : ' · 进程在但未就绪'
-                        : ' · 未启动（端口 ' + String(w.port) + '）'),
-                  )
+                        : ' · 未启动（端口 ' + text(w.port) + '）')
+                    )
+                  })
                 : ['- （还没有任何 worker 实例；op=start 起一个）']
               return {
                 text:
@@ -224,6 +233,9 @@ export function registerWorker(ctx: any, port: number): void {
                   lines.join(String.fromCharCode(10)),
               }
             }
+            const gpu = asRecord(res.gpu)
+            const after = asRecord(gpu.after)
+            const gpuEnabled = asArray(after.gpu_enabled)
             const parts2: string[] = []
             parts2.push(
               'WORKER ' +
@@ -241,17 +253,15 @@ export function registerWorker(ctx: any, port: number): void {
             if (res.gpu)
               parts2.push(
                 'GPU：' +
-                  (res.gpu.fell_back_to_cpu
-                    ? '⚠️ 回落 CPU'
-                    : '✅ ' + String((res.gpu.after || {}).device_type || '')) +
+                  (gpu.fell_back_to_cpu ? '⚠️ 回落 CPU' : '✅ ' + text(after.device_type)) +
                   ' ' +
-                  String(((res.gpu.after || {}).gpu_enabled || []).join(',')),
+                  gpuEnabled.map(text).join(','),
               )
             if (res.status) parts2.push('status: ' + JSON.stringify(res.status))
-            if (res.lastError) parts2.push('lastError: ' + String(res.lastError))
+            if (res.lastError) parts2.push('lastError: ' + text(res.lastError))
             if (res.stdoutTail)
               parts2.push('worker stdout 尾：' + redactSecrets(res.stdoutTail).slice(-800))
-            return { text: parts2.join('\n') }
+            return { text: parts2.join(String.fromCharCode(10)) }
           },
         }),
       ),

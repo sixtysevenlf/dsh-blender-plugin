@@ -1,10 +1,12 @@
 import { spawn, execFileSync } from 'node:child_process'
+import type { ChildProcess } from 'node:child_process'
 import { readdirSync, readFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { probeHttp, decideStart } from '../../lib/runtime/backend_probe.js'
 import { ABORT_HINT, HERE, HOSTNAME, SERVER_PATH } from '../constants.js'
 import { execSignal } from './exec-context.js'
+import { asRecord } from '../contracts/dynamic.js'
 
 /**
  * 端口解析（与 runtime/config.ts 同一套来源，避免两处配置漂移）：
@@ -18,20 +20,20 @@ export function resolveHttpPort(): number {
     process.env.DSH_BLENDER_CONFIG,
     path.join(HERE, '..', 'dsh-blender.config.json'),
     path.join(os.homedir(), '.dsh', 'dsh-blender.config.json'),
-  ].filter(Boolean) as string[]
+  ].filter((p): p is string => Boolean(p))
   for (const p of cands) {
     try {
-      const j = JSON.parse(readFileSync(p, 'utf8'))
-      const n = Number(j && j.httpPort)
+      const j = asRecord(JSON.parse(readFileSync(p, 'utf8')))
+      const n = Number(j.httpPort)
       if (Number.isFinite(n) && n > 0) return n
-    } catch (e: any) {
+    } catch {
       /* 没这个文件或不是 JSON：跳过 */
     }
   }
   return 9877
 }
 
-let child: any = null
+let child: ChildProcess | null = null
 /** 用户用 op=stop 显式停过 → 看护不再自动拉起（op=start 解除） */
 let paused = false
 
@@ -46,7 +48,7 @@ export async function probe(port: number, timeoutMs = 1500): Promise<boolean> {
   try {
     const r = await fetch(base(port) + '/health', { signal: ac.signal })
     return r.ok
-  } catch (e: any) {
+  } catch {
     return false
   } finally {
     clearTimeout(timer)
@@ -56,9 +58,12 @@ export async function probe(port: number, timeoutMs = 1500): Promise<boolean> {
 export async function ensureBackend(port: number): Promise<boolean> {
   if (await probe(port)) return true
   if (paused) return false
+  // Test-only guard: contract tests exercise the unreachable-backend path on a
+  // closed port; never spawn a real server from inside the unit/integration suite.
+  if (process.env.DSH_BLENDER_TEST_NO_SPAWN === '1') return false
   try {
     await startBackend(port)
-  } catch (e: any) {
+  } catch {
     /* ignore */
   }
   for (let i = 0; i < 25; i++) {
@@ -94,10 +99,10 @@ export async function startBackend(port: number): Promise<string> {
   const decision = decideStart({ portUp, childAlive: childAlive() })
   if (decision === 'already-running') return 'already-running'
   if (decision === 'stale-handle') {
-    const stalePid = child && child.pid
+    const stalePid = child?.pid
     try {
       if (stalePid) process.kill(stalePid, 'SIGTERM')
-    } catch (e: any) {
+    } catch {
       /* 已经没了 */
     }
     child = null
@@ -125,15 +130,15 @@ export function killBackendByCmd(port: number, signal: NodeJS.Signals = 'SIGTERM
       if (Number(d) === process.pid) continue
       try {
         const toks = readFileSync('/proc/' + d + '/cmdline', 'utf8')
-          .split('\u0000')
+          .split(String.fromCharCode(0))
           .filter(Boolean)
         rows.push({ pid: Number(d), toks })
-      } catch (e: any) {
+      } catch {
         /* 进程可能已退出 */
       }
     }
     listed = true
-  } catch (e: any) {
+  } catch {
     /* 无 /proc（macOS/Windows）→ 走 ② */
   }
   // ② macOS / 通用 POSIX：ps 输出 pid + 完整命令行
@@ -149,27 +154,27 @@ export function killBackendByCmd(port: number, signal: NodeJS.Signals = 'SIGTERM
         if (pid === process.pid) continue
         rows.push({ pid, toks: m[2].trim().split(/\s+/) })
       }
-    } catch (e: any) {
+    } catch {
       /* ps 不可用则不兜底 */
     }
   }
   for (const r of rows) {
     // ★ v1.0.1+S10（自伤修复）：按 **argv token** 精确匹配，绝不拿整条 cmdline 做子串匹配 ——
-    //   调用方的 `bash -c "... node lib/runtime/server.js --port 9877 ..."` 命令行同样含这两个串，
+    //   调用方的 'bash -c "... node lib/runtime/server.js --port 9877 ..."' 命令行同样含这两个串，
     //   子串匹配会把调用方自己的 shell 一起 SIGKILL 掉（2026-09-29 实测踩到，A/B 当场抓出）。
     let isServer = false
     let portOk = false
     let isShell = false
     for (let i = 0; i < r.toks.length; i++) {
       if (i === 0 && /(^|\/)(bash|sh|zsh|dash|fish|bwrap)$/.test(r.toks[i])) isShell = true
-      if (i >= 1 && /(^|\/)server\.mjs$/.test(r.toks[i])) isServer = true // 必须是独立 argv 且以 server.mjs 结尾
+      if (i >= 1 && /(^|\/)server\.(mjs|js)$/.test(r.toks[i])) isServer = true // 独立 argv 且以 server.mjs/server.js 结尾
       if (r.toks[i] === '--port' && r.toks[i + 1] === wantPort) portOk = true
     }
     if (isServer && portOk && !isShell) {
       try {
         process.kill(r.pid, signal)
         killed.push(String(r.pid))
-      } catch (e: any) {
+      } catch {
         /* 已退出 */
       }
     }
@@ -182,7 +187,11 @@ export function killBackendByCmd(port: number, signal: NodeJS.Signals = 'SIGTERM
  * 两条都只影响**等待**：服务端已开始的 Blender 侧任务照旧跑完（headless/job 既有语义
  * = 客户端断连 ≠ 任务失败，按 runId 回收）。
  */
-export async function withTimeout(path: string, init: any, timeoutMs: number): Promise<Response> {
+export async function withTimeout(
+  path: string,
+  init: RequestInit | undefined,
+  timeoutMs: number,
+): Promise<Response> {
   const ac = new AbortController()
   const ext = execSignal()
   let fired = false
@@ -193,7 +202,7 @@ export async function withTimeout(path: string, init: any, timeoutMs: number): P
   const signal = ext ? AbortSignal.any([ext, ac.signal]) : ac.signal
   try {
     return await fetch(path, { ...(init || {}), signal })
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (!fired && ext && ext.aborted) throw new Error(ABORT_HINT)
     throw e
   } finally {
@@ -208,7 +217,7 @@ export function isPaused(): boolean {
 export function setPaused(v: boolean): void {
   paused = v
 }
-export function getChild(): any {
+export function getChild(): ChildProcess | null {
   return child
 }
 /** 杀掉并清空当前子进程句柄；返回是否原本有句柄（调用方据此写回执）。 */
@@ -216,7 +225,7 @@ export function killChildHandle(): boolean {
   if (!child) return false
   try {
     child.kill()
-  } catch (e: any) {
+  } catch {
     /* 已经退出 */
   }
   child = null
