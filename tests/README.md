@@ -2,7 +2,8 @@
 
 Three layers, one rule: a test belongs to the cheapest layer that can still catch the defect.
 The layers are Unit, Integration, and End-to-end. A "legacy" selftest script is **not** a fourth layer:
-those scripts were retired in T11 and every one is mapped in [MIGRATION.md](MIGRATION.md).
+those scripts were retired from the default chain in T11 and every one is mapped in
+[MIGRATION.md](MIGRATION.md).
 
 ## Unit
 
@@ -31,6 +32,9 @@ Run: `npm run test:integration`.
 Real Blender 4.2 and the packaged add-on, plus a GUI/backend probe. These tests are gated with
 `pytest.mark.blender` / `pytest.mark.gui` and are excluded from the default collection by
 `pytest.ini`. They run on release machines, not in pull-request CI.
+
+Most current E2E wrappers still execute an archived legacy case (strangler intermediate, see
+`MIGRATION.md`); that is not the final shape. T11b tracks the native in-Blender pytest rewrite.
 
 Run: `DSH_BLENDER_EXE=/path/to/blender pytest tests/e2e -m blender -v`
 GUI probe: `DSH_BLENDER_GUI_E2E=1 pytest tests/e2e -m gui -v`
