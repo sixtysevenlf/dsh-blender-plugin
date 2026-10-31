@@ -47,6 +47,30 @@ HEADLESS_MODULES = (
         "preloads": ("audit", "gate", "printcheck", "uv_tools", "material"),
         "timeout": 600,
     },
+    {
+        "id": "assembly",
+        "path": "tests/e2e/blender/native/assembly.py",
+        "preloads": ("assembly", "audit", "contract", "clearance", "gate"),
+        "timeout": 600,
+    },
+    {
+        "id": "assembly_export",
+        "path": "tests/e2e/blender/native/assembly_export.py",
+        "preloads": ("assembly", "audit", "contract", "clearance", "gate", "mesh_fix", "geo", "txn", "deliver"),
+        "timeout": 600,
+    },
+    {
+        "id": "assembly_repair",
+        "path": "tests/e2e/blender/native/assembly_repair.py",
+        "preloads": ("assembly", "audit", "contract", "clearance", "gate", "mesh_fix", "geo", "txn"),
+        "timeout": 600,
+    },
+    {
+        "id": "mate",
+        "path": "tests/e2e/blender/native/mate.py",
+        "preloads": ("view", "contract"),
+        "timeout": 600,
+    },
 )
 
 GUI_MODULES = ()
