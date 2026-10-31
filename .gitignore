@@ -30,5 +30,6 @@ node_modules
 # T12: coverage artifacts
 coverage/
 
-# Local-only refactor notes and evidence: never commit
+# Local-only working notes and evidence: never commit
 /docs/refactor/
+.vscode/

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * scripts/build.mjs —— Phase R 双编译入口（T15a）。
+ * scripts/build.mjs —— host / runtime 双编译入口。
  *
  * 单项目编译：`node scripts/build.mjs host`（src → lib）或 `runtime`（runtime → lib/runtime）。
  * tsc 解析与 `npm run typecheck` 完全同源（scripts/typecheck.mjs --print）——构建/类型检查

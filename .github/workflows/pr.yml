@@ -3,7 +3,7 @@ name: PR gate
 on:
   pull_request:
   push:
-    branches: [refactor, main]
+    branches: [main]
 
 concurrency:
   group: pr-${{ github.ref }}

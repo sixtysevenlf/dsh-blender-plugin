@@ -2,7 +2,7 @@
 
 Three layers, one rule: a test belongs to the cheapest layer that can still catch the defect.
 The layers are Unit, Integration, and End-to-end. A "legacy" selftest script is **not** a fourth layer:
-those scripts were retired from the default chain in T11 and every one is mapped in
+those scripts were retired from the default chain and every one is mapped in
 [MIGRATION.md](MIGRATION.md).
 
 ## Unit
@@ -31,9 +31,9 @@ Run: `npm run test:integration`.
 
 Real Blender 4.2 and the packaged add-on, plus a GUI/backend probe. These tests are gated with
 `pytest.mark.blender` / `pytest.mark.gui` and are excluded from the default collection by
-`pytest.ini`. They run on release machines, not in pull-request CI.
+`pyproject.toml`. They run on release machines, not in pull-request CI.
 
-T11b final shape (see plan §6.5.1):
+Current end-to-end shape:
 - H native headless modules: `tests/e2e/blender/native/*.py` run inside Blender by
   `native_runner.py`; host launcher `test_native_e2e.py`.
 - G native GUI modules: `tests/e2e/gui/native/*.py` need a real window (OpenGL capture);
@@ -42,7 +42,7 @@ T11b final shape (see plan §6.5.1):
   no Blender; skips with a reason when the backend is absent.
 - M manual probe: `node tools/gui-channel-probe.mjs` against a GUI Blender + add-on + backend.
 
-The archived-case/wrapper intermediate was removed in T11b.9 (see `MIGRATION.md`).
+The archived-case/wrapper intermediate was removed (see `MIGRATION.md`).
 
 Headless + add-on: `DSH_BLENDER_EXE=/path/to/blender npm run test:e2e`
 GUI + backend: `DSH_BLENDER_EXE=/path/to/blender npm run test:e2e:gui`
@@ -63,4 +63,4 @@ shared `backend.ts` process harness. Keep helpers free of assertions.
 1. Pick the layer by dependency, not by convenience.
 2. Put the file under `tests/<layer>/<js|python>/` with a descriptive name.
 3. Reuse `tests/helpers`; add a fixture only when two tests need the same non-trivial setup.
-4. Never use `retry`, a bare `skip`, or `pytest.ini` overrides to make a red test green.
+4. Never use `retry`, a bare `skip`, or `pyproject.toml` overrides to make a red test green.

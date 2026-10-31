@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Parity gate for the T15 runtime TypeScript migration (plan §8.2 B5 / §10.4 T15e).
+ * Parity gate for the runtime TypeScript build.
  *
  * The migrated runtime (runtime tree TS sources compiled to lib/runtime JS) must
- * behave exactly like the pre-migration runtime sources at the refactor base
+ * behave exactly like the pre-TypeScript runtime sources at the parity base
  * commit. This script imports BOTH sides in the same process tree:
  *
  *   base:    git worktree at DSH_PARITY_BASE (default b8778c8) -> runtime/engine.mjs

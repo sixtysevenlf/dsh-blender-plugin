@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * T14 behavior coverage matrix checker.
+ * Behavior coverage matrix checker.
  *
  * Parses tests/BEHAVIOR_MATRIX.md and compares it with the live source of truth:
  *   - model tools: every .ts under src (vTool registrations; the schema-diagnostic
@@ -11,7 +11,7 @@
  *   - plan ops: lib/runtime/catalog.js PLAN_CATALOG (one row per op entry)
  *   - HTTP routes: CONTRACT_ROUTES from lib/runtime/http/routes/index.js
  *
- * T15: runtime sources are TypeScript, so this script imports the built
+ * Runtime sources are TypeScript, so this script imports the built
  * lib/runtime JS artifact and calls scripts/ensure-build.mjs first.
  *   - fixed protocol/lifecycle/config/install/security/version rows
  *

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Clean-install smoke for the T15 migration (plan 8.2 B5/B6).
+ * Clean-install smoke for the packaged plugin.
  *
  *   npm run build            -> lib/index.js + compiled lib/runtime JS (prepack too)
  *   npm pack                 -> tarball in a temp dir

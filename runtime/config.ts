@@ -458,7 +458,7 @@ export const CFG = {
   addonPort: num(process.env.DSH_BLENDER_ADDON_PORT || readString(FILE.cfg.addonPort), 9876),
   httpPort: num(process.env.DSH_BLENDER_HTTP_PORT || readString(FILE.cfg.httpPort), 9877),
   /**
-   * Windows 侧启动代理（D:/DSH/blender/launch-agent.mjs，默认 127.0.0.1:9878）。
+   * Windows 侧启动代理（默认 127.0.0.1:9878）。
    * WSL 走它拉起 GUI Blender ⇒ 本次启动 0 次互操作调用，回避 microsoft/WSL#41173
    * 的中继空转泄漏（Interop 线程吃满一个核心且无法释放）。
    * 代理不在线时自动回退到旧的互操作 spawn；设为 "off" 可强制回退。

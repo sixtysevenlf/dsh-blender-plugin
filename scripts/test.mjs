@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * scripts/test.mjs — one entry point for the layered test stack (T1).
+ * scripts/test.mjs — one entry point for the layered test stack.
  *
  * Usage:
  *   node scripts/test.mjs            # Vitest (unit + integration) + pytest
@@ -10,7 +10,7 @@
  *   node scripts/test.mjs integration  # Vitest integration only
  *   node scripts/test.mjs addon-unit    # pytest: Blender addon unit tests only
  *
- * The legacy selftest scripts were retired in T11; see tests/MIGRATION.md for the mapping.
+ * Legacy selftest scripts are retired; see tests/MIGRATION.md for the mapping.
  */
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -78,7 +78,7 @@ function runPython() {
     return
   }
   if (mode === 'e2e') {
-    // pytest.ini excludes blender/gui by default; clear addopts for the E2E layer.
+    // pyproject.toml excludes blender/gui by default; clear addopts for the E2E layer.
     run(
       py,
       ['-m', 'pytest', '-o', 'addopts=', '-m', 'blender and not gui', 'tests/e2e'],

@@ -7,8 +7,8 @@
  * AST check, not a regex: comments and string literals never match, and
  * `unknown` / `never` are unaffected.
  *
- * T5a / B8: the foundation surface and both production trees must stay at
- * zero explicit any. Tests may use any for host doubles.
+ * Production code (src/ and runtime/) must stay at zero explicit any.
+ * Tests may use any for host doubles.
  */
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'

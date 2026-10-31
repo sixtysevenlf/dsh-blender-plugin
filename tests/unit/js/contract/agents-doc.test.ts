@@ -80,7 +80,7 @@ describe('AGENTS.md contract', () => {
     }
   })
 
-  it('claims lint only now that T5 delivered the script', () => {
+  it('claims lint only when package.json defines the script', () => {
     const lintLine = AGENTS.split('\n').find((line) => line.includes('npm run lint')) ?? ''
     expect(lintLine).not.toMatch(/planned/i)
     expect(scripts).toHaveProperty('lint')
@@ -94,10 +94,18 @@ describe('AGENTS.md contract', () => {
     }
   })
 
-  it('describes current and target architecture with task markers', () => {
-    expect(AGENTS).toContain('| Layer | Target | Current')
-    for (const marker of ['T4', 'T6', 'T7', 'T8', 'T9', 'T15']) expect(AGENTS).toContain(marker)
-    expect(AGENTS).toMatch(/is the truth in this worktree/i)
+  it('describes the current architecture by layer', () => {
+    expect(AGENTS).toContain('| Layer | Path')
+    for (const marker of [
+      'src/index.ts',
+      'src/tools/*',
+      'runtime/http/*',
+      'runtime/py/',
+      'addon/dsh_blender_bridge/',
+      'lib/',
+    ]) {
+      expect(AGENTS).toContain(marker)
+    }
   })
 
   it('has no broken relative link', () => {

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * scripts/ensure-build.mjs —— T15：保证 lib/ 构建产物可用（tests/selftests/E2E 共用）。
+ * scripts/ensure-build.mjs —— 保证 lib/ 构建产物可用（tests / E2E 共用）。
  *
  * 为什么需要：runtime 现在只有 .ts 源码，Node 进程无法直接 import。
  *   · Vitest unit/integration 直接 import runtime TS（Vite 转译）；

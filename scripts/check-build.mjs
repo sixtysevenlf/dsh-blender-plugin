@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * scripts/check-build.mjs —— prepack / CI 的构建检查（T5）。
+ * scripts/check-build.mjs —— prepack / CI 的构建检查。
  *
  * 不写仓库里的 lib/（那是发布产物，由 scripts/build.sh 在发版时重建），而是：
  *   ① 用与 npm run typecheck 同一个 tsc（scripts/typecheck.mjs --print）把 src 编译到临时目录；
@@ -112,7 +112,7 @@ function walk(dir) {
       if (ent.name === 'venv' || ent.name === 'node_modules' || ent.name === '__pycache__') continue
       walk(p)
     }
-    // T4 要求 src/tui-host.ts 原样保留（它自带 @ts-nocheck，后续类型化单列任务处理）
+    // src/tui-host.ts 由守卫测试单独覆盖，这里不重复断言
     else if (ent.name === 'tui-host.ts') continue
     else if (ent.name.endsWith('.ts') && fs.readFileSync(p, 'utf8').includes('@ts-nocheck')) {
       nocheck.push(path.relative(ROOT, p).split(path.sep).join('/'))
@@ -131,7 +131,7 @@ steps.push({
 // ④ 结构门禁
 run('check-structure', process.execPath, [path.join(HERE, 'check-structure.mjs')])
 
-// ⑥ runtime 迁移卫生（T15）：零 .mjs、零 @ts-nocheck
+// ⑥ runtime 构建卫生：零 .mjs、零 @ts-nocheck
 const runtimeFiles = []
 function walkRuntime(dir) {
   if (!fs.existsSync(dir)) return
@@ -162,7 +162,7 @@ steps.push({
   output: runtimeTs.length + ' .ts, ' + tsNocheck.length + ' @ts-nocheck',
 })
 
-// ⑦ git 卫生（T15）：lib/ 不再入库
+// ⑦ git 卫生：lib/ 不再入库
 const trackedLib = spawnSync('git', ['ls-files', 'lib'], { cwd: ROOT, encoding: 'utf8' })
 const trackedLibFiles = String(trackedLib.stdout || '').trim()
 if (trackedLib.status !== 0)

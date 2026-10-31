@@ -15,7 +15,7 @@ export const PLUGIN_VERSION = '3.0.0'
 // 后端与 Blender 侧模块都放在插件包的 runtime/ 下 → 整个包可搬到任意目录（WSL 或 Windows）
 export const HERE = path.dirname(fileURLToPath(import.meta.url))
 /**
- * Phase R（T15a）：runtime 源码已迁 TypeScript，运行时入口是构建产物 lib/runtime/server.js。
+ * Runtime 源码是 TypeScript，运行时入口是构建产物 lib/runtime/server.js。
  * - 生产/打包布局：HERE = <pkg>/lib → <pkg>/lib/runtime/server.js
  * - 开发/测试布局：HERE = <pkg>/src → <pkg>/lib/runtime/server.js（先 build）
  * DSH_BLENDER_SERVER 覆盖仍然最高优先级（排障/自定义安装位置用）。

@@ -13,7 +13,7 @@ ops：
                                               params:{base_color:[0.35,0.38,0.42], scale:24}})
     blender_rt_plan(op="material_apply", args={material:"M-hull", objects:["P01","P02"]})
     blender_rt_plan(op="material_bake",  args={objects:["P01"], bake_type:"DIFFUSE",
-                                              resolution:1024, outdir:"D:/DSH/blender/out/bake"})
+                                              resolution:1024, outdir:"D:/out/bake"})
     blender_rt_plan(op="material_selftest")
 
 **硬规则**：preset 名写错 ⇒ 回允许列表；参数名写错 ⇒ 回"不认识的参数"；bake 前没有 UV ⇒ ok=false

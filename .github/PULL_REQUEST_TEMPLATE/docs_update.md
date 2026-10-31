@@ -14,7 +14,7 @@
 
 ## Task
 
-<!-- Refactor task ID (T4, T12, ...), issue number, or "none" for an unrelated fix. -->
+<!-- Task or issue reference (for example an issue number), or "none" for an unrelated change. -->
 
 ## Scope
 
@@ -27,7 +27,7 @@
 
 ## Test evidence
 
-<!-- Commands and result. The command table is AGENTS.md §1; do not invent variants. Full evidence stays in the local refactor workspace. -->
+<!-- Commands and result. The command table is AGENTS.md §1; do not invent variants. Link the evidence (CI run, logs, or test output) instead of pasting long logs. -->
 
 ## Build and packaging evidence
 
@@ -35,7 +35,7 @@
 
 ## Risk
 
-<!-- What can break, who is affected, how it would be detected. Note any R1 gate. -->
+<!-- What can break, who is affected, how it would be detected. Note any reviewer requirement. -->
 
 ## Rollback
 
@@ -51,7 +51,7 @@
 
 ## Checklist
 
-- [ ] Scoped to one task; the description states the intent.
+- [ ] Scoped to one concern; the description states the intent.
 - [ ] Tests for the touched layer pass; new behavior had a failing test first.
 - [ ] Documentation is updated in the same change, both languages in sync.
 - [ ] No secrets, build artifacts, node_modules, venv, or hand-edited lib/.

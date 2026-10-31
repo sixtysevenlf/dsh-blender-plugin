@@ -1,0 +1,26 @@
+# Python tooling configuration for the Blender add-on and its tests.
+#
+# This project ships as an npm package, so there is no Python build; this file is
+# intentionally only a single home for pytest and Ruff configuration.
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit/python", "tests/integration/python"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = '-q --import-mode=importlib -p no:cacheprovider -m "not blender and not gui"'
+markers = [
+  "blender: requires a real Blender executable (headless E2E)",
+  "gui: requires Xvfb/desktop Blender and the addon GUI channel",
+]
+
+[tool.ruff]
+# Editor-facing Ruff baseline for the legacy Blender add-on. This is not a CI gate;
+# the rules below catch syntax / undefined-name mistakes, which are the findings
+# that make an open file look broken. Broad style rules are deliberately not
+# enabled yet: the add-on still carries known legacy formatting debt.
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82"]

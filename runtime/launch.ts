@@ -25,7 +25,7 @@ import { errorMessage } from './core/json.js'
  * 于是永久忙读、吃满一个核心且无法释放（microsoft/WSL#41173；本机实测泄漏过一次
  * 5084 CPU秒）。上游 2.7.10 与 master 逐字节相同 ⇒ 升级 WSL 修不掉，只能少产生调用。
  *
- * 所以先探 Windows 侧启动代理（D:/DSH/blender/launch-agent.mjs，默认 127.0.0.1:9878）：
+ * 所以先探 Windows 侧启动代理（默认 127.0.0.1:9878）：
  * 在线 ⇒ 由它原生拉起 Blender，本次启动 0 次互操作调用；不在线 ⇒ 回退互操作 spawn。
  *
  * 代理是「派发即返回」：它只负责原生拉起，端口等待由本函数完成。这样两边超时互不干扰；
@@ -340,7 +340,9 @@ export async function launchBlender(opts: LaunchOpts = {}): Promise<Record<strin
           addonPort +
           ' 在 ' +
           String(waitMs) +
-          'ms 内未监听；看 D:/DSH/blender/logs/startup-status.json',
+          'ms 内未监听；看 ' +
+          String(base.statusFileWin || '') +
+          '（Blender 启动状态）',
     })
   }
 

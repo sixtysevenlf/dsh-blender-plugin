@@ -1,5 +1,5 @@
 /**
- * GUI 通道覆盖探针（手工探针，不在 pytest 里；T11b.7 M 层） —— 需要**真机**：Blender GUI 正在跑 + `DSH Blender Bridge` addon 已 Connect
+ * GUI 通道覆盖探针（手工探针，不在 pytest 里；M 层） —— 需要**真机**：Blender GUI 正在跑 + `DSH Blender Bridge` addon 已 Connect
  * （macOS 上一条命令即可拉起：见 README §2 与 blender_viewport op=launch）。
  *
  *   node tools/gui-channel-probe.mjs

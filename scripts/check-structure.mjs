@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * scripts/check-structure.mjs —— B1 入口与文件地图门禁（T4/T5）。
+ * scripts/check-structure.mjs —— 入口与文件地图门禁。
  *
  * 断言：
  *   ① src/index.ts ≤ 150 行，且只含 import / export（可选 apply(...) 调用）——不得有业务逻辑；
  *   ② 15 个 tool handler 全部下沉：14 个在 src/tools/*.ts，plan 在 src/plan/tool.ts，
  *      名称集合与 tests/fixtures/capability.lock.json 一致；
- *   ③ §4.2 / §4.3 目标文件全部存在；
+ *   ③ 架构文件全部存在；
  *   ④ src 内部相对 import 图无环（.js 说明符映射回 .ts）。
  *
  * 用法：

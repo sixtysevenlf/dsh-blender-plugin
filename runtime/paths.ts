@@ -37,7 +37,7 @@ export function blenderJoin(...parts: string[]): string {
   return wslToWin(path.join(...parts))
 }
 /**
- * T8（Phase E）：Python 领域包布局。真实实现在 runtime/py/<domain>/；旧 runtime/<name>.py
+ * Python 领域包布局。真实实现在 runtime/py/<domain>/；旧 runtime/<name>.py
  * 只保留一版 re-export shim。**公开模块名不变**（preload / module 字段照旧），这里维护
  * "模块名 → 真实文件"的唯一映射。
  *

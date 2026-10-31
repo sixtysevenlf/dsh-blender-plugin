@@ -11,27 +11,25 @@ Ports, config keys, and paths are facts of [docs/配置参考.md](docs/配置参
 
 ## 1. Commands (single source)
 
-Every other document links here instead of repeating commands. The `Status` column is honest: `planned`
-rows do not exist in `package.json` yet and must keep the marker until their task lands.
+Every other document links here instead of repeating commands.
 
-| Task | Command | Status |
-|---|---|---|
-| Install dependencies | `npm ci --legacy-peer-deps` | available |
-| Build `runtime/` + `src/` → `lib/` | `npm run build` (optional `DSH_CHECKOUT` links DSH host packages) | available (T15) |
-| Build / verify the addon zip | `npm run build:addon` / `npm run check:addon` | available (T9) |
-| Typecheck | `npm run typecheck`; addon typed-core `npm run typecheck:addon` | available (T10a) |
-| Unit tests | `npm run test:unit`; addon unit `npm run test:addon-unit` | available (T10a) |
-| Integration tests | `npm run test:integration` | available |
-| Contract tests | `npm run test:contract` | available |
-| Full suite (Vitest + pytest) | `npm test` | available |
-| Python tests only | `npm run test:python` with `PYTHON=/path/to/venv/python` | available |
-| Legacy selftests (retired in T11; see [tests/MIGRATION.md](tests/MIGRATION.md)) | — | retired |
-| Lint / format gate | `npm run lint` / `npm run format:check` | available (T5) |
-| Package contents check | `npm pack --dry-run` | available |
-| Refresh counts after catalog edits | `node scripts/sync_counts.mjs` then update `tests/fixtures/capability.lock.json` ([tests/MIGRATION.md](tests/MIGRATION.md)) | available |
+| Task | Command |
+|---|---|
+| Install dependencies | `npm ci --legacy-peer-deps` |
+| Build `runtime/` + `src/` → `lib/` | `npm run build` (optional `DSH_CHECKOUT` links DSH host packages) |
+| Build / verify the addon zip | `npm run build:addon` / `npm run check:addon` |
+| Typecheck | `npm run typecheck`; addon typed-core `npm run typecheck:addon` |
+| Unit tests | `npm run test:unit`; addon unit `npm run test:addon-unit` |
+| Integration tests | `npm run test:integration` |
+| Contract tests | `npm run test:contract` |
+| Full suite (Vitest + pytest) | `npm test` |
+| Python tests only | `npm run test:python` with `PYTHON=/path/to/venv/python` |
+| Lint / format gate | `npm run lint` / `npm run format:check` |
+| Package contents check | `npm pack --dry-run` |
+| Refresh counts after catalog edits | `node scripts/sync_counts.mjs` then update `tests/fixtures/capability.lock.json` ([tests/MIGRATION.md](tests/MIGRATION.md)) |
 
 Addon typing: install `requirements-typecheck.txt` (fake-bpy stubs, type-only; behavior is real-Blender E2E).
-Addon IDE: root `pyrightconfig.json` = whole-addon editor config; `pyrightconfig.addon.json` = C9 typed-core gate; `ruff.toml` = editor-only (not CI).
+Addon IDE: root `pyrightconfig.json` = whole-addon editor config; `pyrightconfig.addon.json` = typed-core gate; `pyproject.toml` = pytest/Ruff configuration.
 
 Node **22** is the CI and test baseline. Python tests need a venv with `pytest`, selected through
 `PYTHON` (`PYTHONIOENCODING=utf-8`, `PYTHONUTF8=1` on Windows); layers and fixtures:
@@ -39,20 +37,18 @@ Node **22** is the CI and test baseline. Python tests need a venv with `pytest`,
 
 ## 2. Architecture map
 
-Target layout (refactor plan §4). Flow: DSH host → `src/` tools → backend HTTP → engine dispatch →
-Blender addon → bpy. The **Current** column is the truth in this worktree until the listed task lands;
-never describe a target file as existing.
+Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender addon → bpy.
 
-| Layer | Target | Current (2026-10-30) |
-|---|---|---|
-| Host entry | `src/index.ts` ≤150 lines, import/apply/export only | `src/index.ts` 2,888 lines, 15 tools inline (**T4**) |
-| Host modules | `src/tools/*` (one file per tool), `src/plan/*`, `src/host/*`, `src/ui/*`, `src/contracts/*`, `src/tui-host.ts` | absent until **T4**; `src/tui-host.ts` present |
-| Backend HTTP | `runtime/http/*` for routes, lease, host views | `runtime/server.ts` facade, compiled to `lib/runtime/server.js` (**T7/T15** done) |
-| Backend engine | `runtime/core/*`, `runtime/execution/*`, `runtime/transport/*` | `runtime/engine.ts` facade + `runtime/core/engine.ts` assembly (**T6/T15** done) |
-| Backend language | `runtime/**/*.ts` compiled to `lib/runtime/**/*.js` (**T15**) | `runtime/**/*.ts` (60 modules, strict) built to `lib/runtime/**/*.js` (**T15** done) |
-| Python domains | `runtime/py/{core,geometry,assembly,render,export}` plus shims | 40 flat `runtime/*.py` files (**T8**) |
-| Blender addon | `addon/dsh_blender_bridge/` package, zip install | package + committed zip, 39 modules (**T9** done) |
-| Built output | `lib/` built by `prepack`, not committed | `lib/` removed from git (**T15** done); `prepack` rebuilds it, source maps carry inline sources |
+| Layer | Path |
+|---|---|
+| Host entry | `src/index.ts` — entry-only; re-exports the plugin API and frame cache |
+| Host modules | `src/plugin.ts`, `src/tools/*` (one file per tool), `src/plan/*`, `src/host/*`, `src/ui/*`, `src/contracts/*`, `src/tui-host.ts` |
+| Backend HTTP | `runtime/http/*` — routes, lease, host views |
+| Backend engine | `runtime/core/*` (dispatch, kernel, scripts), `runtime/execution/*` (headless, jobs, workers), `runtime/transport/*` |
+| Backend language | `runtime/**/*.ts` compiled to `lib/runtime/**/*.js`; `lib/` is never committed |
+| Python domains | `runtime/py/{core,geometry,assembly,render,export}` plus compatibility shims at `runtime/*.py` |
+| Blender addon | `addon/dsh_blender_bridge/` package and the committed `addon/dsh_blender_bridge.zip` |
+| Built output | `lib/` built by `prepack`; source maps carry inline sources |
 
 ## 3. Hard rules
 
@@ -89,7 +85,7 @@ never describe a target file as existing.
 ## 5. Definition of done
 
 - Typecheck and the tests for the touched layer pass; contract counts stay 15 tools / 34 families /
-  228 ops / 39 addon commands / 29 routes / protocol 11 unless the task declares a change.
+  228 ops / 39 addon commands / 29 routes / protocol 11 unless the change declares a new count.
 - New behavior has a failing test first. No `skip`, no retry, and no relaxed assertion to hide a failure.
 - Docs are updated in the same change, and both language versions stay in sync.
 - No secrets, no build artifacts, no `node_modules` or venv; `lib/` is regenerated, never hand-edited.
