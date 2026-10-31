@@ -3,6 +3,7 @@
 import bpy
 import time
 import os
+import tempfile
 
 from ..compat import _read_sub_selection
 from ..protocol import _redraw_view3d_panels
@@ -145,15 +146,9 @@ def _log_panel_error(tb):
     import traceback
     text = str(tb)[-4000:]
     try:
-        p = os.path.join("D:/DSH/blender/tmp", "dshbb-panel-error.log")
-        os.makedirs(os.path.dirname(p), exist_ok=True)
+        base = bpy.app.tempdir or tempfile.gettempdir()
+        p = os.path.join(base, "dshbb-panel-error.log")
         with open(p, "a", encoding="utf-8") as fh:
-            fh.write(time.strftime("%Y-%m-%d %H:%M:%S") + "\n" + text + "\n")
-    except Exception:
-        pass
-    try:
-        p2 = os.path.join(bpy.app.tempdir or "", "dshbb-panel-error.log")
-        with open(p2, "a", encoding="utf-8") as fh:
             fh.write(time.strftime("%Y-%m-%d %H:%M:%S") + "\n" + text + "\n")
     except Exception:
         pass

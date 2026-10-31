@@ -204,7 +204,12 @@ function main() {
   if (!files.some((path) => zipName(path) === PACKAGE_ROOT + '/__init__.py')) {
     fail('package root __init__.py is missing')
   }
-  const entries = files.map((path) => ({ name: zipName(path), data: readFileSync(path) }))
+  // Normalize line endings so the committed zip is reproducible across checkouts
+  // (Git may materialize the Python sources with CRLF on Windows).
+  const entries = files.map((path) => ({
+    name: zipName(path),
+    data: Buffer.from(readFileSync(path, 'utf8').replace(/\r\n/g, '\n'), 'utf8'),
+  }))
   const zip = buildZip(entries)
   writeFileSync(ZIP_PATH, zip)
 
