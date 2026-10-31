@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as plugin from '../../../../src/index'
+import { asRecord } from '../../../../src/contracts/dynamic'
 import { snapshotJsonValue } from '@deepseek-ai/dsh-session'
 
 const { losslessSanitize, receiptEnvelope, headlessReceipt, promotedReceipt } = plugin.__internals
@@ -35,11 +36,12 @@ describe('lossless return channel', () => {
   it('keeps every receipt free of undefined keys', () => {
     const raw = { ok: true, status: 'done', resultJson: { a: undefined, b: 1 }, ms: undefined }
     const envelope = receiptEnvelope(raw, { mode: 'sync', notes: [] })
-    const clean = losslessSanitize(envelope).value
+    const clean = asRecord(losslessSanitize(envelope).value)
+    const resultJson = asRecord(clean.resultJson)
     expect(hasUndefined(clean)).toBe(false)
     expect(() => snapshotJsonValue(clean)).not.toThrow()
-    expect(clean.resultJson.b).toBe(1)
-    expect(clean.resultJson.a).toBeUndefined()
+    expect(resultJson.b).toBe(1)
+    expect(resultJson.a).toBeUndefined()
   })
 
   it('builds headless receipts with text and a lossless envelope', () => {

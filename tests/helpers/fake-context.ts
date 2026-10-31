@@ -4,7 +4,13 @@
  * The real host gives the plugin a Cordis context with tools.register / effect /
  * inject / logger. This fake keeps just enough of that surface for `apply()`,
  * and always disposes the plugin again so no watchdog timer keeps Vitest alive.
+ *
+ * The object is cast to HostContext: a fake only implements the four surfaces
+ * apply() touches, and the cast keeps every call site honest about the real
+ * contract without spreading any through the tests.
  */
+import type { HostContext } from '../../src/host/context'
+
 export interface CapturedTool {
   name: string
   description?: string
@@ -49,7 +55,7 @@ export function createFakeContext() {
       error: (msg: unknown) => logs.push(String(msg)),
       debug: () => {},
     },
-  }
+  } as unknown as HostContext
 
   return {
     ctx,
