@@ -30,8 +30,8 @@ rows do not exist in `package.json` yet and must keep the marker until their tas
 | Package contents check | `npm pack --dry-run` | available |
 | Refresh counts after catalog edits | `node scripts/sync_counts.mjs` then update `tests/fixtures/capability.lock.json` ([tests/MIGRATION.md](tests/MIGRATION.md)) | available |
 
-Addon typecheck stubs: `python -m pip install -r requirements-typecheck.txt` (fake-bpy-module, type-only;
-behavior is real-Blender E2E).
+Addon typing: install `requirements-typecheck.txt` (fake-bpy stubs, type-only; behavior is real-Blender E2E).
+Addon IDE: root `pyrightconfig.json` = whole-addon editor config; `pyrightconfig.addon.json` = C9 typed-core gate; `ruff.toml` = editor-only (not CI).
 
 Node **22** is the CI and test baseline. Python tests need a venv with `pytest`, selected through
 `PYTHON` (`PYTHONIOENCODING=utf-8`, `PYTHONUTF8=1` on Windows); layers and fixtures:
