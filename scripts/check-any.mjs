@@ -17,10 +17,11 @@ import ts from 'typescript'
 const ROOT = process.cwd()
 const ROOTS = ['src', 'runtime']
 const IGNORED_DIRS = new Set([
+  // Generated, vendored or non-TS trees only. runtime/ext is tracked source
+  // (gltf_validate_runner.ts) and must be scanned.
   'node_modules',
   'lib',
   'coverage',
-  'ext',
   'dist',
   '.venv',
   '__pycache__',
