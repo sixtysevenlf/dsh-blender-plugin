@@ -47,7 +47,7 @@ Targets were written first, then each legacy file was deleted (plan section 6.7)
 | tests/dsh_api_compat_probe.mjs | migrated | tests/integration/js/dsh-api-compat.test.ts | migrated | matrix-driven; host-package probe skips when no DSH tree is installed |
 | tests/tui_host_selftest.mjs | split | tests/integration/js/tui-selection.test.ts + tui-footer.test.ts + tui-commands.test.ts | migrated |  |
 | tests/view_diag_selftest_runner.mjs | moved | tests/e2e/blender/test_view_diag.py | migrated | launcher superseded by tests/e2e/blender/legacy_runner.py |
-| tests/gui_channel_probe.mjs | moved | tests/e2e/gui/test_gui_channel.py + cases/gui_channel_probe.mjs | migrated | gui-marked; skipped unless DSH_BLENDER_GUI_E2E=1 |`
+| tests/gui_channel_probe.mjs | moved | tools/gui-channel-probe.mjs | migrated | T11b.7 manual probe (M layer): not a pytest test; needs a real GUI Blender + connected add-on + backend |`
 
 ## 3. Unit layer (Python)
 
@@ -59,7 +59,7 @@ Targets were written first, then each legacy file was deleted (plan section 6.7)
 
 ## 4. End-to-end layer (Blender, release-gated)
 
-Each wrapper is `pytest.mark.blender`, executes the archived case in a real Blender 4.2 `--background --factory-startup` process via `tests/e2e/blender/legacy_runner.py`, and keeps the original assertions in `tests/e2e/blender/cases/`. The runner recreates the legacy `blender_rt_headless(preload=...)` environment with `runtime/py/core/offline_bootstrap.py`. `qc_selftest.py` additionally needs a GUI Blender + backend and is `pytest.mark.gui`.
+Each wrapper is `pytest.mark.blender`, executes the archived case in a real Blender 4.2 `--background --factory-startup` process via `tests/e2e/blender/legacy_runner.py`, and keeps the original assertions in `tests/e2e/blender/cases/`. The runner recreates the legacy `blender_rt_headless(preload=...)` environment with `runtime/py/core/offline_bootstrap.py`. Since T11b.7 the qc case is a host-side backend test (`tests/e2e/gui/test_qc_backend.py`, `pytest.mark.gui`) that never starts Blender and skips with a reason when no backend is listening.
 
 | Legacy file | Disposition | Target wrapper | Status | Notes |
 | --- | --- | --- | --- | --- |
@@ -80,7 +80,7 @@ Each wrapper is `pytest.mark.blender`, executes the archived case in a real Blen
 | tests/motion_selftest.py | migrated | tests/e2e/blender/test_motion.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
 | tests/p0_real_modeling_selftest.py | migrated | tests/e2e/blender/test_p0_real_modeling.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
 | tests/plan_selftest.py | migrated | tests/e2e/blender/test_plan.py | migrated | Archived case + wrapper; executed in this task on Blender 4.2.10 (evidence/T11/e2e.log) with preload=view. |
-| tests/qc_selftest.py | migrated | tests/e2e/blender/test_qc.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. gui; skipped unless DSH_BLENDER_GUI_E2E=1. |
+| tests/qc_selftest.py | migrated | tests/e2e/gui/test_qc_backend.py | migrated | T11b.7 B layer: host pytest talks HTTP to 127.0.0.1:9877 (no Blender); gui-marked and skips with an explicit reason when the backend is absent. |
 | tests/shapesolve_selftest.py | migrated | tests/e2e/blender/test_shapesolve.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
 | tests/surface_selftest.py | migrated | tests/e2e/blender/test_surface.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |
 | tests/txn_selftest.py | migrated | tests/e2e/blender/test_txn.py | migrated | Archived case + wrapper; executed in CI only on the release machine, not in this PR run. |

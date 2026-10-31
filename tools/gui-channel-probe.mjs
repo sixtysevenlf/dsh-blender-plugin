@@ -1,15 +1,15 @@
 /**
- * GUI 通道覆盖探针 —— 需要**真机**：Blender GUI 正在跑 + `DSH Blender Bridge` addon 已 Connect
+ * GUI 通道覆盖探针（手工探针，不在 pytest 里；T11b.7 M 层） —— 需要**真机**：Blender GUI 正在跑 + `DSH Blender Bridge` addon 已 Connect
  * （macOS 上一条命令即可拉起：见 README §2 与 blender_viewport op=launch）。
  *
- *   node tests/gui_channel_probe.mjs
+ *   node tools/gui-channel-probe.mjs
  *
  * 跑不了也没关系：addon 不在时每条都会明确 FAIL，不会假装成功。
  * 覆盖通道命令、取帧、自定义视角、持久内核 K、命令透传、perf/opt 预设。
  */
-import { ensureBuild } from '../../../../scripts/ensure-build.mjs';
+import { ensureBuild } from '../scripts/ensure-build.mjs';
 ensureBuild();
-const { createEngine } = await import('../../../../lib/runtime/engine.js');
+const { createEngine } = await import('../lib/runtime/engine.js');
 const R = (p, ms, l) => Promise.race([p, new Promise((_, rj) => setTimeout(() => rj(new Error(l+' TIMEOUT')), ms))]);
 const e = createEngine();
 const results = [];

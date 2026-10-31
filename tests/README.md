@@ -33,11 +33,20 @@ Real Blender 4.2 and the packaged add-on, plus a GUI/backend probe. These tests 
 `pytest.mark.blender` / `pytest.mark.gui` and are excluded from the default collection by
 `pytest.ini`. They run on release machines, not in pull-request CI.
 
-Most current E2E wrappers still execute an archived legacy case (strangler intermediate, see
-`MIGRATION.md`); that is not the final shape. T11b tracks the native in-Blender pytest rewrite.
+T11b final shape (see plan §6.5.1):
+- H native headless modules: `tests/e2e/blender/native/*.py` run inside Blender by
+  `native_runner.py`; host launcher `test_native_e2e.py`.
+- G native GUI modules: `tests/e2e/gui/native/*.py` need a real window (OpenGL capture);
+  host launcher `test_native_gui.py`.
+- B host-side backend test: `tests/e2e/gui/test_qc_backend.py` talks HTTP to a running backend,
+  no Blender; skips with a reason when the backend is absent.
+- M manual probe: `node tools/gui-channel-probe.mjs` against a GUI Blender + add-on + backend.
 
-Run: `DSH_BLENDER_EXE=/path/to/blender pytest tests/e2e -m blender -v`
-GUI probe: `DSH_BLENDER_GUI_E2E=1 pytest tests/e2e -m gui -v`
+Some archived-case wrappers still exist as an intermediate state (`MIGRATION.md`); T11b.8/T11b.9
+converts and removes them.
+
+Headless native: `DSH_BLENDER_EXE=/path/to/blender pytest tests/e2e -m "blender and not gui" -v`
+GUI + backend: `DSH_BLENDER_EXE=/path/to/blender pytest tests/e2e -m gui -v`
 
 ## Default run
 

@@ -61,6 +61,71 @@ def require_desktop():
         pytest.skip("no interactive display in this CI job")
 
 
+def run_native_module(tmp_path: Path, executable: str, module, timeout=600):
+    """Run one G-layer native module in a real (non-background) Blender window.
+
+    Shared with tests/e2e/blender/native_runner.py; the only differences from the
+    headless path are no --background and NATIVE_GUI=1 so the runner os._exit()s
+    after writing the report.
+    """
+    module_path = REPO_ROOT / module["path"]
+    work_dir = Path(tmp_path) / ("native-gui-" + module["id"])
+    out_dir = work_dir / "out"
+    report_path = work_dir / "report.json"
+    temp_dir = work_dir / "tmp"
+    user_scripts = work_dir / "user_scripts"
+    for path in (work_dir, out_dir, temp_dir, user_scripts):
+        path.mkdir(parents=True, exist_ok=True)
+    env = dict(os.environ)
+    env.update({
+        "TEMP": str(temp_dir),
+        "TMP": str(temp_dir),
+        "BLENDER_USER_SCRIPTS": str(user_scripts),
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONUTF8": "1",
+        "NATIVE_GUI": "1",
+    })
+    runner = REPO_ROOT / "tests" / "e2e" / "blender" / "native_runner.py"
+    command = [
+        executable,
+        "--factory-startup",
+        "--python-exit-code", "1",
+        "--python", str(runner),
+        "--",
+        str(module_path),
+        str(report_path),
+        str(out_dir),
+        ",".join(module["preloads"]),
+        str(REPO_ROOT),
+    ]
+    completed = subprocess.run(
+        command, cwd=str(REPO_ROOT), env=env, capture_output=True, text=True,
+        encoding="utf-8", errors="replace", timeout=timeout,
+    )
+    report = None
+    if report_path.is_file():
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    log_dir = os.environ.get("DSH_T11B_E2E_LOG_DIR") or os.environ.get("DSH_T10_E2E_LOG_DIR")
+    if log_dir:
+        destination = Path(log_dir)
+        destination.mkdir(parents=True, exist_ok=True)
+        stem = "native-gui-" + module["id"]
+        (destination / (stem + ".stdout.log")).write_text(completed.stdout or "", encoding="utf-8")
+        (destination / (stem + ".stderr.log")).write_text(completed.stderr or "", encoding="utf-8")
+        (destination / (stem + ".report.json")).write_text(
+            json.dumps(report, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+    return {
+        "command": command,
+        "returncode": completed.returncode,
+        "stdout": completed.stdout,
+        "stderr": completed.stderr,
+        "report": report,
+        "work_dir": str(work_dir),
+        "out_dir": str(out_dir),
+        "report_path": str(report_path),
+    }
+
+
 def run_probe(tmp_path: Path, executable: str, timeout=240):
     work_dir = Path(tmp_path) / "blender-gui"
     temp_dir = work_dir / "tmp"

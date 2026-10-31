@@ -69,7 +69,7 @@ function runPython() {
     return
   }
   if (mode === 'e2e:gui') {
-    run(py, ['-m', 'pytest', '-o', 'addopts=', '-m', 'gui', 'tests/e2e'], 'pytest (Blender GUI E2E; set DSH_BLENDER_EXE)')
+    run(py, ['-m', 'pytest', '-o', 'addopts=', '-m', 'gui', 'tests/e2e/gui'], 'pytest (Blender GUI E2E; set DSH_BLENDER_EXE)')
     return
   }
   run(py, ['-m', 'pytest'], 'pytest (unit + integration, blender/gui excluded)')

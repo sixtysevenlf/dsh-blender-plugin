@@ -154,4 +154,17 @@ HEADLESS_MODULES = (
     },
 )
 
-GUI_MODULES = ()
+GUI_MODULES = (
+    {
+        "id": "contract_evidence",
+        "path": "tests/e2e/gui/native/contract_evidence.py",
+        "preloads": ("view", "contract"),
+        "timeout": 600,
+    },
+    {
+        "id": "view_capture",
+        "path": "tests/e2e/gui/native/view_capture.py",
+        "preloads": ("view",),
+        "timeout": 600,
+    },
+)
