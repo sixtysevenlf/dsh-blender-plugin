@@ -3,7 +3,7 @@
 > 格式借鉴 lurenjia-l/dsh-blender-stylized-shading 的 AI_DEPLOY.md：**目标与完成标准 → 环境探测 → 安装 → 连接 → 自检 → 汇报 → 排障**。
 > 原则：**先探测，别猜**；每一步都要有可验证的判据；失败给出明确的下一步而不是笼统报错。
 
-> **当前版本口径（2026-10-28）**：插件 **v3.0.0** · **15 个模型工具** · plan catalog **34 family / 228 op** ·
+> **当前版本口径（2026-11-01）**：插件 **v3.0.0** · **15 个模型工具** · plan catalog **34 family / 228 op** ·
 > addon **v1.11**（protocol **11**）· 后端 `127.0.0.1:9877` / addon `127.0.0.1:9876`。
 > 验收判据：**GUI 路线 = `doctor` 回 `kind=ok`**；**纯无头路线**（不装 addon）= `rt_worker(start)` + `see` 出图自证
 > （doctor 的 bpy 往返不可达属预期）。**默认先开 GUI**；无 GUI 时交互式无头（持久 worker + see/watch/reset）也能独立建模，但它是备用路径。

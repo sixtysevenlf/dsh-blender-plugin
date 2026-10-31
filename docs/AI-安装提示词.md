@@ -3,7 +3,7 @@
 **为什么需要这一页**：直接把仓库地址丢给 AI，常见翻车姿势是 —— 跳过 §2 前置条件直接构建；自己编 `blenderExe` / 端口 / 配置项；把"命令跑完了"当成"装好了"；不跑 `doctor` 就宣布成功。
 下面这段提示词把「**先读 → 再装 → 按判据验收**」写成硬要求，复制粘贴即可。
 
-> **当前版本口径（2026-10-28）**：插件 **v3.0.0** · **15 个模型工具** · plan catalog **34 family / 228 op** ·
+> **当前版本口径（2026-11-01）**：插件 **v3.0.0** · **15 个模型工具** · plan catalog **34 family / 228 op** ·
 > Blender 侧 addon **v1.11**（protocol **11**）· 后端 `127.0.0.1:9877` / addon `127.0.0.1:9876`。
 > **验收判据**：GUI 路线 = `doctor` 回 `kind=ok`；纯无头路线（不装 addon）= `rt_worker(start)` + `see` 出图自证
 > （doctor 的 bpy 往返不可达属预期）。**GUI 不再必需**：交互式无头（持久 worker + see/watch/reset）可独立建模。
@@ -61,7 +61,7 @@
 blender_viewport(op="doctor")             # kind=ok ？（真跑一次 bpy 往返）
 blender_rt_plan(op="catalog")             # 34 family / 228 op 能列出来？
 skill(name="blender-modeling")            # 随包 skill 能加载？（v2.2.0 起自动注册，无需另装）
-blender_rt_cmd(name="get_addon_info")     # addon_version=[1,10] + protocol 11？
+blender_rt_cmd(name="get_addon_info")     # addon_version=[1,11] + protocol 11？
 blender_rt_cmd(name="get_activity_state") # 选中/activity 命令在不在？
 blender_rt_cmd(name="get_collections")    # 集合模式的数据源在不在？
 
