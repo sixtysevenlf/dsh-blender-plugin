@@ -119,6 +119,39 @@ HEADLESS_MODULES = (
         "preloads": ("imgtools", "blockout", "assembly"),
         "timeout": 600,
     },
+    {
+        "id": "deliver",
+        "path": "tests/e2e/blender/native/deliver.py",
+        "preloads": ("deliver",),
+        "timeout": 600,
+    },
+    {
+        "id": "evalharness",
+        "path": "tests/e2e/blender/native/evalharness.py",
+        "preloads": (
+            "evalharness", "assembly", "audit", "contract", "clearance",
+            "gate", "imgtools", "calib", "mesh_fix",
+        ),
+        "timeout": 600,
+    },
+    {
+        "id": "txn",
+        "path": "tests/e2e/blender/native/txn.py",
+        "preloads": ("txn",),
+        "timeout": 600,
+    },
+    {
+        "id": "txn_restore",
+        "path": "tests/e2e/blender/native/txn_restore.py",
+        "preloads": ("txn",),
+        "timeout": 600,
+    },
+    {
+        "id": "motion",
+        "path": "tests/e2e/blender/native/motion.py",
+        "preloads": ("motion",),
+        "timeout": 600,
+    },
 )
 
 GUI_MODULES = ()
