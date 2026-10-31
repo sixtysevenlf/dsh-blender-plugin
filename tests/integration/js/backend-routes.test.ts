@@ -32,13 +32,16 @@ async function waitHealth(port: number, timeoutMs = 12000): Promise<void> {
   }
 }
 
-function spawnServer(port: number, workDir: string): ChildProcess {
+function spawnServer(port: number, workDir: string, addonPort: number): ChildProcess {
   return spawn(process.execPath, [pkgPath('lib', 'runtime', 'server.js'), '--port', String(port)], {
     cwd: PKG_ROOT,
     env: {
       ...process.env,
       DSH_BLENDER_HTTP_PORT: String(port),
       DSH_BLENDER_WORKER_PORT: String(port + 1),
+      // Pin the addon to a port nothing listens on: an unrelated local Blender
+      // addon must not turn /status and /doctor into a 30 s wait.
+      DSH_BLENDER_ADDON_PORT: String(addonPort),
       DSH_BLENDER_WORKDIR: workDir,
       DSH_BLENDER_EXE: path.join(workDir, 'no-blender.exe'),
     },
@@ -73,7 +76,8 @@ describe('live HTTP route contract', () => {
   beforeAll(async () => {
     workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-t14-routes-'))
     port = await freePort()
-    child = spawnServer(port, workDir)
+    const addonPort = await freePort()
+    child = spawnServer(port, workDir, addonPort)
     child.stderr?.on('data', (d) => {
       stderr += String(d)
     })

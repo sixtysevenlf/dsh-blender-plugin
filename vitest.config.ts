@@ -5,6 +5,9 @@ export default defineConfig({
     include: ['tests/unit/**/*.test.ts', 'tests/integration/**/*.test.ts'],
     exclude: ['tests/e2e/**', 'tests/**/*.selftest.mjs', 'tests/**/*_selftest.*'],
     environment: 'node',
+    // Contract tests must never spawn a real backend on a random closed port;
+    // this flag makes ensureBackend() take the deterministic unreachable path.
+    env: { DSH_BLENDER_TEST_NO_SPAWN: '1' },
     testTimeout: 20_000,
     hookTimeout: 20_000,
     globalSetup: ['./tests/helpers/global-setup.ts'],

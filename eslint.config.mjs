@@ -5,9 +5,10 @@
  *   - TypeScript type-checking is handled by tsc; lint covers runtime hazards,
  *     unused code, unsafe directives and module-boundary rules.
  *   - Node globals come from the globals package instead of disabling no-undef.
- *   - New src files must avoid explicit any; legacy host-boundary files that
- *     predate this rule are listed in LEGACY_EXPLICIT_ANY_FILES. Tests may use
- *     any for doubles, so they get a narrow test-only override.
+ *   - Production code (src/ + runtime/) must not use explicit any; this is
+ *     enforced here and independently by the TypeScript-AST gate in
+ *     scripts/check-any.mjs. Tests may use any for doubles, so they get a
+ *     narrow test-only override.
  *   - Boundary directions are enforced here; cycle detection stays in
  *     scripts/check-structure.mjs.
  */
@@ -18,42 +19,6 @@ import tseslint from 'typescript-eslint'
 
 const TS_FILES = ['src/**/*.ts', 'runtime/**/*.ts', 'tests/**/*.ts']
 const JS_FILES = ['scripts/**/*.mjs', '*.mjs']
-
-// Files that already contain explicit any in their dynamic host boundary code.
-// This is a grandfather list, not a blanket exemption: new files are enforced.
-const LEGACY_EXPLICIT_ANY_FILES = [
-  'src/constants.ts',
-  'src/contracts/lossless.ts',
-  'src/contracts/tool.ts',
-  'src/headless/receipts.ts',
-  'src/host/backend.ts',
-  'src/host/exec-context.ts',
-  'src/host/http.ts',
-  'src/host/skill.ts',
-  'src/plan/headless-target.ts',
-  'src/plan/tool.ts',
-  'src/plugin.ts',
-  'src/tools/cmd.ts',
-  'src/tools/commands.ts',
-  'src/tools/do.ts',
-  'src/tools/errors.ts',
-  'src/tools/headless.ts',
-  'src/tools/index.ts',
-  'src/tools/job.ts',
-  'src/tools/loop.ts',
-  'src/tools/opt.ts',
-  'src/tools/perf.ts',
-  'src/tools/preset.ts',
-  'src/tools/schema-diagnostic.ts',
-  'src/tools/see.ts',
-  'src/tools/txn.ts',
-  'src/tools/viewport.ts',
-  'src/tools/watch.ts',
-  'src/tools/worker.ts',
-  'src/tui-host.ts',
-  'src/ui/cards.ts',
-  'src/utils/image.ts',
-]
 
 const noUnused = [
   'error',
@@ -104,12 +69,6 @@ export default defineConfig([
   {
     // Tests need doubles for dynamic host services; keep any local to tests.
     files: ['tests/**/*.ts'],
-    rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
-    },
-  },
-  {
-    files: LEGACY_EXPLICIT_ANY_FILES,
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
     },
