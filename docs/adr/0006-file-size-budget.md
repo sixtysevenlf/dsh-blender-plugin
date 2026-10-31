@@ -26,10 +26,13 @@ Production source files are capped at **600 physical lines**:
 - `runtime/**/*.ts`, excluding `runtime/ext/` (third-party generated code);
 - `addon/**/*.py`.
 
-The only whitelist entry is `runtime/catalog.ts`: it is a declarative data table
-(the plan/command registry single source of truth), not logic, and splitting it
-would create several places to keep in sync. Every other exception needs a new
-ADR.
+The only whitelist entry is `runtime/catalog.ts`. It is the data-first registry
+for the plan/command catalog: 954 lines dominated by declarative tables, plus a
+small set of read-only lookup helpers (fingerprint, edit-distance suggestions,
+op-name rendering). Splitting the tables from those helpers would create a
+second source of truth and invite drift, so the module stays whole; it is not a
+logic-heavy module of the kind this budget targets. Every other exception needs
+a new ADR.
 
 `npm run check:structure` walks those trees, reports
 `lineBudget: {budget, files, exempt, violations}`, and exits non-zero when a
@@ -62,4 +65,5 @@ compliant.
   split is large, risky, and unrelated to the runtime migration; deferring it
   explicitly is more honest than a rushed mechanical split.
 - **Whitelist by path for each large file.** Rejected: it turns the budget into
-  a list of exceptions and stops being a ratchet.
+  a list of exceptions and stops being a ratchet. The catalog is the one
+  deliberate exception because it is data-first, not a logic module.
