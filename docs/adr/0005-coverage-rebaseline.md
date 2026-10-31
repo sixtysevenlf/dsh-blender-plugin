@@ -81,10 +81,10 @@ floors measured at T5b and recorded in `config/coverage-baseline.json`:
 | runtime/core/plan/shape-search.ts | 90.46 / 79.38 | 90 / 75 |
 | runtime/execution/jobs.ts | 82.68 / 58.21 | 80 / 55 |
 | runtime/execution/workers.ts | 88.31 / 60.43 | 85 / 58 |
-| runtime/execution/headless/index.ts | 95.08 / 81.25 | 90 / 75 |
-| runtime/execution/headless/options.ts | 92.42 / 81.94 | 90 / 75 |
+| runtime/execution/headless/index.ts | 98.27 / 88.09 | 90 / 75 |
+| runtime/execution/headless/options.ts | 92.3 / 81.94 | 90 / 75 |
 | runtime/execution/headless/process.ts | 89.92 / 63.63 | 85 / 60 |
-| runtime/execution/headless/result.ts | 82.43 / 59.37 | 80 / 55 |
+| runtime/execution/headless/result.ts | 83.48 / 57.14 | 80 / 55 |
 
 These are ratchet floors, not a lower bar for contract modules: a change that
 drops one below its recorded floor fails C5, and improving one SHOULD raise its

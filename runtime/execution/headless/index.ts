@@ -21,7 +21,7 @@ import {
 import { buildHeadlessReceipt } from './receipt.js'
 import { createRunState } from './run-state.js'
 import { buildChildEnv } from './child-env.js'
-import { executeHeadless } from './execute.js'
+import { closeHeadlessLogStreams, executeHeadless } from './execute.js'
 import { isJobMode, jobModeReceipt } from './job-mode.js'
 import { writeFallbackLogs } from './logs.js'
 import type { HeadlessDeps, HeadlessOpts } from './types.js'
@@ -60,14 +60,18 @@ export function createHeadlessRun(E: HeadlessDeps) {
       // 用法：as_job=true 强制转；或给 auto_job_ms（如 120000）表示预计超过它就走作业。
       if (isJobMode(opts, p)) {
         runs.delete(p.runId) // 转作业后这次 run 不存在了，别留一个假 running
-        const j = jobStart(
-          Object.assign({}, opts, { timeoutMs: Math.max(p.timeoutMs, 3600000), runId: p.runId }),
-        )
-        return jobModeReceipt({ opts, p, t0, job: j })
+        try {
+          const j = jobStart(
+            Object.assign({}, opts, { timeoutMs: Math.max(p.timeoutMs, 3600000), runId: p.runId }),
+          )
+          return jobModeReceipt({ opts, p, t0, job: j })
+        } finally {
+          await closeHeadlessLogStreams(logStreams)
+        }
       }
       // ---- 子进程环境：可选透传用户 Blender 配置（GPU 偏好在里面）
       const childEnv = buildChildEnv(p, opts, SESSION_NAME)
-      const { res, stdout, stderr, ms } = await executeHeadless({
+      const { res, stdout, stderr, ms, logsClosed } = await executeHeadless({
         p,
         built,
         childEnv,
@@ -151,7 +155,7 @@ export function createHeadlessRun(E: HeadlessDeps) {
         p.fileOpt,
         p.fileLooksPython,
       )
-      return buildHeadlessReceipt({
+      const receipt = buildHeadlessReceipt({
         ok: runOk,
         runId: p.runId,
         session: SESSION_NAME,
@@ -189,6 +193,8 @@ export function createHeadlessRun(E: HeadlessDeps) {
         useUserConfig: !!opts.useUserConfig,
         resultTruncated: resultTruncated,
       })
+      await logsClosed
+      return receipt
     },
   }
 }

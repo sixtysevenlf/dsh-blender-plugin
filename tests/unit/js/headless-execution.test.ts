@@ -114,13 +114,12 @@ beforeEach(() => {
   }
 })
 
-afterEach(async () => {
+afterEach(() => {
   vi.useRealTimers()
-  // Streams created by the run close asynchronously; let them release their handles
-  // before removing the temporary directory, otherwise Windows reports ENOENT.
-  await new Promise((resolve) => setTimeout(resolve, 80))
+  // Windows may still be releasing a log stream handle; retry the delete instead of
+  // sleeping on a real timer (the suite must stay deterministic and fast).
   try {
-    fs.rmSync(tmp, { recursive: true, force: true })
+    fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 50, retryDelay: 10 })
   } catch {
     /* best effort */
   }

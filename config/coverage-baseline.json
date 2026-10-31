@@ -74,8 +74,8 @@
       "branches": 60.43
     },
     "runtime/execution/headless/index.ts": {
-      "lines": 98.21,
-      "branches": 87.8
+      "lines": 98.27,
+      "branches": 88.09
     },
     "runtime/execution/headless/options.ts": {
       "lines": 92.3,
@@ -90,5 +90,5 @@
       "branches": 57.14
     }
   },
-  "executionModulesMeasuredAt": "2026-11-01T00:56:00+08:00 (T5b, coverage with --no-file-parallelism)"
+  "executionModulesMeasuredAt": "2026-11-01T01:36:00+08:00 (T5b R1 fixes, coverage with --no-file-parallelism)"
 }
