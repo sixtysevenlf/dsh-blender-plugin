@@ -97,6 +97,20 @@ The release flow is owned by the plan's T16 and by [ADR 0003](docs/adr/0003-addo
 and the npm tarball to the release, and rehearse the rollback before tagging. The detailed checklist is
 kept in the local refactor workspace, not in this repository.
 
+### Manual CD
+
+[.github/workflows/release.yml](.github/workflows/release.yml) is the manual release pipeline. It is
+`workflow_dispatch` only: **Actions -> Manual CD -> Run workflow**. Inputs:
+
+- `version` must match `package.json` and `PLUGIN_VERSION` in `src/constants.ts`;
+- `dry_run` defaults to `true` and only verifies and packages;
+- `dry_run=false` creates a **draft** GitHub Release and tag after the `release` environment approval;
+- `publish_npm` defaults to `false`; when enabled, the packed tarball is published with provenance.
+
+The workflow never pushes `main` or a tag itself. `workflow_dispatch` only appears after this file is on the default branch, so run it from `main` after the refactor merge (or from a branch that contains the workflow for the dry-run stage). Real Blender
+E2E and the final GitHub Release publication remain human steps. Configure the `release` environment with
+required reviewers, protect `v*` tags, and add `NPM_TOKEN` only when npm publishing is intended.
+
 ## License
 
 The project is [BSD-3-Clause](LICENSE). By contributing you agree that your contribution is licensed under

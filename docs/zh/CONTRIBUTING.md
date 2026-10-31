@@ -87,8 +87,21 @@ capability lock，再跑契约测试。在 PR 里说明 lock 为什么变；不�
 
 发布流程由计划的 T16、[ADR 0003](../../docs/adr/0003-addon-package-release.md) 与
 [ADR 0004](../../docs/adr/0004-lib-build-release.md) 负责。简言之：先核对发布门禁，同一次改动里更新
-`package.json` 与 `src/index.ts` 的 `PLUGIN_VERSION`，由 `prepack` 构建 `lib/`，把 addon zip 与
+`package.json` 与 `src/constants.ts` 的 `PLUGIN_VERSION`，由 `prepack` 构建 `lib/`，把 addon zip 与
 npm tarball 挂到 release，并在打 tag 前演练回滚。详细清单保存在本地重构工作区，不随仓库发布。
+
+### 手动 CD
+
+[.github/workflows/release.yml](../../.github/workflows/release.yml) 是手动发布流水线，仅支持
+`workflow_dispatch`：**Actions → Manual CD → Run workflow**。输入：
+
+- `version` 必须与 `package.json`、`src/constants.ts` 的 `PLUGIN_VERSION` 一致；
+- `dry_run` 默认 `true`，只验证和打包；
+- `dry_run=false` 在 `release` environment 审批后创建 **draft** GitHub Release 与 tag；
+- `publish_npm` 默认 `false`；开启后把打包好的 tarball 带 provenance 发布到 npm。
+
+流水线不会自行 push `main` 或 tag；`workflow_dispatch` 只有该文件在默认分支后才可见，因此请在合并到 `main` 后运行（dry-run 阶段也可在包含该 workflow 的分支上运行）。真 Blender E2E 与 GitHub Release 的最终发布仍是人工步骤。为 `release`
+environment 配置 required reviewers，保护 `v*` tag，并且只在确实要发布 npm 时配置 `NPM_TOKEN`。
 
 ## 许可
 
