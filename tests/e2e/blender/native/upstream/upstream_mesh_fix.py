@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """上游整合 A2 网格修复/空网格审计（原 upstream_integration_selftest.py 拆分）.
 
-Split from cases/upstream_integration_selftest.py by T11a. The runner injects K;
-the shared helper supplies the original chk/api/clean/new_sphere/new_plate names.
+Split from cases/upstream_integration_selftest.py by T11a; T11b.8 runs it through
+the native runner. The support module binds K and the original helper names to ctx.
 """
 from __future__ import annotations
 
@@ -12,10 +12,8 @@ import math
 import bmesh
 import bpy
 
-import _upstream_common as U
+import support as U
 
-U.bind(K)
-U.install(globals())
 
 
 def t_fix_and_audit():
@@ -51,5 +49,7 @@ def t_fix_and_audit():
         a2.get("ok") is True and (a2["totals"].get("empty_objects") or 0) == 1 and a2.get("clean") is False, a2.get("totals"))
 
 
-if __name__ == "__main__":
+
+def test_mesh_fix(ctx):
+    U.install(globals(), ctx)
     U.run([t_fix_and_audit], "上游整合 A2 网格修复/空网格审计（原 upstream_integration_selftest.py 拆分）")

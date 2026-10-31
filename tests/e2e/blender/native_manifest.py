@@ -152,6 +152,72 @@ HEADLESS_MODULES = (
         "preloads": ("motion",),
         "timeout": 600,
     },
+    {
+        "id": "upstream_sculpt",
+        "path": "tests/e2e/blender/native/upstream/upstream_sculpt.py",
+        "preloads": ("audit", "sculpt", "mesh_fix", "uv_tools", "printcheck", "sweep", "material", "render_guard", "gate", "human", "vehicle", "clearance", "shapegen", "faceeval", "imgtools", "pipeline"),
+        "timeout": 600,
+    },
+    {
+        "id": "upstream_mesh_fix",
+        "path": "tests/e2e/blender/native/upstream/upstream_mesh_fix.py",
+        "preloads": ("audit", "sculpt", "mesh_fix", "uv_tools", "printcheck", "sweep", "material", "render_guard", "gate", "human", "vehicle", "clearance", "shapegen", "faceeval", "imgtools", "pipeline"),
+        "timeout": 600,
+    },
+    {
+        "id": "upstream_uv",
+        "path": "tests/e2e/blender/native/upstream/upstream_uv.py",
+        "preloads": ("audit", "sculpt", "mesh_fix", "uv_tools", "printcheck", "sweep", "material", "render_guard", "gate", "human", "vehicle", "clearance", "shapegen", "faceeval", "imgtools", "pipeline"),
+        "timeout": 600,
+    },
+    {
+        "id": "upstream_print",
+        "path": "tests/e2e/blender/native/upstream/upstream_print.py",
+        "preloads": ("audit", "sculpt", "mesh_fix", "uv_tools", "printcheck", "sweep", "material", "render_guard", "gate", "human", "vehicle", "clearance", "shapegen", "faceeval", "imgtools", "pipeline"),
+        "timeout": 600,
+    },
+    {
+        "id": "upstream_sweep",
+        "path": "tests/e2e/blender/native/upstream/upstream_sweep.py",
+        "preloads": ("audit", "sculpt", "mesh_fix", "uv_tools", "printcheck", "sweep", "material", "render_guard", "gate", "human", "vehicle", "clearance", "shapegen", "faceeval", "imgtools", "pipeline"),
+        "timeout": 600,
+    },
+    {
+        "id": "upstream_audit_smoke",
+        "path": "tests/e2e/blender/native/upstream/upstream_audit_smoke.py",
+        "preloads": ("audit", "sculpt", "mesh_fix", "uv_tools", "printcheck", "sweep", "material", "render_guard", "gate", "human", "vehicle", "clearance", "shapegen", "faceeval", "imgtools", "pipeline"),
+        "timeout": 600,
+    },
+    {
+        "id": "upstream_material_render",
+        "path": "tests/e2e/blender/native/upstream/upstream_material_render.py",
+        "preloads": ("audit", "sculpt", "mesh_fix", "uv_tools", "printcheck", "sweep", "material", "render_guard", "gate", "human", "vehicle", "clearance", "shapegen", "faceeval", "imgtools", "pipeline"),
+        "timeout": 600,
+    },
+    {
+        "id": "upstream_gate",
+        "path": "tests/e2e/blender/native/upstream/upstream_gate.py",
+        "preloads": ("audit", "sculpt", "mesh_fix", "uv_tools", "printcheck", "sweep", "material", "render_guard", "gate", "human", "vehicle", "clearance", "shapegen", "faceeval", "imgtools", "pipeline"),
+        "timeout": 600,
+    },
+    {
+        "id": "upstream_assembly_vehicle",
+        "path": "tests/e2e/blender/native/upstream/upstream_assembly_vehicle.py",
+        "preloads": ("audit", "sculpt", "mesh_fix", "uv_tools", "printcheck", "sweep", "material", "render_guard", "gate", "human", "vehicle", "clearance", "shapegen", "faceeval", "imgtools", "pipeline"),
+        "timeout": 600,
+    },
+    {
+        "id": "upstream_shape",
+        "path": "tests/e2e/blender/native/upstream/upstream_shape.py",
+        "preloads": ("audit", "sculpt", "mesh_fix", "uv_tools", "printcheck", "sweep", "material", "render_guard", "gate", "human", "vehicle", "clearance", "shapegen", "faceeval", "imgtools", "pipeline"),
+        "timeout": 600,
+    },
+    {
+        "id": "upstream_pipeline",
+        "path": "tests/e2e/blender/native/upstream/upstream_pipeline.py",
+        "preloads": ("audit", "sculpt", "mesh_fix", "uv_tools", "printcheck", "sweep", "material", "render_guard", "gate", "human", "vehicle", "clearance", "shapegen", "faceeval", "imgtools", "pipeline"),
+        "timeout": 600,
+    },
 )
 
 GUI_MODULES = (

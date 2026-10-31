@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Shared helpers for the split upstream integration E2E cases.
+"""Shared helpers for the native upstream E2E modules (T11b.8).
 
-The legacy case was one 856-line script. T11a splits it into domain cases under
-the cases/ directory. Each case calls bind(K) and install(globals()) so the
-function bodies keep their original vocabulary (PASS/FAILS/SKIP, PREFIX,
-chk/api/clean/new_sphere/new_plate) while the implementation lives in one place.
+T11a split the original 856-line upstream script into 11 topic cases under
+cases/.  T11b.8 moves those cases to the native runner: one module per topic,
+one test_<topic>(ctx) entry point, and this support module keeps the original
+vocabulary (chk/api/clean/new_sphere/new_plate/PREFIX) while binding it to the
+native Context instead of a legacy kernel global.
 """
 from __future__ import annotations
 
@@ -16,27 +17,40 @@ import bpy
 PASS, FAILS, SKIP = [], [], []
 PREFIX = "DSHST_"
 K = None
+CTX = None
 
 
-def bind(kernel):
-    global K
-    K = kernel
+def install(namespace, ctx):
+    """Bind this module's globals to one native Context."""
+    global CTX, K, PASS, FAILS, SKIP
+    CTX = ctx
+    K = ctx.K
+    PASS, FAILS, SKIP = [], [], []
+    namespace.update({
+        "PASS": PASS,
+        "FAILS": FAILS,
+        "SKIP": SKIP,
+        "PREFIX": PREFIX,
+        "K": K,
+        "chk": chk,
+        "api": api,
+        "clean": clean,
+        "new_sphere": new_sphere,
+        "new_plate": new_plate,
+        "json": json,
+    })
 
 
 def chk(name, cond, detail=""):
     if cond:
         PASS.append(name)
-        print("  [OK]   " + name)
     else:
         FAILS.append({"clause": name, "detail": str(detail)[:400]})
-        print("  [FAIL] " + name + "  <- " + str(detail)[:300])
+    CTX.check(name, cond, detail)
 
 
 def api(name):
-    a = getattr(K, "dsh_" + name + "_api", None)
-    if a is None:
-        raise RuntimeError("模块没注入：dsh_%s_api（preload 里漏了 %s？）" % (name, name))
-    return a
+    return CTX.api(name)
 
 
 def clean():
@@ -86,21 +100,6 @@ def new_plate(name, size=0.1, segs=50, thick=0.005, lift=0.0):
     return ob
 
 
-def install(namespace):
-    namespace.update({
-        "PASS": PASS,
-        "FAILS": FAILS,
-        "SKIP": SKIP,
-        "PREFIX": PREFIX,
-        "chk": chk,
-        "api": api,
-        "clean": clean,
-        "new_sphere": new_sphere,
-        "new_plate": new_plate,
-        "json": json,
-    })
-
-
 def run(functions, title):
     before = len(bpy.data.objects)
     print("== " + title + " ==")
@@ -110,10 +109,6 @@ def run(functions, title):
         except Exception as e:
             chk(fn.__name__ + " 未抛异常", False, "%s: %s" % (type(e).__name__, str(e)[:200]))
         clean()
-    chk("临时对象已清干净（场景对象数复原）", len(bpy.data.objects) == before,
-        "%d -> %d" % (before, len(bpy.data.objects)))
-    out = {"pass": len(PASS), "fail": len(FAILS), "fails": FAILS, "skipped": SKIP,
-           "objects_left": [o.name for o in bpy.data.objects if o.name.startswith(PREFIX)]}
-    print("HEADLESS " + json.dumps(out, ensure_ascii=False, separators=(",", ":")))
-    if FAILS:
-        raise SystemExit(1)
+    CTX.check("临时对象已清干净（场景对象数复原）", len(bpy.data.objects) == before,
+              "%d -> %d" % (before, len(bpy.data.objects)))
+    print("NATIVE_UPSTREAM %s: pass=%d fail=%d skipped=%d" % (title, len(PASS), len(FAILS), len(SKIP)))

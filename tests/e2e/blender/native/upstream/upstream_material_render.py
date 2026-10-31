@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """上游整合 A4 材质与渲染守卫（原 upstream_integration_selftest.py 拆分）.
 
-Split from cases/upstream_integration_selftest.py by T11a. The runner injects K;
-the shared helper supplies the original chk/api/clean/new_sphere/new_plate names.
+Split from cases/upstream_integration_selftest.py by T11a; T11b.8 runs it through
+the native runner. The support module binds K and the original helper names to ctx.
 """
 from __future__ import annotations
 
@@ -12,10 +12,8 @@ import math
 import bmesh
 import bpy
 
-import _upstream_common as U
+import support as U
 
-U.bind(K)
-U.install(globals())
 
 
 def t_material():
@@ -77,5 +75,7 @@ def t_render_guard():
         st3.get("flag") is None and (st3.get("local") or {}).get("state") == "idle", st3.get("local"))
 
 
-if __name__ == "__main__":
+
+def test_material_render(ctx):
+    U.install(globals(), ctx)
     U.run([t_material, t_render_guard], "上游整合 A4 材质与渲染守卫（原 upstream_integration_selftest.py 拆分）")
