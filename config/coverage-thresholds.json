@@ -6,7 +6,7 @@
   "javascript": {
     "globalFloor": {
       "lines": 57.68,
-      "branches": 68.5,
+      "branches": 68.45,
       "functions": 63.7
     },
     "changedLinesFloor": {
@@ -69,5 +69,6 @@
     "behaviorMatrixRelease": true,
     "scenarioCoverage": 100,
     "plannedMustBeZero": true
-  }
+  },
+  "coverageMode": "single-file (no-file-parallelism)"
 }

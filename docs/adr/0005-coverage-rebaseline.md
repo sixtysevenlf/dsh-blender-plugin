@@ -18,11 +18,16 @@ logic. The refactor then changed the shape of the code:
 - the addon Premium/Tripo removal changed the addon count from 39 to 38
   commands and 39 to 34 modules.
 
-At `f001e1d` the measured JS coverage is 57.68% lines, 68.5% branches, 63.7%
+At `f001e1d` the measured JS coverage is 57.68% lines, 68.45% branches, 63.7%
 functions; changed-lines coverage against v2.6.2 is 56.70%. The old 63 / 69 / 58
 floors therefore fail on a correct, fully green refactor. Keeping those floors
 would require adding tests whose only purpose is to execute lines, which the
 plan explicitly rejects.
+
+Vitest's parallel coverage merge was also non-deterministic: repeated runs reported
+68.45% (2831 branches) or 68.5% (2835 branches) because the same source file was
+merged from several workers. `npm run test:coverage` now runs with
+`--no-file-parallelism`, and the baseline uses the stable 68.45% measurement.
 
 ## Decision
 
@@ -30,7 +35,7 @@ The C5 baseline is the measured state at code commit `f001e1d`:
 
 | Surface | Baseline |
 |---|---:|
-| JS lines / branches / functions | 57.68% / 68.5% / 63.7% |
+| JS lines / branches / functions | 57.68% / 68.45% / 63.7% |
 | JS changed lines vs v2.6.2 | 56.70% (15,468 changed, 6,697 missing) |
 | Critical modules | catalog 96.93/78.57; addon-protocol 92.53/80; router 100/92.85; lease 95.94/87.17; tools/index 100/100 |
 | Python pure logic | 76.95% lines, 71.71% branches |
@@ -48,7 +53,8 @@ The gate then applies these rules:
    the baseline itself; the measured values above are recorded for review.
 4. The local gate and CI MUST both read `config/coverage-thresholds.json`, use
    diff-cover against the fixed `v2.6.2` baseline ref until 3.0.0 ships, and use
-   the same Python scope.
+   the same Python scope. JS coverage MUST run through `npm run test:coverage`,
+   which disables file parallelism so the v8 branch merge is deterministic.
 5. No source lines are excluded. `config/coverage-move-manifest.json` stays
    empty because the repository cannot mechanically prove that the rename-heavy
    refactor lines are pure moves; the lower global floor is the honest cost of

@@ -2,12 +2,13 @@
   "version": 2,
   "commit": "f001e1d20b86cd84a88424e3bbe426e501e4c49d",
   "date": "2026-10-31",
-  "measuredAt": "2026-10-31T22:19:18+08:00",
+  "measuredAt": "2026-10-31T22:29:00+08:00",
   "javascript": {
     "statements": 57.68,
-    "branches": 68.5,
+    "branches": 68.45,
     "functions": 63.7,
-    "lines": 57.68
+    "lines": 57.68,
+    "mode": "single-file (no-file-parallelism)"
   },
   "changedLines": {
     "lines": 56.7,
