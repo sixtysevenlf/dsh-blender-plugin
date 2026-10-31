@@ -28,8 +28,8 @@ AGENTS.md 说明各层怎么拼在一起、什么算“装好了”，以及命�
 
 前置条件：
 
-- 开发与测试使用 Node.js **22**；后端在 Node.js 20 及以上可运行。
-- Blender **4.2 LTS 或 5.x**（GUI 模式需要随包 addon；无头模式只需要可执行文件）。
+- 开发与测试使用 Node.js **22.17**；Node.js 20 未验证。
+- Blender **4.2 LTS**（已验证）；Blender 5.x 尚未验证（GUI 模式需要随包 addon；无头模式只需要可执行文件）。
 - Python **3.11+**，装在带 `pytest` 的虚拟环境（virtualenv）里，用 `PYTHON` 指向它
   （Windows 另设 `PYTHONIOENCODING=utf-8`、`PYTHONUTF8=1`）。
 - 可选：只有需要重新构建 `lib/` 时才需要 DSH 源码 checkout。

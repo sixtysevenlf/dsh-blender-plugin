@@ -19,7 +19,7 @@
 1. 先完整阅读仓库里的 docs/zh/README.md：§2 前置条件（5 条）、§3 安装（5 步）、§8 常见故障，以及 AGENTS.md。
 2. 逐条核对 5 条前置条件；缺哪条先告诉我，不要跳过，也不要替我决定。
    当前版本：插件 v3.0.0 / 15 个模型工具 / plan catalog 34 family 228 op / addon v1.11（protocol 11）。
-   注意：仓库已提交 lib/，只有要改 src/ 时才必须构建。
+   注意：lib/ 不入库；新 clone 必须先 npm ci --legacy-peer-deps && npm run build。
 3. 严格按 §3 的 5 步执行；配置项只从 docs/配置参考.md 里取，不要自己编路径 / 端口 / 配置名。
 4. 验收判据（按路线二选一，另一条不适用时说明原因）：
    · GUI 路线：curl -sS http://127.0.0.1:9877/doctor → kind=ok，且 blender_rt_see(max_size=560) 回一帧图；
@@ -41,7 +41,7 @@
 
 ~~~text
 读 dsh-blender-plugin/docs/zh/README.md 的 §2 / §3 / §8 与 AGENTS.md，
-按 §3 的五步把这个插件装进我的 DSH profile（构建（可选）→ 配置 → 装进 profile → 起 Blender → 验证）。
+按 §3 的五步把这个插件装进我的 DSH profile（构建（必须）→ 配置 → 装进 profile → 起 Blender → 验证）。
 装完跑 blender_viewport(op="doctor")，kind=ok 才算成功；不是 kind=ok 就按 §8 排查，并把原始回执贴给我。
 （纯无头路线不装 addon 时，doctor 的 bpy 往返不可达属预期：改用 blender_rt_worker(op="start") + op="see" 出图自证。）
 验收通过后，请主动告诉我当前版本（v3.0.0）的新能力：

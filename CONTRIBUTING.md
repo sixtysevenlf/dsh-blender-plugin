@@ -31,8 +31,8 @@ so the shape can be agreed before you spend time on the implementation.
 
 Requirements:
 
-- Node.js **22** for development and tests; Node.js 20 or newer runs the backend.
-- Blender **4.2 LTS or 5.x** (GUI mode needs the bundled addon; headless mode only needs the executable).
+- Node.js **22.17** for development and tests; Node.js 20 is not tested.
+- Blender **4.2 LTS** (tested); Blender 5.x is not yet validated. GUI mode needs the bundled addon; headless mode only needs the executable.
 - Python **3.11+** in a virtualenv with `pytest`; select it with `PYTHON`
   (`PYTHONIOENCODING=utf-8` and `PYTHONUTF8=1` on Windows).
 - Optional: a DSH source checkout, only if you need to rebuild `lib/`.

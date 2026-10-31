@@ -35,8 +35,8 @@ DSH × Blender connects DeepSeek Harness to Blender so an agent can build, inspe
 ### Requirements
 
 - DSH (DeepSeek Harness) installed and working.
-- Node.js 20 or newer for the backend; Node.js 22 is the CI and test baseline.
-- Blender 4.x or 5.x. GUI mode requires the bundled addon (install it first); headless mode only needs the Blender executable.
+- Node.js 22.17 or newer for the backend; Node.js 22.17 is the CI and test baseline. Node.js 20 is not tested.
+- Blender 4.2 LTS is the tested version. Blender 4.x may work; Blender 5.x is not yet validated. GUI mode requires the bundled addon (install it first); headless mode only needs the Blender executable.
 - Optional: a DSH source checkout when rebuilding the host side; otherwise the build links against this repository's installed dependencies.
 
 ### Option A: ask an AI agent
@@ -184,7 +184,7 @@ The plugin exposes 15 tools. All planning, audit, assembly, export, and evaluati
 
 ## Development
 
-- Node.js **22** is the CI and test baseline; Node.js 20 or newer runs the backend.
+- Node.js **22.17** is the CI and test baseline; Node.js 20 is not tested.
 - Python tests need a virtualenv with `pytest`. Point `PYTHON` at its interpreter
   (`PYTHONIOENCODING=utf-8` and `PYTHONUTF8=1` on Windows); tests import the TypeScript sources directly.
 - The canonical command table — install, build, typecheck, test, lint, pack — is

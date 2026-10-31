@@ -18,7 +18,7 @@
     "modeling"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22.17.0"
   },
   "type": "module",
   "main": "./lib/index.js",

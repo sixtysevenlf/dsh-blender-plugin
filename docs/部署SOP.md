@@ -36,10 +36,10 @@ plan catalog 应能列出 **34 family / 228 op**。
 
 ~~~bash
 cd <插件目录>          # 解包后的 dsh-blender-plugin/
-ls lib/index.js        # ← 有这个文件就**不用构建**（本仓已提交 lib/）
+ls lib/index.js        # ← 先构建，有这个文件才可用（本仓库不提交 lib/）
 
-# 只有要改 src/ 时才需要构建：
-# DSH_CHECKOUT=/path/to/dsh-harness bash scripts/build.sh
+# 构建（新 clone 必须）：
+npm ci --legacy-peer-deps && npm run build
 ~~~
 
 然后按 bundle 方式装进 profile：`node_modules/@dsh-external/dsh-blender-plugin` 建软链 →

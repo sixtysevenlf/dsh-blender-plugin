@@ -35,8 +35,8 @@ DSH × Blender 把 DeepSeek Harness 接到 Blender，让 AI 能在真实 Blender
 ### 前置条件
 
 - 已安装并可用的 DSH（DeepSeek Harness）。
-- Node.js 20 或更高版本（后端运行环境）；CI 与测试基线为 Node.js **22**。
-- Blender 4.x 或 5.x。GUI 模式必须先安装随包 addon；无头模式只需要能找到 Blender 可执行文件。
+- Node.js **22.17** 或更高版本（后端运行环境）；CI 与测试基线为 Node.js **22.17**，Node.js 20 未验证。
+- Blender **4.2 LTS** 是已验证版本；4.x 可能可用，5.x 尚未验证。GUI 模式必须先安装随包 addon；无头模式只需要能找到 Blender 可执行文件。
 - 可选：如果你想重新构建插件，需要 DSH 源码 checkout。
 
 ### 方案 A：让 AI 帮你装
@@ -68,12 +68,12 @@ DSH × Blender 把 DeepSeek Harness 接到 Blender，让 AI 能在真实 Blender
 
    只能用这个 addon。继续之前请停用 MCP for Blender 或其他 Blender addon。如果后面的安装用不了，先回来检查这一步。
 
-2. 克隆仓库；一般不需要构建。仓库已提交构建后的 lib 目录。
+2. 克隆仓库并构建。lib/ 是构建产物，不再入库，所以新 clone 必须先构建一次。
 
         git clone https://github.com/sixtysevenlf/dsh-blender-plugin.git
         cd dsh-blender-plugin
-        # 可选：只有改了 src/ 才需要
-        DSH_CHECKOUT=/path/to/dsh-harness bash scripts/build.sh
+        npm ci --legacy-peer-deps
+        npm run build
 
 3. 把插件加入 DSH profile。先把 checkout 软链到 profile，再在 profile 的 package.json 里加依赖和 bundle 条目。
 
@@ -183,7 +183,7 @@ DSH × Blender 把 DeepSeek Harness 接到 Blender，让 AI 能在真实 Blender
 
 ## 开发
 
-- CI 与测试基线为 Node.js **22**；后端在 Node.js 20 及以上可运行。
+- CI 与测试基线为 Node.js **22.17**；Node.js 20 未验证。
 - Python 测试需要装有 `pytest` 的虚拟环境（virtualenv），用 `PYTHON` 指向该解释器（Windows 另设
   `PYTHONIOENCODING=utf-8`、`PYTHONUTF8=1`）；测试直接导入 TypeScript 源码。
 - 命令的唯一事实源（安装、构建、typecheck、测试、lint、打包）见

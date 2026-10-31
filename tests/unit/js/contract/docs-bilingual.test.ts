@@ -42,7 +42,7 @@ describe('human entry cross-links', () => {
 
   it('keeps the development sections synchronized', () => {
     for (const text of [README, ZH_README]) {
-      expect(text).toContain('Node.js **22**')
+      expect(text).toContain('Node.js **22.17**')
       expect(text).toContain('PYTHON')
       expect(text).toContain('pytest')
       expect(text).toMatch(/virtualenv|venv/i)

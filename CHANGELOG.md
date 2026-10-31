@@ -1,53 +1,49 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
-## v3.0.0（2026-10-30）—— 工程健康化重构（breaking：addon 改 zip 包）
+## v3.0.0（2026-11-01）—— 工程健康化重构（breaking：addon 改 zip 包）
 
-> 模型工具仍 **15 个**；plan catalog 仍 **34 family / 228 op**；addon command **38 个**、**protocol 11**；
+> 模型工具 15 个；plan catalog 34 family / 228 op；addon command 38 个、protocol 11；
 > 本版不新增建模能力，只做结构、测试、类型、CI 与发布工程；B1 分数不与 v2.6.1 混算。
 
 ### Breaking changes
 
-- **addon 安装方式改为 zip 包**：发布物是 `addon/dsh_blender_bridge.zip`（包内 `__init__.py`、`bl_info` v1.11、protocol 11）；
-  旧的单文件 `addon/dsh_blender_bridge.py` 不再随包发布，也不再是安装入口。升级时必须先在 Blender Preferences 里停用并移除旧单文件，再安装 zip、启用、N 面板 Connect。
-- **Premium / Tripo 生成通道移除**：删除 Premium 许可、额度、Supabase 客户端与 Tripo 开关；Hyper3D 与 Hunyuan3D 只保留自有 API key 通道。Tripo 无 BYOK 通道，因此整条命令与面板入口一并删除（总命令 39 → 38）。
-- **`lib/` 不再入库**：源码运行时由 `runtime/**/*.ts` strict 编译到 `lib/runtime/**/*.js`；从 git 使用先 `npm ci --legacy-peer-deps && npm run build`，`prepack` 会自动构建。npm 安装包仍自带 `lib/`。
-- 从 git 直接 `require` 旧 `runtime/*.mjs` 的用法不再成立（runtime 已无 `.mjs`）；请用包入口或构建后的 `lib/runtime/*.js`。
+- **addon 安装方式改为 zip 包**：发布物是 addon/dsh_blender_bridge.zip（包内 __init__.py、bl_info v1.11、protocol 11）；旧的单文件 addon/dsh_blender_bridge.py 不再随包发布，也不再是安装入口。升级时必须先在 Blender Preferences 里停用并移除旧单文件，再安装 zip、启用、N 面板 Connect。
+- **Premium / Tripo 生成通道移除**：删除 Premium 许可、额度、Supabase 客户端与 Tripo 开关；Hyper3D 与 Hunyuan3D 只保留自有 API key 通道。Tripo 无 BYOK 通道，因此整条命令与面板入口一并删除（addon command 39 → 38）。
+- **lib/ 不再入库**：源码运行时由 runtime/**/*.ts strict 编译到 lib/runtime/**/*.js；从 git 使用先 npm ci --legacy-peer-deps && npm run build，prepack 会自动构建。npm 安装包仍自带 lib/。
+- **runtime 不再有 .mjs**：旧 runtime/*.mjs 的 require 用法不再成立；请用包入口或构建后的 lib/runtime/*.js。
 
-### 结构重构
+### 结构、类型与测试
 
-- `src/index.ts` 缩为 13 行 entry-only；15 个 tool handler 拆到 `src/tools/*`，新增 `src/host`、`src/contracts`、`src/plan`、`src/ui`、`src/headless`、`src/utils` 等模块；
-  `scripts/check-structure.mjs` 校验 32/32 目标文件、147 条 import 边、0 环。
-- `runtime/engine.mjs` / `runtime/server.mjs` 拆为 facade + `runtime/core/*`、`runtime/execution/*`、`runtime/http/*`、`runtime/transport/*`；
-  engine 保留 87 个导出、server 保留 29 条路由；新增普通模块最大 457 行（无 >1,000 行模块）。
-- Python runtime 拆为 `runtime/py/{core,geometry,assembly,render,export}` 5 个领域包 + flat re-export shim；
-  `offline_bootstrap.py` 改为每模块独立命名空间，修复跨模块同名 helper 覆盖（assembly 的 `_num` 被 mesh_fix 覆盖）。
-- addon 单文件拆为 `addon/dsh_blender_bridge/`（37 个模块，最大 558 行）+ 提交 `addon/dsh_blender_bridge.zip`；launcher 校验包目录/zip、protocol 11、addon version >= 1.10/1.11。
+- src/index.ts 13 行 entry-only；15 个 tool handler 全部拆到 src/tools/*；check:structure 校验 33/33 目标文件、44 文件 / 243 import 边 / 0 环。
+- 生产源码行数预算：163/163 文件 ≤ 600 行（runtime/catalog.ts 数据表例外，ADR 0006）；runtime/py 143/143 文件 ≤ 1000 行（ADR 0007）；13 个原 >1000 行 runtime/py 模块已拆为 facade + 同域 impl 包，最大实现文件 949 行。
+- runtime：82 个自有 TypeScript 模块（另 1 个 ext 第三方 runner），0 个 .mjs、0 个 @ts-nocheck；src + runtime 显式 any = 0，由 check:any 与 ESLint 双重门禁。
+- addon：37 个模块，最大 558 行；zip 内 37 entries；bl_info 1.11、protocol 11。
+- 测试：unit 47 files / 469 passed（2 skipped）；integration 18/248；contract 29/319；python 274；addon-unit 58；真实 Blender native E2E 76 passed（10 deselected）；GUI E2E 8 passed（2 skipped）。
+- 行为矩阵 346 rows（344 covered / 0 planned / 2 exempt），覆盖 15 tools / 38 commands / 34 families / 228 ops / 29 routes。
+- C5 以 f001e1d 为基线（ADR 0005）：JS 71.38 lines / 69.09 branches / 74.31 functions；changed lines 71.5%；Python pure 76.95 lines / 71.71 branches；critical 与 executionModules floor 全过。
 
 ### Phase R：runtime TypeScript
 
-- 60 个 `runtime/*.mjs`（4,476 行）迁为 62 个 strict TS 模块，编译到 `lib/runtime/*.js`；`runtime/**/*.mjs` = 0，无 `@ts-nocheck`、无新增显式 `any`；
-  `SERVER_PATH` 指向 `lib/runtime/server.js`；JSON/子进程/路径/Python 桥边界补齐解析函数。
-- 构建顺序：runtime → host → client（src 依赖构建后的 lib/runtime）；ADR 0001 记录该偏离计划顺序的理由。
-- `npm pack` 产物含 `lib/runtime/**/*.js` 与 `runtime/**/*.py`，不含 `.ts`；clean clone / tarball 安装 smoke 均过。
+- 原 60 个 runtime/*.mjs（7,307 行）迁为 strict TypeScript，编译到 lib/runtime/*.js；T5b 又拆出 headless 与 plan-dispatch 子模块，当前自有 runtime TS 为 82 个模块。
+- SERVER_PATH 指向 lib/runtime/server.js；JSON / 子进程 / 路径 / Python 桥边界补齐解析函数；构建顺序 runtime → host → client（ADR 0001）。
+- npm pack 产物含 lib/runtime/**/*.js 与 runtime/**/*.py，不含 .ts；clean clone / tarball 安装 smoke 均过。
 
-### 测试、CI 与质量门禁
+### CI、覆盖率与发布工程
 
-- 测试分三层：`npm run test:unit`（37 files / 251 passed）、`test:integration`（17 files / 102 passed）、`test:python`（pytest 295 passed）；默认集合不启动真 Blender/GUI。
-- 真实 Blender 4.2.10 E2E：headless 29 passed、GUI 6 passed（2 个 GUI 条件 skip 由 issue #53 批准）；覆盖 zip 安装、启用、Connect、doctor、selection、bpy、导出、卸载。
-- CI：`.github/workflows/pr.yml`（Node 22.17 + Python 3.11；typecheck/lint/format/build/structure/tests/matrix/pack + coverage）与 `.github/workflows/e2e.yml`（workflow_dispatch/label/tag，下载 Blender 4.2.10 headless + xvfb GUI）。
-- 行为矩阵覆盖 15 tools / 38 commands / 34 families / 228 ops / 29 routes；0 planned。
-- 旧测试迁移：67 个旧文件全部处置（tests/MIGRATION.md，无 pending），`test:legacy` 与 22 个别名移除。
-- 覆盖率：JS statements/lines 42.84%、branches 73.35%；diff-cover JS 32%、Python addon 32%（目标 80/70，EXEMPT 记录见 issue #52 与本地重构工作区）。
+- CI：.github/workflows/pr.yml（Node 22.17 + Python 3.11；typecheck/lint/format/build/structure/tests/matrix/pack + coverage）。真实 Blender E2E 目前是本地发布检查，尚未进 CI。
+- 手动 CD：.github/workflows/release.yml（workflow_dispatch；dry_run 默认 true、publish_npm 默认 false；release environment 人工审批；draft Release；npm 发布仅在审批后执行）。
+- 覆盖率门禁本地通过；远程 CI 与 canonical coverage 校准仍由 T16a/T16c 处理，不在本版发布前声明为已验证。
 
 ### 文档与仓库
 
-- 新增 ADR 0001-0004、`tests/BEHAVIOR_MATRIX.md`、`tests/MIGRATION.md`、PR 模板与 flaky issue 模板；重构规格、CI 说明与证据包保存在本地重构工作区，不随仓库发布。
+- 新增 ADR 0001-0007、tests/BEHAVIOR_MATRIX.md、tests/MIGRATION.md、四个 PR 模板；重构规格、CI 说明与证据包保存在本地重构工作区，不随仓库发布。
 - README / docs/zh/README / CONTRIBUTING / docs/zh/CONTRIBUTING / AGENTS / addon README 全部改为 zip 安装；英文 AI 文档保留英文，中文用户文档保留中文并互链。
 
 ### 已知限制
 
-- C5 覆盖率未达计划目标（JS diff 32%、Python addon 32%），发布按 §8.0 暂缓；issue #52 记录补测与 ratchet。
-- T16 发布动作（tag v3.0.0 / GitHub Release / npm publish）在覆盖率决策后执行；本条目是发布候选说明。
+- 远程 CI 尚未执行（T16a 仍 open）；没有 v3.0.0 tag / GitHub Release / npm publish；发布动作需人工确认。
+- C5 全局 floor 仍是保守值，待 T16c 用 canonical CI 数据校准；runtime/py 还没有 pyright/覆盖率插桩；函数级大模块仍是后续债务。
+- 兼容性：Blender 4.2.10 是唯一 E2E 验证版本，Blender 5.x 未验证；Node 22.17 是测试与 CI 基线，Node 20 未验证。
 
 ## v2.6.2（2026-10-28）—— 曲面算法（surface_*）+ 文档/计数一致性
 

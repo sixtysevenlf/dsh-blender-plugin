@@ -1,7 +1,7 @@
 # MIGRATIONS —— 从旧版本迁到 v3.0
 
-> **当前版本（2026-10-30）**：插件 **v3.0.0** · **15 个模型工具** · plan catalog **34 family / 228 op** ·
-> addon **v1.11**（protocol **11**）· 后端 `127.0.0.1:9877` / addon `127.0.0.1:9876`。
+> **当前版本（2026-11-01）**：插件 **v3.0.0** · **15 个模型工具** · plan catalog **34 family / 228 op** ·
+> addon command **38** · addon **v1.11**（protocol **11**）· 后端 `127.0.0.1:9877` / addon `127.0.0.1:9876`。
 > **旧 `MCP for Blender` 自 v2.3 起不再支持**；v3.0 是工程重构 + addon 安装方式 breaking，按下文 §0/§1 迁。
 
 ## 0. 最短路径（任何旧版 → v3.0.0）
@@ -13,7 +13,14 @@
    `blender_rt_plan(op="catalog")` → **34 family / 228 op**。
 4. 选中入口：Blender 原生选中 → `N` →「Selection → DSH」→ 发送（多选 / 集合）；编辑模式选点/面、姿态选骨骼也会一起发。
 5. 新能力（交互式无头、`img_*`、`asm_*`、`blockout`、`visualreport`、`shapesolve`、`eval_run`、强制门等）用
-   `blender_rt_plan(op="catalog")` 查骨架；旧 op 不删除、只增不改。
+   `blender_rt_plan(op="catalog")` 查骨架；除 v3.0 明确移除的 Premium/Tripo 通道外，旧 op 不删除、只增不改。
+
+## 0.1 v3.0.0 明确移除的能力（breaking）
+
+- **Premium 通道**：Premium 许可 / 额度 / Supabase 客户端 / 默认 quality 与激活 UI 全部删除；不再有 premium 生成入口。
+- **Tripo 通道**：Tripo 没有 BYOK 路径，因此 get_tripo_status、create_tripo_job、poll_tripo_job_status、import_generated_asset_tripo 与 N 面板开关一并删除；addon command 39 → 38。
+- **替代路径**：Hyper3D 与 Hunyuan3D 继续支持自有 API key；需要 Tripo 时请在外部服务完成生成后把资产导入 Blender。
+- 除上述声明移除项外，原有 op/参数/返回结构保持兼容；不要因为本版重构而改写既有调用。
 
 ## 1. Blender 侧 addon：必须换成 `DSH Blender Bridge` v1.11（zip 包）
 
