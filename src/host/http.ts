@@ -24,7 +24,10 @@ export async function backendJson(
   const body = await r.text()
   try {
     const parsed: unknown = JSON.parse(body)
-    return isRecord(parsed) ? parsed : { value: parsed }
+    // The backend protocol only returns JSON objects. A primitive is a protocol
+    // violation; keep the historical passthrough instead of inventing a wrapper
+    // shape that no caller or endpoint has ever produced.
+    return isRecord(parsed) ? parsed : (parsed as Record<string, unknown>)
   } catch {
     return { ok: false, raw: body.slice(0, 500) }
   }
