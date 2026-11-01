@@ -1,77 +1,13 @@
 {
-  "generatedAt": "2026-11-01T01:05:14.178Z",
+  "generatedAt": "2026-11-01T01:29:38.057Z",
   "reason": "Baseline debt captured by F1.0; burn down in F1/F2/F3.",
   "owner": "lead",
   "expires": "2026-12-31",
   "functions": [
     {
-      "file": "runtime/core/dispatch.ts",
-      "name": "createPlanCallInner",
-      "lines": 414,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/core/dispatch.ts",
-      "name": "planCallInner",
-      "lines": 374,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/core/engine.ts",
-      "name": "createEngine",
-      "lines": 175,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/core/kernel.ts",
-      "name": "createKernel",
-      "lines": 317,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/core/output.ts",
-      "name": "catalogPayload",
-      "lines": 165,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
       "file": "runtime/core/plan/ext-check.ts",
       "name": "extCheckOp",
       "lines": 124,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/core/plan/shape-search.ts",
-      "name": "createShapeSearch",
-      "lines": 561,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/core/plan/shape-search.ts",
-      "name": "shapeSearchOp",
-      "lines": 488,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/core/server-compat.ts",
-      "name": "createPublicMethods",
-      "lines": 421,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"
@@ -88,102 +24,6 @@
       "file": "runtime/execution/headless/index.ts",
       "name": "headless",
       "lines": 158,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/execution/headless/options.ts",
-      "name": "prepareHeadlessOptions",
-      "lines": 135,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/execution/jobs/script.ts",
-      "name": "buildJobScript",
-      "lines": 157,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/execution/jobs/start.ts",
-      "name": "startJob",
-      "lines": 226,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/execution/jobs.ts",
-      "name": "createJobsApi",
-      "lines": 173,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/execution/ledger.ts",
-      "name": "createLedger",
-      "lines": 175,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/execution/trajectory.ts",
-      "name": "createTrajectory",
-      "lines": 140,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/execution/workers.ts",
-      "name": "createWorkersApi",
-      "lines": 462,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/execution/workers.ts",
-      "name": "workerStart",
-      "lines": 181,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/http/host.ts",
-      "name": "createHostRoutes",
-      "lines": 235,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/http/host.ts",
-      "name": "handleHost",
-      "lines": 152,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/http/routes/session.ts",
-      "name": "createSessionRoutes",
-      "lines": 124,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/launch.ts",
-      "name": "launchBlender",
-      "lines": 203,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"
@@ -645,13 +485,5 @@
       "expires": "2026-12-31"
     }
   ],
-  "files": [
-    {
-      "file": "runtime/catalog.ts",
-      "lines": 956,
-      "reason": "Baseline; split in F1/F2/F3",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    }
-  ]
+  "files": []
 }

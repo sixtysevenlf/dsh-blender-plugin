@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
+import path from 'node:path'
 import {
   FILE_ALIAS_KEYS,
   detectFileAlias,
@@ -17,6 +18,20 @@ const describeMissingInput = describeMissingRaw as unknown as (
 ) => { given: boolean; opened: boolean; reason: string }
 import { headlessScriptName } from '../../../runtime/staging.js'
 import { pkgPath } from '../../helpers/pkg'
+
+function readTree(dir: string, ext: string): string {
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .map((entry) => {
+      const full = path.join(dir, entry.name)
+      return entry.isDirectory()
+        ? readTree(full, ext)
+        : entry.name.endsWith(ext)
+          ? fs.readFileSync(full, 'utf8')
+          : ''
+    })
+    .join('\n')
+}
 
 // F-09: a missing/empty/misnamed file= used to look like a successful headless
 // run (ok=true, no warning, empty scene). The tool-side guard must name the
@@ -93,13 +108,10 @@ describe('headless file option guard', () => {
   })
 
   it('is wired into both execution paths and the tools', () => {
-    const jobs = fs.readFileSync(pkgPath('runtime', 'execution', 'jobs.ts'), 'utf8')
-    const jobScript = fs.readFileSync(pkgPath('runtime', 'execution', 'jobs', 'script.ts'), 'utf8')
-    const jobStart = fs.readFileSync(pkgPath('runtime', 'execution', 'jobs', 'start.ts'), 'utf8')
-    const headlessOptions = fs.readFileSync(
-      pkgPath('runtime', 'execution', 'headless', 'options.ts'),
-      'utf8',
-    )
+    const jobs = readTree(pkgPath('runtime', 'execution', 'jobs'), '.ts')
+    const jobScript = readTree(pkgPath('runtime', 'execution', 'jobs', 'script'), '.ts')
+    const jobStart = readTree(pkgPath('runtime', 'execution', 'jobs', 'start'), '.ts')
+    const headlessOptions = readTree(pkgPath('runtime', 'execution', 'headless', 'options'), '.ts')
     const headlessIndex = fs.readFileSync(
       pkgPath('runtime', 'execution', 'headless', 'index.ts'),
       'utf8',
@@ -124,10 +136,10 @@ describe('headless file option guard', () => {
       'receipt.ts',
     ])
     const jobTool = readToolSplit('job', ['index.ts', 'register.ts', 'execute.ts', 'presenter.ts'])
-    expect(jobScript).toMatch(/from ['"]\.\.\/\.\.\/file_guard\.js['"]/)
+    expect(jobScript).toMatch(/from ['"]\.\.\/\.\.\/\.\.\/file_guard\.js['"]/)
     expect(jobScript).toContain('validateFileOpt(opts.file)')
     expect(jobScript).toContain('describeMissingInput')
-    expect(jobStart).toMatch(/from ['"]\.\.\/\.\.\/file_guard\.js['"]/)
+    expect(jobStart).toMatch(/from ['"]\.\.\/\.\.\/\.\.\/file_guard\.js['"]/)
     expect(jobStart).toContain('noInputFileWarning')
     expect(headlessOptions).toContain('validateFileOpt(opts.file)')
     expect(headlessOptions).toContain('describeMissingInput')

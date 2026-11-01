@@ -1,6 +1,6 @@
 // runtime/engine.ts —— 公开门面（T6）。
 // 行为冻结：本文件只做 re-export + createEngine 装配入口；实现位于 core/、execution/、transport/。
-export { launchBlender } from './launch.js'
+export { launchBlender } from './launch/index.js'
 export { PLUGIN_VERSION, engineProvenance, sceneHygieneAudit } from './core/evidence.js'
 export { winToWsl, wslToWin, describeConfig, PKG_ROOT } from './config.js'
 export {
@@ -14,7 +14,7 @@ export {
   catalogFingerprint,
   PLAN_READ_ONLY_OPS,
   PLAN_READ_ONLY,
-} from './catalog.js'
+} from './catalog/index.js'
 export {
   blenderJoin,
   PIPELINE_PATH,
@@ -69,7 +69,7 @@ export {
   EVALHARNESS_PATH,
   SURFACE_PATH,
 } from './paths.js'
-export { KERNEL_BOOTSTRAP } from './core/kernel.js'
+export { KERNEL_BOOTSTRAP } from './core/kernel/index.js'
 export { writeHeadlessScript } from './staging.js'
 export {
   MODELING_CLASS_GUIDE,
@@ -78,8 +78,8 @@ export {
   renderHandoff,
   MODEL_FACING_TOOLS,
 } from './classes.js'
-export { catalogPayload } from './core/output.js'
+export { catalogPayload } from './core/output/index.js'
 export { GATE_FLAGS, FLAGS_CODE } from './core/flags.js'
 export { PATH_GUARD } from './core/scripts.js'
 export { tcpProbe, freshPing, diagnose, protocolInfo, AddonClient } from './transport/probes.js'
-export { createEngine } from './core/engine.js'
+export { createEngine } from './core/engine/index.js'

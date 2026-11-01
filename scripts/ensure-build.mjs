@@ -28,7 +28,7 @@ const NEED = [
   'lib/client.js',
   'lib/runtime/server.js',
   'lib/runtime/engine.js',
-  'lib/runtime/catalog.js',
+  'lib/runtime/catalog/index.js',
   'lib/runtime/config.js',
   'lib/runtime/file_guard.js',
   'lib/runtime/backend_probe.js',

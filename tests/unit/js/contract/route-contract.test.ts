@@ -1,13 +1,27 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
-import { PLAN_CATALOG } from '../../../../runtime/catalog.js'
+import path from 'node:path'
+import { PLAN_CATALOG } from '../../../../runtime/catalog/index.js'
 import { CONTRACT_ROUTES, createRoutes } from '../../../../runtime/http/routes/index.js'
 import { pkgPath } from '../../../helpers/pkg'
 
 const serverSource = fs.readFileSync(pkgPath('runtime', 'server.ts'), 'utf8')
 const healthSource = fs.readFileSync(pkgPath('runtime', 'http', 'routes', 'health.ts'), 'utf8')
+function readTree(dir: string, ext: string): string {
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .map((entry) => {
+      const full = path.join(dir, entry.name)
+      return entry.isDirectory()
+        ? readTree(full, ext)
+        : entry.name.endsWith(ext)
+          ? fs.readFileSync(full, 'utf8')
+          : ''
+    })
+    .join('\n')
+}
 const dispatchSource =
-  fs.readFileSync(pkgPath('runtime', 'core', 'dispatch.ts'), 'utf8') +
+  readTree(pkgPath('runtime', 'core', 'dispatcher'), '.ts') +
   fs.readFileSync(pkgPath('runtime', 'core', 'plan-dispatch.ts'), 'utf8')
 
 const REQUIRED = [

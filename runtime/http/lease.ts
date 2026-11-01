@@ -1,7 +1,7 @@
 // 写权限租约（T7）：多 agent / 多会话同时驱动一个 Blender 时，靠它避免互相踩。
 // 语义与拆分前逐字一致：不持租约不拦；显式持租约后别人的写操作 409；TTL 过期自动失效。
 import { CFG } from '../config.js'
-import { PLAN_READ_ONLY_OPS } from '../catalog.js'
+import { PLAN_READ_ONLY_OPS } from '../catalog/index.js'
 import { stats } from './config.js'
 import { errorCode } from '../core/json.js'
 

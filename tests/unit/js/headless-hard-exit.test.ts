@@ -49,7 +49,10 @@ describe('headless hard exit', () => {
   })
 
   it('is wired into both execution paths and the tool schema', () => {
-    const jobScript = fs.readFileSync(pkgPath('runtime', 'execution', 'jobs', 'script.ts'), 'utf8')
+    const jobScript = fs.readFileSync(
+      pkgPath('runtime', 'execution', 'jobs', 'script', 'preload.ts'),
+      'utf8',
+    )
     const headless = fs.readFileSync(
       pkgPath('runtime', 'execution', 'headless', 'script.ts'),
       'utf8',
@@ -59,7 +62,7 @@ describe('headless hard exit', () => {
       fs.readFileSync(pkgPath('src', 'tools', 'headless', 'register.ts'), 'utf8') +
       String.fromCharCode(10) +
       fs.readFileSync(pkgPath('src', 'tools', 'headless', 'execute.ts'), 'utf8')
-    expect(jobScript).toMatch(/from ['"]\.\.\/\.\.\/hard_exit\.js['"]/)
+    expect(jobScript).toMatch(/from ['"]\.\.\/\.\.\/\.\.\/hard_exit\.js['"]/)
     expect(jobScript).toContain('hardExitJobParts(opts)')
     expect(headless).toMatch(/from ['"]\.\.\/\.\.\/hard_exit\.js['"]/)
     expect(headless).toContain('body += hardExitSyncTail(opts, NL)')

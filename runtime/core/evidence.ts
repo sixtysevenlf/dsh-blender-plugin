@@ -3,8 +3,8 @@
 import fs from 'node:fs'
 import { IS_MAC, PKG_ROOT } from '../config.js'
 import { createHash } from 'node:crypto'
-import { catalogFingerprint, probeDiskCatalog } from '../catalog.js'
-import type { DiskCatalog } from '../catalog.js'
+import { catalogFingerprint, probeDiskCatalog } from '../catalog/index.js'
+import type { DiskCatalog } from '../catalog/index.js'
 import { pyModuleFile, PY_ROOT } from '../paths.js'
 
 import path from 'node:path'

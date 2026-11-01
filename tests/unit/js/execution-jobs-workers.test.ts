@@ -84,7 +84,7 @@ vi.mock('../../../runtime/core/evidence.js', () => ({
   sceneHygieneAudit: vi.fn(() => []),
 }))
 
-vi.mock('../../../runtime/core/output.js', () => ({
+vi.mock('../../../runtime/core/output/index.js', () => ({
   slipFixPath: (p: unknown) => String(p),
 }))
 
@@ -97,7 +97,7 @@ vi.mock('../../../runtime/core/scripts.js', () => ({
   workdirBlock: (p: string) => '# workdir ' + p,
 }))
 
-vi.mock('../../../runtime/core/kernel.js', () => ({
+vi.mock('../../../runtime/core/kernel/index.js', () => ({
   KERNEL_BOOTSTRAP: '# kernel bootstrap',
 }))
 
@@ -134,12 +134,12 @@ vi.mock('../../../runtime/proc_env.js', () => ({
       : null,
 }))
 
-vi.mock('../../../runtime/execution/ledger.js', () => ({
+vi.mock('../../../runtime/execution/ledger/index.js', () => ({
   createLedger: vi.fn(),
 }))
 
-import { createJobsApi } from '../../../runtime/execution/jobs.js'
-import { createWorkersApi } from '../../../runtime/execution/workers.js'
+import { createJobsApi } from '../../../runtime/execution/jobs/index.js'
+import { createWorkersApi } from '../../../runtime/execution/workers/index.js'
 
 const TMP_DIRS: string[] = []
 

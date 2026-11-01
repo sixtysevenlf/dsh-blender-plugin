@@ -39,7 +39,7 @@ if (!failures.length) {
   const runtimeArtifacts = [
     'lib/runtime/server.js',
     'lib/runtime/engine.js',
-    'lib/runtime/catalog.js',
+    'lib/runtime/catalog/index.js',
   ]
   const missingRuntime = runtimeArtifacts.filter((rel) => !fs.existsSync(path.join(ROOT, rel)))
   for (const rel of missingRuntime) failures.push('runtime 构建产物缺失: ' + rel)
