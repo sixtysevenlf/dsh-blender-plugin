@@ -245,4 +245,5 @@ jobs:
             echo "::error::NPM_TOKEN is not configured in the release environment"
             exit 1
           fi
-          npm publish release/*.tgz --access public --provenance
+          ls -l release
+          npm publish ./release/*.tgz --access public --provenance
