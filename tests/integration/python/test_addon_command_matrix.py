@@ -127,7 +127,7 @@ MATRIX = [
         "command": name,
         "params": PARAMS[name],
         "gate": GATE_BY_NAME[name],
-        "pause_safe": protocol._is_pause_safe_command(name),
+        "pause_safe": protocol.is_pause_safe_command(name),
         "catalog": "catalog" if name in CATALOG else "off-catalog",
         "handler": _handler_source(name),
         "envelope": "flat success {status:success,result} / error {status:error,message}",
@@ -210,7 +210,7 @@ def test_matrix_handlers_are_real_and_unique_sources():
 def test_matrix_gate_and_pause_columns_match_the_registry():
     for row in MATRIX:
         assert row["gate"] == GATE_BY_NAME[row["command"]]
-        assert row["pause_safe"] is protocol._is_pause_safe_command(row["command"])
+        assert row["pause_safe"] is protocol.is_pause_safe_command(row["command"])
         if row["command"].startswith("get_") or row["command"] in protocol.PAUSE_SAFE_COMMANDS:
             assert row["pause_safe"] is True
         else:

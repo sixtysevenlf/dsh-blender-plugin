@@ -55,11 +55,11 @@ def test_backend_url_defaults_and_strips_trailing_slash():
     try:
         bpy.context.scene.dshbb_backend_url = ""
         assert config.DEFAULT_DSH_BACKEND == "http://127.0.0.1:9877"
-        assert config._dshbb_backend_url() == "http://127.0.0.1:9877"
+        assert config.dshbb_backend_url() == "http://127.0.0.1:9877"
         bpy.context.scene.dshbb_backend_url = "http://127.0.0.1:9999/"
-        assert config._dshbb_backend_url() == "http://127.0.0.1:9999"
+        assert config.dshbb_backend_url() == "http://127.0.0.1:9999"
         bpy.context.scene.dshbb_backend_url = "http://127.0.0.1:9999///"
-        assert config._dshbb_backend_url() == "http://127.0.0.1:9999"
+        assert config.dshbb_backend_url() == "http://127.0.0.1:9999"
     finally:
         bpy.context.scene.dshbb_backend_url = previous
 
@@ -107,7 +107,7 @@ def test_auto_start_registers_one_persistent_timer_and_handler(monkeypatch):
     bpy.app.handlers.load_post[:] = []
     bpy.app.timers._registered.clear()
     try:
-        config._dshbb_register_auto_start()
+        config.register_auto_start()
         assert config._dshbb_load_post in bpy.app.handlers.load_post
         assert bpy.app.timers.is_registered(config._dshbb_ensure_server_running)
         assert len(bpy.app.timers._registered) == 1
@@ -118,7 +118,7 @@ def test_auto_start_registers_one_persistent_timer_and_handler(monkeypatch):
         config._dshbb_schedule_auto_start()
         assert len(bpy.app.timers._registered) == 1
 
-        config._dshbb_unregister_auto_start()
+        config.unregister_auto_start()
         assert bpy.app.handlers.load_post == []
         assert not bpy.app.timers.is_registered(config._dshbb_ensure_server_running)
     finally:

@@ -5,20 +5,20 @@ from contextlib import contextmanager, redirect_stdout, suppress
 from bpy.app.handlers import persistent
 
 from ..compat import ADDON_MODULE
-from .user_edit import _edit_recorder
+from .user_edit import edit_recorder
 
 def _dshbb_undo_post(scene, depsgraph=None):
-    _edit_recorder.record_undo("undo")
+    edit_recorder.record_undo("undo")
 
 
 @persistent
 def _dshbb_redo_post(scene, depsgraph=None):
-    _edit_recorder.record_undo("redo")
+    edit_recorder.record_undo("redo")
 
 
 @persistent
 def _dshbb_depsgraph_post(scene, depsgraph=None):
-    _edit_recorder.poll_operators()
+    edit_recorder.poll_operators()
 
 
 def _telemetry_consent_enabled():
@@ -32,10 +32,10 @@ def _telemetry_consent_enabled():
         return False
 
 
-def _register_edit_capture_handlers():
+def register_edit_capture_handlers():
     """Attach manual-edit handlers, but only with telemetry consent."""
     if not _telemetry_consent_enabled():
-        _unregister_edit_capture_handlers()
+        unregister_edit_capture_handlers()
         return False
 
     handlers = [
@@ -60,12 +60,12 @@ def sync_edit_capture_handlers():
         server_running = False
 
     if not server_running:
-        _unregister_edit_capture_handlers()
+        unregister_edit_capture_handlers()
         return False
-    return _register_edit_capture_handlers()
+    return register_edit_capture_handlers()
 
 
-def _unregister_edit_capture_handlers():
+def unregister_edit_capture_handlers():
     handlers = [
         (bpy.app.handlers.undo_post, _dshbb_undo_post),
         (bpy.app.handlers.redo_post, _dshbb_redo_post),

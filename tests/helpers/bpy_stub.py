@@ -289,7 +289,7 @@ def install():
 
         class Vector:
             def __init__(self, values=(0.0, 0.0, 0.0)):
-                self.values = tuple(values)
+                self.values = list(values)
 
             def __iter__(self):
                 return iter(self.values)
@@ -299,6 +299,9 @@ def install():
 
             def __getitem__(self, index):
                 return self.values[index]
+
+            def __setitem__(self, index, value):
+                self.values[index] = value
 
             def __add__(self, other):
                 return Vector(a + b for a, b in zip(self.values, other))
@@ -313,6 +316,30 @@ def install():
 
             def __truediv__(self, scalar):
                 return Vector(value / scalar for value in self.values)
+
+            @property
+            def x(self):
+                return self.values[0]
+
+            @x.setter
+            def x(self, value):
+                self.values[0] = value
+
+            @property
+            def y(self):
+                return self.values[1]
+
+            @y.setter
+            def y(self, value):
+                self.values[1] = value
+
+            @property
+            def z(self):
+                return self.values[2]
+
+            @z.setter
+            def z(self, value):
+                self.values[2] = value
 
             def __repr__(self):
                 return f"Vector({self.values!r})"

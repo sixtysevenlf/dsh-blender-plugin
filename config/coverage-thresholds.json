@@ -2,7 +2,7 @@
   "version": 2,
   "baselineCommit": "f001e1d20b86cd84a88424e3bbe426e501e4c49d",
   "baselineDate": "2026-10-31",
-  "policy": "C5 v2 (ADR 0005): baseline measured at f001e1d; T16c calibrated the global floors to 69.7/68.45/72.6 and changed-lines floor to 69.8 from the T16f clean-clone run at adfa3fc (71.24/69.22/74.13, changed 71.398), with a 1.5pp buffer and no floor below the prior value; critical contract modules >=90/75; execution-lifecycle modules tracked at their measured ratchet floors (>=80/55, see executionModules); Python pure logic >=70/60; E2E 100%; +2 ratchet is a manual release-window policy; adjust only with an ADR.",
+  "policy": "C5 v2 (ADR 0005): baseline measured at f001e1d; T16c calibrated the global floors to 69.7/68.45/72.6 and changed-lines floor to 69.8 from the T16f clean-clone run at adfa3fc (71.24/69.22/74.13, changed 71.398), with a 1.5pp buffer and no floor below the prior value; critical contract modules >=90/75; execution-lifecycle modules tracked at their measured ratchet floors (>=80/55, see executionModules); Python pure logic >=80/70; E2E 100%; +2 ratchet is a manual release-window policy; adjust only with an ADR.",
   "javascript": {
     "globalFloor": {
       "lines": 69.7,
@@ -93,6 +93,7 @@
   },
   "python": {
     "scope": [
+      "addon/dsh_blender_bridge/command_registry.py",
       "addon/dsh_blender_bridge/protocol.py",
       "addon/dsh_blender_bridge/config.py",
       "addon/dsh_blender_bridge/recorders/activity.py",
@@ -100,17 +101,18 @@
       "addon/dsh_blender_bridge/commands/activity.py",
       "addon/dsh_blender_bridge/integrations/hyper3d_client.py",
       "addon/dsh_blender_bridge/integrations/sketchfab_client.py",
-      "addon/dsh_blender_bridge/assets/io.py"
+      "addon/dsh_blender_bridge/assets/io.py",
+      "addon/dsh_blender_bridge/selection/caps.py"
     ],
     "floor": {
-      "lines": 70,
-      "branches": 60
+      "lines": 80,
+      "branches": 70
     },
     "baseline": {
-      "lines": 76.95,
-      "branches": 71.71
+      "lines": 82.5,
+      "branches": 74.36
     },
-    "omitReason": "UI 绘制/注册样板、真 bpy 调用、子进程与网络传输由 C6 E2E/C9 覆盖，不并入行覆盖率。"
+    "omitReason": "UI 绘制/注册样板（registration.py、ui/**）、真 bpy 编辑模式上下文（selection/payload.py）与 bpy/网络命令实现（commands/** 除 selection/activity）由 C6 E2E 覆盖，不并入行覆盖率。F3.4 把纯逻辑命令表 command_registry.py 与 selection/caps.py 纳入 scope，并按最终代码重新基线（ADR 0005 addendum）。"
   },
   "e2e": {
     "behaviorMatrixRelease": true,

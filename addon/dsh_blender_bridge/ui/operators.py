@@ -3,10 +3,10 @@
 import bpy
 from contextlib import contextmanager, redirect_stdout
 
-from ..commands.selection import _best_collection_for_selection, _record_selection_send, send_collection_to_dsh, send_selection_to_dsh
+from ..commands.selection import best_collection_for_selection, record_selection_send, send_collection_to_dsh, send_selection_to_dsh
 from .. import config
 from ..config import RODIN_FREE_TRIAL_KEY, get_dshbb_addon_preferences
-from ..protocol import _redraw_view3d_panels
+from ..protocol import redraw_view3d_panels
 from ..server import DSHBlenderBridgeServer
 
 class DSHBB_OT_ToggleAIPause(bpy.types.Operator):
@@ -18,7 +18,7 @@ class DSHBB_OT_ToggleAIPause(bpy.types.Operator):
     def execute(self, context):
         scene = context.scene
         scene.dshbb_ai_paused = not bool(getattr(scene, "dshbb_ai_paused", False))
-        _redraw_view3d_panels()
+        redraw_view3d_panels()
         if scene.dshbb_ai_paused:
             self.report({'WARNING'}, "AI 操作已暂停（只读查询仍可用）")
         else:
@@ -62,7 +62,7 @@ class DSHBB_OT_SendSelectionToDSH(bpy.types.Operator):
             return False
 
     def execute(self, context):
-        result = _record_selection_send(send_selection_to_dsh())
+        result = record_selection_send(send_selection_to_dsh())
         if result.get("ok"):
             self.report({'INFO'}, "已发送选中到 DSH（seq %s）" % result.get("seq"))
         else:
@@ -85,12 +85,12 @@ class DSHBB_OT_UseSelectionCollection(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         try:
-            return _best_collection_for_selection() is not None
+            return best_collection_for_selection() is not None
         except Exception:
             return False
 
     def execute(self, context):
-        best = _best_collection_for_selection()
+        best = best_collection_for_selection()
         if best is None:
             self.report({'WARNING'}, "当前选中对象不属于任何集合")
             return {'CANCELLED'}
@@ -170,7 +170,7 @@ class DSHBB_OT_SendCollectionToDSH(bpy.types.Operator):
     def execute(self, context):
         target = getattr(context.scene, "dshbb_collection_target", None)
         name = getattr(target, "name", None) if target else None
-        result = _record_selection_send(send_collection_to_dsh(collection_name=name))
+        result = record_selection_send(send_collection_to_dsh(collection_name=name))
         if result.get("ok"):
             self.report({'INFO'}, "已发送集合「%s」到 DSH（seq %s）" % (name, result.get("seq")))
         else:

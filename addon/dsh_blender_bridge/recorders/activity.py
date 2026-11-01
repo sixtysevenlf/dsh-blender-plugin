@@ -5,8 +5,8 @@ import time
 from contextlib import contextmanager, redirect_stdout, suppress
 from bpy.app.handlers import persistent
 
-from ..compat import SELECTION_PAYLOAD_NAMES
-from .user_edit import _edit_recorder
+from ..selection.caps import SELECTION_PAYLOAD_NAMES
+from .user_edit import edit_recorder
 
 HUMAN_ACTIVE_WINDOW_S = 1.5
 AGENT_ACTIVE_WINDOW_S = 1.5
@@ -168,7 +168,7 @@ class ActivityTracker:
 
 
 _activity_tracker = ActivityTracker()
-_activity_tracker.attach(_edit_recorder)
+_activity_tracker.attach(edit_recorder)
 
 
 def get_activity_tracker():
@@ -197,7 +197,7 @@ def _dshbb_activity_depsgraph_post(scene, depsgraph=None):
         pass
 
 
-def _register_activity_handlers():
+def register_activity_handlers():
     """Always-on (independent of telemetry consent): local-only activity detection."""
     handlers = [
         (bpy.app.handlers.undo_post, _dshbb_activity_undo_post),
@@ -209,7 +209,7 @@ def _register_activity_handlers():
             handler_list.append(handler)
 
 
-def _unregister_activity_handlers():
+def unregister_activity_handlers():
     handlers = [
         (bpy.app.handlers.undo_post, _dshbb_activity_undo_post),
         (bpy.app.handlers.redo_post, _dshbb_activity_redo_post),

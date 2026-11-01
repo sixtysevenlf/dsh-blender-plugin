@@ -32,6 +32,9 @@ def read_env_var(name):
 
 RODIN_FREE_TRIAL_KEY = "vibecoding"
 DISCORD_URL = "https://discord.gg/SNqPn4TcKQ"
+# Public site link shown by the N-panel; kept here so UI code does not import
+# the integration clients.
+POLYHAVEN_SITE = "https://polyhaven.com"
 
 # Add User-Agent as required by Poly Haven API
 REQ_HEADERS = requests.utils.default_headers()
@@ -108,7 +111,7 @@ def _dshbb_load_post(_unused):
     _dshbb_schedule_auto_start()
 
 
-def _dshbb_register_auto_start():
+def register_auto_start():
     """Install the load handler and defer the initial startup attempt."""
     global _user_stopped_server
     _user_stopped_server = False
@@ -117,7 +120,7 @@ def _dshbb_register_auto_start():
     _dshbb_schedule_auto_start()
 
 
-def _dshbb_unregister_auto_start():
+def unregister_auto_start():
     """Remove callbacks owned by the add-on before it is disabled."""
     if _dshbb_load_post in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(_dshbb_load_post)
@@ -136,7 +139,7 @@ def get_dshbb_addon_preferences(context=None):
 DEFAULT_DSH_BACKEND = "http://127.0.0.1:9877"
 
 
-def _dshbb_backend_url():
+def dshbb_backend_url():
     try:
         url = bpy.context.scene.dshbb_backend_url  # pyright: ignore[reportAttributeAccessIssue]
     except Exception:

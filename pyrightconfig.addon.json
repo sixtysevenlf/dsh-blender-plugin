@@ -2,9 +2,12 @@
   "venvPath": ".",
   "venv": ".venv",
   "include": [
+    "addon/dsh_blender_bridge/command_registry.py",
     "addon/dsh_blender_bridge/protocol.py",
     "addon/dsh_blender_bridge/config.py",
     "addon/dsh_blender_bridge/compat.py",
+    "addon/dsh_blender_bridge/selection/caps.py",
+    "addon/dsh_blender_bridge/selection/payload.py",
     "addon/dsh_blender_bridge/recorders/activity.py",
     "addon/dsh_blender_bridge/recorders/user_edit.py",
     "addon/dsh_blender_bridge/recorders/edit_capture.py",

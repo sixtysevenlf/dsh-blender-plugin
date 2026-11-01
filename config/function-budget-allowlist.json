@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T01:29:38.057Z",
+  "generatedAt": "2026-11-01T01:31:00.587Z",
   "reason": "Baseline debt captured by F1.0; burn down in F1/F2/F3.",
   "owner": "lead",
   "expires": "2026-12-31",
@@ -432,54 +432,6 @@
       "file": "runtime/py/render/visualreport_impl/process.py",
       "name": "_process_view",
       "lines": 124,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "addon/dsh_blender_bridge/__init__.py",
-      "name": "register",
-      "lines": 227,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "addon/dsh_blender_bridge/commands/assets_polyhaven.py",
-      "name": "search_polyhaven_assets",
-      "lines": 121,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "addon/dsh_blender_bridge/commands/assets_polypizza.py",
-      "name": "download_polypizza_model",
-      "lines": 192,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "addon/dsh_blender_bridge/commands/assets_sketchfab.py",
-      "name": "download_sketchfab_model",
-      "lines": 213,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "addon/dsh_blender_bridge/commands/scene.py",
-      "name": "get_world_state_snapshot",
-      "lines": 135,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "addon/dsh_blender_bridge/ui/panels.py",
-      "name": "_draw_impl",
-      "lines": 198,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"

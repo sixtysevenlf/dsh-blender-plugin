@@ -141,6 +141,7 @@ describe('ADR set', () => {
     '0007-runtime-py-line-budget.md',
     '0008-public-facade-and-function-budget.md',
     '0009-runtime-module-registry.md',
+    '0010-addon-pure-logic-coverage.md',
   ]
 
   it('has the index, the decision set, and no separate template file', () => {

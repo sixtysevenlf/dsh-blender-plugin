@@ -189,8 +189,8 @@ class UserEditRecorder:
         return events
 
 
-_edit_recorder = UserEditRecorder()
+edit_recorder = UserEditRecorder()
 
 
 def get_edit_recorder():
-    return _edit_recorder
+    return edit_recorder

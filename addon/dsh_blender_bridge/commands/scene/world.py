@@ -1,4 +1,4 @@
-""" World state snapshot and scene fingerprints. """
+""" World-state snapshot commands and per-object fingerprints. """
 
 import bpy
 import mathutils
@@ -8,9 +8,10 @@ import zlib
 import hashlib, hmac, base64
 from contextlib import contextmanager, redirect_stdout, suppress
 
-from ..protocol import MAX_SNAPSHOT_OBJECTS, MAX_SNAPSHOT_SELECTED
+from ...protocol import MAX_SNAPSHOT_OBJECTS, MAX_SNAPSHOT_SELECTED
 
-class SceneCommands:
+
+class WorldSnapshotCommands:
     @staticmethod
     def _snapshot_geometry(obj):
         """World-space AABB + dimensions for one object, or None.
@@ -181,116 +182,133 @@ class SceneCommands:
         except Exception:
             return None
 
+    @staticmethod
+    def _snapshot_selected():
+        """Selected names plus explicit truncation flags."""
+        selected = [obj.name for obj in bpy.context.selected_objects]
+        selected_count = len(selected)
+        selected_truncated = selected_count > MAX_SNAPSHOT_SELECTED
+        if selected_truncated:
+            # Sorted so before/after snapshots keep the same subset.
+            selected = sorted(selected)[:MAX_SNAPSHOT_SELECTED]
+        return selected, selected_count, selected_truncated
+
+    def _snapshot_object(self, obj):
+        """One compact object entry (transform, geometry, relations, animation)."""
+        materials = []
+        if getattr(obj, "material_slots", None):
+            materials = [
+                slot.material.name
+                for slot in obj.material_slots
+                if slot.material
+            ]
+
+        entry = {
+            "name": obj.name,
+            "type": obj.type,
+            "location": [
+                round(float(obj.location.x), 3),
+                round(float(obj.location.y), 3),
+                round(float(obj.location.z), 3),
+            ],
+            "rotation": [
+                round(float(obj.rotation_euler.x), 3),
+                round(float(obj.rotation_euler.y), 3),
+                round(float(obj.rotation_euler.z), 3),
+            ],
+            "scale": [
+                round(float(obj.scale.x), 3),
+                round(float(obj.scale.y), 3),
+                round(float(obj.scale.z), 3),
+            ],
+            "visible": bool(obj.visible_get()),
+            "materials": materials,
+        }
+        geometry = self._snapshot_geometry(obj)
+        if geometry:
+            entry.update(geometry)
+        entry.update(self._snapshot_relations(obj))
+        entry.update(self._snapshot_animation(obj))
+        data = getattr(obj, "data", None)
+        if obj.type == "MESH" and data is not None:
+            entry["mesh"] = {
+                "vertices": len(data.vertices),
+                "polygons": len(data.polygons),
+            }
+        return entry
+
+    def _snapshot_objects(self, scene):
+        """Object list with a stable, sorted prefix when it exceeds the cap."""
+        all_objects = list(scene.objects)
+        truncated = len(all_objects) > MAX_SNAPSHOT_OBJECTS
+        if truncated:
+            # scene.objects iterates in an order that shifts as objects are
+            # created, so an arbitrary prefix would leave the before/after
+            # snapshots of one step holding different subsets and the delta
+            # reporting phantom adds/removes. Sorting keeps them aligned.
+            all_objects = sorted(all_objects, key=lambda o: o.name)[:MAX_SNAPSHOT_OBJECTS]
+        return [self._snapshot_object(obj) for obj in all_objects], truncated
+
+    @staticmethod
+    def _snapshot_camera(camera):
+        """Camera entry (lens/sensor only for real cameras)."""
+        if not camera:
+            return None
+        camera_info = {
+            "name": camera.name,
+            "location": [
+                round(float(camera.location.x), 3),
+                round(float(camera.location.y), 3),
+                round(float(camera.location.z), 3),
+            ],
+            "rotation": [
+                round(float(camera.rotation_euler.x), 3),
+                round(float(camera.rotation_euler.y), 3),
+                round(float(camera.rotation_euler.z), 3),
+            ],
+        }
+        if camera.type == "CAMERA" and camera.data:
+            camera_info["lens"] = round(float(camera.data.lens), 3)
+            camera_info["sensor_width"] = round(float(camera.data.sensor_width), 3)
+        return camera_info
+
+    @staticmethod
+    def _snapshot_lights(scene):
+        """Up to 20 light entries (type + energy)."""
+        lights = []
+        for obj in scene.objects:
+            if obj.type != "LIGHT":
+                continue
+            light_entry = {
+                "name": obj.name,
+                "location": [
+                    round(float(obj.location.x), 3),
+                    round(float(obj.location.y), 3),
+                    round(float(obj.location.z), 3),
+                ],
+            }
+            if obj.data:
+                light_entry["light_type"] = obj.data.type
+                light_entry["energy"] = round(float(obj.data.energy), 3)
+            lights.append(light_entry)
+            if len(lights) >= 20:
+                break
+        return lights
+
     def get_world_state_snapshot(self):
         """Compact world-state snapshot for trajectory capture (no mesh/shader detail)."""
         try:
             scene = bpy.context.scene
-            selected = [obj.name for obj in bpy.context.selected_objects]
-            selected_count = len(selected)
-            selected_truncated = selected_count > MAX_SNAPSHOT_SELECTED
-            if selected_truncated:
-                # Sorted so before/after snapshots keep the same subset.
-                selected = sorted(selected)[:MAX_SNAPSHOT_SELECTED]
-            objects = []
-
-            all_objects = list(scene.objects)
-            truncated = len(all_objects) > MAX_SNAPSHOT_OBJECTS
-            if truncated:
-                # scene.objects iterates in an order that shifts as objects are
-                # created, so an arbitrary prefix would leave the before/after
-                # snapshots of one step holding different subsets and the delta
-                # reporting phantom adds/removes. Sorting keeps them aligned.
-                all_objects = sorted(all_objects, key=lambda o: o.name)[:MAX_SNAPSHOT_OBJECTS]
-
-            for obj in all_objects:
-                materials = []
-                if getattr(obj, "material_slots", None):
-                    materials = [
-                        slot.material.name
-                        for slot in obj.material_slots
-                        if slot.material
-                    ]
-
-                entry = {
-                    "name": obj.name,
-                    "type": obj.type,
-                    "location": [
-                        round(float(obj.location.x), 3),
-                        round(float(obj.location.y), 3),
-                        round(float(obj.location.z), 3),
-                    ],
-                    "rotation": [
-                        round(float(obj.rotation_euler.x), 3),
-                        round(float(obj.rotation_euler.y), 3),
-                        round(float(obj.rotation_euler.z), 3),
-                    ],
-                    "scale": [
-                        round(float(obj.scale.x), 3),
-                        round(float(obj.scale.y), 3),
-                        round(float(obj.scale.z), 3),
-                    ],
-                    "visible": bool(obj.visible_get()),
-                    "materials": materials,
-                }
-                geometry = self._snapshot_geometry(obj)
-                if geometry:
-                    entry.update(geometry)
-                entry.update(self._snapshot_relations(obj))
-                entry.update(self._snapshot_animation(obj))
-                data = getattr(obj, "data", None)
-                if obj.type == "MESH" and data is not None:
-                    entry["mesh"] = {
-                        "vertices": len(data.vertices),
-                        "polygons": len(data.polygons),
-                    }
-                objects.append(entry)
-
+            selected, selected_count, selected_truncated = self._snapshot_selected()
+            objects, objects_truncated = self._snapshot_objects(scene)
             camera = scene.camera
-            camera_info = None
-            if camera:
-                camera_info = {
-                    "name": camera.name,
-                    "location": [
-                        round(float(camera.location.x), 3),
-                        round(float(camera.location.y), 3),
-                        round(float(camera.location.z), 3),
-                    ],
-                    "rotation": [
-                        round(float(camera.rotation_euler.x), 3),
-                        round(float(camera.rotation_euler.y), 3),
-                        round(float(camera.rotation_euler.z), 3),
-                    ],
-                }
-                if camera.type == "CAMERA" and camera.data:
-                    camera_info["lens"] = round(float(camera.data.lens), 3)
-                    camera_info["sensor_width"] = round(float(camera.data.sensor_width), 3)
-
-            lights = []
-            for obj in scene.objects:
-                if obj.type != "LIGHT":
-                    continue
-                light_entry = {
-                    "name": obj.name,
-                    "location": [
-                        round(float(obj.location.x), 3),
-                        round(float(obj.location.y), 3),
-                        round(float(obj.location.z), 3),
-                    ],
-                }
-                if obj.data:
-                    light_entry["light_type"] = obj.data.type
-                    light_entry["energy"] = round(float(obj.data.energy), 3)
-                lights.append(light_entry)
-                if len(lights) >= 20:
-                    break
-
             return {
                 "name": scene.name,
                 "object_count": len(scene.objects),
                 # Explicit, so consumers never have to infer truncation from a
                 # hardcoded cap they might disagree with.
                 "objects_listed": len(objects),
-                "objects_truncated": truncated,
+                "objects_truncated": objects_truncated,
                 "selected": selected,
                 "selected_count": selected_count,
                 "selected_truncated": selected_truncated,
@@ -300,8 +318,8 @@ class SceneCommands:
                 "fps": round(float(scene.render.fps) / scene.render.fps_base, 3),
                 "objects": objects,
                 "active_camera": camera.name if camera else None,
-                "camera": camera_info,
-                "lights": lights,
+                "camera": self._snapshot_camera(camera),
+                "lights": self._snapshot_lights(scene),
                 "materials_count": len(bpy.data.materials),
                 "material_fps": {
                     m.name: self._shader_fingerprint(m)
