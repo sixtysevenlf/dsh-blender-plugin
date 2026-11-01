@@ -305,13 +305,14 @@ function checkTestRef(reference, row) {
     return false
   }
   if (title) {
-    const text = readFileSync(absolute, 'utf8').replace(/\r\n/g, '\n')
-    // A title must be declared by it()/test()/it.each()/test.each(); a quoted
-    // string in a comment or a plain object is not evidence.
+    // Strip comments before searching: a quoted string in a comment (or a
+    // skipped/todo declaration) is not executable test evidence.
+    const text = readFileSync(absolute, 'utf8')
+      .replace(/\r\n/g, '\n')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:])\/\/[^\n]*/g, '$1')
     const declared = [
-      ...text.matchAll(
-        /(?:^|[^.\w])(?:it|test)(?:\.(?:each|only|skip|todo))?\(\s*(['"`])([\s\S]*?)\1/g,
-      ),
+      ...text.matchAll(/(?:^|[^.\w])(?:it|test)(?:\.each)?\(\s*(['"`])([\s\S]*?)\1/g),
     ].map((match) => match[2])
     const expanded = new Set(declared)
     for (const item of declared) {
@@ -325,7 +326,7 @@ function checkTestRef(reference, row) {
           file +
           ' has no declared test titled ' +
           JSON.stringify(title) +
-          ' (comments/plain strings are not evidence)',
+          ' (comments/skipped/plain strings are not evidence)',
       )
       return false
     }
