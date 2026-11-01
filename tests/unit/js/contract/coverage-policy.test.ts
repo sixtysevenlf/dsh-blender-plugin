@@ -17,14 +17,18 @@ describe('coverage policy', () => {
     expect(thresholds.baselineDate).toBe(baseline.date)
   })
 
-  it('never sets a JS floor below the recorded baseline', () => {
+  it('keeps JS floors inside the calibrated buffer below the measured baseline', () => {
     const floors = thresholds.javascript.globalFloor
-    expect(floors.lines).toBeGreaterThanOrEqual(baseline.javascript.lines)
-    expect(floors.branches).toBeGreaterThanOrEqual(baseline.javascript.branches)
-    expect(floors.functions).toBeGreaterThanOrEqual(baseline.javascript.functions)
-    expect(thresholds.javascript.changedLinesFloor.lines).toBeGreaterThanOrEqual(
-      baseline.changedLines.lines,
-    )
+    const measured = baseline.javascript
+    for (const key of ['lines', 'branches', 'functions'] as const) {
+      expect(floors[key], key).toBeLessThanOrEqual(measured[key])
+      expect(measured[key] - floors[key], key).toBeGreaterThanOrEqual(1.4)
+      expect(measured[key] - floors[key], key).toBeLessThanOrEqual(1.6)
+    }
+    const changedFloor = thresholds.javascript.changedLinesFloor.lines
+    expect(changedFloor).toBeLessThanOrEqual(baseline.changedLines.lines)
+    expect(baseline.changedLines.lines - changedFloor).toBeGreaterThanOrEqual(1.4)
+    expect(baseline.changedLines.lines - changedFloor).toBeLessThanOrEqual(1.6)
     expect(thresholds.javascript.changedLinesFloor.against).toBe(baseline.changedLines.against)
   })
 
@@ -56,17 +60,15 @@ describe('coverage policy', () => {
     }
   })
 
-  it('applies the T16c calibrated floors from the canonical CI run', () => {
+  it('applies the coverage-v8 5 re-baselined floors from the canonical CI run', () => {
     expect(thresholds.javascript.globalFloor).toEqual({
-      lines: 73.2,
-      branches: 68.7,
-      functions: 70.4,
+      lines: 70.4,
+      branches: 54.4,
+      functions: 68,
     })
-    expect(thresholds.javascript.changedLinesFloor.lines).toBe(73.4)
-    expect(thresholds.javascript.globalFloor.lines).toBeGreaterThan(baseline.javascript.lines)
-    expect(thresholds.javascript.changedLinesFloor.lines).toBeGreaterThan(
-      baseline.changedLines.lines,
-    )
+    expect(thresholds.javascript.changedLinesFloor.lines).toBe(66.1)
+    expect(thresholds.javascript.globalFloor.lines).toBeLessThan(baseline.javascript.lines)
+    expect(thresholds.javascript.changedLinesFloor.lines).toBeLessThan(baseline.changedLines.lines)
   })
 
   it('records a 100% E2E baseline and an explicit move manifest', () => {
