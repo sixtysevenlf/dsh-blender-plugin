@@ -38,62 +38,41 @@ export function blenderJoin(...parts: string[]): string {
 }
 /**
  * Python 领域包布局。真实实现在 runtime/py/<domain>/；旧 runtime/<name>.py
- * 只保留一版 re-export shim。**公开模块名不变**（preload / module 字段照旧），这里维护
- * "模块名 → 真实文件"的唯一映射。
+ * 只保留一版 re-export shim。**公开模块名不变**（preload / module 字段照旧）。
  *
- * generator / uv_tools 不在计划 §4.7 的领域表里：保留为 runtime/ 下的真实模块（映射用 '.'），
- * 显式例外，见本地重构工作区的 T8 review 记录。
+ * F2.0：唯一映射源是 runtime/py/modules.json —— paths.ts / offline_bootstrap.py /
+ * layout 契约测试都读同一份清单，这里不再维护第二份硬编码表。
+ * generator / uv_tools 不在计划 §4.7 的领域表里：清单里用 "." 表示旧扁平路径。
  */
-export const PY_DOMAINS = ['core', 'geometry', 'assembly', 'render', 'export']
-const PY_MODULE_DOMAIN: Record<string, string> = {
-  // core
-  kit: 'core',
-  contract: 'core',
-  gate: 'core',
-  txn: 'core',
-  runner: 'core',
-  worker: 'core',
-  planner: 'core',
-  presets: 'core',
-  pipeline: 'core',
-  perf: 'core',
-  evalharness: 'core',
-  motion: 'core',
-  sweep: 'core',
-  audit: 'core',
-  offline_bootstrap: 'core',
-  // geometry
-  geo: 'geometry',
-  mesh_fix: 'geometry',
-  sculpt: 'geometry',
-  shapegen: 'geometry',
-  shapesolve: 'geometry',
-  faceeval: 'geometry',
-  blockout: 'geometry',
-  surface: 'geometry',
-  // assembly
-  assembly: 'assembly',
-  clearance: 'assembly',
-  vehicle: 'assembly',
-  human: 'assembly',
-  // render
-  view: 'render',
-  qc: 'render',
-  qc_render: 'render',
-  render_guard: 'render',
-  material: 'render',
-  visualreport: 'render',
-  imgtools: 'render',
-  calib: 'render',
-  montage: 'render',
-  // export
-  deliver: 'export',
-  printcheck: 'export',
-  open3d_check: 'export',
-  // §4.7 未收录：保持旧扁平路径的真实模块（不是 shim）
-  generator: '.',
-  uv_tools: '.',
+interface PyModuleManifest {
+  version: number
+  domains: string[]
+  modules: Record<string, string>
 }
+
+function loadPyModuleManifest(): PyModuleManifest {
+  const file = path.join(PY_ROOT, 'py', 'modules.json')
+  let raw: unknown
+  try {
+    raw = JSON.parse(fs.readFileSync(file, 'utf8'))
+  } catch (e) {
+    throw new Error('读取 Python 模块清单失败：' + file + '（' + String(e) + '）')
+  }
+  const parsed = raw as Partial<PyModuleManifest>
+  const domains = Array.isArray(parsed.domains) ? parsed.domains.map(String) : []
+  const modules =
+    parsed.modules && typeof parsed.modules === 'object'
+      ? (parsed.modules as Record<string, string>)
+      : {}
+  if (!domains.length || !Object.keys(modules).length) {
+    throw new Error('Python 模块清单格式错误：' + file)
+  }
+  return { version: Number(parsed.version) || 0, domains, modules }
+}
+
+const PY_MANIFEST = loadPyModuleManifest()
+export const PY_DOMAINS: string[] = PY_MANIFEST.domains
+const PY_MODULE_DOMAIN: Record<string, string> = PY_MANIFEST.modules
 /** 公开模块名 → 真实 .py 文件（旧 runtime/<name>.py 是 shim，不能给注入通道用）。 */
 export function pyModuleFile(name: unknown): string {
   const n = String(name == null ? '' : name)

@@ -19,6 +19,7 @@
       旧扁平 runtime/<name>.py（含 generator / uv_tools 两个未分包的模块）兜底。
       加载后 API 挂在 K.dsh_<name>_api 上，与在线路径**同一个契约**。
 """
+import json
 import os
 import sys
 import types
@@ -59,6 +60,31 @@ def _runtime_root(rt):
     return rt
 
 
+def _manifest_file(rt):
+    """F2.0：runtime/py/modules.json 是模块名→真实文件的唯一清单。"""
+    root = _runtime_root(rt)
+    for p in (os.path.join(root, "py", "modules.json"), os.path.join(root, "modules.json")):
+        if os.path.isfile(p):
+            return p
+    return None
+
+
+def _load_manifest(rt):
+    """读模块清单（旧扁平布局没有清单时返回 None，调用方回退到目录扫描）。"""
+    path = _manifest_file(rt)
+    if path is None:
+        return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            raw = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    modules = raw.get("modules") if isinstance(raw, dict) else None
+    if not isinstance(modules, dict) or not modules:
+        return None
+    return {str(k): str(v) for k, v in modules.items()}
+
+
 def _module_dirs(rt):
     """按优先级列候选目录：领域包 → py 根 → 旧扁平 rt。"""
     root = _runtime_root(rt)
@@ -79,10 +105,22 @@ def _module_dirs(rt):
 
 
 def _find_module(name, rt):
-    """按模块名找 .py：runtime/py/<领域>/name.py 优先，旧扁平 runtime/name.py 兜底。"""
+    """按模块名找 .py：先查 runtime/py/modules.json 唯一清单，再回退旧扁平目录扫描。
+
+    清单把模块名映射到领域名（core/geometry/...）或 "."（计划 §4.7 未收录的旧扁平真实模块）。
+    清单声明了但文件缺失时继续走目录扫描兜底：旧布局/被挪动的安装仍能给出可读错误。
+    """
     n = str(name or "").strip()
     if not n or any(ch not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_" for ch in n):
         return None
+    root = _runtime_root(rt)
+    manifest = _load_manifest(rt)
+    if manifest is not None and n in manifest:
+        domain = manifest[n]
+        parts = [] if domain in ("", ".") else ["py", domain]
+        declared = os.path.join(root, *parts, n + ".py")
+        if os.path.isfile(declared):
+            return declared
     for d in _module_dirs(rt):
         p = os.path.join(d, n + ".py")
         if os.path.isfile(p):

@@ -3,51 +3,19 @@ import fs from 'node:fs'
 import { pyModuleFile, pyModuleNames, PY_DOMAINS } from '../../../../runtime/paths.js'
 import { pkgPath } from '../../../helpers/pkg'
 
-const DOMAINS: Record<string, string[]> = {
-  core: [
-    'kit',
-    'contract',
-    'gate',
-    'txn',
-    'runner',
-    'worker',
-    'planner',
-    'presets',
-    'pipeline',
-    'perf',
-    'evalharness',
-    'motion',
-    'sweep',
-    'audit',
-    'offline_bootstrap',
-  ],
-  geometry: [
-    'geo',
-    'mesh_fix',
-    'sculpt',
-    'shapegen',
-    'shapesolve',
-    'faceeval',
-    'blockout',
-    'surface',
-  ],
-  assembly: ['assembly', 'clearance', 'vehicle', 'human'],
-  render: [
-    'view',
-    'qc',
-    'qc_render',
-    'render_guard',
-    'material',
-    'visualreport',
-    'imgtools',
-    'calib',
-    'montage',
-  ],
-  export: ['deliver', 'printcheck', 'open3d_check'],
-}
+// F2.0：唯一映射源 runtime/py/modules.json；这里不再维护第二份硬编码清单。
+const manifest = JSON.parse(
+  fs.readFileSync(pkgPath('runtime', 'py', 'modules.json'), 'utf8'),
+) as { version: number; domains: string[]; modules: Record<string, string> }
+const DOMAINS: Record<string, string[]> = Object.fromEntries(
+  manifest.domains.map((d) => [
+    d,
+    Object.keys(manifest.modules).filter((n) => manifest.modules[n] === d),
+  ]),
+)
 const ALL = Object.values(DOMAINS).flat()
 const SHIMS = ALL.filter((n) => n !== 'open3d_check')
-const UNLISTED = ['generator', 'uv_tools']
+const UNLISTED = Object.keys(manifest.modules).filter((n) => manifest.modules[n] === '.')
 
 describe('runtime domain package layout (T8)', () => {
   it('keeps the five plan domain packages and their exact module sets', () => {
@@ -101,5 +69,19 @@ describe('runtime domain package layout (T8)', () => {
     expect(evidence).toContain('pyModuleFile(f)')
     const engine = fs.readFileSync(pkgPath('runtime', 'engine.ts'), 'utf8')
     expect(engine).not.toMatch(/path\.join\(HERE, String\(name\)\.replace/)
+  })
+
+  it('reads the Python module registry from modules.json only', () => {
+    expect(manifest.version).toBeGreaterThanOrEqual(1)
+    expect(manifest.domains).toEqual(['core', 'geometry', 'assembly', 'render', 'export'])
+    expect(PY_DOMAINS).toEqual(manifest.domains)
+    expect(pyModuleNames().sort()).toEqual(Object.keys(manifest.modules).sort())
+    for (const [n, dom] of Object.entries(manifest.modules)) {
+      expect(dom === '.' || manifest.domains.includes(dom)).toBe(true)
+      expect(fs.existsSync(pyModuleFile(n))).toBe(true)
+    }
+    const pathsSrc = fs.readFileSync(pkgPath('runtime', 'paths.ts'), 'utf8')
+    expect(pathsSrc).toContain("'py', 'modules.json'")
+    expect(pathsSrc).not.toMatch(/PY_MODULE_DOMAIN: Record<string, string> = \{/)
   })
 })

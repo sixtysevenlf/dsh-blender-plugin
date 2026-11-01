@@ -381,14 +381,6 @@
       "expires": "2026-12-31"
     },
     {
-      "file": "runtime/py/core/motion_impl/api.py",
-      "name": "motion_selftest",
-      "lines": 288,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
       "file": "runtime/py/core/motion_impl/infer.py",
       "name": "motion_infer_axis",
       "lines": 246,

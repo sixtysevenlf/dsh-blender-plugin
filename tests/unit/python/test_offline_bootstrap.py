@@ -47,3 +47,17 @@ def test_domain_lookup_still_wins_over_flat_shim():
     found = bootstrap._find_module("assembly", bootstrap.RT)
     assert found is not None
     assert found.replace(os.sep, "/").endswith("runtime/py/assembly/assembly.py")
+
+
+def test_manifest_is_primary_registry():
+    """F2.0：modules.json（若存在）是首选映射源；_find_module 必须按它解析。"""
+    bootstrap = _load_bootstrap()
+    modules = bootstrap._load_manifest(bootstrap.RT)
+    assert modules is not None
+    assert modules["assembly"] == "assembly"
+    assert modules["generator"] == "."
+    root = bootstrap._runtime_root(bootstrap.RT)
+    for name, dom in modules.items():
+        expected = (os.path.join(root, name + ".py") if dom == "."
+                    else os.path.join(root, "py", dom, name + ".py"))
+        assert bootstrap._find_module(name, bootstrap.RT) == expected, name

@@ -17,18 +17,14 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")
 RT = os.path.join(ROOT, "runtime")
 PY = os.path.join(RT, "py")
 
-DOMAINS = {
-    "core": ["kit", "contract", "gate", "txn", "runner", "worker", "planner", "presets",
-             "pipeline", "perf", "evalharness", "motion", "sweep", "audit", "offline_bootstrap"],
-    "geometry": ["geo", "mesh_fix", "sculpt", "shapegen", "shapesolve", "faceeval", "blockout", "surface"],
-    "assembly": ["assembly", "clearance", "vehicle", "human"],
-    "render": ["view", "qc", "qc_render", "render_guard", "material", "visualreport",
-               "imgtools", "calib", "montage"],
-    "export": ["deliver", "printcheck", "open3d_check"],
-}
+MANIFEST_FILE = os.path.join(PY, "modules.json")
+with open(MANIFEST_FILE, encoding="utf-8") as _fh:
+    MANIFEST = json.load(_fh)
+# F2.0：唯一映射源 runtime/py/modules.json（顺序 = 清单插入顺序，与各 __init__.__all__ 一致）。
+DOMAINS = {d: [n for n, dom in MANIFEST["modules"].items() if dom == d] for d in MANIFEST["domains"]}
 ALL_MODULES = [n for names in DOMAINS.values() for n in names]
 SHIMS = [n for n in ALL_MODULES if n != "open3d_check"]
-UNLISTED = ["generator", "uv_tools"]
+UNLISTED = [n for n, dom in MANIFEST["modules"].items() if dom == "."]
 
 
 def _parse(path):
@@ -181,3 +177,19 @@ def test_flat_import_fallback_only_runtime_on_path():
                        capture_output=True, text=True, timeout=120)
     assert r.returncode == 0, r.stdout + r.stderr
     assert "FLAT_FALLBACK_OK" in r.stdout
+
+
+def test_modules_manifest_is_single_source():
+    """F2.0：modules.json 唯一清单，paths.ts / offline_bootstrap.py 都读它，无第二份硬编码表。"""
+    assert MANIFEST["version"] >= 1
+    assert MANIFEST["domains"] == ["core", "geometry", "assembly", "render", "export"]
+    assert len(MANIFEST["modules"]) == len(set(MANIFEST["modules"])) == 41
+    for name, dom in MANIFEST["modules"].items():
+        assert dom == "." or dom in MANIFEST["domains"], (name, dom)
+        p = os.path.join(RT, name + ".py") if dom == "." else os.path.join(PY, dom, name + ".py")
+        assert os.path.isfile(p), p
+    paths_ts = open(os.path.join(RT, "paths.ts"), encoding="utf-8").read()
+    assert "'py', 'modules.json'" in paths_ts
+    assert "PY_MODULE_DOMAIN: Record<string, string> = {" not in paths_ts
+    boot_py = open(os.path.join(PY, "core", "offline_bootstrap.py"), encoding="utf-8").read()
+    assert "modules.json" in boot_py
