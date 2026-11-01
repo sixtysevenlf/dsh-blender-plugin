@@ -1,4 +1,7 @@
 #!/bin/bash
+# DEPRECATED convenience wrapper for optional DSH_CHECKOUT dependency linking.
+# Canonical build: npm run build (scripts/build.mjs). Keep this only for the
+# legacy checkout-linking workflow; do not add a second build path.
 # Build: host tsc (src → lib) → runtime tsc (runtime → lib/runtime) → client bundle.
 # 任一步失败即退出（set -e）。DSH_CHECKOUT 可选：只用于把依赖链接到 dsh 源码树；
 # 没有 checkout 时直接用本包 node_modules 里的 typescript 与依赖（npm ci 后即可构建）。

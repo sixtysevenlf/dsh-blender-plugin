@@ -2,7 +2,7 @@
 /**
  * scripts/check-build.mjs —— prepack / CI 的构建检查。
  *
- * 不写仓库里的 lib/（那是发布产物，由 scripts/build.sh 在发版时重建），而是：
+ * 不写仓库里的 lib/（那是发布产物，由 scripts/build.mjs / npm run build 在发版时重建），而是：
  *   ① 用与 npm run typecheck 同一个 tsc（scripts/typecheck.mjs --print）把 src 编译到临时目录；
  *   ② 断言入口 / 15 工具 / 类型声明确实产出，且 src 里没有 @ts-nocheck；
  *   ③ 运行 scripts/check-structure.mjs（入口行数、文件地图、15 handler、无环）；

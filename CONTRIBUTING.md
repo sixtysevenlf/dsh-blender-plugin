@@ -55,6 +55,7 @@ a frame (headless-only route).
 | `addon/` | The Blender addon package — the only supported addon |
 | `skills/` | The bundled `blender-modeling` skill, registered automatically |
 | `tests/` | Unit, integration, and end-to-end layers; see [tests/README.md](tests/README.md) |
+| `scripts/` | Developer build/check/test tooling; see [scripts/README.md](scripts/README.md) |
 | `docs/` | User guides (Chinese), the architecture guide, the refactor specification, and evidence packs |
 
 ## Tests

@@ -9,7 +9,8 @@
  *   ② 处理 `//# sourceMappingURL=`（去掉悬空引用；仅当同名 `.map` 真存在才重新指向它）；
  *   ③ 写回执（字节数 / sha256 前 12 位），让"产物是不是最新的"一眼可查。
  *
- * 由 `scripts/build.sh` 在 tsc 之后调用（`build.sh:77-85`）；也可单独跑：
+ * 由 `scripts/build.mjs all` 在 tsc 之后调用；`scripts/build.sh` 只是
+ * deprecated 的 DSH_CHECKOUT 兼容入口。也可单独跑：
  *   node scripts/build-client.mjs                     # 写 lib/client.js
  *   node scripts/build-client.mjs --src X --out Y       # 换源/换产物（离线验证用）
  *   node scripts/build-client.mjs --out /tmp/c.js    # 写别处（离线验证用）

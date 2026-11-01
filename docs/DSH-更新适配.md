@@ -21,7 +21,7 @@
 |---|---|---|
 | **加载链** | **bundle 式（2026-09-23 起）**：插件列在 profile 的 `dsh.profile.bundles`，patch 层由本包 `cordis.patch.yml` 提供（邻位 coc-dice / session-list-cache 同批迁入）。`dsh-super-injector` 已卸载并删除 | 15 个工具整体消失，但 Blender / 插件包都没坏；先用 `--dump-config` 看本包那一层在不在（§2） |
 | **解析链** | `<插件>/node_modules/@deepseek-ai/dsh-tools` → `~/dsh-harness`（fake checkout 软链）→ `/usr/lib/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-tools`（**全局安装**）；`cordis`/`schemastery`/`cosmokit`/`dsh-llm` 同理 | 载入期 `ERR_MODULE_NOT_FOUND`（不是降级，是整体消失）；换 npm prefix / nvm / pnpm global 就会触发 |
-| **构建链** | `scripts/build.sh` 探测 `DSH_CHECKOUT`（默认 `~/dsh-harness`），用它的 `tsc` 与 `@types/node` 软链 | `build: dependency target missing` / `tsc not found` |
+| **构建链** | `npm run build`（`scripts/build.mjs`）是唯一默认入口；旧 `scripts/build.sh` 只保留为可选的 `DSH_CHECKOUT` 依赖链接兼容入口，已标记 deprecated | 构建失败 / `tsc not found`；只有使用 `DSH_CHECKOUT` 时才需要旧 wrapper |
 
 好处：解析链指向**全局安装本身**，所以插件的 `defineTool` 与宿主**永远同版本**（不存在"对着旧副本编译"）。
 代价：没有冻结基线 —— 宿主怎么改，插件下一次载入就吃什么；所以下面的回归必须跑。

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Coverage gate: single source of thresholds for the local gate and CI.
 // Inputs: coverage/coverage-summary.json (vitest json-summary),
 //         coverage/diff-cover.json (diff-cover --json-report),

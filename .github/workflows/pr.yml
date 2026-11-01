@@ -39,6 +39,8 @@ jobs:
           python -m pip install -r requirements-dev.txt -r requirements-typecheck.txt
       - name: Typecheck
         run: npm run typecheck
+      - name: Script typecheck
+        run: npm run typecheck:scripts
       - name: Lint
         run: npm run lint
       - name: Format check

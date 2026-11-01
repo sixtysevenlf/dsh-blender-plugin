@@ -17,7 +17,7 @@
  *
  * 用法
  *   node scripts/typecheck.mjs                 # 等价 npm run typecheck
- *   node scripts/typecheck.mjs --print         # 只打印解析到的 tsc 路径（给 scripts/build.sh 用）
+ *   node scripts/typecheck.mjs --print         # 只打印解析到的 tsc 路径（给 scripts/build.mjs 用）
  *   node scripts/typecheck.mjs --pretty false  # 其余参数原样转发给 tsc
  *   DSH_TSC=/path/to/tsc node scripts/typecheck.mjs
  *   DSH_CHECKOUT=/path/to/dsh-checkout npm run typecheck

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * scripts/check-structure.mjs —— 入口与文件地图门禁。
  *

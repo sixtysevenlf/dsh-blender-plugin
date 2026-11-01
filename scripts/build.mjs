@@ -6,8 +6,8 @@
  * tsc 解析与 `npm run typecheck` 完全同源（scripts/typecheck.mjs --print）——构建/类型检查
  * 不会因为找编译器的方式不同而出现"两个真相"。
  *
- * build.sh 负责顺序（runtime → host → client，宿主侧 import 构建后的 lib/runtime）与可选的
- * DSH_CHECKOUT 依赖链接；本脚本只做一步。
+ * 本脚本负责单步编译；`npm run build` 的 all 目标负责 runtime → host → client 的顺序。
+ * scripts/build.sh 是 deprecated 的 DSH_CHECKOUT 依赖链接兼容入口，不是默认构建路径。
  */
 import fs from 'node:fs'
 import { spawnSync } from 'node:child_process'

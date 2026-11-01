@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /**
  * Behavior coverage matrix checker (F4.2).
  *

@@ -114,6 +114,7 @@
     "typecheck": "node scripts/typecheck.mjs -p tsconfig.runtime.json && node scripts/build.mjs runtime && node scripts/typecheck.mjs && node scripts/typecheck.mjs -p tsconfig.test.json",
     "typecheck:src": "node scripts/build.mjs runtime && node scripts/typecheck.mjs",
     "typecheck:test": "node scripts/typecheck.mjs -p tsconfig.test.json",
+    "typecheck:scripts": "tsc -p tsconfig.scripts.json",
     "lint": "eslint . --max-warnings=0 && node scripts/check-any.mjs",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"{src,tests,scripts,runtime}/**/*.{ts,mts,cts,js,mjs,cjs,json}\" \"*.{ts,json,yml,yaml}\" \"*.mjs\" \".prettierrc.json\" \".github/**/*.{yml,yaml}\"",
@@ -146,7 +147,7 @@
     "check:runtime-layout": "node scripts/check-runtime-layout.mjs",
     "check:import-boundaries": "node scripts/check-import-boundaries.mjs",
     "check:doc-paths": "node scripts/check-doc-paths.mjs",
-    "check:finalization": "npm run check:function-budget && npm run check:no-shims && npm run check:runtime-layout && npm run check:import-boundaries && npm run check:doc-paths"
+    "check:finalization": "npm run check:function-budget && npm run check:no-shims && npm run check:runtime-layout && npm run check:import-boundaries && npm run check:doc-paths && npm run typecheck:scripts"
   },
   "exports": {
     ".": {
