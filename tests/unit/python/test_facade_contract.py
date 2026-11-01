@@ -8,7 +8,11 @@ os.path.join, so both platforms use the same contract.
 """
 import ast
 import os
+import posixpath
 import sys
+import types
+
+import pytest
 
 from pathlib import Path
 
@@ -42,3 +46,61 @@ def test_helper_finds_the_plugin_root():
     assert facade.find_root("core", "contract") == str(ROOT)
     assert facade.find_root("render", "qc_render") == str(ROOT)
     assert facade.find_root("core", "no_such_module_xyz") is None
+
+
+# F4.1: the checks above are static/source-based. The two tests below execute the
+# helper instead: POSIX path semantics are simulated with posixpath.join so a
+# hard-coded "runtime\py" marker would fail on Windows too.
+
+def _facade_module():
+    sys.path.insert(0, str(ROOT))
+    import runtime.py._facade as facade
+
+    return facade
+
+
+def test_find_root_builds_the_marker_with_os_path_join(monkeypatch, tmp_path):
+    facade = _facade_module()
+    candidate = str(tmp_path)
+    expected = posixpath.join(candidate, "runtime", "py", "core", "contract_impl", "__init__.py")
+    seen = []
+
+    class FakePath:
+        join = staticmethod(posixpath.join)
+
+        @staticmethod
+        def isfile(path):
+            seen.append(path)
+            return path == expected
+
+    monkeypatch.setattr(facade, "os", types.SimpleNamespace(path=FakePath))
+    monkeypatch.setattr(facade, "_candidates", lambda: [candidate])
+
+    assert facade.find_root("core", "contract") == candidate
+    assert seen == [expected]
+    assert "/runtime/py/core/contract_impl/__init__.py" in expected
+
+
+def test_load_impl_inserts_the_root_and_imports_the_public_module(monkeypatch, tmp_path):
+    facade = _facade_module()
+    imported = []
+    monkeypatch.setattr(facade, "find_root", lambda domain, name: str(tmp_path))
+    monkeypatch.setattr(
+        facade.importlib,
+        "import_module",
+        lambda name: imported.append(name) or types.SimpleNamespace(),
+    )
+    monkeypatch.setattr(facade.sys, "path", [])
+
+    facade.load_impl("core", "contract")
+
+    assert imported == ["runtime.py.core.contract_impl"]
+    assert facade.sys.path == [str(tmp_path)]
+
+
+def test_load_impl_raises_a_readable_error_when_the_root_is_missing(monkeypatch):
+    facade = _facade_module()
+    monkeypatch.setattr(facade, "find_root", lambda domain, name: None)
+
+    with pytest.raises(RuntimeError, match="contract facade cannot find plugin root"):
+        facade.load_impl("core", "contract")

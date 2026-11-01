@@ -29,6 +29,9 @@ describe('coverage policy', () => {
   })
 
   it('keeps long-term quality floors under the measured values', () => {
+    // F4.1: an empty criticalModules list would make the loop below vacuous.
+    expect(thresholds.javascript.criticalModules).toHaveLength(5)
+    expect(Object.keys(baseline.criticalModules)).toHaveLength(6)
     for (const mod of thresholds.javascript.criticalModules) {
       const measured = baseline.criticalModules[mod.module]
       expect(measured, mod.module).toBeDefined()
@@ -43,6 +46,8 @@ describe('coverage policy', () => {
 
   it('tracks execution-engine modules with measured ratchet floors', () => {
     expect(Array.isArray(thresholds.javascript.executionModules)).toBe(true)
+    expect(thresholds.javascript.executionModules).toHaveLength(9)
+    expect(Object.keys(baseline.executionModules)).toHaveLength(13)
     for (const mod of thresholds.javascript.executionModules) {
       const measured = baseline.executionModules[mod.module]
       expect(measured, mod.module).toBeDefined()

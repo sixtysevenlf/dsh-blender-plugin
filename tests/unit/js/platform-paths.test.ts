@@ -133,8 +133,10 @@ describe('macOS branch (runs only on macOS)', () => {
   // (\\wsl.localhost\...) and native backslashes, so the macOS expectations below
   // only hold on a Mac. Mirrors the sibling skipIf above.
   it.skipIf(!IS_MAC)('compiles the Blender-side path helpers with Python (macOS identity)', () => {
+    // F4.1: environment gaps must fail loudly (and be rerun), never become a
+    // silent green. A macOS runner without python3/python is an environment error.
     const python = pythonAvailable()
-    if (!python) return
+    expect(python, 'macOS PATH_HELPERS probe needs python3 or python on PATH').not.toBeNull()
     const probe = path.join(os.tmpdir(), 'dsh_mac_paths_probe.py')
     fs.writeFileSync(probe, PATH_HELPERS, 'utf8')
     const driver = [
@@ -150,14 +152,12 @@ describe('macOS branch (runs only on macOS)', () => {
       "cases = ['/Users/someone/projects/out.png', '/abs/x.py', 'rel/script.py']",
       "print(json.dumps({'win': {c: wp(c) for c in cases}, 'wsl': {c: wl(c) for c in cases}, 'blend': bd('rel/script.py')}))",
     ].join(NL)
-    const r = spawnSync(python, ['-c', driver], { encoding: 'utf8', timeout: 30000 })
-    if (r.status !== 0) return
+    const r = spawnSync(python as string, ['-c', driver], { encoding: 'utf8', timeout: 30000 })
+    expect(r.status, String(r.stderr)).toBe(0)
     const out = JSON.parse(String(r.stdout).trim().split(NL).pop() || '{}')
     expect(JSON.stringify(out).includes('wsl.localhost')).toBe(false)
     expect(out.blend).toBe('/Users/someone/projects/rel/script.py')
-    if (IS_MAC) {
-      expect(out.win['/Users/someone/projects/out.png']).toBe('/Users/someone/projects/out.png')
-      expect(out.wsl['/Users/someone/projects/out.png']).toBe('/Users/someone/projects/out.png')
-    }
+    expect(out.win['/Users/someone/projects/out.png']).toBe('/Users/someone/projects/out.png')
+    expect(out.wsl['/Users/someone/projects/out.png']).toBe('/Users/someone/projects/out.png')
   })
 })
