@@ -20,7 +20,6 @@ inline below), and no decision lives only in a chat log.
 | [0007](0007-runtime-py-line-budget.md) | Cap runtime/py implementation files at 1000 lines with loader-visible facades | Accepted | 2026-11-01 |
 | [0008](0008-public-facade-and-function-budget.md) | Share one public facade helper and enforce a function-level budget with a debt ledger | Accepted | 2026-11-01 |
 | [0009](0009-runtime-module-registry.md) | Use one runtime/py/modules.json registry for loader paths and layout tests | Accepted | 2026-11-01 |
-
 | [0010](0010-addon-pure-logic-coverage.md) | Measure add-on pure logic separately from bpy/UI code at >= 80/70 | Accepted | 2026-11-01 |
 
 ## When to write one

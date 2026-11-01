@@ -57,6 +57,14 @@ Modules split under this decision: `assembly`, `qc_render`, `audit`,
 because the preload contract is path-based, not because package imports are
 preferred.
 
+
+## Implementation status (F2.3, 2026-11-01)
+
+F2.3 removed the flat `runtime/*.py` shims described in this ADR's context. The
+loader now resolves modules only through `runtime/py/modules.json`; the facade
+contract and the 1,000-line implementation cap are unchanged. References to
+"shims" above are historical and were superseded by ADR 0009 plus the F2.3
+migration in CHANGELOG/MIGRATIONS.
 ## Consequences
 
 - The largest `runtime/py` implementation file is now under 1,000 lines and
