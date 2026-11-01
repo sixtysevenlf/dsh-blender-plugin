@@ -2,15 +2,15 @@
   "version": 2,
   "baselineCommit": "f001e1d20b86cd84a88424e3bbe426e501e4c49d",
   "baselineDate": "2026-10-31",
-  "policy": "C5 v2: baseline measured at f001e1d; T16c calibrated the global floors to 69.7/68.45/72.6 and changed-lines floor to 69.8 from the T16f clean-clone run at adfa3fc (71.24/69.22/74.13, changed 71.398), with a 1.5pp buffer and no floor below the prior value; critical contract modules >=90/75; execution-lifecycle modules tracked at their measured ratchet floors (>=80/55, see executionModules); Python pure logic >=80/70; E2E 100%; +2 ratchet is a manual release-window policy; adjust only with a documented policy change. Finalization F6 rebaseline 2026-11-01: structural splits increased the function denominator (846 functions, lines 71.81/branches 69.16/functions 68.67); functions floor set to 67.1 (measured -1.5pp) while lines/branches/changed-lines floors stay. Critical/execution module lists remapped to post-split files. See the coverage policy notes.",
+  "policy": "C5 v2: baseline measured at f001e1d; T16c calibrated the global floors to 73.2/68.7/70.4 and changed-lines floor to 73.4 from canonical CI run 41289961261 at commit 0e1c173 (74.73/70.22/71.9, changed 74.953), with a 1.5pp buffer and no floor below the prior value; critical contract modules >=90/75; execution-lifecycle modules retained at their measured ratchet floors (>=80/55, see executionModules); Python pure logic >=80/70; E2E 100%; +2 ratchet is a manual release-window policy; adjust only with a documented policy change. See docs/architecture.md coverage policy.",
   "javascript": {
     "globalFloor": {
-      "lines": 69.7,
-      "branches": 68.45,
-      "functions": 67.1
+      "lines": 73.2,
+      "branches": 68.7,
+      "functions": 70.4
     },
     "changedLinesFloor": {
-      "lines": 69.8,
+      "lines": 73.4,
       "targetLines": 70,
       "ratchetPerPr": 2,
       "against": "v2.6.2",

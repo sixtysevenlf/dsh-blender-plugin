@@ -137,6 +137,19 @@ These are the rules that protect the architecture:
 - Coverage floors are enforced by check:coverage; E2E scenario coverage is separate from line coverage.
 - Every behavioral change needs a failing test first and evidence in the pull request.
 
+### Coverage policy
+
+Coverage is measured with Vitest's single-file mode plus pytest branch coverage, and the gate reads
+only `config/coverage-thresholds.json`. The C5 floors were calibrated from canonical CI run
+[41289961261](https://github.com/sixtysevenlf/dsh-blender-plugin/actions/runs/41289961261) on commit
+`0e1c173`: JS 74.73% lines / 70.22% branches / 71.9% functions, changed lines 74.953 against v2.6.2.
+Applying the T16c rule (round down to 0.1pp, subtract 1.5pp, never below the previous floor) gives the
+current floors: lines 73.2, branches 68.7, functions 70.4, changed lines 73.4. Python pure logic is
+measured at 82.5/74.36 with floors 80/70; critical and execution-module floors are unchanged. The
+provisional T16f clean-clone values are superseded by this CI measurement. The next ratchet uses the
+next canonical CI run and the manual +2/PR policy; a floor must not be lowered without a documented
+policy change in this guide.
+
 ## 9. Key choices and consequences
 
 | Choice | Consequence |
