@@ -349,35 +349,140 @@ def _render_turntable_sequence(sc, cam, center, cam_dist, elev, az_start, orbit,
             "ms": ms}
 
 
+def _tt_params(objects, collection, name, frames, fps, res, elev_deg, distance, background, fmt,
+               orbit_deg, out_dir=None):
+    """转台参数解析 + 相机 meta；坏值 raise ValueError（调用方转 _err）。"""
+    objs = _find_model_objects(objects=objects, name=name, collection=collection)
+    nm = _safe_token(name or collection or "turntable", "name")
+    nframes = int(_num(frames, "frames", default=96, gt=0.0, maxv=1200.0))
+    fps_v = _num(fps, "fps", default=24.0, gt=0.0, maxv=120.0)
+    res_v = _parse_res([512, 512] if res is None else res)
+    elev = _num(elev_deg, "elev_deg", default=15.0, minv=-89.0, maxv=89.0)
+    dmult = _num(distance, "distance", default=1.6, gt=0.0, maxv=20.0)
+    orbit = _num(orbit_deg, "orbit_deg", default=360.0, gt=0.0, maxv=3600.0)
+    fmt_s = str(fmt if fmt is not None else "mp4").strip().lower()
+    if fmt_s not in ("mp4", "png", "sequence"):
+        raise ValueError("fmt 只支持 mp4 / png(sequence)（收到 %r）" % (fmt,))
+    bg_val, bg_name, transparent = _bg_rgb(background)
+    root = _root_outdir(out_dir)
+    mn, mx = _bbox_bu(objs)
+    center = (mn + mx) * 0.5
+    radius = max(float((mx - mn).length) * 0.5, 1e-5)
+    tan_half = _tan_half(res_v, 50.0)
+    fit_dist = radius / max(math.sin(math.atan(tan_half)), 1e-6) * 1.12
+    cam_dist = fit_dist * dmult
+    cam_meta = {"az_start_deg": -90.0, "orbit_deg": round(orbit, 3), "elev_deg": round(elev, 3),
+                "distance_mult": round(dmult, 4), "fit_distance": round(fit_dist, 6),
+                "camera_distance": round(cam_dist, 6), "radius": round(radius, 6),
+                "center_mm": [round(float(v) * _mm_per_bu(), 3) for v in center],
+                "lens_mm": 50.0, "sensor_width_mm": 36.0}
+    return {"objs": objs, "nm": nm, "nframes": nframes, "fps_v": fps_v, "res_v": res_v,
+            "elev": elev, "dmult": dmult, "orbit": orbit, "fmt_s": fmt_s,
+            "background": background, "transparent": transparent, "root": root,
+            "center": center, "cam_dist": cam_dist, "cam_meta": cam_meta}
+
+
+def _tt_render(sc, cam, pr, warnings):
+    """渲染视频或 PNG 序列（MP4 失败自动回退序列）；返回 (video, sequence, degraded, error, pres, fatal)。"""
+    fmt_s = pr["fmt_s"]
+    video = None
+    sequence = None
+    degraded = False
+    error = None
+    if fmt_s == "mp4":
+        if pr["transparent"]:
+            warnings.append("background=transparent 不支持视频（MP4 无 alpha）→ 已按 white 渲染；"
+                            "要带 alpha 的帧请用 fmt=png")
+        pres = _present_setup(sc, pr["res_v"], "white" if pr["transparent"] else pr["background"])
+        try:
+            video = _render_turntable_video(sc, cam, pr["center"], pr["cam_dist"], pr["elev"], -90.0, pr["orbit"],
+                                            pr["nframes"], pr["root"], pr["nm"], pr["fps_v"], pr["res_v"])
+        except Exception as e:
+            degraded = True
+            error = "MP4 输出失败：%s: %s" % (type(e).__name__, str(e)[:220])
+            warnings.append(error + " → 回退 PNG 序列")
+            try:
+                _clean_prefix_files(pr["root"], pr["nm"] + "_turntable",
+                                    (".mp4", ".mov", ".mkv", ".avi", ".webm"))
+            except Exception:
+                pass
+            try:
+                sequence = _render_turntable_sequence(
+                    sc, cam, pr["center"], pr["cam_dist"], pr["elev"], -90.0, pr["orbit"], pr["nframes"],
+                    os.path.join(pr["root"], pr["nm"] + "_turntable_frames"), pr["res_v"])
+            except Exception as e2:
+                return None, None, True, error, None, _err(
+                    "MP4 与 PNG 序列都失败：%s / %s" % (str(e)[:140], str(e2)[:140]), op="turntable")
+    else:
+        pres = _present_setup(sc, pr["res_v"], pr["background"])
+        sequence = _render_turntable_sequence(
+            sc, cam, pr["center"], pr["cam_dist"], pr["elev"], -90.0, pr["orbit"], pr["nframes"],
+            os.path.join(pr["root"], pr["nm"] + "_turntable_frames"), pr["res_v"])
+    return video, sequence, degraded, error, pres, None
+
+
+def _tt_payload(pr, pres, video, sequence, degraded, error, warnings, t_start):
+    """转台回执（video 优先，degraded 时 ok=false + error）。"""
+    fps_v = pr["fps_v"]
+    nframes = pr["nframes"]
+    fps_out = int(round(fps_v)) if abs(fps_v - round(fps_v)) < 1e-6 else round(fps_v, 3)
+    out = {"op": "turntable", "name": pr["nm"], "engine": "BLENDER_WORKBENCH", "fmt": pr["fmt_s"],
+           "frames": nframes, "fps": fps_out,
+           "duration_s": round(float(nframes) / float(fps_v), 3), "res": pr["res_v"],
+           "background": pres["background"], "camera": pr["cam_meta"],
+           "objects": [ob.name for ob in pr["objs"]], "object_count": len(pr["objs"]),
+           "video": video, "sequence": sequence, "warnings": warnings,
+           "degraded": bool(degraded),
+           "ms": {"render": ((video or {}).get("render_ms") or (video or {}).get("ms")
+                             or (sequence or {}).get("ms"))}}
+    if video is not None:
+        out.update({"ok": True, "path": video["path"], "bytes": video["bytes"], "md5": video["md5"]})
+    elif sequence is not None:
+        out.update({"ok": not degraded, "path": sequence["dir"],
+                    "bytes": sequence["bytes_total"], "md5": sequence["md5_manifest"]})
+    else:
+        out.update({"ok": False, "error": "没有产物"})
+    if degraded:
+        out["ok"] = False
+        out["error"] = error
+    out["ms"]["total"] = int(round((time.perf_counter() - t_start) * 1000.0))
+    return out
+
+
+def _tt_cleanup(sc, cam, cam_data, hidden, st):
+    """移除相机/孤立动画/相机数据，恢复隐藏状态与场景状态。"""
+    act = None
+    try:
+        ad = cam.animation_data if cam is not None else None
+        act = ad.action if ad is not None else None
+    except Exception:
+        act = None
+    try:
+        if cam is not None:
+            bpy.data.objects.remove(cam, do_unlink=True)
+    except Exception:
+        pass
+    try:
+        if act is not None and getattr(act, "users", 0) == 0:
+            bpy.data.actions.remove(act)
+    except Exception:
+        pass
+    if cam_data is not None and getattr(cam_data, "users", 0) == 0:
+        try:
+            bpy.data.cameras.remove(cam_data)
+        except Exception:
+            pass
+    _unhide_objects(hidden)
+    _present_state_restore(sc, st)
+
+
 def blockout_turntable(objects=None, collection=None, name=None, out_dir=None, frames=96, fps=24,
                        res=None, elev_deg=15, distance=1.6, background="white", fmt="mp4", orbit_deg=360):
     """绕 Z 轴转台：内置 FFMPEG 出 MP4（失败回退 PNG 序列，ok:false/degraded + warnings）。"""
     t_start = time.perf_counter()
     try:
-        objs = _find_model_objects(objects=objects, name=name, collection=collection)
-        nm = _safe_token(name or collection or "turntable", "name")
-        nframes = int(_num(frames, "frames", default=96, gt=0.0, maxv=1200.0))
-        fps_v = _num(fps, "fps", default=24.0, gt=0.0, maxv=120.0)
-        res_v = _parse_res([512, 512] if res is None else res)
-        elev = _num(elev_deg, "elev_deg", default=15.0, minv=-89.0, maxv=89.0)
-        dmult = _num(distance, "distance", default=1.6, gt=0.0, maxv=20.0)
-        orbit = _num(orbit_deg, "orbit_deg", default=360.0, gt=0.0, maxv=3600.0)
-        fmt_s = str(fmt if fmt is not None else "mp4").strip().lower()
-        if fmt_s not in ("mp4", "png", "sequence"):
-            raise ValueError("fmt 只支持 mp4 / png(sequence)（收到 %r）" % (fmt,))
-        bg_val, bg_name, transparent = _bg_rgb(background)
-        root = _root_outdir(out_dir)
-        mn, mx = _bbox_bu(objs)
-        center = (mn + mx) * 0.5
-        radius = max(float((mx - mn).length) * 0.5, 1e-5)
-        tan_half = _tan_half(res_v, 50.0)
-        fit_dist = radius / max(math.sin(math.atan(tan_half)), 1e-6) * 1.12
-        cam_dist = fit_dist * dmult
-        cam_meta = {"az_start_deg": -90.0, "orbit_deg": round(orbit, 3), "elev_deg": round(elev, 3),
-                    "distance_mult": round(dmult, 4), "fit_distance": round(fit_dist, 6),
-                    "camera_distance": round(cam_dist, 6), "radius": round(radius, 6),
-                    "center_mm": [round(float(v) * _mm_per_bu(), 3) for v in center],
-                    "lens_mm": 50.0, "sensor_width_mm": 36.0}
+        pr = _tt_params(objects, collection, name, frames, fps, res, elev_deg, distance,
+                        background, fmt, orbit_deg, out_dir)
     except ValueError as e:
         return _err(e, hint="turntable 用 objects=/name=/collection= 指定已建白模；参数见 help().ops.turntable",
                     op="turntable")
@@ -390,7 +495,7 @@ def blockout_turntable(objects=None, collection=None, name=None, out_dir=None, f
     cam_data = None
     warnings = []
     try:
-        hidden = _hide_other_objects(sc, objs)
+        hidden = _hide_other_objects(sc, pr["objs"])
         cam_data = bpy.data.cameras.new("BO_TT_CAM")
         cam = bpy.data.objects.new("BO_TT_CAM", cam_data)
         sc.collection.objects.link(cam)
@@ -400,85 +505,12 @@ def blockout_turntable(objects=None, collection=None, name=None, out_dir=None, f
         cam_data.clip_start = 1e-4
         cam_data.clip_end = 1e4
         sc.camera = cam
-        video = None
-        sequence = None
-        degraded = False
-        error = None
-        if fmt_s == "mp4":
-            if transparent:
-                warnings.append("background=transparent 不支持视频（MP4 无 alpha）→ 已按 white 渲染；"
-                                "要带 alpha 的帧请用 fmt=png")
-            pres = _present_setup(sc, res_v, "white" if transparent else background)
-            try:
-                video = _render_turntable_video(sc, cam, center, cam_dist, elev, -90.0, orbit,
-                                                nframes, root, nm, fps_v, res_v)
-            except Exception as e:
-                degraded = True
-                error = "MP4 输出失败：%s: %s" % (type(e).__name__, str(e)[:220])
-                warnings.append(error + " → 回退 PNG 序列")
-                try:
-                    _clean_prefix_files(root, nm + "_turntable",
-                                        (".mp4", ".mov", ".mkv", ".avi", ".webm"))
-                except Exception:
-                    pass
-                try:
-                    sequence = _render_turntable_sequence(
-                        sc, cam, center, cam_dist, elev, -90.0, orbit, nframes,
-                        os.path.join(root, nm + "_turntable_frames"), res_v)
-                except Exception as e2:
-                    return _err("MP4 与 PNG 序列都失败：%s / %s" % (str(e)[:140], str(e2)[:140]),
-                                op="turntable")
-        else:
-            pres = _present_setup(sc, res_v, background)
-            sequence = _render_turntable_sequence(
-                sc, cam, center, cam_dist, elev, -90.0, orbit, nframes,
-                os.path.join(root, nm + "_turntable_frames"), res_v)
-        fps_out = int(round(fps_v)) if abs(fps_v - round(fps_v)) < 1e-6 else round(fps_v, 3)
-        out = {"op": "turntable", "name": nm, "engine": "BLENDER_WORKBENCH", "fmt": fmt_s,
-               "frames": nframes, "fps": fps_out,
-               "duration_s": round(float(nframes) / float(fps_v), 3), "res": res_v,
-               "background": pres["background"], "camera": cam_meta,
-               "objects": [ob.name for ob in objs], "object_count": len(objs),
-               "video": video, "sequence": sequence, "warnings": warnings,
-               "degraded": bool(degraded),
-               "ms": {"render": ((video or {}).get("render_ms") or (video or {}).get("ms")
-                                 or (sequence or {}).get("ms"))}}
-        if video is not None:
-            out.update({"ok": True, "path": video["path"], "bytes": video["bytes"], "md5": video["md5"]})
-        elif sequence is not None:
-            out.update({"ok": not degraded, "path": sequence["dir"],
-                        "bytes": sequence["bytes_total"], "md5": sequence["md5_manifest"]})
-        else:
-            out.update({"ok": False, "error": "没有产物"})
-        if degraded:
-            out["ok"] = False
-            out["error"] = error
-        out["ms"]["total"] = int(round((time.perf_counter() - t_start) * 1000.0))
-        return out
+        video, sequence, degraded, error, pres, fatal = _tt_render(sc, cam, pr, warnings)
+        if fatal is not None:
+            return fatal
+        return _tt_payload(pr, pres, video, sequence, degraded, error, warnings, t_start)
     except Exception as e:
         return _err("%s: %s" % (type(e).__name__, str(e)[:280]),
                     hint="转台需要已建白模（BO-* 对象）；检查场景/对象名", op="turntable")
     finally:
-        act = None
-        try:
-            ad = cam.animation_data if cam is not None else None
-            act = ad.action if ad is not None else None
-        except Exception:
-            act = None
-        try:
-            if cam is not None:
-                bpy.data.objects.remove(cam, do_unlink=True)
-        except Exception:
-            pass
-        try:
-            if act is not None and getattr(act, "users", 0) == 0:
-                bpy.data.actions.remove(act)
-        except Exception:
-            pass
-        if cam_data is not None and getattr(cam_data, "users", 0) == 0:
-            try:
-                bpy.data.cameras.remove(cam_data)
-            except Exception:
-                pass
-        _unhide_objects(hidden)
-        _present_state_restore(sc, st)
+        _tt_cleanup(sc, cam, cam_data, hidden, st)

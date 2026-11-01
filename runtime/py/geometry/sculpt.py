@@ -223,14 +223,8 @@ def _dab_points(points, radius, spacing_frac=0.25):
     return out
 
 
-def _apply_one(ob, stroke, use_mask=True):
-    """单个笔触：numpy 位移。返回统计 dict。"""
-    import numpy as np
-    me = ob.data
-    n = len(me.vertices)
-    if n == 0:
-        return {"name": ob.name, "skipped": "0 顶点"}
-
+def _apply_brush_params(stroke):
+    """校验 brush/falloff/points/symmetry 并解析半径/强度；返回解析后的参数 dict（坏值 raise ValueError）。"""
     brush = str(stroke.get("brush") or "draw").lower()
     if brush not in BRUSHES:
         raise ValueError("未知 brush：%s（允许 %s）" % (brush, list(BRUSHES)))
@@ -247,16 +241,12 @@ def _apply_one(ob, stroke, use_mask=True):
     sym = [str(s).lower() for s in (sym if isinstance(sym, (list, tuple)) else [sym])]
     invert = bool(stroke.get("invert"))
     dirn = stroke.get("direction") or "normal"
+    return {"brush": brush, "radius": radius, "strength": strength, "fall": fall,
+            "points": points, "sym": sym, "invert": invert, "dirn": dirn}
 
-    co = np.empty(n * 3, dtype=np.float64)
-    me.vertices.foreach_get("co", co)
-    co = co.reshape(n, 3)
-    nrm = _vertex_normals(me)
-    mask = _mask_array(me) if use_mask else None
 
-    # 对称：镜像轴生成"独立的多条笔触"（对象局部原点，与 Blender 雕刻对称同口径）。
-    # 曾经把镜像点追加进同一条折线 —— 那会让 _dab_points 在 +x 与 -x 之间插值出
-    # 一条横穿物体的假路径（实测 1 个点变成 39 个 dab，把表面拖花）。
+def _apply_stroke_paths(points, sym):
+    """对称轴 → 多条路径（镜像点必须是独立路径，不能追加进同一折线，否则会插值出横穿物体的假路径）。"""
     axis_idx = {"x": 0, "y": 1, "z": 2}
     paths = [[list(p) for p in points]]
     for s in sym:
@@ -267,14 +257,15 @@ def _apply_one(ob, stroke, use_mask=True):
         for path in paths:
             mirrored.append([[( -p[0] if i == 0 else p[0]), (-p[1] if i == 1 else p[1]), (-p[2] if i == 2 else p[2])] for p in path])
         paths = paths + mirrored
+    return paths
 
-    dabs = []
-    for path in paths:
-        dabs.extend(_dab_points(path, radius))
-    used_paths = len(paths)
+
+def _apply_dab_disp(co, nrm, mask, dabs, pr, me, n, ob):
+    """逐 dab 按笔刷规则累加位移；返回 (disp, affect)。"""
+    import numpy as np
+    brush, radius, strength, fall, invert = pr["brush"], pr["radius"], pr["strength"], pr["fall"], pr["invert"]
     disp = np.zeros((n, 3), dtype=np.float64)
     affect = np.zeros(n, dtype=bool)
-    t0 = time.time()
     for p in dabs:
         c = np.asarray(p, dtype=np.float64)
         d = np.linalg.norm(co - c, axis=1)
@@ -309,10 +300,10 @@ def _apply_one(ob, stroke, use_mask=True):
             disp += nvec[None, :] * delta[:, None] * (-1.0 if invert else 1.0)
         elif brush == "smooth":
             # 邻接平均（用边表建一次平均，后面按 falloff 混）
-            if not hasattr(_apply_one, "_adj"):
-                _apply_one._adj = {}
+            if not hasattr(_apply_dab_disp, "_adj"):
+                _apply_dab_disp._adj = {}
             key = (ob.name, n)
-            adj = _apply_one._adj.get(key)
+            adj = _apply_dab_disp._adj.get(key)
             if adj is None:
                 bm = bmesh.new()
                 bm.from_mesh(me)
@@ -320,7 +311,7 @@ def _apply_one(ob, stroke, use_mask=True):
                 idx = [np.array([e.other_vert(v).index for e in v.link_edges], dtype=np.int64) for v in bm.verts]
                 bm.free()
                 adj = idx
-                _apply_one._adj[key] = adj
+                _apply_dab_disp._adj[key] = adj
             avg = co.copy()
             for i in np.nonzero(inside)[0]:
                 nb = adj[int(i)]
@@ -336,7 +327,36 @@ def _apply_one(ob, stroke, use_mask=True):
             proj = proj / np.maximum(ln2, 1e-9)
             disp -= proj * (f * amp * (-1.0 if invert else 1.0))[:, None]
         affect |= inside
+    return disp, affect
 
+
+def _apply_one(ob, stroke, use_mask=True):
+    """单个笔触：numpy 位移。返回统计 dict。"""
+    import numpy as np
+    me = ob.data
+    n = len(me.vertices)
+    if n == 0:
+        return {"name": ob.name, "skipped": "0 顶点"}
+
+    pr = _apply_brush_params(stroke)
+    co = np.empty(n * 3, dtype=np.float64)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(n, 3)
+    nrm = _vertex_normals(me)
+    mask = _mask_array(me) if use_mask else None
+
+    # 对称：镜像轴生成"独立的多条笔触"（对象局部原点，与 Blender 雕刻对称同口径）。
+    # 曾经把镜像点追加进同一条折线 —— 那会让 _dab_points 在 +x 与 -x 之间插值出
+    # 一条横穿物体的假路径（实测 1 个点变成 39 个 dab，把表面拖花）。
+    paths = _apply_stroke_paths(pr["points"], pr["sym"])
+    dabs = []
+    for path in paths:
+        dabs.extend(_dab_points(path, pr["radius"]))
+    used_paths = len(paths)
+    t0 = time.time()
+    disp, affect = _apply_dab_disp(co, nrm, mask, dabs, pr, me, n, ob)
+
+    dirn = pr["dirn"]
     if dirn not in ("normal", None, "normal_z"):
         dv = np.asarray(_vec3(dirn, "direction"), dtype=np.float64)
         ln = float(np.linalg.norm(dv)) or 1.0
@@ -351,7 +371,7 @@ def _apply_one(ob, stroke, use_mask=True):
     if hasattr(me, "calc_normals_split"):
         pass
     maxd = float(np.abs(new - co).max()) if n else 0.0
-    return {"name": ob.name, "brush": brush, "dabs": len(dabs), "stroke_paths": used_paths, "verts": n,
+    return {"name": ob.name, "brush": pr["brush"], "dabs": len(dabs), "stroke_paths": used_paths, "verts": n,
             "affected_verts": int(affect.sum()), "max_delta": round(maxd, 8),
             "ms": int((time.time() - t0) * 1000)}
 
