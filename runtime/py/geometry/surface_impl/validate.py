@@ -305,6 +305,186 @@ def _continuity_mesh(verts, tris, g1_tol_deg):
     return {"state": "n/a", "method": "mesh dihedral（对象没有声明的 continuity 目标，只给数字）",
             "max_dihedral_deg": _r(max_d, 4), "tolerance_reference_deg": float(g1_tol_deg)}
 # ────────────────────────────── M2 公开 op：surface_validate ──────────────────────────────
+def _surface_validate_p1(_state):
+    curvature, draft, g1_tol_deg, g2_tol_ratio, max_curvature = (
+        _state["curvature"], _state["draft"], _state["g1_tol_deg"], _state["g2_tol_ratio"], _state["max_curvature"])
+    max_tris, min_thickness_mm, self_intersection, spec_or_object = (
+        _state["max_tris"], _state["min_thickness_mm"], _state["self_intersection"], _state["spec_or_object"])
+    ctx, lim, st = (_state.get("ctx"), _state.get("lim"), _state.get("st"))
+    try:
+        t0 = time.perf_counter()
+        try:
+            ctx = _resolve_source(spec_or_object)
+        except _SpecError as e:
+            return _err("SurfaceSpec 校验失败（坏参数）", errors=e.errors[:12], stage="M0")
+        except Exception as e:
+            return _err("无法解析 spec_or_object: %s: %s" % (type(e).__name__, str(e)[:240]), stage="M0")
+        spec = ctx.get("spec")
+        cons = dict((spec or {}).get("constraints") or {})
+        gi_tol = _num(g1_tol_deg) or _num(cons.get("g1_tol_deg")) or 12.0
+        g2_tol = _num(g2_tol_ratio) or _num(cons.get("g2_tol_ratio")) or 0.6
+        thin_min = _num(min_thickness_mm) or _num(cons.get("min_thickness_mm")) or 0.8
+        curv_max = _num(max_curvature) if max_curvature is not None else _num(cons.get("max_curvature_1_per_mm"))
+        V = ctx["verts_mm"]
+        T = ctx["tris"]
+        vn = _vertex_normals(V, T)
+        topo = _mesh_topo(V, T)
+        checks, defects, skipped, nexts = {}, [], [], []
+
+        # ---- 网格质量 ----
+        q_state = "pass"
+        if topo["degenerate_faces"]:
+            q_state = "fail"
+            defects.append({"check": "mesh_quality", "severity": "fail",
+                            "msg": "退化面 %d 个（面积≈0）——先修截面/重采样" % topo["degenerate_faces"]})
+        if topo["flipped_normals"]:
+            q_state = "fail"
+            defects.append({"check": "mesh_quality", "severity": "fail",
+                            "msg": "法线翻转 %d 条边（相邻面法线夹角 >90°）" % topo["flipped_normals"]})
+        if topo["nonmanifold_edges"]:
+            q_state = "fail"
+            defects.append({"check": "mesh_quality", "severity": "fail",
+                            "msg": "非流形边 %d 条（>2 面共边）" % topo["nonmanifold_edges"]})
+        checks["mesh_quality"] = dict({"state": q_state}, **topo)
+        if not topo["watertight"]:
+            nexts.append("开放边界 %d 条（曲面片正常；要厚度/水密请封口或用闭合实体）" % topo["boundary_edges"])
+
+        # ---- 曲率 ----
+        cur = None
+        if curvature:
+            cur = _curvature_metrics(V, T, vn)
+            st = "pass"
+            if curv_max is not None and cur["max_1_per_mm"] is not None and cur["max_1_per_mm"] > float(curv_max):
+                st = "fail"
+                defects.append({"check": "curvature", "severity": "fail",
+                                "msg": "最大曲率 %.6g /mm > 约束 %.6g /mm（急弯/噪声）"
+                                       % (cur["max_1_per_mm"], float(curv_max))})
+            elif cur["hotspots"]:
+                nexts.append("曲率热点 %d 个（>%.3g /mm）——检查截面半径突变或网格噪声"
+                             % (cur["hotspots"], cur["hotspot_threshold_1_per_mm"] or 0.0))
+            checks["curvature"] = dict({"state": st}, **cur)
+        else:
+            skipped.append({"check": "curvature", "why": "continuity/curvature=False（调用方显式跳过）"})
+
+        # ---- 自交 ----
+        si = None
+        if self_intersection:
+            lim = int(min(int(max_tris), 20000)) if draft else int(max_tris)
+            si = _self_intersection(V, T, lim)
+            checks["self_intersection"] = si
+            if si.get("state") == "fail":
+                defects.append({"check": "self_intersection", "severity": "fail",
+                                "msg": "自交 %d 对三角面（超限前 5000 对截断）" % int(si.get("pairs") or 0),
+                                "sample": si.get("sample")})
+            elif si.get("state") == "degraded":
+                skipped.append({"check": "self_intersection", "why": si.get("reason")})
+        else:
+            skipped.append({"check": "self_intersection", "why": "self_intersection=False"})
+
+        # ---- 厚度 ----
+        th = None
+    finally:
+        _state.update((k, v) for k, v in locals().items() if k != "_state")
+
+def _surface_validate_p2(_state):
+    T, V, checks, continuity, ctx = (
+        _state.get("T"), _state.get("V"), _state.get("checks"), _state["continuity"], _state.get("ctx"))
+    cur, curv_max, defects, draft, g2_tol = (
+        _state.get("cur"), _state.get("curv_max"), _state.get("defects"), _state["draft"], _state.get("g2_tol"))
+    gi_tol, max_tris, nexts, si, skipped = (
+        _state.get("gi_tol"), _state["max_tris"], _state.get("nexts"), _state.get("si"), _state.get("skipped"))
+    spec, t0, thickness, thin_min, topo = (
+        _state.get("spec"), _state.get("t0"), _state["thickness"], _state.get("thin_min"), _state.get("topo"))
+    vn = _state.get("vn")
+    th, verdict = (_state.get("th"), _state.get("verdict"))
+    try:
+        if thickness:
+            if draft:
+                th = {"state": "n/a", "reason": "draft=True 跳过厚度（高成本）",
+                      "min_mm": None, "median_mm": None, "sampled": 0}
+                skipped.append({"check": "thickness", "why": th["reason"]})
+            else:
+                th = _thickness(V, T, vn, bool(topo["watertight"]))
+                if th.get("state") == "pass" and th.get("min_mm") is not None:
+                    if th["min_mm"] < float(thin_min):
+                        th["state"] = "fail"
+                        defects.append({"check": "thickness", "severity": "fail",
+                                        "msg": "近似最小厚度 %.4g mm < 目标 %.4g mm" % (th["min_mm"], float(thin_min))})
+                elif th.get("state") == "n/a":
+                    skipped.append({"check": "thickness", "why": th.get("reason")})
+                elif th.get("state") == "degraded":
+                    skipped.append({"check": "thickness", "why": th.get("reason")})
+                checks["thickness"] = th
+        else:
+            skipped.append({"check": "thickness", "why": "thickness=False"})
+
+        # ---- 连续性 ----
+        cont = None
+        if continuity:
+            if spec is not None:
+                cont = _continuity_spec(ctx, gi_tol, g2_tol)
+                if cont.get("state") == "fail":
+                    defects.append({"check": "continuity", "severity": "fail",
+                                    "msg": cont.get("reason") or "边界连续性不达标",
+                                    "g1_deg": cont.get("g1_deg"), "g2_ratio": cont.get("g2_ratio")})
+                elif cont.get("state") == "n/a":
+                    skipped.append({"check": "continuity", "why": cont.get("note")})
+            else:
+                cont = _continuity_mesh(V, T, gi_tol)
+                if cont.get("max_dihedral_deg") is not None and cont["max_dihedral_deg"] > 90.0:
+                    nexts.append("对象有 %0.1f° 二面角（信息性；对象没有声明 continuity 目标，未判 fail）"
+                                 % cont["max_dihedral_deg"])
+            checks["continuity"] = cont
+        else:
+            skipped.append({"check": "continuity", "why": "continuity=False"})
+
+        if any(d.get("severity") == "fail" for d in defects):
+            verdict = "fail"
+        elif any((c or {}).get("state") == "degraded" for c in checks.values()):
+            verdict = "degraded"
+        else:
+            verdict = "pass"
+        if verdict == "fail":
+            nexts.insert(0, "先按 defects 逐条修（改截面/参数或换更大 tessellation），再复跑 validate；不许把 fail 当 pass")
+        elif verdict == "degraded":
+            nexts.insert(0, "有检查没跑成（%s）——调大 max_tris 或给闭合壳后复跑；degraded ≠ 通过"
+                         % (skipped[-1].get("check") if skipped else "超限"))
+        bbox = _bbox_mm(V)
+        body = {
+            "ok": True, "version": SURFACE_VERSION, "verdict": verdict,
+            "source": ctx.get("source"), "spec_hash": (spec or {}).get("spec_hash"),
+            "metrics": {"verts": int(len(V)), "tris": int(len(T)), "bbox_mm": bbox,
+                        "watertight": bool(topo["watertight"]),
+                        "boundary_edges": int(topo["boundary_edges"]),
+                        "nonmanifold_edges": int(topo["nonmanifold_edges"]),
+                        "degenerate_faces": int(topo["degenerate_faces"]),
+                        "flipped_normals": int(topo["flipped_normals"]),
+                        "aspect_max": topo["aspect_max"],
+                        "curvature": ({"max_1_per_mm": cur["max_1_per_mm"], "mean_1_per_mm": cur["mean_1_per_mm"],
+                                       "hotspots": cur["hotspots"]} if cur else None),
+                        "thickness": ({"min_mm": th.get("min_mm"), "median_mm": th.get("median_mm"),
+                                       "state": th.get("state")} if th else None),
+                        "self_intersection": ({"pairs": si.get("pairs"), "state": si.get("state"),
+                                               "analyzed": si.get("analyzed")} if si else None),
+                        "continuity": ({"state": cont.get("state"), "g1_deg": cont.get("g1_deg"),
+                                        "g2_ratio": cont.get("g2_ratio"),
+                                        "max_dihedral_deg": cont.get("max_dihedral_deg")} if cont else None)},
+            "checks": checks, "defects": defects, "skipped": skipped, "next": nexts[:8],
+            "targets": {"min_thickness_mm": _r(thin_min, 4), "max_curvature_1_per_mm": curv_max,
+                        "g1_tol_deg": _r(gi_tol, 4), "g2_tol_ratio": _r(g2_tol, 4),
+                        "max_tris": int(max_tris), "draft": bool(draft)},
+            "note": "fail 不静默成 pass；degraded=没查完（degraded ≠ 通过）；开放曲面无厚度是 n/a",
+            "honest_limits": [
+                "曲率是离散近似（顶点法线夹角/边长），对三角化密度敏感；只用于找急弯热点，不是解析曲率",
+                "厚度是向内射线近似（顶点子集 ≤1500）；非凸/空腔件可能读到局部直径而不是壁厚",
+                "自交是 BVH tri-tri（排除共顶点相邻对）；三角数超 max_tris ⇒ degraded 不当作无自交",
+                "对象模式没有声明的 G1/G2 目标：连续性只报二面角参考值，spec 模式才按 continuity 判 fail",
+            ],
+        }
+        return _j(_receipt(body, t0))
+    finally:
+        _state.update((k, v) for k, v in locals().items() if k != "_state")
+
 def surface_validate(spec_or_object=None, continuity=True, curvature=True, self_intersection=True,
                      thickness=True, draft=False, min_thickness_mm=None, max_curvature=None,
                      max_tris=120000, g1_tol_deg=None, g2_tol_ratio=None):
@@ -316,161 +496,11 @@ def surface_validate(spec_or_object=None, continuity=True, curvature=True, self_
       * 开放曲面的「无厚度」是 n/a（曲面片本来没有体积），不算 fail 也不算 degraded；
       * 对象没有声明的 continuity 目标 → 连续性只给网格二面角数字（informational），不按 spec 判 fail。
     """
-    t0 = time.perf_counter()
-    try:
-        ctx = _resolve_source(spec_or_object)
-    except _SpecError as e:
-        return _err("SurfaceSpec 校验失败（坏参数）", errors=e.errors[:12], stage="M0")
-    except Exception as e:
-        return _err("无法解析 spec_or_object: %s: %s" % (type(e).__name__, str(e)[:240]), stage="M0")
-    spec = ctx.get("spec")
-    cons = dict((spec or {}).get("constraints") or {})
-    gi_tol = _num(g1_tol_deg) or _num(cons.get("g1_tol_deg")) or 12.0
-    g2_tol = _num(g2_tol_ratio) or _num(cons.get("g2_tol_ratio")) or 0.6
-    thin_min = _num(min_thickness_mm) or _num(cons.get("min_thickness_mm")) or 0.8
-    curv_max = _num(max_curvature) if max_curvature is not None else _num(cons.get("max_curvature_1_per_mm"))
-    V = ctx["verts_mm"]
-    T = ctx["tris"]
-    vn = _vertex_normals(V, T)
-    topo = _mesh_topo(V, T)
-    checks, defects, skipped, nexts = {}, [], [], []
-
-    # ---- 网格质量 ----
-    q_state = "pass"
-    if topo["degenerate_faces"]:
-        q_state = "fail"
-        defects.append({"check": "mesh_quality", "severity": "fail",
-                        "msg": "退化面 %d 个（面积≈0）——先修截面/重采样" % topo["degenerate_faces"]})
-    if topo["flipped_normals"]:
-        q_state = "fail"
-        defects.append({"check": "mesh_quality", "severity": "fail",
-                        "msg": "法线翻转 %d 条边（相邻面法线夹角 >90°）" % topo["flipped_normals"]})
-    if topo["nonmanifold_edges"]:
-        q_state = "fail"
-        defects.append({"check": "mesh_quality", "severity": "fail",
-                        "msg": "非流形边 %d 条（>2 面共边）" % topo["nonmanifold_edges"]})
-    checks["mesh_quality"] = dict({"state": q_state}, **topo)
-    if not topo["watertight"]:
-        nexts.append("开放边界 %d 条（曲面片正常；要厚度/水密请封口或用闭合实体）" % topo["boundary_edges"])
-
-    # ---- 曲率 ----
-    cur = None
-    if curvature:
-        cur = _curvature_metrics(V, T, vn)
-        st = "pass"
-        if curv_max is not None and cur["max_1_per_mm"] is not None and cur["max_1_per_mm"] > float(curv_max):
-            st = "fail"
-            defects.append({"check": "curvature", "severity": "fail",
-                            "msg": "最大曲率 %.6g /mm > 约束 %.6g /mm（急弯/噪声）"
-                                   % (cur["max_1_per_mm"], float(curv_max))})
-        elif cur["hotspots"]:
-            nexts.append("曲率热点 %d 个（>%.3g /mm）——检查截面半径突变或网格噪声"
-                         % (cur["hotspots"], cur["hotspot_threshold_1_per_mm"] or 0.0))
-        checks["curvature"] = dict({"state": st}, **cur)
-    else:
-        skipped.append({"check": "curvature", "why": "continuity/curvature=False（调用方显式跳过）"})
-
-    # ---- 自交 ----
-    si = None
-    if self_intersection:
-        lim = int(min(int(max_tris), 20000)) if draft else int(max_tris)
-        si = _self_intersection(V, T, lim)
-        checks["self_intersection"] = si
-        if si.get("state") == "fail":
-            defects.append({"check": "self_intersection", "severity": "fail",
-                            "msg": "自交 %d 对三角面（超限前 5000 对截断）" % int(si.get("pairs") or 0),
-                            "sample": si.get("sample")})
-        elif si.get("state") == "degraded":
-            skipped.append({"check": "self_intersection", "why": si.get("reason")})
-    else:
-        skipped.append({"check": "self_intersection", "why": "self_intersection=False"})
-
-    # ---- 厚度 ----
-    th = None
-    if thickness:
-        if draft:
-            th = {"state": "n/a", "reason": "draft=True 跳过厚度（高成本）",
-                  "min_mm": None, "median_mm": None, "sampled": 0}
-            skipped.append({"check": "thickness", "why": th["reason"]})
-        else:
-            th = _thickness(V, T, vn, bool(topo["watertight"]))
-            if th.get("state") == "pass" and th.get("min_mm") is not None:
-                if th["min_mm"] < float(thin_min):
-                    th["state"] = "fail"
-                    defects.append({"check": "thickness", "severity": "fail",
-                                    "msg": "近似最小厚度 %.4g mm < 目标 %.4g mm" % (th["min_mm"], float(thin_min))})
-            elif th.get("state") == "n/a":
-                skipped.append({"check": "thickness", "why": th.get("reason")})
-            elif th.get("state") == "degraded":
-                skipped.append({"check": "thickness", "why": th.get("reason")})
-            checks["thickness"] = th
-    else:
-        skipped.append({"check": "thickness", "why": "thickness=False"})
-
-    # ---- 连续性 ----
-    cont = None
-    if continuity:
-        if spec is not None:
-            cont = _continuity_spec(ctx, gi_tol, g2_tol)
-            if cont.get("state") == "fail":
-                defects.append({"check": "continuity", "severity": "fail",
-                                "msg": cont.get("reason") or "边界连续性不达标",
-                                "g1_deg": cont.get("g1_deg"), "g2_ratio": cont.get("g2_ratio")})
-            elif cont.get("state") == "n/a":
-                skipped.append({"check": "continuity", "why": cont.get("note")})
-        else:
-            cont = _continuity_mesh(V, T, gi_tol)
-            if cont.get("max_dihedral_deg") is not None and cont["max_dihedral_deg"] > 90.0:
-                nexts.append("对象有 %0.1f° 二面角（信息性；对象没有声明 continuity 目标，未判 fail）"
-                             % cont["max_dihedral_deg"])
-        checks["continuity"] = cont
-    else:
-        skipped.append({"check": "continuity", "why": "continuity=False"})
-
-    if any(d.get("severity") == "fail" for d in defects):
-        verdict = "fail"
-    elif any((c or {}).get("state") == "degraded" for c in checks.values()):
-        verdict = "degraded"
-    else:
-        verdict = "pass"
-    if verdict == "fail":
-        nexts.insert(0, "先按 defects 逐条修（改截面/参数或换更大 tessellation），再复跑 validate；不许把 fail 当 pass")
-    elif verdict == "degraded":
-        nexts.insert(0, "有检查没跑成（%s）——调大 max_tris 或给闭合壳后复跑；degraded ≠ 通过"
-                     % (skipped[-1].get("check") if skipped else "超限"))
-    bbox = _bbox_mm(V)
-    body = {
-        "ok": True, "version": SURFACE_VERSION, "verdict": verdict,
-        "source": ctx.get("source"), "spec_hash": (spec or {}).get("spec_hash"),
-        "metrics": {"verts": int(len(V)), "tris": int(len(T)), "bbox_mm": bbox,
-                    "watertight": bool(topo["watertight"]),
-                    "boundary_edges": int(topo["boundary_edges"]),
-                    "nonmanifold_edges": int(topo["nonmanifold_edges"]),
-                    "degenerate_faces": int(topo["degenerate_faces"]),
-                    "flipped_normals": int(topo["flipped_normals"]),
-                    "aspect_max": topo["aspect_max"],
-                    "curvature": ({"max_1_per_mm": cur["max_1_per_mm"], "mean_1_per_mm": cur["mean_1_per_mm"],
-                                   "hotspots": cur["hotspots"]} if cur else None),
-                    "thickness": ({"min_mm": th.get("min_mm"), "median_mm": th.get("median_mm"),
-                                   "state": th.get("state")} if th else None),
-                    "self_intersection": ({"pairs": si.get("pairs"), "state": si.get("state"),
-                                           "analyzed": si.get("analyzed")} if si else None),
-                    "continuity": ({"state": cont.get("state"), "g1_deg": cont.get("g1_deg"),
-                                    "g2_ratio": cont.get("g2_ratio"),
-                                    "max_dihedral_deg": cont.get("max_dihedral_deg")} if cont else None)},
-        "checks": checks, "defects": defects, "skipped": skipped, "next": nexts[:8],
-        "targets": {"min_thickness_mm": _r(thin_min, 4), "max_curvature_1_per_mm": curv_max,
-                    "g1_tol_deg": _r(gi_tol, 4), "g2_tol_ratio": _r(g2_tol, 4),
-                    "max_tris": int(max_tris), "draft": bool(draft)},
-        "note": "fail 不静默成 pass；degraded=没查完（degraded ≠ 通过）；开放曲面无厚度是 n/a",
-        "honest_limits": [
-            "曲率是离散近似（顶点法线夹角/边长），对三角化密度敏感；只用于找急弯热点，不是解析曲率",
-            "厚度是向内射线近似（顶点子集 ≤1500）；非凸/空腔件可能读到局部直径而不是壁厚",
-            "自交是 BVH tri-tri（排除共顶点相邻对）；三角数超 max_tris ⇒ degraded 不当作无自交",
-            "对象模式没有声明的 G1/G2 目标：连续性只报二面角参考值，spec 模式才按 continuity 判 fail",
-        ],
-    }
-    return _j(_receipt(body, t0))
+    _state = dict(locals())
+    for _fn_ in (_surface_validate_p1, _surface_validate_p2):
+        _r = _fn_(_state)
+        if _r is not None:
+            return _r
 # ────────────────────────────── M4：selftest / help / 注册 ──────────────────────────────
 def _cleanup_objects(names):
     removed = []

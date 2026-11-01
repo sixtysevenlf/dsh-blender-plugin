@@ -395,174 +395,204 @@ def _allow_match(allow_list, obj_part, na, nb):
         if (_hit(na, ea) and _hit(nb, eb)) or (_hit(na, eb) and _hit(nb, ea)):
             return ent
     return None
-def asm_manifest(action="show", path=None, assembly=None, units="mm", coord=None, part=None,
-                 interfaces=None, interface=None, allow=None, allow_pair=None,
-                 manifest=None, force=False, compute_md5=True, check_files=True, check_md5=True,
-                 note=None):
-    """零件清单：init | add_part | add_interface | add_allow | validate | seal | show。"""
-    t0 = time.perf_counter()
-    act = str(action or "show").strip().lower()
-    if act == "init":
-        m = _manifest_init(assembly, units, coord)
-        if isinstance(manifest, dict):
-            for k in ("schema", "assembly", "units", "coord", "parts", "interfaces", "allow_pairs"):
-                if k in manifest:
-                    m[k] = manifest[k]
-        if note:
-            m["note"] = str(note)
+def _asm_manifest_p1(st):
+    action, assembly, check_files, check_md5, coord = (
+        st["action"], st["assembly"], st["check_files"], st["check_md5"], st["coord"])
+    force, manifest, note, path, units = st["force"], st["manifest"], st["note"], st["path"], st["units"]
+    d, k, p, val = (st.get("d"), st.get("k"), st.get("p"), st.get("val"))
+    try:
+        t0 = time.perf_counter()
+        act = str(action or "show").strip().lower()
+        if act == "init":
+            m = _manifest_init(assembly, units, coord)
+            if isinstance(manifest, dict):
+                for k in ("schema", "assembly", "units", "coord", "parts", "interfaces", "allow_pairs"):
+                    if k in manifest:
+                        m[k] = manifest[k]
+            if note:
+                m["note"] = str(note)
+            if not path:
+                return _j(_receipt({"ok": True, "action": "init", "manifest": m,
+                                    "manifest_md5": _manifest_md5(m), "path": None,
+                                    "note": "没给 path ⇒ 只返回骨架，没有落盘"}, t0))
+            if os.path.isfile(_path(path)) and not force:
+                return _err("manifest 已存在，拒绝覆盖（force=true 才覆盖）: %s" % _path(path))
+            val = _manifest_validate(m, check_files=False, check_md5=False)
+            if not val["ok"]:
+                return _err("init 清单自校验失败", errors=val["errors"], warnings=val["warnings"])
+            try:
+                p = _write_json(path, m)
+            except Exception as e:
+                return _err("manifest 写盘失败: %s: %s" % (type(e).__name__, str(e)[:160]))
+            return _j(_receipt({"ok": True, "action": "init", "path": p, "manifest_md5": _manifest_md5(m),
+                                "counts": _manifest_counts(m), "warnings": val["warnings"],
+                                "next": "add_part → add_interface → add_allow(可选) → validate → seal"}, t0))
+        src = manifest if manifest is not None else path
+        m, merr = _load_manifest(src)
+        if merr:
+            return _err(merr)
+        if act == "validate":
+            val = _manifest_validate(m, check_files=bool(check_files), check_md5=bool(check_md5))
+            d = {"ok": bool(val["ok"]), "action": "validate", "verdict": val["verdict"],
+                 "path": _path(path) if path else None, "manifest_md5": val["manifest_md5"],
+                 "errors": val["errors"], "warnings": val["warnings"],
+                 "counts": val["counts"], "sealed": val["sealed"], "units": val["units"]}
+            if not val["ok"]:
+                d["hint"] = "先修 errors；manifest 自身不合法时 merge/gate 会拒绝出结论"
+            return _j(_receipt(d, t0))
+        if act == "show":
+            val = _manifest_validate(m, check_files=False, check_md5=False)
+            return _j(_receipt({"ok": bool(val["ok"]), "action": "show", "path": _path(path) if path else None,
+                                "manifest": m, "manifest_md5": _manifest_md5(m),
+                                "counts": _manifest_counts(m), "sealed": bool(m.get("sealed")),
+                                "validation": {"verdict": val["verdict"],
+                                               "errors": val["errors"][:20], "warnings": val["warnings"][:20]}},
+                               t0))
+        if act not in ("add_part", "add_interface", "add_allow", "seal"):
+            return _err("未知 action: %s（支持 init|add_part|add_interface|add_allow|validate|seal|show）" % act)
         if not path:
-            return _j(_receipt({"ok": True, "action": "init", "manifest": m,
-                                "manifest_md5": _manifest_md5(m), "path": None,
-                                "note": "没给 path ⇒ 只返回骨架，没有落盘"}, t0))
-        if os.path.isfile(_path(path)) and not force:
-            return _err("manifest 已存在，拒绝覆盖（force=true 才覆盖）: %s" % _path(path))
-        val = _manifest_validate(m, check_files=False, check_md5=False)
-        if not val["ok"]:
-            return _err("init 清单自校验失败", errors=val["errors"], warnings=val["warnings"])
-        try:
-            p = _write_json(path, m)
-        except Exception as e:
-            return _err("manifest 写盘失败: %s: %s" % (type(e).__name__, str(e)[:160]))
-        return _j(_receipt({"ok": True, "action": "init", "path": p, "manifest_md5": _manifest_md5(m),
-                            "counts": _manifest_counts(m), "warnings": val["warnings"],
-                            "next": "add_part → add_interface → add_allow(可选) → validate → seal"}, t0))
-    src = manifest if manifest is not None else path
-    m, merr = _load_manifest(src)
-    if merr:
-        return _err(merr)
-    if act == "validate":
-        val = _manifest_validate(m, check_files=bool(check_files), check_md5=bool(check_md5))
-        d = {"ok": bool(val["ok"]), "action": "validate", "verdict": val["verdict"],
-             "path": _path(path) if path else None, "manifest_md5": val["manifest_md5"],
-             "errors": val["errors"], "warnings": val["warnings"],
-             "counts": val["counts"], "sealed": val["sealed"], "units": val["units"]}
-        if not val["ok"]:
-            d["hint"] = "先修 errors；manifest 自身不合法时 merge/gate 会拒绝出结论"
-        return _j(_receipt(d, t0))
-    if act == "show":
-        val = _manifest_validate(m, check_files=False, check_md5=False)
-        return _j(_receipt({"ok": bool(val["ok"]), "action": "show", "path": _path(path) if path else None,
-                            "manifest": m, "manifest_md5": _manifest_md5(m),
-                            "counts": _manifest_counts(m), "sealed": bool(m.get("sealed")),
-                            "validation": {"verdict": val["verdict"],
-                                           "errors": val["errors"][:20], "warnings": val["warnings"][:20]}},
-                           t0))
-    if act not in ("add_part", "add_interface", "add_allow", "seal"):
-        return _err("未知 action: %s（支持 init|add_part|add_interface|add_allow|validate|seal|show）" % act)
-    if not path:
-        return _err("action=%s 必须给 path（要写回清单文件）" % act)
-    if act == "seal":
-        val = _manifest_validate(m, check_files=bool(check_files), check_md5=bool(check_md5))
-        if not val["ok"]:
-            return _err("seal 拒绝：清单还有 %d 个 error，先修" % len(val["errors"]),
-                        errors=val["errors"][:20], warnings=val["warnings"][:20])
-        if m.get("sealed") and not force:
-            return _err("清单已经 sealed（force=true 才重封）", sealed_md5=m.get("sealed_md5"))
-        try:
-            m["version"] = int(m.get("version") or 0) + 1
-        except Exception:
-            m["version"] = 2
-        m["sealed"] = True
-        m["sealed_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
-        m["sealed_md5"] = _manifest_md5(m)
-        if note:
-            m["note"] = str(note)
-        try:
-            p = _write_json(path, m)
-        except Exception as e:
-            return _err("seal 写盘失败: %s: %s" % (type(e).__name__, str(e)[:160]))
-        return _j(_receipt({"ok": True, "action": "seal", "path": p, "sealed": True,
-                            "version": m["version"], "sealed_md5": m["sealed_md5"],
-                            "manifest_md5": _manifest_md5(m), "counts": _manifest_counts(m)}, t0))
-    if act == "add_part":
-        p = dict(part) if isinstance(part, dict) else None
-        if p is None:
-            return _err("add_part 需要 part={id,file,objects,transform,interface_frames}")
-        pid = str(p.get("id") or "")
-        if not pid:
-            return _err("part.id 必填")
-        if any(isinstance(x, dict) and str(x.get("id")) == pid for x in (m.get("parts") or [])):
-            return _err("part id 重复: %s" % pid)
-        fp = p.get("file")
-        if not fp:
-            return _err("part.file 必填（merge 要知道从哪 append）")
-        f = _path(fp)
-        if not os.path.isfile(f):
-            return _err("part.file 不存在: %s" % f)
-        if compute_md5 or not p.get("file_md5"):
-            got = _sha256_file(f)
-            if got is None:
-                return _err("part.file 读不了，算不出 md5: %s" % f)
-            p["file_md5"] = got
-        p.setdefault("transform", {"loc_mm": [0, 0, 0], "rot_euler_deg": [0, 0, 0], "scale": [1, 1, 1]})
-        m.setdefault("parts", []).append(p)
-        val = _manifest_validate(m, check_files=True, check_md5=False)
-        if not val["ok"]:
-            m["parts"].pop()
-            return _err("add_part 校验失败（未写入）", errors=val["errors"][:20], warnings=val["warnings"][:20])
-        try:
-            wp = _write_json(path, m)
-        except Exception as e:
-            return _err("manifest 写盘失败: %s: %s" % (type(e).__name__, str(e)[:160]))
-        return _j(_receipt({"ok": True, "action": "add_part", "part": pid, "path": wp,
-                            "file_md5": p.get("file_md5"), "manifest_md5": _manifest_md5(m),
-                            "counts": _manifest_counts(m), "warnings": val["warnings"][:20]}, t0))
-    if act == "add_interface":
+            return _err("action=%s 必须给 path（要写回清单文件）" % act)
+        if act == "seal":
+            val = _manifest_validate(m, check_files=bool(check_files), check_md5=bool(check_md5))
+            if not val["ok"]:
+                return _err("seal 拒绝：清单还有 %d 个 error，先修" % len(val["errors"]),
+                            errors=val["errors"][:20], warnings=val["warnings"][:20])
+            if m.get("sealed") and not force:
+                return _err("清单已经 sealed（force=true 才重封）", sealed_md5=m.get("sealed_md5"))
+            try:
+                m["version"] = int(m.get("version") or 0) + 1
+            except Exception:
+                m["version"] = 2
+            m["sealed"] = True
+            m["sealed_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+            m["sealed_md5"] = _manifest_md5(m)
+            if note:
+                m["note"] = str(note)
+            try:
+                p = _write_json(path, m)
+            except Exception as e:
+                return _err("seal 写盘失败: %s: %s" % (type(e).__name__, str(e)[:160]))
+            return _j(_receipt({"ok": True, "action": "seal", "path": p, "sealed": True,
+                                "version": m["version"], "sealed_md5": m["sealed_md5"],
+                                "manifest_md5": _manifest_md5(m), "counts": _manifest_counts(m)}, t0))
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+def _asm_manifest_p2(st):
+    act, allow, allow_pair, compute_md5, interface = (
+        st.get("act"), st["allow"], st["allow_pair"], st["compute_md5"], st["interface"])
+    interfaces, m, part, path, t0 = st["interfaces"], st.get("m"), st["part"], st["path"], st.get("t0")
+    f, fp, got, it, p, pid, src_item, wp = (st.get("f"), st.get("fp"), st.get("got"), st.get("it"), st.get("p"), st.get("pid"), st.get("src_item"), st.get("wp"))
+    try:
+        if act == "add_part":
+            p = dict(part) if isinstance(part, dict) else None
+            if p is None:
+                return _err("add_part 需要 part={id,file,objects,transform,interface_frames}")
+            pid = str(p.get("id") or "")
+            if not pid:
+                return _err("part.id 必填")
+            if any(isinstance(x, dict) and str(x.get("id")) == pid for x in (m.get("parts") or [])):
+                return _err("part id 重复: %s" % pid)
+            fp = p.get("file")
+            if not fp:
+                return _err("part.file 必填（merge 要知道从哪 append）")
+            f = _path(fp)
+            if not os.path.isfile(f):
+                return _err("part.file 不存在: %s" % f)
+            if compute_md5 or not p.get("file_md5"):
+                got = _sha256_file(f)
+                if got is None:
+                    return _err("part.file 读不了，算不出 md5: %s" % f)
+                p["file_md5"] = got
+            p.setdefault("transform", {"loc_mm": [0, 0, 0], "rot_euler_deg": [0, 0, 0], "scale": [1, 1, 1]})
+            m.setdefault("parts", []).append(p)
+            val = _manifest_validate(m, check_files=True, check_md5=False)
+            if not val["ok"]:
+                m["parts"].pop()
+                return _err("add_part 校验失败（未写入）", errors=val["errors"][:20], warnings=val["warnings"][:20])
+            try:
+                wp = _write_json(path, m)
+            except Exception as e:
+                return _err("manifest 写盘失败: %s: %s" % (type(e).__name__, str(e)[:160]))
+            return _j(_receipt({"ok": True, "action": "add_part", "part": pid, "path": wp,
+                                "file_md5": p.get("file_md5"), "manifest_md5": _manifest_md5(m),
+                                "counts": _manifest_counts(m), "warnings": val["warnings"][:20]}, t0))
+        if act == "add_interface":
+            items = []
+            if isinstance(interfaces, dict):
+                items.append(dict(interfaces))
+            elif isinstance(interfaces, (list, tuple)):
+                items.extend([dict(x) for x in interfaces if isinstance(x, dict)])
+            if isinstance(interface, dict):
+                items.append(dict(interface))
+            if not items:
+                return _err("add_interface 需要 interface={id,a,b,frame_a,frame_b,fit,nominal_mm,tol_mm,allow_overlap_mm}")
+            cur = m.setdefault("interfaces", [])
+            added = []
+            for it in items:
+                it.setdefault("id", "IF-%d" % (len(cur) + 1))
+                if any(isinstance(x, dict) and str(x.get("id")) == str(it.get("id")) for x in cur):
+                    return _err("interface id 重复: %s" % it.get("id"))
+                cur.append(it)
+                added.append(str(it.get("id")))
+            val = _manifest_validate(m, check_files=True, check_md5=False)
+            if not val["ok"]:
+                for _ in added:
+                    cur.pop()
+                return _err("add_interface 校验失败（未写入）", errors=val["errors"][:20], warnings=val["warnings"][:20])
+            try:
+                wp = _write_json(path, m)
+            except Exception as e:
+                return _err("manifest 写盘失败: %s: %s" % (type(e).__name__, str(e)[:160]))
+            return _j(_receipt({"ok": True, "action": "add_interface", "added": added, "path": wp,
+                                "manifest_md5": _manifest_md5(m), "counts": _manifest_counts(m),
+                                "warnings": val["warnings"][:20]}, t0))
+        # add_allow
         items = []
-        if isinstance(interfaces, dict):
-            items.append(dict(interfaces))
-        elif isinstance(interfaces, (list, tuple)):
-            items.extend([dict(x) for x in interfaces if isinstance(x, dict)])
-        if isinstance(interface, dict):
-            items.append(dict(interface))
+        for src_item in (allow, allow_pair):
+            if isinstance(src_item, dict):
+                items.append(dict(src_item))
+            elif isinstance(src_item, (list, tuple)):
+                items.extend([dict(x) for x in src_item if isinstance(x, dict)])
         if not items:
-            return _err("add_interface 需要 interface={id,a,b,frame_a,frame_b,fit,nominal_mm,tol_mm,allow_overlap_mm}")
-        cur = m.setdefault("interfaces", [])
+            return _err("add_allow 需要 allow={a,b,max_depth_mm,max_volume_mm3,reason}（或列表）")
+        cur = m.setdefault("allow_pairs", [])
         added = []
         for it in items:
-            it.setdefault("id", "IF-%d" % (len(cur) + 1))
+            it.setdefault("id", "ALLOW-%d" % (len(cur) + 1))
             if any(isinstance(x, dict) and str(x.get("id")) == str(it.get("id")) for x in cur):
-                return _err("interface id 重复: %s" % it.get("id"))
+                return _err("allow id 重复: %s" % it.get("id"))
             cur.append(it)
             added.append(str(it.get("id")))
         val = _manifest_validate(m, check_files=True, check_md5=False)
         if not val["ok"]:
             for _ in added:
                 cur.pop()
-            return _err("add_interface 校验失败（未写入）", errors=val["errors"][:20], warnings=val["warnings"][:20])
+            return _err("add_allow 校验失败（未写入）", errors=val["errors"][:20], warnings=val["warnings"][:20])
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+def _asm_manifest_p3(st):
+    added, m, path, t0, val = st.get("added"), st.get("m"), st["path"], st.get("t0"), st.get("val")
+    wp = (st.get("wp"))
+    try:
         try:
             wp = _write_json(path, m)
         except Exception as e:
             return _err("manifest 写盘失败: %s: %s" % (type(e).__name__, str(e)[:160]))
-        return _j(_receipt({"ok": True, "action": "add_interface", "added": added, "path": wp,
+        return _j(_receipt({"ok": True, "action": "add_allow", "added": added, "path": wp,
                             "manifest_md5": _manifest_md5(m), "counts": _manifest_counts(m),
                             "warnings": val["warnings"][:20]}, t0))
-    # add_allow
-    items = []
-    for src_item in (allow, allow_pair):
-        if isinstance(src_item, dict):
-            items.append(dict(src_item))
-        elif isinstance(src_item, (list, tuple)):
-            items.extend([dict(x) for x in src_item if isinstance(x, dict)])
-    if not items:
-        return _err("add_allow 需要 allow={a,b,max_depth_mm,max_volume_mm3,reason}（或列表）")
-    cur = m.setdefault("allow_pairs", [])
-    added = []
-    for it in items:
-        it.setdefault("id", "ALLOW-%d" % (len(cur) + 1))
-        if any(isinstance(x, dict) and str(x.get("id")) == str(it.get("id")) for x in cur):
-            return _err("allow id 重复: %s" % it.get("id"))
-        cur.append(it)
-        added.append(str(it.get("id")))
-    val = _manifest_validate(m, check_files=True, check_md5=False)
-    if not val["ok"]:
-        for _ in added:
-            cur.pop()
-        return _err("add_allow 校验失败（未写入）", errors=val["errors"][:20], warnings=val["warnings"][:20])
-    try:
-        wp = _write_json(path, m)
-    except Exception as e:
-        return _err("manifest 写盘失败: %s: %s" % (type(e).__name__, str(e)[:160]))
-    return _j(_receipt({"ok": True, "action": "add_allow", "added": added, "path": wp,
-                        "manifest_md5": _manifest_md5(m), "counts": _manifest_counts(m),
-                        "warnings": val["warnings"][:20]}, t0))
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+def asm_manifest(action="show", path=None, assembly=None, units="mm", coord=None, part=None,
+                 interfaces=None, interface=None, allow=None, allow_pair=None,
+                 manifest=None, force=False, compute_md5=True, check_files=True, check_md5=True,
+                 note=None):
+    """零件清单：init | add_part | add_interface | add_allow | validate | seal | show。"""
+    st = dict(locals())
+    for _fn_ in (_asm_manifest_p1, _asm_manifest_p2, _asm_manifest_p3):
+        _r = _fn_(st)
+        if _r is not None:
+            return _r
