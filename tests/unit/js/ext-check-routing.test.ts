@@ -66,13 +66,7 @@ describe('ext-check path routing', () => {
     expect(cands).toEqual([
       [path.join(extDir, 'venv', 'bin', 'python'), runner, 'D:\\a\\x.glb'],
       [path.join(extDir, 'venv', 'bin', 'python'), runner, '/mnt/d/a/x.glb'],
-      [
-        'wsl.exe',
-        '-e',
-        path.join(extDir, 'venv', 'bin', 'python'),
-        runner,
-        '/mnt/d/a/x.glb',
-      ],
+      ['wsl.exe', '-e', path.join(extDir, 'venv', 'bin', 'python'), runner, '/mnt/d/a/x.glb'],
       [path.join(extDir, 'venv', 'Scripts', 'python.exe'), runner, 'D:\\a\\x.glb'],
     ])
   })
@@ -122,9 +116,7 @@ describe('ext candidate runner', () => {
 
   it('returns raw=null when no candidate prints a marker', () => {
     H.spawnSync.mockReturnValue({ stdout: 'noise', stderr: 'err', status: 1, error: null })
-    const run = runExtCandidates({ spawnSync: H.spawnSync as any }, [
-      ['node', 'runner.js', 'a'],
-    ])
+    const run = runExtCandidates({ spawnSync: H.spawnSync as any }, [['node', 'runner.js', 'a']])
     expect(run).toEqual({
       raw: null,
       used: null,

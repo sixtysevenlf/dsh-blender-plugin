@@ -38,7 +38,13 @@ import type {
 } from './result.js'
 import type { BuiltHeadlessScript } from './script.js'
 import type { HeadlessLogStreams } from './process.js'
-import type { HeadlessDeps, HeadlessOpts, HeadlessRunRec, PreparedHeadless, SpawnResult } from './types.js'
+import type {
+  HeadlessDeps,
+  HeadlessOpts,
+  HeadlessRunRec,
+  PreparedHeadless,
+  SpawnResult,
+} from './types.js'
 
 export interface RunSetup {
   t0: number
@@ -171,7 +177,12 @@ export async function collectHeadlessOutcome(input: CollectInput): Promise<Headl
   // ---- v0.9.3（F1/F2）：shots 行 + 取景自诊断（主体占画面 <5% → warning）
   const shotsSummary = parsedOut.shotsRes ? summarizeShots(parsedOut.shotsRes) : null
   parsed = applyShotsResult(parsed, shotsSummary)
-  const outJsonInfo = writeResultJson(parsed, opts, { dumpResult: input.dumpResult, readScriptPath: input.readScriptPath }, p.runId)
+  const outJsonInfo = writeResultJson(
+    parsed,
+    opts,
+    { dumpResult: input.dumpResult, readScriptPath: input.readScriptPath },
+    p.runId,
+  )
   // ---- v0.8.10（A2/D4）：台账终态
   // v0.9.3（D2）：结构化回执的"真值"落在 runRec 上 —— op=collect/status 与同步回执同一份数据
   const resultTruncated = !!(parsed !== null && outJsonInfo.path && outJsonInfo.bytes > 4000)
