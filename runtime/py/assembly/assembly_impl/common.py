@@ -63,7 +63,7 @@ import time
 
 import bpy
 import numpy as np
-from mathutils import Euler, Matrix, Vector
+from mathutils import Euler as Euler, Matrix as Matrix, Vector
 from mathutils.bvhtree import BVHTree
 
 ASSEMBLY_VERSION = 1

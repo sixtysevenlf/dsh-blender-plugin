@@ -31,7 +31,7 @@ plan 结构（JSON）：
   ]
 }
 """
-import bpy, json, math, os, time
+import bpy, json, math, time
 
 PLAN_VERSION = 1
 

@@ -1,6 +1,6 @@
 """ Scene commands: world-state snapshot and scene export. """
 
-from .export import SceneExportMixin
+from .export import SceneExportMixin as SceneExportMixin
 from .world import WorldSnapshotCommands
 
 

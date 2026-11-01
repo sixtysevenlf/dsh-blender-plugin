@@ -15,15 +15,17 @@ API 挂 K.dsh_qc_api；内环 measure 预置挂 K.dsh_measure。
     # 内环里当目标函数（越小越好）：
     #   ns["score"] = K.dsh_measure["silhouette_iou"]({"from":[0,-6,1],"look_at":[0,0,0.5]}, ref_path, [9,38,444,545])
 """
-import bpy
-import json
-import math
+import bpy as bpy
+import json as json
+import math as math
 import os
 import struct
-import time
+import time as time
 import zlib
 
-import numpy as np
+import numpy as np  # noqa: F401  # re-exported for the qc facade / import boundary
+
+
 
 QC_VERSION = 5
 PNG_MAGIC = bytes([137, 80, 78, 71, 13, 10, 26, 10])

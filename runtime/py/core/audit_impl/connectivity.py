@@ -301,7 +301,6 @@ def _conn_analyze(objs, precision=5, visible_frac=VISIBLE_SPAN_FRACTION, micro_g
     （重名加 .001），而反馈要的是"对象名与文件内一致" → 所有对外名字都经它映射；会话模式下为 None，
     行为与老版本逐字节一致。
     """
-    import numpy as np
     m_per_unit, mm_per_unit = _units()
     cap = int(max_tris or _conn_max_tris())
     tris, owner, boxes = _world_tris(objs)

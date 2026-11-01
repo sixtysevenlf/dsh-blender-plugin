@@ -7,7 +7,6 @@ from .run import gate_run
 
 def _gate_selftest_p1(st):
     try:
-        import bmesh
         ev = {}
         made = []
     finally:

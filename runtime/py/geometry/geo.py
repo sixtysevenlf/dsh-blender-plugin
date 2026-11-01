@@ -34,10 +34,8 @@
 单位：几何坐标用**当前场景单位**；要按 mm 建模就把 scene.unit_settings.scale_length 设成 0.001
 （此时 K.dsh_kit.units() 回报 1.0 mm/unit）。本模块所有 `*_mm` 参数按毫米解释并自动换算。
 """
-import json
 import math
 import sys
-import types
 
 import bpy
 import bmesh

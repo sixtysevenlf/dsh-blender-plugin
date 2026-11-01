@@ -9,7 +9,6 @@ from .overlap import audit_interference, audit_overlap
 
 def audit_gate_selftest():
     """装配级判据的合成自检：可见浮块 / 微隙容忍 / 归因 / 漂移 四项一起验。"""
-    import numpy as np
     made = []
     try:
         def cube(name, loc, size):

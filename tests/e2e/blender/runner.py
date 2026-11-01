@@ -58,7 +58,6 @@ def main():
             "scene_prop": hasattr(bpy.types.Scene, "dshbb_port"),
         }
 
-    from dsh_blender_bridge.protocol import COMMAND_NAMES, ADDON_PROTOCOL_VERSION
     from dsh_blender_bridge.server import DSHBlenderBridgeServer
 
     server = DSHBlenderBridgeServer(port=0)

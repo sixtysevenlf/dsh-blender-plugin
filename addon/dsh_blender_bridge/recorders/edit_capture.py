@@ -1,7 +1,7 @@
 """ Undo/redo/depsgraph edit capture and telemetry handlers. """
 
 import bpy
-from contextlib import contextmanager, redirect_stdout, suppress
+from contextlib import suppress
 from bpy.app.handlers import persistent
 
 from ..compat import ADDON_MODULE

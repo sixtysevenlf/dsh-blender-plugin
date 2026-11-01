@@ -2,7 +2,7 @@
 
 import bpy
 import time
-from contextlib import contextmanager, redirect_stdout, suppress
+from contextlib import suppress
 from bpy.app.handlers import persistent
 
 from ..selection.caps import SELECTION_PAYLOAD_NAMES

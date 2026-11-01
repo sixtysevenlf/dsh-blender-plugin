@@ -30,11 +30,12 @@
 import hashlib
 import json
 import math
-import os
+import os as os
 import sys
 import time
 
-import bpy
+import bpy as bpy
+
 import numpy as np
 
 SURFACE_VERSION = 1

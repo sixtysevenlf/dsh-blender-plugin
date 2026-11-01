@@ -19,11 +19,11 @@ ops（都走 blender_rt_plan）：
 坐标约定：**左上原点**（图像习惯），返回的 bbox 是 [x, y, w, h]。像素↔毫米要调用方自己标定（img_scan 会给像素数）。
 局限：照片类参考图没有 alpha 时靠 Otsu 亮度分割，前景/背景对比低会不准 —— 那种情况先抠图（rembg）再喂。
 """
-import hashlib
-import json
+import hashlib as hashlib
+import json as json
 import math
 import os
-import time
+import time as time
 
 import bpy
 import numpy as np

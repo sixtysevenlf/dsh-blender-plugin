@@ -32,8 +32,8 @@ API 挂 K.dsh_deliver_api（DELIVER_VERSION = 1），入口：
 import bpy
 import hashlib
 import json
-import os
-import struct
+import os as os
+import struct as struct
 import time
 
 DELIVER_VERSION = 1

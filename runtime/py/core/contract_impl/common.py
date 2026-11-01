@@ -39,7 +39,7 @@ S3 能力（v0.9.0 · 装配级判据，全部在**真实网格**上量，不再
 约定：状态放 K.dsh_contract（跨调用保留）；任何"只读"检查都不会改场景。
      铁律：空产出必须 ok:false；数值必带单位（mm 口径按场景 scale_length 换算）；结论三态。
 """
-import bpy, json, time, math, os
+import bpy, json as json, time, math as math, os
 
 CONTRACT_VERSION = 3
 DESTRUCTIVE_OPS = ("boolean_union", "weld", "merge", "join", "apply_transform")

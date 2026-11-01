@@ -3,7 +3,7 @@
 import json
 import time
 from datetime import datetime
-import hashlib, hmac, base64
+import hashlib, hmac
 
 HUNYUAN_API_PROFILES = {
     "mainland": {

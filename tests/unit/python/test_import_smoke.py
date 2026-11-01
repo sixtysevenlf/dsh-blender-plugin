@@ -17,10 +17,8 @@ per-module unit tests. What remains valuable on every PR is cheaper and stricter
 Real behaviour is exercised by tests/unit/python/test_*.py (logic) and
 tests/e2e/blender (inside Blender). This file never claims Blender coverage.
 """
-import ast
 import importlib
 import importlib.util
-import os
 import sys
 import types
 from pathlib import Path

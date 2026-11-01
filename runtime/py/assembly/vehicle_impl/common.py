@@ -16,11 +16,12 @@ ops：
     vehicle_base(spec)     —— 放样车壳（含解析轮眉）+ 四个轮 + 车轴/地面标记
     vehicle_selftest / vehicle_help
 """
-import json
+import json as json
 import math
 
-import bpy
-import bmesh
+import bmesh as bmesh
+import bpy as bpy
+
 
 VEHICLE_VERSION = 1
 

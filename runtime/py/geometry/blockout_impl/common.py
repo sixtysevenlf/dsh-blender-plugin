@@ -49,19 +49,18 @@ render 产物：<outdir>/<tag>_<view>.png × N + 可选 <tag>_sheet.png（横向
   · batch 默认逐件清理（cleanup=true），要保留全部件请传 cleanup=false 并保证 name 唯一。
 """
 import hashlib
-import json
+import json as json
 import math
 import os
 import re
-import struct
+import struct as struct
 import sys
 import tempfile
-import time
+import time as time
 
 import bpy
 import bmesh
-import numpy as np
-from mathutils import Euler, Matrix, Vector
+from mathutils import Euler as Euler, Matrix, Vector as Vector
 
 BLOCKOUT_VERSION = 1
 

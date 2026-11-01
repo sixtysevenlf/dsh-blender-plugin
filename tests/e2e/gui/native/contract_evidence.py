@@ -8,7 +8,6 @@ the G-layer half and runs in a real (non-background) Blender window.
 
 from __future__ import annotations
 
-import json
 
 
 def _box(name, size, loc):

@@ -106,7 +106,6 @@ def _noop_cleanup():
 def __load_file_objects_p1(st):
     path = st["path"]
     try:
-        import os
         src = str(path or "")
         before = _id_snapshot()
         before_counts = _id_counts()

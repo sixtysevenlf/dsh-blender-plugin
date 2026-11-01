@@ -28,18 +28,12 @@
 硬规则：空产出必须 ok=false；判定三态（supported / refuted / unresolved，证据不足就 unresolved）；
         数值带单位；扫掠结束**必须**把场景 transform 完整还原（逐对象对拍并报 mismatch）。
 """
-import json
 import math
 import os
-import shutil
 import time
-import traceback
-import xml.etree.ElementTree as ET
 
 import bpy
 import numpy as np
-from mathutils import Matrix, Vector
-from mathutils.bvhtree import BVHTree
 
 MOTION_VERSION = 1
 

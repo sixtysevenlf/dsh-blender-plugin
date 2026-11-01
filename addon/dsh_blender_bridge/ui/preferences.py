@@ -1,7 +1,7 @@
 """ Add-on preferences. """
 
 import bpy
-from bpy.props import IntProperty, BoolProperty
+from bpy.props import BoolProperty
 
 from ..compat import ADDON_MODULE
 from ..recorders.edit_capture import sync_edit_capture_handlers

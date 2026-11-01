@@ -5,8 +5,8 @@ import mathutils
 import traceback
 import uuid
 import zlib
-import hashlib, hmac, base64
-from contextlib import contextmanager, redirect_stdout, suppress
+import hashlib
+from contextlib import suppress
 
 from ...protocol import MAX_SNAPSHOT_OBJECTS, MAX_SNAPSHOT_SELECTED
 

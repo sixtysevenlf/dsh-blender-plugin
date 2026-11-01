@@ -6,7 +6,8 @@ the HTTP client and the command layer can share this without a cycle.
 
 import re
 
-from ..config import POLYHAVEN_SITE
+from ..config import POLYHAVEN_SITE as POLYHAVEN_SITE
+
 
 POLYHAVEN_SUPPORTED_FORMATS = {
     "hdris": ("hdr", "exr"),

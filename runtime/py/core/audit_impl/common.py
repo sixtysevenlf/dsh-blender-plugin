@@ -25,10 +25,11 @@ dict 子类可调用，返回已解析的 dict；api["dispatch"](op, json_str) �
 **硬规则**：对象集合里 0 个 mesh ⇒ ok=false（外部反馈的"静默空产出"事故就在这一条上）；
 file= 打不开/没 mesh/全隐藏 ⇒ ok=false；超上限 ⇒ analyzed=false（"没跑"不许读成"没问题"）。
 """
-import json
 
+import json as json
+
+import bmesh as bmesh
 import bpy
-import bmesh
 from mathutils import Vector
 
 AUDIT_VERSION = 3
