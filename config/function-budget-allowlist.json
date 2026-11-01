@@ -3,63 +3,6 @@
   "reason": "Baseline debt captured by F1.0; burn down in F1/F2/F3.",
   "owner": "lead",
   "expires": "2026-12-31",
-  "functions": [
-    {
-      "file": "runtime/py/assembly/assembly_impl/manifest.py",
-      "name": "asm_manifest",
-      "lines": 171,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/core/audit_impl/conn_helpers.py",
-      "name": "_load_file_objects",
-      "lines": 179,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/core/contract_impl/mate.py",
-      "name": "c_mate_check",
-      "lines": 185,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/core/motion_impl/measure.py",
-      "name": "_measure_one",
-      "lines": 168,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/core/motion_impl/usda.py",
-      "name": "motion_export_usda",
-      "lines": 173,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/geometry/surface_impl/validate.py",
-      "name": "surface_validate",
-      "lines": 166,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/render/imgtools_impl/api.py",
-      "name": "img_calib",
-      "lines": 177,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    }
-  ],
+  "functions": [],
   "files": []
 }

@@ -84,174 +84,219 @@ def _min_gap_pair(tree_a, pts_a, tree_b, pts_b, max_samples=MAX_DIST_SAMPLES,
             "witness": (_rl(witness, 6) if witness else None)}
 
 
+def __measure_one_p1(_state):
+    chain_depth, exclude, jrec, margin_frac, max_candidates = (
+        _state["chain_depth"], _state["exclude"], _state["jrec"], _state["margin_frac"], _state["max_candidates"])
+    max_samples, phases, sweep_deg = _state["max_samples"], _state["phases"], _state["sweep_deg"]
+    f, ob, v, why = (_state.get("f"), _state.get("ob"), _state.get("v"), _state.get("why"))
+    try:
+        st = _store()
+        jid = jrec["id"]
+        if not jrec.get("axis"):
+            why = ("关节类型 %s 不需要轴（axis_source=%s）→ 扫掠对它没有意义"
+                   % (jrec.get("kind"), jrec.get("axis_source"))
+                   if jrec.get("axis_source") == "not_required" else
+                   "关节没有轴（axis_verdict=%s）→ 先 motion_infer_axis 或登记时给 axis"
+                   % jrec.get("axis_verdict"))
+            return {"ok": False, "op": "measure", "jid": jid, "verdict": "unresolved",
+                    "reason": why, "axis_verdict": jrec.get("axis_verdict"),
+                    "moved": None, "phases": [], "axis": None, "anchor": None}
+        co, miss_c, nonmesh_c = _objs(jrec["child"])
+        if not co:
+            return {"ok": False, "op": "measure", "jid": jid, "verdict": "unresolved",
+                    "reason": "child 组没有可用 mesh 对象", "missing": miss_c, "non_mesh": nonmesh_c,
+                    "moved": None, "phases": [], "axis": jrec["axis"], "anchor": jrec.get("anchor")}
+
+        axis = np.asarray(jrec["axis"], dtype=np.float64)
+        anchor = np.asarray(jrec.get("anchor") or [0.0, 0.0, 0.0], dtype=np.float64)
+        dg = bpy.context.evaluated_depsgraph_get()
+
+        all_joints = dict(st["joints"])
+        chain = _chain_names(jrec, all_joints, chain_depth=chain_depth)
+        excl = set(_names(exclude)) | chain
+        cands = []
+        skipped_hidden = []
+        for ob in bpy.data.objects:
+            if ob.type != "MESH" or ob.name in excl:
+                continue
+            if ob.hide_viewport or ob.hide_render:
+                skipped_hidden.append(ob.name)
+                continue
+            cands.append(ob)
+        cands = sorted(cands, key=lambda o: o.name)[:max(1, int(max_candidates or 64))]
+
+        V0, F0, parts0 = _group_tris(co, dg)
+        if len(V0) == 0:
+            return {"ok": False, "op": "measure", "jid": jid, "verdict": "unresolved",
+                    "reason": "child 组求值后没有三角面（无可测几何）", "moved": None, "phases": [],
+                    "axis": _rl(axis, 9), "anchor": _rl(anchor, 9)}
+
+        vals, unit, span, err = _phase_values(jrec, phases, sweep_deg, margin_frac, V0)
+        if err:
+            return {"ok": False, "op": "measure", "jid": jid, "verdict": "unresolved", "reason": err,
+                    "moved": None, "phases": [], "axis": _rl(axis, 9), "anchor": _rl(anchor, 9)}
+
+        # 候选 BVH / 采样点（静止不动的对象，只建一次）
+        ctrees, cpts, cnames, cverts = {}, {}, [], {}
+        for ob in cands:
+            v, f = _mesh_tris_world(ob, dg)
+            if len(v) == 0 or len(f) == 0:
+                continue
+            try:
+                ctrees[ob.name] = BVHTree.FromPolygons([tuple(map(float, p)) for p in v],
+                                                       [tuple(int(i) for i in t) for t in f],
+                                                       all_triangles=True, epsilon=0.0)
+            except Exception:
+                continue
+            cpts[ob.name] = _sample_points(v, f, max_samples)
+            cverts[ob.name] = (v, f)
+            cnames.append(ob.name)
+
+        # 场景快照（全部对象：连无关对象都要证明没被动过）
+        all_objs = [o for o in bpy.data.objects]
+        snap = _snap_transforms(all_objs)
+        rest_mat = {ob.name: _mat_of(snap[ob.name]) for ob in co if ob.name in snap}
+        touched = set(rest_mat)
+        t0 = time.perf_counter()
+        phase_recs, moved_max, rest = [], 0.0, None
+        sweep_err = None
+        mism, pre_delta, post_delta, wrote = [], 0.0, 0.0, []
+        touched = set(rest_mat)
+    finally:
+        _state.update((k, v) for k, v in locals().items() if k != "_state")
+
+def __measure_one_p2(_state):
+    F0, V0, all_objs, anchor, axis = (
+        _state.get("F0"), _state.get("V0"), _state.get("all_objs"), _state.get("anchor"), _state.get("axis"))
+    cands, cnames, co, cpts, ctrees = (
+        _state.get("cands"), _state.get("cnames"), _state.get("co"), _state.get("cpts"), _state.get("ctrees"))
+    cverts, dg, jrec, max_samples, moved_max = (
+        _state.get("cverts"), _state.get("dg"), _state["jrec"], _state["max_samples"], _state.get("moved_max"))
+    mpu, phase_recs, rest_mat, snap, touched = (
+        _state["mpu"], _state.get("phase_recs"), _state.get("rest_mat"), _state.get("snap"), _state.get("touched"))
+    unit, vals = _state.get("unit"), _state.get("vals")
+    Fp, M, R, T, Vp, c, i, names, ob, r, rec, rm, sweep_err, th, tp, val = (_state.get("Fp"), _state.get("M"), _state.get("R"), _state.get("T"), _state.get("Vp"), _state.get("c"), _state.get("i"), _state.get("names"), _state.get("ob"), _state.get("r"), _state.get("rec"), _state.get("rm"), _state.get("sweep_err"), _state.get("th"), _state.get("tp"), _state.get("val"))
+    try:
+        try:
+            # 静止位（相位 0）：只做一次基线测量
+            rest = _sweep_at(co, ctrees, cpts, cnames, V0, F0, dg, max_samples, mpu, cverts)
+            for i, val in enumerate(vals):
+                tp = time.perf_counter()
+                if jrec["kind"] in ("revolute", "continuous"):
+                    th = math.radians(float(val))
+                    R = Matrix.Rotation(th, 4, Vector((float(axis[0]), float(axis[1]), float(axis[2]))))
+                    T = Matrix.Translation(Vector((float(anchor[0]), float(anchor[1]), float(anchor[2]))))
+                    M = T @ R @ T.inverted()
+                else:
+                    M = Matrix.Translation(Vector((float(axis[0]), float(axis[1]), float(axis[2]))) * float(val))
+                # 每个相位都从"静止位"算起（不是从上一相位）→ 不累积误差
+                for ob in co:
+                    rm = rest_mat.get(ob.name)
+                    if rm is not None:
+                        ob.matrix_world = M @ rm
+                bpy.context.view_layer.update()
+                Vp, Fp, _ = _group_tris(co, dg)
+                if len(Vp):
+                    moved_max = max(moved_max, float(np.abs(Vp - V0).max()))
+                rec = _sweep_at(co, ctrees, cpts, cnames, Vp, Fp, dg, max_samples, mpu, cverts)
+                rec["phase"] = i
+                rec["value"] = _r(val, 6)
+                rec["unit"] = unit
+                rec["ms"] = int((time.perf_counter() - tp) * 1000)
+                phase_recs.append(rec)
+        except Exception as e:
+            sweep_err = "%s: %s" % (type(e).__name__, str(e)[:200])
+        finally:
+            mism, pre_delta, post_delta, wrote = _restore_transforms(all_objs, snap, touched=touched)
+
+        colls = []
+        for r in phase_recs:
+            for c in r.get("collisions") or []:
+                colls.append({"phase": r["phase"], "value": r["value"], "unit": unit,
+                              "other": c["other"], "penetration_m": c["penetration_m"],
+                              "penetration_units": c.get("penetration_units"),
+                              "min_gap_m": c.get("min_gap_m"), "min_gap_units": c.get("min_gap_units"),
+                              "collides": True, "overlap_tris": c["overlap_tris"],
+                              "witness": c.get("witness")})
+        tol = max(1e-9, 1e-6 * (float(np.linalg.norm(V0.max(axis=0) - V0.min(axis=0))) or 1.0))
+        moved = bool(moved_max > tol)
+        if not cands:
+            verdict = "unresolved"
+            reason = ("没有非链上对象可供干涉检查 → 零干涉是空洞证据（干涉检查需要一个「旁观者」对象）；"
+                      "moved=%s" % moved)
+        elif not moved:
+            verdict = "refuted"
+            reason = "驱动后 child 组无几何位移（最大位移 %.3e ≤ %.3e）→ 它并没有'能动'" % (moved_max, tol)
+        elif colls:
+            names = []
+            for c in sorted(colls, key=lambda x: (x["penetration_m"] or 0.0), reverse=True):
+                if c["other"] not in names:
+                    names.append(c["other"])
+            verdict = "refuted"
+            reason = ("扫掠中撞上 %s（%d 个相位有干涉，最深 %.4g m，相位 %s）；全程零干涉这一条不成立"
+                      % ("、".join(names), len({c["phase"] for c in colls}),
+                         max([c["penetration_m"] or 0.0 for c in colls] or [0.0]),
+                         sorted({c["phase"] for c in colls})))
+        else:
+            verdict = "supported"
+            reason = ("%d 个相位全程零干涉且确实位移（最大 %.4g m）→ 这就是'它能动'的运动学证据"
+                      % (len(phase_recs), moved_max))
+        if sweep_err:
+            verdict = "unresolved"
+            reason = "扫掠中途异常（场景已还原）：%s" % sweep_err
+    finally:
+        _state.update((k, v) for k, v in locals().items() if k != "_state")
+
+def __measure_one_p3(_state):
+    all_objs, anchor, axis, chain, chain_depth = (
+        _state.get("all_objs"), _state.get("anchor"), _state.get("axis"), _state.get("chain"), _state["chain_depth"])
+    cnames, co, colls, jid, jrec = (
+        _state.get("cnames"), _state.get("co"), _state.get("colls"), _state.get("jid"), _state["jrec"])
+    margin_frac, mism, moved, moved_max, mpu = (
+        _state["margin_frac"], _state.get("mism"), _state.get("moved"), _state.get("moved_max"), _state["mpu"])
+    phase_recs, post_delta, pre_delta, reason, rest = (
+        _state.get("phase_recs"), _state.get("post_delta"), _state.get("pre_delta"), _state.get("reason"), _state.get("rest"))
+    skipped_hidden, span, sweep_err, t0, unit = (
+        _state.get("skipped_hidden"), _state.get("span"), _state.get("sweep_err"), _state.get("t0"), _state.get("unit"))
+    verdict, wrote = _state.get("verdict"), _state.get("wrote")
+    try:
+        return {
+            "ok": verdict != "unresolved",
+            "op": "measure", "jid": jid, "kind": jrec["kind"],
+            "child": [o.name for o in co], "parent": list(jrec["parent"]),
+            "axis": _rl(axis, 9), "anchor": _rl(anchor, 9),
+            "axis_source": jrec.get("axis_source"), "axis_verdict": jrec.get("axis_verdict"),
+            "sweep": {"phases": len(phase_recs), "unit": unit,
+                      "span": _r(span, 6),
+                      "span_si": _r(float(span) * (mpu if unit == "scene_unit" else (math.pi / 180.0)), 6),
+                      "span_si_unit": ("m" if unit == "scene_unit" else "rad"),
+                      "margin_frac": float(margin_frac), "limits": jrec.get("limits")},
+            "rest": rest, "phases": phase_recs,
+            "moved": moved, "max_displacement": _r(moved_max, 6),
+            "max_displacement_m": _r(moved_max * mpu, 6),
+            "verdict": verdict, "reason": reason, "error": sweep_err,
+            "collisions": colls, "offenders": sorted({c["other"] for c in colls}),
+            "chain_excluded": sorted(chain), "chain_depth": str(chain_depth),
+            "candidates": cnames, "candidates_total": len(cnames),
+            "skipped_hidden": skipped_hidden,
+            "restored": {"ok": len(mism) == 0, "checked": len(all_objs), "mismatches": mism,
+                         "pre_delta": pre_delta, "max_delta": post_delta, "tol": TOL_MAT,
+                         "rewritten": wrote,
+                         "note": "扫掠结束逐对象对拍 matrix_world（全部对象，不只 child 组）；"
+                                 "max_delta 是还原后的残余偏差（未动对象逐项相等，不重写）"},
+            "units": {"length": "scene_unit（1 单位 = %g m）" % mpu, "angle": "deg"},
+            "ms": int((time.perf_counter() - t0) * 1000),
+        }
+    finally:
+        _state.update((k, v) for k, v in locals().items() if k != "_state")
+
 def _measure_one(jrec, phases, sweep_deg, margin_frac, exclude, chain_depth,
                  max_candidates, max_samples, mpu):
-    st = _store()
-    jid = jrec["id"]
-    if not jrec.get("axis"):
-        why = ("关节类型 %s 不需要轴（axis_source=%s）→ 扫掠对它没有意义"
-               % (jrec.get("kind"), jrec.get("axis_source"))
-               if jrec.get("axis_source") == "not_required" else
-               "关节没有轴（axis_verdict=%s）→ 先 motion_infer_axis 或登记时给 axis"
-               % jrec.get("axis_verdict"))
-        return {"ok": False, "op": "measure", "jid": jid, "verdict": "unresolved",
-                "reason": why, "axis_verdict": jrec.get("axis_verdict"),
-                "moved": None, "phases": [], "axis": None, "anchor": None}
-    co, miss_c, nonmesh_c = _objs(jrec["child"])
-    if not co:
-        return {"ok": False, "op": "measure", "jid": jid, "verdict": "unresolved",
-                "reason": "child 组没有可用 mesh 对象", "missing": miss_c, "non_mesh": nonmesh_c,
-                "moved": None, "phases": [], "axis": jrec["axis"], "anchor": jrec.get("anchor")}
-
-    axis = np.asarray(jrec["axis"], dtype=np.float64)
-    anchor = np.asarray(jrec.get("anchor") or [0.0, 0.0, 0.0], dtype=np.float64)
-    dg = bpy.context.evaluated_depsgraph_get()
-
-    all_joints = dict(st["joints"])
-    chain = _chain_names(jrec, all_joints, chain_depth=chain_depth)
-    excl = set(_names(exclude)) | chain
-    cands = []
-    skipped_hidden = []
-    for ob in bpy.data.objects:
-        if ob.type != "MESH" or ob.name in excl:
-            continue
-        if ob.hide_viewport or ob.hide_render:
-            skipped_hidden.append(ob.name)
-            continue
-        cands.append(ob)
-    cands = sorted(cands, key=lambda o: o.name)[:max(1, int(max_candidates or 64))]
-
-    V0, F0, parts0 = _group_tris(co, dg)
-    if len(V0) == 0:
-        return {"ok": False, "op": "measure", "jid": jid, "verdict": "unresolved",
-                "reason": "child 组求值后没有三角面（无可测几何）", "moved": None, "phases": [],
-                "axis": _rl(axis, 9), "anchor": _rl(anchor, 9)}
-
-    vals, unit, span, err = _phase_values(jrec, phases, sweep_deg, margin_frac, V0)
-    if err:
-        return {"ok": False, "op": "measure", "jid": jid, "verdict": "unresolved", "reason": err,
-                "moved": None, "phases": [], "axis": _rl(axis, 9), "anchor": _rl(anchor, 9)}
-
-    # 候选 BVH / 采样点（静止不动的对象，只建一次）
-    ctrees, cpts, cnames, cverts = {}, {}, [], {}
-    for ob in cands:
-        v, f = _mesh_tris_world(ob, dg)
-        if len(v) == 0 or len(f) == 0:
-            continue
-        try:
-            ctrees[ob.name] = BVHTree.FromPolygons([tuple(map(float, p)) for p in v],
-                                                   [tuple(int(i) for i in t) for t in f],
-                                                   all_triangles=True, epsilon=0.0)
-        except Exception:
-            continue
-        cpts[ob.name] = _sample_points(v, f, max_samples)
-        cverts[ob.name] = (v, f)
-        cnames.append(ob.name)
-
-    # 场景快照（全部对象：连无关对象都要证明没被动过）
-    all_objs = [o for o in bpy.data.objects]
-    snap = _snap_transforms(all_objs)
-    rest_mat = {ob.name: _mat_of(snap[ob.name]) for ob in co if ob.name in snap}
-    touched = set(rest_mat)
-    t0 = time.perf_counter()
-    phase_recs, moved_max, rest = [], 0.0, None
-    sweep_err = None
-    mism, pre_delta, post_delta, wrote = [], 0.0, 0.0, []
-    touched = set(rest_mat)
-    try:
-        # 静止位（相位 0）：只做一次基线测量
-        rest = _sweep_at(co, ctrees, cpts, cnames, V0, F0, dg, max_samples, mpu, cverts)
-        for i, val in enumerate(vals):
-            tp = time.perf_counter()
-            if jrec["kind"] in ("revolute", "continuous"):
-                th = math.radians(float(val))
-                R = Matrix.Rotation(th, 4, Vector((float(axis[0]), float(axis[1]), float(axis[2]))))
-                T = Matrix.Translation(Vector((float(anchor[0]), float(anchor[1]), float(anchor[2]))))
-                M = T @ R @ T.inverted()
-            else:
-                M = Matrix.Translation(Vector((float(axis[0]), float(axis[1]), float(axis[2]))) * float(val))
-            # 每个相位都从"静止位"算起（不是从上一相位）→ 不累积误差
-            for ob in co:
-                rm = rest_mat.get(ob.name)
-                if rm is not None:
-                    ob.matrix_world = M @ rm
-            bpy.context.view_layer.update()
-            Vp, Fp, _ = _group_tris(co, dg)
-            if len(Vp):
-                moved_max = max(moved_max, float(np.abs(Vp - V0).max()))
-            rec = _sweep_at(co, ctrees, cpts, cnames, Vp, Fp, dg, max_samples, mpu, cverts)
-            rec["phase"] = i
-            rec["value"] = _r(val, 6)
-            rec["unit"] = unit
-            rec["ms"] = int((time.perf_counter() - tp) * 1000)
-            phase_recs.append(rec)
-    except Exception as e:
-        sweep_err = "%s: %s" % (type(e).__name__, str(e)[:200])
-    finally:
-        mism, pre_delta, post_delta, wrote = _restore_transforms(all_objs, snap, touched=touched)
-
-    colls = []
-    for r in phase_recs:
-        for c in r.get("collisions") or []:
-            colls.append({"phase": r["phase"], "value": r["value"], "unit": unit,
-                          "other": c["other"], "penetration_m": c["penetration_m"],
-                          "penetration_units": c.get("penetration_units"),
-                          "min_gap_m": c.get("min_gap_m"), "min_gap_units": c.get("min_gap_units"),
-                          "collides": True, "overlap_tris": c["overlap_tris"],
-                          "witness": c.get("witness")})
-    tol = max(1e-9, 1e-6 * (float(np.linalg.norm(V0.max(axis=0) - V0.min(axis=0))) or 1.0))
-    moved = bool(moved_max > tol)
-    if not cands:
-        verdict = "unresolved"
-        reason = ("没有非链上对象可供干涉检查 → 零干涉是空洞证据（干涉检查需要一个「旁观者」对象）；"
-                  "moved=%s" % moved)
-    elif not moved:
-        verdict = "refuted"
-        reason = "驱动后 child 组无几何位移（最大位移 %.3e ≤ %.3e）→ 它并没有'能动'" % (moved_max, tol)
-    elif colls:
-        names = []
-        for c in sorted(colls, key=lambda x: (x["penetration_m"] or 0.0), reverse=True):
-            if c["other"] not in names:
-                names.append(c["other"])
-        verdict = "refuted"
-        reason = ("扫掠中撞上 %s（%d 个相位有干涉，最深 %.4g m，相位 %s）；全程零干涉这一条不成立"
-                  % ("、".join(names), len({c["phase"] for c in colls}),
-                     max([c["penetration_m"] or 0.0 for c in colls] or [0.0]),
-                     sorted({c["phase"] for c in colls})))
-    else:
-        verdict = "supported"
-        reason = ("%d 个相位全程零干涉且确实位移（最大 %.4g m）→ 这就是'它能动'的运动学证据"
-                  % (len(phase_recs), moved_max))
-    if sweep_err:
-        verdict = "unresolved"
-        reason = "扫掠中途异常（场景已还原）：%s" % sweep_err
-    return {
-        "ok": verdict != "unresolved",
-        "op": "measure", "jid": jid, "kind": jrec["kind"],
-        "child": [o.name for o in co], "parent": list(jrec["parent"]),
-        "axis": _rl(axis, 9), "anchor": _rl(anchor, 9),
-        "axis_source": jrec.get("axis_source"), "axis_verdict": jrec.get("axis_verdict"),
-        "sweep": {"phases": len(phase_recs), "unit": unit,
-                  "span": _r(span, 6),
-                  "span_si": _r(float(span) * (mpu if unit == "scene_unit" else (math.pi / 180.0)), 6),
-                  "span_si_unit": ("m" if unit == "scene_unit" else "rad"),
-                  "margin_frac": float(margin_frac), "limits": jrec.get("limits")},
-        "rest": rest, "phases": phase_recs,
-        "moved": moved, "max_displacement": _r(moved_max, 6),
-        "max_displacement_m": _r(moved_max * mpu, 6),
-        "verdict": verdict, "reason": reason, "error": sweep_err,
-        "collisions": colls, "offenders": sorted({c["other"] for c in colls}),
-        "chain_excluded": sorted(chain), "chain_depth": str(chain_depth),
-        "candidates": cnames, "candidates_total": len(cnames),
-        "skipped_hidden": skipped_hidden,
-        "restored": {"ok": len(mism) == 0, "checked": len(all_objs), "mismatches": mism,
-                     "pre_delta": pre_delta, "max_delta": post_delta, "tol": TOL_MAT,
-                     "rewritten": wrote,
-                     "note": "扫掠结束逐对象对拍 matrix_world（全部对象，不只 child 组）；"
-                             "max_delta 是还原后的残余偏差（未动对象逐项相等，不重写）"},
-        "units": {"length": "scene_unit（1 单位 = %g m）" % mpu, "angle": "deg"},
-        "ms": int((time.perf_counter() - t0) * 1000),
-    }
+    _state = dict(locals())
+    for _fn_ in (__measure_one_p1, __measure_one_p2, __measure_one_p3):
+        _r = _fn_(_state)
+        if _r is not None:
+            return _r
 
 
 def _sweep_at(co, ctrees, cpts, cnames, V, F, dg, max_samples, mpu, cverts=None):

@@ -441,6 +441,181 @@ def _iface_hint(contact, gap, pen):
         pen.get("depth_max_mm") if pen.get("tested") else "未测")
 
 
+def _c_mate_check_p1(_state):
+    conn_id, contact_max_mm, depth_eps_mm, fit, nominal = (
+        _state["conn_id"], _state["contact_max_mm"], _state["depth_eps_mm"], _state["fit"], _state["nominal"])
+    samples, tol_mm = _state["samples"], _state["tol_mm"]
+    expected_mm = (_state.get("expected_mm"))
+    try:
+        import numpy as np
+        st = _store()
+        conn = st["connections"].get(str(conn_id))
+        if not conn:
+            return _j({"ok": False, "verdict": "unresolved", "connection": conn_id, "measured": False,
+                       "error": "连接未注册: %s" % conn_id,
+                       "why": ["连接未注册 → 没有可测的两端（空产出，不给判定）"],
+                       "free_params": [{"param": "conn_id", "why": "先 register_component + register_connection 建契约"}]})
+        allA, allB = _component_objects(conn["a"]), _component_objects(conn["b"])
+        A = [o for o in allA if o.type == "MESH"]
+        B = [o for o in allB if o.type == "MESH"]
+        m_per_unit, mm_per_unit = _units()
+        ub = _units_block(m_per_unit, mm_per_unit)
+        if not A or not B:
+            return _j({"ok": False, "verdict": "unresolved", "connection": conn_id, "measured": False,
+                       "error": "组件没有可测网格对象（空产出 → 不给判定）", "units": ub,
+                       "a": {"id": conn["a"], "registered": len(allA), "mesh": len(A)},
+                       "b": {"id": conn["b"], "registered": len(allB), "mesh": len(B)},
+                       "why": ["a=%s 网格对象 %d 个 / b=%s 网格对象 %d 个 → 量不了，不许二选一"
+                               % (conn["a"], len(A), conn["b"], len(B))],
+                       "free_params": [{"param": "组件 objects", "why": "把实际参与配合的对象名写进 register_component"}]})
+        mdA, mdB = _mesh_data(A), _mesh_data(B)
+        if mdA is None or mdB is None or mdA["tris_n"] == 0 or mdB["tris_n"] == 0:
+            return _j({"ok": False, "verdict": "unresolved", "connection": conn_id, "measured": False,
+                       "error": "两端之一没有三角面（求值后为空）",
+                       "a_tris": (mdA or {}).get("tris_n"), "b_tris": (mdB or {}).get("tris_n"),
+                       "skipped": (mdA or {}).get("skipped"), "units": ub})
+        if MATE_MAX_TRIS > 0 and (mdA["tris_n"] > MATE_MAX_TRIS or mdB["tris_n"] > MATE_MAX_TRIS):
+            return _j({"ok": False, "verdict": "unresolved", "connection": conn_id, "measured": False,
+                       "error": "网格过大，不判（大网格一律 analyzed=false，绝不静默降级）",
+                       "a_tris": mdA["tris_n"], "b_tris": mdB["tris_n"], "limit": MATE_MAX_TRIS, "units": ub})
+        diag_m, _lo, _hi = _tris_diagonal(np.concatenate([mdA["tris"], mdB["tris"]], axis=0))
+        contact_max_m = (float(contact_max_mm) / mm_per_unit) if contact_max_mm is not None \
+            else DEFAULT_CONTACT_DISTANCE_FRAC * diag_m
+        if not (contact_max_m > 0):
+            return _j({"ok": False, "verdict": "unresolved", "connection": conn_id, "measured": False,
+                       "error": "contact_max ≤ 0（合并 bbox 对角线为 0 或入参非法）", "units": ub})
+        used_req = int(samples) if samples else 0
+        n = int(max(1, min(used_req, CONTACT_SAMPLE_CAP)))
+        PA = _sample_surface(mdA["tris"], n)
+        PB = _sample_surface(mdB["tris"], n)
+        if PA is None or PB is None:
+            return _j({"ok": False, "verdict": "unresolved", "connection": conn_id, "measured": False,
+                       "error": "采样失败（零面积网格？）", "units": ub})
+        meas = _mate_measure(mdA, mdB, mm_per_unit, PA, PB, contact_max_m)
+        contact, gap, pen, ov = meas["contact"], meas["gap"], meas["penetration"], meas["overlap"]
+        fracA, fracB = contact["area_fraction_a"], contact["area_fraction_b"]
+        used_min = min(meas["used_a"], meas["used_b"])
+        free = []
+        if n < CONTACT_SAMPLE_CAP:
+            free.append({"param": "samples", "now": n, "max": CONTACT_SAMPLE_CAP,
+                         "why": "采样越少，接触占比与中位间隙的方差越大"})
+        if fit is None and nominal is None:
+            free.append({"param": "nominal/fit", "why": "给 fit 档（clearance|location|press|snap）或直接给期望单边间隙 nominal(mm)"})
+        if tol_mm is None:
+            free.append({"param": "tol_mm", "now": FIT_DEFAULT_TOL_MM,
+                         "why": "默认是测量+工艺带；要分辨 fit 档位需更小（如 0.03），但网格噪声可能先到"})
+        if contact_max_mm is None:
+            free.append({"param": "contact_max_mm", "now": _r4(contact_max_m * mm_per_unit),
+                         "why": "默认 1.5%×合并对角线；细小特征（薄壁/小孔）想更严就调小"})
+        if pen["status"] != "ok":
+            free.append({"param": "网格（闭合/降面数）", "why": pen.get("why", "未做侵入判定")})
+        # ---- 三态判定 ----
+        why, verdict = [], None
+        if nominal is not None:
+            expected_mm, fit_note = float(nominal), "caller 直接给的期望单边间隙"
+        elif fit is not None:
+            expected_mm, fit_note = _fit_value(fit)
+        else:
+            expected_mm, fit_note = None, None
+        tol_used = float(tol_mm) if tol_mm is not None else FIT_DEFAULT_TOL_MM
+        tol_src = "caller" if tol_mm is not None else "default"
+        eps_mm = float(depth_eps_mm) if depth_eps_mm is not None else MATE_DEPTH_EPS_MM
+        allowed_mm = eps_mm if (expected_mm is None or expected_mm >= 0) else max(eps_mm, abs(expected_mm) + tol_used)
+    finally:
+        _state.update((k, v) for k, v in locals().items() if k != "_state")
+
+def _c_mate_check_p2(_state):
+    PA, PB, allowed_mm, conn, conn_id = (
+        _state.get("PA"), _state.get("PB"), _state.get("allowed_mm"), _state.get("conn"), _state["conn_id"])
+    contact, contact_max_m, contact_max_mm, diag_m, eps_mm = (
+        _state.get("contact"), _state.get("contact_max_m"), _state["contact_max_mm"], _state.get("diag_m"), _state.get("eps_mm"))
+    expected_mm, fit, fit_note, fracA, fracB = (
+        _state.get("expected_mm"), _state["fit"], _state.get("fit_note"), _state.get("fracA"), _state.get("fracB"))
+    free, gap, mdA, mdB, meas = (
+        _state.get("free"), _state.get("gap"), _state.get("mdA"), _state.get("mdB"), _state.get("meas"))
+    mm_per_unit, nominal, ov, pen, tol_src = (
+        _state.get("mm_per_unit"), _state["nominal"], _state.get("ov"), _state.get("pen"), _state.get("tol_src"))
+    tol_used, ub, used_min, used_req, why = (
+        _state.get("tol_used"), _state.get("ub"), _state.get("used_min"), _state.get("used_req"), _state.get("why"))
+    hi_mm, lo_mm, med, verdict = (_state.get("hi_mm"), _state.get("lo_mm"), _state.get("med"), _state.get("verdict"))
+    try:
+        if used_min < CONTACT_MIN_POINTS:
+            verdict = "unresolved"
+            why.append("采样不足 %d 点（实测 A=%d / B=%d 点）→ 证据不足，不许二选一（上游 CONTACT_MIN_POINTS）"
+                       % (CONTACT_MIN_POINTS, len(PA), len(PB)))
+        elif expected_mm is None:
+            verdict = "unresolved"
+            why.append("既没给 fit 也没给 nominal → 没有期望单边间隙可比，不许二选一")
+        elif gap["n"] == 0:
+            verdict = "refuted"
+            why.append("**完全没搭上**：A/B 双向在 %.3f mm 接触带内一个采样点都没有（接触点 0/%d，A 侧最近 %s mm）"
+                       % (contact_max_m * mm_per_unit, used_min,
+                          ("%.3f" % meas["min_a_mm"]) if meas.get("min_a_mm") is not None else "∞"))
+        elif pen["tested"] and pen["depth_max_mm"] is not None and pen["depth_max_mm"] > allowed_mm:
+            verdict = "refuted"
+            why.append("侵入过深：最大穿透 %.3f mm > 允许 %.3f mm（%s）→ 销压进母材，这不是配合"
+                       % (pen["depth_max_mm"], allowed_mm,
+                          "fit 过盈档放宽后" if allowed_mm > eps_mm else "depth_eps 默认 0.2 mm"))
+        else:
+            lo_mm, hi_mm = expected_mm - tol_used, expected_mm + tol_used
+            med = gap["median_mm"]
+            if pen["status"] != "ok":
+                verdict = "unresolved"
+                why.append("实测单边中位间隙 %.4f mm 落在 [%.4f, %.4f]（期望 %.4f ± %.4f）内，但%s → "
+                           "只判了间隙、没判穿模，不能读成 supported"
+                           % (med, lo_mm, hi_mm, expected_mm, tol_used, pen.get("why", "未做侵入判定")))
+            elif lo_mm <= med <= hi_mm:
+                verdict = "supported"
+                why.append("实测单边中位间隙 %.4f mm（均值 %.4f，n=%d）落在期望 %.4f ± %.4f mm 内 → supported；"
+                           "接触面积占比 %.3f，最大穿透 %.3f mm ≤ 允许 %.3f mm"
+                           % (med, gap["mean_mm"], gap["n"], expected_mm, tol_used, max(fracA, fracB),
+                              pen["depth_max_mm"], allowed_mm))
+            else:
+                verdict = "refuted"
+                why.append("实测单边中位间隙 %.4f mm（均值 %.4f，n=%d）落在 [%.4f, %.4f]（期望 %.4f ± %.4f）之外 → refuted"
+                           % (med, gap["mean_mm"], gap["n"], lo_mm, hi_mm, expected_mm, tol_used))
+        if fit_note:
+            why.append(fit_note)
+        if nominal is None and fit is not None:
+            why.append("nominal 由 fit 表推导（assembly_features.json: fits.%s.per_side_mm = %.2f mm，单边）"
+                       % (fit if str(fit) in FIT_TABLE else FIT_DEFAULT_CLS, expected_mm))
+        srule = "共享标称纪律：公母必须从同一个 nominal 派生（母 = nominal + 2×asm_fit(cls)，公 = nominal）" \
+                "，禁止两处各写一个字面量 —— 本 op 量的单边中位间隙就是这条纪律的体检指标。"
+        ev = {"units": ub,
+              "contact_max_m": _r6(contact_max_m), "contact_max_mm": _r4(contact_max_m * mm_per_unit),
+              "contact_max_rule": "1.5%% × 两件合并 bbox 对角线（当前 %.3f mm）%s"
+                                  % (diag_m * mm_per_unit, "，被调用方覆盖" if contact_max_mm is not None else ""),
+              "merged_diagonal_mm": _r4(diag_m * mm_per_unit),
+              "samples": {"requested": used_req, "cap": CONTACT_SAMPLE_CAP, "used_a": int(len(PA)),
+                          "used_b": int(len(PB)), "samples_used": int(used_min),
+                          "rule": "面积加权 + R2 低差异序列（确定性）；硬上限 %d 点（上游同口径）" % CONTACT_SAMPLE_CAP},
+              "contact": contact,
+              "gap_mm": gap, "penetration": pen,
+              "overlap_volume": (ov or {"skipped": True, "why": "三角面 > %d，跳过蒙特卡洛体积估计" % VOL_MAX_TRIS}),
+              "fit": {"class": (str(fit) if fit is not None else None),
+                      "table_per_side_mm": dict(FIT_TABLE),
+                      "expected_gap_mm": expected_mm, "expected_source": fit_note or "caller/none",
+                      "tol_mm": tol_used, "tol_source": tol_src,
+                      "band_mm": ([_r4(expected_mm - tol_used), _r4(expected_mm + tol_used)] if expected_mm is not None else None),
+                      "allowed_penetration_mm": _r4(allowed_mm)},
+              "shared_nominal_rule": srule,
+              "verdict_inputs": {"samples_used": int(used_min), "contact_points": gap["n"],
+                                 "median_gap_mm": gap["median_mm"], "depth_max_mm": pen.get("depth_max_mm")},
+              "objects": {"a": mdA["objects"], "b": mdB["objects"], "a_tris": mdA["tris_n"], "b_tris": mdB["tris_n"],
+                          "closed": {"a": mdA["closed"], "b": mdB["closed"]},
+                          "volume_mm3": {"a": _r4(mdA["volume_m3"] * (mm_per_unit ** 3)),
+                                         "b": _r4(mdB["volume_m3"] * (mm_per_unit ** 3))}}}
+        res = {"ok": True, "measured": True, "connection": conn_id, "a": conn["a"], "b": conn["b"],
+               "verdict": verdict, "why": why, "confidence": ("full" if pen["status"] == "ok" else "reduced"),
+               "evidence": ev, "free_params": free, "shared_nominal_rule": srule,
+               "readonly": "本 op 不改连接状态（要落状态用 verify/advance），只记 log",
+               "drift_guard": "几何改了要重跑：本 op 每次都在当前求值网格上实测，不缓存旧数字"}
+        _log("mate_check", {"id": conn_id, "verdict": verdict, "samples": int(used_min),
+                            "median_gap_mm": gap["median_mm"], "depth_max_mm": pen.get("depth_max_mm")})
+        return _j(res)
+    finally:
+        _state.update((k, v) for k, v in locals().items() if k != "_state")
+
 def c_mate_check(conn_id, fit=None, nominal=None, tol_mm=None, samples=4000,
                  contact_max_mm=None, depth_eps_mm=None):
     """配合门（网格级）：在**实际网格**上量接触 / 间隙 / 侵入，按 fit 档判三态。
@@ -478,151 +653,8 @@ def c_mate_check(conn_id, fit=None, nominal=None, tol_mm=None, samples=4000,
 
     只读：不改连接状态（要落状态用 verify/advance），只记一条 log。
     """
-    import numpy as np
-    st = _store()
-    conn = st["connections"].get(str(conn_id))
-    if not conn:
-        return _j({"ok": False, "verdict": "unresolved", "connection": conn_id, "measured": False,
-                   "error": "连接未注册: %s" % conn_id,
-                   "why": ["连接未注册 → 没有可测的两端（空产出，不给判定）"],
-                   "free_params": [{"param": "conn_id", "why": "先 register_component + register_connection 建契约"}]})
-    allA, allB = _component_objects(conn["a"]), _component_objects(conn["b"])
-    A = [o for o in allA if o.type == "MESH"]
-    B = [o for o in allB if o.type == "MESH"]
-    m_per_unit, mm_per_unit = _units()
-    ub = _units_block(m_per_unit, mm_per_unit)
-    if not A or not B:
-        return _j({"ok": False, "verdict": "unresolved", "connection": conn_id, "measured": False,
-                   "error": "组件没有可测网格对象（空产出 → 不给判定）", "units": ub,
-                   "a": {"id": conn["a"], "registered": len(allA), "mesh": len(A)},
-                   "b": {"id": conn["b"], "registered": len(allB), "mesh": len(B)},
-                   "why": ["a=%s 网格对象 %d 个 / b=%s 网格对象 %d 个 → 量不了，不许二选一"
-                           % (conn["a"], len(A), conn["b"], len(B))],
-                   "free_params": [{"param": "组件 objects", "why": "把实际参与配合的对象名写进 register_component"}]})
-    mdA, mdB = _mesh_data(A), _mesh_data(B)
-    if mdA is None or mdB is None or mdA["tris_n"] == 0 or mdB["tris_n"] == 0:
-        return _j({"ok": False, "verdict": "unresolved", "connection": conn_id, "measured": False,
-                   "error": "两端之一没有三角面（求值后为空）",
-                   "a_tris": (mdA or {}).get("tris_n"), "b_tris": (mdB or {}).get("tris_n"),
-                   "skipped": (mdA or {}).get("skipped"), "units": ub})
-    if MATE_MAX_TRIS > 0 and (mdA["tris_n"] > MATE_MAX_TRIS or mdB["tris_n"] > MATE_MAX_TRIS):
-        return _j({"ok": False, "verdict": "unresolved", "connection": conn_id, "measured": False,
-                   "error": "网格过大，不判（大网格一律 analyzed=false，绝不静默降级）",
-                   "a_tris": mdA["tris_n"], "b_tris": mdB["tris_n"], "limit": MATE_MAX_TRIS, "units": ub})
-    diag_m, _lo, _hi = _tris_diagonal(np.concatenate([mdA["tris"], mdB["tris"]], axis=0))
-    contact_max_m = (float(contact_max_mm) / mm_per_unit) if contact_max_mm is not None \
-        else DEFAULT_CONTACT_DISTANCE_FRAC * diag_m
-    if not (contact_max_m > 0):
-        return _j({"ok": False, "verdict": "unresolved", "connection": conn_id, "measured": False,
-                   "error": "contact_max ≤ 0（合并 bbox 对角线为 0 或入参非法）", "units": ub})
-    used_req = int(samples) if samples else 0
-    n = int(max(1, min(used_req, CONTACT_SAMPLE_CAP)))
-    PA = _sample_surface(mdA["tris"], n)
-    PB = _sample_surface(mdB["tris"], n)
-    if PA is None or PB is None:
-        return _j({"ok": False, "verdict": "unresolved", "connection": conn_id, "measured": False,
-                   "error": "采样失败（零面积网格？）", "units": ub})
-    meas = _mate_measure(mdA, mdB, mm_per_unit, PA, PB, contact_max_m)
-    contact, gap, pen, ov = meas["contact"], meas["gap"], meas["penetration"], meas["overlap"]
-    fracA, fracB = contact["area_fraction_a"], contact["area_fraction_b"]
-    used_min = min(meas["used_a"], meas["used_b"])
-    free = []
-    if n < CONTACT_SAMPLE_CAP:
-        free.append({"param": "samples", "now": n, "max": CONTACT_SAMPLE_CAP,
-                     "why": "采样越少，接触占比与中位间隙的方差越大"})
-    if fit is None and nominal is None:
-        free.append({"param": "nominal/fit", "why": "给 fit 档（clearance|location|press|snap）或直接给期望单边间隙 nominal(mm)"})
-    if tol_mm is None:
-        free.append({"param": "tol_mm", "now": FIT_DEFAULT_TOL_MM,
-                     "why": "默认是测量+工艺带；要分辨 fit 档位需更小（如 0.03），但网格噪声可能先到"})
-    if contact_max_mm is None:
-        free.append({"param": "contact_max_mm", "now": _r4(contact_max_m * mm_per_unit),
-                     "why": "默认 1.5%×合并对角线；细小特征（薄壁/小孔）想更严就调小"})
-    if pen["status"] != "ok":
-        free.append({"param": "网格（闭合/降面数）", "why": pen.get("why", "未做侵入判定")})
-    # ---- 三态判定 ----
-    why, verdict = [], None
-    if nominal is not None:
-        expected_mm, fit_note = float(nominal), "caller 直接给的期望单边间隙"
-    elif fit is not None:
-        expected_mm, fit_note = _fit_value(fit)
-    else:
-        expected_mm, fit_note = None, None
-    tol_used = float(tol_mm) if tol_mm is not None else FIT_DEFAULT_TOL_MM
-    tol_src = "caller" if tol_mm is not None else "default"
-    eps_mm = float(depth_eps_mm) if depth_eps_mm is not None else MATE_DEPTH_EPS_MM
-    allowed_mm = eps_mm if (expected_mm is None or expected_mm >= 0) else max(eps_mm, abs(expected_mm) + tol_used)
-    if used_min < CONTACT_MIN_POINTS:
-        verdict = "unresolved"
-        why.append("采样不足 %d 点（实测 A=%d / B=%d 点）→ 证据不足，不许二选一（上游 CONTACT_MIN_POINTS）"
-                   % (CONTACT_MIN_POINTS, len(PA), len(PB)))
-    elif expected_mm is None:
-        verdict = "unresolved"
-        why.append("既没给 fit 也没给 nominal → 没有期望单边间隙可比，不许二选一")
-    elif gap["n"] == 0:
-        verdict = "refuted"
-        why.append("**完全没搭上**：A/B 双向在 %.3f mm 接触带内一个采样点都没有（接触点 0/%d，A 侧最近 %s mm）"
-                   % (contact_max_m * mm_per_unit, used_min,
-                      ("%.3f" % meas["min_a_mm"]) if meas.get("min_a_mm") is not None else "∞"))
-    elif pen["tested"] and pen["depth_max_mm"] is not None and pen["depth_max_mm"] > allowed_mm:
-        verdict = "refuted"
-        why.append("侵入过深：最大穿透 %.3f mm > 允许 %.3f mm（%s）→ 销压进母材，这不是配合"
-                   % (pen["depth_max_mm"], allowed_mm,
-                      "fit 过盈档放宽后" if allowed_mm > eps_mm else "depth_eps 默认 0.2 mm"))
-    else:
-        lo_mm, hi_mm = expected_mm - tol_used, expected_mm + tol_used
-        med = gap["median_mm"]
-        if pen["status"] != "ok":
-            verdict = "unresolved"
-            why.append("实测单边中位间隙 %.4f mm 落在 [%.4f, %.4f]（期望 %.4f ± %.4f）内，但%s → "
-                       "只判了间隙、没判穿模，不能读成 supported"
-                       % (med, lo_mm, hi_mm, expected_mm, tol_used, pen.get("why", "未做侵入判定")))
-        elif lo_mm <= med <= hi_mm:
-            verdict = "supported"
-            why.append("实测单边中位间隙 %.4f mm（均值 %.4f，n=%d）落在期望 %.4f ± %.4f mm 内 → supported；"
-                       "接触面积占比 %.3f，最大穿透 %.3f mm ≤ 允许 %.3f mm"
-                       % (med, gap["mean_mm"], gap["n"], expected_mm, tol_used, max(fracA, fracB),
-                          pen["depth_max_mm"], allowed_mm))
-        else:
-            verdict = "refuted"
-            why.append("实测单边中位间隙 %.4f mm（均值 %.4f，n=%d）落在 [%.4f, %.4f]（期望 %.4f ± %.4f）之外 → refuted"
-                       % (med, gap["mean_mm"], gap["n"], lo_mm, hi_mm, expected_mm, tol_used))
-    if fit_note:
-        why.append(fit_note)
-    if nominal is None and fit is not None:
-        why.append("nominal 由 fit 表推导（assembly_features.json: fits.%s.per_side_mm = %.2f mm，单边）"
-                   % (fit if str(fit) in FIT_TABLE else FIT_DEFAULT_CLS, expected_mm))
-    srule = "共享标称纪律：公母必须从同一个 nominal 派生（母 = nominal + 2×asm_fit(cls)，公 = nominal）" \
-            "，禁止两处各写一个字面量 —— 本 op 量的单边中位间隙就是这条纪律的体检指标。"
-    ev = {"units": ub,
-          "contact_max_m": _r6(contact_max_m), "contact_max_mm": _r4(contact_max_m * mm_per_unit),
-          "contact_max_rule": "1.5%% × 两件合并 bbox 对角线（当前 %.3f mm）%s"
-                              % (diag_m * mm_per_unit, "，被调用方覆盖" if contact_max_mm is not None else ""),
-          "merged_diagonal_mm": _r4(diag_m * mm_per_unit),
-          "samples": {"requested": used_req, "cap": CONTACT_SAMPLE_CAP, "used_a": int(len(PA)),
-                      "used_b": int(len(PB)), "samples_used": int(used_min),
-                      "rule": "面积加权 + R2 低差异序列（确定性）；硬上限 %d 点（上游同口径）" % CONTACT_SAMPLE_CAP},
-          "contact": contact,
-          "gap_mm": gap, "penetration": pen,
-          "overlap_volume": (ov or {"skipped": True, "why": "三角面 > %d，跳过蒙特卡洛体积估计" % VOL_MAX_TRIS}),
-          "fit": {"class": (str(fit) if fit is not None else None),
-                  "table_per_side_mm": dict(FIT_TABLE),
-                  "expected_gap_mm": expected_mm, "expected_source": fit_note or "caller/none",
-                  "tol_mm": tol_used, "tol_source": tol_src,
-                  "band_mm": ([_r4(expected_mm - tol_used), _r4(expected_mm + tol_used)] if expected_mm is not None else None),
-                  "allowed_penetration_mm": _r4(allowed_mm)},
-          "shared_nominal_rule": srule,
-          "verdict_inputs": {"samples_used": int(used_min), "contact_points": gap["n"],
-                             "median_gap_mm": gap["median_mm"], "depth_max_mm": pen.get("depth_max_mm")},
-          "objects": {"a": mdA["objects"], "b": mdB["objects"], "a_tris": mdA["tris_n"], "b_tris": mdB["tris_n"],
-                      "closed": {"a": mdA["closed"], "b": mdB["closed"]},
-                      "volume_mm3": {"a": _r4(mdA["volume_m3"] * (mm_per_unit ** 3)),
-                                     "b": _r4(mdB["volume_m3"] * (mm_per_unit ** 3))}}}
-    res = {"ok": True, "measured": True, "connection": conn_id, "a": conn["a"], "b": conn["b"],
-           "verdict": verdict, "why": why, "confidence": ("full" if pen["status"] == "ok" else "reduced"),
-           "evidence": ev, "free_params": free, "shared_nominal_rule": srule,
-           "readonly": "本 op 不改连接状态（要落状态用 verify/advance），只记 log",
-           "drift_guard": "几何改了要重跑：本 op 每次都在当前求值网格上实测，不缓存旧数字"}
-    _log("mate_check", {"id": conn_id, "verdict": verdict, "samples": int(used_min),
-                        "median_gap_mm": gap["median_mm"], "depth_max_mm": pen.get("depth_max_mm")})
-    return _j(res)
+    _state = dict(locals())
+    for _fn_ in (_c_mate_check_p1, _c_mate_check_p2):
+        _r = _fn_(_state)
+        if _r is not None:
+            return _r
