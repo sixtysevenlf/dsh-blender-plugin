@@ -11,11 +11,12 @@
 - **Premium / Tripo 生成通道移除**：删除 Premium 许可、额度、Supabase 客户端与 Tripo 开关；Hyper3D 与 Hunyuan3D 只保留自有 API key 通道。Tripo 无 BYOK 通道，因此整条命令与面板入口一并删除（addon command 39 → 38）。
 - **lib/ 不再入库**：源码运行时由 runtime/**/*.ts strict 编译到 lib/runtime/**/*.js；从 git 使用先 npm ci --legacy-peer-deps && npm run build，prepack 会自动构建。npm 安装包仍自带 lib/。
 - **runtime 不再有 .mjs**：旧 runtime/*.mjs 的 require 用法不再成立；请用包入口或构建后的 lib/runtime/*.js。
+- **扁平 Python 模块移除**：删除 runtime/*.py 的 38 个 re-export shim，generator.py / uv_tools.py 移入 runtime/py/geometry/；模块只按 runtime/py/modules.json 解析，旧式 import runtime.<name>（或直接按 runtime/<name>.py 加载）不再可用。preload / module 的公开模块名不变。
 
 ### 结构、类型与测试
 
 - src/index.ts 13 行 entry-only；15 个 tool handler 全部拆到 src/tools/*；check:structure 校验 33/33 目标文件、44 文件 / 243 import 边 / 0 环。
-- 生产源码行数预算：163/163 文件 ≤ 600 行（runtime/catalog.ts 数据表例外，ADR 0006）；runtime/py 143/143 文件 ≤ 1000 行（ADR 0007）；13 个原 >1000 行 runtime/py 模块已拆为 facade + 同域 impl 包，最大实现文件 949 行。
+- 生产源码行数预算：163/163 文件 ≤ 600 行（runtime/catalog.ts 数据表例外，ADR 0006）；runtime/py 165/165 文件 ≤ 1000 行（ADR 0007）；13 个原 >1000 行 runtime/py 模块已拆为 facade + 同域 impl 包，最大实现文件 949 行。
 - runtime：82 个自有 TypeScript 模块（另 1 个 ext 第三方 runner），0 个 .mjs、0 个 @ts-nocheck；src + runtime 显式 any = 0，由 check:any 与 ESLint 双重门禁。
 - addon：37 个模块，最大 558 行；zip 内 37 entries；bl_info 1.11、protocol 11。
 - 测试：unit 47 files / 469 passed（2 skipped）；integration 18/248；contract 29/319；python 274；addon-unit 58；真实 Blender native E2E 76 passed（10 deselected）；GUI E2E 8 passed（2 skipped）。

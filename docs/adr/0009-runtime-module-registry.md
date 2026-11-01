@@ -49,6 +49,19 @@ which makes a single registry practical.
 - The loader remains path-based; the registry chooses the path, it does not
   change the preload mechanism.
 
+## Implementation status (F2.3, 2026-11-01)
+
+- The 38 flat `runtime/*.py` shims are deleted; `generator.py` / `uv_tools.py`
+  moved to `runtime/py/geometry/` and registered as `geometry`.
+- `offline_bootstrap._find_module` is registry-only (no flat directory scan, no
+  `"."` domain); `pyModuleFile` has no flat branch.
+- Old flat imports (`import runtime.<name>`, direct `runtime/<name>.py` loading)
+  are a documented breaking change in CHANGELOG / MIGRATIONS; public preload
+  module names are unchanged.
+- Enforced by `tests/unit/python/test_runtime_layout.py` (including a no-cycle /
+  no-cross-domain import-graph test) and
+  `tests/unit/js/contract/runtime-layout.test.ts`.
+
 ## Alternatives considered
 
 - **Keep the three maps and add a sync script.** Rejected: a sync script still

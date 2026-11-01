@@ -45,7 +45,7 @@ export function buildJobParts(
         "'" + (a.engineMode === 'cycles' ? 'cycles' : 'eevee') + "'",
       ).replace(/__DSH_GPU_MANUAL__/g, 'False'),
     )
-  // v0.8.9：作业层也支持 preload（与 headless 同一套：把 runtime/<name>.py 源码拼到脚本开头）
+  // v0.8.9：作业层也支持 preload（与 headless 同一套：把 runtime/py/<domain>/<name>.py 源码拼到脚本开头）
   const jobMods = Array.isArray(opts.preload)
     ? opts.preload
     : opts.preload
@@ -67,8 +67,8 @@ export function buildJobParts(
   for (const m of jobMods) {
     const name = String(m).trim().replace(/\.py$/, '')
     if (!name) continue
-    // T8：模块真实文件在 runtime/py/<domain>/ 下；旧 runtime/<name>.py 只是 re-export shim，
-    // 注入通道必须是真实文件，否则 exec 出去的只是 import 语句。
+    // T8/F2.3：模块真实文件在 runtime/py/<domain>/ 下（唯一清单 runtime/py/modules.json）；
+    // 注入通道必须是真实实现文件，否则 exec 出去的只是 import 语句。
     let f = null
     try {
       f = pyModuleFile(name)
@@ -82,7 +82,7 @@ export function buildJobParts(
           name +
           '（可用模块名：' +
           pyModuleNames().join(', ') +
-          '）—— preload 取模块名（runtime/py/<domain>/<name>.py，旧 runtime/<name>.py 是兼容 shim），例如 preload="vehicle,audit"；离线（后端挂了）见 runtime/py/core/offline_bootstrap.py',
+          '）—— preload 取模块名（runtime/py/<domain>/<name>.py，清单 runtime/py/modules.json），例如 preload="vehicle,audit"；离线（后端挂了）见 runtime/py/core/offline_bootstrap.py',
       )
     }
     parts.push(E.preloadChunk(name))

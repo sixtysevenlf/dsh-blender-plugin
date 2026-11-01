@@ -16,8 +16,6 @@ const DOMAINS: Record<string, string[]> = Object.fromEntries(
   ]),
 )
 const ALL = Object.values(DOMAINS).flat()
-const SHIMS = ALL.filter((n) => n !== 'open3d_check')
-const UNLISTED = Object.keys(manifest.modules).filter((n) => manifest.modules[n] === '.')
 
 describe('runtime domain package layout (T8)', () => {
   it('keeps the five plan domain packages and their exact module sets', () => {
@@ -36,29 +34,22 @@ describe('runtime domain package layout (T8)', () => {
     expect(fs.existsSync(pkgPath('runtime', 'ext', 'open3d_check.py'))).toBe(false)
   })
 
-  it('maps every module name to a real file and keeps the two unlisted modules flat', () => {
+  it('maps every module name to a real file inside its domain package', () => {
     expect(pyModuleNames().length).toBe(41)
-    expect(pyModuleNames().sort()).toEqual([...ALL, ...UNLISTED].sort())
-    for (const n of [...ALL, ...UNLISTED]) expect(fs.existsSync(pyModuleFile(n))).toBe(true)
-    expect(pyModuleFile('generator')).toBe(pkgPath('runtime', 'generator.py'))
-    expect(pyModuleFile('uv_tools')).toBe(pkgPath('runtime', 'uv_tools.py'))
+    expect(pyModuleNames().sort()).toEqual(ALL.sort())
+    for (const n of ALL) expect(fs.existsSync(pyModuleFile(n))).toBe(true)
+    expect(pyModuleFile('generator')).toBe(pkgPath('runtime', 'py', 'geometry', 'generator.py'))
+    expect(pyModuleFile('uv_tools')).toBe(pkgPath('runtime', 'py', 'geometry', 'uv_tools.py'))
     expect(pyModuleFile('kit.py')).toBe(pkgPath('runtime', 'py', 'core', 'kit.py'))
   })
 
-  it('leaves old flat paths as one-version re-export shims only', () => {
-    for (const n of SHIMS) {
-      const src = fs.readFileSync(pkgPath('runtime', n + '.py'), 'utf8')
-      const dom = Object.keys(DOMAINS).find((d) => DOMAINS[d].includes(n))
-      expect(src).toContain('from runtime.py.' + dom + '.' + n + ' import *')
-      expect(src).toContain('from py.' + dom + '.' + n + ' import *')
-      expect(src.split('\n').length).toBeLessThan(40)
-      expect(src).not.toMatch(/\n(def|class)\s/)
-      expect(src).not.toMatch(/\n[A-Za-z_][A-Za-z0-9_]*\s*=/)
-    }
-    for (const n of UNLISTED) {
-      const src = fs.readFileSync(pkgPath('runtime', n + '.py'), 'utf8')
-      expect(src.split('\n').length).toBeGreaterThan(60)
-    }
+  it('has no flat runtime modules left after F2.3', () => {
+    const flat = fs
+      .readdirSync(pkgPath('runtime'))
+      .filter((f) => f.endsWith('.py'))
+      .sort()
+    expect(flat).toEqual([])
+    expect(fs.readFileSync(pkgPath('runtime', 'paths.ts'), 'utf8')).not.toContain("d === '.'")
   })
 
   it('feeds the split engine from the real package files, not the shims', () => {
@@ -68,7 +59,9 @@ describe('runtime domain package layout (T8)', () => {
     expect(extCheck).toContain('resolveExtPaths()')
     expect(extCheck).toContain("path.join(PY_ROOT, 'py', 'export', 'open3d_check.py')")
     const evidence = fs.readFileSync(pkgPath('runtime', 'core', 'evidence.ts'), 'utf8')
-    expect(evidence).toContain('pyModuleFile(f)')
+    expect(evidence).toContain('pyModuleNames()')
+    expect(evidence).toContain("pyModuleFile(name), name + '.py'")
+    expect(evidence).not.toContain('readdirSync(PY_ROOT)')
     const engine = fs.readFileSync(pkgPath('runtime', 'engine.ts'), 'utf8')
     expect(engine).not.toMatch(/path\.join\(HERE, String\(name\)\.replace/)
   })
@@ -79,7 +72,7 @@ describe('runtime domain package layout (T8)', () => {
     expect(PY_DOMAINS).toEqual(manifest.domains)
     expect(pyModuleNames().sort()).toEqual(Object.keys(manifest.modules).sort())
     for (const [n, dom] of Object.entries(manifest.modules)) {
-      expect(dom === '.' || manifest.domains.includes(dom)).toBe(true)
+      expect(manifest.domains.includes(dom)).toBe(true)
       expect(fs.existsSync(pyModuleFile(n))).toBe(true)
     }
     const pathsSrc = fs.readFileSync(pkgPath('runtime', 'paths.ts'), 'utf8')

@@ -15,8 +15,8 @@
     veh = ns["kapi"]("vehicle")                    # → 模块 API（dict，可直接调用）
     print(veh("spec", {"type": "sports"}))
 
-约定：模块名不变（preload 契约不变）；实现文件按 runtime/py/<领域>/<name>.py 查找，
-      旧扁平 runtime/<name>.py（含 generator / uv_tools 两个未分包的模块）兜底。
+约定：模块名不变（preload 契约不变）；实现文件只按 runtime/py/modules.json 登记的
+      runtime/py/<领域>/<name>.py 查找（F2.3 起没有扁平 runtime/<name>.py 兜底）。
       加载后 API 挂在 K.dsh_<name>_api 上，与在线路径**同一个契约**。
 """
 import json
@@ -70,7 +70,7 @@ def _manifest_file(rt):
 
 
 def _load_manifest(rt):
-    """读模块清单（旧扁平布局没有清单时返回 None，调用方回退到目录扫描）。"""
+    """读模块清单；没有清单或清单损坏时返回 None（F2.3 起不再回退扁平目录扫描）。"""
     path = _manifest_file(rt)
     if path is None:
         return None
@@ -86,46 +86,28 @@ def _load_manifest(rt):
 
 
 def _module_dirs(rt):
-    """按优先级列候选目录：领域包 → py 根 → 旧扁平 rt。"""
+    """领域包目录列表（F2.3 起只用于错误信息；模块解析以 modules.json 为准）。"""
     root = _runtime_root(rt)
-    dirs = []
-    for base in (root, rt):
-        for d in _DOMAINS:
-            dirs.append(os.path.join(base, "py", d))
-        dirs.append(os.path.join(base, "py"))
-    # 旧扁平布局的真实模块（§4.7 未收录：generator / uv_tools）就在 runtime 根下。
-    dirs.append(root)
-    dirs.append(rt)
-    seen, out = set(), []
-    for d in dirs:
-        if d not in seen:
-            seen.add(d)
-            out.append(d)
-    return out
+    return [os.path.join(root, "py", d) for d in _DOMAINS]
 
 
 def _find_module(name, rt):
-    """按模块名找 .py：先查 runtime/py/modules.json 唯一清单，再回退旧扁平目录扫描。
+    """按模块名找 .py：只查 runtime/py/modules.json 唯一清单（F2.3 起无扁平兜底）。
 
-    清单把模块名映射到领域名（core/geometry/...）或 "."（计划 §4.7 未收录的旧扁平真实模块）。
-    清单声明了但文件缺失时继续走目录扫描兜底：旧布局/被挪动的安装仍能给出可读错误。
+    清单把模块名映射到领域名（core/geometry/...）；未登记、领域非法或文件缺失都返回
+    None，由调用方报出带模块目录的可读错误。
     """
     n = str(name or "").strip()
     if not n or any(ch not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_" for ch in n):
         return None
-    root = _runtime_root(rt)
     manifest = _load_manifest(rt)
-    if manifest is not None and n in manifest:
-        domain = manifest[n]
-        parts = [] if domain in ("", ".") else ["py", domain]
-        declared = os.path.join(root, *parts, n + ".py")
-        if os.path.isfile(declared):
-            return declared
-    for d in _module_dirs(rt):
-        p = os.path.join(d, n + ".py")
-        if os.path.isfile(p):
-            return p
-    return None
+    if manifest is None or n not in manifest:
+        return None
+    domain = manifest[n]
+    if domain not in _DOMAINS:
+        return None
+    declared = os.path.join(_runtime_root(rt), "py", domain, n + ".py")
+    return declared if os.path.isfile(declared) else None
 
 
 RT = _find_rt()

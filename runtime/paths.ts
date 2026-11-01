@@ -37,12 +37,12 @@ export function blenderJoin(...parts: string[]): string {
   return wslToWin(path.join(...parts))
 }
 /**
- * Python 领域包布局。真实实现在 runtime/py/<domain>/；旧 runtime/<name>.py
- * 只保留一版 re-export shim。**公开模块名不变**（preload / module 字段照旧）。
+ * Python 领域包布局。真实实现在 runtime/py/<domain>/，**公开模块名不变**
+ * （preload / module 字段照旧）。F2.3 起不再有扁平 runtime/<name>.py shim：
+ * 每个模块（含 generator / uv_tools）都必须登记领域并落在 runtime/py/<domain>/。
  *
  * F2.0：唯一映射源是 runtime/py/modules.json —— paths.ts / offline_bootstrap.py /
  * layout 契约测试都读同一份清单，这里不再维护第二份硬编码表。
- * generator / uv_tools 不在计划 §4.7 的领域表里：清单里用 "." 表示旧扁平路径。
  */
 interface PyModuleManifest {
   version: number
@@ -73,7 +73,7 @@ function loadPyModuleManifest(): PyModuleManifest {
 const PY_MANIFEST = loadPyModuleManifest()
 export const PY_DOMAINS: string[] = PY_MANIFEST.domains
 const PY_MODULE_DOMAIN: Record<string, string> = PY_MANIFEST.modules
-/** 公开模块名 → 真实 .py 文件（旧 runtime/<name>.py 是 shim，不能给注入通道用）。 */
+/** 公开模块名 → runtime/py/<domain>/<name>.py（唯一登记源是 modules.json）。 */
 export function pyModuleFile(name: unknown): string {
   const n = String(name == null ? '' : name)
     .trim()
@@ -83,11 +83,11 @@ export function pyModuleFile(name: unknown): string {
     throw new Error(
       '未知的 runtime Python 模块：' +
         n +
-        '（plan §4.7 未收录；可用：' +
+        '（modules.json 未登记；可用：' +
         pyModuleNames().join(', ') +
         '）',
     )
-  return d === '.' ? path.join(PY_ROOT, n + '.py') : path.join(PY_ROOT, 'py', d, n + '.py')
+  return path.join(PY_ROOT, 'py', d, n + '.py')
 }
 /** 全部公开模块名（preload 报错时列出用；不随文件系统变化）。 */
 export function pyModuleNames(): string[] {
@@ -129,7 +129,7 @@ export const MONTAGE_PATH = pyModuleFile('montage')
 export const MOTION_PATH = pyModuleFile('motion')
 /** 交付导出（v0.9.0）：单位盒归一化 + 多组 OBJ/MTL + manifest(md5)（deliver_* 前缀 op） */
 export const DELIVER_PATH = pyModuleFile('deliver')
-/** 生成器注册表（v0.9.0 · #18 代码化建模通道的 Blender 原生轻量版）：**§4.7 未收录，保留旧扁平路径** */
+/** 生成器注册表（v0.9.0 · #18 代码化建模通道的 Blender 原生轻量版）：F2.3 起归入 geometry 领域包。 */
 export const GENERATOR_PATH = pyModuleFile('generator')
 /** 程序化雕刻（v0.9.6 · 上游整合 A1）：sculpt_* 前缀 op 走这里。
  *  上游两家都做不到程序化雕刻（blend-ai 自述不能模拟笔触；mcp-for-blender 没有雕刻），
@@ -137,7 +137,7 @@ export const GENERATOR_PATH = pyModuleFile('generator')
 export const SCULPT_PATH = pyModuleFile('sculpt')
 /** 网格修复闭环（v0.9.6 · 上游整合 A2）：fix_* 前缀 op —— audit 只诊断，这里负责治。 */
 export const FIX_PATH = pyModuleFile('mesh_fix')
-/** UV 四件套（v0.9.6 · 上游整合 A3）：**§4.7 未收录，保留旧扁平路径** */
+/** UV 四件套（v0.9.6 · 上游整合 A3）：F2.3 起归入 geometry 领域包。 */
 export const UV_PATH = pyModuleFile('uv_tools')
 /** 制造检查（v0.9.6 · 上游整合 A4）：print_* 前缀 op（薄壁 / 悬垂 / 壳体 / 汇总）。 */
 export const PRINT_PATH = pyModuleFile('printcheck')

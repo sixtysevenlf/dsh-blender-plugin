@@ -144,7 +144,7 @@ function assertWorkerReady(
         '）：' +
         String((info.spawnErr && info.spawnErr.message) || info.spawnErr),
     )
-    e.hint = '检查 blenderExe 配置与 runtime/worker.py 是否存在'
+    e.hint = '检查 blenderExe 配置与 runtime/py/core/worker.py 是否存在'
     throw e
   }
   if (!info.ok) {
@@ -169,7 +169,7 @@ function assertWorkerReady(
     e.hint =
       'boot stderr 尾部：' +
       String(boot.stderr || '').slice(-500) +
-      '；检查 preload 模块名（runtime/<name>.py）'
+      '；检查 preload 模块名（runtime/py/<domain>/<name>.py）'
     try {
       child.kill('SIGKILL')
     } catch (x) {}

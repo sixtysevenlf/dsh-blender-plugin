@@ -60,7 +60,8 @@ to record deliberate debt.
   the debt to be gone or each remaining entry to have a fresh owner/expiry and
   an ADR-level justification.
 - This ADR does not authorize deleting flat shims; that is F2.3 and is tracked
-  by ADR 0009 / the finalization plan.
+  by ADR 0009 / the finalization plan. (F2.3 completed 2026-11-01: the 38 flat
+  shims were deleted and `generator` / `uv_tools` moved into `geometry`.)
 
 ## Alternatives considered
 

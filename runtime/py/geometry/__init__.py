@@ -5,7 +5,8 @@
 bpy/numpy 与共享内核 K.dsh_kit，只在 Blender 注入路径或显式访问时才加载）。
 访问子模块：import runtime.py.geometry.kit  或  runtime.py.geometry.kit（惰性属性）。
 """
-__all__ = ['geo', 'mesh_fix', 'sculpt', 'shapegen', 'shapesolve', 'faceeval', 'blockout', 'surface']
+__all__ = ['geo', 'mesh_fix', 'sculpt', 'shapegen', 'shapesolve', 'faceeval', 'blockout', 'surface',
+           'generator', 'uv_tools']
 
 
 def __getattr__(name):

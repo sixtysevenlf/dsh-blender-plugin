@@ -7,8 +7,8 @@ the kernel inside Blender) and it is now covered by the Blender E2E layer and by
 per-module unit tests. What remains valuable on every PR is cheaper and stricter:
 
   1. every Python file in the repo compiles (syntax gate, no bpy import);
-  2. every top-level runtime/*.py compatibility shim is a pure re-export, so
-     the T8 split cannot silently grow a second implementation;
+  2. no top-level runtime/*.py module exists: every public name lives in a
+     domain package (F2.3), so a flat file cannot silently grow a second copy;
   3. the modules that only need bpy + the kernel import cleanly against the
      maintained bpy stub, and expose their documented entry points;
   4. modules that genuinely need bmesh / numpy keep failing with that exact
@@ -29,20 +29,14 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 RUNTIME = ROOT / "runtime"
 
-# Two top-level runtime modules still own their implementation: they are not
-# domain modules of the T8 split (generator: standalone code-based modeling
-# channel; uv_tools: bpy-native UV helper). Everything else under runtime/*.py
-# must be a shim.
-FLAT_MODULES = {"generator.py", "uv_tools.py"}
-
 IMPORTABLE = {
     "runtime.py.core.contract": ["CONTRACT_VERSION", "c_check_interface", "c_evidence", "c_ledger"],
     "runtime.py.core.gate": ["GATE_VERSION", "gate_dispatch", "gate_help", "gate_run", "_eval_node"],
     "runtime.py.core.txn": ["TXN_VERSION", "t_dispatch", "t_help", "t_ops"],
     "runtime.py.render.view": ["VIEW_VERSION", "host_scene_items", "host_capture", "capture"],
     "runtime.py.export.deliver": ["DELIVER_VERSION", "d_dispatch", "d_ops", "deliver_export"],
-    "runtime.generator": ["GENERATOR_VERSION", "generator_dispatch", "generator_help", "generator_run"],
-    "runtime.uv_tools": ["UV_VERSION", "uv_dispatch", "uv_help", "uv_unwrap"],
+    "runtime.py.geometry.generator": ["GENERATOR_VERSION", "generator_dispatch", "generator_help", "generator_run"],
+    "runtime.py.geometry.uv_tools": ["UV_VERSION", "uv_dispatch", "uv_help", "uv_unwrap"],
     "runtime.py.core.runner": ["RUNNER_VERSION", "dsh_loop_start", "dsh_loop_status", "dsh_loop_help"],
     "runtime.py.core.planner": ["PLAN_VERSION", "p_dispatch", "p_help", "p_build"],
     "runtime.py.core.presets": ["PRESET_VERSION", "p_dispatch", "p_help", "p_apply"],
@@ -90,19 +84,9 @@ def test_every_python_file_compiles():
         compile(source, str(path), "exec")
 
 
-def test_runtime_top_level_shims_only_reexport():
-    shims = []
-    for path in sorted(RUNTIME.glob("*.py")):
-        if path.name in FLAT_MODULES:
-            continue
-        shims.append(path)
-        source = path.read_text(encoding="utf-8")
-        tree = ast.parse(source)
-        definitions = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))]
-        assert not definitions, f"{path.name} is a compatibility shim but defines {definitions[0].name}"
-        assert "from runtime.py." in source or "from py." in source, f"{path.name} does not import the moved implementation"
-        assert len(source.splitlines()) <= 40, f"{path.name} shim grew to {len(source.splitlines())} lines"
-    assert len(shims) >= 30, f"expected the T8 shim set, found {len(shims)}"
+def test_runtime_has_no_flat_modules():
+    flat = sorted(path.name for path in RUNTIME.glob("*.py"))
+    assert flat == [], f"flat runtime modules must be gone after F2.3: {flat}"
 
 
 def test_importable_modules_expose_documented_entry_points(booted_runtime):
@@ -121,8 +105,7 @@ def test_blender_only_dependencies_fail_by_name(booted_runtime):
         assert excinfo.value.name == dependency, f"{name} failed for {excinfo.value.name!r}, expected {dependency!r}"
 
 
-def test_compatibility_shim_imports_real_implementation(booted_runtime):
-    shim = importlib.import_module("runtime.gate")
-    assert not hasattr(shim, "_eval_pass_if")  # star re-export: public surface only
-    assert shim.gate_dispatch.__module__.startswith("runtime.py.core.gate")
-    assert shim.gate_run.__module__.startswith("runtime.py.core.gate")
+def test_domain_module_is_the_only_implementation(booted_runtime):
+    gate = importlib.import_module("runtime.py.core.gate")
+    assert gate.gate_dispatch.__module__.startswith("runtime.py.core.gate")
+    assert gate.gate_run.__module__.startswith("runtime.py.core.gate")

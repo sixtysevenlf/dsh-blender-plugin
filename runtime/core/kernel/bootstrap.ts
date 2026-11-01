@@ -7,7 +7,7 @@ export const KERNEL_BOOTSTRAP = [
   'if K is None:',
   '    K = _types.ModuleType("dsh_rt_kernel")',
   '    _sys.modules["dsh_rt_kernel"] = K',
-  // v1.0.1（2026-09-30 实测反馈）：PRELOAD_MODULES / runtime/*.py 的 API 挂在
+  // v1.0.1（2026-09-30 实测反馈）：PRELOAD_MODULES（runtime/py/<domain>/<name>.py）的 API 挂在
   // K.dsh_<name>_api 上，但**没 preload 的模块就是不存在** —— 裸的 AttributeError
   // 不会告诉 agent"要用 preload"，实测 4 个 agent 独立在这一步卡过一轮。
   // 给内核模块挂 PEP 562 的 __getattr__，把"缺模块"变成"告诉你怎么装 + 已装了什么"。
