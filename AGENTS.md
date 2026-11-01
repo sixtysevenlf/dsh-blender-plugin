@@ -25,12 +25,12 @@ Every other document links here instead of repeating commands.
 | Full suite (Vitest + pytest) | `npm test` |
 | Python tests only | `npm run test:python` with `PYTHON=/path/to/venv/python` |
 | Lint / format gate | `npm run lint` / `npm run format:check` |
-| Python static gate | `npm run check:python-static` (ruff baseline + pure-logic pyright) |
+| Python static gate | `npm run check:python-static` (plain ruff + pure-logic pyright; no allowlist) |
 | Package contents check | `npm pack --dry-run` |
 | Refresh counts after catalog edits | `node scripts/sync_counts.mjs` then update `tests/fixtures/capability.lock.json` ([tests/MIGRATION.md](tests/MIGRATION.md)) |
 
 Addon typing: install `requirements-typecheck.txt` (fake-bpy stubs + NumPy for legacy imports; type-only; behavior is real-Blender E2E).
-Addon IDE: root `pyrightconfig.json` = whole-addon editor config; `pyrightconfig.addon.json` = typed-core gate; `pyrightconfig.python.json` = pure-logic runtime scope; `pyproject.toml` = pytest/Ruff configuration.
+Addon IDE: root `pyrightconfig.json` = whole-addon editor config; it ignores legacy `tests/e2e/blender/native` and `runtime/py` diagnostics. `pyrightconfig.addon.json` = typed-core gate; `pyrightconfig.python.json` = pure-logic runtime scope; `pyproject.toml` = pytest/Ruff configuration.
 
 Node **22** is the CI and test baseline. Python tests need a venv with `pytest`, selected through
 `PYTHON` (`PYTHONIOENCODING=utf-8`, `PYTHONUTF8=1` on Windows); layers and fixtures:
