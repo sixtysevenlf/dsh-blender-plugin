@@ -114,199 +114,229 @@ def _validate_frame(fr, pid, fid, E, W):
                       % (pid, fid, cosang), pid)
         except Exception:
             pass
+def _manifest_validate_p1(st):
+    m, mmu = st["m"], st.get("mmu")
+    try:
+        errors, warnings = [], []
+
+        def E(code, msg, path=None):
+            errors.append({"code": str(code), "msg": str(msg)[:400], "path": (str(path) if path is not None else None)})
+
+        def W(code, msg, path=None):
+            warnings.append({"code": str(code), "msg": str(msg)[:400], "path": (str(path) if path is not None else None)})
+
+        if not isinstance(m, dict):
+            E("BAD_MANIFEST", "manifest 必须是 JSON 对象")
+            return {"ok": False, "verdict": "fail", "errors": errors, "warnings": warnings,
+                    "manifest_md5": None, "counts": {"parts": 0, "interfaces": 0, "allow_pairs": 0}}
+        mmu = float(mmu if mmu is not None else _KIT.units())
+        schema = m.get("schema")
+        if schema is None:
+            W("NO_SCHEMA", "manifest 没有 schema（建议 %s）" % MANIFEST_SCHEMA)
+        elif str(schema) != MANIFEST_SCHEMA:
+            W("SCHEMA_MISMATCH", "schema=%r ≠ %s（按 v1 尽力校验）" % (schema, MANIFEST_SCHEMA))
+        units = str(m.get("units") or "mm")
+        conv = UNIT_MM_PER_UNIT.get(units)
+        if conv is None:
+            E("BAD_UNITS", "units 只支持 mm/cm/m，收到 %r" % units)
+        elif abs(mmu - conv) / conv > 0.01:
+            W("UNIT_SCALE_SUSPECT",
+              "manifest units=%s ⇒ 期望 1 单位=%.3g mm，实测 %.6g mm（把 scene.unit_settings.scale_length "
+              "设成 %.6g；否则 loc_mm/深度全部按错单位读）" % (units, conv, mmu, conv / 1000.0))
+
+        parts = m.get("parts")
+        if parts is None:
+            parts = []
+        if not isinstance(parts, list):
+            E("PARTS_NOT_LIST", "parts 必须是数组")
+            parts = []
+        ids, by_id, frames_by_part = set(), {}, {}
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+def _manifest_validate_p2(st):
+    E, W, by_id, check_files, check_md5 = (
+        st.get("E"), st.get("W"), st.get("by_id"), st["check_files"], st["check_md5"])
+    frames_by_part, ids, m, parts = st.get("frames_by_part"), st.get("ids"), st["m"], st.get("parts")
+    f, fid, fids, fp, fr, frames, got, i, k, p, pid, tr, v, want = (st.get("f"), st.get("fid"), st.get("fids"), st.get("fp"), st.get("fr"), st.get("frames"), st.get("got"), st.get("i"), st.get("k"), st.get("p"), st.get("pid"), st.get("tr"), st.get("v"), st.get("want"))
+    try:
+        for i, p in enumerate(parts):
+            if not isinstance(p, dict):
+                E("BAD_PART", "parts[%d] 不是对象" % i)
+                continue
+            pid = str(p.get("id") or "")
+            if not pid:
+                E("MISSING_PART_ID", "parts[%d] 没有 id" % i)
+                continue
+            if pid in ids:
+                E("DUP_ID", "part id 重复: %s" % pid, pid)
+                continue
+            ids.add(pid)
+            by_id[pid] = p
+            fp = p.get("file")
+            if not fp:
+                W("MISSING_FILE", "part %s 没有 file（只能当纯数据清单用，merge 会跳过）" % pid, pid)
+            else:
+                f = _path(fp)
+                if check_files and not os.path.isfile(f):
+                    E("MISSING_FILE", "part %s 的 file 不存在: %s" % (pid, f), pid)
+                elif check_md5 and os.path.isfile(f):
+                    want = str(p.get("file_md5") or "").lower()
+                    if not want:
+                        W("MISSING_FILE_MD5", "part %s 没有 file_md5，文件无法复核" % pid, pid)
+                    else:
+                        got = _sha256_file(f)
+                        if got is None:
+                            W("FILE_UNREADABLE", "part %s 的文件读不了: %s" % (pid, f), pid)
+                        elif got != want:
+                            E("MD5_MISMATCH", "part %s 文件 md5 不匹配（manifest=%s… 实测=%s…）"
+                              % (pid, want[:12], got[:12]), pid)
+            tr = p.get("transform")
+            if tr is not None:
+                if not isinstance(tr, dict):
+                    E("BAD_TRANSFORM", "part %s transform 必须是对象" % pid, pid)
+                else:
+                    for k in ("loc_mm", "rot_euler_deg", "scale"):
+                        if k not in tr:
+                            continue
+                        v = tr.get(k)
+                        if not isinstance(v, (list, tuple)) or len(v) != 3 or any(_num(x) is None for x in v):
+                            E("BAD_TRANSFORM", "part %s transform.%s 必须是 3 个数字" % (pid, k), pid)
+                            continue
+                        if k == "scale" and any(float(x) <= 0.0 for x in v):
+                            E("BAD_TRANSFORM", "part %s transform.scale 必须 > 0" % pid, pid)
+            frames = p.get("interface_frames")
+            fids = set()
+            if frames is not None:
+                if not isinstance(frames, list):
+                    E("BAD_FRAMES", "part %s interface_frames 必须是数组" % pid, pid)
+                else:
+                    for fr in frames:
+                        if not isinstance(fr, dict):
+                            E("BAD_FRAME", "part %s 有 interface_frame 不是对象" % pid, pid)
+                            continue
+                        fid = str(fr.get("id") or "")
+                        if not fid:
+                            E("MISSING_FRAME_ID", "part %s 有 interface_frame 缺 id" % pid, pid)
+                            continue
+                        if fid in fids:
+                            W("FRAME_ID_DUP", "part %s frame id 重复: %s" % (pid, fid), pid)
+                            continue
+                        fids.add(fid)
+                        _validate_frame(fr, pid, fid, E, W)
+            frames_by_part[pid] = fids
+
+        interfaces = m.get("interfaces") or []
+        if not isinstance(interfaces, list):
+            E("INTERFACES_NOT_LIST", "interfaces 必须是数组")
+            interfaces = []
+        iids, iface_ids = set(), set()
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+def _manifest_validate_p3(st):
+    E, W, by_id, conv, errors = st.get("E"), st.get("W"), st.get("by_id"), st.get("conv"), st.get("errors")
+    frames_by_part, iface_ids, iids, interfaces, m = (
+        st.get("frames_by_part"), st.get("iface_ids"), st.get("iids"), st.get("interfaces"), st["m"])
+    mmu, units, warnings = st.get("mmu"), st.get("units"), st.get("warnings")
+    a, aid, ap, b, fa, fb, fit, got, i, iid, it, k, md_, mv, nv, ref, v, want = (st.get("a"), st.get("aid"), st.get("ap"), st.get("b"), st.get("fa"), st.get("fb"), st.get("fit"), st.get("got"), st.get("i"), st.get("iid"), st.get("it"), st.get("k"), st.get("md_"), st.get("mv"), st.get("nv"), st.get("ref"), st.get("v"), st.get("want"))
+    try:
+        for i, it in enumerate(interfaces):
+            if not isinstance(it, dict):
+                E("BAD_INTERFACE", "interfaces[%d] 不是对象" % i)
+                continue
+            iid = str(it.get("id") or "")
+            if not iid:
+                W("MISSING_INTERFACE_ID", "interfaces[%d] 没有 id" % i)
+                iid = "IF#%d" % i
+            if iid in iids:
+                E("DUP_ID", "interface id 重复: %s" % iid, iid)
+                continue
+            iids.add(iid)
+            iface_ids.add(iid)
+            a, b = str(it.get("a") or ""), str(it.get("b") or "")
+            if a not in by_id:
+                E("CONN_UNKNOWN_PART", "interface %s: 端 a=%r 不在 parts 里" % (iid, a), iid)
+            if b not in by_id:
+                E("CONN_UNKNOWN_PART", "interface %s: 端 b=%r 不在 parts 里" % (iid, b), iid)
+            if a and a == b:
+                E("SELF_INTERFACE", "interface %s 的两端是同一个 part: %s" % (iid, a), iid)
+            fa, fb = it.get("frame_a"), it.get("frame_b")
+            if fa is not None and a in frames_by_part and str(fa) not in frames_by_part[a]:
+                E("FRAME_NOT_FOUND", "interface %s: 端 a=%s 没有 frame %r" % (iid, a, fa), iid)
+            if fb is not None and b in frames_by_part and str(fb) not in frames_by_part[b]:
+                E("FRAME_NOT_FOUND", "interface %s: 端 b=%s 没有 frame %r" % (iid, b, fb), iid)
+            fit = it.get("fit")
+            if fit is not None and str(fit) not in FIT_CLASSES:
+                W("UNKNOWN_FIT", "interface %s: fit=%r 不在 %s 里（按 location 口径处理）"
+                  % (iid, fit, list(FIT_CLASSES)), iid)
+            for k in ("nominal_mm", "tol_mm", "allow_overlap_mm", "clearance_min_mm"):
+                v = it.get(k)
+                if v is None:
+                    continue
+                nv = _num(v)
+                if nv is None or nv < 0:
+                    E("BAD_INTERFACE_NUM", "interface %s: %s 必须是非负数字" % (iid, k), iid)
+
+        allow = m.get("allow_pairs") or []
+        if not isinstance(allow, list):
+            E("ALLOW_NOT_LIST", "allow_pairs 必须是数组")
+            allow = []
+        aids = set()
+        for i, ap in enumerate(allow):
+            if not isinstance(ap, dict):
+                E("BAD_ALLOW", "allow_pairs[%d] 不是对象" % i)
+                continue
+            aid = str(ap.get("id") or "")
+            if not aid:
+                W("MISSING_ALLOW_ID", "allow_pairs[%d] 没有 id" % i)
+                aid = "ALLOW#%d" % i
+            if aid in aids:
+                E("DUP_ID", "allow id 重复: %s" % aid, aid)
+                continue
+            aids.add(aid)
+            a, b = str(ap.get("a") or ""), str(ap.get("b") or "")
+            if a not in by_id:
+                E("ALLOW_UNKNOWN_PART", "allow %s: 端 a=%r 不在 parts 里" % (aid, a), aid)
+            if b not in by_id:
+                E("ALLOW_UNKNOWN_PART", "allow %s: 端 b=%r 不在 parts 里" % (aid, b), aid)
+            ref = ap.get("interface")
+            if ref is not None and str(ref) not in iface_ids:
+                W("ALLOW_UNKNOWN_CONN", "allow %s: 引用了不存在的 interface %r" % (aid, ref), aid)
+            md_ = _num(ap.get("max_depth_mm"))
+            mv = _num(ap.get("max_volume_mm3"))
+            if md_ is None and mv is None:
+                E("ALLOW_NO_LIMIT", "allow %s: 必须给 max_depth_mm 或 max_volume_mm3（无上限的允许交叠是危险默认）" % aid, aid)
+            for k, nv in (("max_depth_mm", md_), ("max_volume_mm3", mv)):
+                if nv is not None and nv < 0:
+                    E("BAD_ALLOW_NUM", "allow %s: %s 必须 ≥ 0" % (aid, k), aid)
+
+        sealed = bool(m.get("sealed"))
+        if sealed:
+            want = str(m.get("sealed_md5") or "")
+            got = _manifest_md5(m)
+            if want and got and want != got:
+                E("MANIFEST_SEAL_MISMATCH", "清单在 seal 之后被改过（sealed_md5=%s… 实测=%s…）"
+                  % (want[:12], got[:12]))
+        return {"ok": not errors, "verdict": "pass" if not errors else "fail",
+                "errors": errors, "warnings": warnings, "manifest_md5": _manifest_md5(m),
+                "sealed": sealed, "counts": _manifest_counts(m),
+                "units": {"manifest_units": units, "mm_per_unit_scene": _r(mmu, 6),
+                          "expected_mm_per_unit": conv}}
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
 def _manifest_validate(m, check_files=False, check_md5=False, mmu=None):
     """清单校验 → {ok, verdict, errors[], warnings[], manifest_md5, counts, units}。
 
     校验：id 唯一 / file 存在 / file_md5 / 接口两端存在（含 frame）/ basis 正交 / 单位一致 / seal 完整性。
     check_files / check_md5 默认关（gate 只看结构；validate 动作默认开）。
     """
-    errors, warnings = [], []
-
-    def E(code, msg, path=None):
-        errors.append({"code": str(code), "msg": str(msg)[:400], "path": (str(path) if path is not None else None)})
-
-    def W(code, msg, path=None):
-        warnings.append({"code": str(code), "msg": str(msg)[:400], "path": (str(path) if path is not None else None)})
-
-    if not isinstance(m, dict):
-        E("BAD_MANIFEST", "manifest 必须是 JSON 对象")
-        return {"ok": False, "verdict": "fail", "errors": errors, "warnings": warnings,
-                "manifest_md5": None, "counts": {"parts": 0, "interfaces": 0, "allow_pairs": 0}}
-    mmu = float(mmu if mmu is not None else _KIT.units())
-    schema = m.get("schema")
-    if schema is None:
-        W("NO_SCHEMA", "manifest 没有 schema（建议 %s）" % MANIFEST_SCHEMA)
-    elif str(schema) != MANIFEST_SCHEMA:
-        W("SCHEMA_MISMATCH", "schema=%r ≠ %s（按 v1 尽力校验）" % (schema, MANIFEST_SCHEMA))
-    units = str(m.get("units") or "mm")
-    conv = UNIT_MM_PER_UNIT.get(units)
-    if conv is None:
-        E("BAD_UNITS", "units 只支持 mm/cm/m，收到 %r" % units)
-    elif abs(mmu - conv) / conv > 0.01:
-        W("UNIT_SCALE_SUSPECT",
-          "manifest units=%s ⇒ 期望 1 单位=%.3g mm，实测 %.6g mm（把 scene.unit_settings.scale_length "
-          "设成 %.6g；否则 loc_mm/深度全部按错单位读）" % (units, conv, mmu, conv / 1000.0))
-
-    parts = m.get("parts")
-    if parts is None:
-        parts = []
-    if not isinstance(parts, list):
-        E("PARTS_NOT_LIST", "parts 必须是数组")
-        parts = []
-    ids, by_id, frames_by_part = set(), {}, {}
-    for i, p in enumerate(parts):
-        if not isinstance(p, dict):
-            E("BAD_PART", "parts[%d] 不是对象" % i)
-            continue
-        pid = str(p.get("id") or "")
-        if not pid:
-            E("MISSING_PART_ID", "parts[%d] 没有 id" % i)
-            continue
-        if pid in ids:
-            E("DUP_ID", "part id 重复: %s" % pid, pid)
-            continue
-        ids.add(pid)
-        by_id[pid] = p
-        fp = p.get("file")
-        if not fp:
-            W("MISSING_FILE", "part %s 没有 file（只能当纯数据清单用，merge 会跳过）" % pid, pid)
-        else:
-            f = _path(fp)
-            if check_files and not os.path.isfile(f):
-                E("MISSING_FILE", "part %s 的 file 不存在: %s" % (pid, f), pid)
-            elif check_md5 and os.path.isfile(f):
-                want = str(p.get("file_md5") or "").lower()
-                if not want:
-                    W("MISSING_FILE_MD5", "part %s 没有 file_md5，文件无法复核" % pid, pid)
-                else:
-                    got = _sha256_file(f)
-                    if got is None:
-                        W("FILE_UNREADABLE", "part %s 的文件读不了: %s" % (pid, f), pid)
-                    elif got != want:
-                        E("MD5_MISMATCH", "part %s 文件 md5 不匹配（manifest=%s… 实测=%s…）"
-                          % (pid, want[:12], got[:12]), pid)
-        tr = p.get("transform")
-        if tr is not None:
-            if not isinstance(tr, dict):
-                E("BAD_TRANSFORM", "part %s transform 必须是对象" % pid, pid)
-            else:
-                for k in ("loc_mm", "rot_euler_deg", "scale"):
-                    if k not in tr:
-                        continue
-                    v = tr.get(k)
-                    if not isinstance(v, (list, tuple)) or len(v) != 3 or any(_num(x) is None for x in v):
-                        E("BAD_TRANSFORM", "part %s transform.%s 必须是 3 个数字" % (pid, k), pid)
-                        continue
-                    if k == "scale" and any(float(x) <= 0.0 for x in v):
-                        E("BAD_TRANSFORM", "part %s transform.scale 必须 > 0" % pid, pid)
-        frames = p.get("interface_frames")
-        fids = set()
-        if frames is not None:
-            if not isinstance(frames, list):
-                E("BAD_FRAMES", "part %s interface_frames 必须是数组" % pid, pid)
-            else:
-                for fr in frames:
-                    if not isinstance(fr, dict):
-                        E("BAD_FRAME", "part %s 有 interface_frame 不是对象" % pid, pid)
-                        continue
-                    fid = str(fr.get("id") or "")
-                    if not fid:
-                        E("MISSING_FRAME_ID", "part %s 有 interface_frame 缺 id" % pid, pid)
-                        continue
-                    if fid in fids:
-                        W("FRAME_ID_DUP", "part %s frame id 重复: %s" % (pid, fid), pid)
-                        continue
-                    fids.add(fid)
-                    _validate_frame(fr, pid, fid, E, W)
-        frames_by_part[pid] = fids
-
-    interfaces = m.get("interfaces") or []
-    if not isinstance(interfaces, list):
-        E("INTERFACES_NOT_LIST", "interfaces 必须是数组")
-        interfaces = []
-    iids, iface_ids = set(), set()
-    for i, it in enumerate(interfaces):
-        if not isinstance(it, dict):
-            E("BAD_INTERFACE", "interfaces[%d] 不是对象" % i)
-            continue
-        iid = str(it.get("id") or "")
-        if not iid:
-            W("MISSING_INTERFACE_ID", "interfaces[%d] 没有 id" % i)
-            iid = "IF#%d" % i
-        if iid in iids:
-            E("DUP_ID", "interface id 重复: %s" % iid, iid)
-            continue
-        iids.add(iid)
-        iface_ids.add(iid)
-        a, b = str(it.get("a") or ""), str(it.get("b") or "")
-        if a not in by_id:
-            E("CONN_UNKNOWN_PART", "interface %s: 端 a=%r 不在 parts 里" % (iid, a), iid)
-        if b not in by_id:
-            E("CONN_UNKNOWN_PART", "interface %s: 端 b=%r 不在 parts 里" % (iid, b), iid)
-        if a and a == b:
-            E("SELF_INTERFACE", "interface %s 的两端是同一个 part: %s" % (iid, a), iid)
-        fa, fb = it.get("frame_a"), it.get("frame_b")
-        if fa is not None and a in frames_by_part and str(fa) not in frames_by_part[a]:
-            E("FRAME_NOT_FOUND", "interface %s: 端 a=%s 没有 frame %r" % (iid, a, fa), iid)
-        if fb is not None and b in frames_by_part and str(fb) not in frames_by_part[b]:
-            E("FRAME_NOT_FOUND", "interface %s: 端 b=%s 没有 frame %r" % (iid, b, fb), iid)
-        fit = it.get("fit")
-        if fit is not None and str(fit) not in FIT_CLASSES:
-            W("UNKNOWN_FIT", "interface %s: fit=%r 不在 %s 里（按 location 口径处理）"
-              % (iid, fit, list(FIT_CLASSES)), iid)
-        for k in ("nominal_mm", "tol_mm", "allow_overlap_mm", "clearance_min_mm"):
-            v = it.get(k)
-            if v is None:
-                continue
-            nv = _num(v)
-            if nv is None or nv < 0:
-                E("BAD_INTERFACE_NUM", "interface %s: %s 必须是非负数字" % (iid, k), iid)
-
-    allow = m.get("allow_pairs") or []
-    if not isinstance(allow, list):
-        E("ALLOW_NOT_LIST", "allow_pairs 必须是数组")
-        allow = []
-    aids = set()
-    for i, ap in enumerate(allow):
-        if not isinstance(ap, dict):
-            E("BAD_ALLOW", "allow_pairs[%d] 不是对象" % i)
-            continue
-        aid = str(ap.get("id") or "")
-        if not aid:
-            W("MISSING_ALLOW_ID", "allow_pairs[%d] 没有 id" % i)
-            aid = "ALLOW#%d" % i
-        if aid in aids:
-            E("DUP_ID", "allow id 重复: %s" % aid, aid)
-            continue
-        aids.add(aid)
-        a, b = str(ap.get("a") or ""), str(ap.get("b") or "")
-        if a not in by_id:
-            E("ALLOW_UNKNOWN_PART", "allow %s: 端 a=%r 不在 parts 里" % (aid, a), aid)
-        if b not in by_id:
-            E("ALLOW_UNKNOWN_PART", "allow %s: 端 b=%r 不在 parts 里" % (aid, b), aid)
-        ref = ap.get("interface")
-        if ref is not None and str(ref) not in iface_ids:
-            W("ALLOW_UNKNOWN_CONN", "allow %s: 引用了不存在的 interface %r" % (aid, ref), aid)
-        md_ = _num(ap.get("max_depth_mm"))
-        mv = _num(ap.get("max_volume_mm3"))
-        if md_ is None and mv is None:
-            E("ALLOW_NO_LIMIT", "allow %s: 必须给 max_depth_mm 或 max_volume_mm3（无上限的允许交叠是危险默认）" % aid, aid)
-        for k, nv in (("max_depth_mm", md_), ("max_volume_mm3", mv)):
-            if nv is not None and nv < 0:
-                E("BAD_ALLOW_NUM", "allow %s: %s 必须 ≥ 0" % (aid, k), aid)
-
-    sealed = bool(m.get("sealed"))
-    if sealed:
-        want = str(m.get("sealed_md5") or "")
-        got = _manifest_md5(m)
-        if want and got and want != got:
-            E("MANIFEST_SEAL_MISMATCH", "清单在 seal 之后被改过（sealed_md5=%s… 实测=%s…）"
-              % (want[:12], got[:12]))
-    return {"ok": not errors, "verdict": "pass" if not errors else "fail",
-            "errors": errors, "warnings": warnings, "manifest_md5": _manifest_md5(m),
-            "sealed": sealed, "counts": _manifest_counts(m),
-            "units": {"manifest_units": units, "mm_per_unit_scene": _r(mmu, 6),
-                      "expected_mm_per_unit": conv}}
+    st = dict(locals())
+    for _fn_ in (_manifest_validate_p1, _manifest_validate_p2, _manifest_validate_p3):
+        _r = _fn_(st)
+        if _r is not None:
+            return _r
 def _obj_part_map(manifest, names):
     """场景对象名 → part id：显式 objects 列表 / 同名 / 合并命名 <partid>__ 前缀。"""
     out = {}

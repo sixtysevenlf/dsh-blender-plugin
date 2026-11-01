@@ -6,12 +6,8 @@ from .validate import _circle_pts, _cleanup_objects, _meshes_equal, surface_vali
 
 
 
-def surface_selftest():
-    """M4 自检：瓶身(loft)/翼子板(sweep)/头盔简化(patch) 三基准 + 自交/薄壁/连续性负例 + 坏参数。"""
-    ev = {}
-    t0 = time.perf_counter()
-    made = []
-    before_objs = set(bpy.data.objects)
+def _surface_selftest_p1(st):
+    ev, made = (st.get("ev"), st.get("made"))
     try:
         prev_scale = float(bpy.context.scene.unit_settings.scale_length)
         bpy.context.scene.unit_settings.scale_length = 0.001      # 1 单位 = 1 mm
@@ -98,6 +94,14 @@ def surface_selftest():
         bm.free()
         thin = bpy.data.objects.new("__surface_eval_thin", me)
         bpy.context.scene.collection.objects.link(thin)
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+
+def _surface_selftest_p2(st):
+    _bm, r_bottle, sections, thin = st.get("_bm"), st.get("r_bottle"), st.get("sections"), st.get("thin")
+    ev, made, t0 = (st.get("ev"), st.get("made"), st.get("t0"))
+    try:
         made.append(str(thin.name))
         v_thin = json.loads(surface_validate(str(thin.name), min_thickness_mm=0.8,
                                              continuity=False, curvature=False))
@@ -177,14 +181,28 @@ def surface_selftest():
                                                       "helmet_validate_verdict"))
         return _j({"ok": bool(ok), "version": SURFACE_VERSION, "evidence": ev,
                    "ms": int((time.perf_counter() - t0) * 1000)})
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+
+def surface_selftest():
+    """M4 自检：瓶身(loft)/翼子板(sweep)/头盔简化(patch) 三基准 + 自交/薄壁/连续性负例 + 坏参数。"""
+    ev = {}
+    t0 = time.perf_counter()
+    made = []
+    before_objs = set(bpy.data.objects)
+    st = dict(locals())
+    try:
+        for _fn_ in (_surface_selftest_p1, _surface_selftest_p2):
+            _r = _fn_(st)
+            if _r is not None:
+                return _r
     except Exception as e:
         import traceback
         return _j({"ok": False, "version": SURFACE_VERSION, "evidence": ev,
                    "error": "%s: %s" % (type(e).__name__, str(e)[:240]),
                    "traceback": traceback.format_exc()[-800:]})
     finally:
-        # 只删本次自检新建的 __surface_eval_ 对象（外部已有同名对象时 Blender 会加 .001 后缀，
-        # 按"本次新建 + 前缀"双重条件收，避免误删调用方场景里的对象）。
         victims = list(made)
         for ob in list(bpy.data.objects):
             if str(ob.name).startswith("__surface_eval_") and ob not in before_objs:
@@ -193,6 +211,7 @@ def surface_selftest():
             _cleanup_objects(victims)
         except Exception:
             pass
+
 
 
 def _object_bbox_mm(ob):

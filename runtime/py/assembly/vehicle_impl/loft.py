@@ -241,20 +241,9 @@ def _ring_from_station(st, n=24, n_top=4.0, n_bot=4.0, tumblehome=0.0, beltline_
     return pts
 
 
-def vehicle_loft(stations=None, name="Shell", section_pts=24, n_top=4.0, n_bot=4.0,
-                 tumblehome_mm=0.0, beltline_frac=0.55, shoulder_inset_mm=0.0, sill_tuck_mm=0.0,
-                 flare_mm=0.0, flare_x_mm=None, subsurf=1, crease_shoulder=0.0, close_ends=True,
-                 section_shape=None, section_outline=None, crease_lines=None, inset_lines=None,
-                 spec=None, side=None, **kw):
-    """站表 → 放样成壳（外表面还原第 3 步）。
-
-    stations：vehicle_sections 给的站表（每站 x_mm / z_top_mm / z_bottom_mm / half_w_mm）。
-    截面参数：n_top（车顶平度）/ n_bot（底边方度）/ tumblehome_mm（侧倾）/ beltline_frac（腰线位置）/
-              shoulder_inset_mm（腰线台阶）/ sill_tuck_mm（下裙内收）。
-    flare_mm + flare_x_mm：轮眉**外扩**（跑车后轮拱最典型）；flare_x_mm 默认取站表里 z_bottom 最低的两处。
-    crease_shoulder>0：腰线环边加 SubD 折痕（面感的来源）。
-    也可以只给 spec：用 vehicle_spec 的剖面先造一张站表（简版跑车）再放样。
-    """
+def _vehicle_loft_p1(st):
+    crease_lines, flare_mm, flare_x_mm, inset_lines, name = (st.get("crease_lines"), st.get("flare_mm"), st.get("flare_x_mm"), st.get("inset_lines"), st.get("name"))
+    shoulder_inset_mm, side, spec, stations = (st.get("shoulder_inset_mm"), st.get("side"), st.get("spec"), st.get("stations"))
     try:
         import bmesh as _bm
         if not stations:
@@ -319,6 +308,17 @@ def vehicle_loft(stations=None, name="Shell", section_pts=24, n_top=4.0, n_bot=4
         insets_eff = list(inset_lines or [])
         if not insets_eff and shoulder_inset_mm:
             insets_eff = []      # 旧参数走 _ring_from_station 内部逻辑，不重复处理
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+
+def _vehicle_loft_p2(st):
+    bm, fl_set, inset_hits, insets_eff, me = st.get("bm"), st.get("fl_set"), st.get("inset_hits"), st.get("insets_eff"), st.get("me")
+    nm, ring_co, rings, sts = st.get("nm"), st.get("ring_co"), st.get("rings"), st.get("sts")
+    beltline_frac, close_ends, crease_lines, crease_shoulder, flare_mm = (st.get("beltline_frac"), st.get("close_ends"), st.get("crease_lines"), st.get("crease_shoulder"), st.get("flare_mm"))
+    n_bot, n_top, section_outline, section_pts, section_shape = (st.get("n_bot"), st.get("n_top"), st.get("section_outline"), st.get("section_pts"), st.get("section_shape"))
+    shoulder_inset_mm, sill_tuck_mm, tumblehome_mm = (st.get("shoulder_inset_mm"), st.get("sill_tuck_mm"), st.get("tumblehome_mm"))
+    try:
         for s in sts:
             _fl = flare_mm if round(s["x_mm"], 3) in fl_set else 0.0
             if section_outline:
@@ -395,6 +395,16 @@ def vehicle_loft(stations=None, name="Shell", section_pts=24, n_top=4.0, n_bot=4
             bv.profile = min(0.95, max(0.05, float(radius_lines[0].get("profile") or 0.5)))
             # 0.5 = 正圆；>0.5 偏方（更接近 G2 的平顺过渡）、<0.5 偏凹
             bevel_info = {"radius_mm": bmax, "segments": bv.segments, "profile": round(float(bv.profile), 3), "edges": sum(int(q.get("edges") or 0) for q in bevel_report)}
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+
+def _vehicle_loft_p3(st):
+    bevel_info, bevel_report, crease_report, creases, fl_set = st.get("bevel_info"), st.get("bevel_report"), st.get("crease_report"), st.get("creases"), st.get("fl_set")
+    inserted, inset_hits, ob, rings = st.get("inserted"), st.get("inset_hits"), st.get("ob"), st.get("rings")
+    beltline_frac, flare_mm, n_bot, n_top, section_outline = (st.get("beltline_frac"), st.get("flare_mm"), st.get("n_bot"), st.get("n_top"), st.get("section_outline"))
+    section_shape, shoulder_inset_mm, sill_tuck_mm, subsurf, tumblehome_mm = (st.get("section_shape"), st.get("shoulder_inset_mm"), st.get("sill_tuck_mm"), st.get("subsurf"), st.get("tumblehome_mm"))
+    try:
         if int(subsurf or 0) > 0:
             ss = ob.modifiers.new("subsurf", "SUBSURF")
             ss.levels = int(subsurf)
@@ -433,7 +443,29 @@ def vehicle_loft(stations=None, name="Shell", section_pts=24, n_top=4.0, n_bot=4
                    "crease_edges": creases,
                    "note": "站表决定轮廓、截面参数决定性格（平度/侧倾/腰线/下裙）、flare 决定轮拱外扩；"
                            "下一步：正交渲染 + img_diff 对原图算 IoU，改参数再跑"})
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+
+def vehicle_loft(stations=None, name="Shell", section_pts=24, n_top=4.0, n_bot=4.0,
+                 tumblehome_mm=0.0, beltline_frac=0.55, shoulder_inset_mm=0.0, sill_tuck_mm=0.0,
+                 flare_mm=0.0, flare_x_mm=None, subsurf=1, crease_shoulder=0.0, close_ends=True,
+                 section_shape=None, section_outline=None, crease_lines=None, inset_lines=None,
+                 spec=None, side=None, **kw):
+    """站表 → 放样成壳（外表面还原第 3 步）。
+
+    stations：vehicle_sections 给的站表（每站 x_mm / z_top_mm / z_bottom_mm / half_w_mm）。
+    截面参数：n_top（车顶平度）/ n_bot（底边方度）/ tumblehome_mm（侧倾）/ beltline_frac（腰线位置）/
+              shoulder_inset_mm（腰线台阶）/ sill_tuck_mm（下裙内收）。
+    flare_mm + flare_x_mm：轮眉**外扩**（跑车后轮拱最典型）；flare_x_mm 默认取站表里 z_bottom 最低的两处。
+    crease_shoulder>0：腰线环边加 SubD 折痕（面感的来源）。
+    也可以只给 spec：用 vehicle_spec 的剖面先造一张站表（简版跑车）再放样。
+    """
+    st = dict(locals())
+    try:
+        for _fn_ in (_vehicle_loft_p1, _vehicle_loft_p2, _vehicle_loft_p3):
+            _r = _fn_(st)
+            if _r is not None:
+                return _r
     except Exception as e:
         return _j({"ok": False, "error": "%s: %s" % (type(e).__name__, str(e)[:220])})
-
-
