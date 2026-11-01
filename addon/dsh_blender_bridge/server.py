@@ -8,37 +8,23 @@ import queue
 import time
 import traceback
 
-from .commands.activity import ActivityCommands
-from .commands.assets_polyhaven import PolyHavenCommands
-from .commands.assets_polypizza import PolypizzaCommands
-from .commands.assets_sketchfab import SketchfabCommands
-from .commands.core import CoreCommands
-from .commands.generate_hunyuan import HunyuanCommands
-from .commands.generate_hyper3d import Hyper3DCommands
-from .commands.material import MaterialCommands
-from .commands.scene import SceneCommands
-from .commands.selection import SelectionCommands
-from .commands.telemetry import TelemetryCommands
+from .command_registry import (
+    WIRE_SPECS,
+    begin_agent_command,
+    command_mixins,
+    drain_edit_recorder,
+    end_agent_command,
+    gate_property,
+    start_runtime_handlers,
+    stop_runtime_handlers,
+    tick_activity,
+)
 from .config import RODIN_FREE_TRIAL_KEY, get_dshbb_addon_preferences, read_env_var
-from .protocol import _ai_paused, _is_pause_safe_command
-from .recorders.activity import _register_activity_handlers, _unregister_activity_handlers, get_activity_tracker
-from .recorders.edit_capture import _register_edit_capture_handlers, _unregister_edit_capture_handlers
-from .recorders.user_edit import get_edit_recorder
+from .protocol import ai_paused, is_pause_safe_command
 
-class DSHBlenderBridgeServer(
-    CoreCommands,
-    SceneCommands,
-    SelectionCommands,
-    ActivityCommands,
-    MaterialCommands,
-    TelemetryCommands,
-    PolyHavenCommands,
-    SketchfabCommands,
-    PolypizzaCommands,
-    Hyper3DCommands,
-    HunyuanCommands,
-):
-    def __init__(self, host='localhost', port=9876):
+
+class DSHBlenderBridgeServer(*command_mixins()):
+    def __init__(self, host="localhost", port=9876):
         self.host = host
         self.port = port
         self.running = False
@@ -146,9 +132,7 @@ class DSHBlenderBridgeServer(
             self.server_thread.daemon = True
             self.server_thread.start()
 
-            _register_edit_capture_handlers()
-            # v1.8：活动/选区判定与 telemetry 无关，服务器一起来就常驻注册
-            _register_activity_handlers()
+            start_runtime_handlers()
 
             # start() is called from the operator, i.e. the main thread, so
             # this is the only safe place to touch bpy.app.timers.
@@ -163,9 +147,8 @@ class DSHBlenderBridgeServer(
     def stop(self):
         self.running = False
 
-        _unregister_edit_capture_handlers()
-        _unregister_activity_handlers()
-        get_edit_recorder().drain()
+        stop_runtime_handlers()
+        drain_edit_recorder()
 
         try:
             if bpy.app.timers.is_registered(self._drain_command_queue):
@@ -177,7 +160,7 @@ class DSHBlenderBridgeServer(
         if self.socket:
             try:
                 self.socket.close()
-            except:
+            except Exception:
                 pass
             self.socket = None
 
@@ -210,7 +193,7 @@ class DSHBlenderBridgeServer(
             try:
                 if self.server_thread.is_alive():
                     self.server_thread.join(timeout=1.0)
-            except:
+            except Exception:
                 pass
             self.server_thread = None
 
@@ -260,7 +243,7 @@ class DSHBlenderBridgeServer(
 
         # v1.8：活动的统一判定跑在主线程 timer 上（modal 操作符 / 原生选区变化）。
         try:
-            get_activity_tracker().tick()
+            tick_activity()
         except Exception:
             pass
 
@@ -279,7 +262,7 @@ class DSHBlenderBridgeServer(
                 response_json = json.dumps({"status": "error", "message": str(e)})
 
             try:
-                client.sendall(response_json.encode('utf-8'))
+                client.sendall(response_json.encode("utf-8"))
             except Exception:
                 print("Failed to send response - client disconnected")
 
@@ -293,7 +276,7 @@ class DSHBlenderBridgeServer(
         client.settimeout(1.0)
         with self._clients_lock:
             self._clients.add(client)
-        buffer = b''
+        buffer = b""
 
         try:
             while self.running:
@@ -307,8 +290,8 @@ class DSHBlenderBridgeServer(
                     buffer += data
                     try:
                         # Try to parse command
-                        command = json.loads(buffer.decode('utf-8'))
-                        buffer = b''
+                        command = json.loads(buffer.decode("utf-8"))
+                        buffer = b""
 
                         # Hand off to the main thread. Never call
                         # bpy.app.timers.register() from here - it is not
@@ -334,18 +317,18 @@ class DSHBlenderBridgeServer(
                 self._clients.discard(client)
             try:
                 client.close()
-            except:
+            except Exception:
                 pass
             print("Client handler stopped")
 
     def execute_command(self, command):
         """Execute a command in the main Blender thread"""
         # 暂停检查放在 try/finally 之前：被拒的请求不应标记成「AI 正在操作」
-        if _ai_paused() and not _is_pause_safe_command(command.get("type")):
+        if ai_paused() and not is_pause_safe_command(command.get("type")):
             return {"status": "error", "error": "AI_PAUSED",
                     "message": "AI 操作已暂停：请在 Blender N 面板「活动状态」里点「继续 AI 操作」"}
         try:
-            with get_edit_recorder().agent_command():
+            with begin_agent_command():
                 return self._execute_command_internal(command)
 
         except Exception as e:
@@ -355,108 +338,44 @@ class DSHBlenderBridgeServer(
         finally:
             # v1.8：标记 agent 刚操作过；并把选区指纹作废，避免把 agent 的改动误算成人的操作
             try:
-                tracker = get_activity_tracker()
-                tracker.note_agent_end()
-                tracker._resync()
+                end_agent_command()
             except Exception:
                 pass
+
+    def ping_response(self, **_ignored):
+        """Trivial liveness check; touches no bpy data (params are ignored)."""
+        return {"pong": True}
+
+    def _resolve_handler(self, cmd_type):
+        """Return the bound handler for a wire command, or None.
+
+        Gated commands exist only while their scene toggle is enabled; an
+        unknown or disabled command returns None and is reported as unknown.
+        """
+        spec = WIRE_SPECS.get(cmd_type)
+        if spec is None:
+            return None
+        gate = gate_property(spec)
+        if gate and not getattr(bpy.context.scene, gate, False):
+            return None
+        return getattr(self, spec.handler, None)
 
     def _execute_command_internal(self, command):
         """Internal command execution with proper context"""
         cmd_type = command.get("type")
         params = command.get("params", {})
 
-        # Trivial liveness check. Touches no bpy data, so a successful ping
-        # alongside a failing command isolates data access from transport.
-        if cmd_type == "ping":
-            return {"status": "success", "result": {"pong": True}}
-
-        # Add a handler for checking PolyHaven status
-        if cmd_type == "get_polyhaven_status":
-            return {"status": "success", "result": self.get_polyhaven_status()}
-
-        # Base handlers that are always available
-        handlers = {
-            "get_scene_info": self.get_scene_info,
-            "get_world_state_snapshot": self.get_world_state_snapshot,
-            "get_addon_info": self.get_addon_info,
-            "get_object_info": self.get_object_info,
-            "get_viewport_screenshot": self.get_viewport_screenshot,
-            "execute_code": self.execute_code,
-            "describe_node_type": self.describe_node_type,
-            "bpy_api_lookup": self.bpy_api_lookup,
-            "drain_human_activity": self.drain_human_activity,
-            "get_activity_state": self.get_activity_state,
-            "get_selection": self.get_selection,
-            "send_selection_to_dsh": self.send_selection_to_dsh,
-            "get_collections": self.get_collections,
-            "send_collection_to_dsh": self.send_collection_to_dsh,
-            "get_telemetry_consent": self.get_telemetry_consent,
-            "set_telemetry_consent": self.set_telemetry_consent,
-            "get_polyhaven_status": self.get_polyhaven_status,
-            "get_hyper3d_status": self.get_hyper3d_status,
-            "get_sketchfab_status": self.get_sketchfab_status,
-            "get_polypizza_status": self.get_polypizza_status,
-            "get_hunyuan3d_status": self.get_hunyuan3d_status,
-            "export_scene": self.export_scene,
-        }
-
-        # Add Polyhaven handlers only if enabled
-        if bpy.context.scene.dshbb_use_polyhaven:
-            polyhaven_handlers = {
-                "get_polyhaven_categories": self.get_polyhaven_categories,
-                "search_polyhaven_assets": self.search_polyhaven_assets,
-                "download_polyhaven_asset": self.download_polyhaven_asset,
-                "get_polyhaven_asset_preview": self.get_polyhaven_asset_preview,
-                "set_texture": self.set_texture,
-            }
-            handlers.update(polyhaven_handlers)
-
-        # Add Hyper3d handlers only if enabled
-        if bpy.context.scene.dshbb_use_hyper3d:
-            polyhaven_handlers = {
-                "create_rodin_job": self.create_rodin_job,
-                "poll_rodin_job_status": self.poll_rodin_job_status,
-                "import_generated_asset": self.import_generated_asset,
-            }
-            handlers.update(polyhaven_handlers)
-
-        # Add Sketchfab handlers only if enabled
-        if bpy.context.scene.dshbb_use_sketchfab:
-            sketchfab_handlers = {
-                "search_sketchfab_models": self.search_sketchfab_models,
-                "get_sketchfab_model_preview": self.get_sketchfab_model_preview,
-                "download_sketchfab_model": self.download_sketchfab_model,
-            }
-            handlers.update(sketchfab_handlers)
-
-        # Add Poly Pizza handlers only if enabled
-        if bpy.context.scene.dshbb_use_polypizza:
-            polypizza_handlers = {
-                "search_polypizza_models": self.search_polypizza_models,
-                "download_polypizza_model": self.download_polypizza_model,
-            }
-            handlers.update(polypizza_handlers)
-
-        # Add Hunyuan3d handlers only if enabled
-        if bpy.context.scene.dshbb_use_hunyuan3d:
-            hunyuan_handlers = {
-                "create_hunyuan_job": self.create_hunyuan_job,
-                "poll_hunyuan_job_status": self.poll_hunyuan_job_status,
-                "import_generated_asset_hunyuan": self.import_generated_asset_hunyuan
-            }
-            handlers.update(hunyuan_handlers)
-
-        handler = handlers.get(cmd_type)
-        if handler:
-            try:
-                print(f"Executing handler for {cmd_type}")
-                result = handler(**params)
-                print(f"Handler execution complete")
-                return {"status": "success", "result": result}
-            except Exception as e:
-                print(f"Error in handler: {str(e)}")
-                traceback.print_exc()
-                return {"status": "error", "message": str(e)}
-        else:
+        handler = self._resolve_handler(cmd_type)
+        if not handler:
             return {"status": "error", "message": f"Unknown command type: {cmd_type}"}
+
+        try:
+            print(f"Executing handler for {cmd_type}")
+            result = handler(**params)
+            print("Handler execution complete")
+            return {"status": "success", "result": result}
+        except Exception as e:
+            print(f"Error in handler: {str(e)}")
+            traceback.print_exc()
+            return {"status": "error", "message": str(e)}
+

@@ -5,8 +5,8 @@ import time
 import os
 import tempfile
 
-from ..compat import _read_sub_selection
-from ..protocol import _redraw_view3d_panels
+from ..selection import read_sub_selection
+from ..protocol import redraw_view3d_panels
 from ..recorders.activity import get_activity_tracker
 
 LIST_UI_CAP = 500
@@ -28,7 +28,7 @@ class DSHBB_UL_ObjectList(bpy.types.UIList):
         row.label(text=getattr(item, "obj_type", "") or "?")
 
 
-def _sub_mode_label(mode):
+def sub_mode_label(mode):
     labels = {
         "EDIT_MESH": "编辑模式（网格）",
         "EDIT_ARMATURE": "编辑模式（骨架）",
@@ -69,7 +69,7 @@ def _sub_selection_entries(sub):
 
 def _selection_list_entries():
     entries = [(obj.name, str(getattr(obj, "type", "?"))) for obj in (bpy.context.selected_objects or [])[:LIST_UI_CAP]]
-    sub = _read_sub_selection()
+    sub = read_sub_selection()
     if sub is not None:
         entries.extend(_sub_selection_entries(sub))
     return entries[:LIST_UI_CAP]
@@ -93,15 +93,15 @@ def _refresh_collection_list(scene, context=None):
         pass
 
 
-def _on_show_selection_list_update(self, context):
+def on_show_selection_list_update(self, context):
     _refresh_selection_list(self, context)
 
 
-def _on_show_collection_list_update(self, context):
+def on_show_collection_list_update(self, context):
     _refresh_collection_list(self, context)
 
 
-def _dshbb_ui_list_timer():
+def dshbb_ui_list_timer():
     """列表打开时保持内容与场景同步；活动状态/暂停状态变化时重绘 N 面板。"""
     try:
         scene = bpy.context.scene
@@ -115,7 +115,7 @@ def _dshbb_ui_list_timer():
                 key = (snap.get("state"), bool(getattr(scene, "dshbb_ai_paused", False)))
                 if key != _LAST_UI_STATE_KEY["key"]:
                     _LAST_UI_STATE_KEY["key"] = key
-                    _redraw_view3d_panels()
+                    redraw_view3d_panels()
             except Exception:
                 pass
     except Exception:
@@ -142,7 +142,7 @@ def _sync_ui_list(collection, entries):
 
 
 # 面板绘制异常记录：写场景属性 + 日志文件（用户不方便看控制台时也能诊断）
-def _log_panel_error(tb):
+def log_panel_error(tb):
     import traceback
     text = str(tb)[-4000:]
     try:

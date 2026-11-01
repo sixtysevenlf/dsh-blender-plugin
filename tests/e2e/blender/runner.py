@@ -145,7 +145,7 @@ def main():
         addon_module = sys.modules.get(PACKAGE_NAME)
         owned_timers = [timer for timer in (
             getattr(config_module, "_dshbb_ensure_server_running", None),
-            getattr(addon_module, "_dshbb_ui_list_timer", None),
+            getattr(addon_module, "dshbb_ui_list_timer", None),
         ) if timer is not None]
         addon_utils.disable(PACKAGE_NAME, default_set=True)
         timer_registered = any(bpy.app.timers.is_registered(timer) for timer in owned_timers)

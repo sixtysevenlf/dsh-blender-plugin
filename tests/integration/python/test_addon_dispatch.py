@@ -213,7 +213,7 @@ def test_pause_gate_does_not_run_the_agent_recorder(monkeypatch):
 
             return _Ctx()
 
-    monkeypatch.setattr(server_module, "get_edit_recorder", lambda: Recorder())
+    monkeypatch.setattr(server_module, "begin_agent_command", lambda: Recorder().agent_command())
     bpy.context.scene.dshbb_ai_paused = True
     try:
         blocked = server.execute_command({"type": "execute_code", "params": {}})

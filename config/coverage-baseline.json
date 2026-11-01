@@ -39,12 +39,12 @@
     }
   },
   "python": {
-    "scopeLines": 76.95,
-    "scopeBranches": 71.71,
-    "coveredLines": 484,
-    "scopeLinesTotal": 629,
-    "coveredBranches": 109,
-    "scopeBranchesTotal": 152
+    "scopeLines": 82.5,
+    "scopeBranches": 74.36,
+    "coveredLines": 580,
+    "scopeLinesTotal": 703,
+    "coveredBranches": 116,
+    "scopeBranchesTotal": 156
   },
   "e2e": {
     "behaviorMatrixRows": 346,

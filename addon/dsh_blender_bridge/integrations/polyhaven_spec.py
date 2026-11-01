@@ -1,10 +1,12 @@
 """ Poly Haven asset policy: formats, map roles, taxonomy and search limits.
 
-Pure data, no imports from the bridge package, so both the HTTP client and the
-command layer can share it without an import cycle.
+Pure data; the only bridge import is the public site link from config, so both
+the HTTP client and the command layer can share this without a cycle.
 """
 
 import re
+
+from ..config import POLYHAVEN_SITE
 
 POLYHAVEN_SUPPORTED_FORMATS = {
     "hdris": ("hdr", "exr"),
@@ -57,8 +59,6 @@ POLYHAVEN_TEXTURE_MAPS = {
 POLYHAVEN_COLOR_ROLES = {"base_color"}
 
 POLYHAVEN_SLUG_RE = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
-
-POLYHAVEN_SITE = "https://polyhaven.com"
 
 # `type` is an integer in the API's asset records.
 POLYHAVEN_ASSET_TYPES = {0: "hdris", 1: "textures", 2: "models"}

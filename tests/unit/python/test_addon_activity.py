@@ -176,13 +176,13 @@ def test_activity_handlers_register_once_and_unregister_cleanly():
                          bpy.app.handlers.depsgraph_update_post):
         handler_list[:] = []
     try:
-        activity._register_activity_handlers()
-        activity._register_activity_handlers()
+        activity.register_activity_handlers()
+        activity.register_activity_handlers()
         assert bpy.app.handlers.undo_post == [activity._dshbb_activity_undo_post]
         assert bpy.app.handlers.redo_post == [activity._dshbb_activity_redo_post]
         assert bpy.app.handlers.depsgraph_update_post == [activity._dshbb_activity_depsgraph_post]
-        activity._unregister_activity_handlers()
-        activity._unregister_activity_handlers()
+        activity.unregister_activity_handlers()
+        activity.unregister_activity_handlers()
         assert bpy.app.handlers.undo_post == []
         assert bpy.app.handlers.redo_post == []
         assert bpy.app.handlers.depsgraph_update_post == []

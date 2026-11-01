@@ -9,7 +9,7 @@ import shutil
 import os.path as osp
 from contextlib import contextmanager, redirect_stdout, suppress
 
-from ..commands.core import CoreCommands
+from .geometry import compute_aabb
 
 MODEL_DOWNLOAD_TIMEOUT = 120
 
@@ -112,7 +112,7 @@ def import_model_files(files, name):
             "location": [obj.location.x, obj.location.y, obj.location.z],
             "rotation": [obj.rotation_euler.x, obj.rotation_euler.y, obj.rotation_euler.z],
             "scale": [obj.scale.x, obj.scale.y, obj.scale.z],
-            "world_bounding_box": CoreCommands._get_aabb(obj),
+            "world_bounding_box": compute_aabb(obj),
         }
     except Exception as e:
         return {"succeed": False, "error": str(e)}

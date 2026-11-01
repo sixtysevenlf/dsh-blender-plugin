@@ -18,6 +18,7 @@ inline below), and no decision lives only in a chat log.
 | [0005](0005-coverage-rebaseline.md) | Rebaseline coverage after the 3.0 refactor and keep fixed quality floors | Accepted | 2026-10-31 |
 | [0006](0006-file-size-budget.md) | Cap production source files at 600 lines and enforce it in check:structure | Accepted | 2026-11-01 |
 | [0007](0007-runtime-py-line-budget.md) | Cap runtime/py implementation files at 1000 lines with loader-visible facades | Accepted | 2026-11-01 |
+| [0010](0010-addon-pure-logic-coverage.md) | Measure add-on pure logic separately from bpy/UI code at >= 80/70 | Accepted | 2026-11-01 |
 
 ## When to write one
 

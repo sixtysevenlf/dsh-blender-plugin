@@ -67,26 +67,26 @@ def test_pause_safe_commands_are_exactly_the_read_only_whitelist():
     })
     for name in ALL_COMMANDS:
         expected = name.startswith("get_") or name in protocol.PAUSE_SAFE_COMMANDS
-        assert protocol._is_pause_safe_command(name) is expected, name
-    assert protocol._is_pause_safe_command("ping") is True
-    assert protocol._is_pause_safe_command("drain_human_activity") is True
-    assert protocol._is_pause_safe_command("describe_node_type") is True
-    assert protocol._is_pause_safe_command("bpy_api_lookup") is True
-    assert protocol._is_pause_safe_command("execute_code") is False
-    assert protocol._is_pause_safe_command("set_texture") is False
-    assert protocol._is_pause_safe_command("send_selection_to_dsh") is False
-    assert protocol._is_pause_safe_command("export_scene") is False
-    assert protocol._is_pause_safe_command(None) is False
-    assert protocol._is_pause_safe_command("") is False
+        assert protocol.is_pause_safe_command(name) is expected, name
+    assert protocol.is_pause_safe_command("ping") is True
+    assert protocol.is_pause_safe_command("drain_human_activity") is True
+    assert protocol.is_pause_safe_command("describe_node_type") is True
+    assert protocol.is_pause_safe_command("bpy_api_lookup") is True
+    assert protocol.is_pause_safe_command("execute_code") is False
+    assert protocol.is_pause_safe_command("set_texture") is False
+    assert protocol.is_pause_safe_command("send_selection_to_dsh") is False
+    assert protocol.is_pause_safe_command("export_scene") is False
+    assert protocol.is_pause_safe_command(None) is False
+    assert protocol.is_pause_safe_command("") is False
 
 
 def test_ai_paused_reads_the_scene_flag_and_fails_open():
     previous = getattr(bpy.context.scene, "dshbb_ai_paused", False)
     try:
         bpy.context.scene.dshbb_ai_paused = False
-        assert protocol._ai_paused() is False
+        assert protocol.ai_paused() is False
         bpy.context.scene.dshbb_ai_paused = True
-        assert protocol._ai_paused() is True
+        assert protocol.ai_paused() is True
     finally:
         bpy.context.scene.dshbb_ai_paused = previous
 
@@ -95,7 +95,7 @@ def test_redraw_panels_tolerates_headless_context():
     previous = bpy.context.window_manager
     try:
         bpy.context.window_manager = None
-        protocol._redraw_view3d_panels()
+        protocol.redraw_view3d_panels()
     finally:
         bpy.context.window_manager = previous
 

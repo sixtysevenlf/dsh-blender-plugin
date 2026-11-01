@@ -5,8 +5,9 @@ import time
 import requests
 import os
 
-from ..compat import SELECTION_COLLECTION_ROWS, SELECTION_PAYLOAD_NAMES, SELECTION_PAYLOAD_OBJECTS, _read_sub_selection
-from ..config import _dshbb_backend_url
+from ..selection.caps import SELECTION_COLLECTION_ROWS, SELECTION_PAYLOAD_NAMES, SELECTION_PAYLOAD_OBJECTS
+from ..selection.payload import read_sub_selection
+from ..config import dshbb_backend_url
 from ..recorders.activity import get_activity_tracker
 
 def _scene_meta():
@@ -25,7 +26,7 @@ def _scene_meta():
     return {"name": scene_name, "file": file_name}
 
 
-def _best_collection_for_selection():
+def best_collection_for_selection():
     """当前选中对象里"最代表"的集合（出现在最多选中对象上的那个）；没有就 None。"""
     try:
         selected = list(bpy.context.selected_objects or [])
@@ -51,18 +52,18 @@ def _best_collection_for_selection():
         return None
 
 
-def _on_selection_mode_update(self, context):
+def on_selection_mode_update(self, context):
     """切到「集合」模式时：若还没选集合，自动用当前选中对象最常出现的集合。"""
     try:
         if getattr(self, "dshbb_selection_mode", "MULTI") == "COLLECTION" and getattr(self, "dshbb_collection_target", None) is None:
-            best = _best_collection_for_selection()
+            best = best_collection_for_selection()
             if best is not None:
                 self.dshbb_collection_target = best
     except Exception:
         pass
 
 
-def _selection_collection_summary(selected, cap=SELECTION_COLLECTION_ROWS):
+def selection_collection_summary(selected, cap=SELECTION_COLLECTION_ROWS):
     """Selected objects grouped by their direct collections: [{name, count}] (count desc)."""
     counts = {}
     for obj in selected:
@@ -118,10 +119,10 @@ def build_selection_payload(include_current_command=True):
         "mode": selection.get("mode"),
         "objects": _scene_objects_within(selected),
         # v2.3：选中对象分布在哪些集合（多件装配体时让 DSH/模型先看到"集合"这一层）
-        "collections": _selection_collection_summary(selected),
+        "collections": selection_collection_summary(selected),
     }
     # v2.4：编辑/姿态模式的子元素（顶点/边/面、骨骼、曲线/晶格点）
-    sub = _read_sub_selection()
+    sub = read_sub_selection()
     if sub is not None:
         selection_payload["sub"] = sub
     return {
@@ -212,7 +213,7 @@ def build_collections_payload(limit=200):
 
 def _post_selection_payload(payload, timeout=3.0):
     """POST one selection payload to the DSH backend (never raises)."""
-    url = _dshbb_backend_url() + "/host/selection"
+    url = dshbb_backend_url() + "/host/selection"
     result = {"ok": False, "backend_url": url, "payload": payload}
     try:
         response = requests.post(url, json=payload, timeout=float(timeout))
@@ -264,7 +265,7 @@ def send_collection_to_dsh(collection_name=None, timeout=3.0):
 _selection_send_state = {}
 
 
-def _record_selection_send(result):
+def record_selection_send(result):
     global _selection_send_state
     selection = (result.get("payload") or {}).get("selection") or {}
     _selection_send_state = {
@@ -298,7 +299,7 @@ class SelectionCommands:
     def send_selection_to_dsh(self, timeout: float = 3.0):
         """v1.8：把当前原生选中 POST 给 DSH 后端（N 面板按钮 / 模型调用同一实现）。"""
         try:
-            return _record_selection_send(send_selection_to_dsh(timeout=timeout))
+            return record_selection_send(send_selection_to_dsh(timeout=timeout))
         except Exception as e:
             print(f"Error sending selection to DSH: {str(e)}")
             return {"ok": False, "error": str(e)}
@@ -314,7 +315,7 @@ class SelectionCommands:
     def send_collection_to_dsh(self, collection=None, timeout: float = 3.0):
         """v1.8：把一个集合整体 POST 给 DSH（集合名缺省取 N 面板下拉的 dshbb_collection_target）。"""
         try:
-            return _record_selection_send(send_collection_to_dsh(collection_name=collection, timeout=timeout))
+            return record_selection_send(send_collection_to_dsh(collection_name=collection, timeout=timeout))
         except Exception as e:
             print(f"Error sending collection to DSH: {str(e)}")
             return {"ok": False, "error": str(e)}

@@ -9,7 +9,7 @@ import bpy_stub
 
 bpy = bpy_stub.install()
 
-compat = importlib.import_module("addon.dsh_blender_bridge.compat")
+selection_caps = importlib.import_module("addon.dsh_blender_bridge.selection.caps")
 selection = importlib.import_module("addon.dsh_blender_bridge.commands.selection")
 
 
@@ -66,7 +66,7 @@ def test_selection_payload_shape_caps_and_collection_summary():
         assert body["truncated"] is False
         assert body["active"] == "Obj000"
         assert body["mode"] == "OBJECT"
-        assert len(body["objects"]) == compat.SELECTION_PAYLOAD_OBJECTS == 50
+        assert len(body["objects"]) == selection_caps.SELECTION_PAYLOAD_OBJECTS == 50
         assert body["objects"][0] == {
             "name": "Obj000", "type": "MESH", "dimensions_mm": [1000.0, 2000.0, 3000.0],
         }
@@ -85,7 +85,7 @@ def test_selection_payload_caps_names_and_marks_truncation():
     try:
         body = selection.build_selection_payload(include_current_command=False)["selection"]
         assert body["count"] == 250
-        assert len(body["names"]) == compat.SELECTION_PAYLOAD_NAMES == 200
+        assert len(body["names"]) == selection_caps.SELECTION_PAYLOAD_NAMES == 200
         assert body["truncated"] is True
         assert body["active"] == "Obj249"
     finally:
@@ -115,7 +115,7 @@ def test_sub_selection_is_attached_when_present(monkeypatch):
     _reset_scene()
     sub = {"type": "MESH", "counts": {"vertices": 1}, "indices": {"vertices": [0]},
            "truncated": False}
-    monkeypatch.setattr(selection, "_read_sub_selection", lambda: sub)
+    monkeypatch.setattr(selection, "read_sub_selection", lambda: sub)
     payload = selection.build_selection_payload(include_current_command=False)
     assert payload["selection"]["sub"] == sub
 
@@ -158,23 +158,23 @@ def test_best_collection_for_selection_and_mode_update():
     other = SimpleNamespace(name="Set")
     bpy.data.collections = {"Rig": rig, "Set": other}
     try:
-        assert selection._best_collection_for_selection() is rig
+        assert selection.best_collection_for_selection() is rig
 
         scene = SimpleNamespace(dshbb_selection_mode="MULTI", dshbb_collection_target=None)
-        selection._on_selection_mode_update(scene, bpy.context)
+        selection.on_selection_mode_update(scene, bpy.context)
         assert scene.dshbb_collection_target is None
 
         scene = SimpleNamespace(dshbb_selection_mode="COLLECTION", dshbb_collection_target=None)
-        selection._on_selection_mode_update(scene, bpy.context)
+        selection.on_selection_mode_update(scene, bpy.context)
         assert scene.dshbb_collection_target is rig
 
         existing = SimpleNamespace(name="Keep")
         scene = SimpleNamespace(dshbb_selection_mode="COLLECTION", dshbb_collection_target=existing)
-        selection._on_selection_mode_update(scene, bpy.context)
+        selection.on_selection_mode_update(scene, bpy.context)
         assert scene.dshbb_collection_target is existing
 
         bpy.context.selected_objects = []
-        assert selection._best_collection_for_selection() is None
+        assert selection.best_collection_for_selection() is None
     finally:
         _reset_scene()
 
@@ -297,7 +297,7 @@ def test_record_selection_send_tracks_last_result():
         "ok": True, "seq": 3, "backend_url": "http://127.0.0.1:9877",
         "payload": {"selection": {"count": 2, "kind": "objects"}},
     }
-    returned = selection._record_selection_send(result)
+    returned = selection.record_selection_send(result)
     state = selection._selection_send_state
     assert returned is result
     assert state["ok"] is True

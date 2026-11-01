@@ -1,6 +1,6 @@
 """ Activity state and human activity commands. """
 
-from ..protocol import _ai_paused
+from ..protocol import ai_paused
 from ..recorders.activity import get_activity_tracker
 from ..recorders.user_edit import get_edit_recorder
 
@@ -10,7 +10,7 @@ class ActivityCommands:
         try:
             # 查询命令不能把自己算成 agent（否则每次查询都回 state=agent）
             snap = get_activity_tracker().snapshot(include_current_command=False)
-            snap["paused"] = _ai_paused()
+            snap["paused"] = ai_paused()
             return snap
         except Exception as e:
             print(f"Error getting activity state: {str(e)}")
