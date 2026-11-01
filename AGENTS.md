@@ -46,7 +46,7 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
 | Backend HTTP | `runtime/http/*` — routes, lease, host views |
 | Backend engine | `runtime/core/*` (dispatch, kernel, scripts), `runtime/execution/*` (headless, jobs, workers), `runtime/transport/*` |
 | Backend language | `runtime/**/*.ts` compiled to `lib/runtime/**/*.js`; `lib/` is never committed |
-| Python domains | `runtime/py/{core,geometry,assembly,render,export}` plus compatibility shims at `runtime/*.py` |
+| Python domains | `runtime/py/{core,geometry,assembly,render,export}` (registry `runtime/py/modules.json`; no flat `runtime/*.py` since F2.3) |
 | Blender addon | `addon/dsh_blender_bridge/` package and the committed `addon/dsh_blender_bridge.zip` |
 | Built output | `lib/` built by `prepack`; source maps carry inline sources |
 

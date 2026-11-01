@@ -1,17 +1,15 @@
 # -*- coding: utf-8 -*-
-"""T8 static layout contract: 5 domain packages + re-export-only flat shims.
+"""T8/F2.3 static layout contract: 5 domain packages, no flat runtime shims.
 
 No bpy/numpy needed: everything here parses sources. The real import smoke runs
-inside Blender.
+inside Blender. F2.3 deleted the 38 one-version re-export shims; the only module
+registry is runtime/py/modules.json, so every public name must resolve to a real
+file under runtime/py/<domain>/.
 """
 import ast
 import json
 import os
-import subprocess
 import sys
-import textwrap
-
-import pytest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 RT = os.path.join(ROOT, "runtime")
@@ -23,8 +21,7 @@ with open(MANIFEST_FILE, encoding="utf-8") as _fh:
 # F2.0：唯一映射源 runtime/py/modules.json（顺序 = 清单插入顺序，与各 __init__.__all__ 一致）。
 DOMAINS = {d: [n for n, dom in MANIFEST["modules"].items() if dom == d] for d in MANIFEST["domains"]}
 ALL_MODULES = [n for names in DOMAINS.values() for n in names]
-SHIMS = [n for n in ALL_MODULES if n != "open3d_check"]
-UNLISTED = [n for n, dom in MANIFEST["modules"].items() if dom == "."]
+DOMAIN_NAMES = tuple(MANIFEST["domains"])
 
 
 def _parse(path):
@@ -39,6 +36,12 @@ def _docstring_skipped(body):
     return body
 
 
+def test_no_flat_runtime_modules():
+    """F2.3: runtime/*.py shims and unlisted flat modules are gone; registry-only."""
+    flat = sorted(p for p in os.listdir(RT) if p.endswith(".py"))
+    assert flat == [], "runtime/*.py must not exist after F2.3: %r" % flat
+
+
 def test_domain_packages_and_real_files():
     assert os.path.isfile(os.path.join(PY, "__init__.py"))
     assert sorted(d for d in os.listdir(PY) if os.path.isdir(os.path.join(PY, d)) and d != "__pycache__") == sorted(DOMAINS)
@@ -50,41 +53,6 @@ def test_domain_packages_and_real_files():
         assert present == sorted(names), (dom, present)
     assert os.path.isfile(os.path.join(PY, "assembly", "assembly_features.json"))
     assert not os.path.exists(os.path.join(RT, "ext", "open3d_check.py"))
-
-
-def test_flat_paths_are_shims_only():
-    for name in SHIMS:
-        p = os.path.join(RT, name + ".py")
-        assert os.path.isfile(p), p
-        tree = _parse(p)
-        body = _docstring_skipped(tree.body)
-        assert len(body) == 1 and isinstance(body[0], ast.Try), (name, [type(n).__name__ for n in body])
-        tr = body[0]
-        domain = next(d for d, ns in DOMAINS.items() if name in ns)
-        assert len(tr.body) == 1 and isinstance(tr.body[0], ast.ImportFrom), name
-        assert tr.body[0].module == "runtime.py.%s.%s" % (domain, name)
-        assert len(tr.handlers) == 1
-        imports = [n for n in ast.walk(tr) if isinstance(n, ast.ImportFrom)]
-        assert len(imports) == 2, name
-        assert imports[1].module == "py.%s.%s" % (domain, name)
-        assert not any(isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
-                       for n in ast.walk(tr)), name
-        calls = [n for n in ast.walk(tr) if isinstance(n, ast.Call)]
-        assert len(calls) == 1 and isinstance(calls[0].func, ast.Attribute) \
-            and calls[0].func.attr == "startswith", name
-        with open(p, encoding="utf-8") as fh:
-            assert len(fh.read().splitlines()) < 40, name
-
-
-def test_unlisted_modules_stay_flat_and_real():
-    for name in UNLISTED:
-        p = os.path.join(RT, name + ".py")
-        assert os.path.isfile(p), p
-        tree = _parse(p)
-        assert any(isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) for n in tree.body), name
-        assert not os.path.exists(os.path.join(PY, "core", name + ".py"))
-        with open(p, encoding="utf-8") as fh:
-            assert len(fh.read().splitlines()) > 60, name
 
 
 def test_package_init_is_lazy():
@@ -140,7 +108,8 @@ def test_find_runtime_file_reaches_sibling_packages():
         got = kitmod.find_runtime_file("assembly_features.json")
         assert got == os.path.join(PY, "assembly", "assembly_features.json")
         assert kitmod.find_runtime_file("qc_render.py") == os.path.join(PY, "render", "qc_render.py")
-        assert kitmod.find_runtime_file("generator.py") == os.path.join(RT, "generator.py")
+        assert kitmod.find_runtime_file("generator.py") == os.path.join(PY, "geometry", "generator.py")
+        assert kitmod.find_runtime_file("uv_tools.py") == os.path.join(PY, "geometry", "uv_tools.py")
         assert kitmod.find_runtime_file("no_such_module_xyz.py") is None
     finally:
         if old is None:
@@ -149,47 +118,77 @@ def test_find_runtime_file_reaches_sibling_packages():
             K.runtime_dir = old
 
 
-def test_repo_root_import_reaches_implementation():
-    sys.path.insert(0, ROOT)
-    import runtime.kit as shim
-    import runtime.py.core.kit as real
-    assert shim.KIT_VERSION == real.KIT_VERSION == 1
-    assert shim.find_runtime_file is real.find_runtime_file
-    import runtime.offline_bootstrap as ob
-    import runtime.py.core.offline_bootstrap as ob_real
-    assert ob.boot is ob_real.boot
+def _module_node(rel):
+    parts = list(rel)
+    if parts and parts[-1] == "__init__.py":
+        parts = parts[:-1]
+    return tuple(p[:-3] if p.endswith(".py") else p for p in parts)
 
 
-def test_flat_import_fallback_only_runtime_on_path():
-    # 旧式 import assembly（sys.path 里只有 runtime/）：shim 必须能走 py.* 兜底。
-    env = dict(os.environ)
-    env["PYTHONPATH"] = RT
-    env["PYTHONIOENCODING"] = "utf-8"
-    code = textwrap.dedent(
-        """
-        import kit, offline_bootstrap, py.core.kit, py.core.offline_bootstrap as real
-        assert kit.find_runtime_file is py.core.kit.find_runtime_file
-        assert offline_bootstrap.boot is real.boot
-        print("FLAT_FALLBACK_OK")
-        """
-    )
-    r = subprocess.run([sys.executable, "-c", code], cwd=RT, env=env,
-                       capture_output=True, text=True, timeout=120)
-    assert r.returncode == 0, r.stdout + r.stderr
-    assert "FLAT_FALLBACK_OK" in r.stdout
+def test_python_import_graph_has_no_cycles_or_cross_domain_edges():
+    """F2.3 guard: domain packages import within their own domain, without cycles."""
+    files = []
+    for dirpath, dirnames, filenames in os.walk(PY):
+        dirnames[:] = [d for d in dirnames if d != "__pycache__"]
+        for f in filenames:
+            if f.endswith(".py"):
+                files.append(tuple(os.path.relpath(os.path.join(dirpath, f), PY).split(os.sep)))
+    nodes = {_module_node(rel) for rel in files}
+    graph = {n: set() for n in nodes}
+    for rel in files:
+        node = _module_node(rel)
+        base = list(node) if rel[-1] == "__init__.py" else list(node[:-1])
+        tree = _parse(os.path.join(PY, *rel))
+        for n in ast.walk(tree):
+            if not isinstance(n, ast.ImportFrom):
+                continue
+            target = None
+            if n.level:
+                up = n.level - 1
+                if up > len(base):
+                    continue
+                pkg = base[:len(base) - up] if up else base
+                target = tuple(pkg) + (tuple(n.module.split(".")) if n.module else ())
+            elif n.module.startswith("runtime.py."):
+                target = tuple(n.module.split(".")[2:])
+            elif n.module.startswith("py."):
+                target = tuple(n.module.split(".")[1:])
+            if not target:
+                continue
+            dom = node[0] if node else ""
+            if target[0] in DOMAIN_NAMES and dom in DOMAIN_NAMES and target[0] != dom:
+                raise AssertionError("cross-domain import %r -> %r (%s)" % (
+                    "/".join(node), "/".join(target), ast.unparse(n)))
+            if target in nodes and target != node:
+                graph[node].add(target)
+    seen, stack, cycles = set(), [], []
+    def dfs(n):
+        seen.add(n)
+        stack.append(n)
+        for m in sorted(graph[n]):
+            if m in stack:
+                cycles.append(stack[stack.index(m):] + [m])
+            elif m not in seen:
+                dfs(m)
+        stack.pop()
+    for n in sorted(nodes):
+        if n not in seen:
+            dfs(n)
+    assert cycles == [], ["/".join(c) for c in cycles]
 
 
 def test_modules_manifest_is_single_source():
-    """F2.0：modules.json 唯一清单，paths.ts / offline_bootstrap.py 都读它，无第二份硬编码表。"""
+    """F2.0/F2.3：modules.json 唯一清单，paths.ts / offline_bootstrap.py 都读它。"""
     assert MANIFEST["version"] >= 1
     assert MANIFEST["domains"] == ["core", "geometry", "assembly", "render", "export"]
     assert len(MANIFEST["modules"]) == len(set(MANIFEST["modules"])) == 41
     for name, dom in MANIFEST["modules"].items():
-        assert dom == "." or dom in MANIFEST["domains"], (name, dom)
-        p = os.path.join(RT, name + ".py") if dom == "." else os.path.join(PY, dom, name + ".py")
+        assert dom in MANIFEST["domains"], (name, dom)
+        p = os.path.join(PY, dom, name + ".py")
         assert os.path.isfile(p), p
     paths_ts = open(os.path.join(RT, "paths.ts"), encoding="utf-8").read()
     assert "'py', 'modules.json'" in paths_ts
     assert "PY_MODULE_DOMAIN: Record<string, string> = {" not in paths_ts
+    assert "d === '.'" not in paths_ts
     boot_py = open(os.path.join(PY, "core", "offline_bootstrap.py"), encoding="utf-8").read()
     assert "modules.json" in boot_py

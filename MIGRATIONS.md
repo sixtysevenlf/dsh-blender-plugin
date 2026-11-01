@@ -19,6 +19,7 @@
 
 - **Premium 通道**：Premium 许可 / 额度 / Supabase 客户端 / 默认 quality 与激活 UI 全部删除；不再有 premium 生成入口。
 - **Tripo 通道**：Tripo 没有 BYOK 路径，因此 get_tripo_status、create_tripo_job、poll_tripo_job_status、import_generated_asset_tripo 与 N 面板开关一并删除；addon command 39 → 38。
+- **扁平 Python 模块路径移除**：runtime/*.py 的 38 个 re-export shim 删除，generator.py / uv_tools.py 移入 runtime/py/geometry/；preload / module 的公开模块名不变，但旧式 `import runtime.<name>`、或按 `runtime/<name>.py` 直接加载不再可用——改用 `runtime.py.<domain>.<name>` 或按 `runtime/py/modules.json` 定位。
 - **替代路径**：Hyper3D 与 Hunyuan3D 继续支持自有 API key；需要 Tripo 时请在外部服务完成生成后把资产导入 Blender。
 - 除上述声明移除项外，原有 op/参数/返回结构保持兼容；不要因为本版重构而改写既有调用。
 

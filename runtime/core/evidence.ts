@@ -5,7 +5,7 @@ import { IS_MAC, PKG_ROOT } from '../config.js'
 import { createHash } from 'node:crypto'
 import { catalogFingerprint, probeDiskCatalog } from '../catalog/index.js'
 import type { DiskCatalog } from '../catalog/index.js'
-import { pyModuleFile, PY_ROOT } from '../paths.js'
+import { pyModuleFile, pyModuleNames } from '../paths.js'
 
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -106,7 +106,13 @@ const ENGINE_SELF: EngineSelf = (() => {
   return info
 })()
 
-/** 按内容哈希（不是 size+mtime）—— 缓存键仍然是 (size, mtime) 以省 IO，但**返回的是内容指纹** */
+/**
+ * 按内容哈希（不是 size+mtime）—— 缓存键仍然是 (size, mtime) 以省 IO，但**返回的是内容指纹**。
+ *
+ * 键集合保持行为冻结（T8）：Python 资产仍用旧的扁平模块名 `<name>.py` 作键，但实现文件
+ * 一律按 `runtime/py/modules.json` 清单解析（F2.3 起没有扁平 shim，generator / uv_tools
+ * 也在 geometry 领域包），不会随目录里有没有 shim 而漂移。
+ */
 const _fpCache = new Map<string, { key: string; hash: string }>()
 function runtimeFingerprint(): Record<string, string> {
   const out: Record<string, string> = {}
@@ -121,31 +127,13 @@ function runtimeFingerprint(): Record<string, string> {
     out[key] = hit.hash
   }
   try {
+    // 非 Python 的运行时文件（构建产物 lib/runtime/*.js，或源码树 runtime/*.ts）。
     for (const f of fs.readdirSync(RUNTIME_DIR)) {
-      if (!/\.(py|js|ts)$/.test(f) || /\.d\.ts$/.test(f)) continue
-      // T8：键集合保持原样（行为冻结），但 .py 键的哈希取自 runtime/py/<domain>/ 的真实实现，
-      // 否则改实现文件时自证指纹不动。generator / uv_tools 无领域包，仍取扁平真实文件。
-      let src = path.join(RUNTIME_DIR, f)
-      if (f.endsWith('.py')) {
-        try {
-          src = pyModuleFile(f)
-        } catch (e) {
-          /* 非 §4.7 模块仍用扁平文件 */
-        }
-      }
-      add(src, f)
+      if (!/\.(js|ts)$/.test(f) || /\.d\.ts$/.test(f)) continue
+      add(path.join(RUNTIME_DIR, f), f)
     }
-    // 构建产物布局（lib/runtime/*.js）下 Python 资产在包根 runtime/：按扁平 .py 名字补齐
-    if (PY_ROOT !== RUNTIME_DIR) {
-      for (const f of fs.readdirSync(PY_ROOT)) {
-        if (!f.endsWith('.py') || out[f]) continue
-        try {
-          add(pyModuleFile(f), f)
-        } catch (e) {
-          /* 非领域模块仍用扁平文件 */
-        }
-      }
-    }
+    // Python 实现：唯一清单 runtime/py/modules.json；键名沿用旧扁平文件名（<name>.py）。
+    for (const name of pyModuleNames()) add(pyModuleFile(name), name + '.py')
   } catch (e) {
     /* ignore */
   }

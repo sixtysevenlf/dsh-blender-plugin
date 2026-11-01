@@ -5,6 +5,11 @@
 - **Deciders**: plugin maintainers
 - **Target**: gate B10 (validated by T5d, enforced by `check:structure`)
 
+> **Update (F2.3, 2026-11-01)**: the flat `runtime/<name>.py` shims referenced
+> throughout this ADR are gone; the facade keeps the original module path under
+> `runtime/py/<domain>/` and the loader remains path-based. `generator.py` /
+> `uv_tools.py` now live in `geometry`. Nothing in the decision below changed.
+
 ## Context
 
 ADR 0006 capped `src/**/*.ts`, `runtime/**/*.ts` and `addon/**/*.py` at 600

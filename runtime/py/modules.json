@@ -41,7 +41,7 @@
     "deliver": "export",
     "printcheck": "export",
     "open3d_check": "export",
-    "generator": ".",
-    "uv_tools": "."
+    "generator": "geometry",
+    "uv_tools": "geometry"
   }
 }
