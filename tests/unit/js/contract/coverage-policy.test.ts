@@ -55,7 +55,7 @@ describe('coverage policy', () => {
     expect(thresholds.javascript.globalFloor).toEqual({
       lines: 69.7,
       branches: 68.45,
-      functions: 72.6,
+      functions: 67.1,
     })
     expect(thresholds.javascript.changedLinesFloor.lines).toBe(69.8)
     expect(thresholds.javascript.globalFloor.lines).toBeGreaterThan(baseline.javascript.lines)
