@@ -389,14 +389,6 @@
       "expires": "2026-12-31"
     },
     {
-      "file": "runtime/py/assembly/assembly_impl/export.py",
-      "name": "asm_export",
-      "lines": 276,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
       "file": "runtime/py/assembly/assembly_impl/gate.py",
       "name": "asm_gate",
       "lines": 225,
@@ -728,14 +720,6 @@
       "file": "runtime/py/render/imgtools_impl/api.py",
       "name": "img_calib",
       "lines": 177,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/render/imgtools_impl/digest.py",
-      "name": "img_digest",
-      "lines": 285,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"
