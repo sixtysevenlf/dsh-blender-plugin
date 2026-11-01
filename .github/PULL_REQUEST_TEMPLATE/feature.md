@@ -4,6 +4,14 @@
 
 <!-- What the user can do after this change, and why it matters. -->
 
+## Linked issue
+
+<!-- Optional. Link an issue when one exists. Use "Refs #123" for partial or related work;
+     replace it with "Closes #123" when this PR fully resolves the issue.
+     GitHub closes it when the PR is merged into the default branch (main). -->
+
+Refs #
+
 ## Motivation
 
 <!-- Problem or user request; link the issue when one exists. -->

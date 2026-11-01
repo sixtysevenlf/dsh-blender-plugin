@@ -73,6 +73,7 @@ capability lock，再跑契约测试。在 PR 里说明 lock 为什么变；不�
 - 提交标题用约定式：`feat:`、`fix:`、`docs:`、`test:`、`perf:`、`chore:`。
 - 使用 [.github/PULL_REQUEST_TEMPLATE/](../../.github/PULL_REQUEST_TEMPLATE/) 中的对应模板（`bug_fix`、`feature`、`docs_update`、`refactor`）：范围、行为矩阵行、测试
   证据、风险、回滚、披露、检查清单。
+- PR 完整修复某个 issue 时，在描述里写 `Closes #123`（每个 issue 一个关键词）；PR 合并进默认分支（`main`）后 GitHub 自动关闭。只修复一部分或仅关联用 `Refs #123`。关键词放在 PR 描述正文，不要放在评论或代码块里。
 - [README.md](../../README.md) 与 [中文 README](./README.md) 要同步，
   [CONTRIBUTING.md](../../CONTRIBUTING.md) 与 [中文 CONTRIBUTING](./CONTRIBUTING.md) 同理；它们是同一份
   文档的两个版本，不是各自独立的页面。
