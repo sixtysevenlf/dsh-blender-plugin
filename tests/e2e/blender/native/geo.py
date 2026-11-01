@@ -1,19 +1,17 @@
 # -*- coding: utf-8 -*-
 """Native E2E: geometry base module (geo.py).
 
-Ported from the archived geo_selftest.py.  The legacy case deliberately
-loads kit.py and geo.py itself instead of relying on kernel preloads; load_flat
-keeps that behavior.  Assertions are the same evidence keys plus ok/no-error.
+Ported from the archived geo_selftest.py. F2.3 removed the flat runtime/geo.py
+and runtime/kit.py, so the native runner preloads the registry modules instead
+of load_flat. Assertions are the same evidence keys plus ok/no-error.
 """
 
 from __future__ import annotations
 
 
 def test_geo_selftest(ctx):
-    # Preserve the archived case's own bootstrap: it tests the module body, not
-    # the kernel loader.  The native runner has already created K/kit for us.
-    ctx.load_flat("kit.py")
-    ctx.load_flat("geo.py")
+    # The manifest preloads geo (and kit through the registry); exercising the
+    # selftest is the same module body the archived case loaded by hand.
     api = ctx.api("geo")
     out = ctx.call(api, "selftest")
     evidence = out.get("evidence") or {}

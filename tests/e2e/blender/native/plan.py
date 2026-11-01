@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """Native E2E: planner S3 (object graph -> diagnostics -> compile -> graph).
 
-Ported from the archived plan_selftest.py.  Preload is the same as the
-legacy wrapper (view); planner and contract are loaded explicitly by load_flat
-like the archived case.  The only intentional harness change is the output
-directory: it is ctx.test_dir, never the repo root.
+Ported from the archived plan_selftest.py. F2.3 removed the flat planner.py /
+contract.py files, so the native manifest preloads the registry modules instead
+of load_flat. The only intentional harness change is the output directory: it
+is ctx.test_dir, never the repo root.
 """
 
 from __future__ import annotations
@@ -34,9 +34,6 @@ PLAN = {
 
 
 def test_planner_flow(ctx):
-    ctx.load_flat("planner.py")
-    if ctx.K is not None and not hasattr(ctx.K, "dsh_contract_api"):
-        ctx.load_flat("contract.py")
     api = ctx.api("plan")
     ctx.check("plan version is 1", api["version"] == 1, api.get("version"))
 

@@ -14,13 +14,13 @@ HEADLESS_MODULES = (
     {
         "id": "geo",
         "path": "tests/e2e/blender/native/geo.py",
-        "preloads": (),
+        "preloads": ("geo",),
         "timeout": 600,
     },
     {
         "id": "plan",
         "path": "tests/e2e/blender/native/plan.py",
-        "preloads": ("view",),
+        "preloads": ("view", "planner", "contract"),
         "timeout": 600,
     },
     {
