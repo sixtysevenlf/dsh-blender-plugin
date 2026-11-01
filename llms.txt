@@ -1,15 +1,15 @@
 # DSH × Blender 直连实时插件
 
 > DSH（DeepSeek Harness）插件：让 AI 模型通过一条 TCP 直连通道驱动 **GUI Blender** —— 看视口 / 改场景 / 连续观察 / 内环搜索 / 渲染性能 / 对象精简 / 无头跑重活 / 事务回滚 / 契约层与规划器，共 15 个工具（v2.3 删除视口面板与 `blender_rt_pick`）。
-> 本包**附带且只支持** Blender addon `addon/dsh_blender_bridge.py`（v1.8 / protocol 11）；旧 `MCP for Blender` 自 v2.3 起不再支持（迁移见 MIGRATIONS.md）。
-> 当前版本 **v2.3.0**：随包 `blender-modeling` skill 自动注册（v2.2）+ **Blender 原生选中 → DSH 草稿**与统一 human/agent activity 判定（v2.3，addon v1.8+）。
+> 本包**附带且只支持** Blender addon 包 `addon/dsh_blender_bridge.zip`（v1.11 / protocol 11）；旧单文件 `dsh_blender_bridge.py` 与旧 `MCP for Blender` 均不再支持（迁移见 MIGRATIONS.md）。
+> 当前版本 **v3.0.0**：15 tools / 34 family / 228 op / addon 38 command / protocol 11；addon v1.11（zip）；runtime TypeScript；src + runtime 显式 any = 0。
 
 ## Blender 原生选中 → DSH（v2.3）
 
 - 在 Blender 视口里原生选中 → `N` ›「DSH Blender Bridge」› **Selection → DSH** ›「发送选中到 DSH」；
   选中会进 **DSH 当前会话草稿**（不自动发送）。N 面板两种模式：**多选** / **集合**（大装配体整组发）。
   v2.3 已删除 DSH 侧视口面板与 `blender_rt_pick`；`@` 提及保留。
-- addon 新命令（常驻，总命令 39 = 24 常驻 + 15 集成门控）：
+- addon 新命令（常驻，总命令 38 = 22 常驻 + 16 集成门控）：
   `get_activity_state`（`idle/human/agent/both`，查询自身不计入 agent）· `get_selection` · `send_selection_to_dsh` ·
   `get_collections`（集合列表+件数）· `send_collection_to_dsh`（整组发送，大装配体免逐个选）。
 - 后端新路由（零 Blender 往返）：`POST /host/selection` · `GET /host/selection/latest` · `POST /host/selection/consume`；
@@ -18,7 +18,7 @@
 
 ## 安装（先读，别猜）
 
-- [README（中文）](https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/README.zh-CN.md): §2 前置条件（5 条）· §3 安装（5 步）· §7 常见故障 —— **安装前必读**
+- [README（中文）](https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/docs/zh/README.md): §2 前置条件（5 条）· §3 安装（5 步）· §7 常见故障 —— **安装前必读**
 - [README (English)](https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/README.md)
 - [AI 安装提示词](https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/docs/AI-安装提示词.md): 可直接粘贴给 AI 助手
 - [AGENTS.md](https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/AGENTS.md): 助手自动加载的仓库约定

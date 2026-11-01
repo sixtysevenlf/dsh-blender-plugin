@@ -1,6 +1,6 @@
 # DSH × Blender
 
-[简体中文](README.zh-CN.md)
+[简体中文](docs/zh/README.md)
 
 DSH × Blender connects DeepSeek Harness to Blender so an agent can build, inspect, validate, and export 3D scenes in a real Blender session. The normal workflow is GUI-first: start Blender, connect the addon, and let the agent look, change, and verify. When no GUI is available, a persistent headless session provides the same interactive loop, including frames.
 
@@ -30,21 +30,21 @@ DSH × Blender connects DeepSeek Harness to Blender so an agent can build, inspe
 
 ## Quick start
 
-**Before anything else: install the bundled addon first.** Use the addon shipped in this repository: **addon/dsh_blender_bridge.py**. It must be your only Blender-side *agent bridge*: do not install or run `MCP for Blender`, `blender_mcp`, or any other addon that serves Blender over its own socket, since they compete for 127.0.0.1:9876. Unrelated addons (modeling, materials, rendering, asset libraries) are fine and are neither checked nor blocked. Install and enable this addon in Blender before the other steps. If the installation below does not work, first check that this exact addon is installed, enabled, and connected.
+**Before anything else: install the bundled addon first.** Use the addon shipped in this repository: **addon/dsh_blender_bridge.zip**. It must be your only Blender-side *agent bridge*: do not install or run `MCP for Blender`, `blender_mcp`, or any other addon that serves Blender over its own socket, since they compete for 127.0.0.1:9876. Unrelated addons (modeling, materials, rendering, asset libraries) are fine and are neither checked nor blocked. Install and enable this addon in Blender before the other steps. If the installation below does not work, first check that this exact addon is installed, enabled, and connected.
 
 ### Requirements
 
 - DSH (DeepSeek Harness) installed and working.
-- Node.js 20 or newer for the backend.
-- Blender 4.x or 5.x. GUI mode requires the bundled addon (install it first); headless mode only needs the Blender executable.
+- Node.js 22.17 or newer for the backend; Node.js 22.17 is the CI and test baseline. Node.js 20 is not tested.
+- Blender 4.2 LTS is the tested version. Blender 4.x may work; Blender 5.x is not yet validated. GUI mode requires the bundled addon (install it first); headless mode only needs the Blender executable.
 - Addon compatibility: the bundled addon is the only required addon and the only supported agent bridge. Other addons do not conflict; an old `MCP for Blender` / `blender_mcp` does (same 127.0.0.1:9876 port) — disable it, no need to uninstall.
-- Optional: a DSH source checkout if you want to rebuild the plugin.
+- Optional: a DSH source checkout when rebuilding the host side; otherwise the build links against this repository's installed dependencies.
 
 ### Option A: ask an AI agent
 
 Copy this prompt into an agent that can run commands:
 
-    First install and enable the bundled addon addon/dsh_blender_bridge.py
+    First install and enable the bundled addon addon/dsh_blender_bridge.zip
     from this repository. If a bridge addon is already enabled
     (MCP for Blender / blender_mcp, or anything else serving Blender on
     port 9876), disable it; do not uninstall the user's other addons and
@@ -68,16 +68,17 @@ Install the standalone modeling skill (only needed for hosts that do not load th
 
 1. **Install the bundled addon first.**
 
-   Download **addon/dsh_blender_bridge.py** from the addon/ folder of this repository. In Blender, open Edit > Preferences > Add-ons > Install, select that file, enable DSH Blender Bridge, open the N panel in the 3D view, and click Connect. The addon listens on 127.0.0.1:9876.
+   Download **addon/dsh_blender_bridge.zip** from the addon/ folder of this repository. In Blender, open Edit > Preferences > Add-ons > Install, select that zip, enable DSH Blender Bridge, open the N panel in the 3D view, and click Connect. The addon listens on 127.0.0.1:9876. If you previously installed the single-file `dsh_blender_bridge.py`, disable and remove it first: v3.0 installs only the package zip.
 
    Keep this addon as your only agent bridge. If `MCP for Blender` / `blender_mcp` (or another addon that opens its own server on 9876) is enabled, turn it off — uninstalling is not required. Your other addons can stay. If the rest of the installation does not work, check this step first.
 
-2. Clone the repository and, if needed, build it. The repository commits the built lib directory, so a normal clone is ready to use.
+2. Clone the repository and build it. `lib/` is a build artifact and is not committed, so a fresh clone must build once before use.
 
         git clone https://github.com/sixtysevenlf/dsh-blender-plugin.git
         cd dsh-blender-plugin
-        # Optional: only after changing src/
-        DSH_CHECKOUT=/path/to/dsh-harness bash scripts/build.sh
+        npm ci --legacy-peer-deps
+        npm run build
+        # Optional: DSH_CHECKOUT=/path/to/dsh-harness npm run build links DSH host packages
 
 3. Add the package to your DSH profile as a bundle. Link the checkout into the profile, then add the dependency and bundle entry to the profile package.json.
 
@@ -170,6 +171,7 @@ The plugin exposes 15 tools. All planning, audit, assembly, export, and evaluati
 - AI install prompt: docs/AI-安装提示词.md
 - Deployment SOP: docs/部署SOP.md
 - Third-party checklist: docs/给第三方的安装清单.md
+- Architecture: docs/architecture.md
 - Modeling skill: skills/blender-modeling/
 - Release notes: GitHub Releases and CHANGELOG.md
 
@@ -182,13 +184,18 @@ The plugin exposes 15 tools. All planning, audit, assembly, export, and evaluati
 | Another session is writing to the same scene | Take the write lease with blender_viewport, or use separate headless workers for parallel work. |
 | An old MCP for Blender / blender_mcp addon is still enabled | Disable it (uninstalling is not required) and use the bundled DSH Blender Bridge addon; both compete for 127.0.0.1:9876. |
 | Images are generated but not attached | Update to the latest build; the Windows path fix is included. If it persists, open the returned path directly. |
-| Followed the steps and it still does not work | Check the bundled addon first: only addon/dsh_blender_bridge.py is supported, and it must be enabled and connected. |
+| Followed the steps and it still does not work | Check the bundled addon first: only addon/dsh_blender_bridge.zip is supported, and it must be enabled and connected. |
 
 ## Development
 
-- Run the offline test suite: npm test
-- Rebuild after changing src: DSH_CHECKOUT=/path/to/dsh-harness bash scripts/build.sh
-- Bundled skill source: skills/blender-modeling/
+- Node.js **22.17** is the CI and test baseline; Node.js 20 is not tested.
+- Python tests need a virtualenv with `pytest`. Point `PYTHON` at its interpreter
+  (`PYTHONIOENCODING=utf-8` and `PYTHONUTF8=1` on Windows); tests import the TypeScript sources directly.
+- The canonical command table — install, build, typecheck, test, lint, pack — is
+  [`AGENTS.md` §1](AGENTS.md#1-commands-single-source). `lib/` is rebuilt from `runtime/` and `src/`; never hand-edit it.
+- Test layers, fixtures, and per-layer commands: [`tests/README.md`](tests/README.md).
+- Contribution workflow: [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`docs/zh/CONTRIBUTING.md`](docs/zh/CONTRIBUTING.md).
+- Bundled skill source: `skills/blender-modeling/`.
 
 ## Support
 

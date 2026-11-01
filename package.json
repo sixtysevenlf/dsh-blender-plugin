@@ -1,7 +1,11 @@
 {
   "name": "@dsh-external/dsh-blender-plugin",
-  "version": "2.6.2",
-  "description": "DSH × Blender 直连插件（v2.6.2，GUI 优先，无头备用）：15 个模型工具让 AI 直接驱动 Blender——视口/自定义视角、持久内核 Python、时间窗/帧序列观察、内环参数搜索、无头进程与热会话（see/watch/reset/preload/warmup）、作业层、事务回滚、配方库，以及 34 family / 228 op 的契约层（catalog / 判定 / 验收 / 造型 / 装配 / 白模 / 导出）。v2.6.2 新增曲面算法包 surface_*（loft/sweep/patch → tessellate → validate → export，M0–M2/M4；M3 fit 与 M5 blend/offset 未实现）。P0–P2 能力：交互式无头（rt_do/rt_see session、plan session=auto）、参考图量具（img_digest/probe/measure/calib）、装配扫描/清单/合并/修复/门/导出（asm_*）、白模与 Seedance 参考包（blockout refsheet/turntable）、同机位 QC（visualreport_report）、无头轮廓拟合（shapesolve_solve）、缺陷注入评估（eval_run）、强制门（gate_/deliver_export require_gate）。默认先开 GUI；无头备用；装完必须重启 DSH；唯一验收判据 doctor kind=ok；blender-modeling skill 随包自动注册。详见 README 与 docs/操作教程.md。",
+  "version": "3.0.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sixtysevenlf/dsh-blender-plugin.git"
+  },
+  "description": "DSH × Blender 直连插件（v3.0.0，GUI 优先，无头备用）：15 个模型工具让 AI 直接驱动 Blender——视口/自定义视角、持久内核 Python、时间窗/帧序列观察、内环参数搜索、无头进程与热会话（see/watch/reset/preload/warmup）、作业层、事务回滚、配方库，以及 34 family / 228 op 的契约层（catalog / 判定 / 验收 / 造型 / 装配 / 白模 / 导出）。v3.0.0 为工程重构版（runtime TypeScript、addon zip）；v2.6.2 新增曲面算法包 surface_*（loft/sweep/patch → tessellate → validate → export，M0–M2/M4；M3 fit 与 M5 blend/offset 未实现）。P0–P2 能力：交互式无头（rt_do/rt_see session、plan session=auto）、参考图量具（img_digest/probe/measure/calib）、装配扫描/清单/合并/修复/门/导出（asm_*）、白模与 Seedance 参考包（blockout refsheet/turntable）、同机位 QC（visualreport_report）、无头轮廓拟合（shapesolve_solve）、缺陷注入评估（eval_run）、强制门（gate_/deliver_export require_gate）。默认先开 GUI；无头备用；装完必须重启 DSH；唯一验收判据 doctor kind=ok；blender-modeling skill 随包自动注册。详见 README 与 docs/操作教程.md。",
   "private": false,
   "keywords": [
     "dsh",
@@ -14,7 +18,7 @@
     "modeling"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22.17.0"
   },
   "type": "module",
   "main": "./lib/index.js",
@@ -27,6 +31,11 @@
     "!runtime/ext/node_modules",
     "!runtime/ext/pkg.tgz",
     "!runtime/__pycache__",
+    "!runtime/**/*.ts",
+    "!runtime/**/*.mts",
+    "!runtime/**/*.d.ts",
+    "!lib/.build.lock",
+    "!lib/.build-ok",
     "!runtime/*.bak-*",
     "!runtime/*.v1-*",
     "skills",
@@ -38,7 +47,9 @@
     "dsh-blender.config.example.json",
     "README.md",
     "CHANGELOG.md",
-    "MIGRATIONS.md"
+    "MIGRATIONS.md",
+    "!tests/**/*.ts",
+    "!tests/**/*.mts"
   ],
   "license": "BSD-3-Clause",
   "dsh": {
@@ -51,12 +62,12 @@
     }
   },
   "peerDependencies": {
+    "@deepseek-ai/cordis": ">=4.0.0-rc <5",
     "@deepseek-ai/dsh-llm": ">=0.0.1-rc <2",
     "@deepseek-ai/dsh-tools": ">=0.0.1-rc <2",
+    "@deepseek-ai/schemastery": "^3.18.0",
     "cordis": ">=4.0.0-rc <5",
-    "schemastery": "^3.18.0",
-    "@deepseek-ai/cordis": ">=4.0.0-rc <5",
-    "@deepseek-ai/schemastery": "^3.18.0"
+    "schemastery": "^3.18.0"
   },
   "//peerDependenciesMeta": "schemastery / cordis 在不同 DSH 版本间是有 scope / 无 scope 两种形态。两个名字都声明且都标 optional —— 任一满足即可，宿主给了哪个就用哪个（见 src/index.ts 的运行时解析）。",
   "peerDependenciesMeta": {
@@ -74,35 +85,69 @@
     }
   },
   "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.5",
+    "@deepseek-ai/dsh-attachment": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-brand": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-invariants": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-llm": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-scope": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-session": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-timeout": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-tools": "^0.0.1-rc.1",
+    "@deepseek-ai/schemastery": "^3.18.5",
+    "@eslint/js": "^9.39.5",
     "@types/node": "^24.13.3",
-    "typescript": "^5.9.0"
+    "@vitest/coverage-v8": "^3.2.7",
+    "eslint": "^9.39.5",
+    "globals": "^14.0.0",
+    "jsdom": "^26.1.0",
+    "prettier": "^3.9.10",
+    "pyright": "1.1.414",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^3.2.7"
   },
   "scripts": {
-    "build": "bash scripts/build.sh",
-    "typecheck": "node scripts/typecheck.mjs",
-    "test": "node tests/capability_lock.mjs && node tests/single_source_selftest.mjs && node tests/lossless_guard.mjs && node tests/lease_stale_selftest.mjs && node tests/mac_selftest.mjs && node tests/linux_selftest.mjs && node tests/frame_dedupe_selftest.mjs && node tests/discoverability_selftest.mjs && node tests/shape_search_selftest.mjs && node tests/workdir_shared_selftest.mjs && node tests/provenance_stale_selftest.mjs && node tests/ledger_recover_selftest.mjs && node tests/scene_hygiene_selftest.mjs && node tests/lease_scope_selftest.mjs && node tests/ledger_recover_e2e_selftest.mjs && node scripts/pyrun.mjs tests/generator_dispatch_selftest.py && node tests/guidance_selftest.mjs && node tests/backend_probe_selftest.mjs && node tests/schema_resolve_selftest.mjs && node scripts/pyrun.mjs tests/gate_eval_selftest.py && node tests/skill_bundle_selftest.mjs && node tests/selection_store_selftest.mjs && node tests/client_bundle_selftest.mjs && node tests/tool_cards_selftest.mjs && node tests/tui_host_selftest.mjs && node tests/windows_hide_selftest.mjs && node tests/win_spawn_selftest.mjs && node tests/headless_file_guard_selftest.mjs && node tests/headless_hard_exit_selftest.mjs",
-    "test:discover": "node tests/discoverability_selftest.mjs",
-    "test:fileguard": "node tests/headless_file_guard_selftest.mjs",
-    "test:hardexit": "node tests/headless_hard_exit_selftest.mjs",
-    "test:lease": "node tests/lease_stale_selftest.mjs",
-    "test:workdir": "node tests/workdir_shared_selftest.mjs",
-    "test:provenance": "node tests/provenance_stale_selftest.mjs",
-    "test:recover": "node tests/ledger_recover_selftest.mjs",
-    "test:recover:e2e": "node tests/ledger_recover_e2e_selftest.mjs",
-    "test:hygiene": "node tests/scene_hygiene_selftest.mjs",
-    "test:scope": "node tests/lease_scope_selftest.mjs",
-    "test:generator": "node scripts/pyrun.mjs tests/generator_dispatch_selftest.py",
-    "test:dedupe": "node tests/frame_dedupe_selftest.mjs",
-    "test:diag": "node tests/view_diag_selftest_runner.mjs",
-    "test:lossless": "node tests/lossless_guard.mjs",
-    "test:mac": "node tests/mac_selftest.mjs",
-    "test:linux": "node tests/linux_selftest.mjs",
-    "test:gui": "node tests/gui_channel_probe.mjs",
-    "test:lossless:live": "node tests/lossless_guard.mjs --live",
-    "test:dsh-api": "node tests/dsh_api_compat_probe.mjs",
-    "test:routes": "node tests/route_contract_selftest.mjs",
-    "test:schema": "node tests/schema_resolve_selftest.mjs",
-    "test:search": "node tests/shape_search_selftest.mjs"
+    "build": "node scripts/build.mjs all",
+    "build:addon": "node scripts/build-addon.mjs",
+    "check:addon": "node scripts/build-addon.mjs --check",
+    "typecheck": "node scripts/typecheck.mjs -p tsconfig.runtime.json && node scripts/build.mjs runtime && node scripts/typecheck.mjs && node scripts/typecheck.mjs -p tsconfig.test.json",
+    "typecheck:src": "node scripts/build.mjs runtime && node scripts/typecheck.mjs",
+    "typecheck:test": "node scripts/typecheck.mjs -p tsconfig.test.json",
+    "typecheck:scripts": "tsc -p tsconfig.scripts.json",
+    "lint": "eslint . --max-warnings=0 && node scripts/check-any.mjs",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"{src,tests,scripts,runtime}/**/*.{ts,mts,cts,js,mjs,cjs,json}\" \"*.{ts,json,yml,yaml}\" \"*.mjs\" \".prettierrc.json\" \".github/**/*.{yml,yaml}\"",
+    "format:check": "prettier --check \"{src,tests,scripts,runtime}/**/*.{ts,mts,cts,js,mjs,cjs,json}\" \"*.{ts,json,yml,yaml}\" \"*.mjs\" \".prettierrc.json\" \".github/**/*.{yml,yaml}\"",
+    "check:structure": "node scripts/check-structure.mjs",
+    "check:function-budget": "node scripts/check-function-budget.mjs",
+    "check:build": "node scripts/check-build.mjs",
+    "check:any": "node scripts/check-any.mjs",
+    "check:python-static": "node scripts/check-python-static.mjs",
+    "prepack": "npm run build && node scripts/check-build.mjs",
+    "test": "node scripts/test.mjs",
+    "test:unit": "node scripts/test.mjs unit",
+    "test:integration": "node scripts/test.mjs integration",
+    "test:contract": "node scripts/test.mjs contract",
+    "test:python": "node scripts/test.mjs python",
+    "test:watch": "node node_modules/vitest/vitest.mjs",
+    "build:host": "node scripts/build.mjs host",
+    "build:runtime": "node scripts/build.mjs runtime",
+    "typecheck:runtime": "node scripts/typecheck.mjs -p tsconfig.runtime.json",
+    "test:parity": "node scripts/check-parity.mjs",
+    "smoke:install": "node scripts/install-smoke.mjs",
+    "test:e2e": "node scripts/test.mjs e2e",
+    "test:e2e:gui": "node scripts/test.mjs e2e:gui",
+    "test:matrix": "node scripts/check-behavior-matrix.mjs --release",
+    "test:coverage": "node node_modules/vitest/vitest.mjs run --coverage --no-file-parallelism --coverage.reporter=text-summary --coverage.reporter=json-summary --coverage.reporter=lcov --coverage.reporter=cobertura",
+    "check:coverage": "node scripts/check-coverage.mjs",
+    "typecheck:addon": "pyright -p pyrightconfig.addon.json",
+    "test:addon-unit": "node scripts/test.mjs addon-unit",
+    "check:no-shims": "node scripts/check-no-shims.mjs",
+    "check:runtime-layout": "node scripts/check-runtime-layout.mjs",
+    "check:import-boundaries": "node scripts/check-import-boundaries.mjs",
+    "check:doc-paths": "node scripts/check-doc-paths.mjs",
+    "check:finalization": "npm run check:function-budget && npm run check:no-shims && npm run check:runtime-layout && npm run check:import-boundaries && npm run check:doc-paths && npm run typecheck:scripts"
   },
   "exports": {
     ".": {

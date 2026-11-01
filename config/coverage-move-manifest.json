@@ -1,0 +1,6 @@
+{
+  "version": 2,
+  "generatedFrom": "v2.6.2..f001e1d",
+  "entries": [],
+  "note": "C5 v2 baseline. The rename-heavy runtime TS migration and addon package split cannot be mechanically proven to be pure moves, so diff-cover excludes no lines and the global floor reflects the measured 57.68% lines. New modules remain constrained by criticalModules and the Python pure-logic floor."
+}

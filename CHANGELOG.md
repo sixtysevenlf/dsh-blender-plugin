@@ -1,26 +1,54 @@
 # CHANGELOG — @dsh-external/dsh-blender-plugin
 
-## 未发布 —— issue #51（Windows 子进程与端口清理）
+## v3.0.0（2026-11-01）—— 工程健康化重构（breaking：addon 改 zip 包）
 
-> 只影响 win32 宿主；Linux / macOS 的既有路径一行未改（回归：`npm test` 里的 `tests/win_spawn_selftest.mjs`）。
+> 模型工具 15 个；plan catalog 34 family / 228 op；addon command 38 个、protocol 11；
+> 本版不新增建模能力，只做结构、测试、类型、CI 与发布工程；B1 分数不与 v2.6.1 混算。
 
-### 修复：win32 上后端拉不起来时把 dsh-desktop-host 一起打死
+### Breaking changes
 
-- **`src/index.ts` `spawnChild`**：spawn options 显式带 `env: { …process.env, ELECTRON_RUN_AS_NODE: '1' }` 与
-  `windowsHide: true`；并在 `unref()` **之前**挂 `child.on('error')`。
-  现场：宿主跑在 Electron 里时 `process.execPath` 是 GUI 可执行体；spawn 失败（EPERM/EACCES/ENOENT）是异步
-  `'error'` 事件，没有监听会冒成宿主 `uncaughtException` —— 看护每 15 s 重试一次，于是整个 desktop-host 每 15 s 被打死一次，
-  且残留后端继续占着端口。现在失败只降级为「后端不可用」，宿主照常运行。
-- **`runtime/win_proc.mjs`（新增）**：Windows 的「进程 / 端口占用」原语 ——
-  ① 命令行归属（CIM `Win32_Process`：独立 argv 含 `server.mjs` 且 `--port <n>` 精确匹配）；
-  ② `netstat -ano` 的 LISTENING 精确端口；③ `tasklist` 映像名过滤（只认与当前进程同名的可执行体）。
-  全部 `execFileSync + windowsHide`，非 Windows 一律返回空数组。
-- **`src/index.ts` `killBackendByCmd`**：win32 分支改走 ①/②，并用 `taskkill /T /F` 结束进程树。
-  现场：原先只认 `/proc` 与 `ps -ax`，Windows 上两路都失败后静默返回 `[]` —— op=stop / op=restart 之后僵尸后端永远清不掉。
-- **`runtime/server.mjs` `samePortHolders` / `killHolders`**：win32 同样走 win_proc（EADDRINUSE 自愈在 Windows 上原本等于没有）。
-- **`runtime/catalog.mjs` `probeDiskCatalog`**：干净 node 探测的 env 补 `ELECTRON_RUN_AS_NODE=1`（同族，普通 node 是 no-op）。
-- **`tests/win_spawn_selftest.mjs`（新增，进 `npm test` 主链）**：静态钉住上面三处接线 + 顺序（error 监听先于 unref），
-  纯函数覆盖 netstat/tasklist 真实输出样例（无需 Windows）。
+- **addon 安装方式改为 zip 包**：发布物是 addon/dsh_blender_bridge.zip（包内 __init__.py、bl_info v1.11、protocol 11）；旧的单文件 addon/dsh_blender_bridge.py 不再随包发布，也不再是安装入口。升级时必须先在 Blender Preferences 里停用并移除旧单文件，再安装 zip、启用、N 面板 Connect。
+- **Premium / Tripo 生成通道移除**：删除 Premium 许可、额度、Supabase 客户端与 Tripo 开关；Hyper3D 与 Hunyuan3D 只保留自有 API key 通道。Tripo 无 BYOK 通道，因此整条命令与面板入口一并删除（addon command 39 → 38）。
+- **lib/ 不再入库**：源码运行时由 runtime/**/*.ts strict 编译到 lib/runtime/**/*.js；从 git 使用先 npm ci --legacy-peer-deps && npm run build，prepack 会自动构建。npm 安装包仍自带 lib/。
+- **runtime 不再有 .mjs**：旧 runtime/*.mjs 的 require 用法不再成立；请用包入口或构建后的 lib/runtime/*.js。
+- **扁平 Python 模块移除**：删除 runtime/*.py 的 38 个 re-export shim，generator.py / uv_tools.py 移入 runtime/py/geometry/；模块只按 runtime/py/modules.json 解析，旧式 import runtime.<name>（或直接按 runtime/<name>.py 加载）不再可用。preload / module 的公开模块名不变。
+
+### 结构、类型与测试
+
+- src/index.ts 13 行 entry-only；15 个 tool handler 全部拆到 src/tools/*；check:structure 校验 73/73 目标文件、83 文件 / 330 import 边 / 0 环。
+- 生产源码行数预算：284/284 文件 ≤ 600 行（runtime/catalog.ts 数据表例外，architecture guide）；runtime/py 167/167 文件 ≤ 1000 行（architecture guide）；13 个原 >1000 行 runtime/py 模块已拆为 facade + 同域 impl 包。函数预算 3,084 个函数全部 ≤120 行，allowlist 已清空（architecture guide）。
+- runtime：133 个 TypeScript 模块，0 个 .mjs、0 个 @ts-nocheck；src + runtime 显式 any = 0，由 check:any 与 ESLint 双重门禁。
+- addon：69 个模块，最大 558 行；zip 内 69 entries（sha256 ff729426…）；bl_info 1.11、protocol 11；38 registered commands + ping = 39 wire。
+- 测试：Vitest 80 files / 816 passed（2 skipped）；其中 unit 61 files/564（2 skipped）、integration 18/248、contract 29/324；pytest 337；addon-unit 108；真实 Blender native E2E 76 passed（10 deselected）；GUI E2E 8 passed（2 skipped）。
+- 行为矩阵 346 rows（344 covered / 0 planned / 2 exempt），覆盖 15 tools / 38 commands / 34 families / 228 ops / 29 routes。
+- C5 最终树（F6 amendment）：JS 74.69 lines / 70.03 branches / 72.25 functions；changed lines 74.99%；Python pure 82.50 lines / 74.36 branches；critical 与 executionModules floor 全过。
+
+### 修复
+
+- **win32 后端子进程启动失败不再打死宿主（#51）**：`spawnChild` 显式传 `ELECTRON_RUN_AS_NODE=1` 与 `windowsHide:true`，并在 `unref()` 前挂 `error` 监听；win32 残留后端清理走 `runtime/win_proc.ts`（CIM → netstat/tasklist → taskkill /T /F），`EADDRINUSE` 自愈恢复；catalog 探针同修。
+
+### runtime TypeScript 迁移
+
+- 原 60 个 runtime/*.mjs（7,307 行）迁为 strict TypeScript，编译到 lib/runtime/*.js；T5b 与 finalization 又拆出 headless、plan-dispatch、execution 等子模块，当前 runtime TS 为 133 个模块。
+- SERVER_PATH 指向 lib/runtime/server.js；JSON / 子进程 / 路径 / Python 桥边界补齐解析函数；构建顺序 runtime → host → client（architecture guide）。
+- npm pack 产物含 lib/runtime/**/*.js 与 runtime/**/*.py，不含 .ts；clean clone / tarball 安装 smoke 均过。
+
+### CI、覆盖率与发布工程
+
+- CI：.github/workflows/pr.yml（Node 22.17 + Python 3.11；typecheck/lint/format/build/structure/tests/matrix/pack + coverage）。真实 Blender E2E 目前是本地发布检查，尚未进 CI。
+- 手动 CD：.github/workflows/release.yml（workflow_dispatch；dry_run 默认 true、publish_npm 默认 false；release environment 人工审批；draft Release；npm 发布仅在审批后执行）。
+- 覆盖率门禁本地通过；远程 CI 与 canonical coverage 校准仍由 T16a/T16c 处理，不在本版发布前声明为已验证。
+
+### 文档与仓库
+
+- 新增 architecture guide、tests/BEHAVIOR_MATRIX.md、tests/MIGRATION.md、四个 PR 模板；重构规格、CI 说明与证据包保存在本地重构工作区，不随仓库发布。
+- README / docs/zh/README / CONTRIBUTING / docs/zh/CONTRIBUTING / AGENTS / addon README 全部改为 zip 安装；英文 AI 文档保留英文，中文用户文档保留中文并互链。
+
+### 已知限制
+
+- 远程 CI 尚未执行（T16a 仍 open）；没有 v3.0.0 tag / GitHub Release / npm publish；发布动作需人工确认。
+- C5 全局 floor 仍是保守值，待 T16c 用 canonical CI 数据校准；runtime/py 还没有 pyright/覆盖率插桩；函数级大模块仍是后续债务。
+- 兼容性：Blender 4.2.10 是唯一 E2E 验证版本，Blender 5.x 未验证；Node 22.17 是测试与 CI 基线，Node 20 未验证。
 
 ## v2.6.2（2026-10-28）—— 曲面算法（surface_*）+ 文档/计数一致性
 
@@ -1325,7 +1353,7 @@ interference   ok=true analyzed=true      运行      ← 旧行为：门里这�
 **修的过程（如实记）**：第一轮只改了 13 处默认值与判断，跑回归时 `gate_review` **5 条失败**暴露还有 3 处比较没加前置（`audit.py:2693`、`audit.py:2824`、`contract.py:1529`）—— 它们把 `0` 当成"上限 0"，于是 12 面的小方块也被判"超上限 → 不分析"。补齐后 **263 断言全绿**。
 （另记一笔：我第一次贴的"全绿"是**误报** —— 我在检查前把输出截断了，没匹配到 fail 计数；之后改成对全文本判定。）
 
-**文档同步**：`docs/操作教程.md` · `docs/证据分级与读图纪律.md` · `README.zh-CN.md` · skill `SKILL.md`（2 处）共 **5 处**旧口径（"面数超 50 万跳过复核 → 门降级"）改为"**默认不限、全跑**；显式设上限才降级"。
+**文档同步**：`docs/操作教程.md` · `docs/证据分级与读图纪律.md` · `docs/zh/README.md` · skill `SKILL.md`（2 处）共 **5 处**旧口径（"面数超 50 万跳过复核 → 门降级"）改为"**默认不限、全跑**；显式设上限才降级"。
 
 **代价（诚实）**：全跑是有成本的 —— 1.57M 面下 `connectivity` 28 s、`audit_mesh` 10 s；再大体量会更慢（BVH 构建随面数线性、逐壳判朝向是 Python 循环）。要更快有三条路：
 ① 分件分析（`objects:["A","B"]` 缩 scope）② `fix_decimate` 降到阈值内再验 ③ 后续做分块 / 向量化优化（尚未做）。
@@ -2482,7 +2510,7 @@ engine.act 在 v0.7.0 改成返回结构化对象（stdout/stderr/error/tracebac
 - **诊断升级**：`/doctor` 输出 `protocol` / `protocol_label` / `protocol_from`；原先"端口通但 ping 不回"一律归为 `addon-thread-stuck`，现在会再探一次协议，确属协议不匹配时给出 `detected_protocol` 与「把 `addonProtocol` 改成 X」的修法；`diagnose()` 的面板提示也随协议变化。
 - **category-action 侧适配**：`execute_code → utility.execute_python`（回包重新包成 `{executed,result}`，否则 `/act` 的 stdout 与 `LOOP` 标记解析全空）、`get_viewport_screenshot` / `get_world_state_snapshot` 由插件侧生成 python（对面同名 handler 的参数与 Blender 4 老 API 都不兼容）、遥测类命令走本地桩、5 条资产集成明确报错。
 - **新增自检 `tests/protocol_selftest.mjs`**（`npm test`）：两个 mock addon 覆盖探测 / 解析 / 两种协议下的调用 / 错误传播 / 缺能力不假装成功，共 28 项断言，**不需要 Blender**。
-- 文档：`docs/配置参考.md` §6 新增「两种 addon 协议」小节；`README.md` 与 `README.zh-CN.md` 的前置条件、故障表各补一行；`dsh-blender.config.example.json` 加 `addonProtocol`。
+- 文档：`docs/配置参考.md` §6 新增「两种 addon 协议」小节；`README.md` 与 `docs/zh/README.md` 的前置条件、故障表各补一行；`dsh-blender.config.example.json` 加 `addonProtocol`。
 
 ## v0.4.0（2026-09-13，本会话）—— 三批次增强：诊断 / 自定义视角 / 租约 / 无头进程
 

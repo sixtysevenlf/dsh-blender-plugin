@@ -1,0 +1,23 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "include": [
+    "runtime/py/_facade.py",
+    "runtime/py/core/offline_bootstrap.py",
+    "runtime/py/geometry/faceeval.py",
+    "runtime/py/render/imgtools_impl/cache.py",
+    "runtime/py/render/imgtools_impl/contour.py",
+    "runtime/py/render/imgtools_impl/digest/numbers.py",
+    "runtime/py/render/imgtools_impl/digest/prepare.py",
+    "runtime/py/render/imgtools_impl/digest/result.py",
+    "runtime/py/render/imgtools_impl/digest/shape.py",
+    "runtime/py/render/imgtools_impl/digest/verdict.py",
+    "runtime/py/render/imgtools_impl/digest/visual.py",
+    "runtime/py/render/qc_render_impl/main.py",
+    "runtime/py/render/qc_render_impl/parts.py"
+  ],
+  "exclude": ["**/__pycache__"],
+  "typeCheckingMode": "basic",
+  "reportMissingModuleSource": "none",
+  "reportMissingTypeStubs": false
+}

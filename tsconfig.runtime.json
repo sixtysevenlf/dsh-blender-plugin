@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2023"],
+    "strict": true,
+    "types": ["node"],
+    "rootDir": "runtime",
+    "outDir": "lib/runtime",
+    "declaration": true,
+    "sourceMap": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmitOnError": true,
+    "inlineSources": true
+  },
+  "include": ["runtime/**/*.ts"],
+  "exclude": ["runtime/**/*.d.ts", "runtime/ext/venv/**", "runtime/ext/node_modules/**"]
+}

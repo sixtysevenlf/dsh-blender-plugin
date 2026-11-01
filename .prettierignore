@@ -1,0 +1,21 @@
+# Dependencies and generated output
+node_modules/
+lib/
+coverage/
+.venv/
+runtime/ext/
+
+# Vendored / generated assets
+addon/
+skills/
+tests/fixtures/
+tests/capability.lock.json
+*.min.js
+*.tgz
+*.zip
+
+# Local docs/evidence are maintained outside the package formatting scope
+docs/
+
+# Editor and OS metadata
+.vscode/

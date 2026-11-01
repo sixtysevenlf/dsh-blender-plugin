@@ -1,0 +1,5 @@
+# Python-side test stack (T1) and static gate (T5d.4). CI installs -r requirements-dev.txt.
+pytest>=8.3,<9
+pytest-cov>=6,<8
+diff-cover>=9,<10
+ruff==0.17.3

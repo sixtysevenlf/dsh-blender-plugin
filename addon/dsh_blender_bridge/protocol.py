@@ -1,0 +1,53 @@
+""" Protocol version, pause policy and the command registry. """
+
+import bpy
+
+from .command_registry import (
+    COMMAND_GROUPS,
+    COMMAND_NAMES,
+    GATED_COMMAND_GROUPS,
+    PAUSE_SAFE_COMMANDS,
+)
+
+# Keep in sync with dsh_blender_bridge.addon_manager.EXPECTED_ADDON_PROTOCOL_VERSION.
+ADDON_PROTOCOL_VERSION = 11
+
+# Per-snapshot object cap for get_world_state_snapshot. Keep in sync with
+# dsh_blender_bridge.trajectory.MAX_SNAPSHOT_OBJECTS.
+MAX_SNAPSHOT_OBJECTS = 4000
+
+# Selected-name cap for get_world_state_snapshot: select-all in a large scene
+# would otherwise make `selected` the dominant field of both step snapshots.
+# Keep in sync with dsh_blender_bridge.trajectory.MAX_SNAPSHOT_SELECTED.
+MAX_SNAPSHOT_SELECTED = 1000
+
+
+def ai_paused():
+    try:
+        return bool(getattr(bpy.context.scene, "dshbb_ai_paused", False))
+    except Exception:
+        return False
+
+
+def is_pause_safe_command(cmd):
+    """只读命令在白名单里；其余（execute_code / 资产下载 / 生成 / 导入）在暂停时拒绝。"""
+    cmd = str(cmd or "")
+    if cmd in PAUSE_SAFE_COMMANDS:
+        return True
+    if cmd.startswith("get_"):
+        return True
+    return False
+
+
+def redraw_view3d_panels():
+    try:
+        for wm in bpy.context.window_manager.windows:  # pyright: ignore[reportAttributeAccessIssue]
+            for area in wm.screen.areas:
+                if area.type == "VIEW_3D":
+                    area.tag_redraw()
+    except Exception:
+        pass
+
+
+ADDON_NAME = "DSH Blender Bridge"
+ADDON_VERSION = (1, 11)

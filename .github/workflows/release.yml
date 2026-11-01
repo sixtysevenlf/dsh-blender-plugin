@@ -1,0 +1,248 @@
+name: Manual CD
+
+# Manual release pipeline. workflow_dispatch only; the button requires this file on
+# the repository's default branch. dry_run=true is the default; actual releases
+# create a draft GitHub Release and never push main or a tag.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version; must match package.json and PLUGIN_VERSION'
+        required: true
+        default: '3.0.0'
+        type: string
+      dry_run:
+        description: 'Verify and package only; do not create a tag or release'
+        required: true
+        default: true
+        type: boolean
+      publish_npm:
+        description: 'After the draft release exists, publish the tarball to npm'
+        required: true
+        default: false
+        type: boolean
+
+run-name: Manual CD ${{ inputs.version }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.version }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22.17.0'
+  PYTHON_VERSION: '3.11'
+  PYTHONIOENCODING: utf-8
+  PYTHONUTF8: '1'
+  NPM_CONFIG_FUND: 'false'
+  NPM_CONFIG_AUDIT: 'false'
+
+jobs:
+  verify:
+    name: Verify release gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHON: .venv/bin/python
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Create Python venv
+        run: python -m venv .venv
+      - name: Install dependencies
+        run: |
+          npm ci --legacy-peer-deps
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -r requirements-dev.txt -r requirements-typecheck.txt
+      - name: Validate version and release settings
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs')
+          const version = process.env.VERSION
+          if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
+            throw new Error('invalid version: ' + version)
+          }
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
+          const constants = fs.readFileSync('src/constants.ts', 'utf8')
+          const protocol = fs.readFileSync('addon/dsh_blender_bridge/protocol.py', 'utf8')
+          if (pkg.version !== version) {
+            throw new Error('package.json is ' + pkg.version + ', input is ' + version)
+          }
+          if (!constants.includes("PLUGIN_VERSION = '" + version + "'")) {
+            throw new Error('PLUGIN_VERSION in src/constants.ts is not ' + version)
+          }
+          if (!/ADDON_PROTOCOL_VERSION\s*=\s*11/.test(protocol)) {
+            throw new Error('addon protocol.py must keep protocol 11')
+          }
+          if (!/ADDON_VERSION\s*=\s*\(1,\s*11\)/.test(protocol)) {
+            throw new Error('addon protocol.py must keep addon version 1.11')
+          }
+          console.log('VERSION OK ' + version)
+          NODE
+      - name: Static checks
+        run: |
+          npm run typecheck
+          npm run lint
+          npm run format:check
+          npm run build
+          npm run check:build
+          npm run check:structure
+          npm run test:parity
+      - name: Unit, integration, contract and addon tests
+        run: |
+          npm run test:unit
+          npm run test:integration
+          npm run test:contract
+          npm run test:python
+          npm run test:addon-unit
+          npm run typecheck:addon
+      - name: Behavior matrix release gate
+        run: npm run test:matrix
+      - name: Coverage ratchet
+        run: |
+          npm run test:coverage
+          .venv/bin/python -m pytest tests/unit/python tests/integration/python --cov=addon --cov-branch --cov-report=json:coverage/python-coverage.json --cov-report=term
+          git rev-parse --verify v2.6.2
+          .venv/bin/diff-cover coverage/lcov.info --compare-branch=v2.6.2 --json-report=coverage/diff-cover.json
+          npm run check:coverage
+      - name: Clean-install smoke
+        run: npm run smoke:install
+      - name: Upload coverage report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage
+          path: coverage/
+
+  package:
+    name: Build release assets
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+      - name: Build and verify addon zip
+        run: |
+          npm run build:addon
+          npm run check:addon
+      - name: Pack npm tarball and checksums
+        run: |
+          mkdir -p release-assets
+          npm pack --json --pack-destination release-assets
+          cp addon/dsh_blender_bridge.zip release-assets/
+          (cd release-assets && sha256sum * > SHA256SUMS)
+          cat release-assets/SHA256SUMS
+      - name: Upload release assets
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-assets
+          path: release-assets/
+
+  draft-release:
+    name: Create draft GitHub Release
+    needs: package
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: release
+      url: https://github.com/${{ github.repository }}/releases
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require main branch
+        run: |
+          if [ "${GITHUB_REF_NAME}" != "main" ]; then
+            echo "::error::Run this workflow from main after the refactor merge; current ref is ${GITHUB_REF_NAME}."
+            exit 1
+          fi
+      - name: Download release assets
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-assets
+          path: release
+      - name: Check tag and release do not exist
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if git rev-parse "refs/tags/v${VERSION}" >/dev/null 2>&1; then
+            echo "::error::tag v${VERSION} already exists"
+            exit 1
+          fi
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            echo "::error::release v${VERSION} already exists"
+            exit 1
+          fi
+      - name: Create draft release
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${VERSION}" \
+            --draft \
+            --target "${GITHUB_SHA}" \
+            --title "v${VERSION}" \
+            --generate-notes \
+            release/*.tgz release/*.zip release/SHA256SUMS
+
+  publish-npm:
+    name: Publish npm package
+    needs:
+      - package
+      - draft-release
+    if: ${{ !inputs.dry_run && inputs.publish_npm }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: release
+      url: https://www.npmjs.com/package/@dsh-external/dsh-blender-plugin
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-assets
+          path: release
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+      - name: Publish tarball
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN}" ]; then
+            echo "::error::NPM_TOKEN is not configured in the release environment"
+            exit 1
+          fi
+          npm publish release/*.tgz --access public --provenance

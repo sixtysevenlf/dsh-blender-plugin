@@ -1,0 +1,123 @@
+{
+  "version": 2,
+  "baselineCommit": "f001e1d20b86cd84a88424e3bbe426e501e4c49d",
+  "baselineDate": "2026-10-31",
+  "policy": "C5 v2: baseline measured at f001e1d; T16c calibrated the global floors to 73.2/68.7/70.4 and changed-lines floor to 73.4 from canonical CI run 41289961261 at commit 0e1c173 (74.73/70.22/71.9, changed 74.953), with a 1.5pp buffer and no floor below the prior value; critical contract modules >=90/75; execution-lifecycle modules retained at their measured ratchet floors (>=80/55, see executionModules); Python pure logic >=80/70; E2E 100%; +2 ratchet is a manual release-window policy; adjust only with a documented policy change. See docs/architecture.md coverage policy.",
+  "javascript": {
+    "globalFloor": {
+      "lines": 73.2,
+      "branches": 68.7,
+      "functions": 70.4
+    },
+    "changedLinesFloor": {
+      "lines": 73.4,
+      "targetLines": 70,
+      "ratchetPerPr": 2,
+      "against": "v2.6.2",
+      "ratchetMode": "manual"
+    },
+    "criticalModules": [
+      {
+        "module": "runtime/catalog/data.ts",
+        "lines": 90,
+        "branches": 75
+      },
+      {
+        "module": "runtime/addon-protocol.ts",
+        "lines": 90,
+        "branches": 75
+      },
+      {
+        "module": "runtime/http/router.ts",
+        "lines": 90,
+        "branches": 75
+      },
+      {
+        "module": "runtime/http/lease.ts",
+        "lines": 90,
+        "branches": 75
+      },
+      {
+        "module": "src/tools/index.ts",
+        "lines": 90,
+        "branches": 75
+      }
+    ],
+    "executionModules": [
+      {
+        "module": "runtime/core/plan-dispatch.ts",
+        "lines": 90,
+        "branches": 75
+      },
+      {
+        "module": "runtime/core/plan/render-guard.ts",
+        "lines": 90,
+        "branches": 75
+      },
+      {
+        "module": "runtime/core/plan/shape-search/index.ts",
+        "lines": 90,
+        "branches": 75
+      },
+      {
+        "module": "runtime/execution/jobs/index.ts",
+        "lines": 80,
+        "branches": 55
+      },
+      {
+        "module": "runtime/execution/workers/index.ts",
+        "lines": 80,
+        "branches": 55
+      },
+      {
+        "module": "runtime/execution/headless/index.ts",
+        "lines": 90,
+        "branches": 75
+      },
+      {
+        "module": "runtime/execution/headless/options/index.ts",
+        "lines": 80,
+        "branches": 55
+      },
+      {
+        "module": "runtime/execution/headless/process.ts",
+        "lines": 85,
+        "branches": 60
+      },
+      {
+        "module": "runtime/execution/headless/result.ts",
+        "lines": 80,
+        "branches": 55
+      }
+    ]
+  },
+  "python": {
+    "scope": [
+      "addon/dsh_blender_bridge/command_registry.py",
+      "addon/dsh_blender_bridge/protocol.py",
+      "addon/dsh_blender_bridge/config.py",
+      "addon/dsh_blender_bridge/recorders/activity.py",
+      "addon/dsh_blender_bridge/commands/selection.py",
+      "addon/dsh_blender_bridge/commands/activity.py",
+      "addon/dsh_blender_bridge/integrations/hyper3d_client.py",
+      "addon/dsh_blender_bridge/integrations/sketchfab_client.py",
+      "addon/dsh_blender_bridge/assets/io.py",
+      "addon/dsh_blender_bridge/selection/caps.py"
+    ],
+    "floor": {
+      "lines": 80,
+      "branches": 70
+    },
+    "baseline": {
+      "lines": 82.5,
+      "branches": 74.36
+    },
+    "omitReason": "UI 绘制/注册样板（registration.py、ui/**）、真 bpy 编辑模式上下文（selection/payload.py）与 bpy/网络命令实现（commands/** 除 selection/activity）由 C6 E2E 覆盖，不并入行覆盖率。F3.4 把纯逻辑命令表 command_registry.py 与 selection/caps.py 纳入 scope，并按最终代码重新基线（coverage policy notes）。"
+  },
+  "e2e": {
+    "behaviorMatrixRelease": true,
+    "scenarioCoverage": 100,
+    "plannedMustBeZero": true
+  },
+  "coverageMode": "single-file (no-file-parallelism)"
+}
