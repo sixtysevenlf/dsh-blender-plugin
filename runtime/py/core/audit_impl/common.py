@@ -201,28 +201,8 @@ def _shell_max_faces():
         return SHELL_MAX_FACES
 
 
-def _shell_normals(bm):
-    """逐连通壳判朝向（v0.9.6 复审修复）。
-
-    为什么不能只看整体有符号体积：`bm.calc_volume(signed=True)` 把所有壳**相加** ——
-    一个大的正向壳（+8）配一个分离的小反向壳（−1），总和仍是 +7 > 0，于是"法线朝外"被误报为真。
-    这里改成**逐壳**判，只有"可确证是独立实体"的壳才下结论：
-
-      * 壳 = 边连通的面集合；各自算有符号体积 / 闭合性 / 绕向一致性 / AABB。
-      * AABB 互相**分离**的壳 ⇒ 独立实体：闭合 + 绕向一致 + 体积 ≤ 0 ⇒ **确定朝内（fail）**。
-      * AABB **互相包含**的壳 ⇒ 疑似嵌套（合法空腔 / 壳内独立件）：射线奇偶**确认**真的在里面；
-        确证 ⇒ 嵌套壳豁免（合法空腔不许误报成反向）；确认不成立 ⇒ unknown。
-      * AABB 相交但互不包含（互穿 / 部分重叠 / 重合副本）⇒ 光靠朝向分不出 ⇒ unknown。
-
-    不确定一律 unknown（→ audit_mesh 判 verdict=degraded），**绝不猜成 pass**。
-    返回 (normals_outward, state, shells, reason)：outward ∈ {True, False, None}。
-    """
-    nf = len(bm.faces)
-    cap = _shell_max_faces()
-    if cap > 0 and nf > cap:   # 默认 cap=0 → 全跑；只有显式设上限才降级
-        # 大网格直接降级（与 connectivity 的 max_tris 同一纪律：未分析 ≠ 通过，也绝不阻塞大场景）
-        return None, 'unknown', [], ("面数 %d 超过逐壳朝向分析上限 %d（env DSH_SHELL_MAX_FACES 可调）"
-                                     "—— 未做逐壳分析，不给通过结论" % (nf, cap))
+def _shell_components(bm):
+    """按边连通拆壳，逐壳算有符号体积/闭合性/绕向一致性/AABB（热路径：一趟走完，不建中间 set）。"""
     pending = set(bm.faces)
     shells = []
     while pending:
@@ -235,10 +215,6 @@ def _shell_normals(bm):
                         pending.remove(face)
                         faces.append(face)
                         stack.append(face)
-        # 热路径（v0.9.6 复审）：**不要**为每个壳建 verts/edges 的 set 再三次遍历 —— 实测 155k 面
-        # 时那种写法比 audit_mesh 原有的全部 O(F) 计数还慢一个数量级（832ms vs 84ms）。这里一趟走完：
-        #   体积用散度定理的面形式  Σ (A/3)·n̂·(c−o) （与 bm.calc_volume(signed=True) 同号同值，逐面 C 调用）
-        #   闭合/绕向一致性直接在面上查边；AABB 直接吃面上的顶点
         origin = faces[0].verts[0].co
         vol = 0.0
         closed = True
@@ -265,15 +241,15 @@ def _shell_normals(bm):
                            nested=False, relation='', state=('unknown' if not closed or abs(vol) <= eps else
                                                              'pass' if consistent and vol > 0 else 'fail'),
                            _faces=faces))
-    if not shells:
-        return None, 'unknown', shells, 'no faces'
-    # Bound quadratic work: unresolved is preferable to blocking a large scene.
-    if len(shells) > 256:
-        return None, 'unknown', shells, 'shell_count exceeds 256; containment not analyzed'
+    return shells
+
+
+def _shell_relations(shells):
+    """壳两两 AABB 关系 + 包含性射线确认（预算/去重缓存）；返回 ambiguous 集合。"""
     dims = [max(s['bounds'][1][k] - s['bounds'][0][k] for k in range(3)) for s in shells]
     tol = max(dims) * 1e-9 if dims else 0.0
     ambiguous = set()
-    cache, budget = {}, 64                      # 包含性确认的射线预算（超了 → unknown，不猜）
+    cache, budget = {}, 64
     for i, a in enumerate(shells):
         for j in range(i):
             b = shells[j]
@@ -284,7 +260,6 @@ def _shell_normals(bm):
                 shells[i]['relation'] = shells[j]['relation'] = rel
                 ambiguous.update((i, j))
                 continue
-            # rel='a_in_b' ⇒ a（shells[i]）在 b（shells[j]）里面 ⇒ inner=i, outer=j
             inner_i, outer_j = (i, j) if rel == 'a_in_b' else (j, i)
             if budget <= 0:
                 ambiguous.update((i, j))
@@ -296,15 +271,18 @@ def _shell_normals(bm):
             else:
                 shells[i]['relation'] = shells[j]['relation'] = 'overlap-unconfirmed'
                 ambiguous.update((i, j))
-    # v2.6（本轮反馈 #5）：多壳但**各壳朝向可确证**时不再一律降级。
-    # 判据：这个壳自己闭合 + 绕向一致 + |体积|>eps，且（体积>0 或已确证嵌套）⇒ 朝向是确定的；
-    # 此时 AABB 互相相交（碎块簇 / 火球鳞瓣 / 布景道具这类合法多壳件）不构成「判不出来」。
+    return ambiguous
+
+
+def _shell_verdict(shells, ambiguous):
+    """由壳状态给出 (outward, state, reason)；不确定一律 unknown（→ degraded），绝不猜成 pass。"""
     def _self_confirmed(s):
         if not s['closed'] or not s['winding_consistent'] or abs(s['signed_volume']) <= s['eps']:
             return False
         if s['signed_volume'] > 0:
             return True
-        return bool(s['nested'])          # 反向壳只有确证嵌套（合法空腔）才算可确证
+        return bool(s['nested'])
+
     ambiguous_unresolved = [i for i in ambiguous if not _self_confirmed(shells[i])]
     for i in ambiguous_unresolved:
         shells[i]['state'] = 'unknown'
@@ -315,32 +293,59 @@ def _shell_normals(bm):
         for i in fails:
             shells[i]['state'] = 'fail'
         worst = sorted((i for i in fails), key=lambda i: shells[i]['signed_volume'])[:6]
-        return False, 'fail', shells, ("非嵌套壳整体朝内（signed_volume<0）：%s —— 聚合有符号体积会被"
-                                       "「大正向壳 + 小反向壳」抵消成正数，所以这里逐壳判"
-                                       % ", ".join("shell#%d(vol=%.6g, faces=%d)"
-                                                   % (i, shells[i]['signed_volume'], shells[i]['faces'])
-                                                   for i in worst))
+        return False, 'fail', ("非嵌套壳整体朝内（signed_volume<0）：%s —— 聚合有符号体积会被"
+                               "「大正向壳 + 小反向壳」抵消成正数，所以这里逐壳判"
+                               % ", ".join("shell#%d(vol=%.6g, faces=%d)"
+                                           % (i, shells[i]['signed_volume'], shells[i]['faces'])
+                                           for i in worst))
     if ambiguous_unresolved:
-        return None, 'unknown', shells, ("%d 个壳 AABB 相交且自身朝向判不出来（未闭合/绕向不一致/零体积/未确证嵌套）"
-                                         "—— 朝向语义 unresolved，不给通过结论" % len(ambiguous_unresolved))
-    # 没有确定的反向壳、也没有歧义：只剩"闭合性/绕向/零体积"判不出来的壳
+        return None, 'unknown', ("%d 个壳 AABB 相交且自身朝向判不出来（未闭合/绕向不一致/零体积/未确证嵌套）"
+                                 "—— 朝向语义 unresolved，不给通过结论" % len(ambiguous_unresolved))
     unknown = [i for i, s in enumerate(shells)
                if not s['closed'] or not s['winding_consistent'] or abs(s['signed_volume']) <= s['eps']]
     if unknown:
         for i in unknown:
             shells[i]['state'] = 'unknown'
-        return None, 'unknown', shells, ("壳闭合性/绕向/体积无法判定：%s"
-                                         % ", ".join("shell#%d" % i for i in unknown[:6]))
+        return None, 'unknown', ("壳闭合性/绕向/体积无法判定：%s"
+                                 % ", ".join("shell#%d" % i for i in unknown[:6]))
     for s in shells:
-        # 嵌套壳（合法空腔 / 壳内独立件）不是缺陷：标注 'nested'，不参与 fail
         s['state'] = 'nested' if s['nested'] else 'pass'
-    # v2.6（本轮反馈 #5）：第五态 —— 多壳但**每个壳的朝向都可确证**。
-    # 旧版把「多壳 + AABB 相交」一律判 unknown ⇒ 碎块簇 / 火球鳞瓣 / 布景资产永远 degraded，
-    # 三个子代理的交付回执里都写着「state=degraded 仅因 normals_unknown」—— 门的信号被噪声吃掉。
     if len(shells) > 1:
-        return True, 'pass_multi_shell', shells, ("多壳（%d 个连通壳），每个壳的朝向都可确证；"
-                                                  "多壳本身不是缺陷（合法空腔已标 nested）" % len(shells))
-    return True, 'pass', shells, ''
+        return True, 'pass_multi_shell', ("多壳（%d 个连通壳），每个壳的朝向都可确证；"
+                                          "多壳本身不是缺陷（合法空腔已标 nested）" % len(shells))
+    return True, 'pass', ''
+
+
+def _shell_normals(bm):
+    """逐连通壳判朝向（v0.9.6 复审修复）。
+
+    为什么不能只看整体有符号体积：`bm.calc_volume(signed=True)` 把所有壳**相加** ——
+    一个大的正向壳（+8）配一个分离的小反向壳（−1），总和仍是 +7 > 0，于是"法线朝外"被误报为真。
+    这里改成**逐壳**判，只有"可确证是独立实体"的壳才下结论：
+
+      * 壳 = 边连通的面集合；各自算有符号体积 / 闭合性 / 绕向一致性 / AABB。
+      * AABB 互相**分离**的壳 ⇒ 独立实体：闭合 + 绕向一致 + 体积 ≤ 0 ⇒ **确定朝内（fail）**。
+      * AABB **互相包含**的壳 ⇒ 疑似嵌套（合法空腔 / 壳内独立件）：射线奇偶**确认**真的在里面；
+        确证 ⇒ 嵌套壳豁免（合法空腔不许误报成反向）；确认不成立 ⇒ unknown。
+      * AABB 相交但互不包含（互穿 / 部分重叠 / 重合副本）⇒ 光靠朝向分不出 ⇒ unknown。
+
+    不确定一律 unknown（→ audit_mesh 判 verdict=degraded），**绝不猜成 pass**。
+    返回 (normals_outward, state, shells, reason)：outward ∈ {True, False, None}。
+    """
+    nf = len(bm.faces)
+    cap = _shell_max_faces()
+    if cap > 0 and nf > cap:
+        return None, 'unknown', [], ("面数 %d 超过逐壳朝向分析上限 %d（env DSH_SHELL_MAX_FACES 可调）"
+                                     "—— 未做逐壳分析，不给通过结论" % (nf, cap))
+    shells = _shell_components(bm)
+    if not shells:
+        return None, 'unknown', shells, 'no faces'
+    if len(shells) > 256:
+        return None, 'unknown', shells, 'shell_count exceeds 256; containment not analyzed'
+    ambiguous = _shell_relations(shells)
+    outward, state, reason = _shell_verdict(shells, ambiguous)
+    return outward, state, shells, reason
+
 
 
 def _shells_brief(shells, limit=12):

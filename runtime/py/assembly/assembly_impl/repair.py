@@ -558,204 +558,231 @@ def _apply_repair_action(act, objs, allow_boolean):
     return {"ok": False, "method": method or "?", "error": "未知修复方法（只支持 translate/snap/subtract）"}
 
 
-def asm_repair(manifest=None, scope=None, objects=None, spec=None, dry_run=True,
-               max_move_mm=50.0, allow_boolean=False, snapshot=True,
-               max_rounds=3, clearance_mm=0.5, policy=None):
-    """装配修复（默认只规划）：asm_scan → 规划 →（dry_run=false）snapshot → apply → 复扫，最多 max_rounds 轮。
-
-    规划口径：
-      * clash / contained → 选体积小的件沿 AABB 交叠最小的轴平移（按 AABB 分离所需量 + clearance_mm），
-        超过 max_move_mm ⇒ blocked；目标件有父级/动画 ⇒ blocked（整件平移会被覆盖）。
-      * float → 有 K.dsh_audit_api 时调 audit_snap_floaters(dry_run=true) 拿计划，否则 blocked。
-      * allow_boolean=true 且两件都闭合流形（且平移不可行 / 被父级挡住）→ 从较大件布尔减较小件
-        （cutter 用副本，原件不动）；没有可用文件级快照时拒绝执行布尔。
-    策略 policy（缺省等价 safe；显式传值才有硬约束）：
-      * 缺省 None → safe：自动动作只允许 translate/snap；布尔是拓扑改动，保留旧兼容路径
-        （allow_boolean=true = 显式人工授权才做）。
-      * policy="safe"（显式）：**硬禁**布尔/scale，只允许 translate/snap。
-      * policy="manual"：只规划、绝不自动执行（dry_run=false 也只回只读计划）；不规划布尔。
-      * policy="aggressive"：保留旧 allow_boolean 行为，plan 标 policy=aggressive。
-    执行口径：dry_run=false 先文件级 snapshot（K.dsh_txn_api），逐动作 apply → view_layer.update →
-    重跑 asm_scan；复扫仍有残留就按新扫描再规划，最多 max_rounds 轮（不动就停，不空转）。
-    别名：fix_clash（执行器，dry_run 默认 true）；纯规划器用 fix_interference（plan_only=true）。
-    """
-    t0 = time.perf_counter()
+def _repair_params(dry_run, max_move_mm, allow_boolean, snapshot, max_rounds, clearance_mm, policy):
+    """校验布尔/数字参数与 policy；返回 (cfg, err)。"""
     dry_run, ferr = _repair_flag(dry_run, "dry_run")
     if ferr:
-        return _err(ferr)
+        return None, ferr
     allow_boolean, ferr = _repair_flag(allow_boolean, "allow_boolean")
     if ferr:
-        return _err(ferr)
+        return None, ferr
     snapshot, ferr = _repair_flag(snapshot, "snapshot")
     if ferr:
-        return _err(ferr)
+        return None, ferr
     pol, pol_explicit, perr = _repair_policy(policy)
     if perr:
-        return _err(perr)
+        return None, perr
     mv, cm = _num(max_move_mm), _num(clearance_mm)
     if mv is None or mv < 0.0:
-        return _err("max_move_mm 必须是 ≥0 的有限数字，收到 %r" % (max_move_mm,))
+        return None, "max_move_mm 必须是 ≥0 的有限数字，收到 %r" % (max_move_mm,)
     if cm is None or cm < 0.0:
-        return _err("clearance_mm 必须是 ≥0 的有限数字，收到 %r" % (clearance_mm,))
+        return None, "clearance_mm 必须是 ≥0 的有限数字，收到 %r" % (clearance_mm,)
     try:
         rounds_f = float(max_rounds)
     except Exception:
         rounds_f = None
     if isinstance(max_rounds, bool) or rounds_f is None or not math.isfinite(rounds_f) \
             or abs(rounds_f - round(rounds_f)) > 1e-9:
-        return _err("max_rounds 必须是整数（1..20），收到 %r" % (max_rounds,))
+        return None, "max_rounds 必须是整数（1..20），收到 %r" % (max_rounds,)
     rounds_cap = int(round(rounds_f))
     if rounds_cap < 1 or rounds_cap > 20:
-        return _err("max_rounds 必须在 1..20，收到 %r" % (max_rounds,))
+        return None, "max_rounds 必须在 1..20，收到 %r" % (max_rounds,)
+    return {"dry_run": bool(dry_run), "allow_boolean": bool(allow_boolean), "snapshot": bool(snapshot),
+            "pol": pol, "pol_explicit": bool(pol_explicit), "mv": mv, "cm": cm,
+            "rounds_cap": rounds_cap}, None
+
+
+def _repair_context(manifest, scope, objects, spec):
+    """manifest 校验 + 选对象 + 首次 asm_scan + 网格映射/基线摘要；返回 (ctx, err)。"""
     m = None
     if manifest is not None:
         m, merr = _load_manifest(manifest)
         if merr:
-            return _err(merr)
+            return None, merr
         mval = _manifest_validate(m, check_files=False, check_md5=False)
         if not mval["ok"]:
-            return _err("manifest 结构校验失败（坏清单上不规划修复）",
-                        errors=mval["errors"][:10], warnings=mval["warnings"][:10])
+            return None, ("manifest 结构校验失败（坏清单上不规划修复）",
+                          {"errors": mval["errors"][:10], "warnings": mval["warnings"][:10]})
     info = _pick_objects(scope, objects, include_hidden=False)
     if info.get("error"):
-        return _err(info["error"], objects=info.get("names"), missing=info.get("missing"),
-                    hint="空产出/坏参数必须失败；确认对象名/集合名（或给 manifest）")
+        return None, (info["error"], {"objects": info.get("names"), "missing": info.get("missing"),
+                                      "hint": "空产出/坏参数必须失败；确认对象名/集合名（或给 manifest）"})
     names = list(info["names"])
     try:
         raw = asm_scan(scope=None, objects=names, manifest=m, spec=spec, summary_only=False)
         scan = json.loads(raw) if isinstance(raw, str) else raw
     except Exception as e:
-        return _err("首次 asm_scan 异常: %s: %s" % (type(e).__name__, str(e)[:240]))
+        return None, "首次 asm_scan 异常: %s: %s" % (type(e).__name__, str(e)[:240])
     if not isinstance(scan, dict) or not scan.get("ok"):
-        return _err("首次 asm_scan 失败，拒绝在没扫描结果时规划修复",
-                    scan=_trim(scan) if isinstance(scan, dict) else None)
+        return None, ("首次 asm_scan 失败，拒绝在没扫描结果时规划修复",
+                      {"scan": _trim(scan) if isinstance(scan, dict) else None})
     mmu = float(_KIT.units())
     md, md_errors = _mesh_map(info["objects"])
     before = _repair_brief(scan)
     before_bad = _repair_bad_total(before)
-    params = {"max_move_mm": _r(mv, 4), "clearance_mm": _r(cm, 4),
-              "allow_boolean": bool(allow_boolean), "max_rounds": rounds_cap,
-              "snapshot": bool(snapshot), "dry_run": bool(dry_run), "policy": pol,
-              "policy_explicit": bool(pol_explicit)}
-    plan, blocked = _repair_plan_all(scan, names, md, mmu, mv, cm, bool(allow_boolean), pol, pol_explicit)
-    expected = _repair_expected(before, plan, blocked)
+    return {"manifest": m, "objects": info["objects"], "names": names, "scan": scan,
+            "mmu": mmu, "md": md, "md_errors": md_errors,
+            "before": before, "before_bad": before_bad}, None
+
+
+def _repair_counts_line(before):
+    """扫前计数一行（verdict_line 用）。"""
     brief_counts = before.get("counts") or {}
-    counts_line = ("clash=%d contained=%d float=%d unresolved=%d"
-                   % (int(brief_counts.get("clash") or 0), int(brief_counts.get("contained") or 0),
-                      int(brief_counts.get("float") or 0), int(brief_counts.get("unresolved") or 0)))
-    if dry_run:
-        if plan:
-            verdict = "planned"
-        elif before_bad:
-            verdict = "blocked"
-        else:
-            verdict = before.get("verdict") or "pass"
-        if verdict == "pass" and before.get("verdict") == "degraded":
-            verdict = "degraded"
-        if plan and blocked:
-            hint = "dry_run 只规划（场景未改）：%d 个动作可执行、%d 项 blocked —— 按 blocked.reason 处理后重跑，确认后传 dry_run=false（会先 snapshot）"
-        elif plan:
-            hint = "dry_run 只规划（场景未改）：确认后传 dry_run=false 执行（先文件级 snapshot，再 apply，最后复扫）"
-        elif before_bad:
-            hint = "没有可自动修的动作：看 blocked.reason（调 max_move_mm / allow_boolean / 清父级 / preload audit / 先修网格）"
-        elif before.get("verdict") == "degraded":
-            hint = ("无 clash/contained/float 可自动修，但扫描是 degraded（unresolved/截断/未判完）—— "
-                    "先修网格/法线或调预算重扫，绝不读成没问题")
-        else:
-            hint = "扫描无 clash/contained/float，无需修复"
-        verdict_line = ("装配修复（dry_run，只读）：扫 %d 件 %s → 规划 %d 个动作 / blocked %d → %s"
-                        % (len(names), counts_line, len(plan), len(blocked), verdict))
-        body = {"ok": True, "verdict": verdict, "dry_run": True, "readonly": True,
-                "stage": "planned", "method": "asm_repair", "aliases": ["fix_clash"],
-                "params": params, "objects": len(names), "object_names": names,
-                "before": _repair_brief_out(before),
-                "plan": plan[:60], "blocked": _dedupe_blocked(blocked)[:40],
-                "expected": expected,
-                "verdict_line": verdict_line, "hint": hint,
-                "honest_limits": list(_REPAIR_HONEST_LIMITS),
-                "md_errors": md_errors, "contract_repairs": _plan_repair_hints(plan)}
-        return _j(_receipt(body, t0))
-    if pol == "manual":
-        body = {"ok": False, "verdict": "planned", "dry_run": True, "readonly": True,
-                "stage": "manual_policy", "method": "asm_repair", "aliases": ["fix_clash"],
-                "params": params, "objects": len(names),
-                "before": _repair_brief_out(before),
-                "plan": plan[:60], "blocked": _dedupe_blocked(blocked)[:40],
-                "expected": expected,
-                "error": "policy=manual 只出计划、绝不自动执行（场景未改）；确认后改用 policy=safe/aggressive 或人工按 plan 执行",
-                "verdict_line": "装配修复（manual，只读）：规划 %d 个动作 / blocked %d → 未改场景"
-                                % (len(plan), len(blocked)),
-                "hint": "policy=manual 不自动执行：translate/snap 用 policy=safe；布尔用 policy=aggressive + allow_boolean=true",
-                "honest_limits": list(_REPAIR_HONEST_LIMITS), "md_errors": md_errors}
-        return _j(_receipt(body, t0))
-    # ---------------- 执行 ----------------
-    exec_blocked = list(blocked)
-    applied = []
-    bool_exec = bool(allow_boolean) and pol != "manual"
-    if not plan:
-        if before_bad == 0:
-            body = {"ok": True, "verdict": before.get("verdict") or "pass", "dry_run": False,
-                    "analyzed": True, "stage": "nothing_to_do", "params": params,
-                    "objects": len(names), "before": _repair_brief_out(before),
-                    "after": _repair_brief_out(before), "residual": _repair_residual(before),
-                    "repaired": False, "rounds": 0, "plan": [], "applied": [],
-                    "blocked": _dedupe_blocked(exec_blocked)[:40], "snapshot": None,
-                    "verdict_line": "装配修复：扫描已无 clash/contained/float，无需修复",
-                    "hint": "无需修复（如仍有 unresolved/degraded，先修网格/法线再看）",
-                    "honest_limits": list(_REPAIR_HONEST_LIMITS), "md_errors": md_errors}
-            return _j(_receipt(body, t0))
-        body = {"ok": False, "verdict": "blocked", "dry_run": False, "analyzed": True,
-                "stage": "no_executable_action", "params": params,
+    return ("clash=%d contained=%d float=%d unresolved=%d"
+            % (int(brief_counts.get("clash") or 0), int(brief_counts.get("contained") or 0),
+               int(brief_counts.get("float") or 0), int(brief_counts.get("unresolved") or 0)))
+
+
+def _repair_params_out(cfg):
+    """对外回执里的 params 字段（保持既有键序/取值）。"""
+    return {"max_move_mm": _r(cfg["mv"], 4), "clearance_mm": _r(cfg["cm"], 4),
+            "allow_boolean": cfg["allow_boolean"], "max_rounds": cfg["rounds_cap"],
+            "snapshot": cfg["snapshot"], "dry_run": cfg["dry_run"], "policy": cfg["pol"],
+            "policy_explicit": cfg["pol_explicit"]}
+
+
+def _repair_dry_payload(ctx, params, plan, blocked, expected, counts_line):
+    """dry_run=true 只读回执。"""
+    before = ctx["before"]
+    before_bad = ctx["before_bad"]
+    names = ctx["names"]
+    md_errors = ctx["md_errors"]
+    if plan:
+        verdict = "planned"
+    elif before_bad:
+        verdict = "blocked"
+    else:
+        verdict = before.get("verdict") or "pass"
+    if verdict == "pass" and before.get("verdict") == "degraded":
+        verdict = "degraded"
+    if plan and blocked:
+        hint = "dry_run 只规划（场景未改）：%d 个动作可执行、%d 项 blocked —— 按 blocked.reason 处理后重跑，确认后传 dry_run=false（会先 snapshot）"
+    elif plan:
+        hint = "dry_run 只规划（场景未改）：确认后传 dry_run=false 执行（先文件级 snapshot，再 apply，最后复扫）"
+    elif before_bad:
+        hint = "没有可自动修的动作：看 blocked.reason（调 max_move_mm / allow_boolean / 清父级 / preload audit / 先修网格）"
+    elif before.get("verdict") == "degraded":
+        hint = ("无 clash/contained/float 可自动修，但扫描是 degraded（unresolved/截断/未判完）—— "
+                "先修网格/法线或调预算重扫，绝不读成没问题")
+    else:
+        hint = "扫描无 clash/contained/float，无需修复"
+    verdict_line = ("装配修复（dry_run，只读）：扫 %d 件 %s → 规划 %d 个动作 / blocked %d → %s"
+                    % (len(names), counts_line, len(plan), len(blocked), verdict))
+    return {"ok": True, "verdict": verdict, "dry_run": True, "readonly": True,
+            "stage": "planned", "method": "asm_repair", "aliases": ["fix_clash"],
+            "params": params, "objects": len(names), "object_names": names,
+            "before": _repair_brief_out(before),
+            "plan": plan[:60], "blocked": _dedupe_blocked(blocked)[:40],
+            "expected": expected,
+            "verdict_line": verdict_line, "hint": hint,
+            "honest_limits": list(_REPAIR_HONEST_LIMITS),
+            "md_errors": md_errors, "contract_repairs": _plan_repair_hints(plan)}
+
+
+def _repair_manual_payload(ctx, params, plan, blocked, expected):
+    """policy=manual：只出计划，绝不自动执行。"""
+    before = ctx["before"]
+    md_errors = ctx["md_errors"]
+    return {"ok": False, "verdict": "planned", "dry_run": True, "readonly": True,
+            "stage": "manual_policy", "method": "asm_repair", "aliases": ["fix_clash"],
+            "params": params, "objects": len(ctx["names"]),
+            "before": _repair_brief_out(before),
+            "plan": plan[:60], "blocked": _dedupe_blocked(blocked)[:40],
+            "expected": expected,
+            "error": "policy=manual 只出计划、绝不自动执行（场景未改）；确认后改用 policy=safe/aggressive 或人工按 plan 执行",
+            "verdict_line": "装配修复（manual，只读）：规划 %d 个动作 / blocked %d → 未改场景"
+                            % (len(plan), len(blocked)),
+            "hint": "policy=manual 不自动执行：translate/snap 用 policy=safe；布尔用 policy=aggressive + allow_boolean=true",
+            "honest_limits": list(_REPAIR_HONEST_LIMITS), "md_errors": md_errors}
+
+
+def _repair_no_plan_payload(ctx, params, blocked):
+    """执行分支但规划为空：要么本来就没事，要么没有可自动执行的动作。"""
+    before = ctx["before"]
+    before_bad = ctx["before_bad"]
+    names = ctx["names"]
+    md_errors = ctx["md_errors"]
+    if before_bad == 0:
+        return {"ok": True, "verdict": before.get("verdict") or "pass", "dry_run": False,
+                "analyzed": True, "stage": "nothing_to_do", "params": params,
                 "objects": len(names), "before": _repair_brief_out(before),
                 "after": _repair_brief_out(before), "residual": _repair_residual(before),
                 "repaired": False, "rounds": 0, "plan": [], "applied": [],
-                "blocked": _dedupe_blocked(exec_blocked)[:40], "snapshot": None,
-                "error": "扫描到 %d 处 clash/contained/float，但没有可自动执行的动作" % before_bad,
-                "verdict_line": "装配修复：0 个可执行动作 → blocked（场景未改）",
-                "hint": "看 blocked.reason：调 max_move_mm / allow_boolean / 清父级动画 / preload audit / 先修网格",
+                "blocked": _dedupe_blocked(blocked)[:40], "snapshot": None,
+                "verdict_line": "装配修复：扫描已无 clash/contained/float，无需修复",
+                "hint": "无需修复（如仍有 unresolved/degraded，先修网格/法线再看）",
                 "honest_limits": list(_REPAIR_HONEST_LIMITS), "md_errors": md_errors}
-        return _j(_receipt(body, t0))
-    snap = None
-    if snapshot:
-        if _api("txn") is None:
-            snap = {"ok": False, "skipped": True,
-                    "note": "K.dsh_txn_api 不可用 ⇒ 没做文件级快照（布尔动作会被拒绝；平移失败无法自动回退）"}
-        else:
-            rec, serr = _call_api("txn", "snapshot",
-                                  {"label": "asm_repair-%s" % time.strftime("%Y%m%d_%H%M%S"),
-                                   "note": "asm_repair(dry_run=false) 前快照"})
-            if serr:
-                return _err("快照失败，拒绝在无回退点的场景上执行修复：%s" % serr)
-            snap = rec.get("snapshot") if isinstance(rec, dict) else rec
+    return {"ok": False, "verdict": "blocked", "dry_run": False, "analyzed": True,
+            "stage": "no_executable_action", "params": params,
+            "objects": len(names), "before": _repair_brief_out(before),
+            "after": _repair_brief_out(before), "residual": _repair_residual(before),
+            "repaired": False, "rounds": 0, "plan": [], "applied": [],
+            "blocked": _dedupe_blocked(blocked)[:40], "snapshot": None,
+            "error": "扫描到 %d 处 clash/contained/float，但没有可自动执行的动作" % before_bad,
+            "verdict_line": "装配修复：0 个可执行动作 → blocked（场景未改）",
+            "hint": "看 blocked.reason：调 max_move_mm / allow_boolean / 清父级动画 / preload audit / 先修网格",
+            "honest_limits": list(_REPAIR_HONEST_LIMITS), "md_errors": md_errors}
+
+
+def _repair_snapshot(snapshot):
+    """执行前文件级快照；返回 (snap, snap_ok, err)。快照失败必须拒绝执行。"""
+    if not snapshot:
+        return ({"ok": True, "skipped": True,
+                 "note": "snapshot=false：调用方自担回退（布尔拓扑改动对象级回退不回来）"}, False, None)
+    if _api("txn") is None:
+        snap = {"ok": False, "skipped": True,
+                "note": "K.dsh_txn_api 不可用 ⇒ 没做文件级快照（布尔动作会被拒绝；平移失败无法自动回退）"}
     else:
-        snap = {"ok": True, "skipped": True,
-                "note": "snapshot=false：调用方自担回退（布尔拓扑改动对象级回退不回来）"}
+        rec, serr = _call_api("txn", "snapshot",
+                              {"label": "asm_repair-%s" % time.strftime("%Y%m%d_%H%M%S"),
+                               "note": "asm_repair(dry_run=false) 前快照"})
+        if serr:
+            return None, False, "快照失败，拒绝在无回退点的场景上执行修复：%s" % serr
+        snap = rec.get("snapshot") if isinstance(rec, dict) else rec
     snap_ok = bool(isinstance(snap, dict) and not snap.get("skipped")
                    and snap.get("ok") is not False
                    and bool(snap.get("label") or snap.get("path") or snap.get("ok") is True))
-    if any(a.get("method") == "subtract" for a in plan) and not snap_ok:
-        keep = []
-        for a in plan:
-            if a.get("method") == "subtract":
-                exec_blocked.append({"pair": a.get("pair"), "class": a.get("class"),
-                                     "method": "subtract",
-                                     "reason": "布尔改拓扑但没有可用的文件级快照（txn）→ 拒绝执行；先让 K.dsh_txn_api 可用且 snapshot=true"})
-            else:
-                keep.append(a)
-        plan = keep
-    if not plan:
-        body = {"ok": False, "verdict": "blocked", "dry_run": False, "analyzed": True,
-                "stage": "no_executable_action", "params": params,
-                "objects": len(names), "before": _repair_brief_out(before),
-                "after": _repair_brief_out(before), "residual": _repair_residual(before),
-                "repaired": False, "rounds": 0, "plan": [], "applied": [],
-                "blocked": _dedupe_blocked(exec_blocked)[:40], "snapshot": snap,
-                "error": "可执行动作都被安全门拦下（布尔需要文件级快照）",
-                "verdict_line": "装配修复：0 个可执行动作 → blocked（场景未改）",
-                "hint": "preload txn 或 snapshot=true 后重跑；或先处理 blocked.reason",
-                "honest_limits": list(_REPAIR_HONEST_LIMITS), "md_errors": md_errors}
-        return _j(_receipt(body, t0))
-    objs = {str(o.name): o for o in info["objects"]}
+    return snap, snap_ok, None
+
+
+def _repair_guard_subtract(plan, blocked, snap_ok):
+    """布尔改拓扑但无可用快照 ⇒ 把 subtract 动作降级为 blocked（不完全放弃其余动作）。"""
+    if snap_ok or not any(a.get("method") == "subtract" for a in plan):
+        return plan, blocked
+    keep = []
+    exec_blocked = list(blocked)
+    for a in plan:
+        if a.get("method") == "subtract":
+            exec_blocked.append({"pair": a.get("pair"), "class": a.get("class"),
+                                 "method": "subtract",
+                                 "reason": "布尔改拓扑但没有可用的文件级快照（txn）→ 拒绝执行；先让 K.dsh_txn_api 可用且 snapshot=true"})
+        else:
+            keep.append(a)
+    return keep, exec_blocked
+
+
+def _repair_blocked_all_payload(ctx, params, blocked, snap):
+    """安全门把全部动作拦下：blocked（场景未改）。"""
+    before = ctx["before"]
+    names = ctx["names"]
+    md_errors = ctx["md_errors"]
+    return {"ok": False, "verdict": "blocked", "dry_run": False, "analyzed": True,
+            "stage": "no_executable_action", "params": params,
+            "objects": len(names), "before": _repair_brief_out(before),
+            "after": _repair_brief_out(before), "residual": _repair_residual(before),
+            "repaired": False, "rounds": 0, "plan": [], "applied": [],
+            "blocked": _dedupe_blocked(blocked)[:40], "snapshot": snap,
+            "error": "可执行动作都被安全门拦下（布尔需要文件级快照）",
+            "verdict_line": "装配修复：0 个可执行动作 → blocked（场景未改）",
+            "hint": "preload txn 或 snapshot=true 后重跑；或先处理 blocked.reason",
+            "honest_limits": list(_REPAIR_HONEST_LIMITS), "md_errors": md_errors}
+
+
+def _repair_exec_loop(scan, plan, objs, names, m, spec, rounds_cap, bool_exec,
+                      mmu, mv, cm, allow_boolean, pol, pol_explicit, blocked, md_errors):
+    """逐轮 apply → update → 复扫 → 重规划；返回 (cur_scan, applied, blocked, rounds, md_errors)。"""
+    applied = []
+    exec_blocked = list(blocked)
     cur_scan, cur_plan, rounds = scan, plan, 0
     for rnd in range(1, rounds_cap + 1):
         acts = [a for a in cur_plan if isinstance(a, dict) and a.get("method") in _REPAIR_METHODS]
@@ -792,10 +819,19 @@ def asm_repair(manifest=None, scope=None, objects=None, spec=None, dry_run=True,
         cur_plan, more_blocked = _repair_plan_all(rescan, names, md, mmu, mv, cm, bool(allow_boolean),
                                                  pol, pol_explicit)
         exec_blocked.extend(more_blocked)
+    return cur_scan, applied, exec_blocked, rounds, md_errors
+
+
+def _repair_final_payload(ctx, params, plan, applied, blocked, cur_scan, rounds, snap, counts_line, md_errors):
+    """复扫后的最终回执（verdict 三态 + 残留计数 + 修复建议）。"""
+    before = ctx["before"]
+    before_bad = ctx["before_bad"]
+    names = ctx["names"]
+    scan = ctx["scan"]
     after = _repair_brief(cur_scan if isinstance(cur_scan, dict) else scan)
     final_bad = _repair_bad_total(after)
     residual = _repair_residual(after)
-    rescan_broke = any(isinstance(x, dict) and x.get("kind") == "rescan" for x in exec_blocked)
+    rescan_broke = any(isinstance(x, dict) and x.get("kind") == "rescan" for x in blocked)
     ok_final = bool(final_bad == 0 and after.get("ok") and not rescan_broke)
     if final_bad > 0:
         verdict = "fail"
@@ -812,19 +848,80 @@ def asm_repair(manifest=None, scope=None, objects=None, spec=None, dry_run=True,
     verdict_line = ("装配修复（已执行 %d 轮）：扫 %d 件 %s → 应用 %d 个动作，blocked %d → 复扫残留 "
                     "clash=%d contained=%d float=%d unresolved=%d → %s"
                     % (rounds, len(names), counts_line, len(applied),
-                       len(_dedupe_blocked(exec_blocked)), residual["clash"], residual["contained"],
+                       len(_dedupe_blocked(blocked)), residual["clash"], residual["contained"],
                        residual["float"], residual["unresolved"], verdict))
-    body = {"ok": bool(ok_final), "verdict": verdict, "dry_run": False, "analyzed": True,
+    return {"ok": bool(ok_final), "verdict": verdict, "dry_run": False, "analyzed": True,
             "stage": "rechecked", "method": "asm_repair", "aliases": ["fix_clash"],
             "params": params, "objects": len(names), "object_names": names,
             "before": _repair_brief_out(before), "after": _repair_brief_out(after),
             "residual": residual,
             "repaired": bool(before_bad > 0 and final_bad < before_bad),
             "rounds": rounds, "plan": plan[:60],
-            "applied": applied[:60], "blocked": _dedupe_blocked(exec_blocked)[:40],
+            "applied": applied[:60], "blocked": _dedupe_blocked(blocked)[:40],
             "snapshot": snap, "verdict_line": verdict_line, "hint": hint,
             "honest_limits": list(_REPAIR_HONEST_LIMITS), "md_errors": md_errors}
-    return _j(_receipt(body, t0))
+
+
+def asm_repair(manifest=None, scope=None, objects=None, spec=None, dry_run=True,
+               max_move_mm=50.0, allow_boolean=False, snapshot=True,
+               max_rounds=3, clearance_mm=0.5, policy=None):
+    """装配修复（默认只规划）：asm_scan → 规划 →（dry_run=false）snapshot → apply → 复扫，最多 max_rounds 轮。
+
+    规划口径：
+      * clash / contained → 选体积小的件沿 AABB 交叠最小的轴平移（按 AABB 分离所需量 + clearance_mm），
+        超过 max_move_mm ⇒ blocked；目标件有父级/动画 ⇒ blocked（整件平移会被覆盖）。
+      * float → 有 K.dsh_audit_api 时调 audit_snap_floaters(dry_run=true) 拿计划，否则 blocked。
+      * allow_boolean=true 且两件都闭合流形（且平移不可行 / 被父级挡住）→ 从较大件布尔减较小件
+        （cutter 用副本，原件不动）；没有可用文件级快照时拒绝执行布尔。
+    策略 policy（缺省等价 safe；显式传值才有硬约束）：
+      * 缺省 None → safe：自动动作只允许 translate/snap；布尔是拓扑改动，保留旧兼容路径
+        （allow_boolean=true = 显式人工授权才做）。
+      * policy="safe"（显式）：**硬禁**布尔/scale，只允许 translate/snap。
+      * policy="manual"：只规划、绝不自动执行（dry_run=false 也只回只读计划）；不规划布尔。
+      * policy="aggressive"：保留旧 allow_boolean 行为，plan 标 policy=aggressive。
+    执行口径：dry_run=false 先文件级 snapshot（K.dsh_txn_api），逐动作 apply → view_layer.update →
+    重跑 asm_scan；复扫仍有残留就按新扫描再规划，最多 max_rounds 轮（不动就停，不空转）。
+    别名：fix_clash（执行器，dry_run 默认 true）；纯规划器用 fix_interference（plan_only=true）。
+    """
+    t0 = time.perf_counter()
+    cfg, perr = _repair_params(dry_run, max_move_mm, allow_boolean, snapshot, max_rounds,
+                               clearance_mm, policy)
+    if perr:
+        return _err(perr)
+    dry_run, allow_boolean, snapshot = cfg["dry_run"], cfg["allow_boolean"], cfg["snapshot"]
+    ctx, cerr = _repair_context(manifest, scope, objects, spec)
+    if cerr:
+        if isinstance(cerr, tuple):
+            return _err(cerr[0], **cerr[1])
+        return _err(cerr)
+    names, m = ctx["names"], ctx["manifest"]
+    scan, mmu, md = ctx["scan"], ctx["mmu"], ctx["md"]
+    before, before_bad, md_errors = ctx["before"], ctx["before_bad"], ctx["md_errors"]
+    params = _repair_params_out(cfg)
+    plan, blocked = _repair_plan_all(scan, names, md, mmu, cfg["mv"], cfg["cm"], allow_boolean,
+                                     cfg["pol"], cfg["pol_explicit"])
+    expected = _repair_expected(before, plan, blocked)
+    counts_line = _repair_counts_line(before)
+    if dry_run:
+        return _j(_receipt(_repair_dry_payload(ctx, params, plan, blocked, expected, counts_line), t0))
+    if cfg["pol"] == "manual":
+        return _j(_receipt(_repair_manual_payload(ctx, params, plan, blocked, expected), t0))
+    # ---------------- 执行 ----------------
+    bool_exec = bool(allow_boolean) and cfg["pol"] != "manual"
+    if not plan:
+        return _j(_receipt(_repair_no_plan_payload(ctx, params, blocked), t0))
+    snap, snap_ok, serr = _repair_snapshot(snapshot)
+    if serr:
+        return _err(serr)
+    plan, blocked = _repair_guard_subtract(plan, blocked, snap_ok)
+    if not plan:
+        return _j(_receipt(_repair_blocked_all_payload(ctx, params, blocked, snap), t0))
+    objs = {str(o.name): o for o in ctx["objects"]}
+    cur_scan, applied, blocked, rounds, md_errors = _repair_exec_loop(
+        scan, plan, objs, names, m, spec, cfg["rounds_cap"], bool_exec,
+        mmu, cfg["mv"], cfg["cm"], allow_boolean, cfg["pol"], cfg["pol_explicit"], blocked, md_errors)
+    return _j(_receipt(_repair_final_payload(ctx, params, plan, applied, blocked, cur_scan, rounds,
+                                             snap, counts_line, md_errors), t0))
 
 
 def _plan_repair_hints(plan):

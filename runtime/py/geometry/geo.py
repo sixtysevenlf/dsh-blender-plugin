@@ -702,6 +702,109 @@ def geo_help():
     })
 
 
+def _geo_selftest_basic(made, ev):
+    """1) 盒 + 倒角、2) 柱/管、3) 放样；返回倒角盒（后续检查复用）。"""
+    # 1) 盒 + 倒角 → 流形、无退化面
+    b = box("__geo_t_box", (0, 20), (0, 10), (0, 5), coll="COL_geotest",
+            bevel_mm=0.5, smooth_angle=30.0)
+    made.append(b)
+    s = mesh_stats(b)
+    ev["box_manifold"] = (s["nonmanifold_edges"] == 0 and s["degenerate_faces"] == 0)
+
+    # 2) 柱 / 管
+    c = cyl("__geo_t_cyl", (0, 0, 0), (0, 0, 30), 4.0, coll="COL_geotest", segs=24)
+    made.append(c)
+    ev["cyl_manifold"] = mesh_stats(c)["nonmanifold_edges"] == 0
+    t = tube("__geo_t_tube", (0, 0, 0), (0, 0, 30), 5.0, 3.0, coll="COL_geotest")
+    made.append(t)
+    st = mesh_stats(t)
+    ev["tube_hollow"] = st["nonmanifold_edges"] == 0 and st["faces"] > mesh_stats(c)["faces"]
+
+    # 3) 放样（锥形方柱，层间点数一致）
+    rings = []
+    for i in range(6):
+        t01 = i / 5.0
+        h = 6.0 - 4.0 * t01
+        rings.append([(-h, -h, i * 4.0), (h, -h, i * 4.0), (h, h, i * 4.0), (-h, h, i * 4.0)])
+    L = loft("__geo_t_loft", rings, coll="COL_geotest")
+    made.append(L)
+    sl = mesh_stats(L)
+    ev["loft_manifold"] = sl["nonmanifold_edges"] == 0 and sl["degenerate_faces"] == 0
+    return b
+
+
+def _geo_selftest_boolean(made, ev, canary):
+    """4) 布尔差分守卫、5) 守卫两个方向（不许误报 + 金丝雀）。"""
+    # 4) 布尔差分：守卫通过、包围盒不变、面数增加
+    base = box("__geo_t_base", (0, 40), (0, 20), (0, 20), coll="COL_geotest")
+    made.append(base)
+    bb0 = bbox_all([base], unit="mm")
+    f0 = mesh_stats(base)["faces"]
+    hole_cut(base, [{"center": (20, 10, 10), "axis": "Z", "r": 6.0, "length": 60.0}],
+             name="__geo_t_hole", coll="COL_geotest")
+    bb1 = bbox_all([base], unit="mm")
+    ev["boolean_guard_pass"] = base.get("dsh_boolean_guard", "").find('"guard": "pass"') > 0
+    ev["boolean_bbox_kept"] = bb0["bbox"] == bb1["bbox"]
+    ev["boolean_faces_grew"] = mesh_stats(base)["faces"] > f0
+    ev["boolean_manifold"] = mesh_stats(base)["nonmanifold_edges"] == 0
+
+    # 5) 守卫两个方向都要测
+    # ① **不许误报**：正常件 + 探出主体之外的切具 —— 正确的差集结果仍应包在主体内
+    n1 = box("__geo_t_n1", (0, 40), (0, 20), (0, 20), coll="COL_geotest")
+    made.append(n1)
+    c1 = box("__geo_t_c1", (35, 90), (5, 15), (5, 15), coll="COL_geotest")
+    made.append(c1)
+    false_alarm = False
+    try:
+        boolean(n1, c1, "DIFFERENCE", delete_cutter=True, verify=True)
+    except RuntimeError:
+        false_alarm = True
+    ev["guard_no_false_positive"] = (not false_alarm)
+
+    # ② **金丝雀**：自交主体（两个互相穿插的盒 join 成一个网格）+ 探出主体的切具。
+    #    若某天 EXACT 布尔在这种输入上退化成并集，包围盒会胀出去 → 守卫应当拦下。
+    #    实测 5.2.2 上此构造**未复现**（故记为 canary，不参与 ok）—— 记录在案，
+    #    将来版本回归时它会翻成 true，从回执里一眼看到。
+    a1 = box("__geo_t_s1", (0, 20), (0, 20), (0, 20), coll="COL_geotest")
+    a2 = box("__geo_t_s2", (10, 30), (10, 30), (10, 30), coll="COL_geotest")
+    made.extend([a1, a2])
+    si = join([a1, a2], name="__geo_t_selfint", coll="COL_geotest")
+    made.append(si)
+    c2 = box("__geo_t_c2", (25, 80), (10, 30), (10, 30), coll="COL_geotest")
+    made.append(c2)
+    fired = False
+    try:
+        boolean(si, c2, "DIFFERENCE", delete_cutter=True, verify=True)
+    except RuntimeError:
+        fired = True
+    canary["selfint_guard_canary"] = fired
+
+
+def _geo_selftest_misc(made, ev, b):
+    """6) 镜像/阵列、7) 自动平滑不改拓扑、8) 统计正确。"""
+    src = box("__geo_t_m", (0, 10), (0, 5), (0, 5), coll="COL_geotest")
+    made.append(src)
+    mi = mirror(src, "Y")
+    made.append(mi)
+    arr = linear_array(src, 4, (30.0, 0.0, 0.0), name="__geo_t_a")
+    made.extend(arr)
+    ev["mirror_is_mirrored"] = bool(mi) and mi.name.endswith("_mir")
+    ev["array_count_4"] = len(arr) == 4
+
+    # 7) 自动平滑不改拓扑（EDGE_SPLIT 会劈边 → 直接顶穿非流形门）
+    pv = mesh_stats(b)["verts"]
+    nsharp = len([e for e in b.data.edges if e.use_edge_sharp])
+    shade_auto(b, 30.0)
+    ev["shade_auto_keeps_topology"] = mesh_stats(b)["verts"] == pv
+    ev["shade_auto_marks_sharp"] = (len([e for e in b.data.edges if e.use_edge_sharp]) >= nsharp)
+
+    # 8) 统计正确：正方体 12 三角面
+    cube = box("__geo_t_cube", (0, 10), (0, 10), (0, 10), coll="COL_geotest")
+    made.append(cube)
+    ev["tri_count_cube_12"] = tri_count([cube]) == 12
+    ev["bbox_size_10mm"] = bbox_all([cube], unit="mm")["size"] == [10.0, 10.0, 10.0]
+
+
 def geo_selftest():
     """自检：合成几何断言（非流形/退化/布尔守卫/镜像阵列/自动平滑不改拓扑/统计正确）。"""
     ev = {}
@@ -719,100 +822,9 @@ def geo_selftest():
     try:
         prev_scale = float(bpy.context.scene.unit_settings.scale_length)
         bpy.context.scene.unit_settings.scale_length = 0.001   # 1 单位 = 1mm，方便用 mm 断言
-
-        # 1) 盒 + 倒角 → 流形、无退化面
-        b = box("__geo_t_box", (0, 20), (0, 10), (0, 5), coll="COL_geotest",
-                bevel_mm=0.5, smooth_angle=30.0)
-        made.append(b)
-        s = mesh_stats(b)
-        ev["box_manifold"] = (s["nonmanifold_edges"] == 0 and s["degenerate_faces"] == 0)
-
-        # 2) 柱 / 管
-        c = cyl("__geo_t_cyl", (0, 0, 0), (0, 0, 30), 4.0, coll="COL_geotest", segs=24)
-        made.append(c)
-        ev["cyl_manifold"] = mesh_stats(c)["nonmanifold_edges"] == 0
-        t = tube("__geo_t_tube", (0, 0, 0), (0, 0, 30), 5.0, 3.0, coll="COL_geotest")
-        made.append(t)
-        st = mesh_stats(t)
-        ev["tube_hollow"] = st["nonmanifold_edges"] == 0 and st["faces"] > mesh_stats(c)["faces"]
-
-        # 3) 放样（锥形方柱，层间点数一致）
-        rings = []
-        for i in range(6):
-            t01 = i / 5.0
-            h = 6.0 - 4.0 * t01
-            rings.append([(-h, -h, i * 4.0), (h, -h, i * 4.0), (h, h, i * 4.0), (-h, h, i * 4.0)])
-        L = loft("__geo_t_loft", rings, coll="COL_geotest")
-        made.append(L)
-        sl = mesh_stats(L)
-        ev["loft_manifold"] = sl["nonmanifold_edges"] == 0 and sl["degenerate_faces"] == 0
-
-        # 4) 布尔差分：守卫通过、包围盒不变、面数增加
-        base = box("__geo_t_base", (0, 40), (0, 20), (0, 20), coll="COL_geotest")
-        made.append(base)
-        bb0 = bbox_all([base], unit="mm")
-        f0 = mesh_stats(base)["faces"]
-        hole_cut(base, [{"center": (20, 10, 10), "axis": "Z", "r": 6.0, "length": 60.0}],
-                 name="__geo_t_hole", coll="COL_geotest")
-        bb1 = bbox_all([base], unit="mm")
-        ev["boolean_guard_pass"] = base.get("dsh_boolean_guard", "").find('"guard": "pass"') > 0
-        ev["boolean_bbox_kept"] = bb0["bbox"] == bb1["bbox"]
-        ev["boolean_faces_grew"] = mesh_stats(base)["faces"] > f0
-        ev["boolean_manifold"] = mesh_stats(base)["nonmanifold_edges"] == 0
-
-        # 5) 守卫两个方向都要测
-        # ① **不许误报**：正常件 + 探出主体之外的切具 —— 正确的差集结果仍应包在主体内
-        n1 = box("__geo_t_n1", (0, 40), (0, 20), (0, 20), coll="COL_geotest")
-        made.append(n1)
-        c1 = box("__geo_t_c1", (35, 90), (5, 15), (5, 15), coll="COL_geotest")
-        made.append(c1)
-        false_alarm = False
-        try:
-            boolean(n1, c1, "DIFFERENCE", delete_cutter=True, verify=True)
-        except RuntimeError:
-            false_alarm = True
-        ev["guard_no_false_positive"] = (not false_alarm)
-
-        # ② **金丝雀**：自交主体（两个互相穿插的盒 join 成一个网格）+ 探出主体的切具。
-        #    若某天 EXACT 布尔在这种输入上退化成并集，包围盒会胀出去 → 守卫应当拦下。
-        #    实测 5.2.2 上此构造**未复现**（故记为 canary，不参与 ok）—— 记录在案，
-        #    将来版本回归时它会翻成 true，从回执里一眼看到。
-        a1 = box("__geo_t_s1", (0, 20), (0, 20), (0, 20), coll="COL_geotest")
-        a2 = box("__geo_t_s2", (10, 30), (10, 30), (10, 30), coll="COL_geotest")
-        made.extend([a1, a2])
-        si = join([a1, a2], name="__geo_t_selfint", coll="COL_geotest")
-        made.append(si)
-        c2 = box("__geo_t_c2", (25, 80), (10, 30), (10, 30), coll="COL_geotest")
-        made.append(c2)
-        fired = False
-        try:
-            boolean(si, c2, "DIFFERENCE", delete_cutter=True, verify=True)
-        except RuntimeError:
-            fired = True
-        canary["selfint_guard_canary"] = fired
-
-        # 6) 镜像 / 阵列
-        src = box("__geo_t_m", (0, 10), (0, 5), (0, 5), coll="COL_geotest")
-        made.append(src)
-        mi = mirror(src, "Y")
-        made.append(mi)
-        arr = linear_array(src, 4, (30.0, 0.0, 0.0), name="__geo_t_a")
-        made.extend(arr)
-        ev["mirror_is_mirrored"] = bool(mi) and mi.name.endswith("_mir")
-        ev["array_count_4"] = len(arr) == 4
-
-        # 7) 自动平滑不改拓扑（EDGE_SPLIT 会劈边 → 直接顶穿非流形门）
-        pv = mesh_stats(b)["verts"]
-        nsharp = len([e for e in b.data.edges if e.use_edge_sharp])
-        shade_auto(b, 30.0)
-        ev["shade_auto_keeps_topology"] = mesh_stats(b)["verts"] == pv
-        ev["shade_auto_marks_sharp"] = (len([e for e in b.data.edges if e.use_edge_sharp]) >= nsharp)
-
-        # 8) 统计正确：正方体 12 三角面
-        cube = box("__geo_t_cube", (0, 10), (0, 10), (0, 10), coll="COL_geotest")
-        made.append(cube)
-        ev["tri_count_cube_12"] = tri_count([cube]) == 12
-        ev["bbox_size_10mm"] = bbox_all([cube], unit="mm")["size"] == [10.0, 10.0, 10.0]
+        b = _geo_selftest_basic(made, ev)
+        _geo_selftest_boolean(made, ev, canary)
+        _geo_selftest_misc(made, ev, b)
     except Exception as e:
         _clean()
         try:
@@ -830,6 +842,7 @@ def geo_selftest():
         pass
     ok = all(v is True for v in ev.values())
     return _j({"ok": bool(ok), "version": GEO_VERSION, "evidence": ev, "canary": canary})
+
 
 
 OPS = {

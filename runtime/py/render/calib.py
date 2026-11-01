@@ -231,98 +231,83 @@ DEFECTS = [
 DEFECT_TABLE = {d[0]: {"fn": d[1], "expect": d[2], "why": d[3]} for d in DEFECTS}
 
 
-def calib_run(ids=None, keep=False, prefix_note=None, break_gates=None):
-    """跑标定：健康基线（必须全过）+ 每类缺陷（必须被**对应门**真抓到）。
-
-    v0.9.6（复审修复）：
-      ① 捕获判据从"整包 verdict != pass"改成"**对应门 state == fail**" —— error（门跑不起来）
-         和 degraded（门没给结论）不算捕获，避免捕获率虚高；
-      ② 单位口径统一：基线与每一类缺陷都在 CALIB_SCALE（1 单位 = 1 mm）下跑，finally 复位场景单位；
-         每行回执带 unit_scale，跑完回报 unit_ok。
-    break_gates=["mesh", ...] 故意把某些门弄成 error，用于验证 ① （回归测试用）。
-    """
-    gate = _api("gate")
-    if gate is None:
-        return _j({"ok": False, "error": "需要 gate 模块（preload=\"calib,gate\" 或走 calib_run op）"})
+def _calib_pick(ids):
+    """要跑哪些缺陷（ids 可空/单个/list）；返回 (want, err)。"""
     want = [d[0] for d in DEFECTS]
     if ids:
         want = [str(x) for x in (ids if isinstance(ids, (list, tuple)) else [ids])]
         bad = [x for x in want if x not in DEFECT_TABLE]
         if bad:
-            return _j({"ok": False, "error": "未知缺陷 id %s" % bad, "allowed": [d[0] for d in DEFECTS]})
-    broken = [str(x) for x in (break_gates if isinstance(break_gates, (list, tuple, set)) else ([break_gates] if break_gates else []))]
-    t0 = time.time()
-    prev_scale = _scale_now()
-    scale_after = None
-    rows = []
-    baseline = None
+            return None, {"ok": False, "error": "未知缺陷 id %s" % bad, "allowed": [d[0] for d in DEFECTS]}
+    return want, None
+
+
+def _calib_baseline(gate, broken):
+    """健康基线（必须全过，否则门在误报、标定无效）；返回 baseline 记录。"""
+    # 整条链路（基线 + 每一类缺陷）统一到 mm 口径；只在 finally 复位场景单位一次
+    bpy.context.scene.unit_settings.scale_length = CALIB_SCALE
+    _purge()
+    names = _build_healthy()
+    sp = _spec_for(names, break_gates=broken)
+    base = gate("run", {"spec": sp})          # _DshApi 已解析，别再 json.loads
+    b_gates = [{"id": g.get("id"), "state": g.get("state")} for g in base.get("gates", [])]
+    b_fail = [g["id"] for g in b_gates if g.get("state") == "fail"]
+    b_err = [g["id"] for g in b_gates if g.get("state") == "error"]
+    b_deg = [g["id"] for g in b_gates if g.get("state") == "degraded"]
+    return {"verdict": base.get("verdict"), "failed": base.get("failed"), "gates": b_gates,
+            "errors": b_err, "degraded": b_deg, "unit_scale": _scale_now(),
+            "ok": bool(base.get("verdict") == "pass" and not b_err and not b_deg
+                       and not b_fail)}
+
+
+def _calib_defect(gate, did, broken):
+    """注入一类缺陷 + 用**对应门**判捕获；返回 row（注入/执行异常也收进 row，不中断整轮）。"""
+    fn, expect = DEFECT_TABLE[did]["fn"], DEFECT_TABLE[did]["expect"]
+    ctx = {}
+    bpy.context.scene.unit_settings.scale_length = CALIB_SCALE
+    _purge()
+    row = {"id": did, "expect": expect, "unit_scale": _scale_now()}
     try:
-        # 整条链路（基线 + 每一类缺陷）统一到 mm 口径；只在 finally 复位场景单位一次
-        bpy.context.scene.unit_settings.scale_length = CALIB_SCALE
-        _purge()
         names = _build_healthy()
+        note = fn(names, ctx)
+        for n in ctx.get("extra") or []:
+            if n not in names:
+                names.append(n)
+        row["injected"] = note
+        # 缺陷函数可能自己动过单位（如 thin_wall 会写 scale_length）⇒ 跑门前拉回校准口径，
+        # 保证"注入的缺陷"和"门的口径"在同一单位下比较（否则 0.3mm 门槛可能变成 0.3 单位）
+        bpy.context.scene.unit_settings.scale_length = CALIB_SCALE
         sp = _spec_for(names, break_gates=broken)
-        base = gate("run", {"spec": sp})          # _DshApi 已解析，别再 json.loads
-        b_gates = [{"id": g.get("id"), "state": g.get("state")} for g in base.get("gates", [])]
-        b_fail = [g["id"] for g in b_gates if g.get("state") == "fail"]
-        b_err = [g["id"] for g in b_gates if g.get("state") == "error"]
-        b_deg = [g["id"] for g in b_gates if g.get("state") == "degraded"]
-        baseline = {"verdict": base.get("verdict"), "failed": base.get("failed"), "gates": b_gates,
-                    "errors": b_err, "degraded": b_deg, "unit_scale": _scale_now(),
-                    "ok": bool(base.get("verdict") == "pass" and not b_err and not b_deg
-                               and not b_fail)}
-        _purge()
-        for did in want:
-            fn, expect = DEFECT_TABLE[did]["fn"], DEFECT_TABLE[did]["expect"]
-            ctx = {}
-            bpy.context.scene.unit_settings.scale_length = CALIB_SCALE
-            _purge()
-            row = {"id": did, "expect": expect, "unit_scale": _scale_now()}
-            try:
-                names = _build_healthy()
-                note = fn(names, ctx)
-                for n in ctx.get("extra") or []:
-                    if n not in names:
-                        names.append(n)
-                row["injected"] = note
-                # 缺陷函数可能自己动过单位（如 thin_wall 会写 scale_length）⇒ 跑门前拉回校准口径，
-                # 保证"注入的缺陷"和"门的口径"在同一单位下比较（否则 0.3mm 门槛可能变成 0.3 单位）
-                bpy.context.scene.unit_settings.scale_length = CALIB_SCALE
-                sp = _spec_for(names, break_gates=broken)
-                r = gate("run", {"spec": sp})
-                caught, fails, errors, degraded = _classify_defect(r.get("gates"), expect)
-                row.update({"caught": bool(caught), "verdict": r.get("verdict"),
-                            "caught_by": fails, "caught_by_expected_gate": bool(expect in fails),
-                            "gate_errors": errors, "gate_degraded": degraded,
-                            "detail": {g.get("id"): g.get("key") for g in r.get("gates", [])
-                                       if g.get("state") != "pass"}})
-                if not caught:
-                    row["naive_caught"] = bool(r.get("verdict") != "pass")   # 旧口径会把它误记成 caught
-                    if expect in errors:
-                        row["why_missed"] = "对应门 %s 自己 error —— 门跑不起来 ≠ 抓到缺陷" % expect
-                    elif expect in degraded:
-                        row["why_missed"] = "对应门 %s 只给 degraded —— 没给出结论 ≠ 抓到缺陷" % expect
-                    else:
-                        row["why_missed"] = "对应门 %s 没有 fail（真漏网）" % expect
-            except Exception as e:
-                row.update({"caught": None, "why_missed": "注入/执行异常",
-                            "error": "%s: %s" % (type(e).__name__, str(e)[:180])})
-            finally:
-                # ← 复位到 CALIB_SCALE（不是 prev_scale）：余下的校准段仍在同一口径里
-                try:
-                    bpy.context.scene.unit_settings.scale_length = CALIB_SCALE
-                except Exception:
-                    pass
-                _purge()
-            rows.append(row)
+        r = gate("run", {"spec": sp})
+        caught, fails, errors, degraded = _classify_defect(r.get("gates"), expect)
+        row.update({"caught": bool(caught), "verdict": r.get("verdict"),
+                    "caught_by": fails, "caught_by_expected_gate": bool(expect in fails),
+                    "gate_errors": errors, "gate_degraded": degraded,
+                    "detail": {g.get("id"): g.get("key") for g in r.get("gates", [])
+                               if g.get("state") != "pass"}})
+        if not caught:
+            row["naive_caught"] = bool(r.get("verdict") != "pass")   # 旧口径会把它误记成 caught
+            if expect in errors:
+                row["why_missed"] = "对应门 %s 自己 error —— 门跑不起来 ≠ 抓到缺陷" % expect
+            elif expect in degraded:
+                row["why_missed"] = "对应门 %s 只给 degraded —— 没给出结论 ≠ 抓到缺陷" % expect
+            else:
+                row["why_missed"] = "对应门 %s 没有 fail（真漏网）" % expect
+    except Exception as e:
+        row.update({"caught": None, "why_missed": "注入/执行异常",
+                    "error": "%s: %s" % (type(e).__name__, str(e)[:180])})
     finally:
+        # ← 复位到 CALIB_SCALE（不是 prev_scale）：余下的校准段仍在同一口径里
         try:
-            bpy.context.scene.unit_settings.scale_length = prev_scale
-            scale_after = _scale_now()
+            bpy.context.scene.unit_settings.scale_length = CALIB_SCALE
         except Exception:
-            scale_after = None
-        if not keep:
-            _purge()
+            pass
+        _purge()
+    return row
+
+
+def _calib_receipt(rows, baseline, prev_scale, scale_after, broken, t0):
+    """汇总回执：ok/capture_rate/missed/unit_ok + 规则与提示。"""
     caught = [r for r in rows if r.get("caught") is True]
     missed = [r["id"] for r in rows if r.get("caught") is not True]
     gate_errors = sorted({g for r in rows for g in (r.get("gate_errors") or [])} |
@@ -342,24 +327,63 @@ def calib_run(ids=None, keep=False, prefix_note=None, break_gates=None):
                         "capture_rate 已按新口径剔除" % gate_errors)
     if false_captures:
         warnings.append("false_captures 里的用例若用旧口径（verdict != pass）会被误记成 captured")
-    return _j({"ok": ok, "baseline_pass": baseline_ok, "baseline": baseline,
-               "defects": rows, "caught": len(caught), "total": len(rows),
-               "capture_rate": (round(len(caught) / float(len(rows)), 3) if rows else None),
-               "missed": missed, "gate_errors": gate_errors, "blocking_gate_errors": blocking_errors,
-               "false_captures": false_captures, "warnings": warnings,
-               "units": {"calib_scale": CALIB_SCALE, "scene_before": prev_scale, "scene_after": scale_after,
-                         "defect_scales": sorted({r.get("unit_scale") for r in rows},
-                                                 key=lambda x: (x is None, x)),
-                         "unit_ok": unit_ok},
-               "valid_run": baseline_ok, "unit_ok": unit_ok, "break_gates": broken,
-               "rule": "captured ⇔ 该缺陷的**对应门**（defects[].expect）state=='fail'；"
-                       "error/degraded 一律不算捕获",
-               "note": ("健康基线必须全过（否则门在误报，标定无效）；每类缺陷必须被**对应门**（defects[].expect）"
-                        "以 state='fail' 抓住 —— error（门跑不起来）/degraded（没给结论）都不算捕获；"
-                        "漏网的 id 就是你要补的门" if baseline_ok else
-                        "⚠ 健康基线没过 ⇒ 本次标定无效：先看 baseline.gates 里哪条门是 error/degraded/fail"
-                        "（门配置错/模块没注入/场景不干净），请在无头 factory 场景跑"),
-               "ms": int((time.time() - t0) * 1000)})
+    return {"ok": ok, "baseline_pass": baseline_ok, "baseline": baseline,
+            "defects": rows, "caught": len(caught), "total": len(rows),
+            "capture_rate": (round(len(caught) / float(len(rows)), 3) if rows else None),
+            "missed": missed, "gate_errors": gate_errors, "blocking_gate_errors": blocking_errors,
+            "false_captures": false_captures, "warnings": warnings,
+            "units": {"calib_scale": CALIB_SCALE, "scene_before": prev_scale, "scene_after": scale_after,
+                      "defect_scales": sorted({r.get("unit_scale") for r in rows},
+                                              key=lambda x: (x is None, x)),
+                      "unit_ok": unit_ok},
+            "valid_run": baseline_ok, "unit_ok": unit_ok, "break_gates": broken,
+            "rule": "captured ⇔ 该缺陷的**对应门**（defects[].expect）state=='fail'；"
+                    "error/degraded 一律不算捕获",
+            "note": ("健康基线必须全过（否则门在误报，标定无效）；每类缺陷必须被**对应门**（defects[].expect）"
+                     "以 state='fail' 抓住 —— error（门跑不起来）/degraded（没给结论）都不算捕获；"
+                     "漏网的 id 就是你要补的门" if baseline_ok else
+                     "⚠ 健康基线没过 ⇒ 本次标定无效：先看 baseline.gates 里哪条门是 error/degraded/fail"
+                     "（门配置错/模块没注入/场景不干净），请在无头 factory 场景跑"),
+            "ms": int((time.time() - t0) * 1000)}
+
+
+def calib_run(ids=None, keep=False, prefix_note=None, break_gates=None):
+    """跑标定：健康基线（必须全过）+ 每类缺陷（必须被**对应门**真抓到）。
+
+    v0.9.6（复审修复）：
+      ① 捕获判据从"整包 verdict != pass"改成"**对应门 state == fail**" —— error（门跑不起来）
+         和 degraded（门没给结论）不算捕获，避免捕获率虚高；
+      ② 单位口径统一：基线与每一类缺陷都在 CALIB_SCALE（1 单位 = 1 mm）下跑，finally 复位场景单位；
+         每行回执带 unit_scale，跑完回报 unit_ok。
+    break_gates=["mesh", ...] 故意把某些门弄成 error，用于验证 ① （回归测试用）。
+    """
+    gate = _api("gate")
+    if gate is None:
+        return _j({"ok": False, "error": "需要 gate 模块（preload=\"calib,gate\" 或走 calib_run op）"})
+    want, perr = _calib_pick(ids)
+    if perr:
+        return _j(perr)
+    broken = [str(x) for x in (break_gates if isinstance(break_gates, (list, tuple, set)) else ([break_gates] if break_gates else []))]
+    t0 = time.time()
+    prev_scale = _scale_now()
+    scale_after = None
+    rows = []
+    baseline = None
+    try:
+        baseline = _calib_baseline(gate, broken)
+        _purge()
+        for did in want:
+            rows.append(_calib_defect(gate, did, broken))
+    finally:
+        try:
+            bpy.context.scene.unit_settings.scale_length = prev_scale
+            scale_after = _scale_now()
+        except Exception:
+            scale_after = None
+        if not keep:
+            _purge()
+    return _j(_calib_receipt(rows, baseline, prev_scale, scale_after, broken, t0))
+
 
 
 def calib_selftest():

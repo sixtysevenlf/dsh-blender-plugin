@@ -176,11 +176,8 @@ def _img_crosscheck(img, ref_path, render_path, run_dir, tag):
 
 
 # ────────────────────────────── 单视图分析 ──────────────────────────────
-def _process_view(ref_srgb, ref_alpha, ref_path, ref_box, view, run_dir, tag, qc, img, opts):
-    t0 = time.perf_counter()
-    warnings = []
-    view_path = _norm_path(view["path"])
-    ren_srgb, ren_alpha = _load_rgb_alpha(view_path)
+def _pv_crops(ref_srgb, ref_alpha, ren_srgb, ren_alpha, ref_box, opts):
+    """参考/渲染按 ref_box / render_box 裁切；返回 (ref_c, ref_a, ren_c, ren_a)。"""
     ref_c, ref_a = ref_srgb, ref_alpha
     ren_c, ren_a = ren_srgb, ren_alpha
     if ref_box:
@@ -189,50 +186,58 @@ def _process_view(ref_srgb, ref_alpha, ref_path, ref_box, view, run_dir, tag, qc
     if opts.get("render_box"):
         x0, y0, x1, y1 = opts["render_box"]
         ren_c, ren_a = ren_srgb[y0:y1, x0:x1], ren_alpha[y0:y1, x0:x1]
-    # 掩膜
+    return ref_c, ref_a, ren_c, ren_a
+
+
+def _pv_masks(qc, ref_c, ref_a, ren_c, ren_a, warnings):
+    """掩膜：qc.mask_auto 优先，失败/未注入走 numpy.otsu 兜底；返回 (rm, rn, rinfo, ninfo, source)。"""
     if qc is not None:
         try:
             rm, rinfo = _qc_masks(qc, ref_c, ref_a)
             rn, ninfo = _qc_masks(qc, ren_c, ren_a)
-            mask_source = "qc.mask_auto"
+            return rm, rn, rinfo, ninfo, "qc.mask_auto"
         except Exception as e:
             warnings.append("qc.mask_auto 失败（%s: %s）→ numpy.otsu 兜底"
                             % (type(e).__name__, str(e)[:120]))
             rm, rinfo = _mask_auto_own(ref_c, ref_a)
             rn, ninfo = _mask_auto_own(ren_c, ren_a)
-            mask_source = "numpy.otsu"
-    else:
-        rm, rinfo = _mask_auto_own(ref_c, ref_a)
-        rn, ninfo = _mask_auto_own(ren_c, ren_a)
-        mask_source = "numpy.otsu"
-    canvas = [int(rn.shape[0]), int(rn.shape[1])]
-    resized = False
-    if rm.shape != rn.shape:
-        if qc is not None:
-            try:
-                rm = np.asarray(qc["resize_mask"](rm, rn.shape[0], rn.shape[1]), dtype=bool)
-            except Exception:
-                rm = _resize_mask(rm, rn.shape[0], rn.shape[1])
-        else:
+            return rm, rn, rinfo, ninfo, "numpy.otsu"
+    rm, rinfo = _mask_auto_own(ref_c, ref_a)
+    rn, ninfo = _mask_auto_own(ren_c, ren_a)
+    return rm, rn, rinfo, ninfo, "numpy.otsu"
+
+
+def _pv_align(rm, rn, qc, warnings, ref_c):
+    """参考掩膜最近邻缩放到渲染画布（尺寸不同才做）；返回 (rm, resized)。"""
+    if rm.shape == rn.shape:
+        return rm, False
+    if qc is not None:
+        try:
+            rm = np.asarray(qc["resize_mask"](rm, rn.shape[0], rn.shape[1]), dtype=bool)
+        except Exception:
             rm = _resize_mask(rm, rn.shape[0], rn.shape[1])
-        resized = True
-        warnings.append("参考/渲染的比对画布尺寸不同（%s vs %s）：参考掩膜已最近邻缩放到渲染画布"
-                        "（同机位 QC 建议同分辨率/同裁切）" % (list(ref_c.shape[:2]), list(rn.shape)))
-    # 指标
+    else:
+        rm = _resize_mask(rm, rn.shape[0], rn.shape[1])
+    warnings.append("参考/渲染的比对画布尺寸不同（%s vs %s）：参考掩膜已最近邻缩放到渲染画布"
+                    "（同机位 QC 建议同分辨率/同裁切）" % (list(ref_c.shape[:2]), list(rn.shape)))
+    return rm, True
+
+
+def _pv_metrics(qc, rm, rn, warnings):
+    """IoU/Dice/边界：qc.metrics 优先，失败/未注入走 numpy 兜底；返回 (metrics, source)。"""
     if qc is not None and bool(rm.any()) and bool(rn.any()):
         try:
-            metrics = _qc_metrics(qc, rm, rn)
-            metrics_source = "qc.metrics"
+            return _qc_metrics(qc, rm, rn), "qc.metrics"
         except Exception as e:
-            metrics = _metrics_own(rm, rn)
-            metrics_source = "numpy"
             warnings.append("qc.metrics 失败（%s: %s）→ numpy 兜底" % (type(e).__name__, str(e)[:120]))
-    else:
-        metrics = _metrics_own(rm, rn)
-        metrics_source = "numpy"
-        if qc is None:
-            warnings.append("qc 未注入：IoU/Dice/边界用 numpy 兜底（boundary 为膨胀近似）")
-    # 缺陷（缺 / 多）
+            return _metrics_own(rm, rn), "numpy"
+    if qc is None:
+        warnings.append("qc 未注入：IoU/Dice/边界用 numpy 兜底（boundary 为膨胀近似）")
+    return _metrics_own(rm, rn), "numpy"
+
+
+def _pv_defects(rm, rn, view, canvas):
+    """缺/多缺陷连通块（按面积降序）；返回 defects 列表。"""
     defects = []
     sa = max(1, int(rm.sum()))
     sb = max(1, int(rn.sum()))
@@ -246,16 +251,22 @@ def _process_view(ref_srgb, ref_alpha, ref_path, ref_box, view, run_dir, tag, qc
                             "area_frac": round(area / float(sa if kind == "missing" else sb), 4),
                             "canvas": canvas})
     defects.sort(key=lambda d: (-d["area_frac"], -d["area_px"]))
-    # 尺寸 target
-    target_rows = _measure_targets(rn, opts.get("targets") or [], opts.get("px_per_mm"))
-    # 叠加图 / 三联图
+    return defects
+
+
+def _pv_images(ref_c, ren_c, rm, rn, canvas, run_dir, tag):
+    """叠加图 + 三联图（参考/渲染/叠加）；返回 (overlay, ov_rec, sh_rec)。"""
     overlay = _make_overlay(rm, rn)
     ov_rec = _save_png_rgba(overlay, os.path.join(run_dir, "overlay_%s.png" % _safe_token(tag, "tag", 40)))
     ref_panel = _rgba_from_rgb(_resize_rgb(ref_c, canvas[0], canvas[1]))
     ren_panel = _rgba_from_rgb(_resize_rgb(ren_c, canvas[0], canvas[1]))
     sh_rec = _save_png_rgba(_make_sheet([ref_panel, ren_panel, overlay]),
                             os.path.join(run_dir, "sheet_%s.png" % _safe_token(tag, "tag", 40)))
-    # 交叉核验（qc.compare 优先；否则 imgtools diff/scan）
+    return overlay, ov_rec, sh_rec
+
+
+def _pv_crosscheck(qc, img, ref_path, ref_box, view_path, opts, run_dir, tag, rm, rn, metrics, warnings):
+    """交叉核验（qc.compare 优先；否则 imgtools diff/scan）；返回 cross。"""
     cross = None
     if not bool(rm.any()) or not bool(rn.any()):
         warnings.append("有一侧掩膜为空：无法判读前景（照片类参考图请先抠背景；渲染图检查透明背景/取景）")
@@ -281,6 +292,24 @@ def _process_view(ref_srgb, ref_alpha, ref_path, ref_box, view, run_dir, tag, qc
             warnings.append("交叉核验：%s" % str(w)[:160])
     if cross is None or not cross.get("ok"):
         warnings.append("交叉核验不可用（qc.compare 与 imgtools.diff 都没跑成）—— 指标仍按本模块固定像素口径给")
+    return cross
+
+
+def _process_view(ref_srgb, ref_alpha, ref_path, ref_box, view, run_dir, tag, qc, img, opts):
+    t0 = time.perf_counter()
+    warnings = []
+    view_path = _norm_path(view["path"])
+    ren_srgb, ren_alpha = _load_rgb_alpha(view_path)
+    ref_c, ref_a, ren_c, ren_a = _pv_crops(ref_srgb, ref_alpha, ren_srgb, ren_alpha, ref_box, opts)
+    even = _pv_masks(qc, ref_c, ref_a, ren_c, ren_a, warnings)
+    rm, rn, rinfo, ninfo, mask_source = even
+    canvas = [int(rn.shape[0]), int(rn.shape[1])]
+    rm, resized = _pv_align(rm, rn, qc, warnings, ref_c)
+    metrics, metrics_source = _pv_metrics(qc, rm, rn, warnings)
+    defects = _pv_defects(rm, rn, view, canvas)
+    target_rows = _measure_targets(rn, opts.get("targets") or [], opts.get("px_per_mm"))
+    overlay, ov_rec, sh_rec = _pv_images(ref_c, ren_c, rm, rn, canvas, run_dir, tag)
+    cross = _pv_crosscheck(qc, img, ref_path, ref_box, view_path, opts, run_dir, tag, rm, rn, metrics, warnings)
     verdict, reasons, degraded = _judge(metrics, target_rows,
                                         {"resized": resized,
                                          "masks_empty": (not bool(rm.any())) or (not bool(rn.any()))},
@@ -300,6 +329,7 @@ def _process_view(ref_srgb, ref_alpha, ref_path, ref_box, view, run_dir, tag, qc
               "warnings": warnings,
               "ms": int(round((time.perf_counter() - t0) * 1000.0))}
     return detail, overlay
+
 
 
 def _judge(metrics, target_rows, flags, opts):
