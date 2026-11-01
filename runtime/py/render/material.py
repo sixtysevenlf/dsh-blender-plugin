@@ -146,15 +146,172 @@ def _p(params, key, default=None):
     return (params or {}).get(key, default)
 
 
+def _mat_texture_chain(nt, P, scale_default, detail=6.0, rough_noise=0.5):
+    """TexCoord → Mapping → Noise 基础链；返回 (tc, mp, nz)。"""
+    tc = _add(nt, "ShaderNodeTexCoord", (-820, 0))
+    mp = _add(nt, "ShaderNodeMapping", (-620, 0))
+    nz = _add(nt, "ShaderNodeTexNoise", (-420, 0), scale=_num(_p(P, "scale"), "scale", 0.01, 1000, scale_default),
+              detail=detail, roughness=rough_noise)
+    _link(nt, tc, "Object", mp, "Vector")
+    _link(nt, mp, "Vector", nz, "Vector")
+    return tc, mp, nz
+
+
+def _mat_ramp(nt, nz, stops, loc=(-220, 0)):
+    """Noise → ColorRamp（元素先清到 1 个再按 stops 建）；返回 ramp 节点。"""
+    r = _add(nt, "ShaderNodeValToRGB", loc)
+    el = r.color_ramp.elements
+    while len(el) > 1:
+        el.remove(el[-1])
+    el[0].position = stops[0][0]
+    el[0].color = stops[0][1]
+    for pos, col in stops[1:]:
+        e = el.new(pos)
+        e.color = col
+    _link(nt, nz, "Fac", r, "Fac")
+    return r
+
+
+def _preset_unlit(nt, P, base, out):
+    """unlit：纯自发光（强度 0..100）。"""
+    bsdf = _add(nt, "ShaderNodeEmission", (300, 0), color=base, strength=_num(_p(P, "strength"), "strength", 0, 100, 1.0))
+    _link(nt, bsdf, "Emission", out, "Surface")
+    return {"bsdf": bsdf, "out": out}
+
+
+def _preset_metal_brushed(nt, P, base, bsdf, out):
+    """拉丝金属：Noise 拉长 → 颜色/粗糙度双驱动 + 变体混合。"""
+    tc, mp, nz = _mat_texture_chain(nt, P, 800.0, detail=2.0, rough_noise=0.35)
+    mp.inputs["Scale"].default_value = (1.0, 1.0, 0.02)   # 拉长 → 拉丝
+    rr = _mat_ramp(nt, nz, [(0.35, (0.0, 0.0, 0.0, 1.0)), (0.65, (1.0, 1.0, 1.0, 1.0))], (-220, -260))
+    mix = _add(nt, "ShaderNodeMix", (60, -120), data_type="RGBA", blend_type="MIX")
+    mix.inputs[0].default_value = _num(_p(P, "variation"), "variation", 0.0, 1.0, 0.25)
+    mix.inputs[6].default_value = base
+    mix.inputs[7].default_value = [base[0] * 0.75, base[1] * 0.75, base[2] * 0.75, 1.0]
+    _link(nt, rr, "Color", mix, "Factor")
+    _link(nt, mix, "Result", bsdf, "Base Color")
+    _link(nt, rr, "Color", bsdf, "Roughness")
+    bsdf.inputs["Metallic"].default_value = 1.0
+    return {"bsdf": bsdf, "out": out, "noise": nz, "ramp": rr, "chain": [tc, mp, nz]}
+
+
+def _preset_coat(nt, P, bsdf, out, metal, rough):
+    """metal_paint / plastic：Noise 细节 → 凹凸 + 参数化金属度/粗糙度。"""
+    tc, mp, nz = _mat_texture_chain(nt, P, 180.0, detail=4.0, rough_noise=0.4)
+    nz.inputs["Detail"].default_value = 3.0
+    rr = _mat_ramp(nt, nz, [(0.45, (0.0, 0.0, 0.0, 1.0)), (0.55, (0.06, 0.06, 0.06, 1.0))], (-220, -260))
+    bump = _add(nt, "ShaderNodeBump", (60, -300), Strength=_num(_p(P, "bump"), "bump", 0.0, 1.0, 0.08))
+    _link(nt, rr, "Color", bump, "Height")
+    _link(nt, bump, "Normal", bsdf, "Normal")
+    bsdf.inputs["Roughness"].default_value = rough
+    bsdf.inputs["Metallic"].default_value = metal
+    return {"bsdf": bsdf, "out": out, "noise": nz, "bump": bump, "chain": [tc, mp, nz]}
+
+
+def _preset_rust(nt, P, bsdf, out):
+    """锈蚀：三色 ramp 直接驱动 Base Color + 凹凸。"""
+    tc, mp, nz = _mat_texture_chain(nt, P, 24.0, detail=10.0, rough_noise=0.7)
+    rr = _mat_ramp(nt, nz, [(0.30, [0.16, 0.10, 0.07, 1.0]), (0.55, [0.42, 0.20, 0.08, 1.0]), (0.80, [0.72, 0.36, 0.14, 1.0])], (-220, -60))
+    bump = _add(nt, "ShaderNodeBump", (60, -320), Strength=_num(_p(P, "bump"), "bump", 0.0, 1.0, 0.55))
+    _link(nt, rr, "Color", bsdf, "Base Color")
+    _link(nt, rr, "Color", bump, "Height")
+    _link(nt, bump, "Normal", bsdf, "Normal")
+    bsdf.inputs["Metallic"].default_value = _num(_p(P, "metallic"), "metallic", 0.0, 1.0, 0.35)
+    bsdf.inputs["Roughness"].default_value = _num(_p(P, "roughness"), "roughness", 0.0, 1.0, 0.85)
+    return {"bsdf": bsdf, "out": out, "noise": nz, "ramp": rr, "bump": bump, "chain": [tc, mp, nz]}
+
+
+def _preset_glass(nt, P, base, bsdf, out, rough):
+    """玻璃：透射（旧版本没有该 socket 就跳过）+ 低金属度。"""
+    bsdf.inputs["Base Color"].default_value = base
+    bsdf.inputs["Roughness"].default_value = rough
+    bsdf.inputs["Metallic"].default_value = 0.0
+    try:
+        bsdf.inputs["Transmission Weight"].default_value = _num(_p(P, "transmission"), "transmission", 0.0, 1.0, 1.0)
+    except Exception:
+        pass
+    _mat_tree_get(nt)
+    return {"bsdf": bsdf, "out": out}
+
+
+def _preset_fabric(nt, P, bsdf, out):
+    """布料：高粗糙度 + 凹凸 + Sheen。"""
+    tc, mp, nz = _mat_texture_chain(nt, P, 400.0, detail=6.0, rough_noise=0.6)
+    mp.inputs["Scale"].default_value = (1.0, 1.0, 1.0)
+    rr = _mat_ramp(nt, nz, [(0.42, (0.0, 0.0, 0.0, 1.0)), (0.58, (0.35, 0.35, 0.35, 1.0))], (-220, -260))
+    bump = _add(nt, "ShaderNodeBump", (60, -320), Strength=_num(_p(P, "bump"), "bump", 0.0, 1.0, 0.6))
+    _link(nt, rr, "Color", bump, "Height")
+    _link(nt, bump, "Normal", bsdf, "Normal")
+    bsdf.inputs["Roughness"].default_value = _num(_p(P, "roughness"), "roughness", 0.0, 1.0, 0.9)
+    bsdf.inputs["Sheen Weight"].default_value = 0.4 if "Sheen Weight" in bsdf.inputs else 0.0
+    return {"bsdf": bsdf, "out": out, "noise": nz, "bump": bump, "chain": [tc, mp, nz]}
+
+
+def _preset_wood(nt, P, bsdf, out):
+    """木纹：Y 向拉长噪波 + 三色 ramp 驱动 Base Color。"""
+    tc, mp, nz = _mat_texture_chain(nt, P, 6.0, detail=8.0, rough_noise=0.55)
+    mp.inputs["Scale"].default_value = (1.0, 8.0, 1.0)
+    rr = _mat_ramp(nt, nz, [(0.25, [0.22, 0.13, 0.06, 1.0]), (0.55, [0.42, 0.26, 0.12, 1.0]), (0.85, [0.58, 0.38, 0.18, 1.0])], (-220, -60))
+    bump = _add(nt, "ShaderNodeBump", (60, -320), Strength=_num(_p(P, "bump"), "bump", 0.0, 1.0, 0.25))
+    _link(nt, rr, "Color", bsdf, "Base Color")
+    _link(nt, rr, "Color", bump, "Height")
+    _link(nt, bump, "Normal", bsdf, "Normal")
+    bsdf.inputs["Roughness"].default_value = _num(_p(P, "roughness"), "roughness", 0.0, 1.0, 0.55)
+    return {"bsdf": bsdf, "out": out, "noise": nz, "ramp": rr, "chain": [tc, mp, nz]}
+
+
+def _preset_concrete(nt, P, bsdf, out):
+    """混凝土：Noise + Voronoi 双纹理混色。"""
+    tc, mp, nz = _mat_texture_chain(nt, P, 60.0, detail=8.0, rough_noise=0.8)
+    nz2 = _add(nt, "ShaderNodeTexVoronoi", (-420, -300), scale=_num(_p(P, "scale"), "scale", 0.01, 1000, 12.0))
+    _link(nt, mp, "Vector", nz2, "Vector")
+    mix = _add(nt, "ShaderNodeMix", (-140, -160), data_type="RGBA", blend_type="MIX")
+    mix.inputs[0].default_value = 0.45
+    _link(nt, nz, "Color", mix, "A")
+    _link(nt, nz2, "Color", mix, "B")
+    mix2 = _add(nt, "ShaderNodeMix", (60, -160), data_type="RGBA", blend_type="MULTIPLY")
+    mix2.inputs[0].default_value = 0.5
+    mix2.inputs[7].default_value = [0.62, 0.62, 0.60, 1.0]
+    _link(nt, mix, "Result", mix2, "A")
+    _link(nt, mix2, "Result", bsdf, "Base Color")
+    bsdf.inputs["Roughness"].default_value = _num(_p(P, "roughness"), "roughness", 0.0, 1.0, 0.9)
+    return {"bsdf": bsdf, "out": out, "noise": nz, "chain": [tc, mp, nz, nz2]}
+
+
+def _preset_emission(nt, P, base, bsdf, out):
+    """自发光混合：Principled + Emission 用 mix 因子混合。"""
+    em = _add(nt, "ShaderNodeEmission", (60, -60), color=_rgba(_p(P, "color"), "color", base),
+              strength=_num(_p(P, "strength"), "strength", 0.0, 100000.0, 12.0))
+    mix = _add(nt, "ShaderNodeMixShader", (300, -60))
+    mix.inputs[0].default_value = _num(_p(P, "mix"), "mix", 0.0, 1.0, 0.85)
+    _link(nt, bsdf, "BSDF", mix, "Shader")
+    _link(nt, em, "Emission", mix, "Shader")
+    _link(nt, mix, "Shader", out, "Surface")
+    return {"bsdf": bsdf, "emission": em, "mix": mix, "out": out}
+
+
+def _preset_hologram(nt, P, bsdf, out):
+    """全息：透明 + 自发光（Transparent 建不出来时退化为纯自发光）。"""
+    em = _add(nt, "ShaderNodeEmission", (60, -60), color=_rgba(_p(P, "color"), "color", [0.3, 0.8, 1.0, 1.0]),
+              strength=_num(_p(P, "strength"), "strength", 0.0, 100000.0, 6.0))
+    try:
+        tr = _add(nt, "ShaderNodeBsdfTransparent", (60, 140))
+        mix = _add(nt, "ShaderNodeMixShader", (300, -60))
+        mix.inputs[0].default_value = _num(_p(P, "alpha"), "alpha", 0.0, 1.0, 0.6)
+        _link(nt, tr, "BSDF", mix, "Shader")
+        _link(nt, em, "Emission", mix, "Shader")
+        _link(nt, mix, "Shader", out, "Surface")
+        return {"emission": em, "transparent": tr, "mix": mix, "out": out}
+    except Exception:
+        _link(nt, em, "Emission", out, "Surface")
+        return {"emission": em, "out": out}
 def _build_preset(nt, preset, params):
     """每个 preset 显式连线（数据驱动容易错，显式更稳）。返回 {socket 名: 节点} 供回执描述。"""
     P = params or {}
     base = _rgba(_p(P, "base_color"), "base_color", [0.8, 0.8, 0.8, 1.0])
     out = _add(nt, "ShaderNodeOutputMaterial", (520, 0))
     if preset == "unlit":
-        bsdf = _add(nt, "ShaderNodeEmission", (300, 0), color=base, strength=_num(_p(P, "strength"), "strength", 0, 100, 1.0))
-        _link(nt, bsdf, "Emission", out, "Surface")
-        return {"bsdf": bsdf, "out": out}
+        return _preset_unlit(nt, P, base, out)
     bsdf = _add(nt, "ShaderNodeBsdfPrincipled", (300, 0))
     bsdf.inputs["Base Color"].default_value = base
     metal = _num(_p(P, "metallic"), "metallic", 0.0, 1.0, 0.0)
@@ -164,130 +321,24 @@ def _build_preset(nt, preset, params):
     if "IOR" in bsdf.inputs:
         bsdf.inputs["IOR"].default_value = _num(_p(P, "ior"), "ior", 1.0, 4.0, 1.45)
     _link(nt, bsdf, "BSDF", out, "Surface")
-
-    def texture_chain(scale_default, detail=6.0, rough_noise=0.5):
-        tc = _add(nt, "ShaderNodeTexCoord", (-820, 0))
-        mp = _add(nt, "ShaderNodeMapping", (-620, 0))
-        nz = _add(nt, "ShaderNodeTexNoise", (-420, 0), scale=_num(_p(P, "scale"), "scale", 0.01, 1000, scale_default),
-                  detail=detail, roughness=rough_noise)
-        _link(nt, tc, "Object", mp, "Vector")
-        _link(nt, mp, "Vector", nz, "Vector")
-        return tc, mp, nz
-
-    def ramp(nz, stops, loc=(-220, 0)):
-        r = _add(nt, "ShaderNodeValToRGB", loc)
-        el = r.color_ramp.elements
-        while len(el) > 1:
-            el.remove(el[-1])
-        el[0].position = stops[0][0]
-        el[0].color = stops[0][1]
-        for pos, col in stops[1:]:
-            e = el.new(pos)
-            e.color = col
-        _link(nt, nz, "Fac", r, "Fac")
-        return r
-
     if preset == "metal_brushed":
-        tc, mp, nz = texture_chain(800.0, detail=2.0, rough_noise=0.35)
-        mp.inputs["Scale"].default_value = (1.0, 1.0, 0.02)   # 拉长 → 拉丝
-        rr = ramp(nz, [(0.35, (0.0, 0.0, 0.0, 1.0)), (0.65, (1.0, 1.0, 1.0, 1.0))], (-220, -260))
-        mix = _add(nt, "ShaderNodeMix", (60, -120), data_type="RGBA", blend_type="MIX")
-        mix.inputs[0].default_value = _num(_p(P, "variation"), "variation", 0.0, 1.0, 0.25)
-        mix.inputs[6].default_value = base
-        mix.inputs[7].default_value = [base[0] * 0.75, base[1] * 0.75, base[2] * 0.75, 1.0]
-        _link(nt, rr, "Color", mix, "Factor")
-        _link(nt, mix, "Result", bsdf, "Base Color")
-        _link(nt, rr, "Color", bsdf, "Roughness")
-        bsdf.inputs["Metallic"].default_value = 1.0
-        return {"bsdf": bsdf, "out": out, "noise": nz, "ramp": rr, "chain": [tc, mp, nz]}
+        return _preset_metal_brushed(nt, P, base, bsdf, out)
     if preset in ("metal_paint", "plastic"):
-        tc, mp, nz = texture_chain(180.0, detail=4.0, rough_noise=0.4)
-        nz.inputs["Detail"].default_value = 3.0
-        rr = ramp(nz, [(0.45, (0.0, 0.0, 0.0, 1.0)), (0.55, (0.06, 0.06, 0.06, 1.0))], (-220, -260))
-        bump = _add(nt, "ShaderNodeBump", (60, -300), Strength=_num(_p(P, "bump"), "bump", 0.0, 1.0, 0.08))
-        _link(nt, rr, "Color", bump, "Height")
-        _link(nt, bump, "Normal", bsdf, "Normal")
-        bsdf.inputs["Roughness"].default_value = rough
-        bsdf.inputs["Metallic"].default_value = metal
-        return {"bsdf": bsdf, "out": out, "noise": nz, "bump": bump, "chain": [tc, mp, nz]}
+        return _preset_coat(nt, P, bsdf, out, metal, rough)
     if preset == "rust":
-        tc, mp, nz = texture_chain(24.0, detail=10.0, rough_noise=0.7)
-        rr = ramp(nz, [(0.30, [0.16, 0.10, 0.07, 1.0]), (0.55, [0.42, 0.20, 0.08, 1.0]), (0.80, [0.72, 0.36, 0.14, 1.0])], (-220, -60))
-        bump = _add(nt, "ShaderNodeBump", (60, -320), Strength=_num(_p(P, "bump"), "bump", 0.0, 1.0, 0.55))
-        _link(nt, rr, "Color", bsdf, "Base Color")
-        _link(nt, rr, "Color", bump, "Height")
-        _link(nt, bump, "Normal", bsdf, "Normal")
-        bsdf.inputs["Metallic"].default_value = _num(_p(P, "metallic"), "metallic", 0.0, 1.0, 0.35)
-        bsdf.inputs["Roughness"].default_value = _num(_p(P, "roughness"), "roughness", 0.0, 1.0, 0.85)
-        return {"bsdf": bsdf, "out": out, "noise": nz, "ramp": rr, "bump": bump, "chain": [tc, mp, nz]}
+        return _preset_rust(nt, P, bsdf, out)
     if preset == "glass":
-        bsdf.inputs["Base Color"].default_value = base
-        bsdf.inputs["Roughness"].default_value = rough
-        bsdf.inputs["Metallic"].default_value = 0.0
-        try:
-            bsdf.inputs["Transmission Weight"].default_value = _num(_p(P, "transmission"), "transmission", 0.0, 1.0, 1.0)
-        except Exception:
-            pass
-        m = _mat_tree_get(nt)
-        return {"bsdf": bsdf, "out": out}
+        return _preset_glass(nt, P, base, bsdf, out, rough)
     if preset == "fabric":
-        tc, mp, nz = texture_chain(400.0, detail=6.0, rough_noise=0.6)
-        mp.inputs["Scale"].default_value = (1.0, 1.0, 1.0)
-        rr = ramp(nz, [(0.42, (0.0, 0.0, 0.0, 1.0)), (0.58, (0.35, 0.35, 0.35, 1.0))], (-220, -260))
-        bump = _add(nt, "ShaderNodeBump", (60, -320), Strength=_num(_p(P, "bump"), "bump", 0.0, 1.0, 0.6))
-        _link(nt, rr, "Color", bump, "Height")
-        _link(nt, bump, "Normal", bsdf, "Normal")
-        bsdf.inputs["Roughness"].default_value = _num(_p(P, "roughness"), "roughness", 0.0, 1.0, 0.9)
-        bsdf.inputs["Sheen Weight"].default_value = 0.4 if "Sheen Weight" in bsdf.inputs else 0.0
-        return {"bsdf": bsdf, "out": out, "noise": nz, "bump": bump, "chain": [tc, mp, nz]}
+        return _preset_fabric(nt, P, bsdf, out)
     if preset == "wood":
-        tc, mp, nz = texture_chain(6.0, detail=8.0, rough_noise=0.55)
-        mp.inputs["Scale"].default_value = (1.0, 8.0, 1.0)
-        rr = ramp(nz, [(0.25, [0.22, 0.13, 0.06, 1.0]), (0.55, [0.42, 0.26, 0.12, 1.0]), (0.85, [0.58, 0.38, 0.18, 1.0])], (-220, -60))
-        bump = _add(nt, "ShaderNodeBump", (60, -320), Strength=_num(_p(P, "bump"), "bump", 0.0, 1.0, 0.25))
-        _link(nt, rr, "Color", bsdf, "Base Color")
-        _link(nt, rr, "Color", bump, "Height")
-        _link(nt, bump, "Normal", bsdf, "Normal")
-        bsdf.inputs["Roughness"].default_value = _num(_p(P, "roughness"), "roughness", 0.0, 1.0, 0.55)
-        return {"bsdf": bsdf, "out": out, "noise": nz, "ramp": rr, "chain": [tc, mp, nz]}
+        return _preset_wood(nt, P, bsdf, out)
     if preset == "concrete":
-        tc, mp, nz = texture_chain(60.0, detail=8.0, rough_noise=0.8)
-        nz2 = _add(nt, "ShaderNodeTexVoronoi", (-420, -300), scale=_num(_p(P, "scale"), "scale", 0.01, 1000, 12.0))
-        _link(nt, mp, "Vector", nz2, "Vector")
-        mix = _add(nt, "ShaderNodeMix", (-140, -160), data_type="RGBA", blend_type="MIX")
-        mix.inputs[0].default_value = 0.45
-        _link(nt, nz, "Color", mix, "A")
-        _link(nt, nz2, "Color", mix, "B")
-        mix2 = _add(nt, "ShaderNodeMix", (60, -160), data_type="RGBA", blend_type="MULTIPLY")
-        mix2.inputs[0].default_value = 0.5
-        mix2.inputs[7].default_value = [0.62, 0.62, 0.60, 1.0]
-        _link(nt, mix, "Result", mix2, "A")
-        _link(nt, mix2, "Result", bsdf, "Base Color")
-        bsdf.inputs["Roughness"].default_value = _num(_p(P, "roughness"), "roughness", 0.0, 1.0, 0.9)
-        return {"bsdf": bsdf, "out": out, "noise": nz, "chain": [tc, mp, nz, nz2]}
+        return _preset_concrete(nt, P, bsdf, out)
     if preset == "emission":
-        em = _add(nt, "ShaderNodeEmission", (60, -60), color=_rgba(_p(P, "color"), "color", base),
-                  strength=_num(_p(P, "strength"), "strength", 0.0, 100000.0, 12.0))
-        mix = _add(nt, "ShaderNodeMixShader", (300, -60))
-        mix.inputs[0].default_value = _num(_p(P, "mix"), "mix", 0.0, 1.0, 0.85)
-        _link(nt, bsdf, "BSDF", mix, "Shader")
-        _link(nt, em, "Emission", mix, "Shader")
-        _link(nt, mix, "Shader", out, "Surface")
-        return {"bsdf": bsdf, "emission": em, "mix": mix, "out": out}
+        return _preset_emission(nt, P, base, bsdf, out)
     if preset == "hologram":
-        em = _add(nt, "ShaderNodeEmission", (60, -60), color=_rgba(_p(P, "color"), "color", [0.3, 0.8, 1.0, 1.0]),
-                  strength=_num(_p(P, "strength"), "strength", 0.0, 100000.0, 6.0))
-        try:
-            tr = _add(nt, "ShaderNodeBsdfTransparent", (60, 140))
-            mix = _add(nt, "ShaderNodeMixShader", (300, -60))
-            mix.inputs[0].default_value = _num(_p(P, "alpha"), "alpha", 0.0, 1.0, 0.6)
-            _link(nt, tr, "BSDF", mix, "Shader")
-            _link(nt, em, "Emission", mix, "Shader")
-            _link(nt, mix, "Shader", out, "Surface")
-            return {"emission": em, "transparent": tr, "mix": mix, "out": out}
-        except Exception:
-            _link(nt, em, "Emission", out, "Surface")
-            return {"emission": em, "out": out}
+        return _preset_hologram(nt, P, bsdf, out)
     raise ValueError("未知 preset：%s（允许 %s）" % (preset, list(PRESETS)))
 
 

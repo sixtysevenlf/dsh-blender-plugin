@@ -173,14 +173,6 @@
       "expires": "2026-12-31"
     },
     {
-      "file": "runtime/py/core/gate_impl/run.py",
-      "name": "gate_run",
-      "lines": 144,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
       "file": "runtime/py/core/gate_impl/selftest.py",
       "name": "gate_selftest",
       "lines": 221,
@@ -296,14 +288,6 @@
       "file": "runtime/py/geometry/surface_impl/validate.py",
       "name": "surface_validate",
       "lines": 166,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/render/material.py",
-      "name": "_build_preset",
-      "lines": 143,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"
