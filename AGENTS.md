@@ -42,7 +42,7 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
 | Layer | Path |
 |---|---|
 | Host entry | `src/index.ts` — entry-only; re-exports the plugin API and frame cache |
-| Host modules | `src/plugin.ts`, `src/tools/*` (one file per tool), `src/plan/*`, `src/host/*`, `src/ui/*`, `src/contracts/*`, `src/tui-host.ts` |
+| Host modules | `src/plugin.ts`, `src/tools/*` (one file per tool), `src/plan/*`, `src/host/*`, `src/ui/*`, `src/contracts/*`, `src/tui/*`, `src/plugin-lifecycle.ts`, `src/plugin-surfaces.ts` |
 | Backend HTTP | `runtime/http/*` — routes, lease, host views |
 | Backend engine | `runtime/core/*` (dispatch, kernel, scripts), `runtime/execution/*` (headless, jobs, workers), `runtime/transport/*` |
 | Backend language | `runtime/**/*.ts` compiled to `lib/runtime/**/*.js`; `lib/` is never committed |

@@ -11,7 +11,7 @@ import { asRecord } from './contracts/dynamic.js'
 import { resolveHttpPort } from './host/backend/index.js'
 import { registerSchemaDiagnostic } from './tools/schema-diagnostic.js'
 import { registerLifecycle } from './plugin-lifecycle.js'
-import { registerSurfaces } from './plugin-surfaces.js'
+import { registerToolSurface, registerTuiSurface } from './plugin-surfaces.js'
 import { errorLine, redactSecrets, toolError } from './tools/errors.js'
 import {
   BUNDLED_SKILL_DIR,
@@ -70,8 +70,11 @@ export function apply(ctx: HostContext, config: Config): void {
       : resolveHttpPort()
   const autoStart = cfgIn.autoStart === undefined ? true : !!cfgIn.autoStart
 
-  registerSurfaces(ctx, port, cfgIn)
+  // 注册顺序必须保持 v2.6.2：TUI → 看护/后端 effects → 15 个工具。
+  // Cordis 逆序释放 effects，先注册 TUI/生命周期、后注册工具，卸载时才会先释放工具再杀后端。
+  registerTuiSurface(ctx, port, cfgIn)
   registerLifecycle(ctx, port, autoStart)
+  registerToolSurface(ctx, port)
 }
 
 /* ────────────────────────────────────────────────────────────────────────────

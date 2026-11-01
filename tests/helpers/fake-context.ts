@@ -27,15 +27,19 @@ export function createFakeContext() {
   const tools: CapturedTool[] = []
   const disposers: Array<() => void> = []
   const logs: string[] = []
+  /** Ordered effect keys and tool names, for registration-order contracts. */
+  const events: string[] = []
 
   const ctx = {
     tools: {
       register(tool: CapturedTool) {
         tools.push(tool)
+        events.push('tool:' + tool.name)
         return tool
       },
     },
-    effect(fn: () => unknown) {
+    effect(fn: () => unknown, key?: string) {
+      events.push('effect:' + String(key || ''))
       const dispose = fn()
       if (typeof dispose === 'function') disposers.push(dispose as () => void)
       return dispose
@@ -61,6 +65,7 @@ export function createFakeContext() {
     ctx,
     tools,
     logs,
+    events,
     dispose() {
       while (disposers.length) {
         const fn = disposers.pop()

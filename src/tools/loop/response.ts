@@ -7,6 +7,7 @@ export function loopResultText(op: string, result: unknown): string {
   return 'LOOP ' + op + ' ' + JSON.stringify(result)
 }
 
-export function loopSessionError(op: string, nm: string, detail: string): string {
-  return 'LOOP ' + op + ' (session=' + nm + ') 失败 · ' + detail
+export function loopSessionError(_op: string, _nm: string, detail: string): string {
+  // v2.6.2 行为冻结：旧实现失败文案只有 'LOOP session 失败 · '，不带 op/session。
+  return 'LOOP session 失败 · ' + detail
 }

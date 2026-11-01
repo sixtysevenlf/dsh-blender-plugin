@@ -65,7 +65,7 @@ function buildClient() {
 
 if (target === 'all') {
   // 顺序固定：runtime → host → client；任一步失败立即退出。
-  // 为什么 runtime 在前：src/host/backend.ts 与 src/tools/{headless,job,viewport}.ts 的边界 import 指向
+  // 为什么 runtime 在前：src/host/backend/index.ts 与 src/tools/{headless,job,viewport}.ts 的边界 import 指向
   // 构建产物 lib/runtime/*.js（生产布局的真实相对路径），host tsc 需要先有 lib/runtime/*.d.ts 才能解析。
   const steps = [() => compile('runtime'), () => compile('host'), () => buildClient()]
   for (const step of steps) {
