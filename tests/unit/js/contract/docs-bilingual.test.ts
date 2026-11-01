@@ -17,6 +17,8 @@ const README = readText('README.md')
 const ZH_README = readText('docs/zh/README.md')
 const CONTRIBUTING = readText('CONTRIBUTING.md')
 const ZH_CONTRIBUTING = readText('docs/zh/CONTRIBUTING.md')
+const SECURITY = readText('SECURITY.md')
+const ZH_SECURITY = readText('docs/zh/SECURITY.md')
 
 function top(text: string, lines = 8) {
   return text.split('\n').slice(0, lines).join('\n')
@@ -40,6 +42,14 @@ describe('human entry cross-links', () => {
     expect(top(ZH_CONTRIBUTING, 12)).toContain('[中文 README](./README.md)')
   })
 
+  it('SECURITY points to the Chinese policy at the top', () => {
+    expect(top(SECURITY)).toContain('[简体中文](docs/zh/SECURITY.md)')
+  })
+
+  it('Chinese SECURITY points back to English at the top', () => {
+    expect(top(ZH_SECURITY)).toContain('[English](../../SECURITY.md)')
+  })
+
   it('keeps the development sections synchronized', () => {
     for (const text of [README, ZH_README]) {
       expect(text).toContain('Node.js **22.17**')
@@ -53,6 +63,8 @@ describe('human entry cross-links', () => {
   it('keeps both language versions structurally paired', () => {
     expect(sectionHeadings(ZH_README).length).toBe(sectionHeadings(README).length)
     expect(sectionHeadings(ZH_CONTRIBUTING).length).toBe(sectionHeadings(CONTRIBUTING).length)
+    expect(sectionHeadings(ZH_SECURITY).length).toBe(sectionHeadings(SECURITY).length)
+    expect(lineCount(ZH_SECURITY)).toBeGreaterThanOrEqual(Math.floor(lineCount(SECURITY) * 0.7))
     expect(lineCount(ZH_CONTRIBUTING)).toBeGreaterThanOrEqual(
       Math.floor(lineCount(CONTRIBUTING) * 0.7),
     )
@@ -66,6 +78,8 @@ describe('human entry cross-links', () => {
       'docs/zh/README.md',
       'CONTRIBUTING.md',
       'docs/zh/CONTRIBUTING.md',
+      'SECURITY.md',
+      'docs/zh/SECURITY.md',
     ]) {
       expect(brokenRelativeLinks(path), path + ' has broken links').toEqual([])
     }
@@ -77,6 +91,7 @@ describe('no duplicate or stale Chinese documentation', () => {
     expect(fs.existsSync(repoPath(RETIRED_README))).toBe(false)
     expect(fs.existsSync(repoPath('docs/zh/README.md'))).toBe(true)
     expect(fs.existsSync(repoPath('docs/zh/CONTRIBUTING.md'))).toBe(true)
+    expect(fs.existsSync(repoPath('docs/zh/SECURITY.md'))).toBe(true)
     const rootZh = fs.readdirSync(repoPath()).filter((name) => /^zh-/i.test(name))
     expect(rootZh, 'root must not contain zh-* files').toEqual([])
   })

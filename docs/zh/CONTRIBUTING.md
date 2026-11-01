@@ -20,7 +20,7 @@ AGENTS.md 说明各层怎么拼在一起、什么算“装好了”，以及命�
 
 1. 先搜索已有 issue 和 README 的常见故障一节。
 2. 在最新版本上复现，不要用旧 tag。
-3. **安全问题请走 [SECURITY.md](../../SECURITY.md)**，不要开公开 issue。
+3. **安全问题请走 [SECURITY.md](SECURITY.md)**，不要开公开 issue。
 
 比 bug 修复更大的改动——新工具、协议变更、新依赖——请先开 issue 把方向谈清楚，再投入实现。
 
