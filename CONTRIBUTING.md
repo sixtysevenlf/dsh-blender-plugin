@@ -80,7 +80,7 @@ contract tests. Explain in the pull request why the lock changed; never hand-edi
 - Conventional commit subjects: `feat:`, `fix:`, `docs:`, `test:`, `perf:`, `chore:`.
 - Use one of the [.github/PULL_REQUEST_TEMPLATE/](.github/PULL_REQUEST_TEMPLATE/) templates (`bug_fix`, `feature`, `docs_update`, `refactor`): scope, behavior-matrix row,
   test evidence, risk, rollback, disclosure, checklist.
-- If the pull request fully resolves an issue, add `Closes #123` to the description (one keyword per issue); GitHub closes the issue when the PR is merged into the default branch (`main`). Use `Refs #123` for partial or related work. Keep the keyword in the PR description, not in a comment or code block.
+- If the pull request fully resolves an issue, add `Fixes #123` to the description (one keyword per issue); GitHub closes the issue when the PR is merged into the default branch (`main`). Use `Refs #123` for partial or related work. Keep the keyword in the PR description, not in a comment or code block.
 - Keep [README.md](README.md) and [docs/zh/README.md](docs/zh/README.md) in sync, and the same for
   [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/zh/CONTRIBUTING.md](docs/zh/CONTRIBUTING.md). They are two versions
   of one document, not independent pages.

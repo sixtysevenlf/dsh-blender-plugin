@@ -7,11 +7,11 @@
 ## Linked issue
 
 <!-- If this PR fully resolves an issue, add one closing keyword per issue, for example:
-     Closes #123
+     Fixes #123
      GitHub closes the issue when this PR is merged into the default branch (main).
      Use "Refs #123" for partial work. Keep the keyword in the PR description, not in a comment or code block. -->
 
-Closes #
+Fixes #
 
 ## Reproduction
 
