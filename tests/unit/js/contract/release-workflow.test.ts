@@ -11,7 +11,7 @@ describe('manual CD workflow', () => {
   })
 
   it('defaults to a dry run and keeps npm publishing opt-in', () => {
-    expect(workflow).toContain("default: '3.0.2'")
+    expect(workflow).toContain("default: '3.0.3'")
     expect(workflow).toMatch(/dry_run:[\s\S]*?default: true/)
     expect(workflow).toMatch(/publish_npm:[\s\S]*?default: false/)
     expect(workflow).toContain('if: ${{ !inputs.dry_run }}')

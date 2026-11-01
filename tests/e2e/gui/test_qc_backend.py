@@ -56,7 +56,7 @@ def test_backend_health_is_honest():
     health = _require_backend()
     assert health["ok"] is True
     provenance = health.get("provenance") or {}
-    assert provenance.get("pluginVersion") == "3.0.2", provenance
+    assert provenance.get("pluginVersion") == "3.0.3", provenance
     assert isinstance(health.get("backend"), dict) and health["backend"].get("pid"), health
 
 
