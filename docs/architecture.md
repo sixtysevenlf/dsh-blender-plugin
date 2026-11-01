@@ -140,15 +140,20 @@ These are the rules that protect the architecture:
 ### Coverage policy
 
 Coverage is measured with Vitest's single-file mode plus pytest branch coverage, and the gate reads
-only `config/coverage-thresholds.json`. The C5 floors were calibrated from canonical CI run
-[41289961261](https://github.com/sixtysevenlf/dsh-blender-plugin/actions/runs/41289961261) on commit
-`0e1c173`: JS 74.73% lines / 70.22% branches / 71.9% functions, changed lines 74.953 against v2.6.2.
-Applying the T16c rule (round down to 0.1pp, subtract 1.5pp, never below the previous floor) gives the
-current floors: lines 73.2, branches 68.7, functions 70.4, changed lines 73.4. Python pure logic is
-measured at 82.5/74.36 with floors 80/70; critical and execution-module floors are unchanged. The
-provisional T16f clean-clone values are superseded by this CI measurement. The next ratchet uses the
-next canonical CI run and the manual +2/PR policy; a floor must not be lowered without a documented
-policy change in this guide.
+only `config/coverage-thresholds.json`. The floors were re-baselined on 2026-11-01 when
+`@vitest/coverage-v8` moved from 3 to 5: the provider switched to AST-aware remapping, which changed
+the measurement scale on the same tree (branch points 3934 -> 6567, executable lines 17819 -> 6294),
+so the previous 73.2/68.7/70.4 floors were no longer comparable. Canonical CI run
+[41315467806](https://github.com/sixtysevenlf/dsh-blender-plugin/actions/runs/41315467806) at commit
+`8299acf` measured JS 71.91% lines / 55.99% branches / 69.5% functions and 67.698 changed lines
+against v2.6.2 (7724 changed / 2495 missing). Applying the unchanged rule (round down to 0.1pp,
+subtract 1.5pp) gives the current floors: lines 70.4, branches 54.4, functions 68, changed lines 66.1.
+This is a documented policy change required by the measurement-tool upgrade; no tests or modules were
+removed, and the previous "never below the prior floor" rule does not apply across a provider change.
+Critical contract modules stay >=90/75; execution-module floors are unchanged except
+`runtime/execution/headless/process.ts` branches 60 -> 55.6 (re-measured 57.14). Python pure logic is
+82.5/74.36 with floors 80/70. Future ratchets use the next canonical CI run and the manual +2/PR
+policy; a floor must not be lowered without a documented policy change in this guide.
 
 ## 9. Key choices and consequences
 

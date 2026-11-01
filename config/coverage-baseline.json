@@ -1,19 +1,19 @@
 {
   "version": 2,
-  "commit": "f001e1d20b86cd84a88424e3bbe426e501e4c49d",
-  "date": "2026-10-31",
-  "measuredAt": "2026-10-31T22:29:00+08:00",
+  "commit": "8299acfd9e40d9c497e118782b3110f2f263cceb",
+  "date": "2026-11-01",
+  "measuredAt": "2026-11-01T22:33:00+08:00",
   "javascript": {
-    "statements": 57.68,
-    "branches": 68.45,
-    "functions": 63.7,
-    "lines": 57.68,
+    "statements": 68.54,
+    "branches": 55.99,
+    "functions": 69.5,
+    "lines": 71.91,
     "mode": "single-file (no-file-parallelism)"
   },
   "changedLines": {
-    "lines": 56.697,
-    "total": 15468,
-    "missing": 6698,
+    "lines": 67.698,
+    "total": 7724,
+    "missing": 2495,
     "against": "v2.6.2"
   },
   "criticalModules": {
@@ -22,16 +22,16 @@
       "branches": 100
     },
     "runtime/addon-protocol.ts": {
-      "lines": 92.53,
-      "branches": 80
+      "lines": 96.87,
+      "branches": 90.9
     },
     "runtime/http/router.ts": {
       "lines": 100,
-      "branches": 92.85
+      "branches": 92.3
     },
     "runtime/http/lease.ts": {
-      "lines": 95.94,
-      "branches": 87.17
+      "lines": 98.55,
+      "branches": 88.5
     },
     "src/tools/index.ts": {
       "lines": 100,
@@ -58,12 +58,12 @@
   },
   "executionModules": {
     "runtime/core/plan-dispatch.ts": {
-      "lines": 98.07,
-      "branches": 89.47
+      "lines": 97.14,
+      "branches": 87.5
     },
     "runtime/core/plan/render-guard.ts": {
       "lines": 100,
-      "branches": 96.29
+      "branches": 96.42
     },
     "runtime/core/plan/shape-search/index.ts": {
       "lines": 100,
@@ -71,27 +71,27 @@
     },
     "runtime/execution/jobs/index.ts": {
       "lines": 100,
-      "branches": 87.5
+      "branches": 66.66
     },
     "runtime/execution/workers/index.ts": {
-      "lines": 88.11,
-      "branches": 55.17
+      "lines": 81.63,
+      "branches": 77.5
     },
     "runtime/execution/headless/index.ts": {
-      "lines": 98.27,
-      "branches": 88.09
+      "lines": 100,
+      "branches": 80
     },
     "runtime/execution/headless/options/index.ts": {
       "lines": 100,
-      "branches": 82.35
+      "branches": 85
     },
     "runtime/execution/headless/process.ts": {
-      "lines": 89.92,
-      "branches": 63.63
+      "lines": 94.82,
+      "branches": 57.14
     },
     "runtime/execution/headless/result.ts": {
-      "lines": 83.48,
-      "branches": 57.14
+      "lines": 84.26,
+      "branches": 71.75
     },
     "runtime/core/plan/shape-search.ts": {
       "lines": 90.46,
@@ -110,6 +110,6 @@
       "branches": 81.94
     }
   },
-  "executionModulesMeasuredAt": "2026-11-01T01:36:00+08:00 (T5b R1 fixes, coverage with --no-file-parallelism)",
+  "executionModulesMeasuredAt": "2026-11-01T22:33:00+08:00 (coverage-v8 5 AST-aware remapping re-baseline, canonical CI run 41315467806)",
   "rebaselinedAt": "2026-11-01"
 }

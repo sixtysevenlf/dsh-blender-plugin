@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "generatedFrom": "v2.6.2..f001e1d",
+  "generatedFrom": "v2.6.2..8299acf",
   "entries": [],
-  "note": "C5 v2 baseline. The rename-heavy runtime TS migration and addon package split cannot be mechanically proven to be pure moves, so diff-cover excludes no lines and the global floor reflects the measured 57.68% lines. New modules remain constrained by criticalModules and the Python pure-logic floor."
+  "note": "C5 v3 re-baseline (2026-11-01). Coverage-v8 5 AST-aware remapping changed the measurement scale, so the baseline was re-measured on canonical CI run 41315467806 at commit 8299acf (JS 71.91/55.99/69.5, changed 67.698). No lines are excluded; the diff-coverage gate still covers the whole v2.6.2..HEAD diff."
 }
