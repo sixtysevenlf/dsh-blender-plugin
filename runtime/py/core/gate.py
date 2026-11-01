@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """验收门 public facade（T5d）。
 
-公开契约不变：headless preload 仍按文件名加载本文件，平铺 runtime/gate.py shim、
+公开契约不变：headless preload 仍按文件名加载本文件，domain 路径 runtime/py/core/gate.py、
 K.dsh_gate_api 仍从本文件进入。实现已拆到 runtime/py/core/gate_impl/，避免单文件继续膨胀。
 """
 import importlib

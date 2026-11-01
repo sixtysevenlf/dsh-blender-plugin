@@ -39,7 +39,7 @@ def st_note(name, detail):
 
 
 def st_get_api():
-    """拿 K.dsh_audit_api（preload / 引擎注入）；没有就从 runtime/audit.py 兜底 exec 一份。"""
+    """拿 K.dsh_audit_api（preload / 引擎注入）；没有就从 runtime/py/core/audit.py 兜底 exec 一份。"""
     K = globals().get("K")
     if K is None:
         K = _sys.modules.get("dsh_rt_kernel")
@@ -50,8 +50,8 @@ def st_get_api():
     if "__file__" in globals():
         cands.append(_os.path.join(_os.path.dirname(_os.path.abspath(globals()["__file__"])),
                                    _os.pardir, "runtime", "audit.py"))
-    cands += ["/home/sixtyseven67/DSH/dsh-blender-plugin/runtime/audit.py",
-              "dsh-blender-plugin/runtime/audit.py"]
+    cands += ["/home/sixtyseven67/DSH/dsh-blender-plugin/runtime/py/core/audit.py",
+              "dsh-blender-plugin/runtime/py/core/audit.py"]
     for p in cands:
         for q in (p, _os.path.abspath(p)):
             if _os.path.exists(q):
@@ -136,7 +136,7 @@ def _st_checks():
     D = _os.path.join(tmp, "D_far.blend")
     ST_BLENDS.update({"dir": tmp, "A": A, "B": B, "C": C, "D": D})
     print("== audit 文件级算子自检（C1/C2）；API 来自 %s ==" % ST_API_SRC)
-    st_check("api_present", ST_API is not None, "拿不到 K.dsh_audit_api，也无法从 runtime/audit.py 加载")
+    st_check("api_present", ST_API is not None, "拿不到 K.dsh_audit_api，也无法从 runtime/py/core/audit.py 加载")
 
     # ---- 合成四个 .blend（会话里留一份与 B 相同位置的参照件，供 ⑤ 会话侧对照）----
     st_clean_scene()
