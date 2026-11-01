@@ -230,24 +230,9 @@ def _bed_level_flat(level_areas, tol_mm):
     return best["ref"], clusters
 
 
-def print_overhang(objects=None, scope="ACTIVE", max_angle_deg=45.0, up="Z", min_area_mm2=0.0,
-                   mm_per_unit=None, max_list=20, exclude_bed=True, bed_tol_mm=0.2,
-                   bed_mode="flat", bed_horiz_deg=1.0, bed_band_mm=1.0):
-    """悬垂：面法线与"正下方"的夹角 <= max_angle_deg 视为需要支撑（0° = 正朝下）。
-
-    v1.0.5（issue #14）：**贴床面默认不再计入悬垂面积** —— 平底零件不再恒判 overhang_ok=false。
-      贴床面须同时满足两条：① 水平朝下（法线与正下方夹角 <= bed_horiz_deg，默认 1°）；
-      ② 标高落在平台面 ±bed_tol_mm 内。平台面标高由 bed_mode 决定：
-        flat（默认）= 面积最大的「水平朝下」层的标高（抗体素碎面/倒角把标高拉低）；
-        min         = 所选集合沿 up 轴的最低点（物理打印平台，对碎面敏感）。
-      flat 有一道防线 bed_band_mm（默认 1.0）：面积最大的那个水平朝下面若比集合最低点高出
-      超过这个距离，就判定"它不像平台面"（半空中的帽檐/屋面、或整件悬空），**退回最低点口径**
-      并在 bed_warning 里说明 —— 否则蘑菇件会把整块真实悬垂排掉、让 ok 假绿（实测 200×200 帽
-      + 陡锥柱：40000mm² 被吞、ok=true）。
-      min_area_mm2 是**净悬垂面积预算**（超过即判超阈），不再兼作"排除贴床面"的手段。
-      回退：exclude_bed=False 恢复 v1.0.4 及以前的老口径（贴床面计入悬垂）；
-      overhang_area_incl_bed_mm2 始终给含贴床面的老口径数字，便于对照。
-    """
+def _oh_parse(objects, scope, max_angle_deg, up, mm_per_unit, min_area_mm2, exclude_bed, max_list,
+              bed_tol_mm, bed_mode, bed_horiz_deg, bed_band_mm):
+    """参数解析 + 选择集；返回 (cfg, err)。"""
     ang = _num(max_angle_deg, "max_angle_deg", 0.0, 90.0)
     # tol 必须 > 0：tol=0 会让「同一平底面被浮点噪声切开」的碎面互相判成非贴床（实测同一几何
     # 90000mm²@0 + 10000mm²@+1e-9mm，tol=0 ⇒ 净悬垂 10000、tol=0.2 ⇒ 0，答案翻转且无警告）。
@@ -255,25 +240,30 @@ def print_overhang(objects=None, scope="ACTIVE", max_angle_deg=45.0, up="Z", min
     horiz = _num(bed_horiz_deg, "bed_horiz_deg", 0.0, 90.0)
     mode = str(bed_mode or "flat").strip().lower()
     if mode not in ("flat", "min"):
-        return _j({"ok": False, "error": "bed_mode 只支持 flat|min，收到 %r" % bed_mode})
+        return None, _j({"ok": False, "error": "bed_mode 只支持 flat|min，收到 %r" % bed_mode})
     upv = str(up or "Z").upper()
     axis = {"X": Vector((1, 0, 0)), "Y": Vector((0, 1, 0)), "Z": Vector((0, 0, 1))}.get(upv)
     if axis is None:
-        return _j({"ok": False, "error": "up 只支持 X/Y/Z，收到 %r" % up})
-    down = -axis
+        return None, _j({"ok": False, "error": "up 只支持 X/Y/Z，收到 %r" % up})
     mmu = _mm_per_unit(mm_per_unit)
     min_area = _num(min_area_mm2, "min_area_mm2", 0.0, 1e12, 0.0)
     obs = _objs(objects, scope)
-    cos_lim = math.cos(math.radians(ang))
-    cos_horiz = math.cos(math.radians(horiz))
+    return {"ang": ang, "tol": tol, "horiz": horiz, "mode": mode, "upv": upv, "axis": axis,
+            "down": -axis, "mmu": mmu, "min_area": min_area, "obs": obs,
+            "cos_lim": math.cos(math.radians(ang)), "cos_horiz": math.cos(math.radians(horiz)),
+            "exclude_bed": exclude_bed, "max_list": max_list,
+            "band": _num(bed_band_mm, "bed_band_mm", 0.0, 1e9)}, None
 
-    # ── 第一遍：每个面的（标高 / 面积 / 法线朝下程度）+ 集合最低点 ──
+
+def _oh_faces(obs, cfg):
+    """第一遍：每个面的（标高 / 面积 / 法线朝下程度）+ 集合最低点；返回 (faces, lowest)。"""
     # 标高用面心（水平面的面心标高即该层标高）；最低点用真实顶点（min 模式要的是物理平台）。
     # v1.0.5 修两个各向异性缩放的旧账（复核实测，v1.0.4 就有）：
-    #   ① 法线必须用**逆转置**（`(M⁻¹)ᵀ @ n`）—— 原来 `M.to_3x3() @ n` 在 scale(2,1,1) 下把
+    #   ① 法线必须用**逆转置**（(M⁻¹)ᵀ @ n）—— 原来 M.to_3x3() @ n 在 scale(2,1,1) 下把
     #      真角度 16° 的面算成 49° ⇒ 整块面被丢出悬垂集（漏判）；旋转/等比缩放下两者等价。
-    #   ② 面积按**世界坐标三角扇**算 —— 原来 `p.area × (_scale_avg × mmu)²` 在 scale(2,1,1) 下
+    #   ② 面积按**世界坐标三角扇**算 —— 原来 p.area × (_scale_avg × mmu)² 在 scale(2,1,1) 下
     #      给 -11.1% 的偏差（1.777e6 vs 真值 2e6 mm²）。
+    axis, mmu, down = cfg["axis"], cfg["mmu"], cfg["down"]
     faces = []      # (ob_index, face_index, level_mm, area_mm2, cos_down)
     lowest = None
     for oi, ob in enumerate(obs):
@@ -298,18 +288,22 @@ def print_overhang(objects=None, scope="ACTIVE", max_angle_deg=45.0, up="Z", min
                 a_world += (vs[k] - vs[0]).cross(vs[k + 1] - vs[0]).length * 0.5
             faces.append((oi, i, (mw @ p.center).dot(axis) * mmu,
                           a_world * mmu * mmu, nrm.dot(down)))
+    return faces, lowest
 
-    # ── 平台面标高 ──
+
+def _oh_bed(faces, cfg, lowest):
+    """平台面标高（flat 候选 + bed_band_mm 防线 + min 回退）；返回 (bed, used, fallback_why)。"""
     # bed_band_mm 是「平台面候选」的防线：面积最大的水平朝下面若离集合最低点超过这个距离，
     # 它多半**不是**平台面，而是半空中的帽檐/屋面（蘑菇件）—— 拿它当平台会把整块真实悬垂
     # 排除掉、让 ok 假绿（实测：200×200 帽 + 陡锥柱 ⇒ 40000mm² 被吞、ok=true）。
     # 这种情况一律退回「最低点当平台面」，并把原因写进 bed_warning。
-    band = _num(bed_band_mm, "bed_band_mm", 0.0, 1e9)
+    tol = cfg["tol"]
+    band = cfg["band"]
     cand = None
-    if mode == "flat":
-        cand, _clusters = _bed_level_flat([(f[2], f[3]) for f in faces if f[4] >= cos_horiz], tol)
+    if cfg["mode"] == "flat":
+        cand, _clusters = _bed_level_flat([(f[2], f[3]) for f in faces if f[4] >= cfg["cos_horiz"]], tol)
     fallback_why = None
-    if mode != "flat":
+    if cfg["mode"] != "flat":
         bed, used = lowest, "min"
     elif cand is None:                      # 没有水平朝下的面（球/回转体）→ 退回最低点
         bed, used = lowest, "min-fallback"
@@ -322,8 +316,11 @@ def print_overhang(objects=None, scope="ACTIVE", max_angle_deg=45.0, up="Z", min
         bed, used = cand, "flat"
     if bed is None:
         bed = 0.0
+    return bed, used, fallback_why
 
-    # ── 第二遍：按平台面把「贴床面」与「真悬垂」分开记账 ──
+
+def _oh_accumulate(obs, faces, cfg, bed):
+    """第二遍：按平台面把「贴床面」与「真悬垂」分开记账；返回 (out, acc)。"""
     out = [None] * len(obs)
     acc = {}
     for oi, ob in enumerate(obs):
@@ -335,62 +332,70 @@ def print_overhang(objects=None, scope="ACTIVE", max_angle_deg=45.0, up="Z", min
     for (oi, i, lvl, a_mm2, c) in faces:
         a = acc[oi]
         a["tot"] += a_mm2
-        if c < cos_lim:
+        if c < cfg["cos_lim"]:
             continue
         a["incl_area"] += a_mm2          # 老口径：凡朝下面都算悬垂
-        is_bed = bool(exclude_bed) and (c >= cos_horiz) and (abs(lvl - bed) <= tol)
+        is_bed = bool(cfg["exclude_bed"]) and (c >= cfg["cos_horiz"]) and (abs(lvl - bed) <= cfg["tol"])
         row = {"face": int(i), "level_mm": round(lvl, 4),
                "angle_deg": round(math.degrees(math.acos(max(-1.0, min(1.0, c)))), 2),
                "area_mm2": round(a_mm2, 4)}
         if is_bed:
             a["bed_area"] += a_mm2
-            if len(a["bed"]) < int(max_list):
+            if len(a["bed"]) < int(cfg["max_list"]):
                 a["bed"].append(row)
         else:
             a["bad_area"] += a_mm2
-            if len(a["bad"]) < int(max_list):
+            if len(a["bad"]) < int(cfg["max_list"]):
                 a["bad"].append(row)
+    return out, acc
 
-    bed_warning = None
+
+def _oh_bed_warning(fallback_why, used, lowest, bed, tol):
+    """贴床面口径警告（回退原因 / 标高偏差）。"""
     if fallback_why:
-        bed_warning = ("%s；已改按最低点 %.4f mm 当平台面。⚠ 别为了「让它平」而随意调大 bed_band_mm —— "
-                       "那会把半空中的大平面当平台面、把整块真实悬垂吞掉（宁可保守多报）。"
-                       "想回退 v1.0.4 老口径（贴床面计入悬垂）：exclude_bed=false"
-                       % (fallback_why, (lowest if lowest is not None else 0.0)))
-    elif used == "flat" and lowest is not None and (bed - lowest) > tol:
-        bed_warning = ("贴床面标高 %.4f 比集合最低点 %.4f 高 %.4f mm（倒角/碎面低于平底面？）"
-                       "—— 若最低处才是真实接触面，调小 bed_band_mm 或改用 bed_mode=min" % (bed, lowest, bed - lowest))
+        return ("%s；已改按最低点 %.4f mm 当平台面。⚠ 别为了「让它平」而随意调大 bed_band_mm —— "
+                "那会把半空中的大平面当平台面、把整块真实悬垂吞掉（宁可保守多报）。"
+                "想回退 v1.0.4 老口径（贴床面计入悬垂）：exclude_bed=false"
+                % (fallback_why, (lowest if lowest is not None else 0.0)))
+    if used == "flat" and lowest is not None and (bed - lowest) > tol:
+        return ("贴床面标高 %.4f 比集合最低点 %.4f 高 %.4f mm（倒角/碎面低于平底面？）"
+                "—— 若最低处才是真实接触面，调小 bed_band_mm 或改用 bed_mode=min" % (bed, lowest, bed - lowest))
+    return None
 
-    for oi, ob in enumerate(obs):
-        a = acc.get(oi)
-        if a is None:
-            continue
-        bad_area, bed_area, incl_area, tot = a["bad_area"], a["bed_area"], a["incl_area"], a["tot"]
-        over_min = bad_area > min_area
-        hint = ("净悬垂面积 %.2f mm² 超预算 %.2f mm²：需要支撑或改朝向" % (bad_area, min_area)) if over_min \
-            else "无超预算悬垂"
-        if bed_area > 0:
-            hint += "；已排除贴床面 %.2f mm²（占全表面 %.1f%%）" % (
-                bed_area, (100.0 * bed_area / tot) if tot > 0 else 0.0)
-        rec = {"name": ob.name, "ok": not over_min, "up": upv, "max_angle_deg": ang,
-               "faces": len(ob.data.polygons), "total_area_mm2": round(tot, 4),
-               # 主口径（v1.0.5 起）：不含贴床面的净悬垂
-               "overhang_area_mm2": round(bad_area, 4),
-               "overhang_ratio": round(bad_area / tot, 4) if tot > 0 else None,
-               # 贴床面单列（issue #14 建议 3）
-               "bed_area_mm2": round(bed_area, 4),
-               "bed_ratio": round(bed_area / tot, 4) if tot > 0 else None,
-               # 老口径（<= v1.0.4：贴床面计入悬垂），保留以便对照与回退
-               "overhang_area_incl_bed_mm2": round(incl_area, 4),
-               "exclude_bed": bool(exclude_bed), "bed_mode": used, "bed_tol_mm": tol,
-               "bed_horiz_deg": horiz, "bed_band_mm": band, "bed_level_mm": round(bed, 4),
-               "lowest_mm": (round(lowest, 4) if lowest is not None else None),
-               "overhang_faces_listed": len(a["bad"]), "samples": a["bad"],
-               "bed_faces_listed": len(a["bed"]), "bed_samples": a["bed"],
-               "hint": hint}
-        if bed_warning:
-            rec["bed_warning"] = bed_warning
-        out[oi] = rec
+
+def _oh_row(ob, a, cfg, bed, used, lowest, bed_warning):
+    """单对象悬垂回执（净悬垂 / 贴床面 / 老口径 / 样本）。"""
+    bad_area, bed_area, incl_area, tot = a["bad_area"], a["bed_area"], a["incl_area"], a["tot"]
+    min_area = cfg["min_area"]
+    over_min = bad_area > min_area
+    hint = ("净悬垂面积 %.2f mm² 超预算 %.2f mm²：需要支撑或改朝向" % (bad_area, min_area)) if over_min \
+        else "无超预算悬垂"
+    if bed_area > 0:
+        hint += "；已排除贴床面 %.2f mm²（占全表面 %.1f%%）" % (
+            bed_area, (100.0 * bed_area / tot) if tot > 0 else 0.0)
+    rec = {"name": ob.name, "ok": not over_min, "up": cfg["upv"], "max_angle_deg": cfg["ang"],
+           "faces": len(ob.data.polygons), "total_area_mm2": round(tot, 4),
+           # 主口径（v1.0.5 起）：不含贴床面的净悬垂
+           "overhang_area_mm2": round(bad_area, 4),
+           "overhang_ratio": round(bad_area / tot, 4) if tot > 0 else None,
+           # 贴床面单列（issue #14 建议 3）
+           "bed_area_mm2": round(bed_area, 4),
+           "bed_ratio": round(bed_area / tot, 4) if tot > 0 else None,
+           # 老口径（<= v1.0.4：贴床面计入悬垂），保留以便对照与回退
+           "overhang_area_incl_bed_mm2": round(incl_area, 4),
+           "exclude_bed": bool(cfg["exclude_bed"]), "bed_mode": used, "bed_tol_mm": cfg["tol"],
+           "bed_horiz_deg": cfg["horiz"], "bed_band_mm": cfg["band"], "bed_level_mm": round(bed, 4),
+           "lowest_mm": (round(lowest, 4) if lowest is not None else None),
+           "overhang_faces_listed": len(a["bad"]), "samples": a["bad"],
+           "bed_faces_listed": len(a["bed"]), "bed_samples": a["bed"],
+           "hint": hint}
+    if bed_warning:
+        rec["bed_warning"] = bed_warning
+    return rec
+
+
+def _oh_payload(out, bed, used):
+    """总回执。"""
     return _j({"ok": all(r.get("ok") for r in out), "objects": out,
                "bed_level_mm": round(bed, 4), "bed_mode": used,
                "note": ("口径：法线与正下方夹角 <= max_angle_deg（默认 45°）算需支撑；"
@@ -399,6 +404,40 @@ def print_overhang(objects=None, scope="ACTIVE", max_angle_deg=45.0, up="Z", min
                         "平台面是**全选择集共享**的单一标高（bed_level_mm），不是逐对象各自推断 —— "
                         "所以同一件单独测 vs 与别件一起测，结论可能不同（想逐件判：一件一次调用）；"
                         "min_area_mm2 是净悬垂面积预算" % used)})
+
+
+def print_overhang(objects=None, scope="ACTIVE", max_angle_deg=45.0, up="Z", min_area_mm2=0.0,
+                   mm_per_unit=None, max_list=20, exclude_bed=True, bed_tol_mm=0.2,
+                   bed_mode="flat", bed_horiz_deg=1.0, bed_band_mm=1.0):
+    """悬垂：面法线与"正下方"的夹角 <= max_angle_deg 视为需要支撑（0° = 正朝下）。
+
+    v1.0.5（issue #14）：**贴床面默认不再计入悬垂面积** —— 平底零件不再恒判 overhang_ok=false。
+      贴床面须同时满足两条：① 水平朝下（法线与正下方夹角 <= bed_horiz_deg，默认 1°）；
+      ② 标高落在平台面 ±bed_tol_mm 内。平台面标高由 bed_mode 决定：
+        flat（默认）= 面积最大的「水平朝下」层的标高（抗体素碎面/倒角把标高拉低）；
+        min         = 所选集合沿 up 轴的最低点（物理打印平台，对碎面敏感）。
+      flat 有一道防线 bed_band_mm（默认 1.0）：面积最大的那个水平朝下面若比集合最低点高出
+      超过这个距离，就判定"它不像平台面"（半空中的帽檐/屋面、或整件悬空），**退回最低点口径**
+      并在 bed_warning 里说明 —— 否则蘑菇件会把整块真实悬垂排掉、让 ok 假绿（实测 200×200 帽
+      + 陡锥柱：40000mm² 被吞、ok=true）。
+      min_area_mm2 是**净悬垂面积预算**（超过即判超阈），不再兼作"排除贴床面"的手段。
+      回退：exclude_bed=False 恢复 v1.0.4 及以前的老口径（贴床面计入悬垂）；
+      overhang_area_incl_bed_mm2 始终给含贴床面的老口径数字，便于对照。
+    """
+    cfg, perr = _oh_parse(objects, scope, max_angle_deg, up, mm_per_unit, min_area_mm2, exclude_bed,
+                          max_list, bed_tol_mm, bed_mode, bed_horiz_deg, bed_band_mm)
+    if perr is not None:
+        return perr
+    faces, lowest = _oh_faces(cfg["obs"], cfg)
+    bed, used, fallback_why = _oh_bed(faces, cfg, lowest)
+    out, acc = _oh_accumulate(cfg["obs"], faces, cfg, bed)
+    bed_warning = _oh_bed_warning(fallback_why, used, lowest, bed, cfg["tol"])
+    for oi, ob in enumerate(cfg["obs"]):
+        a = acc.get(oi)
+        if a is None:
+            continue
+        out[oi] = _oh_row(ob, a, cfg, bed, used, lowest, bed_warning)
+    return _oh_payload(out, bed, used)
 
 
 def print_report(objects=None, scope="ACTIVE", min_mm=1.0, max_angle_deg=45.0, up="Z",
