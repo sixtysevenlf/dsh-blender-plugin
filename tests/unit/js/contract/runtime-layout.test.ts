@@ -4,9 +4,11 @@ import { pyModuleFile, pyModuleNames, PY_DOMAINS } from '../../../../runtime/pat
 import { pkgPath } from '../../../helpers/pkg'
 
 // F2.0：唯一映射源 runtime/py/modules.json；这里不再维护第二份硬编码清单。
-const manifest = JSON.parse(
-  fs.readFileSync(pkgPath('runtime', 'py', 'modules.json'), 'utf8'),
-) as { version: number; domains: string[]; modules: Record<string, string> }
+const manifest = JSON.parse(fs.readFileSync(pkgPath('runtime', 'py', 'modules.json'), 'utf8')) as {
+  version: number
+  domains: string[]
+  modules: Record<string, string>
+}
 const DOMAINS: Record<string, string[]> = Object.fromEntries(
   manifest.domains.map((d) => [
     d,

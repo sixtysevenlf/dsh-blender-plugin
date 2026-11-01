@@ -279,16 +279,15 @@ function checkExemption(row) {
 }
 
 function checkAddonCommands(catalogs) {
+  // F3: the single command_registry.py owns the command table; match its
+  // _command("name" entries instead of the old server-side dict literals.
   for (const name of Object.keys(catalogs.commandCatalog)) {
-    const pattern = new RegExp(
-      '["\\\']' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '["\\\']\\s*:',
-    )
-    if (!pattern.test(catalogs.addonSource)) {
+    if (!catalogs.addonSource.includes('_command("' + name + '"')) {
       fail('COMMAND_CATALOG command ' + name + ' has no handler in addon/dsh_blender_bridge/')
     }
   }
-  if (!/cmd_type\s*==\s*["']ping["']/.test(catalogs.addonSource)) {
-    fail('addon ping special-case is missing')
+  if (!catalogs.addonSource.includes('_command("ping"')) {
+    fail('addon ping command is missing from command_registry.py')
   }
   if (catalogs.protocol !== 11) {
     fail('addon protocol version is ' + String(catalogs.protocol) + ', expected 11')

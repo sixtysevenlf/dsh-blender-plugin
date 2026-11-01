@@ -48,6 +48,14 @@ function run(file, args, label) {
   if (r.status !== 0) process.exit(typeof r.status === 'number' ? r.status : 1)
 }
 
+function runBudget() {
+  run(
+    process.execPath,
+    [path.join(PKG, 'scripts', 'check-function-budget.mjs')],
+    'Function budget (F1.0)',
+  )
+}
+
 function runJs() {
   const vitest = path.join(PKG, 'node_modules', 'vitest', 'vitest.mjs')
   if (!fs.existsSync(vitest)) fail('vitest not installed; run npm install first')
@@ -98,8 +106,10 @@ function runPython() {
 }
 
 if (mode === 'all') {
+  runBudget()
   runJs()
   runPython()
-} else if (mode === 'js' || mode === 'unit' || mode === 'integration' || mode === 'contract')
+} else if (mode === 'js' || mode === 'unit' || mode === 'integration' || mode === 'contract') {
+  runBudget()
   runJs()
-else runPython()
+} else runPython()

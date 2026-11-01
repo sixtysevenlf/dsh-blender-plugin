@@ -8,3 +8,4 @@
 export { probeHttp, waitHttp, decideStart } from '../../lib/runtime/backend_probe.js'
 export { winKillPids, winSamePortHolders } from '../../lib/runtime/win_proc.js'
 export { detectFileAlias } from '../../lib/runtime/file_guard.js'
+export { serverPidsFromProcRows } from '../../lib/runtime/ports.js'

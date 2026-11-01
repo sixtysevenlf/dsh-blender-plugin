@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { serverPidsFromProcRows } from '../../../runtime/http/lifecycle.js'
+import { serverPidsFromProcRows } from '../../../runtime/ports.js'
 import {
   IS_WIN,
   parseNetstatListeners,
@@ -97,6 +97,7 @@ describe('issue #51 wiring', () => {
     '\n' +
     read('src/host/backend/index.ts')
   const lifecycle = read('runtime/http/lifecycle.ts')
+  const ports = read('runtime/ports.ts')
   const catalog = read('runtime/catalog/logic.ts')
   const winProc = read('runtime/win_proc.ts')
 
@@ -123,11 +124,13 @@ describe('issue #51 wiring', () => {
     expect(body.indexOf('IS_WIN')).toBeLessThan(body.indexOf("readdirSync('/proc')"))
   })
 
-  it('backend lifecycle recognizes server.js and uses win_proc', () => {
-    expect(lifecycle).toContain('winSamePortHolders')
-    expect(lifecycle).toContain('winKillPids')
-    expect(lifecycle).toContain('server\\.(mjs|js)')
-    const body = fnBody(lifecycle, 'function samePortHolders(')
+  it('backend lifecycle imports the shared port primitives', () => {
+    expect(lifecycle).toContain('holderResponsive')
+    expect(lifecycle).toContain('killHolders')
+    expect(ports).toContain('winSamePortHolders')
+    expect(ports).toContain('winKillPids')
+    expect(ports).toContain('server\\.(mjs|js)')
+    const body = fnBody(ports, 'export function samePortHolders(')
     expect(body).toContain("process.platform === 'win32'")
   })
 

@@ -206,7 +206,7 @@ describe('lifecycle source contract', () => {
   it('stops the addon server and removes handlers on unregister', () => {
     expect(addonSource).toContain('def unregister():')
     expect(addonSource).toContain('bpy.types.dshbb_server.stop()')
-    expect(addonSource).toContain('_unregister_activity_handlers()')
+    expect(addonSource).toContain('unregister_activity_handlers()')
   })
 
   it('reclaims a dead port and exits cleanly when the holder answers', () => {

@@ -1,11 +1,9 @@
 // HTTP 服务配置与请求统计（T7）。PORT/HOST 在模块加载时解析一次，保持与拆分前一致。
 import { CFG } from '../config.js'
+import { parsePortArg } from '../ports.js'
 
 const argv = process.argv.slice(2)
-const portArg = argv.indexOf('--port')
-export const PORT = Number(
-  portArg >= 0 ? argv[portArg + 1] : process.env.VIEWPORT_PORT || CFG.httpPort,
-)
+export const PORT = parsePortArg(argv) ?? Number(process.env.VIEWPORT_PORT || CFG.httpPort)
 export const HOST = '127.0.0.1'
 
 export interface HttpStats {

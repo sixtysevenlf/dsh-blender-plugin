@@ -1,12 +1,6 @@
 {
   "version": 1,
-  "domains": [
-    "core",
-    "geometry",
-    "assembly",
-    "render",
-    "export"
-  ],
+  "domains": ["core", "geometry", "assembly", "render", "export"],
   "modules": {
     "kit": "core",
     "contract": "core",
