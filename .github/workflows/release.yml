@@ -123,7 +123,7 @@ jobs:
       - name: Clean-install smoke
         run: npm run smoke:install
       - name: Upload coverage report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage
           path: coverage/
@@ -156,7 +156,7 @@ jobs:
           (cd release-assets && sha256sum * > SHA256SUMS)
           cat release-assets/SHA256SUMS
       - name: Upload release assets
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-assets
           path: release-assets/
