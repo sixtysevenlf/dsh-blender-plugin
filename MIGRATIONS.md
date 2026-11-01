@@ -6,7 +6,7 @@
 
 ## 0. 最短路径（任何旧版 → v3.0.0）
 
-1. 更新 DSH 插件包到 **v3.0.0** → **重启 DSH**；旧「Blender 视口」tab / 点击进消息在 v2.3 已删除，这是预期。
+1. 更新 DSH 插件包到 **v3.0.0**：`dsh plugin --profile <profile> add dsh-blender-plugin@3.0.0` → **重启 DSH**；旧「Blender 视口」tab / 点击进消息在 v2.3 已删除，这是预期。
 2. Blender 里停用并移除旧 addon（含旧的单文件 `dsh_blender_bridge.py`）→ 安装本仓 `addon/dsh_blender_bridge.zip`（**v1.11**）→ 启用 → N → Connect。
 3. `blender_rt_cmd get_addon_info` → `addon_version=[1,11]`、`protocol=11`；
    GUI 路线 `curl http://127.0.0.1:9877/doctor` → `kind=ok`（纯无头路线用 `rt_worker(start)` + `see` 出图自证）；
@@ -51,7 +51,8 @@ v2.3 的原生选中 / 集合 / activity 依赖本仓 addon 的 5 条命令与 N
 
 ## 4. 仓库使用方式（v3.0.0 / T15 起）
 
-- **npm 安装**不变：发布包自带 `lib/` 构建产物，装完即可用。
+- **npm 包名**：v3.0.0 起为 `dsh-blender-plugin`，不是 `@dsh-external/dsh-blender-plugin`。安装/升级命令：
+  `dsh plugin --profile <profile> add dsh-blender-plugin@3.0.0`。发布包自带 `lib/` 构建产物，装完即可用。
 - **从 Git 使用**需要先构建一次：`lib/` 不再入库，`git clone` 后依次跑 `npm ci --legacy-peer-deps` 和
   `npm run build`（`DSH_CHECKOUT` 只在需要链接 DSH 宿主包时可选）。`prepack` 会自动构建，
   所以 `npm pack`/发布不需要额外步骤。
@@ -84,7 +85,7 @@ v2.3 的原生选中 / 集合 / activity 依赖本仓 addon 的 5 条命令与 N
 ### 7.1 卸载 v3.0.0
 
 1. Blender：`Edit ▸ Preferences ▸ Add-ons` → 停用 **DSH Blender Bridge** → 移除；如残留包目录，删除 `scripts/addons/dsh_blender_bridge/`（或你的 Blender 用户 addons 路径下的同名目录）。
-2. DSH：从 profile 的 `node_modules/@dsh-external/dsh-blender-plugin` 卸载插件包（或从 profile bundle 列表移除）→ **重启 DSH**；随包注册的 blender-modeling skill 会随插件移除，不需要手删用户技能目录。
+2. DSH：从 profile 的 `node_modules/dsh-blender-plugin` 卸载插件包（或从 profile bundle 列表移除）→ **重启 DSH**；随包注册的 blender-modeling skill 会随插件移除，不需要手删用户技能目录。
 3. 旧单文件 `dsh_blender_bridge.py`（v2.6.1 及以前）在升级时就必须停用并移除；v3.0.0 不会再加载它。
 
 ### 7.2 回滚到 v2.6.2

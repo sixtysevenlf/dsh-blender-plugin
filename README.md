@@ -35,23 +35,47 @@ DSH × Blender connects DeepSeek Harness to Blender so an agent can build, inspe
 ### Requirements
 
 - DSH (DeepSeek Harness) installed and working.
-- Node.js 22.17 or newer for the backend; Node.js 22.17 is the CI and test baseline. Node.js 20 is not tested.
+- Node.js 22.17 or newer is needed only for source builds; installing from npm uses the runtime bundled with DSH. Node.js 22.17 is the CI and test baseline.
 - Blender 4.2 LTS is the tested version. Blender 4.x may work; Blender 5.x is not yet validated. GUI mode requires the bundled addon (install it first); headless mode only needs the Blender executable.
 - Addon compatibility: the bundled addon is the only required addon and the only supported agent bridge. Other addons do not conflict; an old `MCP for Blender` / `blender_mcp` does (same 127.0.0.1:9876 port) — disable it, no need to uninstall.
 - Optional: a DSH source checkout when rebuilding the host side; otherwise the build links against this repository's installed dependencies.
 
-### Option A: ask an AI agent
+### Option A: install from npm (normal users)
+
+This is the supported path for normal users. It does not require `git clone`, `npm ci`, or `npm run build`.
+
+1. **Install the bundled addon first.** Download `dsh_blender_bridge.zip` from the [latest GitHub Release](https://github.com/sixtysevenlf/dsh-blender-plugin/releases/latest), then in Blender open `Edit > Preferences > Add-ons > Install`, select the zip, enable **DSH Blender Bridge**, open the `N` panel in the 3D view, and click **Connect**.
+
+2. **Install the DSH plugin from npm.** Use the profile you actually run:
+
+        dsh plugin --profile <profile> add dsh-blender-plugin@3.0.0
+
+   In DSH Desktop, open the Plugins page and install the bundle `dsh-blender-plugin@3.0.0` instead.
+
+3. **Restart DSH** after the package is installed.
+
+4. **Verify the installation.** The only acceptance criterion for the GUI route is `doctor` returning `kind` equal to `ok`:
+
+        curl -sS http://127.0.0.1:9877/doctor
+
+   GUI route: `curl -sS http://127.0.0.1:9877/health` and `/doctor`; `doctor.kind` must be `ok`.
+
+   Headless-only route (no addon): `blender_rt_worker(op="start")` followed by `op="see"` must return a frame.
+
+The addon remains the only supported Blender-side agent bridge. Disable any other bridge addon that serves port 9876; ordinary modeling, material, rendering, and asset addons are unaffected.
+
+### Option B: ask an AI agent
 
 Copy this prompt into an agent that can run commands:
 
-    First install and enable the bundled addon addon/dsh_blender_bridge.zip
-    from this repository. If a bridge addon is already enabled
+    First install and enable the bundled addon dsh_blender_bridge.zip
+    from the latest GitHub Release. If a bridge addon is already enabled
     (MCP for Blender / blender_mcp, or anything else serving Blender on
     port 9876), disable it; do not uninstall the user's other addons and
     do not ask them to.
-    Then install the DSH × Blender plugin from
-    https://github.com/sixtysevenlf/dsh-blender-plugin
-    for my DSH profile. Read docs/AI-安装提示词.md first, follow it exactly,
+    Then install the DSH × Blender plugin from npm for my DSH profile:
+    dsh plugin --profile <profile> add dsh-blender-plugin@3.0.0
+    Read docs/AI-安装提示词.md first, follow it exactly,
     and finish with the acceptance check: doctor must return kind=ok for the
     GUI route, or worker start + see must return a frame for the headless-only route.
     Do not skip the check and do not claim success without it.
@@ -64,7 +88,7 @@ Install the standalone modeling skill (only needed for hosts that do not load th
 
     curl -fsSL https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/skills/blender-modeling/install.sh | bash
 
-### Option B: manual setup
+### Option C: manual setup (developers building from source)
 
 1. **Install the bundled addon first.**
 
@@ -72,7 +96,7 @@ Install the standalone modeling skill (only needed for hosts that do not load th
 
    Keep this addon as your only agent bridge. If `MCP for Blender` / `blender_mcp` (or another addon that opens its own server on 9876) is enabled, turn it off — uninstalling is not required. Your other addons can stay. If the rest of the installation does not work, check this step first.
 
-2. Clone the repository and build it. `lib/` is a build artifact and is not committed, so a fresh clone must build once before use.
+2. **Developer path:** clone the repository and build it. `lib/` is a build artifact and is not committed, so a fresh clone must build once before use. Normal users should use the npm install above.
 
         git clone https://github.com/sixtysevenlf/dsh-blender-plugin.git
         cd dsh-blender-plugin
@@ -82,17 +106,17 @@ Install the standalone modeling skill (only needed for hosts that do not load th
 
 3. Add the package to your DSH profile as a bundle. Link the checkout into the profile, then add the dependency and bundle entry to the profile package.json.
 
-        ln -s /absolute/path/to/dsh-blender-plugin <profile>/node_modules/@dsh-external/dsh-blender-plugin
+        ln -s /absolute/path/to/dsh-blender-plugin <profile>/node_modules/dsh-blender-plugin
 
     Profile package.json:
 
         {
           "dependencies": {
-            "@dsh-external/dsh-blender-plugin": "link:/absolute/path/to/dsh-blender-plugin"
+            "dsh-blender-plugin": "link:/absolute/path/to/dsh-blender-plugin"
           },
           "dsh": {
             "profile": {
-              "bundles": ["@dsh-external/dsh-blender-plugin"]
+              "bundles": ["dsh-blender-plugin"]
             }
           }
         }

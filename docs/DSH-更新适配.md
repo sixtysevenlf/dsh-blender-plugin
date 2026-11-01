@@ -75,7 +75,7 @@ dsh --profile web --dump-config | grep -A3 dsh-blender-plugin
 
 | 插件 | 迁移前 | 迁移后 |
 |---|---|---|
-| `@dsh-external/dsh-blender-plugin` | injector 注入（`ctx.loader.create` 挂 root） | profile bundle（本包 `cordis.patch.yml`） |
+| `dsh-blender-plugin` | injector 注入（`ctx.loader.create` 挂 root） | profile bundle（本包 `cordis.patch.yml`） |
 | `@dsh-external/dsh-coc-dice` | 同上 | profile bundle（该包 `cordis.patch.yml`）—— 仍是**宿主级**，掷骰工具对所有会话可见 |
 | `@dsh-external/dsh-session-list-cache` | 同上 | profile bundle（该包 `cordis.patch.yml`） |
 

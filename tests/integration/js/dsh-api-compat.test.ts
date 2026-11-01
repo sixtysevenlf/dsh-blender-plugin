@@ -74,7 +74,7 @@ describe('plugin applies to the documented Cordis surface', () => {
 
   it('declares the host packages it binds to', () => {
     const manifest = JSON.parse(fs.readFileSync(pkgPath('package.json'), 'utf8'))
-    expect(manifest.name).toBe('@dsh-external/dsh-blender-plugin')
+    expect(manifest.name).toBe('dsh-blender-plugin')
     expect(manifest.type).toBe('module')
     for (const dep of [
       '@deepseek-ai/cordis',

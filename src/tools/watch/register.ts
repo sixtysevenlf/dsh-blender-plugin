@@ -28,6 +28,6 @@ export function registerWatch(ctx: HostContext, port: number): void {
           },
         }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-watch',
+    'dsh-blender-plugin: rt-watch',
   )
 }

@@ -160,8 +160,8 @@ describe('backend lifecycle operations', () => {
   it('keeps v2.6.2 apply order: lifecycle effects before the 15 tools', () => {
     const f = createFakeContext()
     plugin.apply(f.ctx, { autoStart: false, tui: false, port: 9898 })
-    const watchdog = f.events.indexOf('effect:@dsh-external/dsh-blender-plugin: watchdog')
-    const backend = f.events.indexOf('effect:@dsh-external/dsh-blender-plugin: backend')
+    const watchdog = f.events.indexOf('effect:dsh-blender-plugin: watchdog')
+    const backend = f.events.indexOf('effect:dsh-blender-plugin: backend')
     const firstTool = f.events.findIndex((e) => e.startsWith('tool:'))
     expect(watchdog).toBeGreaterThanOrEqual(0)
     expect(backend).toBeGreaterThan(watchdog)

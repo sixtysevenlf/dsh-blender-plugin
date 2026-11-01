@@ -45,6 +45,6 @@ export function registerTxn(ctx: HostContext, port: number): void {
           },
         }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-txn',
+    'dsh-blender-plugin: rt-txn',
   )
 }

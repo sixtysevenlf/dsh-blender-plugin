@@ -61,12 +61,12 @@ export function registerLifecycle(ctx: HostContext, port: number, autoStart: boo
       })()
     }, 15000)
     return () => clearInterval(wd)
-  }, '@dsh-external/dsh-blender-plugin: watchdog')
+  }, 'dsh-blender-plugin: watchdog')
 
   ctx.effect(
     () => () => {
       killChildHandle()
     },
-    '@dsh-external/dsh-blender-plugin: backend',
+    'dsh-blender-plugin: backend',
   )
 }

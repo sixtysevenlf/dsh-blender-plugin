@@ -49,6 +49,6 @@ export function registerPreset(ctx: HostContext, port: number): void {
           },
         }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-preset',
+    'dsh-blender-plugin: rt-preset',
   )
 }

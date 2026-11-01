@@ -67,8 +67,5 @@ function buildWorkerTool(ctx: HostContext, port: number) {
 }
 
 export function registerWorker(ctx: HostContext, port: number): void {
-  ctx.effect(
-    () => ctx.tools.register(buildWorkerTool(ctx, port)),
-    '@dsh-external/dsh-blender-plugin: rt-worker',
-  )
+  ctx.effect(() => ctx.tools.register(buildWorkerTool(ctx, port)), 'dsh-blender-plugin: rt-worker')
 }

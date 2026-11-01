@@ -59,6 +59,6 @@ export function registerPerf(ctx: HostContext, port: number): void {
           },
         }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-perf',
+    'dsh-blender-plugin: rt-perf',
   )
 }

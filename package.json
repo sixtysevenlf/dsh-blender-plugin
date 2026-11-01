@@ -1,5 +1,5 @@
 {
-  "name": "@dsh-external/dsh-blender-plugin",
+  "name": "dsh-blender-plugin",
   "version": "3.0.0",
   "repository": {
     "type": "git",

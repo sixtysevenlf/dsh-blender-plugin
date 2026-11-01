@@ -52,8 +52,5 @@ function buildDoTool(ctx: HostContext, port: number) {
 }
 
 export function registerDo(ctx: HostContext, port: number): void {
-  ctx.effect(
-    () => ctx.tools.register(buildDoTool(ctx, port)),
-    '@dsh-external/dsh-blender-plugin: rt-do',
-  )
+  ctx.effect(() => ctx.tools.register(buildDoTool(ctx, port)), 'dsh-blender-plugin: rt-do')
 }

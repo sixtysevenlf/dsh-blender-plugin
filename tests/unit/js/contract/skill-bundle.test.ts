@@ -55,7 +55,7 @@ describe('bundled skill asset tree', () => {
   it('packs skills and keeps the package metadata', () => {
     const pkg = JSON.parse(fs.readFileSync(pkgPath('package.json'), 'utf8'))
     expect(pkg.files).toContain('skills')
-    expect(pkg.name).toBe('@dsh-external/dsh-blender-plugin')
+    expect(pkg.name).toBe('dsh-blender-plugin')
     expect(pkg.license).toBe('BSD-3-Clause')
   })
 })

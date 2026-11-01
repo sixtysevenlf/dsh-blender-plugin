@@ -8,7 +8,7 @@ import { registerCommandSurface, registerMentionsSurface } from './commands.js'
 export function registerTuiHost(ctx: unknown, opts: TuiHostOptions): void {
   const host = ctx as TuiContext
   if (!host || typeof host.inject !== 'function') return
-  const tag = '@dsh-external/dsh-blender-plugin: tui '
+  const tag = 'dsh-blender-plugin: tui '
   // ①② 选中 chip / 页脚（持续轮询类接缝）
   registerSelectionSurface(host, opts, tag)
   registerStatusSurface(host, opts, tag)

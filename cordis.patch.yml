@@ -1,4 +1,4 @@
-# @dsh-external/dsh-blender-plugin bundle 层（v0.9.2 起声明 `dsh.bundle`）。
+# dsh-blender-plugin bundle 层（v0.9.2 起声明 `dsh.bundle`）。
 #
 # 为什么需要：0.1.7 起 DSH 用 @deepseek-ai/dsh-plugin-manager 管理 profile 插件，判定依据就是
 # package.json 的 `dsh.bundle`；没有它的包会被写成 "installed as a plain dependency, not a
@@ -11,5 +11,5 @@
 # 切换步骤与回滚见 docs/DSH-更新适配.md。
 - insert:
     - id: dsh-blender-plugin
-      name: '@dsh-external/dsh-blender-plugin'
+      name: 'dsh-blender-plugin'
       config: {}

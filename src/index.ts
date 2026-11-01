@@ -1,5 +1,5 @@
 /**
- * @dsh-external/dsh-blender-plugin —— host 侧入口（entry-only）。
+ * dsh-blender-plugin —— host 侧入口（entry-only）。
  *
  * 只做 re-export：实现分别落在 plugin / contracts / host / tools / plan / headless / utils / ui。
  * 15 个模型工具：see / do / watch / cmd / commands / loop / perf / opt / headless / plan /

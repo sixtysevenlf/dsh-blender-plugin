@@ -73,8 +73,5 @@ function buildViewportTool(port: number) {
 }
 
 export function registerViewport(ctx: HostContext, port: number): void {
-  ctx.effect(
-    () => ctx.tools.register(buildViewportTool(port)),
-    '@dsh-external/dsh-blender-plugin: tool',
-  )
+  ctx.effect(() => ctx.tools.register(buildViewportTool(port)), 'dsh-blender-plugin: tool')
 }

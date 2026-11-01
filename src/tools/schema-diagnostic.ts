@@ -14,7 +14,7 @@ export const HINT_KERNEL =
  */
 export function registerSchemaDiagnostic(ctx: HostContext): void {
   const text = [
-    '⛔ @dsh-external/dsh-blender-plugin 以**降级模式**加载：schemastery 未能解析，15 个 blender_rt_* 工具都未注册（这是**可读的失败**，不是插件消失）。',
+    '⛔ dsh-blender-plugin 以**降级模式**加载：schemastery 未能解析，15 个 blender_rt_* 工具都未注册（这是**可读的失败**，不是插件消失）。',
     '原因：' + String(schemaResolve.error || '(未知)'),
     '试过的名字与错误：' + (schemaResolve.tried.length ? schemaResolve.tried.join(' / ') : '(空)'),
     '修法：让宿主能解析到 @deepseek-ai/schemastery 或 schemastery 任一（同一份包的两种发布形态）；若用的是只提供带 scope 名的宿主，请升级到含本修复的版本。',
@@ -39,6 +39,6 @@ export function registerSchemaDiagnostic(ctx: HostContext): void {
           },
         }),
       ),
-    '@dsh-external/dsh-blender-plugin: degraded-schema',
+    'dsh-blender-plugin: degraded-schema',
   )
 }

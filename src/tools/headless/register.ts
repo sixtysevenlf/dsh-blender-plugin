@@ -97,6 +97,6 @@ function buildHeadlessTool(ctx: HostContext, port: number) {
 export function registerHeadless(ctx: HostContext, port: number): void {
   ctx.effect(
     () => ctx.tools.register(buildHeadlessTool(ctx, port)),
-    '@dsh-external/dsh-blender-plugin: rt-headless',
+    'dsh-blender-plugin: rt-headless',
   )
 }

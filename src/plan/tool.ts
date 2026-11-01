@@ -112,6 +112,6 @@ export function registerPlan(ctx: HostContext, port: number): void {
           },
         }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-plan',
+    'dsh-blender-plugin: rt-plan',
   )
 }

@@ -24,7 +24,7 @@
  *   - 后端地址默认 http://127.0.0.1:9877，可被 ctx 配置 / localStorage 覆盖。
  */
 window.__ModuleLoader__.load({
-  id: '@dsh-external/dsh-blender-plugin',
+  id: 'dsh-blender-plugin',
   factory: (require) => {
     var module = { exports: {} }
     var exports = module.exports
@@ -690,7 +690,7 @@ window.__ModuleLoader__.load({
             onPick: onPickItem,
             codec: blenderCodec,
           })
-        }, '@dsh-external/dsh-blender-plugin: @ blender scene items')
+        }, 'dsh-blender-plugin: @ blender scene items')
       })
 
       // ② v2.3：Blender 原生选中 → 当前会话草稿（无头 dock；不渲染任何 UI）
@@ -713,7 +713,7 @@ window.__ModuleLoader__.load({
         return function () {
           started = false
         }
-      }, '@dsh-external/dsh-blender-plugin: reset apply guard')
+      }, 'dsh-blender-plugin: reset apply guard')
     }
 
     var inject = ['slots']

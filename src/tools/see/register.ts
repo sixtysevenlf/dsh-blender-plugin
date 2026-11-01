@@ -77,8 +77,5 @@ function buildSeeTool(ctx: HostContext, port: number) {
 }
 
 export function registerSee(ctx: HostContext, port: number): void {
-  ctx.effect(
-    () => ctx.tools.register(buildSeeTool(ctx, port)),
-    '@dsh-external/dsh-blender-plugin: rt-see',
-  )
+  ctx.effect(() => ctx.tools.register(buildSeeTool(ctx, port)), 'dsh-blender-plugin: rt-see')
 }
