@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Split from imgtools.py; behavior preserved by the facade."""
 from .common import *  # noqa: F401,F403
+from .common import _KIT
 from .analysis import _erode1, _label_cc, _rnd
 
 
@@ -273,7 +274,7 @@ def _symmetry(m_filled, bbox):
     cands = []
     for axis in ("vertical", "horizontal"):
         mir = sub[:, ::-1] if axis == "vertical" else sub[::-1, :]
-        iou, _i, _u = _KIT.iou(sub, mir)
+        iou, _i, _u = _KIT.iou(sub, mir)  # pyright: ignore[reportOptionalMemberAccess]  # KIT is injected before any runtime op
         errs = []
         if axis == "vertical":
             for r in range(h):

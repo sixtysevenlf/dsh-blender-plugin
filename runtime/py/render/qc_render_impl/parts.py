@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Split from qc_render.py; behavior preserved by the facade."""
 from .common import *  # noqa: F401,F403
+from .common import _j
 
 PARTS_PALETTE = [
     (230, 60, 60), (60, 130, 230), (70, 200, 90), (240, 190, 50),
@@ -197,7 +198,7 @@ def _parts_restore(state, mats):
                 rep["mismatches"].append("%s：链接副本 mesh 还原失败 %s: %s"
                                          % (st.get("object"), type(e).__name__, str(e)[:140]))
         try:
-            now = [[str(s.link), (str(s.material.name) if s.material else None)] for s in ob.material_slots]
+            now = [[str(s.link), (str(s.material.name) if s.material else None)] for s in getattr(ob, "material_slots", ())]
             if now != [list(x) for x in (st.get("slots") or [])]:
                 rep["mismatches"].append("%s：材质槽与渲染前不等 %s != %s"
                                          % (ob.name, now, st.get("slots")))

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """img_digest 阶段 6：缓存登记与最终回执（行为与拆分前一致）。"""
 from ..common import *  # noqa: F401,F403
+from ..common import _j
 from ..cache import _cache_put, _register_id
 
 

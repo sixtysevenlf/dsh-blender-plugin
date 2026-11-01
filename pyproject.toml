@@ -15,12 +15,12 @@ markers = [
 ]
 
 [tool.ruff]
-# Editor-facing Ruff baseline for the legacy Blender add-on. This is not a CI gate;
-# the rules below catch syntax / undefined-name mistakes, which are the findings
-# that make an open file look broken. Broad style rules are deliberately not
-# enabled yet: the add-on still carries known legacy formatting debt.
+# Python static quality gate for the add-on, runtime Python and tests. The
+# historical baseline is tracked by config/python-static-allowlist.json; new
+# violations fail `npm run check:python-static`. Broad style rules are
+# deliberately not enabled here: formatting is a separate concern.
 target-version = "py311"
 line-length = 120
 
 [tool.ruff.lint]
-select = ["E9", "F63", "F7", "F82"]
+select = ["E9", "F63", "F7", "F82", "F401", "F811", "F821", "F823"]

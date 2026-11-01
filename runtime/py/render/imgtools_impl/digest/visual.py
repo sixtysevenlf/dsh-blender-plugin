@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """img_digest 阶段：ROI 统计 / 原生裁剪 / 标注总图 / 附件挑选（行为与拆分前一致）。"""
 from ..common import *  # noqa: F401,F403
+from ..common import _save
 from ..analysis import PALETTE, _norm_roi, _rnd
 from ..cache import _draw_box, _draw_circle, _draw_line
 

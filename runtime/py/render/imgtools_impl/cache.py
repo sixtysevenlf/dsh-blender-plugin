@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Split from imgtools.py; behavior preserved by the facade."""
 from .common import *  # noqa: F401,F403
+from .common import _bbox, _load_ex, _win
 from .analysis import CACHE_MAX_BYTES, CACHE_MAX_ITEMS, _kernel_mod, _largest_cc_mask, _mask_v2, _md5_cached
 from .contour import _holes_of
 

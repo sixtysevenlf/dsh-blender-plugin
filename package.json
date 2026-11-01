@@ -122,6 +122,7 @@
     "check:function-budget": "node scripts/check-function-budget.mjs",
     "check:build": "node scripts/check-build.mjs",
     "check:any": "node scripts/check-any.mjs",
+    "check:python-static": "node scripts/check-python-static.mjs",
     "prepack": "npm run build && node scripts/check-build.mjs",
     "test": "node scripts/test.mjs",
     "test:unit": "node scripts/test.mjs unit",

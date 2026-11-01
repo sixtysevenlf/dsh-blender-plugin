@@ -9,6 +9,7 @@
  *   node scripts/test.mjs unit       # Vitest unit only
  *   node scripts/test.mjs integration  # Vitest integration only
  *   node scripts/test.mjs addon-unit    # pytest: Blender addon unit tests only
+ *   node scripts/test.mjs python-static # ruff + pure-logic pyright gate
  *
  * Legacy selftest scripts are retired; see tests/MIGRATION.md for the mapping.
  */
@@ -28,6 +29,7 @@ const VALID = new Set([
   'integration',
   'contract',
   'addon-unit',
+  'python-static',
   'e2e',
   'e2e:gui',
 ])
@@ -68,7 +70,21 @@ function runJs() {
 
 function python() {
   if (process.env.PYTHON) return process.env.PYTHON
+  const venv = path.join(
+    PKG,
+    '.venv',
+    process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python',
+  )
+  if (fs.existsSync(venv)) return venv
   return process.platform === 'win32' ? 'python' : 'python3'
+}
+
+function runPythonStatic() {
+  run(
+    process.execPath,
+    [path.join(PKG, 'scripts', 'check-python-static.mjs')],
+    'Python static (ruff + pure-logic pyright)',
+  )
 }
 
 function runPython() {
@@ -109,7 +125,10 @@ if (mode === 'all') {
   runBudget()
   runJs()
   runPython()
+  runPythonStatic()
 } else if (mode === 'js' || mode === 'unit' || mode === 'integration' || mode === 'contract') {
   runBudget()
   runJs()
+} else if (mode === 'python-static') {
+  runPythonStatic()
 } else runPython()

@@ -177,5 +177,7 @@ _DshApi = _KIT.Api  # 共享内核（尾部注册行无需改）
 import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
 if _K is not None:
-    _K.dsh_face_api = _DshApi({"version": FACE_VERSION, "dispatch": face_dispatch, "ratios": face_ratios,
-                               "compare": face_compare, "selftest": face_selftest, "help": face_help})
+    setattr(_K, "dsh_face_api", _DshApi({
+        "version": FACE_VERSION, "dispatch": face_dispatch, "ratios": face_ratios,
+        "compare": face_compare, "selftest": face_selftest, "help": face_help,
+    }))

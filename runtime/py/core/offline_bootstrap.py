@@ -157,10 +157,10 @@ def boot(modules=(), runtime_dir=None):
         sys.modules["dsh_rt_kernel"] = K
     _install_kernel_getattr(K)
     # T8：kit.find_runtime_file 依赖 K.runtime_dir；old bootstrap 没设过。
-    K.runtime_dir = _runtime_root(rt)
+    setattr(K, "runtime_dir", _runtime_root(rt))
     if getattr(K, "dsh_kit", None) is None:
         _exec(_kit_file(rt), {"K": K, "__name__": "kit", "__file__": _kit_file(rt)}, "kit")
-    ns = {"K": K}
+    ns: dict[str, object] = {"K": K}
     # v2.6.3（T8 回归修复）：每个模块必须 exec 到自己的命名空间。
     # 旧实现把所有模块塞进同一个 globals，而各模块都定义 _num/_r/_j/_path 等私有 helper，
     # 后加载的模块会把前面的顶掉（实测 assembly 的 _num(v) 被 mesh_fix 的 _num(v,name,...) 覆盖，

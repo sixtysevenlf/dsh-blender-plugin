@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """img_digest 阶段 2：掩膜、最大连通域、轮廓、剪影与对称性（行为与拆分前一致）。"""
 from ..common import *  # noqa: F401,F403
+from ..common import _bbox, _j
 from ..analysis import _edge_strength_p50, _largest_cc_mask, _mask_v2, _principal_axis, _rnd
 from ..contour import _curvature_landmarks, _holes_of, _hull, _simplify_closed, _symmetry, _trace_contour
 

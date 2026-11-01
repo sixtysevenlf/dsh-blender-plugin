@@ -94,6 +94,10 @@ jobs:
         run: npm run test:addon-unit
       - name: Addon typecheck with fake-bpy stubs
         run: npm run typecheck:addon
+      - name: Python static gate
+        env:
+          PYTHON: .venv/bin/python
+        run: npm run check:python-static
 
   coverage:
     name: Coverage ratchet

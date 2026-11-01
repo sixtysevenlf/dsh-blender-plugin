@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """img_digest 阶段 1：参数校验与图像载入（行为与拆分前一致）。"""
 from ..common import *  # noqa: F401,F403
+from ..common import _j, _load_ex
 from ..analysis import _md5_cached
 from ..hough import _parse_known_lengths
 

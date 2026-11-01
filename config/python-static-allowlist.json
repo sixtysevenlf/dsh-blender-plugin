@@ -1,0 +1,703 @@
+{
+  "version": 1,
+  "generatedFrom": "6622e94",
+  "generatedAt": "2026-11-01",
+  "entries": [
+    {
+      "path": "addon/dsh_blender_bridge/__init__.py",
+      "code": "F401",
+      "count": 3,
+      "reason": "Addon re-export or side-effect import kept for existing import contract; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "addon/dsh_blender_bridge/assets/io.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Addon re-export or side-effect import kept for existing import contract; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "addon/dsh_blender_bridge/commands/scene/__init__.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Addon re-export or side-effect import kept for existing import contract; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "addon/dsh_blender_bridge/commands/scene/world.py",
+      "code": "F401",
+      "count": 4,
+      "reason": "Addon re-export or side-effect import kept for existing import contract; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "addon/dsh_blender_bridge/integrations/hunyuan_client.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Addon re-export or side-effect import kept for existing import contract; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "addon/dsh_blender_bridge/integrations/polyhaven_client.py",
+      "code": "F401",
+      "count": 11,
+      "reason": "Addon re-export or side-effect import kept for existing import contract; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "addon/dsh_blender_bridge/integrations/polyhaven_spec.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Addon re-export or side-effect import kept for existing import contract; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "addon/dsh_blender_bridge/protocol.py",
+      "code": "F401",
+      "count": 3,
+      "reason": "Addon re-export or side-effect import kept for existing import contract; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "addon/dsh_blender_bridge/recorders/activity.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Addon re-export or side-effect import kept for existing import contract; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "addon/dsh_blender_bridge/recorders/edit_capture.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Addon re-export or side-effect import kept for existing import contract; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "addon/dsh_blender_bridge/recorders/user_edit.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Addon re-export or side-effect import kept for existing import contract; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "addon/dsh_blender_bridge/registration.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Addon re-export or side-effect import kept for existing import contract; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "addon/dsh_blender_bridge/ui/lists.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Addon re-export or side-effect import kept for existing import contract; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "addon/dsh_blender_bridge/ui/operators.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Addon re-export or side-effect import kept for existing import contract; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "addon/dsh_blender_bridge/ui/preferences.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Addon re-export or side-effect import kept for existing import contract; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/assembly/assembly_impl/common.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/assembly/vehicle_impl/common.py",
+      "code": "F401",
+      "count": 3,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/core/audit_impl/api.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/core/audit_impl/common.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/core/audit_impl/conn_helpers.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/core/audit_impl/connectivity.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/core/audit_impl/drift.py",
+      "code": "F401",
+      "count": 3,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/core/contract_impl/common.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/core/contract_impl/fit.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/core/gate_impl/common.py",
+      "code": "F401",
+      "count": 5,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/core/gate_impl/selftest.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/core/motion_impl/api/index.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/core/motion_impl/common.py",
+      "code": "F401",
+      "count": 7,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/core/planner.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/export/deliver_impl/common.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/export/open3d_check.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/geometry/blockout_impl/common.py",
+      "code": "F401",
+      "count": 6,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/geometry/geo.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/geometry/sculpt.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/geometry/surface_impl/common.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/render/imgtools_impl/common.py",
+      "code": "F401",
+      "count": 3,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/render/imgtools_impl/hough.py",
+      "code": "F811",
+      "count": 3,
+      "reason": "Historical duplicate helper definition; behavior is covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/render/montage.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/render/montage.py",
+      "code": "F811",
+      "count": 1,
+      "reason": "Historical duplicate helper definition; behavior is covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/render/qc_impl/common.py",
+      "code": "F401",
+      "count": 5,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/render/qc_render_impl/common.py",
+      "code": "F401",
+      "count": 5,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/render/qc_render_impl/views.py",
+      "code": "F401",
+      "count": 18,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/render/qc_render_impl/views_render.py",
+      "code": "F401",
+      "count": 13,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/render/view.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "runtime/py/render/visualreport_impl/common.py",
+      "code": "F401",
+      "count": 3,
+      "reason": "Historical explicit re-export or unused import; behavior covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/harness.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/assembly.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/assembly_export.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/assembly_repair.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/contract.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/deliver.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/evalharness.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/imgtools.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/mate.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/p0_real_modeling.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/shapesolve.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/surface.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/txn.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_assembly_vehicle.py",
+      "code": "F401",
+      "count": 3,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_assembly_vehicle.py",
+      "code": "F821",
+      "count": 48,
+      "reason": "Blender native E2E module: K is injected into module globals by native_runner; not importable outside Blender.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_audit_smoke.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_audit_smoke.py",
+      "code": "F821",
+      "count": 31,
+      "reason": "Blender native E2E module: K is injected into module globals by native_runner; not importable outside Blender.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_gate.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_gate.py",
+      "code": "F821",
+      "count": 11,
+      "reason": "Blender native E2E module: K is injected into module globals by native_runner; not importable outside Blender.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_material_render.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_material_render.py",
+      "code": "F821",
+      "count": 24,
+      "reason": "Blender native E2E module: K is injected into module globals by native_runner; not importable outside Blender.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_mesh_fix.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_mesh_fix.py",
+      "code": "F821",
+      "count": 12,
+      "reason": "Blender native E2E module: K is injected into module globals by native_runner; not importable outside Blender.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_pipeline.py",
+      "code": "F401",
+      "count": 4,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_pipeline.py",
+      "code": "F821",
+      "count": 9,
+      "reason": "Blender native E2E module: K is injected into module globals by native_runner; not importable outside Blender.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_print.py",
+      "code": "F401",
+      "count": 4,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_print.py",
+      "code": "F821",
+      "count": 19,
+      "reason": "Blender native E2E module: K is injected into module globals by native_runner; not importable outside Blender.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_sculpt.py",
+      "code": "F401",
+      "count": 3,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_sculpt.py",
+      "code": "F821",
+      "count": 17,
+      "reason": "Blender native E2E module: K is injected into module globals by native_runner; not importable outside Blender.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_shape.py",
+      "code": "F401",
+      "count": 4,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_shape.py",
+      "code": "F811",
+      "count": 4,
+      "reason": "Historical duplicate helper definition; behavior is covered by tests; cleanup deferred to a dedicated type-debt task.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_shape.py",
+      "code": "F821",
+      "count": 35,
+      "reason": "Blender native E2E module: K is injected into module globals by native_runner; not importable outside Blender.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_sweep.py",
+      "code": "F401",
+      "count": 4,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_sweep.py",
+      "code": "F821",
+      "count": 8,
+      "reason": "Blender native E2E module: K is injected into module globals by native_runner; not importable outside Blender.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_uv.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native/upstream/upstream_uv.py",
+      "code": "F821",
+      "count": 8,
+      "reason": "Blender native E2E module: K is injected into module globals by native_runner; not importable outside Blender.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/native_support.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/blender/runner.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/e2e/gui/native/contract_evidence.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/integration/python/test_addon_command_matrix.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/unit/python/test_facade_contract.py",
+      "code": "F401",
+      "count": 1,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    },
+    {
+      "path": "tests/unit/python/test_import_smoke.py",
+      "code": "F401",
+      "count": 2,
+      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
+      "owner": "lead",
+      "expires": "2027-06-30"
+    }
+  ]
+}
