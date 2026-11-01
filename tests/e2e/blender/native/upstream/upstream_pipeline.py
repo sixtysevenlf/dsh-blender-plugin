@@ -6,19 +6,16 @@ the native runner. The support module binds K and the original helper names to c
 """
 from __future__ import annotations
 
-import json
-import math
 
-import bmesh
-import bpy
 
 import support as U
+from support import PREFIX, chk
 
 
 
 def t_pipeline():
     # S5 流水线：工件注册表 + @引用 + 逐步回执 + 失败即停（让 op 真正配合）
-    p = getattr(K, "dsh_pipe_api", None)  # noqa: F821
+    p = getattr(U.K, "dsh_pipe_api", None)
     if p is None:
         raise RuntimeError("模块没注入：K.dsh_pipe_api（preload 里加 pipeline）")
     st = p("selftest", {})
@@ -48,8 +45,8 @@ def t_pipeline():
 
 def t_refs_single_op():
     # S5-b：**单发 op** 也能用 @引用（不只是 pipe_run）—— 工件由 pipe_put 存，单步调用时解析
-    p = getattr(K, "dsh_pipe_api", None)  # noqa: F821
-    v = getattr(K, "dsh_vehicle_api", None)  # noqa: F821
+    p = getattr(U.K, "dsh_pipe_api", None)
+    v = getattr(U.K, "dsh_vehicle_api", None)
     if p is None or v is None:
         raise RuntimeError("需要 pipe + vehicle 模块")
     p("clear", {})
@@ -67,5 +64,5 @@ def t_refs_single_op():
 
 
 def test_pipeline(ctx):
-    U.install(globals(), ctx)
+    U.bind(ctx)
     U.run([t_pipeline, t_refs_single_op], "上游整合 A5 管线与单发 @引用（原 upstream_integration_selftest.py 拆分）")

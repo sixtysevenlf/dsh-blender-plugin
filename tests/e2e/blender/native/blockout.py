@@ -57,7 +57,7 @@ def test_blockout(ctx):
     _CTX = ctx
     K = ctx.K
     t_start = time.perf_counter()
-    api = getattr(K, "dsh_blockout_api", None)   # noqa: F821  （headless 注入的持久内核）
+    api = getattr(K, "dsh_blockout_api", None)
     check("K.dsh_blockout_api 已注册", api is not None, "preload 里要带 blockout")
     if api is None:
         return finish(t_start, api=None)

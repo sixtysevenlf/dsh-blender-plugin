@@ -6,13 +6,12 @@ the native runner. The support module binds K and the original helper names to c
 """
 from __future__ import annotations
 
-import json
-import math
 
 import bmesh
 import bpy
 
 import support as U
+from support import PREFIX, api, chk, new_sphere
 
 
 
@@ -51,5 +50,5 @@ def t_fix_and_audit():
 
 
 def test_mesh_fix(ctx):
-    U.install(globals(), ctx)
+    U.bind(ctx)
     U.run([t_fix_and_audit], "上游整合 A2 网格修复/空网格审计（原 upstream_integration_selftest.py 拆分）")

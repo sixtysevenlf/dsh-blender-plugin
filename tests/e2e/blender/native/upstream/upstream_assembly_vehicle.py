@@ -6,13 +6,11 @@ the native runner. The support module binds K and the original helper names to c
 """
 from __future__ import annotations
 
-import json
-import math
 
-import bmesh
 import bpy
 
 import support as U
+from support import PREFIX, api, chk
 
 
 
@@ -63,7 +61,7 @@ def t_conn():
 
 def t_human():
     """人形素体：高度误差、几何头身比、关节标记、头型与五官标记（零素材路线）。"""
-    g = getattr(K, "dsh_human_api", None)  # noqa: F821
+    g = getattr(U.K, "dsh_human_api", None)
     if g is None:
         raise RuntimeError("模块没注入：K.dsh_human_api（preload 里漏了 human？）")
     r = g("base", {"height_mm": 1700.0, "heads": 7.5, "name": PREFIX + "human"})
@@ -92,8 +90,8 @@ def t_human():
 
 def t_vehicle():
     """车辆外壳：比例门（WBR 标定）+ 放样 + 轮与壳零互穿（布尔轮眉的构造保证）。"""
-    v = getattr(K, "dsh_vehicle_api", None)  # noqa: F821
-    c = getattr(K, "dsh_clearance_api", None)  # noqa: F821
+    v = getattr(U.K, "dsh_vehicle_api", None)
+    c = getattr(U.K, "dsh_clearance_api", None)
     if v is None:
         raise RuntimeError("模块没注入：K.dsh_vehicle_api（preload 里漏了 vehicle？）")
     sp = v("spec", {"type": "sports", "length_mm": 4300.0, "width_mm": 1850.0, "height_mm": 1250.0,
@@ -122,7 +120,7 @@ def t_vehicle():
 
 def t_clearance():
     """成对间隙门：10mm 过 / 2mm 挂 / 互穿挂 / 允许互插过。"""
-    c = getattr(K, "dsh_clearance_api", None)  # noqa: F821
+    c = getattr(U.K, "dsh_clearance_api", None)
     if c is None:
         raise RuntimeError("模块没注入：K.dsh_clearance_api（preload 里漏了 clearance？）")
     r = c("selftest", {})
@@ -131,8 +129,8 @@ def t_clearance():
 
 def t_vehicle_shell():
     """外壳还原：站表放样（截面参数/轮眉外扩/腰线折痕）+ 按缝切分件（缝是真几何）。"""
-    v = getattr(K, "dsh_vehicle_api", None)  # noqa: F821
-    c = getattr(K, "dsh_clearance_api", None)  # noqa: F821
+    v = getattr(U.K, "dsh_vehicle_api", None)
+    c = getattr(U.K, "dsh_clearance_api", None)
     if v is None:
         raise RuntimeError("模块没注入：K.dsh_vehicle_api")
     prof = [(0, 400, 110, 600), (400, 430, 110, 780), (900, 470, 289, 900), (1400, 560, 110, 925),
@@ -160,7 +158,7 @@ def t_vehicle_shell():
 
 def t_vehicle_fit_regions():
     """站表 → IoU 拟合闭环 + 多区域装配 + 前视截面轮廓（三件的数值门）。"""
-    v = getattr(K, "dsh_vehicle_api", None)  # noqa: F821
+    v = getattr(U.K, "dsh_vehicle_api", None)
     if v is None:
         raise RuntimeError("模块没注入：K.dsh_vehicle_api")
     prof = [(0, 400, 110, 600), (400, 430, 110, 780), (900, 470, 289, 900), (1400, 560, 110, 925),
@@ -194,5 +192,5 @@ def t_vehicle_fit_regions():
 
 
 def test_assembly_vehicle(ctx):
-    U.install(globals(), ctx)
+    U.bind(ctx)
     U.run([t_conn, t_human, t_vehicle, t_clearance, t_vehicle_shell, t_vehicle_fit_regions], "上游整合 A5 装配与车辆（原 upstream_integration_selftest.py 拆分）")

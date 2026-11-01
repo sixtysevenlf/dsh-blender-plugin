@@ -9,7 +9,6 @@ native Context instead of a legacy kernel global.
 """
 from __future__ import annotations
 
-import json
 
 import bmesh
 import bpy
@@ -20,25 +19,15 @@ K = None
 CTX = None
 
 
-def install(namespace, ctx):
-    """Bind this module's globals to one native Context."""
+def bind(ctx):
+    """Bind this support module to one native Context.
+
+    Modules import the helpers explicitly; no globals() injection is used.
+    """
     global CTX, K, PASS, FAILS, SKIP
     CTX = ctx
     K = ctx.K
     PASS, FAILS, SKIP = [], [], []
-    namespace.update({
-        "PASS": PASS,
-        "FAILS": FAILS,
-        "SKIP": SKIP,
-        "PREFIX": PREFIX,
-        "K": K,
-        "chk": chk,
-        "api": api,
-        "clean": clean,
-        "new_sphere": new_sphere,
-        "new_plate": new_plate,
-        "json": json,
-    })
 
 
 def chk(name, cond, detail=""):
