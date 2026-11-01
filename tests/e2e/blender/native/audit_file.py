@@ -10,6 +10,7 @@ import json as _json
 import os as _os
 import shutil as _shutil
 import tempfile as _tempfile
+from typing import Any
 
 import bpy as _bpy
 
@@ -30,7 +31,7 @@ from support_audit_file import (
 ST_API, ST_API_SRC = st_get_api()
 ST_MEAS, ST_BLENDS = {}, {}
 
-def st_call(op, args=None):
+def st_call(op: str, args: dict[str, Any] | None = None) -> Any:
     """Call the audit API: callable form, else dispatch and decode JSON."""
     if callable(ST_API):
         return ST_API(op, args or {})
@@ -39,7 +40,7 @@ def st_call(op, args=None):
     return _json.loads(ST_API["dispatch"](str(op), _json.dumps(args or {})))
 
 
-def _st_checks(ctx):
+def _st_checks(ctx: Any) -> None:
     A = None
     tmp = _tempfile.mkdtemp(prefix="dsh_audit_fileselftest_", dir=str(ctx.test_dir))
     A = _os.path.join(tmp, "A.blend")

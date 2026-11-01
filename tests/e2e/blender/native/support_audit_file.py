@@ -4,6 +4,7 @@
 import os as _os
 import sys as _sys
 from pathlib import Path
+from typing import Any
 
 import bmesh as _bmesh
 import bpy as _bpy
@@ -11,10 +12,10 @@ import bpy as _bpy
 
 ST_CTX = "DSH_SELFTEST_CUBE"
 ST_PASS, ST_FAILS, ST_SKIP = [], [], []
-_CTX = None
+_CTX: Any = None
 
 
-def st_check(name, cond, detail=""):
+def st_check(name: str, cond: object, detail: object = "") -> None:
     ok = bool(cond)
     if _CTX is not None:
         _CTX.check(name, ok, detail)
@@ -26,18 +27,18 @@ def st_check(name, cond, detail=""):
         print("  [FAIL] " + name + "  <- " + str(detail)[:300])
 
 
-def st_note(name, detail):
+def st_note(name: str, detail: object) -> None:
     ST_SKIP.append({"clause": name, "detail": str(detail)[:300]})
     print("  [SKIP] " + name + "  " + str(detail)[:200])
 
 
 
-def bind(ctx):
+def bind(ctx: Any) -> None:
     global _CTX
     _CTX = ctx
 
 
-def st_get_api():
+def st_get_api() -> tuple[Any, str | None]:
     """Return K.dsh_audit_api, or load runtime/py/core/audit.py as a fallback."""
     K = _sys.modules.get("dsh_rt_kernel")
     api = getattr(K, "dsh_audit_api", None) if K is not None else None
