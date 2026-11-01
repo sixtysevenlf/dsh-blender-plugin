@@ -9,7 +9,8 @@ API 挂 K.dsh_deliver_api（DELIVER_VERSION = 1），入口：
   export(dir, objects, scope, name, fmt, normalize, target_half_extent, per_part_materials,
          manifest, units_note, include_hidden)
       从**求值后的 mesh**（evaluated_depsgraph_get().evaluated_get(ob).to_mesh()，修改器/形态键都算进去）
-      取世界坐标三角面 → 写 OBJ（v/vn/f；每个对象一个 `g <对象名>`，材质 `usemtl <材质名>`）
+      取世界坐标三角面 → 写 OBJ（v/vn/f；每个对象一个 `g <对象名>` 和一行 `usemtl <材质名>`，
+      共享材质也每对象写一行）
       或二进制 STL（单文件）；per_part_materials=True 时同目录写 `<name>.mtl`（newmtl + Kd）。
       normalize=True → 整模型缩放到"最长边 = 2 × target_half_extent"，并把**缩放系数 / 原 bbox / 原中心**
       写进返回体与 manifest（**归档铁律：必须能反推原始尺度**）。
@@ -18,7 +19,8 @@ API 挂 K.dsh_deliver_api（DELIVER_VERSION = 1），入口：
       units_note → 按 scene.unit_settings.scale_length 给 mm/m 说明（数值一律带单位）。
   verify(path_or_dir, manifest="auto")
       读回 resulting OBJ/STL 自检：文件存在 / 三角面数与 manifest 一致 / md5 与 manifest 一致 /
-      OBJ 的 g 与 usemtl 数量与对象数一致。**逐项 PASS/FAIL + 数字**，绝不只回一句 ok:true。
+      OBJ 的 g 行数与 usemtl 行数均与对象数一致；`usemtl_unique` 只作唯一材质数诊断。
+      **逐项 PASS/FAIL + 数字**，绝不只回一句 ok:true。
   help()   速查（含一行典型调用）。
 
 硬规则（外部反馈口径）：

@@ -186,7 +186,8 @@ def _dv_write_obj(path, parts, header_lines, mtl_basename):
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(out) + "\n")
     return {"vertices": v_base, "normals": vn_base, "groups": len(parts),
-            "usemtl": len(set(p["material_ref"] for p in parts)), "lines": len(out) + 1}
+            "usemtl": len(parts), "usemtl_unique": len(set(p["material_ref"] for p in parts)),
+            "lines": len(out) + 1}
 
 
 def _dv_write_mtl(path, mats, header_lines):

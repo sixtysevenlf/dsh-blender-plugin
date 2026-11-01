@@ -126,6 +126,12 @@ HEADLESS_MODULES = (
         "timeout": 600,
     },
     {
+        "id": "deliver_shared_material",
+        "path": "tests/e2e/blender/native/deliver_shared_material.py",
+        "preloads": ("deliver",),
+        "timeout": 300,
+    },
+    {
         "id": "evalharness",
         "path": "tests/e2e/blender/native/evalharness.py",
         "preloads": (

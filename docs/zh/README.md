@@ -40,19 +40,23 @@ DSH × Blender 把 DeepSeek Harness 接到 Blender，让 AI 能在真实 Blender
 - addon 兼容性：随包 addon 是唯一需要、也是唯一支持的 agent 桥。其他 addon 与之不冲突；旧的 `MCP for Blender` / `blender_mcp` 冲突（同占 127.0.0.1:9876），停用即可，不必卸载。
 - 可选：如果你想重新构建插件，需要 DSH 源码 checkout。
 
-### 方案 A：从 npm 安装（普通用户）
+### 方案 A：从 npm 安装
 
-这是普通用户的支持路径，不需要 `git clone`、`npm ci` 或 `npm run build`。
+这是支持的安装方式，不需要 `git clone`、`npm ci` 或 `npm run build`。
 
 1. **先安装随包 addon。** 从 [最新 GitHub Release](https://github.com/sixtysevenlf/dsh-blender-plugin/releases/latest) 下载 `dsh_blender_bridge.zip`；在 Blender 中打开 `Edit > Preferences > Add-ons > Install`，选择 zip，启用 **DSH Blender Bridge**，在 3D 视图按 `N` 打开面板，点 **Connect**。
 
-2. **从 npm 安装 DSH 插件。** 使用你实际运行的 profile：
+2. **从 npm 安装 DSH 插件。** 按你使用的 DSH 宿主选择：
 
-        dsh plugin --profile <profile> add dsh-blender-plugin@3.0.0
+   - **DSH Web / DSH TUI：** 使用你实际运行的 profile：
 
-   如果使用 DSH Desktop，也可以在 Plugins 页面安装 bundle `dsh-blender-plugin@3.0.0`。
+         dsh plugin --profile <profile> add dsh-blender-plugin@3.0.0
 
-3. **重启 DSH**。
+     装完后按第 3 步重启 DSH。
+
+   - **DSH Desktop：** 打开 Plugins 页面，安装 bundle `dsh-blender-plugin@3.0.0`。DSH Desktop 通过 Plugins 页面安装后不需要重启 DSH。
+
+3. **重启 DSH（仅 DSH Web / DSH TUI）。** 从 DSH Desktop 的 Plugins 页面安装的用户跳过这一步。
 
 4. **验证安装。** GUI 路线的唯一验收判据是 `doctor` 返回 `kind` 等于 `ok`：
 
@@ -86,7 +90,7 @@ addon 仍然是唯一支持的 Blender 侧 agent 桥。其他占用 9876 端口�
 
     curl -fsSL https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/skills/blender-modeling/install.sh | bash
 
-### 方案 C：从源码手动安装（开发者）
+### 方案 C：从源码构建（开发者）
 
 1. **先安装随包 addon。**
 
@@ -94,7 +98,7 @@ addon 仍然是唯一支持的 Blender 侧 agent 桥。其他占用 9876 端口�
 
    只能用这个 addon 作为 agent 桥。若已启用 `MCP for Blender` / `blender_mcp`（或其他自带 9876 服务的 addon），停用它即可，不必卸载；其他 addon 可以留着。如果后面的安装用不了，先回来检查这一步。
 
-2. **开发者路径：** 克隆仓库并构建。lib/ 是构建产物，不再入库，所以新 clone 必须先构建一次；普通用户请使用上面的 npm 安装。
+2. **开发者路径：** 克隆仓库并构建。lib/ 是构建产物，不再入库，所以新 clone 必须先构建一次；除非你在开发这个插件，否则请使用上面的 npm 安装。
 
         git clone https://github.com/sixtysevenlf/dsh-blender-plugin.git
         cd dsh-blender-plugin
