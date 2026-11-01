@@ -1,4 +1,4 @@
-# CHANGELOG — @dsh-external/dsh-blender-plugin
+# CHANGELOG — dsh-blender-plugin
 
 ## v3.0.0（2026-11-01）—— 工程健康化重构（breaking：addon 改 zip 包）
 
@@ -7,6 +7,7 @@
 
 ### Breaking changes
 
+- **npm 包名改为 `dsh-blender-plugin`**：此前仓库内使用的 `@dsh-external/dsh-blender-plugin` 未被发布到 npm；v3.0.0 起 npm 包名统一为 `dsh-blender-plugin`，安装命令为 `dsh plugin --profile <profile> add dsh-blender-plugin@3.0.0`。旧 CHANGELOG 条目中的 `@dsh-external/...` 是历史名称。
 - **addon 安装方式改为 zip 包**：发布物是 addon/dsh_blender_bridge.zip（包内 __init__.py、bl_info v1.11、protocol 11）；旧的单文件 addon/dsh_blender_bridge.py 不再随包发布，也不再是安装入口。升级时必须先在 Blender Preferences 里停用并移除旧单文件，再安装 zip、启用、N 面板 Connect。
 - **Premium / Tripo 生成通道移除**：删除 Premium 许可、额度、Supabase 客户端与 Tripo 开关；Hyper3D 与 Hunyuan3D 只保留自有 API key 通道。Tripo 无 BYOK 通道，因此整条命令与面板入口一并删除（addon command 39 → 38）。
 - **lib/ 不再入库**：源码运行时由 runtime/**/*.ts strict 编译到 lib/runtime/**/*.js；从 git 使用先 npm ci --legacy-peer-deps && npm run build，prepack 会自动构建。npm 安装包仍自带 lib/。

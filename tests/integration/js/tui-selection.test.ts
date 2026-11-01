@@ -149,7 +149,7 @@ function loadClientSelftest(): any {
     console,
   }
   vm.runInNewContext(code, sandbox)
-  expect(entry && entry.id).toBe('@dsh-external/dsh-blender-plugin')
+  expect(entry && entry.id).toBe('dsh-blender-plugin')
   const reactStub = new Proxy({}, { get: () => () => null })
   return entry.factory((id: string) => {
     if (id === 'react') return reactStub

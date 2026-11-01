@@ -6,7 +6,7 @@ license: MIT（融合自 RobLe3/cc-blender-skill 与 arjun988/blender-skills，�
 
 # Blender 建模流程
 
-> **v2.6 · 2026-10-28**：配套插件 @dsh-external/dsh-blender-plugin v2.6.2，15 个模型工具，plan 通道 34 个 family / 228 个 op。**默认 GUI 优先**：先开 GUI Blender + Connect；无头是备用路径（GUI 不可用/批处理/长活），但无头也能 rt_see，同样能“改一步、同步看一步”。
+> **v2.6 · 2026-10-28**：配套插件 dsh-blender-plugin v2.6.2，15 个模型工具，plan 通道 34 个 family / 228 个 op。**默认 GUI 优先**：先开 GUI Blender + Connect；无头是备用路径（GUI 不可用/批处理/长活），但无头也能 rt_see，同样能“改一步、同步看一步”。
 > 旧版按 v2/v3/v7 记录的“哪段是哪次实测加的”不再写在正文；需要追溯看 CHANGELOG。下面只写**当前有效口径**。
 
 先定形状，再走流程，改一步看一眼。**不要一口气写完整个模型再回来看**——每一步都要有画面或数字证据。

@@ -73,8 +73,5 @@ function buildJobTool(port: number) {
 }
 
 export function registerJob(ctx: HostContext, port: number): void {
-  ctx.effect(
-    () => ctx.tools.register(buildJobTool(port)),
-    '@dsh-external/dsh-blender-plugin: rt-job',
-  )
+  ctx.effect(() => ctx.tools.register(buildJobTool(port)), 'dsh-blender-plugin: rt-job')
 }

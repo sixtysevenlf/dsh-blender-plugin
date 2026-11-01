@@ -82,17 +82,17 @@ Install the standalone modeling skill (only needed for hosts that do not load th
 
 3. Add the package to your DSH profile as a bundle. Link the checkout into the profile, then add the dependency and bundle entry to the profile package.json.
 
-        ln -s /absolute/path/to/dsh-blender-plugin <profile>/node_modules/@dsh-external/dsh-blender-plugin
+        ln -s /absolute/path/to/dsh-blender-plugin <profile>/node_modules/dsh-blender-plugin
 
     Profile package.json:
 
         {
           "dependencies": {
-            "@dsh-external/dsh-blender-plugin": "link:/absolute/path/to/dsh-blender-plugin"
+            "dsh-blender-plugin": "link:/absolute/path/to/dsh-blender-plugin"
           },
           "dsh": {
             "profile": {
-              "bundles": ["@dsh-external/dsh-blender-plugin"]
+              "bundles": ["dsh-blender-plugin"]
             }
           }
         }

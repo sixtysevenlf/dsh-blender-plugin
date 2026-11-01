@@ -56,6 +56,6 @@ export function registerOpt(ctx: HostContext, port: number): void {
           },
         }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-opt',
+    'dsh-blender-plugin: rt-opt',
   )
 }

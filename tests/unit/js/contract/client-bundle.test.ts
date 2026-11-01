@@ -4,7 +4,7 @@ import vm from 'node:vm'
 import { pkgPath } from '../../../helpers/pkg'
 
 const source = fs.readFileSync(pkgPath('lib', 'client.js'), 'utf8')
-const EXTERNAL_ID = '@dsh-external/dsh-blender-plugin'
+const EXTERNAL_ID = 'dsh-blender-plugin'
 
 function loadBundle() {
   let registration: any = null

@@ -84,7 +84,7 @@ v2.3 的原生选中 / 集合 / activity 依赖本仓 addon 的 5 条命令与 N
 ### 7.1 卸载 v3.0.0
 
 1. Blender：`Edit ▸ Preferences ▸ Add-ons` → 停用 **DSH Blender Bridge** → 移除；如残留包目录，删除 `scripts/addons/dsh_blender_bridge/`（或你的 Blender 用户 addons 路径下的同名目录）。
-2. DSH：从 profile 的 `node_modules/@dsh-external/dsh-blender-plugin` 卸载插件包（或从 profile bundle 列表移除）→ **重启 DSH**；随包注册的 blender-modeling skill 会随插件移除，不需要手删用户技能目录。
+2. DSH：从 profile 的 `node_modules/dsh-blender-plugin` 卸载插件包（或从 profile bundle 列表移除）→ **重启 DSH**；随包注册的 blender-modeling skill 会随插件移除，不需要手删用户技能目录。
 3. 旧单文件 `dsh_blender_bridge.py`（v2.6.1 及以前）在升级时就必须停用并移除；v3.0.0 不会再加载它。
 
 ### 7.2 回滚到 v2.6.2

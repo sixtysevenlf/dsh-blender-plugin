@@ -79,17 +79,17 @@ DSH × Blender 把 DeepSeek Harness 接到 Blender，让 AI 能在真实 Blender
 
 3. 把插件加入 DSH profile。先把 checkout 软链到 profile，再在 profile 的 package.json 里加依赖和 bundle 条目。
 
-        ln -s /absolute/path/to/dsh-blender-plugin <profile>/node_modules/@dsh-external/dsh-blender-plugin
+        ln -s /absolute/path/to/dsh-blender-plugin <profile>/node_modules/dsh-blender-plugin
 
     profile 的 package.json：
 
         {
           "dependencies": {
-            "@dsh-external/dsh-blender-plugin": "link:/absolute/path/to/dsh-blender-plugin"
+            "dsh-blender-plugin": "link:/absolute/path/to/dsh-blender-plugin"
           },
           "dsh": {
             "profile": {
-              "bundles": ["@dsh-external/dsh-blender-plugin"]
+              "bundles": ["dsh-blender-plugin"]
             }
           }
         }

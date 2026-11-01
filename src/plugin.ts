@@ -1,5 +1,5 @@
 /**
- * @dsh-external/dsh-blender-plugin —— host 侧生命周期与工具面装配。
+ * dsh-blender-plugin —— host 侧生命周期与工具面装配。
  *
  * 这里只做装配：配置 schema / 看护 / 15 个工具注册 / 测试接缝。
  * 具体实现按层拆在 contracts/ host/ tools/ plan/ headless/ utils/ ui/。
@@ -32,7 +32,7 @@ import {
 import { CARD_SPECS, cardPresenters } from './ui/cards.js'
 import type { HostContext } from './host/context.js'
 
-export const name = '@dsh-external/dsh-blender-plugin'
+export const name = 'dsh-blender-plugin'
 export const inject = ['tools']
 
 export interface Config {

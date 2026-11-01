@@ -76,6 +76,6 @@ export function registerCmd(ctx: HostContext, port: number): void {
           },
         }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-cmd',
+    'dsh-blender-plugin: rt-cmd',
   )
 }

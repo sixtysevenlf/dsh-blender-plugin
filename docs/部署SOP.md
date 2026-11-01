@@ -42,7 +42,7 @@ ls lib/index.js        # ← 先构建，有这个文件才可用（本仓库不
 npm ci --legacy-peer-deps && npm run build
 ~~~
 
-然后按 bundle 方式装进 profile：`node_modules/@dsh-external/dsh-blender-plugin` 建软链 →
+然后按 bundle 方式装进 profile：`node_modules/dsh-blender-plugin` 建软链 →
 profile 的 `package.json` 里 `dependencies`（`link:`）+ `dsh.profile.bundles` 各加一行 →
 `dsh --profile <profile> --dump-config` 预演 → 重启 DSH。
 

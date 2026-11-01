@@ -1,6 +1,6 @@
 # blender-modeling（随插件捆绑）
 
-> **这份 skill 已经并进插件仓库**（`@dsh-external/dsh-blender-plugin` 的 `skills/blender-modeling/`），
+> **这份 skill 已经并进插件仓库**（`dsh-blender-plugin` 的 `skills/blender-modeling/`），
 > 从 **v2.2.0** 起由插件在 DSH 启动时**自动注册为 bundled skill** —— 装插件就自带，
 > **不需要**再单独 clone / 下载 / 软链。
 
@@ -18,7 +18,7 @@
 
 ```bash
 # 找到本包安装位置（示例：DSH profile 的 node_modules）
-PLUGIN="$(dirname "$(node -e "console.log(require.resolve('@dsh-external/dsh-blender-plugin/package.json'))")")"
+PLUGIN="$(dirname "$(node -e "console.log(require.resolve('dsh-blender-plugin/package.json'))")")"
 mkdir -p ~/.dsh/skills
 ln -s "$PLUGIN/skills/blender-modeling" ~/.dsh/skills/blender-modeling   # 或者 cp -r
 ```

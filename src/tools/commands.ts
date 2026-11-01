@@ -67,6 +67,6 @@ export function registerCommands(ctx: HostContext, port: number): void {
           },
         }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-commands',
+    'dsh-blender-plugin: rt-commands',
   )
 }

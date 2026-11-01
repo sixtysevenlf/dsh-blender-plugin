@@ -64,6 +64,6 @@ export function registerLoop(ctx: HostContext, port: number): void {
           },
         }),
       ),
-    '@dsh-external/dsh-blender-plugin: rt-loop',
+    'dsh-blender-plugin: rt-loop',
   )
 }
