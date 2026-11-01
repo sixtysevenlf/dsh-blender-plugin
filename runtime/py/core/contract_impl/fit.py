@@ -132,6 +132,204 @@ def _severity(depth_mm, frac):
     return "high" if hi else ("medium" if med else "low")
 
 
+def _c_interference_report_p1(st):
+    depth_eps, include_hidden, limit, scope = st["depth_eps"], st["include_hidden"], st["limit"], st["scope"]
+    try:
+        import numpy as np
+        t0 = time.perf_counter()
+        objs = _scope_objects(scope, include_hidden)
+        if not objs:
+            return _j({"ok": False, "error": "scope 里没有可见网格对象（空产出 → 不静默成功）",
+                       "scope": scope, "include_hidden": bool(include_hidden)})
+        m_per_unit, mm_per_unit = _units()
+        ub = _units_block(m_per_unit, mm_per_unit)
+        eps_mm = float(depth_eps) if depth_eps is not None else MATE_DEPTH_EPS_MM
+        side, dpairs, comp_of = _declared_index()
+        cand = _aabb_pairs(objs)
+        tested = cand[:max(0, int(limit))]
+        cache = {}
+
+        def MD(ob):
+            if ob.name not in cache:
+                cache[ob.name] = _mesh_data([ob])
+            return cache[ob.name]
+
+        def gkey(name):
+            if name in comp_of:
+                return "comp:" + comp_of[name][0]
+            ob = bpy.data.objects.get(name)
+            if ob is not None and ob.parent is not None:
+                return "parent:" + ob.parent.name
+            return "self:" + name
+
+        offenders, exempted, skipped = [], [], []
+        checked = overlapping = 0
+        t1 = time.perf_counter()
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+def _c_interference_report_p2(st):
+    MD, checked, declared_ok, dpairs, eps_mm = (
+        st.get("MD"), st.get("checked"), st["declared_ok"], st.get("dpairs"), st.get("eps_mm"))
+    exempted, mm_per_unit, np, objs, offenders = (
+        st.get("exempted"), st.get("mm_per_unit"), st.get("np"), st.get("objs"), st.get("offenders"))
+    overlapping, samples, side, skipped, tested = (
+        st.get("overlapping"), st["samples"], st.get("side"), st.get("skipped"), st.get("tested"))
+    use_bvh = st["use_bvh"]
+    DA, DB, PA, PB, closed, dby, declared, dep, depth_max, depth_mean, depth_mm, depth_ok, dir_used, frac, frac_proxy, how, i, inA, inB, inside_frac, j, ma, mb, n, oa, ob_, ovr, rec, score, sev, ta, tb, tri_hit = (st.get("DA"), st.get("DB"), st.get("PA"), st.get("PB"), st.get("closed"), st.get("dby"), st.get("declared"), st.get("dep"), st.get("depth_max"), st.get("depth_mean"), st.get("depth_mm"), st.get("depth_ok"), st.get("dir_used"), st.get("frac"), st.get("frac_proxy"), st.get("how"), st.get("i"), st.get("inA"), st.get("inB"), st.get("inside_frac"), st.get("j"), st.get("ma"), st.get("mb"), st.get("n"), st.get("oa"), st.get("ob_"), st.get("ovr"), st.get("rec"), st.get("score"), st.get("sev"), st.get("ta"), st.get("tb"), st.get("tri_hit"))
+    try:
+        for (i, j) in tested:
+            oa, ob_ = objs[i], objs[j]
+            ma, mb = MD(oa), MD(ob_)
+            if not ma or not mb or ma["tris_n"] == 0 or mb["tris_n"] == 0:
+                skipped.append({"a": oa.name, "b": ob_.name, "why": "一端没有三角面"})
+                continue
+            if MATE_MAX_TRIS > 0 and (ma["tris_n"] > MATE_MAX_TRIS or mb["tris_n"] > MATE_MAX_TRIS):
+                skipped.append({"a": oa.name, "b": ob_.name, "why": "网格过大（> %d 面）不判" % MATE_MAX_TRIS})
+                continue
+            checked += 1
+            tri_hit = None
+            if use_bvh:
+                ta, tb = _bvh(ma["tris"]), _bvh(mb["tris"])
+                try:
+                    tri_hit = bool(ta.overlap(tb)) if (ta is not None and tb is not None) else None
+                except Exception as e:
+                    tri_hit = None
+                    skipped.append({"a": oa.name, "b": ob_.name, "why": "BVH overlap 失败: %s（按 AABB 候选继续）" % e})
+                if tri_hit is False:
+                    continue
+            overlapping += 1
+            # --- 穿透深度 ---
+            n = int(max(16, min(int(samples), CONTACT_SAMPLE_CAP)))
+            PA = _sample_surface(ma["tris"], n)
+            PB = _sample_surface(mb["tris"], n)
+            if PA is None or PB is None:
+                skipped.append({"a": oa.name, "b": ob_.name, "why": "零面积网格，采样失败"})
+                continue
+            closed = bool(ma["closed"] and mb["closed"])
+            if INSIDE_MAX_TRIS <= 0 or (
+                ma["tris_n"] <= INSIDE_MAX_TRIS and mb["tris_n"] <= INSIDE_MAX_TRIS
+            ):
+                inB = _inside_mask(PA, mb["tris"])
+                inA = _inside_mask(PB, ma["tris"])
+                if use_bvh:
+                    _q, _nn, DA = _nearest(_bvh(mb["tris"]), PA)
+                    _q2, _nn2, DB = _nearest(_bvh(ma["tris"]), PB)
+                    how = "BVH 最近点距离 + 射线奇偶内外"
+                else:
+                    DA = _pt_tri_dist(PA, mb["tris"])
+                    DB = _pt_tri_dist(PB, ma["tris"])
+                    how = "纯 numpy 点-三角面最近距离 + 射线奇偶内外（use_bvh=false）"
+                dep = np.concatenate([DA[inB & np.isfinite(DA)], DB[inA & np.isfinite(DB)]])
+                depth_max = float(dep.max()) if len(dep) else 0.0
+                depth_mean = float(dep.mean()) if len(dep) else 0.0
+                dir_used = "A→B" if (inB & np.isfinite(DA)).any() else ("B→A" if (inA & np.isfinite(DB)).any() else "无埋入点")
+                inside_frac = float(len(dep)) / float(len(PA) + len(PB))
+                depth_ok = True
+            else:
+                depth_max = depth_mean = None
+                inside_frac = None
+                dir_used = "skipped"
+                how = "网格超内测试上限 %d → 未判穿透" % INSIDE_MAX_TRIS
+                depth_ok = False
+            ovr = _overlap_estimate(ma["tris"], mb["tris"], ma["volume_m3"], mb["volume_m3"],
+                                    ma["closed"], mb["closed"], samples=int(max(32, min(int(samples), 4000))))
+            frac = ovr.get("frac_of_smaller") if ovr.get("reliable") else None
+            frac_proxy = frac if frac is not None else inside_frac
+            depth_mm = (depth_max * mm_per_unit) if depth_max is not None else None
+            sev = _severity(depth_mm, frac if frac is not None else inside_frac)
+            score = _r4((frac_proxy or 0.0) * 1000.0 + (depth_mm or 0.0) * 10.0)
+            dby = dpairs.get((oa.name, ob_.name), []) + dpairs.get((ob_.name, oa.name), [])
+            dby = sorted(set(dby))
+            declared = bool(dby)
+            rec = {"a": oa.name, "b": ob_.name, "declared": declared, "declared_by": dby,
+                   "declared_sides": [side.get(oa.name, []), side.get(ob_.name, [])] if declared else None,
+                   "depth_mm": _r4(depth_mm) if depth_mm is not None else None,
+                   "depth_mean_mm": _r4(depth_mean * mm_per_unit) if depth_mean is not None else None,
+                   "depth_measured": bool(depth_ok), "depth_direction": dir_used,
+                   "overlap_volume_mm3": ovr.get("overlap_volume_mm3"),
+                   "overlap_frac_of_smaller": frac,
+                   "overlap_frac_of_box": ovr.get("frac_of_box"),
+                   "overlap_stderr": ovr.get("stderr_frac"),
+                   "surface_inside_frac": _r6(inside_frac) if inside_frac is not None else None,
+                   "volume_reliable": bool(ovr.get("reliable")),
+                   "severity": sev, "severity_score": score,
+                   "aabb_tri_overlap": tri_hit, "method": how,
+                   "a_tris": ma["tris_n"], "b_tris": mb["tris_n"], "closed": closed,
+                   "volume_mm3": {"a": _r4(ma["volume_m3"] * (mm_per_unit ** 3)),
+                                  "b": _r4(mb["volume_m3"] * (mm_per_unit ** 3))}}
+            if declared and declared_ok and depth_mm is not None and depth_mm <= eps_mm:
+                rec["exempt_reason"] = ("设计内的接触：%s 是连接 %s 的两端（declared），"
+                                        "实测穿透 %.3f mm ≤ 门限 %.3f mm" % (oa.name, "/".join(dby), depth_mm, eps_mm))
+                exempted.append(rec)
+            else:
+                if declared and declared_ok and depth_mm is not None:
+                    rec["exempt_reason"] = None
+                    rec["note"] = ("declared 但穿透 %.3f mm > 门限 %.3f mm → 仍要报（计划内接触不等于可以随便穿）"
+                                   % (depth_mm, eps_mm))
+                offenders.append(rec)
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+def _c_interference_report_p3(st):
+    cand, checked, declared_ok, eps_mm, exempted = (
+        st.get("cand"), st.get("checked"), st["declared_ok"], st.get("eps_mm"), st.get("exempted"))
+    gkey, objs, offenders, overlapping, samples = (
+        st.get("gkey"), st.get("objs"), st.get("offenders"), st.get("overlapping"), st["samples"])
+    skipped, t0, t1, tested, ub = st.get("skipped"), st.get("t0"), st.get("t1"), st.get("tested"), st.get("ub")
+    use_bvh = st["use_bvh"]
+    g, k, order, r, sig = (st.get("g"), st.get("k"), st.get("order"), st.get("r"), st.get("sig"))
+    try:
+        offenders.sort(key=lambda r: (-(r.get("severity_score") or 0.0), str(r["a"]), str(r["b"])))
+        for k, r in enumerate(offenders):
+            r["rank"] = k + 1
+        groups = {}
+        for r in offenders:
+            sig = tuple(sorted([gkey(r["a"]), gkey(r["b"])]))
+            g = groups.setdefault(sig, {"group_key": list(sig), "members": [], "worst_severity": "low",
+                                        "worst_score": 0.0, "max_depth_mm": 0.0, "objects": set(),
+                                        "declared_all": True})
+            g["members"].append({"a": r["a"], "b": r["b"], "rank": r["rank"], "severity": r["severity"],
+                                 "depth_mm": r["depth_mm"], "declared": r["declared"]})
+            g["objects"].update([r["a"], r["b"]])
+            g["declared_all"] = g["declared_all"] and r["declared"]
+            order = {"low": 0, "medium": 1, "high": 2}
+            if order[r["severity"]] > order[g["worst_severity"]]:
+                g["worst_severity"] = r["severity"]
+            g["worst_score"] = max(g["worst_score"], r.get("severity_score") or 0.0)
+            g["max_depth_mm"] = max(g["max_depth_mm"], r.get("depth_mm") or 0.0)
+        gout = []
+        for sig, g in groups.items():
+            gout.append({"group_key": g["group_key"], "objects": sorted(g["objects"]),
+                         "pairs": len(g["members"]), "worst_severity": g["worst_severity"],
+                         "worst_score": _r4(g["worst_score"]), "max_depth_mm": _r4(g["max_depth_mm"]),
+                         "declared_all": g["declared_all"],
+                         "why": "同组：%s（按 同一组件 > 同一父件 > 自身 归一）" % " / ".join(g["group_key"]),
+                         "members": g["members"]})
+        gout.sort(key=lambda g: -g["worst_score"])
+        ms_total = (time.perf_counter() - t0) * 1000
+        res = {"ok": True, "objects": len(objs), "pairs_aabb": len(cand), "pairs_tested": len(tested),
+               "pairs_checked": checked, "pairs_overlapping": overlapping,
+               "units": ub, "depth_eps_mm": _r4(eps_mm), "declared_ok": bool(declared_ok),
+               "use_bvh": bool(use_bvh), "samples": int(samples),
+               "count": len(offenders), "offenders": offenders, "groups": gout,
+               "exempted_count": len(exempted), "exempted": exempted, "skipped": skipped,
+               "severity_rules": {"depth_high_mm": SEV_DEPTH_HIGH_MM, "depth_medium_mm": SEV_DEPTH_MED_MM,
+                                  "frac_high": SEV_FRAC_HIGH, "frac_medium": SEV_FRAC_MED,
+                                  "score": "体积占比×1000 + 深度mm×10（体积为主序）"},
+               "ms": {"total": round(ms_total, 1), "measure": round((time.perf_counter() - t1) * 1000, 1)},
+               "note": "老 op check_interference 未改动（返回结构不变）；本 op 只多给信息，不替代它",
+               "readonly": True}
+        if checked == 0 and cand:
+            res["warning"] = "所有 AABB 候选都被跳过（网格过大/无三角面）→ 本次没有任何可用结论，不要读成'无干涉'"
+        elif not cand:
+            res["note_clean"] = "AABB 粗筛就没有候选对 → 无干涉（这是结论，不是空产出）"
+        _log("interference_report", {"objects": len(objs), "offenders": len(offenders),
+                                     "exempted": len(exempted), "eps_mm": _r4(eps_mm)})
+        return _j(res)
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
 def c_interference_report(scope=None, use_bvh=True, limit=60, declared_ok=True,
                           depth_eps=None, include_hidden=False, samples=VOL_SAMPLES):
     """逐对干涉报告：穿透深度(mm) + 重叠体积占比 + 严重度排序 + 分组 + 设计意图白名单。
@@ -159,173 +357,11 @@ def c_interference_report(scope=None, use_bvh=True, limit=60, declared_ok=True,
 
     只读：不改场景、不改契约状态。空产出（scope 里没有可见网格）→ ok:false。
     """
-    import numpy as np
-    t0 = time.perf_counter()
-    objs = _scope_objects(scope, include_hidden)
-    if not objs:
-        return _j({"ok": False, "error": "scope 里没有可见网格对象（空产出 → 不静默成功）",
-                   "scope": scope, "include_hidden": bool(include_hidden)})
-    m_per_unit, mm_per_unit = _units()
-    ub = _units_block(m_per_unit, mm_per_unit)
-    eps_mm = float(depth_eps) if depth_eps is not None else MATE_DEPTH_EPS_MM
-    side, dpairs, comp_of = _declared_index()
-    cand = _aabb_pairs(objs)
-    tested = cand[:max(0, int(limit))]
-    cache = {}
-
-    def MD(ob):
-        if ob.name not in cache:
-            cache[ob.name] = _mesh_data([ob])
-        return cache[ob.name]
-
-    def gkey(name):
-        if name in comp_of:
-            return "comp:" + comp_of[name][0]
-        ob = bpy.data.objects.get(name)
-        if ob is not None and ob.parent is not None:
-            return "parent:" + ob.parent.name
-        return "self:" + name
-
-    offenders, exempted, skipped = [], [], []
-    checked = overlapping = 0
-    t1 = time.perf_counter()
-    for (i, j) in tested:
-        oa, ob_ = objs[i], objs[j]
-        ma, mb = MD(oa), MD(ob_)
-        if not ma or not mb or ma["tris_n"] == 0 or mb["tris_n"] == 0:
-            skipped.append({"a": oa.name, "b": ob_.name, "why": "一端没有三角面"})
-            continue
-        if MATE_MAX_TRIS > 0 and (ma["tris_n"] > MATE_MAX_TRIS or mb["tris_n"] > MATE_MAX_TRIS):
-            skipped.append({"a": oa.name, "b": ob_.name, "why": "网格过大（> %d 面）不判" % MATE_MAX_TRIS})
-            continue
-        checked += 1
-        tri_hit = None
-        if use_bvh:
-            ta, tb = _bvh(ma["tris"]), _bvh(mb["tris"])
-            try:
-                tri_hit = bool(ta.overlap(tb)) if (ta is not None and tb is not None) else None
-            except Exception as e:
-                tri_hit = None
-                skipped.append({"a": oa.name, "b": ob_.name, "why": "BVH overlap 失败: %s（按 AABB 候选继续）" % e})
-            if tri_hit is False:
-                continue
-        overlapping += 1
-        # --- 穿透深度 ---
-        n = int(max(16, min(int(samples), CONTACT_SAMPLE_CAP)))
-        PA = _sample_surface(ma["tris"], n)
-        PB = _sample_surface(mb["tris"], n)
-        if PA is None or PB is None:
-            skipped.append({"a": oa.name, "b": ob_.name, "why": "零面积网格，采样失败"})
-            continue
-        closed = bool(ma["closed"] and mb["closed"])
-        if INSIDE_MAX_TRIS <= 0 or (
-            ma["tris_n"] <= INSIDE_MAX_TRIS and mb["tris_n"] <= INSIDE_MAX_TRIS
-        ):
-            inB = _inside_mask(PA, mb["tris"])
-            inA = _inside_mask(PB, ma["tris"])
-            if use_bvh:
-                _q, _nn, DA = _nearest(_bvh(mb["tris"]), PA)
-                _q2, _nn2, DB = _nearest(_bvh(ma["tris"]), PB)
-                how = "BVH 最近点距离 + 射线奇偶内外"
-            else:
-                DA = _pt_tri_dist(PA, mb["tris"])
-                DB = _pt_tri_dist(PB, ma["tris"])
-                how = "纯 numpy 点-三角面最近距离 + 射线奇偶内外（use_bvh=false）"
-            dep = np.concatenate([DA[inB & np.isfinite(DA)], DB[inA & np.isfinite(DB)]])
-            depth_max = float(dep.max()) if len(dep) else 0.0
-            depth_mean = float(dep.mean()) if len(dep) else 0.0
-            dir_used = "A→B" if (inB & np.isfinite(DA)).any() else ("B→A" if (inA & np.isfinite(DB)).any() else "无埋入点")
-            inside_frac = float(len(dep)) / float(len(PA) + len(PB))
-            depth_ok = True
-        else:
-            depth_max = depth_mean = None
-            inside_frac = None
-            dir_used = "skipped"
-            how = "网格超内测试上限 %d → 未判穿透" % INSIDE_MAX_TRIS
-            depth_ok = False
-        ovr = _overlap_estimate(ma["tris"], mb["tris"], ma["volume_m3"], mb["volume_m3"],
-                                ma["closed"], mb["closed"], samples=int(max(32, min(int(samples), 4000))))
-        frac = ovr.get("frac_of_smaller") if ovr.get("reliable") else None
-        frac_proxy = frac if frac is not None else inside_frac
-        depth_mm = (depth_max * mm_per_unit) if depth_max is not None else None
-        sev = _severity(depth_mm, frac if frac is not None else inside_frac)
-        score = _r4((frac_proxy or 0.0) * 1000.0 + (depth_mm or 0.0) * 10.0)
-        dby = dpairs.get((oa.name, ob_.name), []) + dpairs.get((ob_.name, oa.name), [])
-        dby = sorted(set(dby))
-        declared = bool(dby)
-        rec = {"a": oa.name, "b": ob_.name, "declared": declared, "declared_by": dby,
-               "declared_sides": [side.get(oa.name, []), side.get(ob_.name, [])] if declared else None,
-               "depth_mm": _r4(depth_mm) if depth_mm is not None else None,
-               "depth_mean_mm": _r4(depth_mean * mm_per_unit) if depth_mean is not None else None,
-               "depth_measured": bool(depth_ok), "depth_direction": dir_used,
-               "overlap_volume_mm3": ovr.get("overlap_volume_mm3"),
-               "overlap_frac_of_smaller": frac,
-               "overlap_frac_of_box": ovr.get("frac_of_box"),
-               "overlap_stderr": ovr.get("stderr_frac"),
-               "surface_inside_frac": _r6(inside_frac) if inside_frac is not None else None,
-               "volume_reliable": bool(ovr.get("reliable")),
-               "severity": sev, "severity_score": score,
-               "aabb_tri_overlap": tri_hit, "method": how,
-               "a_tris": ma["tris_n"], "b_tris": mb["tris_n"], "closed": closed,
-               "volume_mm3": {"a": _r4(ma["volume_m3"] * (mm_per_unit ** 3)),
-                              "b": _r4(mb["volume_m3"] * (mm_per_unit ** 3))}}
-        if declared and declared_ok and depth_mm is not None and depth_mm <= eps_mm:
-            rec["exempt_reason"] = ("设计内的接触：%s 是连接 %s 的两端（declared），"
-                                    "实测穿透 %.3f mm ≤ 门限 %.3f mm" % (oa.name, "/".join(dby), depth_mm, eps_mm))
-            exempted.append(rec)
-        else:
-            if declared and declared_ok and depth_mm is not None:
-                rec["exempt_reason"] = None
-                rec["note"] = ("declared 但穿透 %.3f mm > 门限 %.3f mm → 仍要报（计划内接触不等于可以随便穿）"
-                               % (depth_mm, eps_mm))
-            offenders.append(rec)
-    offenders.sort(key=lambda r: (-(r.get("severity_score") or 0.0), str(r["a"]), str(r["b"])))
-    for k, r in enumerate(offenders):
-        r["rank"] = k + 1
-    groups = {}
-    for r in offenders:
-        sig = tuple(sorted([gkey(r["a"]), gkey(r["b"])]))
-        g = groups.setdefault(sig, {"group_key": list(sig), "members": [], "worst_severity": "low",
-                                    "worst_score": 0.0, "max_depth_mm": 0.0, "objects": set(),
-                                    "declared_all": True})
-        g["members"].append({"a": r["a"], "b": r["b"], "rank": r["rank"], "severity": r["severity"],
-                             "depth_mm": r["depth_mm"], "declared": r["declared"]})
-        g["objects"].update([r["a"], r["b"]])
-        g["declared_all"] = g["declared_all"] and r["declared"]
-        order = {"low": 0, "medium": 1, "high": 2}
-        if order[r["severity"]] > order[g["worst_severity"]]:
-            g["worst_severity"] = r["severity"]
-        g["worst_score"] = max(g["worst_score"], r.get("severity_score") or 0.0)
-        g["max_depth_mm"] = max(g["max_depth_mm"], r.get("depth_mm") or 0.0)
-    gout = []
-    for sig, g in groups.items():
-        gout.append({"group_key": g["group_key"], "objects": sorted(g["objects"]),
-                     "pairs": len(g["members"]), "worst_severity": g["worst_severity"],
-                     "worst_score": _r4(g["worst_score"]), "max_depth_mm": _r4(g["max_depth_mm"]),
-                     "declared_all": g["declared_all"],
-                     "why": "同组：%s（按 同一组件 > 同一父件 > 自身 归一）" % " / ".join(g["group_key"]),
-                     "members": g["members"]})
-    gout.sort(key=lambda g: -g["worst_score"])
-    ms_total = (time.perf_counter() - t0) * 1000
-    res = {"ok": True, "objects": len(objs), "pairs_aabb": len(cand), "pairs_tested": len(tested),
-           "pairs_checked": checked, "pairs_overlapping": overlapping,
-           "units": ub, "depth_eps_mm": _r4(eps_mm), "declared_ok": bool(declared_ok),
-           "use_bvh": bool(use_bvh), "samples": int(samples),
-           "count": len(offenders), "offenders": offenders, "groups": gout,
-           "exempted_count": len(exempted), "exempted": exempted, "skipped": skipped,
-           "severity_rules": {"depth_high_mm": SEV_DEPTH_HIGH_MM, "depth_medium_mm": SEV_DEPTH_MED_MM,
-                              "frac_high": SEV_FRAC_HIGH, "frac_medium": SEV_FRAC_MED,
-                              "score": "体积占比×1000 + 深度mm×10（体积为主序）"},
-           "ms": {"total": round(ms_total, 1), "measure": round((time.perf_counter() - t1) * 1000, 1)},
-           "note": "老 op check_interference 未改动（返回结构不变）；本 op 只多给信息，不替代它",
-           "readonly": True}
-    if checked == 0 and cand:
-        res["warning"] = "所有 AABB 候选都被跳过（网格过大/无三角面）→ 本次没有任何可用结论，不要读成'无干涉'"
-    elif not cand:
-        res["note_clean"] = "AABB 粗筛就没有候选对 → 无干涉（这是结论，不是空产出）"
-    _log("interference_report", {"objects": len(objs), "offenders": len(offenders),
-                                 "exempted": len(exempted), "eps_mm": _r4(eps_mm)})
-    return _j(res)
+    st = dict(locals())
+    for _fn_ in (_c_interference_report_p1, _c_interference_report_p2, _c_interference_report_p3):
+        _r = _fn_(st)
+        if _r is not None:
+            return _r
 
 
 def c_help():
