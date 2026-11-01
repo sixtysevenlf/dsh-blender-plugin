@@ -490,81 +490,77 @@ def print_report(objects=None, scope="ACTIVE", min_mm=1.0, max_angle_deg=45.0, u
                         "warnings 非空时说明悬垂的平台面判据可能判错（见 print_overhang 的 bed_caliber）")})
 
 
-def print_selftest():
-    """自检：四种形状验证"贴床面被排除、真悬垂仍被计入"（issue #14 的回归锁）。
+def _print_selftest_p1(st):
+    try:
+        import bmesh
+        P = "__dsh_print_selftest_"
+        made = []
+        ev = {}
 
-    1) 1 单位立方体：壁厚 ≈1000mm；贴床底面 1e6 mm² 必须被排除 → 净悬垂 = 0、ok = true。
-       老口径（exclude_bed=False）必须复现 v1.0.4 的数字（1e6 / 0.1667 / ok=false）—— 这就是 issue #14。
-    2) 底板 + 悬臂：贴床面 4e6、悬臂底面（离台 500mm）必须仍计入悬垂 1e6。
-    3) 平底面下 0.5mm 有碎块（报告人的形状，在 bed_band_mm 内）：flat 认平底面为平台（碎块计入并给
-       bed_warning）；min 把平台压到碎块那层 → 平底面反被判悬垂（复现旧口径的失效形状）。
-    4) 蘑菇件（细柱 + 200mm 宽帽）：帽底 40000mm² 是**大悬垂不是平台面** —— flat 若把它当平台面就会
-       整块吞掉真实悬垂、让 ok 假绿；必须由 bed_band_mm 退回 min 口径（bed_mode=min-fallback）。
-    """
-    import bmesh
-    P = "__dsh_print_selftest_"
-    made = []
-    ev = {}
+        def box(name, size, loc=(0.0, 0.0, 0.0)):
+            """size = 全尺寸；loc 直接烘进顶点（不靠对象变换，免 matrix_world 未刷新的坑）。"""
+            m = bpy.data.meshes.new(name)
+            o = bpy.data.objects.new(name, m)
+            bpy.context.scene.collection.objects.link(o)
+            bm = bmesh.new()
+            bmesh.ops.create_cube(bm, size=1.0)
+            bmesh.ops.scale(bm, vec=Vector(size), verts=list(bm.verts))
+            bmesh.ops.translate(bm, verts=list(bm.verts), vec=Vector(loc))
+            bm.to_mesh(m)
+            bm.free()
+            made.append((o, m))
+            return o
 
-    def box(name, size, loc=(0.0, 0.0, 0.0)):
-        """size = 全尺寸；loc 直接烘进顶点（不靠对象变换，免 matrix_world 未刷新的坑）。"""
-        m = bpy.data.meshes.new(name)
-        o = bpy.data.objects.new(name, m)
-        bpy.context.scene.collection.objects.link(o)
-        bm = bmesh.new()
-        bmesh.ops.create_cube(bm, size=1.0)
-        bmesh.ops.scale(bm, vec=Vector(size), verts=list(bm.verts))
-        bmesh.ops.translate(bm, verts=list(bm.verts), vec=Vector(loc))
-        bm.to_mesh(m)
-        bm.free()
-        made.append((o, m))
-        return o
+        def two_box(name, size_a, loc_a, size_b, loc_b):
+            """两个盒子塞进**同一个 mesh**（一件里同时有贴床面与真悬垂 ⇒ 用来锁 overhang_ratio 的分母）。"""
+            m = bpy.data.meshes.new(name)
+            o = bpy.data.objects.new(name, m)
+            bpy.context.scene.collection.objects.link(o)
+            bm = bmesh.new()
+            bmesh.ops.create_cube(bm, size=1.0)
+            bmesh.ops.scale(bm, vec=Vector(size_a), verts=list(bm.verts))
+            bmesh.ops.translate(bm, verts=list(bm.verts), vec=Vector(loc_a))
+            r = bmesh.ops.create_cube(bm, size=1.0)
+            vs = list(r["verts"])
+            bmesh.ops.scale(bm, vec=Vector(size_b), verts=vs)
+            bmesh.ops.translate(bm, verts=vs, vec=Vector(loc_b))
+            bm.to_mesh(m)
+            bm.free()
+            made.append((o, m))
+            return o
 
-    def two_box(name, size_a, loc_a, size_b, loc_b):
-        """两个盒子塞进**同一个 mesh**（一件里同时有贴床面与真悬垂 ⇒ 用来锁 overhang_ratio 的分母）。"""
-        m = bpy.data.meshes.new(name)
-        o = bpy.data.objects.new(name, m)
-        bpy.context.scene.collection.objects.link(o)
-        bm = bmesh.new()
-        bmesh.ops.create_cube(bm, size=1.0)
-        bmesh.ops.scale(bm, vec=Vector(size_a), verts=list(bm.verts))
-        bmesh.ops.translate(bm, verts=list(bm.verts), vec=Vector(loc_a))
-        r = bmesh.ops.create_cube(bm, size=1.0)
-        vs = list(r["verts"])
-        bmesh.ops.scale(bm, vec=Vector(size_b), verts=vs)
-        bmesh.ops.translate(bm, verts=vs, vec=Vector(loc_b))
-        bm.to_mesh(m)
-        bm.free()
-        made.append((o, m))
-        return o
+        def tilt_face(name, size, loc, tilt_deg):
+            """薄片绕**其底面面心**倾斜 tilt_deg ⇒ 面心仍落在原标高，但法线不再朝正下方。
 
-    def tilt_face(name, size, loc, tilt_deg):
-        """薄片绕**其底面面心**倾斜 tilt_deg ⇒ 面心仍落在原标高，但法线不再朝正下方。
+            用途：锁 bed_horiz_deg —— 若实现忘了「必须水平才算贴床面」，这个面会被误当贴床面排除。
+            """
+            m = bpy.data.meshes.new(name)
+            o = bpy.data.objects.new(name, m)
+            bpy.context.scene.collection.objects.link(o)
+            bm = bmesh.new()
+            bmesh.ops.create_cube(bm, size=1.0)
+            bmesh.ops.scale(bm, vec=Vector(size), verts=list(bm.verts))
+            cent = Vector((0.0, 0.0, -size[2] / 2.0))          # 底面面心（缩放后）
+            bmesh.ops.rotate(bm, cent=cent, verts=list(bm.verts),
+                             matrix=mathutils.Matrix.Rotation(math.radians(tilt_deg), 3, "Y"))
+            bmesh.ops.translate(bm, verts=list(bm.verts),
+                                vec=Vector((loc[0], loc[1], loc[2] + size[2] / 2.0)))
+            bm.to_mesh(m)
+            bm.free()
+            made.append((o, m))
+            return o
 
-        用途：锁 bed_horiz_deg —— 若实现忘了「必须水平才算贴床面」，这个面会被误当贴床面排除。
-        """
-        m = bpy.data.meshes.new(name)
-        o = bpy.data.objects.new(name, m)
-        bpy.context.scene.collection.objects.link(o)
-        bm = bmesh.new()
-        bmesh.ops.create_cube(bm, size=1.0)
-        bmesh.ops.scale(bm, vec=Vector(size), verts=list(bm.verts))
-        cent = Vector((0.0, 0.0, -size[2] / 2.0))          # 底面面心（缩放后）
-        bmesh.ops.rotate(bm, cent=cent, verts=list(bm.verts),
-                         matrix=mathutils.Matrix.Rotation(math.radians(tilt_deg), 3, "Y"))
-        bmesh.ops.translate(bm, verts=list(bm.verts),
-                            vec=Vector((loc[0], loc[1], loc[2] + size[2] / 2.0)))
-        bm.to_mesh(m)
-        bm.free()
-        made.append((o, m))
-        return o
+        def near(a, b, eps=4.0):
+            return a is not None and abs(float(a) - float(b)) <= eps
 
-    def near(a, b, eps=4.0):
-        return a is not None and abs(float(a) - float(b)) <= eps
+        def ov(names, **kw):
+            return json.loads(print_overhang(objects=names, max_angle_deg=45.0, **kw))
 
-    def ov(names, **kw):
-        return json.loads(print_overhang(objects=names, max_angle_deg=45.0, **kw))
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
 
+def _print_selftest_p2a(st):
+    P, box, ev, near, ov = st["P"], st["box"], st["ev"], st["near"], st["ov"]
     try:
         fails = []
         # ── 1) 平底立方体：贴床面不得计入悬垂（issue #14 的核心） ──
@@ -630,6 +626,13 @@ def print_selftest():
 
         # ── 4) 蘑菇件（细柱 + 宽帽）：帽底 40000mm² 是大悬垂、**不是**平台面 ──
         # 没有 bed_band_mm 这道防线时，flat 会把帽底当平台面 ⇒ 整块真实悬垂被吞、ok 假绿（实测过）。
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+def _print_selftest_p2b(st):
+    P, box, ev, fails, near = st["P"], st["box"], st["ev"], st["fails"], st["near"]
+    ov, tilt_face, two_box = st["ov"], st["tilt_face"], st["two_box"]
+    try:
         stalk = box(P + "stalk", (0.02, 0.02, 0.02), (0.0, 0.0, 0.01))   # 20mm 柱，z ∈ [0, 20]mm
         cap = box(P + "cap", (0.2, 0.2, 0.02), (0.0, 0.0, 0.03))         # 200mm 帽，z ∈ [20, 40]mm
         mush = ov([stalk.name, cap.name])
@@ -703,10 +706,32 @@ def print_selftest():
                               "cap_overhang_mm2": 4e4, "facet_overhang_mm2": 0.16,
                               "tee_overhang_ratio": 0.0625, "aniso_bed_mm2": 2e6,
                               "tolerance_mm2": 4.0}})
-    except Exception as e:
-        return _j({"ok": False, "evidence": ev, "error": "%s: %s" % (type(e).__name__, str(e)[:200])})
     finally:
-        for o, m in made:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+def print_selftest():
+    """自检：四种形状验证"贴床面被排除、真悬垂仍被计入"（issue #14 的回归锁）。
+
+    1) 1 单位立方体：壁厚 ≈1000mm；贴床底面 1e6 mm² 必须被排除 → 净悬垂 = 0、ok = true。
+       老口径（exclude_bed=False）必须复现 v1.0.4 的数字（1e6 / 0.1667 / ok=false）—— 这就是 issue #14。
+    2) 底板 + 悬臂：贴床面 4e6、悬臂底面（离台 500mm）必须仍计入悬垂 1e6。
+    3) 平底面下 0.5mm 有碎块（报告人的形状，在 bed_band_mm 内）：flat 认平底面为平台（碎块计入并给
+       bed_warning）；min 把平台压到碎块那层 → 平底面反被判悬垂（复现旧口径的失效形状）。
+    4) 蘑菇件（细柱 + 200mm 宽帽）：帽底 40000mm² 是**大悬垂不是平台面** —— flat 若把它当平台面就会
+       整块吞掉真实悬垂、让 ok 假绿；必须由 bed_band_mm 退回 min 口径（bed_mode=min-fallback）。
+    """
+    st = dict(locals())
+    _print_selftest_p1(st)
+    try:
+        for _fn_ in (_print_selftest_p2a, _print_selftest_p2b):
+            _r = _fn_(st)
+            if _r is not None:
+                return _r
+    except Exception as e:
+        return _j({"ok": False, "evidence": st.get("ev"),
+                   "error": "%s: %s" % (type(e).__name__, str(e)[:200])})
+    finally:
+        for o, m in (st.get("made") or []):
             try:
                 bpy.data.objects.remove(o, do_unlink=True)
             except Exception:
@@ -715,6 +740,7 @@ def print_selftest():
                 bpy.data.meshes.remove(m, do_unlink=True)
             except Exception:
                 pass
+
 
 
 def print_help():

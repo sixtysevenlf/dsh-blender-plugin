@@ -29,14 +29,6 @@
       "expires": "2026-12-31"
     },
     {
-      "file": "runtime/py/assembly/assembly_impl/gate.py",
-      "name": "asm_gate",
-      "lines": 225,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
       "file": "runtime/py/assembly/assembly_impl/manifest.py",
       "name": "_manifest_validate",
       "lines": 193,
@@ -56,14 +48,6 @@
       "file": "runtime/py/assembly/assembly_impl/merge.py",
       "name": "asm_merge",
       "lines": 212,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/assembly/assembly_impl/scan.py",
-      "name": "_scan_core",
-      "lines": 231,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"
@@ -125,14 +109,6 @@
       "expires": "2026-12-31"
     },
     {
-      "file": "runtime/py/core/motion_impl/infer.py",
-      "name": "motion_infer_axis",
-      "lines": 246,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
       "file": "runtime/py/core/motion_impl/measure.py",
       "name": "_measure_one",
       "lines": 168,
@@ -152,14 +128,6 @@
       "file": "runtime/py/core/motion_impl/usda.py",
       "name": "motion_export_usda",
       "lines": 173,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/export/printcheck.py",
-      "name": "print_selftest",
-      "lines": 225,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"
@@ -192,14 +160,6 @@
       "file": "runtime/py/render/imgtools_impl/api.py",
       "name": "img_calib",
       "lines": 177,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/render/visualreport_impl/api.py",
-      "name": "visualreport_report",
-      "lines": 227,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"

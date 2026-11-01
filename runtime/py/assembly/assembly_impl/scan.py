@@ -392,237 +392,289 @@ def _contract_deep(names, include_hidden, depth_eps_mm, max_pairs):
 
 
 # ────────────────────────────── scan 核心 ──────────────────────────────
+def _scan_core_p1(st):
+    depth_eps_mm, include_hidden, limit, manifest, max_pairs = (
+        st["depth_eps_mm"], st["include_hidden"], st["limit"], st["manifest"], st["max_pairs"])
+    md, names, objs, report_gap_mm, spec = (
+        st.get("md"), st.get("names"), st["objs"], st["report_gap_mm"], st["spec"])
+    use_contract = st["use_contract"]
+    deep, derr, i, j = (st.get("deep"), st.get("derr"), st.get("i"), st.get("j"))
+    try:
+        t0 = time.perf_counter()
+        mmu = float(_KIT.units())
+        scale = max(mmu, 1e-9)
+        names = [str(n) for n in names]
+        md_errors = {}
+        if md is None:
+            md, md_errors = _mesh_map(objs)
+        names = [n for n in names if n in md]
+        n = len(names)
+        if n == 0:
+            return {"ok": False, "error": "没有可扫描的求值网格（0 个对象有三角面）—— 空产出不静默成功",
+                    "md_errors": md_errors}
+        esp = _effective_spec(manifest, spec)
+        allow_list = esp["allow"]
+        obj_part = _obj_part_map(manifest, names)
+        mn = np.array([md[nm]["aabb"][0] for nm in names], dtype=np.float64)
+        mx = np.array([md[nm]["aabb"][1] for nm in names], dtype=np.float64)
+        eps = 1e-9 * max(1.0, float(np.abs(np.concatenate([mn, mx])).max()))
+        lo = np.maximum(mn[:, None, :], mn[None, :, :])
+        hi = np.minimum(mx[:, None, :], mx[None, :, :])
+        inter = hi - lo
+        # 相贴（inter==0，如零厚度面片切件）也必须进候选：用 -eps 而不是 >0，否则 plane 切立方体会被当成"近对"
+        aabb_overlap = (inter >= -eps).all(axis=2)
+        np.fill_diagonal(aabb_overlap, False)
+        gap_vec = np.maximum(0.0, np.maximum(mn[:, None, :] - mx[None, :, :], mn[None, :, :] - mx[:, None, :]))
+        gap = np.sqrt((gap_vec ** 2).sum(axis=2))
+        np.fill_diagonal(gap, np.inf)
+        contain = ((mn[:, None, :] >= mn[None, :, :] - eps) & (mx[:, None, :] <= mx[None, :, :] + eps)).all(axis=2)
+        np.fill_diagonal(contain, False)
+        same_box = (((np.abs(mn[:, None, :] - mn[None, :, :]) <= eps).all(axis=2)) &
+                    ((np.abs(mx[:, None, :] - mx[None, :, :]) <= eps).all(axis=2)))
+        contain = contain & ~same_box
+        inter_vol = np.prod(np.maximum(inter, 0.0), axis=2)
+
+        cands, near = [], []
+        for i in range(n):
+            for j in range(i + 1, n):
+                if aabb_overlap[i, j]:
+                    cands.append((i, j))
+                elif gap[i, j] <= float(report_gap_mm) / scale:
+                    near.append((i, j))
+
+        def _ckey(ij):
+            i, j = ij
+            cont = 1 if bool(contain[i, j] or contain[j, i]) else 0
+            return (-cont, -float(inter_vol[i, j]), float(gap[i, j]), names[i], names[j])
+
+        cands.sort(key=_ckey)
+        near.sort(key=lambda ij: (float(gap[ij]), names[ij[0]], names[ij[1]]))
+        total_avail = len(cands) + len(near)
+        cap = int(max_pairs) if int(max_pairs) > 0 else total_avail
+        if int(limit) > 0:
+            cap = min(cap, int(limit))
+        tested_c = cands[:cap]
+        tested_n = near[:max(0, cap - len(tested_c))]
+        truncated = (len(tested_c) + len(tested_n)) < total_avail
+
+        deep_map, contract_meta = None, {"used": False, "reason": None}
+        if use_contract and cands:
+            deep, derr = _contract_deep(names, include_hidden, depth_eps_mm, max_pairs)
+            if deep is not None:
+                deep_map = deep["pairs"]
+                contract_meta = deep["meta"]
+            else:
+                contract_meta = {"used": False, "reason": str(derr)[:240]}
+
+        pairs, matrix_cells = [], []
+        budget_hit = False
+        checked = 0
+        t_loop = time.perf_counter()
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+def _scan_core_p2(st):
+    allow_list, budget_ms, cands, checked, contact_eps_mm = (
+        st.get("allow_list"), st["budget_ms"], st.get("cands"), st.get("checked"), st["contact_eps_mm"])
+    contain, deep_map, depth_eps_mm, floor_mm3, gap = (
+        st.get("contain"), st.get("deep_map"), st["depth_eps_mm"], st["floor_mm3"], st.get("gap"))
+    include_hidden, manifest, matrix_cells, md, md_errors = (
+        st["include_hidden"], st["manifest"], st.get("matrix_cells"), st.get("md"), st.get("md_errors"))
+    mmu, n, names, near, obj_part = (
+        st.get("mmu"), st.get("n"), st.get("names"), st.get("near"), st.get("obj_part"))
+    pairs, report_gap_mm, t_loop, tested_c, tested_n = (
+        st.get("pairs"), st["report_gap_mm"], st.get("t_loop"), st.get("tested_c"), st.get("tested_n"))
+    total_avail = st.get("total_avail")
+    budget_hit, cf, i, is_cand, j, key, mf, rec, row, seq, truncated = (st.get("budget_hit"), st.get("cf"), st.get("i"), st.get("is_cand"), st.get("j"), st.get("key"), st.get("mf"), st.get("rec"), st.get("row"), st.get("seq"), st.get("truncated"))
+    try:
+        for is_cand, seq in ((True, tested_c), (False, tested_n)):
+            for (i, j) in seq:
+                if int(budget_ms) > 0 and (time.perf_counter() - t_loop) * 1000.0 > float(budget_ms):
+                    budget_hit = True
+                    break
+                rec = _classify_pair(i, j, names, md, bool(contain[i, j]), bool(contain[j, i]),
+                                     float(gap[i, j]), is_cand, deep_map, allow_list, obj_part,
+                                     depth_eps_mm, contact_eps_mm, report_gap_mm, floor_mm3, mmu)
+                if rec.get("class") not in CLASSES:
+                    rec["class"] = "unresolved"
+                    rec["reason"] = "分类器返回未知 class（按证据不足处理）"
+                pairs.append(rec)
+                matrix_cells.append([int(i), int(j), rec["class"], rec.get("depth_mm"), rec.get("volume_mm3")])
+                checked += 1
+            if budget_hit:
+                break
+        if budget_hit:
+            truncated = True
+
+        # ---- 浮空：manifest 连接图优先，否则 audit_connectivity ----
+        floaters, float_unresolved, float_source = [], [], "none"
+        manifest_float_rows, graph = [], None
+        if isinstance(manifest, dict):
+            mf = _manifest_float(manifest, md, names, mmu, contact_eps_mm)
+            floaters = mf["floaters"]
+            float_unresolved = mf["unresolved"]
+            manifest_float_rows = mf["interfaces"]
+            graph = mf["graph"]
+            float_source = "manifest"
+        else:
+            cf = _connectivity_float(names, contact_eps_mm, include_hidden)
+            floaters = cf["floaters"]
+            float_unresolved = cf["unresolved"]
+            float_source = "audit_connectivity"
+
+        existing = {_pair_key(p["a"], p["b"]): p for p in pairs}
+        for row in manifest_float_rows:
+            if row.get("state") != "float":
+                continue
+            key = _pair_key(row.get("a"), row.get("b"))
+            if key in existing:
+                existing[key]["interface_state"] = "float"
+                existing[key].setdefault("reason", "manifest 接口未接触")
+                continue
+            rec = {"a": str(row.get("a")), "b": str(row.get("b")), "class": "float", "declared": True,
+                   "spec_ref": str(row.get("id") or ""), "tri_overlap_pairs": 0,
+                   "depth_mm": None, "depth_measured": False, "volume_mm3": None,
+                   "volume_reliable": False, "min_gap_mm": row.get("gap_mm"),
+                   "closed": {}, "normals_ok": {}, "severity": "unknown",
+                   "method": "manifest 接口接触验证",
+                   "reason": "接口 %s 两端网格间隙 %s mm > 容许 %s mm —— 没搭上"
+                             % (row.get("id"), row.get("gap_mm"), row.get("limit_mm"))}
+            pairs.append(rec)
+            existing[key] = rec
+
+        counts = {c: 0 for c in CLASSES}
+        for rec in pairs:
+            if rec.get("class") in counts and rec["class"] != "float":
+                counts[rec["class"]] += 1
+        counts["float"] = len(floaters)
+        far = max(0, n * (n - 1) // 2 - total_avail)
+        counts["gap_far"] = far
+        counts["candidates"] = len(cands)
+        counts["near_pairs"] = len(near)
+        counts["tested"] = int(checked)
+        counts["pairs_total"] = n * (n - 1) // 2
+
+        sev_rank = {"high": 3, "medium": 2, "low": 1, "unknown": 0}
+        offenders = [p for p in pairs if p.get("class") in ("clash", "contained")]
+        offenders.sort(key=lambda p: (-sev_rank.get(p.get("severity") or "unknown", 0),
+                                      -(p.get("depth_mm") or 0.0), -(p.get("volume_mm3") or 0.0),
+                                      str(p.get("a")), str(p.get("b"))))
+        unresolved_pairs = [p for p in pairs if p.get("class") == "unresolved"]
+        hidden_ok = [p for p in pairs if p.get("class") == "hidden_ok"]
+        contacts = [p for p in pairs if p.get("class") == "contact"]
+        invalid_objs = sorted([nm for nm in names if not (md[nm]["closed"] and md[nm]["normals_ok"])])
+        unresolved_objects = sorted(set(list(md_errors.keys()) + invalid_objs))
+        unres_total = counts["unresolved"] + len(float_unresolved)
+        bad = counts["clash"] + counts["contained"] + counts["float"]
+        if bad:
+            verdict = "fail"
+        elif unres_total or truncated or budget_hit or unresolved_objects:
+            verdict = "degraded"
+        else:
+            verdict = "pass"
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+def _scan_core_p3(st):
+    allow_list, budget_hit, budget_ms, cands, checked = (
+        st.get("allow_list"), st.get("budget_hit"), st["budget_ms"], st.get("cands"), st.get("checked"))
+    contact_eps_mm, contract_meta, counts, depth_eps_mm, esp = (
+        st["contact_eps_mm"], st.get("contract_meta"), st.get("counts"), st["depth_eps_mm"], st.get("esp"))
+    float_source, float_unresolved, floaters, floor_mm3, graph = (
+        st.get("float_source"), st.get("float_unresolved"), st.get("floaters"), st["floor_mm3"], st.get("graph"))
+    limit, manifest, matrix_cells, max_pairs, md_errors = (
+        st["limit"], st["manifest"], st.get("matrix_cells"), st["max_pairs"], st.get("md_errors"))
+    n, names, near, offenders, pairs = (
+        st.get("n"), st.get("names"), st.get("near"), st.get("offenders"), st.get("pairs"))
+    report_gap_mm, summary_only, total_avail, truncated, unres_total = (
+        st["report_gap_mm"], st["summary_only"], st.get("total_avail"), st.get("truncated"), st.get("unres_total"))
+    unresolved_objects, verdict = st.get("unresolved_objects"), st.get("verdict")
+    f, p, why = (st.get("f"), st.get("p"), st.get("why"))
+    try:
+        coverage = {"objects": n, "aabb_pairs": len(cands), "near_pairs": len(near),
+                    "tested": int(checked), "complete": bool(not truncated and not budget_hit and not unresolved_objects),
+                    "truncated": bool(truncated), "budget_hit": bool(budget_hit),
+                    "unresolved_objects": unresolved_objects[:60], "md_errors": md_errors}
+        depths = [p.get("depth_mm") for p in pairs if p.get("depth_mm") is not None]
+        gaps = [p.get("min_gap_mm") for p in pairs if p.get("min_gap_mm") is not None]
+        repairs = []
+        for p in offenders[:5]:
+            why = ("完全包含（面无相交，旧全对全会漏）" if p.get("class") == "contained"
+                   else "穿透深度 %s mm / 体积 %s mm³ 超门限" % (p.get("depth_mm"), p.get("volume_mm3")))
+            repairs.append({"op": "fix_interference",
+                            "args": {"a": p.get("a"), "b": p.get("b"), "plan_only": True}, "why": why})
+        for f in floaters[:5]:
+            repairs.append({"op": "asm_manifest" if float_source == "manifest" else "audit_snap_floaters",
+                            "args": ({"action": "add_interface", "note": "把浮空件接进连接图"} if float_source == "manifest"
+                                     else {"objects": f.get("objects") or [f.get("object")], "dry_run": True}),
+                            "why": f.get("why") or "装配浮空"})
+        if float_source == "manifest" and any(u.get("reason") == "manifest_part_not_in_scene" for u in float_unresolved):
+            repairs.append({"op": "asm_merge", "args": {"manifest": "<path>", "dry_run": True},
+                            "why": "manifest 里有 part 在当前场景找不到 —— 合并漏件，先看 merge 计划"})
+        spec_summary = {"allow_pairs": len(allow_list),
+                        "allow": [{"a": a.get("a"), "b": a.get("b"),
+                                   "max_depth_mm": _num(a.get("max_depth_mm")),
+                                   "max_volume_mm3": _num(a.get("max_volume_mm3")),
+                                   "spec_ref": a.get("id") or a.get("reason")}
+                                  for a in allow_list[:20]],
+                        "interfaces": len(esp["interfaces"]), "clearance": len(esp["clearance"])}
+        manifest_summary = None
+        if isinstance(manifest, dict):
+            manifest_summary = {"assembly": manifest.get("assembly"), "sealed": bool(manifest.get("sealed")),
+                                "manifest_md5": _manifest_md5(manifest),
+                                "counts": _manifest_counts(manifest)}
+        max_depth = max(depths) if depths else None
+        min_gap = min(gaps) if gaps else None
+        verdict_line = ("扫了 %d 件 / %d 对候选：clash=%d contained=%d hidden_ok=%d contact=%d gap=%d float=%d "
+                        "unresolved=%d → %s" % (n, total_avail, counts["clash"], counts["contained"],
+                                                counts["hidden_ok"], counts["contact"], counts["gap"],
+                                                counts["float"], unres_total, verdict))
+        out = {"ok": True, "verdict": verdict, "analyzed": True, "readonly": True,
+               "objects": n, "object_names": names, "counts": counts,
+               "coverage": coverage, "verdict_line": verdict_line,
+               "thresholds": {"depth_eps_mm": _r(depth_eps_mm, 4), "contact_eps_mm": _r(contact_eps_mm, 4),
+                              "report_gap_mm": _r(report_gap_mm, 4), "floor_mm3": _r(floor_mm3, 4),
+                              "limit": int(limit), "max_pairs": int(max_pairs), "budget_ms": int(budget_ms)},
+               "max_depth_mm": _r(max_depth, 4), "min_gap_mm": _r(min_gap, 4),
+               "offenders": (offenders[:10] if summary_only else offenders[:60]),
+               "floaters": (floaters[:10] if summary_only else floaters[:60]),
+               "floating_unresolved": float_unresolved[:20], "float_source": float_source,
+               "manifest_float_graph": graph,
+               "repairs": repairs[:10], "spec": spec_summary, "manifest": manifest_summary,
+               "contract": contract_meta,
+               "honest_limits": [
+                   "深度/体积是采样式估计（低差异序列，非随机；contract 复用时为对方口径），同输入同输出",
+                   "完全包含：内/外靠射线奇偶；大件若是**空心壳**，小件被包住不等于材质干涉（本 op 按实心口径报 contained，需人核）",
+                   "开网格 / 法线朝内：三角面相交仍是精确证据，但深度与内外结论不可信 → 该对一律 unresolved",
+                   "接触面积不在全对全里算（成本控制）；gap 类是采样最近距离，平行贴合可能高估",
+                   "AABB 不相交的对子间隙是**下界**（真实只会更大）；> report_gap 的远对只计数不展开",
+                   "多壳且各壳朝向相反的件，按总体有符号体积可能漏判朝内（gate 另跑 audit_mesh 逐壳判）",
+               ]}
+        if not summary_only:
+            out["pairs"] = pairs
+            out["matrix"] = {"format": "sparse", "n": n, "index": list(names), "cells": matrix_cells,
+                             "note": "只列被评估的关系（AABB 重叠 / report_gap 内近对）；远对按 counts.gap_far 计数"}
+        else:
+            out["pairs"] = []
+            out["matrix"] = None
+            out["slim"] = {"summary_only": True}
+            out["counts_note"] = "counts.float = 浮空对象/接口数（不是 pair 数）；分类明细用 summary_only=false 看 pairs"
+        if verdict == "degraded":
+            out["warn"] = "DEGRADED ≠ 通过：有 unresolved / 截断 / 没判完的对象"
+            out["hint"] = "先修网格/法线，或把预算调大（max_pairs / budget_ms）后重跑；未判完不许读成没问题"
+        return out
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
 def _scan_core(objs, names, manifest=None, spec=None, limit=0, max_pairs=20000,
                depth_eps_mm=0.2, contact_eps_mm=0.3, report_gap_mm=5.0, floor_mm3=1.0,
                summary_only=False, use_contract=True, include_hidden=False, md=None,
                budget_ms=0):
-    t0 = time.perf_counter()
-    mmu = float(_KIT.units())
-    scale = max(mmu, 1e-9)
-    names = [str(n) for n in names]
-    md_errors = {}
-    if md is None:
-        md, md_errors = _mesh_map(objs)
-    names = [n for n in names if n in md]
-    n = len(names)
-    if n == 0:
-        return {"ok": False, "error": "没有可扫描的求值网格（0 个对象有三角面）—— 空产出不静默成功",
-                "md_errors": md_errors}
-    esp = _effective_spec(manifest, spec)
-    allow_list = esp["allow"]
-    obj_part = _obj_part_map(manifest, names)
-    mn = np.array([md[nm]["aabb"][0] for nm in names], dtype=np.float64)
-    mx = np.array([md[nm]["aabb"][1] for nm in names], dtype=np.float64)
-    eps = 1e-9 * max(1.0, float(np.abs(np.concatenate([mn, mx])).max()))
-    lo = np.maximum(mn[:, None, :], mn[None, :, :])
-    hi = np.minimum(mx[:, None, :], mx[None, :, :])
-    inter = hi - lo
-    # 相贴（inter==0，如零厚度面片切件）也必须进候选：用 -eps 而不是 >0，否则 plane 切立方体会被当成"近对"
-    aabb_overlap = (inter >= -eps).all(axis=2)
-    np.fill_diagonal(aabb_overlap, False)
-    gap_vec = np.maximum(0.0, np.maximum(mn[:, None, :] - mx[None, :, :], mn[None, :, :] - mx[:, None, :]))
-    gap = np.sqrt((gap_vec ** 2).sum(axis=2))
-    np.fill_diagonal(gap, np.inf)
-    contain = ((mn[:, None, :] >= mn[None, :, :] - eps) & (mx[:, None, :] <= mx[None, :, :] + eps)).all(axis=2)
-    np.fill_diagonal(contain, False)
-    same_box = (((np.abs(mn[:, None, :] - mn[None, :, :]) <= eps).all(axis=2)) &
-                ((np.abs(mx[:, None, :] - mx[None, :, :]) <= eps).all(axis=2)))
-    contain = contain & ~same_box
-    inter_vol = np.prod(np.maximum(inter, 0.0), axis=2)
-
-    cands, near = [], []
-    for i in range(n):
-        for j in range(i + 1, n):
-            if aabb_overlap[i, j]:
-                cands.append((i, j))
-            elif gap[i, j] <= float(report_gap_mm) / scale:
-                near.append((i, j))
-
-    def _ckey(ij):
-        i, j = ij
-        cont = 1 if bool(contain[i, j] or contain[j, i]) else 0
-        return (-cont, -float(inter_vol[i, j]), float(gap[i, j]), names[i], names[j])
-
-    cands.sort(key=_ckey)
-    near.sort(key=lambda ij: (float(gap[ij]), names[ij[0]], names[ij[1]]))
-    total_avail = len(cands) + len(near)
-    cap = int(max_pairs) if int(max_pairs) > 0 else total_avail
-    if int(limit) > 0:
-        cap = min(cap, int(limit))
-    tested_c = cands[:cap]
-    tested_n = near[:max(0, cap - len(tested_c))]
-    truncated = (len(tested_c) + len(tested_n)) < total_avail
-
-    deep_map, contract_meta = None, {"used": False, "reason": None}
-    if use_contract and cands:
-        deep, derr = _contract_deep(names, include_hidden, depth_eps_mm, max_pairs)
-        if deep is not None:
-            deep_map = deep["pairs"]
-            contract_meta = deep["meta"]
-        else:
-            contract_meta = {"used": False, "reason": str(derr)[:240]}
-
-    pairs, matrix_cells = [], []
-    budget_hit = False
-    checked = 0
-    t_loop = time.perf_counter()
-    for is_cand, seq in ((True, tested_c), (False, tested_n)):
-        for (i, j) in seq:
-            if int(budget_ms) > 0 and (time.perf_counter() - t_loop) * 1000.0 > float(budget_ms):
-                budget_hit = True
-                break
-            rec = _classify_pair(i, j, names, md, bool(contain[i, j]), bool(contain[j, i]),
-                                 float(gap[i, j]), is_cand, deep_map, allow_list, obj_part,
-                                 depth_eps_mm, contact_eps_mm, report_gap_mm, floor_mm3, mmu)
-            if rec.get("class") not in CLASSES:
-                rec["class"] = "unresolved"
-                rec["reason"] = "分类器返回未知 class（按证据不足处理）"
-            pairs.append(rec)
-            matrix_cells.append([int(i), int(j), rec["class"], rec.get("depth_mm"), rec.get("volume_mm3")])
-            checked += 1
-        if budget_hit:
-            break
-    if budget_hit:
-        truncated = True
-
-    # ---- 浮空：manifest 连接图优先，否则 audit_connectivity ----
-    floaters, float_unresolved, float_source = [], [], "none"
-    manifest_float_rows, graph = [], None
-    if isinstance(manifest, dict):
-        mf = _manifest_float(manifest, md, names, mmu, contact_eps_mm)
-        floaters = mf["floaters"]
-        float_unresolved = mf["unresolved"]
-        manifest_float_rows = mf["interfaces"]
-        graph = mf["graph"]
-        float_source = "manifest"
-    else:
-        cf = _connectivity_float(names, contact_eps_mm, include_hidden)
-        floaters = cf["floaters"]
-        float_unresolved = cf["unresolved"]
-        float_source = "audit_connectivity"
-
-    existing = {_pair_key(p["a"], p["b"]): p for p in pairs}
-    for row in manifest_float_rows:
-        if row.get("state") != "float":
-            continue
-        key = _pair_key(row.get("a"), row.get("b"))
-        if key in existing:
-            existing[key]["interface_state"] = "float"
-            existing[key].setdefault("reason", "manifest 接口未接触")
-            continue
-        rec = {"a": str(row.get("a")), "b": str(row.get("b")), "class": "float", "declared": True,
-               "spec_ref": str(row.get("id") or ""), "tri_overlap_pairs": 0,
-               "depth_mm": None, "depth_measured": False, "volume_mm3": None,
-               "volume_reliable": False, "min_gap_mm": row.get("gap_mm"),
-               "closed": {}, "normals_ok": {}, "severity": "unknown",
-               "method": "manifest 接口接触验证",
-               "reason": "接口 %s 两端网格间隙 %s mm > 容许 %s mm —— 没搭上"
-                         % (row.get("id"), row.get("gap_mm"), row.get("limit_mm"))}
-        pairs.append(rec)
-        existing[key] = rec
-
-    counts = {c: 0 for c in CLASSES}
-    for rec in pairs:
-        if rec.get("class") in counts and rec["class"] != "float":
-            counts[rec["class"]] += 1
-    counts["float"] = len(floaters)
-    far = max(0, n * (n - 1) // 2 - total_avail)
-    counts["gap_far"] = far
-    counts["candidates"] = len(cands)
-    counts["near_pairs"] = len(near)
-    counts["tested"] = int(checked)
-    counts["pairs_total"] = n * (n - 1) // 2
-
-    sev_rank = {"high": 3, "medium": 2, "low": 1, "unknown": 0}
-    offenders = [p for p in pairs if p.get("class") in ("clash", "contained")]
-    offenders.sort(key=lambda p: (-sev_rank.get(p.get("severity") or "unknown", 0),
-                                  -(p.get("depth_mm") or 0.0), -(p.get("volume_mm3") or 0.0),
-                                  str(p.get("a")), str(p.get("b"))))
-    unresolved_pairs = [p for p in pairs if p.get("class") == "unresolved"]
-    hidden_ok = [p for p in pairs if p.get("class") == "hidden_ok"]
-    contacts = [p for p in pairs if p.get("class") == "contact"]
-    invalid_objs = sorted([nm for nm in names if not (md[nm]["closed"] and md[nm]["normals_ok"])])
-    unresolved_objects = sorted(set(list(md_errors.keys()) + invalid_objs))
-    unres_total = counts["unresolved"] + len(float_unresolved)
-    bad = counts["clash"] + counts["contained"] + counts["float"]
-    if bad:
-        verdict = "fail"
-    elif unres_total or truncated or budget_hit or unresolved_objects:
-        verdict = "degraded"
-    else:
-        verdict = "pass"
-    coverage = {"objects": n, "aabb_pairs": len(cands), "near_pairs": len(near),
-                "tested": int(checked), "complete": bool(not truncated and not budget_hit and not unresolved_objects),
-                "truncated": bool(truncated), "budget_hit": bool(budget_hit),
-                "unresolved_objects": unresolved_objects[:60], "md_errors": md_errors}
-    depths = [p.get("depth_mm") for p in pairs if p.get("depth_mm") is not None]
-    gaps = [p.get("min_gap_mm") for p in pairs if p.get("min_gap_mm") is not None]
-    repairs = []
-    for p in offenders[:5]:
-        why = ("完全包含（面无相交，旧全对全会漏）" if p.get("class") == "contained"
-               else "穿透深度 %s mm / 体积 %s mm³ 超门限" % (p.get("depth_mm"), p.get("volume_mm3")))
-        repairs.append({"op": "fix_interference",
-                        "args": {"a": p.get("a"), "b": p.get("b"), "plan_only": True}, "why": why})
-    for f in floaters[:5]:
-        repairs.append({"op": "asm_manifest" if float_source == "manifest" else "audit_snap_floaters",
-                        "args": ({"action": "add_interface", "note": "把浮空件接进连接图"} if float_source == "manifest"
-                                 else {"objects": f.get("objects") or [f.get("object")], "dry_run": True}),
-                        "why": f.get("why") or "装配浮空"})
-    if float_source == "manifest" and any(u.get("reason") == "manifest_part_not_in_scene" for u in float_unresolved):
-        repairs.append({"op": "asm_merge", "args": {"manifest": "<path>", "dry_run": True},
-                        "why": "manifest 里有 part 在当前场景找不到 —— 合并漏件，先看 merge 计划"})
-    spec_summary = {"allow_pairs": len(allow_list),
-                    "allow": [{"a": a.get("a"), "b": a.get("b"),
-                               "max_depth_mm": _num(a.get("max_depth_mm")),
-                               "max_volume_mm3": _num(a.get("max_volume_mm3")),
-                               "spec_ref": a.get("id") or a.get("reason")}
-                              for a in allow_list[:20]],
-                    "interfaces": len(esp["interfaces"]), "clearance": len(esp["clearance"])}
-    manifest_summary = None
-    if isinstance(manifest, dict):
-        manifest_summary = {"assembly": manifest.get("assembly"), "sealed": bool(manifest.get("sealed")),
-                            "manifest_md5": _manifest_md5(manifest),
-                            "counts": _manifest_counts(manifest)}
-    max_depth = max(depths) if depths else None
-    min_gap = min(gaps) if gaps else None
-    verdict_line = ("扫了 %d 件 / %d 对候选：clash=%d contained=%d hidden_ok=%d contact=%d gap=%d float=%d "
-                    "unresolved=%d → %s" % (n, total_avail, counts["clash"], counts["contained"],
-                                            counts["hidden_ok"], counts["contact"], counts["gap"],
-                                            counts["float"], unres_total, verdict))
-    out = {"ok": True, "verdict": verdict, "analyzed": True, "readonly": True,
-           "objects": n, "object_names": names, "counts": counts,
-           "coverage": coverage, "verdict_line": verdict_line,
-           "thresholds": {"depth_eps_mm": _r(depth_eps_mm, 4), "contact_eps_mm": _r(contact_eps_mm, 4),
-                          "report_gap_mm": _r(report_gap_mm, 4), "floor_mm3": _r(floor_mm3, 4),
-                          "limit": int(limit), "max_pairs": int(max_pairs), "budget_ms": int(budget_ms)},
-           "max_depth_mm": _r(max_depth, 4), "min_gap_mm": _r(min_gap, 4),
-           "offenders": (offenders[:10] if summary_only else offenders[:60]),
-           "floaters": (floaters[:10] if summary_only else floaters[:60]),
-           "floating_unresolved": float_unresolved[:20], "float_source": float_source,
-           "manifest_float_graph": graph,
-           "repairs": repairs[:10], "spec": spec_summary, "manifest": manifest_summary,
-           "contract": contract_meta,
-           "honest_limits": [
-               "深度/体积是采样式估计（低差异序列，非随机；contract 复用时为对方口径），同输入同输出",
-               "完全包含：内/外靠射线奇偶；大件若是**空心壳**，小件被包住不等于材质干涉（本 op 按实心口径报 contained，需人核）",
-               "开网格 / 法线朝内：三角面相交仍是精确证据，但深度与内外结论不可信 → 该对一律 unresolved",
-               "接触面积不在全对全里算（成本控制）；gap 类是采样最近距离，平行贴合可能高估",
-               "AABB 不相交的对子间隙是**下界**（真实只会更大）；> report_gap 的远对只计数不展开",
-               "多壳且各壳朝向相反的件，按总体有符号体积可能漏判朝内（gate 另跑 audit_mesh 逐壳判）",
-           ]}
-    if not summary_only:
-        out["pairs"] = pairs
-        out["matrix"] = {"format": "sparse", "n": n, "index": list(names), "cells": matrix_cells,
-                         "note": "只列被评估的关系（AABB 重叠 / report_gap 内近对）；远对按 counts.gap_far 计数"}
-    else:
-        out["pairs"] = []
-        out["matrix"] = None
-        out["slim"] = {"summary_only": True}
-        out["counts_note"] = "counts.float = 浮空对象/接口数（不是 pair 数）；分类明细用 summary_only=false 看 pairs"
-    if verdict == "degraded":
-        out["warn"] = "DEGRADED ≠ 通过：有 unresolved / 截断 / 没判完的对象"
-        out["hint"] = "先修网格/法线，或把预算调大（max_pairs / budget_ms）后重跑；未判完不许读成没问题"
-    return out
+    st = dict(locals())
+    for _fn_ in (_scan_core_p1, _scan_core_p2, _scan_core_p3):
+        _r = _fn_(st)
+        if _r is not None:
+            return _r
 # ────────────────────────────── ops：scan ──────────────────────────────
 def asm_scan(scope=None, objects=None, file=None, manifest=None, spec=None, limit=0,
              max_pairs=20000, depth_eps_mm=0.2, contact_eps_mm=0.3, report_gap_mm=5.0,
