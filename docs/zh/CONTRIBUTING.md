@@ -101,7 +101,7 @@ npm tarball 挂到 release，并在打 tag 前演练回滚。详细清单保存�
 - `publish_npm` 默认 `false`；开启后把打包好的 tarball 带 provenance 发布到 npm。
 
 流水线不会自行 push `main` 或 tag；`workflow_dispatch` 只有该文件在默认分支后才可见，因此请在合并到 `main` 后运行（dry-run 阶段也可在包含该 workflow 的分支上运行）。真 Blender E2E 与 GitHub Release 的最终发布仍是人工步骤。为 `release`
-environment 配置 required reviewers，保护 `v*` tag，并且只在确实要发布 npm 时配置 `NPM_TOKEN`。
+environment 配置 required reviewers，保护 `v*` tag。npm 发布使用 trusted publishing（OIDC），不需要在 environment 中保存 `NPM_TOKEN`。
 
 ## 许可
 

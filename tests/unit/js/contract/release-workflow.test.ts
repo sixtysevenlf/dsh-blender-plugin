@@ -26,8 +26,11 @@ describe('manual CD workflow', () => {
     expect(workflow).toContain('gh release create')
   })
 
-  it('publishes npm from the packed tarball with provenance', () => {
+  it('publishes npm from the packed tarball with OIDC provenance', () => {
     expect(workflow).toContain('npm publish ./release/*.tgz --access public --provenance')
+    expect(workflow).toContain('id-token: write')
+    expect(workflow).not.toContain('NPM_TOKEN')
+    expect(workflow).not.toContain('NODE_AUTH_TOKEN')
     const pkg = JSON.parse(fs.readFileSync(repoPath('package.json'), 'utf8'))
     expect(pkg.repository && pkg.repository.url).toContain('dsh-blender-plugin')
   })

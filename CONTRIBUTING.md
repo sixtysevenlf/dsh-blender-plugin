@@ -110,7 +110,7 @@ kept in the local refactor workspace, not in this repository.
 
 The workflow never pushes `main` or a tag itself. `workflow_dispatch` only appears after this file is on the default branch, so run it from `main` after the refactor merge (or from a branch that contains the workflow for the dry-run stage). Real Blender
 E2E and the final GitHub Release publication remain human steps. Configure the `release` environment with
-required reviewers, protect `v*` tags, and add `NPM_TOKEN` only when npm publishing is intended.
+required reviewers and protect `v*` tags. npm publishing uses trusted publishing (OIDC), so no `NPM_TOKEN` is stored in the environment.
 
 ## License
 
