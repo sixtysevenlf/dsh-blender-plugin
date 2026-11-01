@@ -30,7 +30,7 @@ export function buildHeadlessPreload(opts: HeadlessOpts, deps: HeadlessDeps): He
   for (const m of mods) {
     const name = String(m).trim().replace(/\.py$/, '')
     if (!name) continue
-    // T8：同作业层，取 runtime/py/<domain>/ 的真实文件（旧路径是 shim）。
+    // 同作业层，取 runtime/py/<domain>/ 的真实文件（旧路径是 shim）。
     const f = pyModuleFile(name)
     if (!fs.existsSync(f)) throw new Error('preload 找不到模块：' + name + '（' + f + '）')
     pre += deps.preloadChunk(name) + '\n'

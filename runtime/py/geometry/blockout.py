@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""blockout 建模/导出/展示 public facade（T5d）。
+"""blockout 建模/导出/展示 public facade。
 
 公开契约不变：headless preload 仍按文件名加载本文件，平铺 runtime/blockout.py shim、
 K.dsh_blockout_api 仍从本文件进入。实现已拆到 runtime/py/geometry/blockout_impl/，避免单文件继续膨胀。

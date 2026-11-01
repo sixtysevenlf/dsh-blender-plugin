@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""图像 QC 指标 public facade（T5d）。
+"""图像 QC 指标 public facade。
 
 公开契约不变：headless preload 仍按文件名加载本文件，平铺 runtime/qc.py shim、
 K.dsh_qc_api 仍从本文件进入。实现已拆到 runtime/py/render/qc_impl/，避免单文件继续膨胀。

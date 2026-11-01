@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""qc_render_views 入口（F2.2：941 行拆为 views / views_render 两模块的阶段 helper，主函数只做编排）。"""
+"""qc_render_views 入口（941 行拆为 views / views_render 两模块的阶段 helper，主函数只做编排）。"""
 import time
 
 from .common import *  # noqa: F401,F403

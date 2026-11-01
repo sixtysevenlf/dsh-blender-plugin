@@ -31,7 +31,7 @@ def _kernel():
 
 
 def find_runtime_file(name):
-    """按文件名定位 runtime 侧文件（T8）：领域包优先，旧扁平布局兜底。
+    """按文件名定位 runtime 侧文件：领域包优先，旧扁平布局兜底。
 
     背景：模块不再都在 runtime/ 同一层。qc.py 找 qc_render.py、qc_render.py 找 montage.py、
     contract.py 找 assembly_features.json —— 都改走这里，避免各自硬编码。

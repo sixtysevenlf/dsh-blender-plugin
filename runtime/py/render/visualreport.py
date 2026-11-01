@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""视觉报告 public facade（T5d）。
+"""视觉报告 public facade。
 
 公开契约不变：headless preload 仍按文件名加载本文件，平铺 runtime/visualreport.py shim、
 K.dsh_visualreport_api 仍从本文件进入。实现已拆到 runtime/py/render/visualreport_impl/，避免单文件继续膨胀。

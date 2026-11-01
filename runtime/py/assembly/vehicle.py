@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""车辆建模/放样/fit public facade（T5d）。
+"""车辆建模/放样/fit public facade。
 
 公开契约不变：headless preload 仍按文件名加载本文件，平铺 runtime/vehicle.py shim、
 K.dsh_vehicle_api 仍从本文件进入。实现已拆到 runtime/py/assembly/vehicle_impl/，避免单文件继续膨胀。

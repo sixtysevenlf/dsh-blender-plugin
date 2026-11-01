@@ -112,7 +112,7 @@ def __load_file_objects_p1(st):
         before_counts = _id_counts()
         state = {"done": False, "report": None}
         loaded, coll, objs, name_of = [], None, [], {}
-        _shared = {"loaded": loaded, "coll": coll}   # F2.2：cleanup 闭包与后续 helper 共享这两个会重绑定的引用
+        _shared = {"loaded": loaded, "coll": coll}   # cleanup 闭包与后续 helper 共享这两个会重绑定的引用
         # 「本次加载造出来的东西」——必须在 load 一结束就抓下来：同一次 op 里可能加载**两个**文件
         # （audit_overlap/interference 的 A、B 两侧），两个 cleanup 都在 finally 里跑，
         # 靠快照 diff 当场锁定归属，才不会把对方的东西删掉（第一轮自检就在这里翻过车）。

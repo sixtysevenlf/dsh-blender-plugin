@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Unit tests for kit.Api call forms (T5d.5).
+"""Unit tests for kit.Api call forms.
 
 These tests use a fake dispatch and do not import bpy. They pin the contract
 that made qc_render_selftest F8 fail: api({...}) must use the module's default

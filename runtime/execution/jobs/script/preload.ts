@@ -67,7 +67,7 @@ export function buildJobParts(
   for (const m of jobMods) {
     const name = String(m).trim().replace(/\.py$/, '')
     if (!name) continue
-    // T8/F2.3：模块真实文件在 runtime/py/<domain>/ 下（唯一清单 runtime/py/modules.json）；
+    // 模块真实文件在 runtime/py/<domain>/ 下（唯一清单 runtime/py/modules.json）；
     // 注入通道必须是真实实现文件，否则 exec 出去的只是 import 语句。
     let f = null
     try {

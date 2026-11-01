@@ -1,4 +1,4 @@
-// Headless run stages (F2.2 tail): job hand-off, process result collection, ledger
+// Headless run stages: job hand-off, process result collection, ledger
 // completion and receipt assembly. Extracted verbatim from createHeadlessRun().headless()
 // with behavior frozen; index.ts only sequences these stages.
 import { winToWsl } from '../../config.js'

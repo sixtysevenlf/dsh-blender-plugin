@@ -44,7 +44,7 @@ export async function extCheckOp(op: string, payload?: unknown): Promise<unknown
   const { extDir, gltfRunner, open3dRunner } = resolveExtPaths()
   const winPath = String(p.path || '')
   const wslPath = toWslPath(winPath)
-  // T8：open3d_check.py 已随导出域移入 runtime/py/export/；ext/ 只留 venv 与 gltf_validate_runner.mjs。
+  // open3d_check.py 已随导出域移入 runtime/py/export/；ext/ 只留 venv 与 gltf_validate_runner.mjs。
   const runner = op === 'gltf_validate' ? gltfRunner : open3dRunner
   const isWin = process.platform === 'win32'
   const cands = extCandidates({ op, extDir, runner, winPath, wslPath, isWin })

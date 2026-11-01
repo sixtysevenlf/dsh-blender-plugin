@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Native E2E: qc_render callable API contract (T5d.5 / selftest F8).
+"""Native E2E: qc_render callable API contract / selftest F8.
 
 F8 used to fail because Api.__call__ treated a dict-only argument as a help
 request instead of the module's default op.  This test is the Blender-side

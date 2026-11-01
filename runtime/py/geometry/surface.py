@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""NURBS/曲面建模 public facade（T5d）。
+"""NURBS/曲面建模 public facade。
 
 公开契约不变：headless preload 仍按文件名加载本文件，平铺 runtime/surface.py shim、
 K.dsh_surface_api 仍从本文件进入。实现已拆到 runtime/py/geometry/surface_impl/，避免单文件继续膨胀。

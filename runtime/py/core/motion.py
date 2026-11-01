@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""动作推理/测量/URDF/USDA 导出 public facade（T5d）。
+"""动作推理/测量/URDF/USDA 导出 public facade。
 
 公开契约不变：headless preload 仍按文件名加载本文件，平铺 runtime/motion.py shim、
 K.dsh_motion_api 仍从本文件进入。实现已拆到 runtime/py/core/motion_impl/，避免单文件继续膨胀。

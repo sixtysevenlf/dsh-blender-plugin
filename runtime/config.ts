@@ -20,7 +20,7 @@ import { errorMessage } from './core/json.js'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 /**
- * 包根 —— Phase R 后有两种布局，必须都能找到 package.json / dsh-blender.config.json：
+ * 包根 —— 源码布局和构建布局有两种，必须都能找到 package.json / dsh-blender.config.json：
  * - 源码布局：<pkg>/runtime/config.ts → HERE 的上一级就是包根
  * - 构建布局：<pkg>/lib/runtime/config.js → 向上两级才是包根（中间是 lib/）
  */

@@ -1,5 +1,5 @@
 // ext-check candidates: WSL path mapping, interpreter routing and the spawn loop
-// (F2.2 tail; behavior frozen from runtime/core/plan/ext-check.ts).
+// (continuation of runtime/core/plan/ext-check.ts).
 import path from 'node:path'
 import { errorMessage } from '../json.js'
 

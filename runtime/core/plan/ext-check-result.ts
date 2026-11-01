@@ -1,5 +1,5 @@
 // ext-check result formatting: glTF-Validator / open3d payloads -> public result
-// (F2.2 tail; behavior frozen from runtime/core/plan/ext-check.ts).
+// (continuation of runtime/core/plan/ext-check.ts).
 import type { ExtCandidateRun } from './ext-check-candidates.js'
 
 /** glTF-Validator result: bounded message list, validator info and pass rule. */

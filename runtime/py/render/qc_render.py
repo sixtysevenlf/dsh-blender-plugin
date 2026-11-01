@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""QC 渲染 public facade（T5d）—— 实现已拆到 runtime/py/render/qc_render_impl/。
+"""QC 渲染 public facade—— 实现已拆到 runtime/py/render/qc_render_impl/。
 
 公开契约不变：headless preload="qc_render"、blender_rt_plan(op="qc_render_*")、
 平铺 runtime/qc_render.py shim、K.dsh_qc_render_api 仍从本文件进入。原文件 3.4k 行，
