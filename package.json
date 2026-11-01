@@ -119,6 +119,7 @@
     "format": "prettier --write \"{src,tests,scripts,runtime}/**/*.{ts,mts,cts,js,mjs,cjs,json}\" \"*.{ts,json,yml,yaml}\" \"*.mjs\" \".prettierrc.json\" \".github/**/*.{yml,yaml}\"",
     "format:check": "prettier --check \"{src,tests,scripts,runtime}/**/*.{ts,mts,cts,js,mjs,cjs,json}\" \"*.{ts,json,yml,yaml}\" \"*.mjs\" \".prettierrc.json\" \".github/**/*.{yml,yaml}\"",
     "check:structure": "node scripts/check-structure.mjs",
+    "check:function-budget": "node scripts/check-function-budget.mjs",
     "check:build": "node scripts/check-build.mjs",
     "check:any": "node scripts/check-any.mjs",
     "prepack": "npm run build && node scripts/check-build.mjs",

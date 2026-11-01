@@ -1,0 +1,865 @@
+{
+  "generatedAt": "2026-11-01T01:05:14.178Z",
+  "reason": "Baseline debt captured by F1.0; burn down in F1/F2/F3.",
+  "owner": "lead",
+  "expires": "2026-12-31",
+  "functions": [
+    {
+      "file": "src/headless/receipts.ts",
+      "name": "headlessHumanText",
+      "lines": 248,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/do.ts",
+      "name": "registerDo",
+      "lines": 171,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/do.ts",
+      "name": "<anonymous>",
+      "lines": 166,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/do.ts",
+      "name": "execute",
+      "lines": 124,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/headless.ts",
+      "name": "registerHeadless",
+      "lines": 272,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/headless.ts",
+      "name": "<anonymous>",
+      "lines": 267,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/headless.ts",
+      "name": "execute",
+      "lines": 179,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/job.ts",
+      "name": "registerJob",
+      "lines": 307,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/job.ts",
+      "name": "<anonymous>",
+      "lines": 302,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/job.ts",
+      "name": "execute",
+      "lines": 239,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/loop.ts",
+      "name": "registerLoop",
+      "lines": 177,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/loop.ts",
+      "name": "<anonymous>",
+      "lines": 172,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/preset.ts",
+      "name": "registerPreset",
+      "lines": 122,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/see.ts",
+      "name": "registerSee",
+      "lines": 296,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/see.ts",
+      "name": "<anonymous>",
+      "lines": 291,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/see.ts",
+      "name": "execute",
+      "lines": 223,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/txn.ts",
+      "name": "registerTxn",
+      "lines": 124,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/viewport.ts",
+      "name": "registerViewport",
+      "lines": 382,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/viewport.ts",
+      "name": "<anonymous>",
+      "lines": 377,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/viewport.ts",
+      "name": "execute",
+      "lines": 312,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/watch.ts",
+      "name": "registerWatch",
+      "lines": 122,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/worker.ts",
+      "name": "registerWorker",
+      "lines": 259,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/worker.ts",
+      "name": "<anonymous>",
+      "lines": 254,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tools/worker.ts",
+      "name": "execute",
+      "lines": 196,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "src/tui/register.ts",
+      "name": "registerTuiHost",
+      "lines": 165,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/core/dispatch.ts",
+      "name": "createPlanCallInner",
+      "lines": 414,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/core/dispatch.ts",
+      "name": "planCallInner",
+      "lines": 374,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/core/engine.ts",
+      "name": "createEngine",
+      "lines": 175,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/core/kernel.ts",
+      "name": "createKernel",
+      "lines": 317,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/core/output.ts",
+      "name": "catalogPayload",
+      "lines": 165,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/core/plan/ext-check.ts",
+      "name": "extCheckOp",
+      "lines": 124,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/core/plan/shape-search.ts",
+      "name": "createShapeSearch",
+      "lines": 561,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/core/plan/shape-search.ts",
+      "name": "shapeSearchOp",
+      "lines": 488,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/core/server-compat.ts",
+      "name": "createPublicMethods",
+      "lines": 421,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/execution/headless/index.ts",
+      "name": "createHeadlessRun",
+      "lines": 172,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/execution/headless/index.ts",
+      "name": "headless",
+      "lines": 158,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/execution/headless/options.ts",
+      "name": "prepareHeadlessOptions",
+      "lines": 135,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/execution/jobs/script.ts",
+      "name": "buildJobScript",
+      "lines": 157,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/execution/jobs/start.ts",
+      "name": "startJob",
+      "lines": 226,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/execution/jobs.ts",
+      "name": "createJobsApi",
+      "lines": 173,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/execution/ledger.ts",
+      "name": "createLedger",
+      "lines": 175,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/execution/trajectory.ts",
+      "name": "createTrajectory",
+      "lines": 140,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/execution/workers.ts",
+      "name": "createWorkersApi",
+      "lines": 462,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/execution/workers.ts",
+      "name": "workerStart",
+      "lines": 181,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/http/host.ts",
+      "name": "createHostRoutes",
+      "lines": 235,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/http/host.ts",
+      "name": "handleHost",
+      "lines": 152,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/http/routes/session.ts",
+      "name": "createSessionRoutes",
+      "lines": 124,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/launch.ts",
+      "name": "launchBlender",
+      "lines": 203,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/export.py",
+      "name": "asm_export",
+      "lines": 276,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/gate.py",
+      "name": "asm_gate",
+      "lines": 225,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/manifest.py",
+      "name": "_manifest_validate",
+      "lines": 193,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/manifest.py",
+      "name": "asm_manifest",
+      "lines": 171,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/merge.py",
+      "name": "asm_merge",
+      "lines": 212,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/repair.py",
+      "name": "asm_repair",
+      "lines": 267,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/scan.py",
+      "name": "_classify_pair",
+      "lines": 166,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/scan.py",
+      "name": "_scan_core",
+      "lines": 231,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/assembly/vehicle_impl/base.py",
+      "name": "vehicle_base",
+      "lines": 171,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/assembly/vehicle_impl/base.py",
+      "name": "vehicle_sections",
+      "lines": 170,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/assembly/vehicle_impl/fit.py",
+      "name": "vehicle_fit",
+      "lines": 158,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/assembly/vehicle_impl/loft.py",
+      "name": "vehicle_loft",
+      "lines": 194,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/core/evalharness.py",
+      "name": "_run_assembly",
+      "lines": 151,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/core/evalharness.py",
+      "name": "_run_reference",
+      "lines": 155,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/core/audit_impl/common.py",
+      "name": "_shell_normals",
+      "lines": 140,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/core/audit_impl/conn_helpers.py",
+      "name": "_load_file_objects",
+      "lines": 179,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/core/audit_impl/connectivity.py",
+      "name": "_conn_analyze",
+      "lines": 166,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/core/audit_impl/mesh.py",
+      "name": "audit_mesh",
+      "lines": 267,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/core/audit_impl/overlap.py",
+      "name": "audit_interference",
+      "lines": 195,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/core/audit_impl/overlap.py",
+      "name": "_body",
+      "lines": 135,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/core/contract_impl/fit.py",
+      "name": "c_interference_report",
+      "lines": 194,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/core/contract_impl/mate.py",
+      "name": "c_mate_check",
+      "lines": 185,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/core/gate_impl/run.py",
+      "name": "gate_run",
+      "lines": 144,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/core/gate_impl/selftest.py",
+      "name": "gate_selftest",
+      "lines": 221,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/core/motion_impl/api.py",
+      "name": "motion_selftest",
+      "lines": 288,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/core/motion_impl/infer.py",
+      "name": "motion_infer_axis",
+      "lines": 246,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/core/motion_impl/measure.py",
+      "name": "_measure_one",
+      "lines": 168,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/core/motion_impl/urdf.py",
+      "name": "motion_export_urdf",
+      "lines": 204,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/core/motion_impl/usda.py",
+      "name": "motion_export_usda",
+      "lines": 173,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/export/printcheck.py",
+      "name": "print_overhang",
+      "lines": 169,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/export/printcheck.py",
+      "name": "print_selftest",
+      "lines": 225,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/export/deliver_impl/export.py",
+      "name": "deliver_export",
+      "lines": 250,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/export/deliver_impl/verify.py",
+      "name": "deliver_verify",
+      "lines": 189,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/geometry/geo.py",
+      "name": "geo_selftest",
+      "lines": 128,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/geometry/sculpt.py",
+      "name": "_apply_one",
+      "lines": 131,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/geometry/shapesolve.py",
+      "name": "shapesolve_solve",
+      "lines": 144,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/geometry/blockout_impl/api.py",
+      "name": "blockout_refsheet",
+      "lines": 159,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/geometry/blockout_impl/ops.py",
+      "name": "blockout_base",
+      "lines": 161,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/geometry/blockout_impl/present.py",
+      "name": "blockout_turntable",
+      "lines": 133,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/geometry/surface_impl/api.py",
+      "name": "surface_selftest",
+      "lines": 187,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/geometry/surface_impl/validate.py",
+      "name": "surface_validate",
+      "lines": 166,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/render/calib.py",
+      "name": "calib_run",
+      "lines": 129,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/render/material.py",
+      "name": "_build_preset",
+      "lines": 143,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/render/imgtools_impl/api.py",
+      "name": "img_calib",
+      "lines": 177,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/render/imgtools_impl/digest.py",
+      "name": "img_digest",
+      "lines": 285,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/render/imgtools_impl/hough.py",
+      "name": "_hough_lines",
+      "lines": 149,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/render/imgtools_impl/measure.py",
+      "name": "img_probe",
+      "lines": 143,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/render/imgtools_impl/measure.py",
+      "name": "img_measure",
+      "lines": 144,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/render/qc_render_impl/main.py",
+      "name": "qc_render_views",
+      "lines": 941,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/render/qc_render_impl/selftest.py",
+      "name": "qc_render_selftest",
+      "lines": 584,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/render/visualreport_impl/api.py",
+      "name": "visualreport_report",
+      "lines": 227,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/render/visualreport_impl/process.py",
+      "name": "_process_view",
+      "lines": 124,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "addon/dsh_blender_bridge/__init__.py",
+      "name": "register",
+      "lines": 227,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "addon/dsh_blender_bridge/commands/assets_polyhaven.py",
+      "name": "search_polyhaven_assets",
+      "lines": 121,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "addon/dsh_blender_bridge/commands/assets_polypizza.py",
+      "name": "download_polypizza_model",
+      "lines": 192,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "addon/dsh_blender_bridge/commands/assets_sketchfab.py",
+      "name": "download_sketchfab_model",
+      "lines": 213,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "addon/dsh_blender_bridge/commands/scene.py",
+      "name": "get_world_state_snapshot",
+      "lines": 135,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "addon/dsh_blender_bridge/ui/panels.py",
+      "name": "_draw_impl",
+      "lines": 198,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    }
+  ],
+  "files": [
+    {
+      "file": "runtime/catalog.ts",
+      "lines": 956,
+      "reason": "Baseline; split in F1/F2/F3",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    }
+  ]
+}
