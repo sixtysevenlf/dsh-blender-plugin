@@ -5,30 +5,6 @@
   "expires": "2026-12-31",
   "functions": [
     {
-      "file": "runtime/core/plan/ext-check.ts",
-      "name": "extCheckOp",
-      "lines": 124,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/execution/headless/index.ts",
-      "name": "createHeadlessRun",
-      "lines": 172,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/execution/headless/index.ts",
-      "name": "headless",
-      "lines": 158,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
       "file": "runtime/py/assembly/assembly_impl/gate.py",
       "name": "asm_gate",
       "lines": 225,
