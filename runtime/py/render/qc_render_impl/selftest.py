@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Split from qc_render.py; behavior preserved by the facade."""
 from .common import *  # noqa: F401,F403
-from .lock import _lock_path
+from .lock import _lock_path, render_lock
 from .geom import _collect_objs, _corners, _db_counts, _project_px, _solve_view
 from .parts import _legend_line_count
 from .main import qc_render_views
