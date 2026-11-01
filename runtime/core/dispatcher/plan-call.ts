@@ -13,8 +13,13 @@ export const hit = (result: unknown): RouteDecision => ({
 export const miss = (): RouteDecision => ({ matched: false })
 
 /** evidence：先注入默认 view.path 再走契约层 */
-export function prepareEvidencePayload(E: PlanCallDeps, o: string, payload: unknown): unknown {
+export async function prepareEvidencePayload(
+  E: PlanCallDeps,
+  o: string,
+  payload: unknown,
+): Promise<unknown> {
   if (o !== 'evidence') return payload
+  await E.ensureView()
   const { SESSION_NAME } = E
   const p: Record<string, unknown> =
     payload !== null && typeof payload === 'object' ? (payload as Record<string, unknown>) : {}
@@ -123,6 +128,21 @@ async function handleQcRender(E: PlanCallDeps, o: string, payload: unknown): Pro
   )
 }
 
+async function handleMontage(E: PlanCallDeps, payload: unknown): Promise<unknown> {
+  await E.ensureMontage()
+  const body =
+    'print("LOOP " + K.dsh_montage_api["montage"](_json.loads(' +
+    JSON.stringify(JSON.stringify(payload || {})) +
+    ')))'
+  return extractLoop(
+    await E.addon.send(
+      'execute_code',
+      { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body },
+      300000,
+    ),
+  )
+}
+
 export async function routeMainPlanOps(
   E: PlanCallDeps,
   o: string,
@@ -140,8 +160,7 @@ export async function routeMainPlanOps(
     return hit(
       dispatchViaKernelModule(E, E.ensureAudit, 'dsh_audit_api', o.slice(6), payload, 600000),
     )
-  if (o.indexOf('montage') === 0)
-    return hit(dispatchViaKernelModule(E, E.ensureMontage, 'dsh_montage_api', o, payload, 300000))
+  if (o.indexOf('montage') === 0) return hit(handleMontage(E, payload))
   return miss()
 }
 

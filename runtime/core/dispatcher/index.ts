@@ -42,7 +42,7 @@ import { routeExtRouting } from './ext-routing.js'
 
 async function routePlanCall(E: PlanCallDeps, op: unknown, payload: unknown): Promise<unknown> {
   const o = String(op || 'status')
-  const withEvidence = prepareEvidencePayload(E, o, payload)
+  const withEvidence = await prepareEvidencePayload(E, o, payload)
   const main = await routeMainPlanOps(E, o, withEvidence)
   if (main.matched) return main.result
   const moduleRoute = await routeModulePlanOps(E, o, withEvidence)
