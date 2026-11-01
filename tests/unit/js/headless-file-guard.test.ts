@@ -120,6 +120,10 @@ describe('headless file option guard', () => {
       pkgPath('runtime', 'execution', 'headless', 'logs.ts'),
       'utf8',
     )
+    const headlessStages = fs.readFileSync(
+      pkgPath('runtime', 'execution', 'headless', 'run-stages.ts'),
+      'utf8',
+    )
     const headlessResult = fs.readFileSync(
       pkgPath('runtime', 'execution', 'headless', 'result.ts'),
       'utf8',
@@ -143,7 +147,9 @@ describe('headless file option guard', () => {
     expect(jobStart).toContain('noInputFileWarning')
     expect(headlessOptions).toContain('validateFileOpt(opts.file)')
     expect(headlessOptions).toContain('describeMissingInput')
-    expect(headlessIndex).toContain('finishRunWarnings(')
+    // F2.2 tail：警告合并在 run-stages 阶段，index 只负责顺序调用。
+    expect(headlessIndex).toContain('finishRunRecord(')
+    expect(headlessStages).toContain('finishRunWarnings(')
     expect(headlessResult).toContain('noInputFileWarning')
     expect(headlessLogs).toContain('headlessLogNames(stamp, runId)')
     expect(jobs).not.toContain('headlessLogNames(')

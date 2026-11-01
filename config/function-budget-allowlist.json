@@ -1,33 +1,9 @@
 {
-  "generatedAt": "2026-11-01T01:32:41.125Z",
+  "generatedAt": "2026-11-01T02:39:01.222Z",
   "reason": "Baseline debt captured by F1.0; burn down in F1/F2/F3.",
   "owner": "lead",
   "expires": "2026-12-31",
   "functions": [
-    {
-      "file": "runtime/core/plan/ext-check.ts",
-      "name": "extCheckOp",
-      "lines": 124,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/execution/headless/index.ts",
-      "name": "createHeadlessRun",
-      "lines": 172,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/execution/headless/index.ts",
-      "name": "headless",
-      "lines": 158,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
     {
       "file": "runtime/py/assembly/assembly_impl/manifest.py",
       "name": "_manifest_validate",
@@ -56,6 +32,14 @@
       "file": "runtime/py/core/audit_impl/conn_helpers.py",
       "name": "_load_file_objects",
       "lines": 179,
+      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
+      "owner": "lead",
+      "expires": "2026-12-31"
+    },
+    {
+      "file": "runtime/py/core/audit_impl/overlap.py",
+      "name": "audit_interference",
+      "lines": 195,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"
@@ -123,14 +107,6 @@
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/core/audit_impl/overlap.py",
-      "name": "audit_interference",
-      "lines": 195,
-      "reason": "F2.2 待拆：需先把内部 135 行闭包 _body 提成模块级函数（自由变量 12 个）",
-      "owner": "dsh-plugin-analyst",
-      "expires": "2026-11-30"
     }
   ],
   "files": []
