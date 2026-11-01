@@ -5,10 +5,10 @@
  * Parses tests/BEHAVIOR_MATRIX.md and compares it with the live source of truth:
  *   - model tools: every .ts under src (vTool registrations; the schema-diagnostic
  *     duplicate is not a model-facing tool and is skipped)
- *   - addon commands: lib/runtime/catalog.js COMMAND_CATALOG (built from
- *     runtime/catalog.ts), each backed by the addon package (all .py under
+ *   - addon commands: lib/runtime/catalog/index.js COMMAND_CATALOG (built from
+ *     runtime/catalog/index.ts), each backed by the addon package (all .py under
  *     addon/dsh_blender_bridge/)
- *   - plan ops: lib/runtime/catalog.js PLAN_CATALOG (one row per op entry)
+ *   - plan ops: lib/runtime/catalog/index.js PLAN_CATALOG (one row per op entry)
  *   - HTTP routes: CONTRACT_ROUTES from lib/runtime/http/routes/index.js
  *
  * Runtime sources are TypeScript, so this script imports the built
@@ -149,7 +149,9 @@ function loadMatrix(matrixPath = MATRIX) {
 }
 
 async function loadCatalogs() {
-  const catalog = await import(pathToFileURL(path.join(ROOT, 'lib', 'runtime', 'catalog.js')).href)
+  const catalog = await import(
+    pathToFileURL(path.join(ROOT, 'lib', 'runtime', 'catalog', 'index.js')).href
+  )
   const toolNames = []
   const walkTools = (dir) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -388,8 +390,8 @@ async function main() {
     matrix: rel(options.matrix),
     sources: {
       tools: 'src/index.ts',
-      commands: 'runtime/catalog.ts + addon/dsh_blender_bridge/',
-      ops: 'runtime/catalog.ts',
+      commands: 'runtime/catalog/index.ts + addon/dsh_blender_bridge/',
+      ops: 'runtime/catalog/index.ts',
       routes: 'lib/runtime/http/routes/index.js',
     },
     counts: {

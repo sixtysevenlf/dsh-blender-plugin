@@ -82,7 +82,7 @@ try {
   for (const required of [
     'lib/index.js',
     'lib/runtime/server.js',
-    'lib/runtime/catalog.js',
+    'lib/runtime/catalog/index.js',
     'addon/dsh_blender_bridge.zip',
     'tests/helpers/fake-addon.mjs',
   ]) {

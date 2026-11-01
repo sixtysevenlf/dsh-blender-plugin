@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
+import path from 'node:path'
 import {
   PLAN_CATALOG,
   PLAN_READ_ONLY,
@@ -8,19 +9,32 @@ import {
   planOpCrossChannelHint,
   planOpNames,
   planOpSuggestion,
-} from '../../../../runtime/catalog.js'
+} from '../../../../runtime/catalog/index.js'
 import { catalogPayload } from '../../../../runtime/engine.js'
 import { pkgPath } from '../../../helpers/pkg'
 
 const baseline = JSON.parse(
   fs.readFileSync(pkgPath('tests', 'fixtures', 'plan_readonly.baseline.json'), 'utf8'),
 )
+function readTree(dir: string, ext: string): string {
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .map((entry) => {
+      const full = path.join(dir, entry.name)
+      return entry.isDirectory()
+        ? readTree(full, ext)
+        : entry.name.endsWith(ext)
+          ? fs.readFileSync(full, 'utf8')
+          : ''
+    })
+    .join('\n')
+}
 const engineSource = [
-  fs.readFileSync(pkgPath('runtime', 'core', 'dispatch.ts'), 'utf8'),
+  readTree(pkgPath('runtime', 'core', 'dispatcher'), '.ts'),
   fs.readFileSync(pkgPath('runtime', 'core', 'plan-dispatch.ts'), 'utf8'),
   fs.readFileSync(pkgPath('runtime', 'core', 'plan', 'ext-check.ts'), 'utf8'),
   fs.readFileSync(pkgPath('runtime', 'core', 'plan', 'render-guard.ts'), 'utf8'),
-  fs.readFileSync(pkgPath('runtime', 'core', 'plan', 'shape-search.ts'), 'utf8'),
+  readTree(pkgPath('runtime', 'core', 'plan', 'shape-search'), '.ts'),
 ].join('\n')
 
 function opsLine(family: string): string[] {

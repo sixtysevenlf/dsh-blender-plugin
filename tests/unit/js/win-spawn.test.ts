@@ -92,7 +92,7 @@ describe('win_proc parsers', () => {
 describe('issue #51 wiring', () => {
   const backend = read('src/host/backend.ts')
   const lifecycle = read('runtime/http/lifecycle.ts')
-  const catalog = read('runtime/catalog.ts')
+  const catalog = read('runtime/catalog/logic.ts')
   const winProc = read('runtime/win_proc.ts')
 
   it('spawnChild passes ELECTRON_RUN_AS_NODE and windowsHide', () => {

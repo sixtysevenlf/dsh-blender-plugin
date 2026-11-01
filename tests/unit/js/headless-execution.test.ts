@@ -26,7 +26,7 @@ vi.mock('../../../runtime/staging.js', () => ({
   },
 }))
 
-import { createHeadlessRun } from '../../../runtime/execution/headless.js'
+import { createHeadlessRun } from '../../../runtime/execution/headless/index.js'
 
 class FakeChild extends EventEmitter {
   pid = 4242

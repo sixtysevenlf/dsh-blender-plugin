@@ -13,7 +13,7 @@ import { pkgPath } from '../../helpers/pkg'
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-prov-stale-'))
 const COPY_RT = path.join(TMP, 'lib', 'runtime')
 const ENGINE = path.join(COPY_RT, 'engine.js')
-const CATALOG = path.join(COPY_RT, 'catalog.js')
+const CATALOG = path.join(COPY_RT, 'catalog', 'data.js')
 let mod: any
 let origEngine = ''
 let origMd5 = ''

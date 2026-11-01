@@ -267,6 +267,8 @@ const report = {
     targetWarn: targetWarn.length,
     filesOver: fileRows.length,
   },
+  hardFunctions: hard,
+  fileOverBudget: fileRows,
   violations,
   staleAllowlistFunctions: stale.length,
   hidden: targetWarn.slice(0, 20),

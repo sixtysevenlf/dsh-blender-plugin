@@ -92,7 +92,7 @@ describe('runtime domain package layout (T8)', () => {
   })
 
   it('feeds the split engine from the real package files, not the shims', () => {
-    const kernel = fs.readFileSync(pkgPath('runtime', 'core', 'kernel.ts'), 'utf8')
+    const kernel = fs.readFileSync(pkgPath('runtime', 'core', 'kernel', 'api.ts'), 'utf8')
     expect(kernel).toContain("fs.readFileSync(pyModuleFile(name), 'utf8')")
     const extCheck = fs.readFileSync(pkgPath('runtime', 'core', 'plan', 'ext-check.ts'), 'utf8')
     expect(extCheck).toContain('resolveExtPaths()')

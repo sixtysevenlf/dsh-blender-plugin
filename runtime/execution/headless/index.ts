@@ -1,7 +1,7 @@
 import { winToWsl, wslToWin } from '../../config.js'
 import { BLENDER_EXE, WIN_TMP } from '../../paths.js'
 import { PLUGIN_VERSION, pathAudit, sceneHygieneAudit } from '../../core/evidence.js'
-import { prepareHeadlessOptions } from './options.js'
+import { prepareHeadlessOptions } from './options/index.js'
 import { buildHeadlessScript } from './script.js'
 import { createHeadlessLogStreams } from './process.js'
 import {

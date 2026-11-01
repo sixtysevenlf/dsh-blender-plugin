@@ -70,7 +70,7 @@ describe('npm package install contract', () => {
     const files = meta.files.map((f: any) => f.path)
     expect(files).toContain('lib/index.js')
     expect(files).toContain('lib/runtime/server.js')
-    expect(files).toContain('lib/runtime/catalog.js')
+    expect(files).toContain('lib/runtime/catalog/index.js')
     expect(files).toContain('addon/dsh_blender_bridge.zip')
     expect(files).toContain('addon/dsh_blender_bridge/__init__.py')
     expect(files).toContain('package.json')

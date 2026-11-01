@@ -1,5 +1,5 @@
-import { KERNEL_BOOTSTRAP } from '../kernel.js'
-import { extractLoop } from '../output.js'
+import { KERNEL_BOOTSTRAP } from '../kernel/index.js'
+import { extractLoop } from '../output/index.js'
 import { wslToWin } from '../../config.js'
 import { errorMessage } from '../json.js'
 import type { AddonClient } from '../../transport/probes.js'

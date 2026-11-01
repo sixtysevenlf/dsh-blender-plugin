@@ -1,9 +1,9 @@
-import { catalogPayload, extractLoop } from './output.js'
-import { KERNEL_BOOTSTRAP } from './kernel.js'
-import { planOpSuggestion } from '../catalog.js'
+import { catalogPayload, extractLoop } from './output/index.js'
+import { KERNEL_BOOTSTRAP } from './kernel/index.js'
+import { planOpSuggestion } from '../catalog/index.js'
 import { extCheckOp } from './plan/ext-check.js'
 import { createRenderGuardOp } from './plan/render-guard.js'
-import { createShapeSearch } from './plan/shape-search.js'
+import { createShapeSearch } from './plan/shape-search/index.js'
 import type { AddonClient } from '../transport/probes.js'
 
 export interface PlanDispatchDeps {

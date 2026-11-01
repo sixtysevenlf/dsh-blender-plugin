@@ -27,8 +27,8 @@ function readTree(dir: string, ext: string): string {
 }
 const indexSource = readTree(pkgPath('src'), '.ts')
 const engineSource = [
-  fs.readFileSync(pkgPath('runtime', 'execution', 'workers.ts'), 'utf8'),
-  fs.readFileSync(pkgPath('runtime', 'core', 'engine.ts'), 'utf8'),
+  readTree(pkgPath('runtime', 'execution', 'workers'), '.ts'),
+  readTree(pkgPath('runtime', 'core', 'engine'), '.ts'),
 ].join('\n')
 const addonSource = readTree(pkgPath('addon', 'dsh_blender_bridge'), '.py')
 const serverSource = readTree(pkgPath('runtime', 'http'), '.ts')
