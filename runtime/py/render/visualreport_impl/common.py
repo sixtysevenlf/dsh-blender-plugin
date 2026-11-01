@@ -57,6 +57,8 @@ import time
 
 import bpy as bpy
 
+import numpy as np  # noqa: F401  # re-exported to the split visualreport modules
+
 
 VISUALREPORT_VERSION = 1
 

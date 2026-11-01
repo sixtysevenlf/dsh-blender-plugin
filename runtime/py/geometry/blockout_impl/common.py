@@ -60,6 +60,7 @@ import time as time
 
 import bpy
 import bmesh
+import numpy as np  # noqa: F401  # re-exported to the split blockout modules
 from mathutils import Euler as Euler, Matrix, Vector as Vector
 
 BLOCKOUT_VERSION = 1

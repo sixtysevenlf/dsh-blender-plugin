@@ -106,6 +106,7 @@ def _noop_cleanup():
 def __load_file_objects_p1(st):
     path = st["path"]
     try:
+        import os  # noqa: F401  # handed to the next split stage through st
         src = str(path or "")
         before = _id_snapshot()
         before_counts = _id_counts()

@@ -129,6 +129,8 @@ import time as time
 
 from mathutils import Vector as Vector
 
+import numpy as np  # noqa: F401  # re-exported to the split qc_render modules
+
 
 QC_RENDER_VERSION = 3      # v0.9.1：A1 未知名硬失败 / A2 QC 默认 Standard / E1 渲染锁 / B1-B2 可调用 API
 DEFAULT_RES = (512, 512)
