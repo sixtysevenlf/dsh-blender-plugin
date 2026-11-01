@@ -56,7 +56,7 @@ function loadPyModuleManifest(): PyModuleManifest {
   try {
     raw = JSON.parse(fs.readFileSync(file, 'utf8'))
   } catch (e) {
-    throw new Error('读取 Python 模块清单失败：' + file + '（' + String(e) + '）')
+    throw new Error('读取 Python 模块清单失败：' + file + '（' + String(e) + '）', { cause: e })
   }
   const parsed = raw as Partial<PyModuleManifest>
   const domains = Array.isArray(parsed.domains) ? parsed.domains.map(String) : []

@@ -114,7 +114,7 @@ export async function withTimeout(
   try {
     return await fetch(path, { ...(init || {}), signal })
   } catch (e: unknown) {
-    if (!fired && ext && ext.aborted) throw new Error(ABORT_HINT)
+    if (!fired && ext && ext.aborted) throw new Error(ABORT_HINT, { cause: e })
     throw e
   } finally {
     clearTimeout(timer)

@@ -26,7 +26,7 @@ export function createHeadlessLogStreams(
   runId: string,
 ): HeadlessLogStreams {
   const stamp = new Date(t0).toISOString().replace(/[:.]/g, '-')
-  let logs: HeadlessRunRec['logs'] = null
+  let logs: HeadlessRunRec['logs']
   let soStream: fs.WriteStream | null = null
   let seStream: fs.WriteStream | null = null
   try {
@@ -67,7 +67,7 @@ export async function spawnHeadless(
     let spawnErr: Error | null = null
     let timedOut = false
     const CAP = 262144
-    let child: ChildProcess | null = null
+    let child: ChildProcess | null
     const { soStream, seStream } = streams
     try {
       child = spawn(BLENDER_EXE as string, args, {

@@ -100,7 +100,7 @@ export function createRenderGuardOp(
     if (op === 'render_reset') {
       const had = readRenderFlag()
       const removed = clearRenderFlag()
-      let blender = null
+      let blender: unknown
       try {
         blender = await renderGuardCall('clear', { why: String(p.why || 'reset') })
       } catch (e) {

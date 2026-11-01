@@ -69,7 +69,7 @@ async function doAct(
 ): Promise<unknown> {
   const body: Record<string, unknown> = { code: code }
   if (file) body.file = file
-  let r: Record<string, unknown> | null = null
+  let r: Record<string, unknown> | null
   try {
     r = await backendPost(port, '/act', body, 180000)
   } catch (e) {

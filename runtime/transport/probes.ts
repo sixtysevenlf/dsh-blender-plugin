@@ -66,7 +66,7 @@ export async function freshPing(
     })
     s.on('data', (d: Buffer) => {
       buf += d.toString('utf8')
-      let r: ProtocolDecode | null = null
+      let r: ProtocolDecode | null
       try {
         r = proto.decode(buf.trim())
       } catch (e) {
@@ -246,7 +246,7 @@ export class AddonClient {
     this.buf += d.toString('utf8')
     if (!this.pending) return
     const proto = this.pending.proto
-    let r: ProtocolDecode | null = null
+    let r: ProtocolDecode | null
     try {
       r = proto.decode(this.buf.trim())
     } catch (e) {

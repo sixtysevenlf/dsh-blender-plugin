@@ -8,7 +8,7 @@ export function createPlanRoutes(E: HttpRouteDeps) {
     async plan(req: IncomingMessage, res: ServerResponse, _url: URL, _p: string): Promise<void> {
       // 契约层（S1+S2）与规划器（S3）统一入口：op + args
       const raw = await readBody(req)
-      let payload: Record<string, unknown> = {}
+      let payload: Record<string, unknown>
       try {
         payload = JSON.parse(raw)
       } catch (e) {

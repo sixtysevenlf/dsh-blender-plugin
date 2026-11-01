@@ -50,7 +50,7 @@ export async function extCheckOp(op: string, payload?: unknown): Promise<unknown
   const cands = extCandidates({ op, extDir, runner, winPath, wslPath, isWin })
   const run = runExtCandidates(cp, cands)
   if (!run.raw) return extInstallHint({ op, extDir, winPath, isWin, tried: run.tried })
-  let parsed: Record<string, unknown> | null = null
+  let parsed: Record<string, unknown> | null
   try {
     parsed = JSON.parse(run.raw) as Record<string, unknown>
   } catch (e) {

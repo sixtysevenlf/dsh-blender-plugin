@@ -11,7 +11,7 @@ export function createLeaseHandler(E: HttpRouteDeps) {
     _p: string,
   ): Promise<void> {
     const raw = await readBody(req)
-    let payload: Record<string, unknown> = {}
+    let payload: Record<string, unknown>
     try {
       payload = JSON.parse(raw)
     } catch (e) {
@@ -64,7 +64,7 @@ export function createReleaseHandler(E: HttpRouteDeps) {
     _p: string,
   ): Promise<void> {
     const raw = await readBody(req)
-    let payload: Record<string, unknown> = {}
+    let payload: Record<string, unknown>
     try {
       payload = JSON.parse(raw)
     } catch (e) {

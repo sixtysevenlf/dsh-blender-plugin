@@ -7,7 +7,7 @@ export function createPerfRoutes(E: HttpRouteDeps) {
   return {
     async perf(req: IncomingMessage, res: ServerResponse, _url: URL, _p: string): Promise<void> {
       const raw = await readBody(req)
-      let payload: Record<string, unknown> = {}
+      let payload: Record<string, unknown>
       try {
         payload = JSON.parse(raw)
       } catch (e) {

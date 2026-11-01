@@ -52,7 +52,7 @@ function slipFixPath(p: unknown, notes?: string[] | null): string {
   if (!s || s.startsWith('/') || s.startsWith('\\\\') || /^[A-Za-z]:[\\/]/.test(s)) return s
   if (!/^(home|mnt|tmp|usr|opt|srv|var|etc|root|data)\//.test(s)) return s
   const cand = '/' + s
-  let hit = false
+  let hit: boolean
   try {
     hit = fs.existsSync(winToWsl(cand)) || fs.existsSync(cand)
   } catch (e) {

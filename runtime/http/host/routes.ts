@@ -14,7 +14,7 @@ async function handleHostJobs(
 ): Promise<void> {
   const { engine, hostJson } = E
   const limit = clampIntParam(url.searchParams.get('limit'), 20, 1, 100)
-  let all: Array<Record<string, unknown>> = []
+  let all: Array<Record<string, unknown>>
   try {
     all = engine.job.list() || []
   } catch (e) {
@@ -45,7 +45,7 @@ async function handleHostJobsLog(
   const { engine, hostJson } = E
   const id = String(url.searchParams.get('id') || '')
   const tail = clampIntParam(url.searchParams.get('tail'), 8000, 1, 200000)
-  let snap: Record<string, unknown> | null = null
+  let snap: Record<string, unknown> | null
   try {
     snap = engine.job.collect(id, tail)
   } catch (e) {

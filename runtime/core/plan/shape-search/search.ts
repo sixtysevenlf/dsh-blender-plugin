@@ -208,7 +208,7 @@ export async function startSearchLoop(
   spec: Record<string, unknown>,
   specEcho: Record<string, unknown>,
 ): Promise<Record<string, unknown> | null> {
-  let started: Record<string, unknown> | null = null
+  let started: Record<string, unknown> | null
   try {
     started = (await E.loopStart(spec)) as Record<string, unknown> | null
   } catch (e) {
@@ -275,8 +275,8 @@ export async function fetchBoardAndExport(
   topK: number,
   objective: string,
 ): Promise<SearchBoard> {
-  let board: Record<string, unknown> | null = null,
-    exported: Record<string, unknown> | null = null
+  let board: Record<string, unknown> | null
+  let exported: Record<string, unknown> | null = null
   try {
     board = (await E.loopBoard(topK > 0 ? topK : 10, false)) as Record<string, unknown> | null
   } catch (e) {

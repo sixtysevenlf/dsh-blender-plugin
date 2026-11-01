@@ -55,7 +55,7 @@ export function parseBackendBody(body: unknown): Record<string, unknown> {
   let last: Record<string, unknown> | null = null
   let beats = 0
   for (let i = lines.length - 1; i >= 0; i--) {
-    let parsed: unknown = null
+    let parsed: unknown
     try {
       parsed = JSON.parse(lines[i]) as unknown
     } catch {
@@ -122,7 +122,7 @@ export async function backendPost(
     parsed.__status = r.status
     return parsed
   } catch (e) {
-    if (!fired && ext && ext.aborted) throw new Error(ABORT_HINT)
+    if (!fired && ext && ext.aborted) throw new Error(ABORT_HINT, { cause: e })
     throw e
   } finally {
     clearTimeout(timer)
@@ -232,7 +232,7 @@ export async function fetchView(
   )
   if (!r.ok) {
     const bodyText = await r.text()
-    let parsed: Record<string, unknown> | null = null
+    let parsed: Record<string, unknown> | null
     try {
       const candidate: unknown = JSON.parse(bodyText)
       parsed = isRecord(candidate) ? candidate : null
@@ -246,7 +246,7 @@ export async function fetchView(
         String(parsed ? parsed.error : bodyText.slice(0, 300)),
     )
   }
-  let meta: Record<string, unknown> | null = null
+  let meta: Record<string, unknown> | null
   try {
     const rawHdr = String(r.headers.get('x-dsh-view') || 'null')
     // v0.9.1：头值 URL 编码（非 ASCII 不能进头）—— 老后端是裸 JSON，两种都兼容

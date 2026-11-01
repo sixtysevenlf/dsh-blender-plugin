@@ -12,7 +12,7 @@ export function hostStateView(E: HostRoutesDeps): Record<string, unknown> {
   const { engine } = E
   const now = Date.now()
   const age = (t: unknown): number | null => (typeof t === 'number' && t ? now - t : null)
-  let m: Record<string, unknown> = {}
+  let m: Record<string, unknown>
   try {
     m = (engine.metrics() || {}) as Record<string, unknown>
   } catch (e) {
@@ -39,7 +39,7 @@ export function hostStateView(E: HostRoutesDeps): Record<string, unknown> {
   } catch (e) {
     /* 读不到标记 = 不在渲染 */
   }
-  let running = 0
+  let running: number
   try {
     running = (engine.job.list() || []).filter((j) => j && j.status === 'running').length
   } catch (e) {
@@ -75,7 +75,7 @@ export async function handleSceneItems(
   origin: unknown,
 ): Promise<void> {
   const { engine, hostJson, hostErrText } = E
-  let out: Record<string, unknown> = {}
+  let out: Record<string, unknown>
   try {
     out = (await engine.hostSceneItems({
       q: url.searchParams.get('q') || '',
