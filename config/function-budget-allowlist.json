@@ -109,22 +109,6 @@
       "expires": "2026-12-31"
     },
     {
-      "file": "runtime/py/core/evalharness.py",
-      "name": "_run_assembly",
-      "lines": 151,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/core/evalharness.py",
-      "name": "_run_reference",
-      "lines": 155,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
       "file": "runtime/py/core/audit_impl/conn_helpers.py",
       "name": "_load_file_objects",
       "lines": 179,
@@ -214,14 +198,6 @@
     },
     {
       "file": "runtime/py/export/printcheck.py",
-      "name": "print_overhang",
-      "lines": 169,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/export/printcheck.py",
       "name": "print_selftest",
       "lines": 225,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
@@ -232,22 +208,6 @@
       "file": "runtime/py/export/deliver_impl/verify.py",
       "name": "deliver_verify",
       "lines": 189,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/geometry/blockout_impl/api.py",
-      "name": "blockout_refsheet",
-      "lines": 159,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/geometry/blockout_impl/ops.py",
-      "name": "blockout_base",
-      "lines": 161,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"

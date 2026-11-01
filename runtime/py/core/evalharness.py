@@ -264,6 +264,154 @@ def _suite_deps(suite, present):
             "optional_missing": [x for x in opt if not present.get(x)]}
 
 
+def _asm_probe_scene():
+    """造 6 类缺陷探针（D1 浅穿模 / D3 完全包含 / D4 设计内交叠 / D5 面贴 / D7 浮块 / D8 反法线）；返回 (names, spec)。"""
+    _purge()
+    names = []
+    names.append(_cube("D1_a", 20.0, (0.0, 0.0, 0.0)))
+    names.append(_cube("D1_b", 20.0, (19.0, 0.0, 0.0)))           # 浅穿模 1mm
+    names.append(_cube("D3_big", 40.0, (100.0, 0.0, 0.0)))
+    names.append(_cube("D3_small", 6.0, (100.0, 0.0, 0.0)))       # 完全包含（面无相交）
+    names.append(_cube("D4_a", 40.0, (0.0, 100.0, 0.0)))
+    names.append(_cube("D4_b", 40.0, (0.0, 100.0, 28.0)))         # z 向 12mm 设计内交叠
+    names.append(_cube("D5_a", 20.0, (0.0, 200.0, 0.0)))
+    names.append(_cube("D5_b", 20.0, (20.0, 200.0, 0.0)))         # 面贴 gap=0
+    names.append(_cube("D7_float", 6.0, (240.0, 0.0, 0.0)))       # 浮块
+    names.append(_cube("D8_inv", 20.0, (300.0, 300.0, 0.0), flip=True))  # 法线朝内
+    _update()
+    spec = {"allow": [{"id": "ALLOW_D4", "a": PFX + "D4_a", "b": PFX + "D4_b",
+                       "max_depth_mm": 13.0, "max_volume_mm3": 25000.0,
+                       "reason": "evalharness：12mm 设计内隐藏交叠（留 1mm 采样容差）"}]}
+    return names, spec
+
+
+def _asm_scan_gate(res, names, spec):
+    """跑 assembly.scan + assembly.gate，抽出 pairs/floats/normals/offenders；返回七元组。"""
+    scan, serr = _call("assembly", "scan",
+                       {"objects": list(names), "spec": spec, "summary_only": False,
+                        "max_pairs": 500, "report_gap_mm": 5.0})
+    if serr:
+        res["errors"].append("assembly.scan: %s" % serr)
+    gate, gerr = _call("assembly", "gate",
+                       {"objects": list(names), "spec": spec, "summary_only": True, "strict": True})
+    if gerr:
+        res["errors"].append("assembly.gate: %s" % gerr)
+    pairs = _pairs_by_key(scan or {})
+    floats = _floater_objects(scan or {})
+    norm_gate = _gate_state(gate, "normals")
+    inverted = [str(x) for x in (norm_gate.get("inverted") or [])]
+    offenders = set()
+    for p in (scan or {}).get("offenders") or []:
+        if isinstance(p, dict):
+            offenders.add(_pair_key(p.get("a"), p.get("b")))
+    return scan, gate, pairs, floats, norm_gate, inverted, offenders
+
+
+def _asm_cases(pairs, floats, norm_gate, scan, present, offenders, inverted):
+    """6 类用例判定；返回 (cases, unverified, false_positive)。"""
+    cases = []
+    unverified = []
+    false_positive = 0
+
+    def _pair_case(cid, a, b, expect, allowed=False):
+        nonlocal false_positive
+        rec = pairs.get(_pair_key(a, b), {})
+        got = rec.get("class") if rec else "missing"
+        ok = got == expect
+        if expect != "missing" and not rec and not (scan or {}).get("ok"):
+            unverified.append(cid)
+            ok = False
+        cases.append({"id": cid, "expect": expect, "got": got, "ok": bool(ok),
+                      "declared": bool(rec.get("declared")),
+                      "depth_mm": rec.get("depth_mm"), "volume_mm3": rec.get("volume_mm3")})
+        if allowed and _pair_key(a, b) in offenders:
+            false_positive += 1
+            cases[-1]["false_positive"] = True
+        return ok
+
+    _pair_case("D1_shallow_clash", PFX + "D1_a", PFX + "D1_b", "clash")
+    _pair_case("D3_contained", PFX + "D3_big", PFX + "D3_small", "contained")
+    _pair_case("D4_hidden_ok_allowed", PFX + "D4_a", PFX + "D4_b", "hidden_ok", allowed=True)
+    _pair_case("D5_face_contact", PFX + "D5_a", PFX + "D5_b", "contact")
+    d7 = PFX + "D7_float"
+    got7 = "float" if d7 in floats else ("unresolved" if not floats else "missing")
+    cases.append({"id": "D7_floater", "expect": "float", "got": got7, "ok": got7 == "float"})
+    if not present.get("audit") and got7 != "float":
+        unverified.append("D7_floater")
+    d8 = PFX + "D8_inv"
+    got8 = str(norm_gate.get("state") or "missing")
+    d8_ok = bool(got8 == "fail" and d8 in inverted)
+    cases.append({"id": "D8_inverted_normals", "expect": "gate_normals_fail", "got": got8,
+                  "ok": d8_ok, "inverted": inverted[:6]})
+    if not present.get("audit") and not d8_ok:
+        unverified.append("D8_inverted_normals")
+    return cases, unverified, false_positive
+
+
+def _asm_baseline(res):
+    """干净基线：两件面贴 + manifest 接口 → gate 必须 pass（防"永远 fail"的假检出）。"""
+    try:
+        _purge()
+        ca = _cube("clean_a", 20.0, (0.0, 0.0, 0.0))
+        cb = _cube("clean_b", 20.0, (20.0, 0.0, 0.0))
+        _update()
+        man = {"schema": "dsh-assembly-manifest/1", "units": "mm", "assembly": "eval-clean",
+               "parts": [{"id": ca, "objects": [ca]}, {"id": cb, "objects": [cb]}],
+               "interfaces": [{"id": "IF-clean", "a": ca, "b": cb, "fit": "location",
+                               "nominal_mm": 0.0, "tol_mm": 0.5}],
+               "allow_pairs": []}
+        g2, g2err = _call("assembly", "gate",
+                          {"objects": [ca, cb], "manifest": man, "summary_only": True, "strict": True})
+        if g2err:
+            res["errors"].append("baseline gate: %s" % g2err)
+        res["baseline_pass"] = bool((g2 or {}).get("verdict") == "pass"
+                                    and (g2 or {}).get("export_allowed") is True)
+        res["evidence"]["baseline_gate"] = {"verdict": (g2 or {}).get("verdict"),
+                                            "export_allowed": (g2 or {}).get("export_allowed")}
+    finally:
+        _purge()
+
+
+def _asm_evidence(scan, gate, floats, norm_gate, inverted, offenders):
+    """证据块（scan/gate/浮块/法线/offenders）。"""
+    return {
+        "scan_ok": bool((scan or {}).get("ok")),
+        "scan_verdict": (scan or {}).get("verdict"),
+        "scan_counts": (scan or {}).get("counts"),
+        "scan_coverage": {k: (scan or {}).get("coverage", {}).get(k)
+                          for k in ("complete", "truncated", "budget_hit")},
+        "floaters": sorted(floats)[:10],
+        "gate_verdict": (gate or {}).get("verdict"),
+        "gate_export_allowed": (gate or {}).get("export_allowed"),
+        "gate_normals": {"state": norm_gate.get("state"), "inverted": inverted[:6]},
+        "offenders": sorted(["%s|%s" % k for k in offenders])[:10],
+    }
+
+
+def _asm_finalize(res, scan, gate, unverified, min_capture):
+    """state/warnings 汇总（errors → fail；依赖缺失 → degraded；捕获率/假阳性/基线 → fail/pass）。"""
+    scan_ok = bool((scan or {}).get("ok")) and (scan or {}).get("verdict") == "fail"
+    gate_ok = bool((gate or {}).get("verdict") in ("fail", "degraded")
+                   and (gate or {}).get("export_allowed") is False)
+    rate = res["capture_rate"] or 0.0
+    if res["errors"]:
+        res["state"] = "fail"
+    elif unverified:
+        res["state"] = "degraded"
+        res["warnings"].append("依赖缺失导致 %d 类无法确证：%s（%s）"
+                               % (len(unverified), unverified, res["dependencies"]["optional_missing"]))
+    elif rate < float(min_capture) or res["false_positive"] or res["baseline_pass"] is not True                 or not scan_ok or not gate_ok:
+        res["state"] = "fail"
+    else:
+        res["state"] = "pass"
+    if not scan_ok:
+        res["warnings"].append("scan 没有给 verdict=fail（%r）—— 缺陷注入的预期结论没出现"
+                               % (scan or {}).get("verdict"))
+    if not gate_ok:
+        res["warnings"].append("gate 没有拒绝（verdict=%r export_allowed=%r）"
+                               % ((gate or {}).get("verdict"), (gate or {}).get("export_allowed")))
+
+
 def _run_assembly(min_capture=0.8):
     """assembly suite：D1 浅穿模 / D3 完全包含 / D4 12mm allow / D5 面贴 / D7 浮块 / D8 反法线。"""
     t0 = time.perf_counter()
@@ -278,130 +426,17 @@ def _run_assembly(min_capture=0.8):
     prev_scale = float(bpy.context.scene.unit_settings.scale_length)
     try:
         bpy.context.scene.unit_settings.scale_length = 0.001     # 1 单位 = 1 mm
-        _purge()
-        names = []
-        names.append(_cube("D1_a", 20.0, (0.0, 0.0, 0.0)))
-        names.append(_cube("D1_b", 20.0, (19.0, 0.0, 0.0)))           # 浅穿模 1mm
-        names.append(_cube("D3_big", 40.0, (100.0, 0.0, 0.0)))
-        names.append(_cube("D3_small", 6.0, (100.0, 0.0, 0.0)))       # 完全包含（面无相交）
-        names.append(_cube("D4_a", 40.0, (0.0, 100.0, 0.0)))
-        names.append(_cube("D4_b", 40.0, (0.0, 100.0, 28.0)))         # z 向 12mm 设计内交叠
-        names.append(_cube("D5_a", 20.0, (0.0, 200.0, 0.0)))
-        names.append(_cube("D5_b", 20.0, (20.0, 200.0, 0.0)))         # 面贴 gap=0
-        names.append(_cube("D7_float", 6.0, (240.0, 0.0, 0.0)))       # 浮块
-        names.append(_cube("D8_inv", 20.0, (300.0, 300.0, 0.0), flip=True))  # 法线朝内
-        _update()
-        spec = {"allow": [{"id": "ALLOW_D4", "a": PFX + "D4_a", "b": PFX + "D4_b",
-                           "max_depth_mm": 13.0, "max_volume_mm3": 25000.0,
-                           "reason": "evalharness：12mm 设计内隐藏交叠（留 1mm 采样容差）"}]}
-        scan, serr = _call("assembly", "scan",
-                           {"objects": list(names), "spec": spec, "summary_only": False,
-                            "max_pairs": 500, "report_gap_mm": 5.0})
-        if serr:
-            res["errors"].append("assembly.scan: %s" % serr)
-        gate, gerr = _call("assembly", "gate",
-                           {"objects": list(names), "spec": spec, "summary_only": True, "strict": True})
-        if gerr:
-            res["errors"].append("assembly.gate: %s" % gerr)
-        pairs = _pairs_by_key(scan or {})
-        floats = _floater_objects(scan or {})
-        norm_gate = _gate_state(gate, "normals")
-        inverted = [str(x) for x in (norm_gate.get("inverted") or [])]
-        offenders = set()
-        for p in (scan or {}).get("offenders") or []:
-            if isinstance(p, dict):
-                offenders.add(_pair_key(p.get("a"), p.get("b")))
-        cases = []
-        unverified = []
-
-        def _pair_case(cid, a, b, expect, allowed=False):
-            rec = pairs.get(_pair_key(a, b), {})
-            got = rec.get("class") if rec else "missing"
-            ok = got == expect
-            if expect != "missing" and not rec and not (scan or {}).get("ok"):
-                unverified.append(cid)
-                ok = False
-            cases.append({"id": cid, "expect": expect, "got": got, "ok": bool(ok),
-                          "declared": bool(rec.get("declared")),
-                          "depth_mm": rec.get("depth_mm"), "volume_mm3": rec.get("volume_mm3")})
-            if allowed and _pair_key(a, b) in offenders:
-                res["false_positive"] += 1
-                cases[-1]["false_positive"] = True
-            return ok
-
-        _pair_case("D1_shallow_clash", PFX + "D1_a", PFX + "D1_b", "clash")
-        _pair_case("D3_contained", PFX + "D3_big", PFX + "D3_small", "contained")
-        _pair_case("D4_hidden_ok_allowed", PFX + "D4_a", PFX + "D4_b", "hidden_ok", allowed=True)
-        _pair_case("D5_face_contact", PFX + "D5_a", PFX + "D5_b", "contact")
-        d7 = PFX + "D7_float"
-        got7 = "float" if d7 in floats else ("unresolved" if not floats else "missing")
-        cases.append({"id": "D7_floater", "expect": "float", "got": got7, "ok": got7 == "float"})
-        if not present.get("audit") and got7 != "float":
-            unverified.append("D7_floater")
-        d8 = PFX + "D8_inv"
-        got8 = str(norm_gate.get("state") or "missing")
-        d8_ok = bool(got8 == "fail" and d8 in inverted)
-        cases.append({"id": "D8_inverted_normals", "expect": "gate_normals_fail", "got": got8,
-                      "ok": d8_ok, "inverted": inverted[:6]})
-        if not present.get("audit") and not d8_ok:
-            unverified.append("D8_inverted_normals")
-        # 干净基线：两件面贴 + manifest 接口 → gate 必须 pass（防"永远 fail"的假检出）
-        try:
-            _purge()
-            ca = _cube("clean_a", 20.0, (0.0, 0.0, 0.0))
-            cb = _cube("clean_b", 20.0, (20.0, 0.0, 0.0))
-            _update()
-            man = {"schema": "dsh-assembly-manifest/1", "units": "mm", "assembly": "eval-clean",
-                   "parts": [{"id": ca, "objects": [ca]}, {"id": cb, "objects": [cb]}],
-                   "interfaces": [{"id": "IF-clean", "a": ca, "b": cb, "fit": "location",
-                                   "nominal_mm": 0.0, "tol_mm": 0.5}],
-                   "allow_pairs": []}
-            g2, g2err = _call("assembly", "gate",
-                              {"objects": [ca, cb], "manifest": man, "summary_only": True, "strict": True})
-            if g2err:
-                res["errors"].append("baseline gate: %s" % g2err)
-            res["baseline_pass"] = bool((g2 or {}).get("verdict") == "pass"
-                                        and (g2 or {}).get("export_allowed") is True)
-            res["evidence"]["baseline_gate"] = {"verdict": (g2 or {}).get("verdict"),
-                                                "export_allowed": (g2 or {}).get("export_allowed")}
-        finally:
-            _purge()
+        names, spec = _asm_probe_scene()
+        scan, gate, pairs, floats, norm_gate, inverted, offenders = _asm_scan_gate(res, names, spec)
+        cases, unverified, false_positive = _asm_cases(pairs, floats, norm_gate, scan, present, offenders, inverted)
+        res["false_positive"] = false_positive
+        _asm_baseline(res)
         caught = [c for c in cases if c.get("ok") is True]
         res["cases"] = cases
         res["capture_rate"] = _r(len(caught) / float(len(cases)), 4) if cases else None
         res["missed"] = [c["id"] for c in cases if c.get("ok") is not True]
-        res["evidence"].update({
-            "scan_ok": bool((scan or {}).get("ok")),
-            "scan_verdict": (scan or {}).get("verdict"),
-            "scan_counts": (scan or {}).get("counts"),
-            "scan_coverage": {k: (scan or {}).get("coverage", {}).get(k)
-                              for k in ("complete", "truncated", "budget_hit")},
-            "floaters": sorted(floats)[:10],
-            "gate_verdict": (gate or {}).get("verdict"),
-            "gate_export_allowed": (gate or {}).get("export_allowed"),
-            "gate_normals": {"state": norm_gate.get("state"), "inverted": inverted[:6]},
-            "offenders": sorted(["%s|%s" % k for k in offenders])[:10],
-        })
-        scan_ok = bool((scan or {}).get("ok")) and (scan or {}).get("verdict") == "fail"
-        gate_ok = bool((gate or {}).get("verdict") in ("fail", "degraded")
-                       and (gate or {}).get("export_allowed") is False)
-        rate = res["capture_rate"] or 0.0
-        if res["errors"]:
-            res["state"] = "fail"
-        elif unverified:
-            res["state"] = "degraded"
-            res["warnings"].append("依赖缺失导致 %d 类无法确证：%s（%s）"
-                                   % (len(unverified), unverified, res["dependencies"]["optional_missing"]))
-        elif rate < float(min_capture) or res["false_positive"] or res["baseline_pass"] is not True                 or not scan_ok or not gate_ok:
-            res["state"] = "fail"
-        else:
-            res["state"] = "pass"
-        if not scan_ok:
-            res["warnings"].append("scan 没有给 verdict=fail（%r）—— 缺陷注入的预期结论没出现"
-                                   % (scan or {}).get("verdict"))
-        if not gate_ok:
-            res["warnings"].append("gate 没有拒绝（verdict=%r export_allowed=%r）"
-                                   % ((gate or {}).get("verdict"), (gate or {}).get("export_allowed")))
+        res["evidence"].update(_asm_evidence(scan, gate, floats, norm_gate, inverted, offenders))
+        _asm_finalize(res, scan, gate, unverified, min_capture)
     except Exception as e:
         import traceback
         res["state"] = "fail"
@@ -415,6 +450,7 @@ def _run_assembly(min_capture=0.8):
         _purge()
     res["ms"] = int((time.perf_counter() - t0) * 1000)
     return res
+
 # ────────────────────────────── reference suite：合成参考图回放 ──────────────────────────────
 def _gen_ref_images(tmp):
     """造三张合成参考图：矩形（已知尺寸+alpha）、圆环（alpha）、斜线（不透明灰度→Otsu）。"""
@@ -439,6 +475,142 @@ def _gen_ref_images(tmp):
             "rect_bbox": [80, 100, 300, 150], "ring_diameter_px": 100.0}
 
 
+def _ref_case(cases, cid, ok, expect=None, got=None, **extra):
+    """记一条用例（追加进 cases 并返回 bool）。"""
+    row = {"id": cid, "ok": bool(ok), "expect": expect, "got": got}
+    row.update(extra)
+    cases.append(row)
+    return bool(ok)
+
+
+def _ref_rect_cases(res, cases, paths, st):
+    """① 矩形 digest（bbox/px_per_mm）② probe 水平线宽/垂直线高 ③ measure 像素→mm。"""
+    dig, derr = _call("imgtools", "digest",
+                      {"path": paths["rect"], "views": ["front", "side"],
+                       "known_len": {"mm": 100.0, "p1_px": [80, 175], "p2_px": [380, 175]}})
+    if derr:
+        res["errors"].append("img.digest(rect): %s" % derr)
+    dig = dig or {}
+    bbox = ((dig.get("silhouette") or {}).get("bbox_px") or [])
+    want_bbox = paths["rect_bbox"]
+    bbox_ok = (len(bbox) >= 4 and all(abs(float(bbox[i]) - float(want_bbox[i])) <= 3.0
+                                      for i in range(4)))
+    ppm = _num((dig.get("scale") or {}).get("px_per_mm"))
+    ppm_ok = ppm is not None and abs(ppm - 3.0) / 3.0 <= 0.01
+    _ref_case(cases, "digest_rect_ok", dig.get("ok") is True and dig.get("verdict") == "ready_for_spec",
+              "ok+ready_for_spec", dig.get("verdict"), verdict=dig.get("verdict"))
+    _ref_case(cases, "digest_rect_bbox", bbox_ok, want_bbox, bbox)
+    _ref_case(cases, "digest_rect_px_per_mm", ppm_ok, 3.0, ppm)
+    pr_y, _e = _call("imgtools", "probe", {"path": paths["rect"], "op": "scan_y", "y_px": 175})
+    pr_y = pr_y or {}
+    wpx = _num(pr_y.get("width_px"))
+    _ref_case(cases, "probe_scan_y_width", (pr_y.get("ok") is True and wpx is not None
+                                            and abs(wpx - 300.0) <= 4.0), 300.0, wpx)
+    pr_x, _e = _call("imgtools", "probe", {"path": paths["rect"], "op": "scan_x", "x_px": 230})
+    pr_x = pr_x or {}
+    hpx = _num(pr_x.get("height_px"))
+    _ref_case(cases, "probe_scan_x_height", (pr_x.get("ok") is True and hpx is not None
+                                             and abs(hpx - 150.0) <= 4.0), 150.0, hpx)
+    meas, _e = _call("imgtools", "measure",
+                     {"path": paths["rect"],
+                      "targets": [{"key": "width", "p1_px": [80, 175], "p2_px": [380, 175],
+                                   "expect_mm": 100.0, "tol_pct": 0.02}]})
+    meas = meas or {}
+    rows = meas.get("rows") or []
+    row0 = rows[0] if rows else {}
+    vm = _num(row0.get("value_mm"))
+    _ref_case(cases, "measure_width_ok", (meas.get("ok") is True and row0.get("verdict") == "pass"
+                                         and vm is not None and abs(vm - 100.0) <= 1.0),
+              100.0, vm, verdict=row0.get("verdict"))
+    st.update({"dig": dig, "bbox": bbox, "want_bbox": want_bbox, "bbox_ok": bbox_ok, "ppm": ppm,
+               "ppm_ok": ppm_ok, "meas": meas, "row0": row0, "wpx": wpx, "hpx": hpx, "vm": vm})
+
+
+def _ref_ring_cases(res, cases, paths, st):
+    """④ 圆环：digest ok + probe circle 直径。"""
+    dig_r, rerr = _call("imgtools", "digest", {"path": paths["ring"], "views": ["front", "side"]})
+    if rerr:
+        res["errors"].append("img.digest(ring): %s" % rerr)
+    dig_r = dig_r or {}
+    circ, _e = _call("imgtools", "probe",
+                     {"path": paths["ring"], "op": "circle", "x_px": 256, "y_px": 256})
+    circ = circ or {}
+    c = circ.get("circle") or {}
+    dpx = _num(c.get("diameter_px"))
+    _ref_case(cases, "digest_ring_ok", dig_r.get("ok") is True, True, dig_r.get("verdict"),
+              verdict=dig_r.get("verdict"))
+    _ref_case(cases, "probe_circle_diameter", (circ.get("ok") is True and dpx is not None
+                                               and abs(dpx - 100.0) <= 6.0
+                                               and c.get("is_circle") is True), 100.0, dpx)
+    st.update({"dig_r": dig_r, "dpx": dpx})
+
+
+def _ref_slant_cases(res, cases, paths, st):
+    """⑤ 斜线：主方向 45°（模 180）、bbox 填充率 ⑥ 未标定 needs_scale。"""
+    dig_l, lerr = _call("imgtools", "digest", {"path": paths["slant"]})
+    if lerr:
+        res["errors"].append("img.digest(slant): %s" % lerr)
+    dig_l = dig_l or {}
+    axis = _num((dig_l.get("silhouette") or {}).get("principal_axis_deg"))
+    aspect = _num((dig_l.get("silhouette") or {}).get("aspect_wh"))
+    fill = _num((dig_l.get("silhouette") or {}).get("fill_ratio"))
+    axis_ok = axis is not None and abs(((float(axis) - 45.0 + 90.0) % 180.0) - 90.0) <= 6.0
+    _ref_case(cases, "digest_slant_axis", dig_l.get("ok") is True and axis_ok, 45.0, axis,
+              aspect=aspect)
+    # 45° 斜线的 bbox 是正方形（aspect≈1），细长要看 bbox 填充率
+    _ref_case(cases, "digest_slant_thin", fill is not None and fill < 0.5, "<0.5", fill, aspect=aspect)
+    _ref_case(cases, "digest_uncalibrated_needs_scale", dig_l.get("verdict") == "needs_scale",
+              "needs_scale", dig_l.get("verdict"))
+    meas2, _e = _call("imgtools", "measure",
+                      {"path": paths["slant"], "targets": [{"key": "w", "px": 200.0}]})
+    _ref_case(cases, "measure_needs_scale_okfalse", (meas2 or {}).get("ok") is False
+              and (meas2 or {}).get("verdict") == "needs_scale",
+              "ok=false+needs_scale", (meas2 or {}).get("verdict"))
+    st.update({"dig_l": dig_l, "axis": axis, "aspect": aspect, "fill": fill, "meas2": meas2})
+
+
+def _ref_readability(res, dig, dig_r):
+    """readble 断言：检出特征若 >=8px 必须标 readable；unreadable 行只统计不判罚。"""
+    fps = 0
+    feats = list(dig_r.get("features") or []) + list(dig.get("features") or [])
+    for f in feats:
+        if not isinstance(f, dict):
+            continue
+        size = _num(f.get("size_px")) or 0.0
+        if size >= 8.0 and f.get("readable") is not True:
+            fps += 1
+    # unreadable 里的 <8px 角点是**诚实的低读性报告**，不是误报；只有 >=8px 却标不可读才算
+    res["false_positive"] = int(fps)
+    res["evidence"]["readability"] = {
+        "features": len(feats),
+        "unreadable_lt8px": (len(dig.get("unreadable") or []) + len(dig_r.get("unreadable") or [])),
+    }
+
+
+def _ref_evidence(st):
+    """证据块（矩形/probe/measure/圆环/斜线）。"""
+    return {
+        "rect": {"bbox_px": st["bbox"], "want_bbox_px": st["want_bbox"], "px_per_mm": st["ppm"],
+                 "verdict": st["dig"].get("verdict")},
+        "probe": {"scan_y_width_px": st["wpx"], "scan_x_height_px": st["hpx"]},
+        "measure": {"value_mm": st["vm"], "verdict": st["row0"].get("verdict")},
+        "ring": {"circle_diameter_px": st["dpx"], "digest_verdict": st["dig_r"].get("verdict")},
+        "slant": {"principal_axis_deg": st["axis"], "aspect_wh": st["aspect"],
+                  "verdict": st["dig_l"].get("verdict")},
+    }
+
+
+def _ref_finalize(res, min_capture):
+    """state 三态汇总（errors/capture_rate/假阳性/基线）。"""
+    rate = res["capture_rate"] or 0.0
+    if res["errors"]:
+        res["state"] = "fail"
+    elif rate < float(min_capture) or res["false_positive"] or res["baseline_pass"] is not True:
+        res["state"] = "fail"
+    else:
+        res["state"] = "pass"
+
+
 def _run_reference(min_capture=0.8, keep=False):
     """reference suite：imgtools digest/probe/measure 对合成图（矩形/圆环/斜线）的断言。"""
     t0 = time.perf_counter()
@@ -456,128 +628,21 @@ def _run_reference(min_capture=0.8, keep=False):
         paths = _gen_ref_images(tmp)
         res["evidence"]["tmp_dir"] = tmp
         cases = []
-
-        def _case(cid, ok, expect=None, got=None, **extra):
-            row = {"id": cid, "ok": bool(ok), "expect": expect, "got": got}
-            row.update(extra)
-            cases.append(row)
-            return bool(ok)
-
-        # ① 矩形 + 已知长度 → digest：bbox / px_per_mm / verdict=ready_for_spec
-        dig, derr = _call("imgtools", "digest",
-                          {"path": paths["rect"], "views": ["front", "side"],
-                           "known_len": {"mm": 100.0, "p1_px": [80, 175], "p2_px": [380, 175]}})
-        if derr:
-            res["errors"].append("img.digest(rect): %s" % derr)
-        dig = dig or {}
-        bbox = ((dig.get("silhouette") or {}).get("bbox_px") or [])
-        want_bbox = paths["rect_bbox"]
-        bbox_ok = (len(bbox) >= 4 and all(abs(float(bbox[i]) - float(want_bbox[i])) <= 3.0
-                                          for i in range(4)))
-        ppm = _num((dig.get("scale") or {}).get("px_per_mm"))
-        ppm_ok = ppm is not None and abs(ppm - 3.0) / 3.0 <= 0.01
-        _case("digest_rect_ok", dig.get("ok") is True and dig.get("verdict") == "ready_for_spec",
-              "ok+ready_for_spec", dig.get("verdict"), verdict=dig.get("verdict"))
-        _case("digest_rect_bbox", bbox_ok, want_bbox, bbox)
-        _case("digest_rect_px_per_mm", ppm_ok, 3.0, ppm)
-        # ② probe：水平线宽 / 垂直线高（像素）
-        pr_y, _e = _call("imgtools", "probe", {"path": paths["rect"], "op": "scan_y", "y_px": 175})
-        pr_y = pr_y or {}
-        wpx = _num(pr_y.get("width_px"))
-        _case("probe_scan_y_width", (pr_y.get("ok") is True and wpx is not None
-                                     and abs(wpx - 300.0) <= 4.0), 300.0, wpx)
-        pr_x, _e = _call("imgtools", "probe", {"path": paths["rect"], "op": "scan_x", "x_px": 230})
-        pr_x = pr_x or {}
-        hpx = _num(pr_x.get("height_px"))
-        _case("probe_scan_x_height", (pr_x.get("ok") is True and hpx is not None
-                                      and abs(hpx - 150.0) <= 4.0), 150.0, hpx)
-        # ③ measure：像素→mm 与期望比
-        meas, _e = _call("imgtools", "measure",
-                         {"path": paths["rect"],
-                          "targets": [{"key": "width", "p1_px": [80, 175], "p2_px": [380, 175],
-                                       "expect_mm": 100.0, "tol_pct": 0.02}]})
-        meas = meas or {}
-        rows = meas.get("rows") or []
-        row0 = rows[0] if rows else {}
-        vm = _num(row0.get("value_mm"))
-        _case("measure_width_ok", (meas.get("ok") is True and row0.get("verdict") == "pass"
-                                   and vm is not None and abs(vm - 100.0) <= 1.0),
-              100.0, vm, verdict=row0.get("verdict"))
-        # ④ 圆环：probe circle 直径
-        dig_r, rerr = _call("imgtools", "digest", {"path": paths["ring"], "views": ["front", "side"]})
-        if rerr:
-            res["errors"].append("img.digest(ring): %s" % rerr)
-        dig_r = dig_r or {}
-        circ, _e = _call("imgtools", "probe",
-                         {"path": paths["ring"], "op": "circle", "x_px": 256, "y_px": 256})
-        circ = circ or {}
-        c = circ.get("circle") or {}
-        dpx = _num(c.get("diameter_px"))
-        _case("digest_ring_ok", dig_r.get("ok") is True, True, dig_r.get("verdict"),
-              verdict=dig_r.get("verdict"))
-        _case("probe_circle_diameter", (circ.get("ok") is True and dpx is not None
-                                        and abs(dpx - 100.0) <= 6.0
-                                        and c.get("is_circle") is True), 100.0, dpx)
-        # ⑤ 斜线：主方向 45°（模 180 距离）、细长
-        dig_l, lerr = _call("imgtools", "digest", {"path": paths["slant"]})
-        if lerr:
-            res["errors"].append("img.digest(slant): %s" % lerr)
-        dig_l = dig_l or {}
-        axis = _num((dig_l.get("silhouette") or {}).get("principal_axis_deg"))
-        aspect = _num((dig_l.get("silhouette") or {}).get("aspect_wh"))
-        fill = _num((dig_l.get("silhouette") or {}).get("fill_ratio"))
-        axis_ok = axis is not None and abs(((float(axis) - 45.0 + 90.0) % 180.0) - 90.0) <= 6.0
-        _case("digest_slant_axis", dig_l.get("ok") is True and axis_ok, 45.0, axis,
-              aspect=aspect)
-        # 45° 斜线的 bbox 是正方形（aspect≈1），细长要看 bbox 填充率
-        _case("digest_slant_thin", fill is not None and fill < 0.5, "<0.5", fill, aspect=aspect)
-        # ⑥ needs_scale 逻辑：未标定不放行 mm
-        _case("digest_uncalibrated_needs_scale", dig_l.get("verdict") == "needs_scale",
-              "needs_scale", dig_l.get("verdict"))
-        meas2, _e = _call("imgtools", "measure",
-                          {"path": paths["slant"], "targets": [{"key": "w", "px": 200.0}]})
-        _case("measure_needs_scale_okfalse", (meas2 or {}).get("ok") is False
-              and (meas2 or {}).get("verdict") == "needs_scale",
-              "ok=false+needs_scale", (meas2 or {}).get("verdict"))
-        # readble 断言：检出特征若 >=8px 必须标 readable；unreadable 行必须为 0
-        fps = 0
-        feats = list(dig_r.get("features") or []) + list(dig.get("features") or [])
-        for f in feats:
-            if not isinstance(f, dict):
-                continue
-            size = _num(f.get("size_px")) or 0.0
-            if size >= 8.0 and f.get("readable") is not True:
-                fps += 1
-        # unreadable 里的 <8px 角点是**诚实的低读性报告**，不是误报；只有 >=8px 却标不可读才算
-        res["false_positive"] = int(fps)
-        res["evidence"]["readability"] = {
-            "features": len(feats),
-            "unreadable_lt8px": (len(dig.get("unreadable") or []) + len(dig_r.get("unreadable") or [])),
-        }
+        st = {}
+        _ref_rect_cases(res, cases, paths, st)
+        _ref_ring_cases(res, cases, paths, st)
+        _ref_slant_cases(res, cases, paths, st)
+        _ref_readability(res, st["dig"], st["dig_r"])
         dig_ok = [c for c in cases if c.get("ok") is True]
         res["cases"] = cases
         res["capture_rate"] = _r(len(dig_ok) / float(len(cases)), 4) if cases else None
         res["missed"] = [c["id"] for c in cases if c.get("ok") is not True]
         res["baseline_pass"] = bool(
-            dig.get("ok") is True and dig.get("verdict") == "ready_for_spec"
-            and bbox_ok and ppm_ok and meas.get("ok") is True
-            and dig_l.get("verdict") == "needs_scale" and (meas2 or {}).get("ok") is False)
-        res["evidence"].update({
-            "rect": {"bbox_px": bbox, "want_bbox_px": want_bbox, "px_per_mm": ppm,
-                     "verdict": dig.get("verdict")},
-            "probe": {"scan_y_width_px": wpx, "scan_x_height_px": hpx},
-            "measure": {"value_mm": vm, "verdict": row0.get("verdict")},
-            "ring": {"circle_diameter_px": dpx, "digest_verdict": dig_r.get("verdict")},
-            "slant": {"principal_axis_deg": axis, "aspect_wh": aspect,
-                      "verdict": dig_l.get("verdict")},
-        })
-        rate = res["capture_rate"] or 0.0
-        if res["errors"]:
-            res["state"] = "fail"
-        elif rate < float(min_capture) or res["false_positive"] or res["baseline_pass"] is not True:
-            res["state"] = "fail"
-        else:
-            res["state"] = "pass"
+            st["dig"].get("ok") is True and st["dig"].get("verdict") == "ready_for_spec"
+            and st["bbox_ok"] and st["ppm_ok"] and st["meas"].get("ok") is True
+            and st["dig_l"].get("verdict") == "needs_scale" and (st["meas2"] or {}).get("ok") is False)
+        res["evidence"].update(_ref_evidence(st))
+        _ref_finalize(res, min_capture)
     except Exception as e:
         import traceback
         res["state"] = "fail"

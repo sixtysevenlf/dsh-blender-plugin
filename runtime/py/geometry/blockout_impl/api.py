@@ -83,36 +83,134 @@ def _json_receipt(path, payload):
     return rec
 
 
+def _rs_params(objects, collection, out_dir, name, views, res, ortho, background, turntable):
+    """refsheet 入参解析（对象/视图/分辨率/turntable 键校验/bbox）；坏值 raise ValueError。"""
+    objs = _find_model_objects(objects=objects, name=name, collection=collection)
+    nm = _safe_token(name or collection or "refsheet", "name")
+    view_list = _parse_refsheet_views(views)
+    res_v = _parse_res([768, 768] if res is None else res)
+    ortho_b = _bool(ortho, "ortho", True)
+    bg_val, bg_name, transparent = _bg_rgb(background)
+    root = _root_outdir(out_dir)
+    tt = None
+    if turntable not in (None, False, 0):
+        if turntable is True:
+            tt = {}
+        elif isinstance(turntable, dict):
+            tt = dict(turntable)
+        else:
+            raise ValueError("turntable 必须是 false / true / dict（收到 %r）" % (turntable,))
+        unknown = sorted(set(str(k) for k in tt.keys()) -
+                         set(["frames", "fps", "elev_deg", "distance", "fmt", "res",
+                              "background", "orbit_deg"]))
+        if unknown:
+            raise ValueError("refsheet.turntable 不认识的键 %s（可用：frames,fps,elev_deg,distance,"
+                             "fmt,res,background,orbit_deg）" % unknown)
+    mn, mx = _bbox_bu(objs)
+    mmu = _mm_per_bu()
+    bbox_mm = _bbox_mm(mn, mx)
+    center_mm = [round(float(v) * mmu, 3) for v in ((mn + mx) * 0.5)]
+    return {"objs": objs, "nm": nm, "view_list": view_list, "res_v": res_v, "ortho_b": ortho_b,
+            "bg_val": bg_val, "bg_name": bg_name, "transparent": transparent, "root": root,
+            "tt": tt, "mn": mn, "mx": mx, "mmu": mmu, "bbox_mm": bbox_mm, "center_mm": center_mm}
+
+
+def _rs_render_views(sc, cam, cam_data, pr):
+    """逐视图设机位 → 渲染 PNG → 回执行；返回 (view_rows, view_paths)。"""
+    view_rows = []
+    view_paths = []
+    for view in pr["view_list"]:
+        meta = _setup_ref_camera(sc, cam, cam_data, pr["mn"], pr["mx"], view, pr["res_v"], pr["ortho_b"])
+        path = _norm_path(os.path.join(pr["root"], "%s_refsheet_%s.png" % (pr["nm"], view)))
+        sc.render.filepath = path
+        try:
+            sc.render.image_settings.media_type = "IMAGE"
+            sc.render.image_settings.file_format = "PNG"
+            sc.render.image_settings.color_mode = "RGBA"
+        except Exception:
+            pass
+        t1 = time.perf_counter()
+        bpy.ops.render.render(write_still=True)
+        ms = int(round((time.perf_counter() - t1) * 1000.0))
+        rec = _file_receipt(path)
+        rec.update({"view": view, "ms": ms, "res": list(pr["res_v"]), "camera": meta,
+                    "coverage_estimate": _alpha_stats(path).get("coverage") if pr["transparent"] else None})
+        view_rows.append(rec)
+        view_paths.append(path)
+    return view_rows, view_paths
+
+
+def _rs_turntable(pr, warnings):
+    """内嵌转台（失败只记 warnings，不炸整包）；返回 (tt_rec, tt_ok)。"""
+    tt = pr["tt"]
+    if tt is None:
+        return None, True
+    tt_args = {"objects": [ob.name for ob in pr["objs"]], "name": pr["nm"] + "_refsheet",
+               "out_dir": pr["root"], "frames": 120, "fps": 24, "elev_deg": 15, "fmt": "mp4",
+               "background": "white" if pr["transparent"] else pr["bg_name"]}
+    tt_args.update(tt)
+    try:
+        tt_rec = blockout_turntable(**tt_args)
+        tt_ok = tt_rec.get("ok") is True
+        if not tt_ok:
+            warnings.append("refsheet 内嵌 turntable 未成功：%s"
+                            % str(tt_rec.get("error") or "?")[:200])
+            for w in (tt_rec.get("warnings") or []):
+                warnings.append("turntable: %s" % str(w)[:160])
+        return tt_rec, tt_ok
+    except Exception as e:
+        warnings.append("refsheet 内嵌 turntable 异常：%s" % str(e)[:180])
+        return {"ok": False, "error": "%s: %s" % (type(e).__name__, str(e)[:220])}, False
+
+
+def _rs_manifest(pr, pres, view_rows, sheet, render_fps, tt_rec):
+    """refsheet.json 的 payload（schema/单位/相机/视图/md5/turntable 摘要）。"""
+    return {
+        "schema": "dsh.blockout.refsheet/1", "version": BLOCKOUT_VERSION, "name": pr["nm"],
+        "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "engine": "BLENDER_WORKBENCH", "view_transform": "Standard",
+        "units": {"mm_per_unit": round(pr["mmu"], 6), "unit": "mm"},
+        "bbox_mm": pr["bbox_mm"], "center_mm": pr["center_mm"],
+        "forward_axis": "-Y", "up_axis": "Z", "screen_right_axis": "+X",
+        "note": "front=相机在 -Y 看 +Y（看到的正面朝 -Y）；side=+X 看 -X；top=+Z 看 -Z；iso=透视",
+        "res": list(pr["res_v"]), "ortho": bool(pr["ortho_b"]), "background": pr["bg_name"],
+        "neutral_color": pres.get("neutral_color"), "render_fps": render_fps,
+        "objects": [ob.name for ob in pr["objs"]], "object_count": len(pr["objs"]),
+        "views": view_rows, "sheet": sheet,
+        "md5": {"views": {v["view"]: v["md5"] for v in view_rows}, "sheet": sheet.get("md5")},
+        "fps": render_fps, "frame_count": len(view_rows),
+        "turntable": ({"ok": tt_rec.get("ok"), "path": tt_rec.get("path"),
+                       "bytes": tt_rec.get("bytes"), "md5": tt_rec.get("md5"),
+                       "frames": tt_rec.get("frames"), "fps": tt_rec.get("fps"),
+                       "duration_s": tt_rec.get("duration_s"), "res": tt_rec.get("res"),
+                       "degraded": tt_rec.get("degraded"),
+                       "warnings": (tt_rec.get("warnings") or [])[:6]}
+                      if tt_rec is not None else None),
+    }
+
+
+def _rs_cleanup(sc, cam, cam_data, hidden, st):
+    """移除相机/相机数据，恢复隐藏状态与场景状态。"""
+    try:
+        if cam is not None:
+            bpy.data.objects.remove(cam, do_unlink=True)
+    except Exception:
+        pass
+    if cam_data is not None and getattr(cam_data, "users", 0) == 0:
+        try:
+            bpy.data.cameras.remove(cam_data)
+        except Exception:
+            pass
+    _unhide_objects(hidden)
+    _present_state_restore(sc, st)
+
+
 def blockout_refsheet(objects=None, collection=None, out_dir=None, name=None, views=None, res=None,
                       ortho=True, background="white", turntable=None):
     """同机位参考图包：4 视图 PNG（正交前/侧/顶 + 透视 iso）+ 拼图 + refsheet.json（+ 可选转台 MP4）。"""
     t_start = time.perf_counter()
     try:
-        objs = _find_model_objects(objects=objects, name=name, collection=collection)
-        nm = _safe_token(name or collection or "refsheet", "name")
-        view_list = _parse_refsheet_views(views)
-        res_v = _parse_res([768, 768] if res is None else res)
-        ortho_b = _bool(ortho, "ortho", True)
-        bg_val, bg_name, transparent = _bg_rgb(background)
-        root = _root_outdir(out_dir)
-        tt = None
-        if turntable not in (None, False, 0):
-            if turntable is True:
-                tt = {}
-            elif isinstance(turntable, dict):
-                tt = dict(turntable)
-            else:
-                raise ValueError("turntable 必须是 false / true / dict（收到 %r）" % (turntable,))
-            unknown = sorted(set(str(k) for k in tt.keys()) -
-                             set(["frames", "fps", "elev_deg", "distance", "fmt", "res",
-                                  "background", "orbit_deg"]))
-            if unknown:
-                raise ValueError("refsheet.turntable 不认识的键 %s（可用：frames,fps,elev_deg,distance,"
-                                 "fmt,res,background,orbit_deg）" % unknown)
-        mn, mx = _bbox_bu(objs)
-        mmu = _mm_per_bu()
-        bbox_mm = _bbox_mm(mn, mx)
-        center_mm = [round(float(v) * mmu, 3) for v in ((mn + mx) * 0.5)]
+        pr = _rs_params(objects, collection, out_dir, name, views, res, ortho, background, turntable)
     except ValueError as e:
         return _err(e, hint="refsheet 用 objects=/name=/collection= 指定已建白模；参数见 help().ops.refsheet",
                     op="refsheet")
@@ -125,93 +223,35 @@ def blockout_refsheet(objects=None, collection=None, out_dir=None, name=None, vi
     cam_data = None
     warnings = []
     try:
-        hidden = _hide_other_objects(sc, objs)
-        pres = _present_setup(sc, res_v, background)
+        hidden = _hide_other_objects(sc, pr["objs"])
+        pres = _present_setup(sc, pr["res_v"], pr["bg_name"])
         cam_data = bpy.data.cameras.new("BO_REF_CAM")
         cam = bpy.data.objects.new("BO_REF_CAM", cam_data)
         sc.collection.objects.link(cam)
         sc.camera = cam
-        view_rows = []
-        view_paths = []
-        for view in view_list:
-            meta = _setup_ref_camera(sc, cam, cam_data, mn, mx, view, res_v, ortho_b)
-            path = _norm_path(os.path.join(root, "%s_refsheet_%s.png" % (nm, view)))
-            sc.render.filepath = path
-            try:
-                sc.render.image_settings.media_type = "IMAGE"
-                sc.render.image_settings.file_format = "PNG"
-                sc.render.image_settings.color_mode = "RGBA"
-            except Exception:
-                pass
-            t1 = time.perf_counter()
-            bpy.ops.render.render(write_still=True)
-            ms = int(round((time.perf_counter() - t1) * 1000.0))
-            rec = _file_receipt(path)
-            rec.update({"view": view, "ms": ms, "res": list(res_v), "camera": meta,
-                        "coverage_estimate": _alpha_stats(path).get("coverage") if transparent else None})
-            view_rows.append(rec)
-            view_paths.append(path)
+        view_rows, view_paths = _rs_render_views(sc, cam, cam_data, pr)
         cols = 2 if len(view_rows) >= 4 else len(view_rows)
         sheet = _make_sheet(view_paths, [v["view"] for v in view_rows],
-                            os.path.join(root, "%s_refsheet_sheet.png" % nm), cols=cols)
+                            os.path.join(pr["root"], "%s_refsheet_sheet.png" % pr["nm"]), cols=cols)
         render_fps = None
         try:
             render_fps = int(round(float(sc.render.fps)))
         except Exception:
             pass
-        tt_rec = None
-        tt_ok = True
-        if tt is not None:
-            tt_args = {"objects": [ob.name for ob in objs], "name": nm + "_refsheet",
-                       "out_dir": root, "frames": 120, "fps": 24, "elev_deg": 15, "fmt": "mp4",
-                       "background": "white" if transparent else background}
-            tt_args.update(tt)
-            try:
-                tt_rec = blockout_turntable(**tt_args)
-                tt_ok = tt_rec.get("ok") is True
-                if not tt_ok:
-                    warnings.append("refsheet 内嵌 turntable 未成功：%s"
-                                    % str(tt_rec.get("error") or "?")[:200])
-                    for w in (tt_rec.get("warnings") or []):
-                        warnings.append("turntable: %s" % str(w)[:160])
-            except Exception as e:
-                tt_ok = False
-                tt_rec = {"ok": False, "error": "%s: %s" % (type(e).__name__, str(e)[:220])}
-                warnings.append("refsheet 内嵌 turntable 异常：%s" % str(e)[:180])
-        payload = {
-            "schema": "dsh.blockout.refsheet/1", "version": BLOCKOUT_VERSION, "name": nm,
-            "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "engine": "BLENDER_WORKBENCH", "view_transform": "Standard",
-            "units": {"mm_per_unit": round(mmu, 6), "unit": "mm"},
-            "bbox_mm": bbox_mm, "center_mm": center_mm,
-            "forward_axis": "-Y", "up_axis": "Z", "screen_right_axis": "+X",
-            "note": "front=相机在 -Y 看 +Y（看到的正面朝 -Y）；side=+X 看 -X；top=+Z 看 -Z；iso=透视",
-            "res": list(res_v), "ortho": bool(ortho_b), "background": bg_name,
-            "neutral_color": pres.get("neutral_color"), "render_fps": render_fps,
-            "objects": [ob.name for ob in objs], "object_count": len(objs),
-            "views": view_rows, "sheet": sheet,
-            "md5": {"views": {v["view"]: v["md5"] for v in view_rows}, "sheet": sheet.get("md5")},
-            "fps": render_fps, "frame_count": len(view_rows),
-            "turntable": ({"ok": tt_rec.get("ok"), "path": tt_rec.get("path"),
-                           "bytes": tt_rec.get("bytes"), "md5": tt_rec.get("md5"),
-                           "frames": tt_rec.get("frames"), "fps": tt_rec.get("fps"),
-                           "duration_s": tt_rec.get("duration_s"), "res": tt_rec.get("res"),
-                           "degraded": tt_rec.get("degraded"),
-                           "warnings": (tt_rec.get("warnings") or [])[:6]}
-                          if tt_rec is not None else None),
-        }
-        json_path = os.path.join(root, "%s_refsheet.json" % nm)
+        tt_rec, tt_ok = _rs_turntable(pr, warnings)
+        payload = _rs_manifest(pr, pres, view_rows, sheet, render_fps, tt_rec)
+        json_path = os.path.join(pr["root"], "%s_refsheet.json" % pr["nm"])
         json_rec = _json_receipt(json_path, payload)
         files = {"views": view_rows, "sheet": sheet, "json": json_rec,
                  "all": [v["path"] for v in view_rows] + [sheet["path"], json_rec["path"]]}
         if tt_rec is not None:
             files["turntable"] = tt_rec
             files["all"].extend([tt_rec.get("path")] if tt_rec.get("path") else [])
-        ok = bool(view_rows and len(view_rows) == len(view_list) and sheet.get("md5")
+        ok = bool(view_rows and len(view_rows) == len(pr["view_list"]) and sheet.get("md5")
                   and json_rec.get("md5") and tt_ok)
-        out = {"op": "refsheet", "name": nm, "engine": "BLENDER_WORKBENCH",
-               "units": {"mm_per_unit": round(mmu, 6), "unit": "mm"},
-               "bbox_mm": bbox_mm, "forward_axis": "-Y", "up_axis": "Z",
+        out = {"op": "refsheet", "name": pr["nm"], "engine": "BLENDER_WORKBENCH",
+               "units": {"mm_per_unit": round(pr["mmu"], 6), "unit": "mm"},
+               "bbox_mm": pr["bbox_mm"], "forward_axis": "-Y", "up_axis": "Z",
                "views": view_rows, "sheet": sheet, "files": files,
                "refsheet_json": json_rec["path"], "md5": json_rec["md5"],
                "turntable": tt_rec, "warnings": warnings,
@@ -230,18 +270,7 @@ def blockout_refsheet(objects=None, collection=None, out_dir=None, name=None, vi
         return _err("%s: %s" % (type(e).__name__, str(e)[:280]),
                     hint="refsheet 需要已建白模（BO-* 对象）；检查场景/对象名/输出目录权限", op="refsheet")
     finally:
-        try:
-            if cam is not None:
-                bpy.data.objects.remove(cam, do_unlink=True)
-        except Exception:
-            pass
-        if cam_data is not None and getattr(cam_data, "users", 0) == 0:
-            try:
-                bpy.data.cameras.remove(cam_data)
-            except Exception:
-                pass
-        _unhide_objects(hidden)
-        _present_state_restore(sc, st)
+        _rs_cleanup(sc, cam, cam_data, hidden, st)
 
 
 # ────────────────────────────── op: selftest / help ──────────────────────────────
