@@ -62,40 +62,8 @@
     },
     {
       "file": "runtime/py/assembly/assembly_impl/scan.py",
-      "name": "_classify_pair",
-      "lines": 166,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/assembly/assembly_impl/scan.py",
       "name": "_scan_core",
       "lines": 231,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/assembly/vehicle_impl/base.py",
-      "name": "vehicle_base",
-      "lines": 171,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/assembly/vehicle_impl/base.py",
-      "name": "vehicle_sections",
-      "lines": 170,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/assembly/vehicle_impl/fit.py",
-      "name": "vehicle_fit",
-      "lines": 158,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"
@@ -112,14 +80,6 @@
       "file": "runtime/py/core/audit_impl/conn_helpers.py",
       "name": "_load_file_objects",
       "lines": 179,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/core/audit_impl/connectivity.py",
-      "name": "_conn_analyze",
-      "lines": 166,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"

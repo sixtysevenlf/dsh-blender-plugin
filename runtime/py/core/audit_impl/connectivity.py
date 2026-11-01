@@ -128,35 +128,19 @@ def _boxvol(b):
         * max(0.0, float(b[1][2]) - float(b[0][2]))
 
 
-def _conn_analyze(objs, precision=5, visible_frac=VISIBLE_SPAN_FRACTION, micro_gap_mm=MICRO_GAP_MM,
-                  max_tris=None, limit=24, name_of=None):
-    """连通分量分析内核：返回 dict（含 numpy 细节，供 snap 复用；公开 op 只暴露格式化结果）。
+def _conn_header(objs, name_of, micro_gap_mm, mm_per_unit, m_per_unit):
+    """回执头（单位/对象名/boxes 之外的部分）。"""
+    return {"units": {"m_per_unit": _r(m_per_unit, 6), "mm_per_unit": _r(mm_per_unit, 6),
+                      "scene_unit": "m" if abs(m_per_unit - 1.0) < 1e-12 else "scaled",
+                      "micro_gap_mm": _r(micro_gap_mm, 4),
+                      "micro_gap_units": _r(micro_gap_mm / mm_per_unit, 8)},
+            "objects": len(objs), "object_names": [_nm(o, name_of) for o in objs],
+            "gap_note": "gap 是 bbox 级 → 低估真实间隙（贴而未重合会读成 0），偏向判 micro 放行（与上游同口径）"}
 
-    name_of（v0.9.1，可选）：{会话内名字 → 上报名}。file= 模式下加载进来的对象会被 Blender 改名
-    （重名加 .001），而反馈要的是"对象名与文件内一致" → 所有对外名字都经它映射；会话模式下为 None，
-    行为与老版本逐字节一致。
-    """
+
+def _conn_stats(tris, comp, ncomp, owner, objs, name_of, mm_per_unit):
+    """逐连通分量统计（bbox/体积/owner）→ 排序 + rank + span_fraction；返回 (stats, nv, model_span)。"""
     import numpy as np
-    m_per_unit, mm_per_unit = _units()
-    cap = int(max_tris or _conn_max_tris())
-    tris, owner, boxes = _world_tris(objs)
-    boxes = _named_boxes(objs, boxes, name_of)
-    out = {"units": {"m_per_unit": _r(m_per_unit, 6), "mm_per_unit": _r(mm_per_unit, 6),
-                     "scene_unit": "m" if abs(m_per_unit - 1.0) < 1e-12 else "scaled",
-                     "micro_gap_mm": _r(micro_gap_mm, 4),
-                     "micro_gap_units": _r(micro_gap_mm / mm_per_unit, 8)},
-           "objects": len(objs), "object_names": [_nm(o, name_of) for o in objs], "boxes": boxes,
-           "gap_note": "gap 是 bbox 级 → 低估真实间隙（贴而未重合会读成 0），偏向判 micro 放行（与上游同口径）"}
-    if tris is None or len(tris) == 0:
-        return dict(out, analyzed=False, reason="范围内没有三角面（空产出必须失败）", tris=0)
-    if cap > 0 and len(tris) > cap:   # 默认 cap=0 → 全跑
-        return dict(out, analyzed=False, tris=int(len(tris)),
-                    reason="三角面 %d 超过上限 %d（env DSH_CONN_MAX_TRIS 可调）→ 跳过分析" % (len(tris), cap),
-                    note="未分析 ≠ 已连通：门保持 degraded，不给通过结论")
-    p_all = tris.reshape(-1, 3)
-    out["aabb"] = _box_fields(p_all.min(axis=0), p_all.max(axis=0), mm_per_unit)
-    comp, nv = _components(tris, precision)
-    ncomp = int(comp.max()) + 1
     stats = []
     for c in range(ncomp):
         sel = np.nonzero(comp == c)[0]
@@ -177,7 +161,11 @@ def _conn_analyze(objs, precision=5, visible_frac=VISIBLE_SPAN_FRACTION, micro_g
     stats.sort(key=lambda s: s["volume"], reverse=True)
     for rank, s in enumerate(stats):
         s["rank"] = rank
-    # 邻域 bbox 间隙（mm）：每个分量到最近其它分量的距离
+    return stats, model_span
+
+
+def _conn_gaps(stats, mm_per_unit, micro_gap_mm, visible_frac):
+    """邻域 bbox 间隙（mm）：每个分量到最近其它分量的距离；并写 gap/visible/attached 初值。"""
     gaps = []
     for i, s in enumerate(stats):
         best, bj = None, None
@@ -201,10 +189,10 @@ def _conn_analyze(objs, precision=5, visible_frac=VISIBLE_SPAN_FRACTION, micro_g
         s["attached"] = None
         s["true_gap_units"] = None
         s["mesh_confirmed"] = None
-    # 判据（v0.9.0 修正）：不再用「最大体积分量=主体、其余都是浮块」—— 两个等大零件时那条规则会
-    # 随便挑一个当浮体（自检抓到过）。物理上要问的是：**这个分量有没有跟别的分量相接**。
-    micro_units = float(micro_gap_mm) / mm_per_unit
-    mesh_mode = "mesh(BVH)" if (BVH_MAX_TRIS <= 0 or len(tris) <= BVH_MAX_TRIS) else "bbox-only"
+
+
+def _conn_mesh(stats, tris, comp, ncomp, micro_units, mesh_mode, micro_gap_mm):
+    """逐分量判「是否与其它分量相接」：单分量/非 micro/bbox-only/网格复核。"""
     tree_cache = {}
     for s in stats:
         if ncomp == 1:
@@ -236,24 +224,11 @@ def _conn_analyze(objs, precision=5, visible_frac=VISIBLE_SPAN_FRACTION, micro_g
         s["confirm_note"] = note
         s["evidence"] = "bbox+mesh"
         s["attached"] = conf
-    floaters = [s for s in stats if s["attached"] is False]
-    tolerated = [s for s in stats if s["attached"] is True]
-    unconfirmed = [s for s in stats if s["attached"] is None]
-    # 间隙分布：口径（micro_gap_mm）该给多少，取决于你要什么 —— 单一实体/3D 打印用 0.3mm（上游口径）；
-    # 带设计间隙的装配件按自己的工艺给（1–2mm 很常见）。这里把分布摊开，让调用者自己选口径。
-    def _gap_mm_of(s):
-        if s.get("true_gap_units") is not None:
-            return float(s["true_gap_units"]) * mm_per_unit
-        return float(s.get("gap_mm") or 0.0)
-    hist = {}
+
+
+def _conn_attrib(stats, boxes):
+    """只对真浮块做归因（bbox 重叠率 → 改哪个对象）。"""
     for s in stats:
-        g = _gap_mm_of(s)
-        key = ("<%.2f mm(相接口径)" % micro_gap_mm) if g < micro_gap_mm else (
-            "%.2f-1 mm" % micro_gap_mm if g < 1 else ("1-5 mm" if g < 5 else ("5-20 mm" if g < 20 else ">20 mm")))
-        hist[key] = hist.get(key, 0) + 1
-    fgaps = [_gap_mm_of(s) for s in floaters]
-    gap_range = (round(min(fgaps), 4), round(max(fgaps), 4)) if fgaps else None
-    for s in stats:      # 归因只对真浮块做（要"改哪个对象"）
         if s["attached"] is not False:
             continue
         # 归因：浮块 bbox 与每个对象 bbox 的重叠率（Procedura: matchFloatersToBoxes）
@@ -276,10 +251,32 @@ def _conn_analyze(objs, precision=5, visible_frac=VISIBLE_SPAN_FRACTION, micro_g
             "contains": s["owners"],
             "note": "object_fraction≈1 ⇒ 该浮块就是整个对象（可整件平移）；很小 ⇒ 只是焊接体的一块（平移会撕开焊点）",
         }
-    visible_f = [s for s in floaters if s["visible"]]
+
+
+def _conn_gap_hist(stats, floaters, micro_gap_mm, mm_per_unit):
+    """间隙分布（口径由调用者选）；返回 (hist, gap_range)。"""
+    def _gap_mm_of(s):
+        if s.get("true_gap_units") is not None:
+            return float(s["true_gap_units"]) * mm_per_unit
+        return float(s.get("gap_mm") or 0.0)
+
+    hist = {}
+    for s in stats:
+        g = _gap_mm_of(s)
+        key = ("<%.2f mm(相接口径)" % micro_gap_mm) if g < micro_gap_mm else (
+            "%.2f-1 mm" % micro_gap_mm if g < 1 else ("1-5 mm" if g < 5 else ("5-20 mm" if g < 20 else ">20 mm")))
+        hist[key] = hist.get(key, 0) + 1
+    fgaps = [_gap_mm_of(s) for s in floaters]
+    gap_range = (round(min(fgaps), 4), round(max(fgaps), 4)) if fgaps else None
+    return hist, gap_range
+
+
+def _conn_result(out, tris, nv, stats, floaters, tolerated, unconfirmed, objs, owner, name_of,
+                 mesh_mode, micro_gap_mm, hist, gap_range, visible_f, model_span, limit):
+    """最终回执（计数/直方图/口径说明）。"""
     return dict(out, analyzed=True, tris=int(len(tris)), verts=int(nv), components=stats, floaters=floaters,
                 tolerated=tolerated, unconfirmed=unconfirmed,
-                _raw={"tris": tris, "comp": comp},     # 给 snap 复用（公开 op 的 JSON 里不会出现）
+                _raw={"tris": tris, "comp": None},     # 给 snap 复用（公开 op 的 JSON 里不会出现）
                 obj_tris={_nm(objs[k], name_of): int((owner == k).sum()) for k in range(len(objs))},
                 micro_confirm=mesh_mode,
                 floater_count=len(floaters), visible_floater_count=len(visible_f),
@@ -294,6 +291,52 @@ def _conn_analyze(objs, precision=5, visible_frac=VISIBLE_SPAN_FRACTION, micro_g
                               "how_to_change": "audit_gate(args={micro_gap_mm: 2.0})"},
                 max_floater_span_fraction=_r(max([s["span_fraction"] for s in floaters] or [0.0]), 6),
                 model_span=_r(model_span), limit=int(limit))
+
+
+def _conn_analyze(objs, precision=5, visible_frac=VISIBLE_SPAN_FRACTION, micro_gap_mm=MICRO_GAP_MM,
+                  max_tris=None, limit=24, name_of=None):
+    """连通分量分析内核：返回 dict（含 numpy 细节，供 snap 复用；公开 op 只暴露格式化结果）。
+
+    name_of（v0.9.1，可选）：{会话内名字 → 上报名}。file= 模式下加载进来的对象会被 Blender 改名
+    （重名加 .001），而反馈要的是"对象名与文件内一致" → 所有对外名字都经它映射；会话模式下为 None，
+    行为与老版本逐字节一致。
+    """
+    import numpy as np
+    m_per_unit, mm_per_unit = _units()
+    cap = int(max_tris or _conn_max_tris())
+    tris, owner, boxes = _world_tris(objs)
+    boxes = _named_boxes(objs, boxes, name_of)
+    out = _conn_header(objs, name_of, micro_gap_mm, mm_per_unit, m_per_unit)
+    out["boxes"] = boxes
+    if tris is None or len(tris) == 0:
+        return dict(out, analyzed=False, reason="范围内没有三角面（空产出必须失败）", tris=0)
+    if cap > 0 and len(tris) > cap:   # 默认 cap=0 → 全跑
+        return dict(out, analyzed=False, tris=int(len(tris)),
+                    reason="三角面 %d 超过上限 %d（env DSH_CONN_MAX_TRIS 可调）→ 跳过分析" % (len(tris), cap),
+                    note="未分析 ≠ 已连通：门保持 degraded，不给通过结论")
+    p_all = tris.reshape(-1, 3)
+    out["aabb"] = _box_fields(p_all.min(axis=0), p_all.max(axis=0), mm_per_unit)
+    comp, nv = _components(tris, precision)
+    ncomp = int(comp.max()) + 1
+    stats, model_span = _conn_stats(tris, comp, ncomp, owner, objs, name_of, mm_per_unit)
+    _conn_gaps(stats, mm_per_unit, micro_gap_mm, visible_frac)
+    # 判据（v0.9.0 修正）：不再用「最大体积分量=主体、其余都是浮块」—— 两个等大零件时那条规则会
+    # 随便挑一个当浮体（自检抓到过）。物理上要问的是：**这个分量有没有跟别的分量相接**。
+    micro_units = float(micro_gap_mm) / mm_per_unit
+    mesh_mode = "mesh(BVH)" if (BVH_MAX_TRIS <= 0 or len(tris) <= BVH_MAX_TRIS) else "bbox-only"
+    _conn_mesh(stats, tris, comp, ncomp, micro_units, mesh_mode, micro_gap_mm)
+    floaters = [s for s in stats if s["attached"] is False]
+    tolerated = [s for s in stats if s["attached"] is True]
+    unconfirmed = [s for s in stats if s["attached"] is None]
+    # 间隙分布：口径（micro_gap_mm）该给多少，取决于你要什么 —— 单一实体/3D 打印用 0.3mm（上游口径）；
+    # 带设计间隙的装配件按自己的工艺给（1–2mm 很常见）。这里把分布摊开，让调用者自己选口径。
+    hist, gap_range = _conn_gap_hist(stats, floaters, micro_gap_mm, mm_per_unit)
+    _conn_attrib(stats, boxes)
+    visible_f = [s for s in floaters if s["visible"]]
+    res = _conn_result(out, tris, nv, stats, floaters, tolerated, unconfirmed, objs, owner, name_of,
+                       mesh_mode, micro_gap_mm, hist, gap_range, visible_f, model_span, limit)
+    res["_raw"]["comp"] = comp     # 给 snap 复用（公开 op 的 JSON 里不会出现）
+    return res
 
 
 def audit_connectivity(objects=None, scope=None, include_hidden=False, visible_frac=VISIBLE_SPAN_FRACTION,

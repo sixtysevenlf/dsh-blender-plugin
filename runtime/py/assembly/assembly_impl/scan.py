@@ -163,149 +163,134 @@ def _severity(depth_mm, volume_mm3, contained=False):
     return "low"
 
 
-def _classify_pair(i, j, names, md, contain_ij, contain_ji, aabb_gap_m, is_candidate,
-                   deep_map, allow_list, obj_part, depth_eps_mm, contact_eps_mm,
-                   report_gap_mm, floor_mm3, mmu):
-    """单对分类（返回 rec，不抛）。所有数字 mm；深度/体积不可测时绝不臆造。"""
-    a, b = names[i], names[j]
-    ma, mb = md[a], md[b]
-    rec = {"a": a, "b": b, "class": None, "declared": False, "spec_ref": None,
-           "tri_overlap_pairs": 0, "depth_mm": None, "depth_measured": False,
-           "volume_mm3": None, "volume_reliable": False, "min_gap_mm": None,
-           "closed": {"a": bool(ma["closed"]), "b": bool(mb["closed"])},
-           "normals_ok": {"a": bool(ma["normals_ok"]), "b": bool(mb["normals_ok"])},
-           "severity": "unknown", "method": None, "reason": ""}
-    invalid = not (ma["closed"] and ma["normals_ok"] and mb["closed"] and mb["normals_ok"])
-    allow_rec = _allow_match(allow_list, obj_part, a, b)
-    max_depth = _num((allow_rec or {}).get("max_depth_mm"))
-    max_vol = _num((allow_rec or {}).get("max_volume_mm3"))
-    if allow_rec:
-        rec["declared"] = True
-        rec["spec_ref"] = str(allow_rec.get("id") or allow_rec.get("reason") or "spec.allow")
+def _cp_allow_ok(depth, vol, max_depth, max_vol, contained_gap=None):
+    """spec.allow 覆盖判定（上限按 1.001 容差）。"""
+    ok_d = (max_depth is None) or (depth is not None and depth <= max_depth * 1.001 + 1e-9)
+    ok_v = (max_vol is None) or (vol is not None and vol <= max_vol * 1.001 + 1e-9)
+    if contained_gap is not None and max_depth is not None and max_vol is None:
+        return contained_gap <= max_depth * 1.001 + 1e-9
+    return bool(ok_d and ok_v)
 
-    def _allow_ok(depth, vol, contained_gap=None):
-        ok_d = (max_depth is None) or (depth is not None and depth <= max_depth * 1.001 + 1e-9)
-        ok_v = (max_vol is None) or (vol is not None and vol <= max_vol * 1.001 + 1e-9)
-        if contained_gap is not None and max_depth is not None and max_vol is None:
-            return contained_gap <= max_depth * 1.001 + 1e-9
-        return bool(ok_d and ok_v)
 
-    if is_candidate:
-        tri = 0
-        try:
-            tri = len(ma["bvh"].overlap(mb["bvh"]) or [])
-        except Exception as e:
-            rec["reason"] = "BVH.overlap 失败: %s" % str(e)[:120]
-            rec["class"] = "unresolved"
-            return rec
-        rec["tri_overlap_pairs"] = int(tri)
-        if tri > 0:
-            rec["method"] = "BVH tri-tri"
-            if invalid:
-                rec["class"] = "unresolved"
-                rec["reason"] = ("两件表面确实相交（%d 对三角面），但网格开放/法线朝内 ⇒ 内外与深度不可信，不猜" % tri)
-                return rec
-            drec = (deep_map or {}).get(_pair_key(a, b))
-            depth = _num((drec or {}).get("depth_mm"))
-            vol = _num((drec or {}).get("volume_mm3"))
-            if drec and drec.get("depth_measured") is False:
-                depth = None
-            # contract 的 INSIDE_MAX_TRIS=0 实际会跳过侵入判定（depth 恒 None）⇒ 深度必须兜底量
-            if depth is None:
-                own = _depth_measure(ma, mb)
-                own_depth = _num(own.get("depth_mm"))
-                if own_depth is not None:
-                    depth = own_depth
-                if vol is None:
-                    vol = _num(own.get("volume_mm3"))
-                rec["method"] = ("contract 体积 + assembly 深度兜底" if drec
-                                 else own.get("method"))
-            else:
-                rec["method"] = "contract.interference_report（复用）"
-            rec["depth_mm"] = _r(depth, 4)
-            rec["depth_measured"] = depth is not None
-            rec["volume_mm3"] = _r(vol, 4)
-            rec["volume_reliable"] = bool((drec or {}).get("volume_reliable", vol is not None))
-            if depth is None and vol is None:
-                rec["class"] = "unresolved"
-                rec["reason"] = "三角面相交但深度/体积都量不出来（采样失败）"
-                return rec
-            if allow_rec:
-                if _allow_ok(depth, vol):
-                    rec["class"] = "hidden_ok"
-                    rec["reason"] = ("spec.allow 覆盖：深度 %.3f mm / 体积 %.1f mm³ 在允许范围内"
-                                     % (depth or 0.0, vol or 0.0))
-                else:
-                    rec["class"] = "clash"
-                    rec["reason"] = ("spec.allow 存在但超限：深度 %s mm（上限 %s）/ 体积 %s mm³（上限 %s）"
-                                     % (_r(depth, 3), max_depth, _r(vol, 1), max_vol))
-            elif depth is not None and depth > float(depth_eps_mm) + 1e-9:
-                rec["class"] = "clash"
-                rec["reason"] = "穿透深度 %.3f mm > depth_eps %.3f mm" % (depth, float(depth_eps_mm))
-            elif vol is not None and vol > float(floor_mm3) + 1e-9:
-                rec["class"] = "clash"
-                rec["reason"] = "相交体积 %.3f mm³ > floor %.3f mm³" % (vol, float(floor_mm3))
-            else:
-                rec["class"] = "contact"
-                rec["reason"] = ("面接触（深度 %.3f mm ≤ %.3f / 体积 %.3f mm³ ≤ 下限）"
-                                 % (depth or 0.0, float(depth_eps_mm), vol or 0.0))
-            rec["severity"] = _severity(rec["depth_mm"], rec["volume_mm3"])
-            return rec
-        # ---- 三角面不相交：先补"完全包含"分支（旧实现会在这里 continue，漏判） ----
-        if (contain_ij or contain_ji) and not invalid:
-            if contain_ij:
-                small, big, sm, bg = ma, mb, a, b
-            else:
-                small, big, sm, bg = mb, ma, b, a
-            pts = _sample_surface(small["tris"], 400)
-            n_in, tested = _count_inside(pts, big["bvh"])
-            frac = (n_in / float(tested)) if tested else 0.0
-            if frac >= 0.5:
-                vol_est = abs(float(small["volume_signed_m3"])) * (mmu ** 3)
-                gap_min = None
-                for p in pts:
-                    r = big["bvh"].find_nearest(Vector(p))
-                    if r is None or r[0] is None:
-                        continue
-                    d = float(r[3])
-                    gap_min = d if gap_min is None else min(gap_min, d)
-                gap_min_mm = (gap_min * mmu) if gap_min is not None else None
-                rec["method"] = "AABB 包含 + 射线奇偶内外（包含探针）"
-                rec["depth_mm"] = _r(gap_min_mm, 4)
-                rec["depth_measured"] = gap_min_mm is not None
-                rec["volume_mm3"] = _r(vol_est, 4)
-                rec["volume_reliable"] = False
-                rec["min_gap_mm"] = _r(gap_min_mm, 4)
-                rec["contained_in"] = bg
-                rec["contained_part"] = sm
-                if allow_rec and _allow_ok(None, vol_est, contained_gap=gap_min_mm):
-                    rec["class"] = "hidden_ok"
-                    rec["reason"] = ("完全包含但 spec.allow 覆盖（小件体积 %.1f mm³ / 包络间隙 %s mm）"
-                                     % (vol_est, _r(gap_min_mm, 3)))
-                    rec["severity"] = "low"
-                else:
-                    rec["class"] = "contained"
-                    rec["reason"] = ("完全包含：%s 的整体被 %s 包住（表面点 %.0f%% 在内部，小件体积 %.1f mm³，"
-                                     "包络最小间隙 %s mm）—— 面无相交所以旧全对全会漏掉"
-                                     % (sm, bg, frac * 100.0, vol_est, _r(gap_min_mm, 3)))
-                    rec["severity"] = _severity(None, vol_est, contained=True)
-                return rec
-        # ---- 其余：量间隙（接触面积不在全对全里算，成本控制） ----
-        gap_m = _surface_gap(ma, mb, samples=500)
-        gap_mm = (gap_m * mmu) if gap_m is not None else None
-        rec["min_gap_mm"] = _r(gap_mm, 4)
-        rec["method"] = "表面采样最近距离"
-        if gap_mm is None:
-            rec["class"] = "unresolved"
-            rec["reason"] = "AABB 重叠但表面距离量不出来（网格退化？）"
-        elif gap_mm <= float(contact_eps_mm) + 1e-9:
-            rec["class"] = "contact"
-            rec["reason"] = "表面间隙 %.3f mm ≤ contact_eps %.3f mm" % (gap_mm, float(contact_eps_mm))
-        else:
-            rec["class"] = "gap"
-            rec["reason"] = "AABB 重叠但表面间隙 %.3f mm（分离/互锁）" % gap_mm
+def _cp_tri_hit(rec, ma, mb, a, b, tri, deep_map, invalid, allow_rec, max_depth, max_vol,
+                depth_eps_mm, floor_mm3):
+    """三角面确实相交（tri>0）分支：深度/体积测量 + allow/阈值分类。"""
+    rec["method"] = "BVH tri-tri"
+    if invalid:
+        rec["class"] = "unresolved"
+        rec["reason"] = ("两件表面确实相交（%d 对三角面），但网格开放/法线朝内 ⇒ 内外与深度不可信，不猜" % tri)
         return rec
-    # ---- AABB 不相交的近对（AABB 距离是真实距离下界，可证） ----
+    drec = (deep_map or {}).get(_pair_key(a, b))
+    depth = _num((drec or {}).get("depth_mm"))
+    vol = _num((drec or {}).get("volume_mm3"))
+    if drec and drec.get("depth_measured") is False:
+        depth = None
+    # contract 的 INSIDE_MAX_TRIS=0 实际会跳过侵入判定（depth 恒 None）⇒ 深度必须兜底量
+    if depth is None:
+        own = _depth_measure(ma, mb)
+        own_depth = _num(own.get("depth_mm"))
+        if own_depth is not None:
+            depth = own_depth
+        if vol is None:
+            vol = _num(own.get("volume_mm3"))
+        rec["method"] = ("contract 体积 + assembly 深度兜底" if drec
+                         else own.get("method"))
+    else:
+        rec["method"] = "contract.interference_report（复用）"
+    rec["depth_mm"] = _r(depth, 4)
+    rec["depth_measured"] = depth is not None
+    rec["volume_mm3"] = _r(vol, 4)
+    rec["volume_reliable"] = bool((drec or {}).get("volume_reliable", vol is not None))
+    if depth is None and vol is None:
+        rec["class"] = "unresolved"
+        rec["reason"] = "三角面相交但深度/体积都量不出来（采样失败）"
+        return rec
+    if allow_rec:
+        if _cp_allow_ok(depth, vol, max_depth, max_vol):
+            rec["class"] = "hidden_ok"
+            rec["reason"] = ("spec.allow 覆盖：深度 %.3f mm / 体积 %.1f mm³ 在允许范围内"
+                             % (depth or 0.0, vol or 0.0))
+        else:
+            rec["class"] = "clash"
+            rec["reason"] = ("spec.allow 存在但超限：深度 %s mm（上限 %s）/ 体积 %s mm³（上限 %s）"
+                             % (_r(depth, 3), max_depth, _r(vol, 1), max_vol))
+    elif depth is not None and depth > float(depth_eps_mm) + 1e-9:
+        rec["class"] = "clash"
+        rec["reason"] = "穿透深度 %.3f mm > depth_eps %.3f mm" % (depth, float(depth_eps_mm))
+    elif vol is not None and vol > float(floor_mm3) + 1e-9:
+        rec["class"] = "clash"
+        rec["reason"] = "相交体积 %.3f mm³ > floor %.3f mm³" % (vol, float(floor_mm3))
+    else:
+        rec["class"] = "contact"
+        rec["reason"] = ("面接触（深度 %.3f mm ≤ %.3f / 体积 %.3f mm³ ≤ 下限）"
+                         % (depth or 0.0, float(depth_eps_mm), vol or 0.0))
+    rec["severity"] = _severity(rec["depth_mm"], rec["volume_mm3"])
+    return rec
+
+
+def _cp_contained(rec, ma, mb, a, b, contain_ij, allow_rec, max_depth, max_vol, mmu):
+    """AABB 包含分支（三角面不相交）：射线奇偶确认 + 包络间隙；非包含返回 None。"""
+    if contain_ij:
+        small, big, sm, bg = ma, mb, a, b
+    else:
+        small, big, sm, bg = mb, ma, b, a
+    pts = _sample_surface(small["tris"], 400)
+    n_in, tested = _count_inside(pts, big["bvh"])
+    frac = (n_in / float(tested)) if tested else 0.0
+    if frac < 0.5:
+        return None
+    vol_est = abs(float(small["volume_signed_m3"])) * (mmu ** 3)
+    gap_min = None
+    for p in pts:
+        r = big["bvh"].find_nearest(Vector(p))
+        if r is None or r[0] is None:
+            continue
+        d = float(r[3])
+        gap_min = d if gap_min is None else min(gap_min, d)
+    gap_min_mm = (gap_min * mmu) if gap_min is not None else None
+    rec["method"] = "AABB 包含 + 射线奇偶内外（包含探针）"
+    rec["depth_mm"] = _r(gap_min_mm, 4)
+    rec["depth_measured"] = gap_min_mm is not None
+    rec["volume_mm3"] = _r(vol_est, 4)
+    rec["volume_reliable"] = False
+    rec["min_gap_mm"] = _r(gap_min_mm, 4)
+    rec["contained_in"] = bg
+    rec["contained_part"] = sm
+    if allow_rec and _cp_allow_ok(None, vol_est, max_depth, max_vol, contained_gap=gap_min_mm):
+        rec["class"] = "hidden_ok"
+        rec["reason"] = ("完全包含但 spec.allow 覆盖（小件体积 %.1f mm³ / 包络间隙 %s mm）"
+                         % (vol_est, _r(gap_min_mm, 3)))
+        rec["severity"] = "low"
+    else:
+        rec["class"] = "contained"
+        rec["reason"] = ("完全包含：%s 的整体被 %s 包住（表面点 %.0f%% 在内部，小件体积 %.1f mm³，"
+                         "包络最小间隙 %s mm）—— 面无相交所以旧全对全会漏掉"
+                         % (sm, bg, frac * 100.0, vol_est, _r(gap_min_mm, 3)))
+        rec["severity"] = _severity(None, vol_est, contained=True)
+    return rec
+
+
+def _cp_candidate_gap(rec, ma, mb, contact_eps_mm, mmu):
+    """候选对但三角面不相交、非包含：量表面间隙（接触/间隙/不可测）。"""
+    # ---- 其余：量间隙（接触面积不在全对全里算，成本控制） ----
+    gap_m = _surface_gap(ma, mb, samples=500)
+    gap_mm = (gap_m * mmu) if gap_m is not None else None
+    rec["min_gap_mm"] = _r(gap_mm, 4)
+    rec["method"] = "表面采样最近距离"
+    if gap_mm is None:
+        rec["class"] = "unresolved"
+        rec["reason"] = "AABB 重叠但表面距离量不出来（网格退化？）"
+    elif gap_mm <= float(contact_eps_mm) + 1e-9:
+        rec["class"] = "contact"
+        rec["reason"] = "表面间隙 %.3f mm ≤ contact_eps %.3f mm" % (gap_mm, float(contact_eps_mm))
+    else:
+        rec["class"] = "gap"
+        rec["reason"] = "AABB 重叠但表面间隙 %.3f mm（分离/互锁）" % gap_mm
+    return rec
+
+
+def _cp_near_gap(rec, ma, mb, aabb_gap_m, contact_eps_mm, report_gap_mm, mmu):
+    """AABB 不相交的近对：先用 AABB 距离下界，再表面采样。"""
     rec["method"] = "AABB 距离下界"
     if aabb_gap_m is not None and (aabb_gap_m * mmu) > float(contact_eps_mm) + 1e-9:
         rec["class"] = "gap"
@@ -329,6 +314,47 @@ def _classify_pair(i, j, names, md, contain_ij, contain_ji, aabb_gap_m, is_candi
         rec["class"] = "gap"
         rec["reason"] = "表面间隙 %.3f mm（超出 report_gap，按 gap 统计不展开）" % gap_mm
     return rec
+
+
+def _classify_pair(i, j, names, md, contain_ij, contain_ji, aabb_gap_m, is_candidate,
+                   deep_map, allow_list, obj_part, depth_eps_mm, contact_eps_mm,
+                   report_gap_mm, floor_mm3, mmu):
+    """单对分类（返回 rec，不抛）。所有数字 mm；深度/体积不可测时绝不臆造。"""
+    a, b = names[i], names[j]
+    ma, mb = md[a], md[b]
+    rec = {"a": a, "b": b, "class": None, "declared": False, "spec_ref": None,
+           "tri_overlap_pairs": 0, "depth_mm": None, "depth_measured": False,
+           "volume_mm3": None, "volume_reliable": False, "min_gap_mm": None,
+           "closed": {"a": bool(ma["closed"]), "b": bool(mb["closed"])},
+           "normals_ok": {"a": bool(ma["normals_ok"]), "b": bool(mb["normals_ok"])},
+           "severity": "unknown", "method": None, "reason": ""}
+    invalid = not (ma["closed"] and ma["normals_ok"] and mb["closed"] and mb["normals_ok"])
+    allow_rec = _allow_match(allow_list, obj_part, a, b)
+    max_depth = _num((allow_rec or {}).get("max_depth_mm"))
+    max_vol = _num((allow_rec or {}).get("max_volume_mm3"))
+    if allow_rec:
+        rec["declared"] = True
+        rec["spec_ref"] = str(allow_rec.get("id") or allow_rec.get("reason") or "spec.allow")
+
+    if is_candidate:
+        tri = 0
+        try:
+            tri = len(ma["bvh"].overlap(mb["bvh"]) or [])
+        except Exception as e:
+            rec["reason"] = "BVH.overlap 失败: %s" % str(e)[:120]
+            rec["class"] = "unresolved"
+            return rec
+        rec["tri_overlap_pairs"] = int(tri)
+        if tri > 0:
+            return _cp_tri_hit(rec, ma, mb, a, b, tri, deep_map, invalid, allow_rec,
+                               max_depth, max_vol, depth_eps_mm, floor_mm3)
+        # ---- 三角面不相交：先补"完全包含"分支（旧实现会在这里 continue，漏判） ----
+        if (contain_ij or contain_ji) and not invalid:
+            got = _cp_contained(rec, ma, mb, a, b, contain_ij, allow_rec, max_depth, max_vol, mmu)
+            if got is not None:
+                return got
+        return _cp_candidate_gap(rec, ma, mb, contact_eps_mm, mmu)
+    return _cp_near_gap(rec, ma, mb, aabb_gap_m, contact_eps_mm, report_gap_mm, mmu)
 # ────────────────────────────── contract 深测复用 ──────────────────────────────
 def _contract_deep(names, include_hidden, depth_eps_mm, max_pairs):
     """复用 K.dsh_contract_api["interference_report"] 的逐对深度/体积（拿不到返回 None + 原因）。"""
