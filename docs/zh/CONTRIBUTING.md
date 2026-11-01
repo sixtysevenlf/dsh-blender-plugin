@@ -11,7 +11,7 @@ AGENTS.md 说明各层怎么拼在一起、什么算“装好了”，以及命�
 ## 可以怎么贡献
 
 - **Bug 报告**：附上复现步骤、`package.json` 里的确切版本，以及 `doctor` 端点的返回。
-- **文档**：两个 README、`docs/`、ADR，以及 `skills/blender-modeling/` 下的随包 skill。面向用户的
+- **文档**：两个 README、`docs/`、架构说明，以及 `skills/blender-modeling/` 下的随包 skill。面向用户的
   中文指南保持中文；面向 AI 的文档保持英文。
 - **测试**：能复现真实 bug 的失败测试，比没有测试的修复更有价值。
 - **代码**：`src/`（TypeScript 宿主侧）、`runtime/`（后端）、`addon/`（Blender 侧）。
@@ -51,7 +51,7 @@ Blender 侧：从 release 的 zip 安装 addon，启用并点 **Connect**。只�
 | `addon/` | Blender addon 包——唯一受支持的 addon |
 | `skills/` | 随包的 `blender-modeling` skill，自动注册 |
 | `tests/` | 单元、集成、端到端三层；见 [tests/README.md](../../tests/README.md) |
-| `docs/` | 用户指南（中文）、ADR、重构规格与证据包 |
+| `docs/` | 用户指南（中文）、架构说明、重构规格与证据包 |
 
 ## 测试
 
@@ -78,15 +78,14 @@ capability lock，再跑契约测试。在 PR 里说明 lock 为什么变；不�
   文档的两个版本，不是各自独立的页面。
 - 在 [CHANGELOG.md](../../CHANGELOG.md) 的下一个版本标题下更新；有破坏性变更还要更新
   [MIGRATIONS.md](../../MIGRATIONS.md)。
-- 决策难以撤回时，在 [docs/adr/](../../docs/adr/README.md) 增加 ADR。
+- 修改边界或契约前先读 [docs/architecture.md](../../docs/architecture.md)，并让架构文档与代码同步。
 - AI 协助要在 commit trailer 和 PR 两处披露；见 AGENTS.md §6。
 - 不要提交 `node_modules`、虚拟环境、`__pycache__`、`.tgz` 产物或依赖软链。控制评审体积：单个 PR
   目标不超过 400 行改动。
 
 ## 发布流程
 
-发布流程由计划的 T16、[ADR 0003](../../docs/adr/0003-addon-package-release.md) 与
-[ADR 0004](../../docs/adr/0004-lib-build-release.md) 负责。简言之：先核对发布门禁，同一次改动里更新
+发布流程由发布清单与 [docs/architecture.md](../../docs/architecture.md) 负责。简言之：先核对发布门禁，同一次改动里更新
 `package.json` 与 `src/constants.ts` 的 `PLUGIN_VERSION`，由 `prepack` 构建 `lib/`，把 addon zip 与
 npm tarball 挂到 release，并在打 tag 前演练回滚。详细清单保存在本地重构工作区，不随仓库发布。
 

@@ -16,21 +16,21 @@
 ### 结构、类型与测试
 
 - src/index.ts 13 行 entry-only；15 个 tool handler 全部拆到 src/tools/*；check:structure 校验 73/73 目标文件、83 文件 / 330 import 边 / 0 环。
-- 生产源码行数预算：284/284 文件 ≤ 600 行（runtime/catalog.ts 数据表例外，ADR 0006）；runtime/py 167/167 文件 ≤ 1000 行（ADR 0007）；13 个原 >1000 行 runtime/py 模块已拆为 facade + 同域 impl 包。函数预算 3,084 个函数全部 ≤120 行，allowlist 已清空（ADR 0008）。
+- 生产源码行数预算：284/284 文件 ≤ 600 行（runtime/catalog.ts 数据表例外，architecture guide）；runtime/py 167/167 文件 ≤ 1000 行（architecture guide）；13 个原 >1000 行 runtime/py 模块已拆为 facade + 同域 impl 包。函数预算 3,084 个函数全部 ≤120 行，allowlist 已清空（architecture guide）。
 - runtime：133 个 TypeScript 模块，0 个 .mjs、0 个 @ts-nocheck；src + runtime 显式 any = 0，由 check:any 与 ESLint 双重门禁。
 - addon：69 个模块，最大 558 行；zip 内 69 entries（sha256 ff729426…）；bl_info 1.11、protocol 11；38 registered commands + ping = 39 wire。
 - 测试：Vitest 80 files / 816 passed（2 skipped）；其中 unit 61 files/564（2 skipped）、integration 18/248、contract 29/324；pytest 337；addon-unit 108；真实 Blender native E2E 76 passed（10 deselected）；GUI E2E 8 passed（2 skipped）。
 - 行为矩阵 346 rows（344 covered / 0 planned / 2 exempt），覆盖 15 tools / 38 commands / 34 families / 228 ops / 29 routes。
-- C5 最终树（ADR 0005 F6 amendment）：JS 74.69 lines / 70.03 branches / 72.25 functions；changed lines 74.99%；Python pure 82.50 lines / 74.36 branches；critical 与 executionModules floor 全过。
+- C5 最终树（F6 amendment）：JS 74.69 lines / 70.03 branches / 72.25 functions；changed lines 74.99%；Python pure 82.50 lines / 74.36 branches；critical 与 executionModules floor 全过。
 
 ### 修复
 
 - **win32 后端子进程启动失败不再打死宿主（#51）**：`spawnChild` 显式传 `ELECTRON_RUN_AS_NODE=1` 与 `windowsHide:true`，并在 `unref()` 前挂 `error` 监听；win32 残留后端清理走 `runtime/win_proc.ts`（CIM → netstat/tasklist → taskkill /T /F），`EADDRINUSE` 自愈恢复；catalog 探针同修。
 
-### Phase R：runtime TypeScript
+### runtime TypeScript 迁移
 
 - 原 60 个 runtime/*.mjs（7,307 行）迁为 strict TypeScript，编译到 lib/runtime/*.js；T5b 与 finalization 又拆出 headless、plan-dispatch、execution 等子模块，当前 runtime TS 为 133 个模块。
-- SERVER_PATH 指向 lib/runtime/server.js；JSON / 子进程 / 路径 / Python 桥边界补齐解析函数；构建顺序 runtime → host → client（ADR 0001）。
+- SERVER_PATH 指向 lib/runtime/server.js；JSON / 子进程 / 路径 / Python 桥边界补齐解析函数；构建顺序 runtime → host → client（architecture guide）。
 - npm pack 产物含 lib/runtime/**/*.js 与 runtime/**/*.py，不含 .ts；clean clone / tarball 安装 smoke 均过。
 
 ### CI、覆盖率与发布工程
@@ -41,7 +41,7 @@
 
 ### 文档与仓库
 
-- 新增 ADR 0001-0007、tests/BEHAVIOR_MATRIX.md、tests/MIGRATION.md、四个 PR 模板；重构规格、CI 说明与证据包保存在本地重构工作区，不随仓库发布。
+- 新增 architecture guide、tests/BEHAVIOR_MATRIX.md、tests/MIGRATION.md、四个 PR 模板；重构规格、CI 说明与证据包保存在本地重构工作区，不随仓库发布。
 - README / docs/zh/README / CONTRIBUTING / docs/zh/CONTRIBUTING / AGENTS / addon README 全部改为 zip 安装；英文 AI 文档保留英文，中文用户文档保留中文并互链。
 
 ### 已知限制

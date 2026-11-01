@@ -13,7 +13,7 @@ commands live.
 
 - **Bug reports** with a reproduction, the exact version from `package.json`, and the output of the
   `doctor` endpoint.
-- **Documentation**: both READMEs, `docs/`, the ADRs, and the bundled skill under
+- **Documentation**: both READMEs, `docs/`, the architecture guide, and the bundled skill under
   `skills/blender-modeling/`. The Chinese user guides stay Chinese; AI-facing docs stay English.
 - **Tests**: a failing test that reproduces a real bug is more valuable than a fix without one.
 - **Code**: `src/` (TypeScript host), `runtime/` (backend), `addon/` (Blender side).
@@ -55,7 +55,7 @@ a frame (headless-only route).
 | `addon/` | The Blender addon package — the only supported addon |
 | `skills/` | The bundled `blender-modeling` skill, registered automatically |
 | `tests/` | Unit, integration, and end-to-end layers; see [tests/README.md](tests/README.md) |
-| `docs/` | User guides (Chinese), ADRs, the refactor specification, and evidence packs |
+| `docs/` | User guides (Chinese), the architecture guide, the refactor specification, and evidence packs |
 
 ## Tests
 
@@ -84,15 +84,14 @@ contract tests. Explain in the pull request why the lock changed; never hand-edi
   of one document, not independent pages.
 - Update [CHANGELOG.md](CHANGELOG.md) under the next version heading, and [MIGRATIONS.md](MIGRATIONS.md)
   for any breaking change.
-- Add an ADR under [docs/adr/](docs/adr/README.md) when a decision is expensive to reverse.
+- Read [docs/architecture.md](docs/architecture.md) before changing a boundary or contract.
 - Disclose AI assistance in both the commit trailer and the pull request; see AGENTS.md §6.
 - Do not commit `node_modules`, virtualenvs, `__pycache__`, `.tgz` artifacts, or symlinks to
   dependencies. Keep a review-sized diff: the target is at most 400 changed lines per pull request.
 
 ## Release process
 
-The release flow is owned by the plan's T16 and by [ADR 0003](docs/adr/0003-addon-package-release.md) and
-[ADR 0004](docs/adr/0004-lib-build-release.md). In short: verify the release gates, bump the version in
+The release flow is owned by the release checklist and by [docs/architecture.md](docs/architecture.md). In short: verify the release gates, bump the version in
 `package.json` and `PLUGIN_VERSION` in the same change, let `prepack` build `lib/`, attach the addon zip
 and the npm tarball to the release, and rehearse the rollback before tagging. The detailed checklist is
 kept in the local refactor workspace, not in this repository.

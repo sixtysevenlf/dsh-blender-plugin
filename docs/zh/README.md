@@ -166,7 +166,7 @@ DSH × Blender 把 DeepSeek Harness 接到 Blender，让 AI 能在真实 Blender
 - AI 安装提示词：docs/AI-安装提示词.md
 - 部署 SOP：docs/部署SOP.md
 - 第三方安装清单：docs/给第三方的安装清单.md
-- 架构决策：docs/adr/README.md
+- 架构说明：docs/architecture.md
 - 建模 skill：skills/blender-modeling/
 - 版本说明：GitHub Releases 与 CHANGELOG.md
 

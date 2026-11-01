@@ -66,9 +66,9 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
   `blender_rt_headless(as_job=true)`; a client timeout is not a failed job.
 - **Verdicts are three-state** (`pass` / `fail` / `degraded`); `degraded` is not a pass; delivery gates
   use `gate_preflight` / `gate_checkpoint` / `gate_deliver` and `deliver_export(require_gate=true)`.
-- **Migrate in slices** ([ADR 0001](docs/adr/0001-runtime-ts.md)): one module or boundary per change,
+- **Migrate in slices** ([architecture](docs/architecture.md)): one module or boundary per change,
   no behavior change while moving code, and the old file is deleted in the same change.
-- **No new rule files.** A lesson learned goes into this file or an ADR.
+- **No new rule files.** A lesson learned goes into this file or the architecture guide.
 
 ## 4. Task routing
 
@@ -76,12 +76,12 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
 |---|---|
 | Install, deploy, configure, troubleshoot | [docs/操作教程.md](docs/操作教程.md) → [docs/配置参考.md](docs/配置参考.md) → [MIGRATIONS.md](MIGRATIONS.md) |
 | Use the plugin or model a scene | [skills/blender-modeling/SKILL.md](skills/blender-modeling/SKILL.md) → [docs/操作教程.md](docs/操作教程.md) |
-| Host side (`src/`) | [src/index.ts](src/index.ts) → [tests/README.md](tests/README.md) → [ADR 0001](docs/adr/0001-runtime-ts.md) |
+| Host side (`src/`) | [src/index.ts](src/index.ts) → [tests/README.md](tests/README.md) → [architecture](docs/architecture.md) |
 | Backend (`runtime/`) | [runtime/engine.ts](runtime/engine.ts) · [runtime/server.ts](runtime/server.ts) → [tests/README.md](tests/README.md) |
 | Blender addon | [addon/README.md](addon/README.md) → [docs/宿主集成-接口契约-v2.3增补.md](docs/宿主集成-接口契约-v2.3增补.md) |
 | Catalog, op, or route change | section 1 count-sync commands → [tests/README.md](tests/README.md) contract tests |
 | Tests, CI, coverage | [tests/README.md](tests/README.md) |
-| Architecture decision | [docs/adr/README.md](docs/adr/README.md): write an ADR first |
+| Architecture and invariants | [docs/architecture.md](docs/architecture.md): read the relevant section first |
 
 ## 5. Definition of done
 
@@ -111,6 +111,6 @@ review failure.
 | Config keys, ports, environment variables | [docs/配置参考.md](docs/配置参考.md) |
 | Tool parameters, ops, families | `blender_rt_plan(op="catalog")` · [docs/操作教程.md](docs/操作教程.md) |
 | Addon and host integration contract | [docs/宿主集成-接口契约-v2.3增补.md](docs/宿主集成-接口契约-v2.3增补.md) |
-| Decisions and their rationale | [docs/adr/README.md](docs/adr/README.md) |
+| Architecture and constraints | [docs/architecture.md](docs/architecture.md) |
 | Test layers and fixtures | [tests/README.md](tests/README.md) |
 | Version history and migrations | [CHANGELOG.md](CHANGELOG.md) · [MIGRATIONS.md](MIGRATIONS.md) |

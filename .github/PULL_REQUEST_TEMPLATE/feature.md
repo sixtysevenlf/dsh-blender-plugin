@@ -35,7 +35,7 @@
 
 ## Rollback
 
-<!-- How to undo this change; link the ADR when the change is expensive to reverse. -->
+<!-- How to undo this change; link the architecture guide when the change is expensive to reverse. -->
 
 ## Disclosure
 
@@ -52,6 +52,6 @@
 - [ ] Documentation is updated in the same change, both languages in sync.
 - [ ] No secrets, build artifacts, node_modules, venv, or hand-edited lib/.
 - [ ] Disclosure is filled in.
-- [ ] An ADR is added when the change is expensive to reverse.
+- [ ] The architecture guide is updated when the change is expensive to reverse.
 
 <!-- Command table and rules: AGENTS.md §1 and §6. -->

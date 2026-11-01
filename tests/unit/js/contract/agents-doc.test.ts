@@ -17,17 +17,12 @@ const PR_TEMPLATES = ['bug_fix.md', 'feature.md', 'docs_update.md', 'refactor.md
   text: readText(PR_TEMPLATE_DIR + '/' + name),
 }))
 const TESTS_README = readText('tests/README.md')
-const ADR_DIR = repoPath('docs/adr')
 const pkg = JSON.parse(readText('package.json'))
 const scripts: Record<string, string> = pkg.scripts ?? {}
 
 const AI_DOCS = [
   'AGENTS.md',
-  'docs/adr/README.md',
-  'docs/adr/0001-runtime-ts.md',
-  'docs/adr/0002-test-stack.md',
-  'docs/adr/0003-addon-package-release.md',
-  'docs/adr/0004-lib-build-release.md',
+  'docs/architecture.md',
   '.github/PULL_REQUEST_TEMPLATE/bug_fix.md',
   '.github/PULL_REQUEST_TEMPLATE/feature.md',
   '.github/PULL_REQUEST_TEMPLATE/docs_update.md',
@@ -130,48 +125,45 @@ describe('AGENTS.md contract', () => {
   })
 })
 
-describe('ADR set', () => {
-  const adrs = [
-    '0001-runtime-ts.md',
-    '0002-test-stack.md',
-    '0003-addon-package-release.md',
-    '0004-lib-build-release.md',
-    '0005-coverage-rebaseline.md',
-    '0006-file-size-budget.md',
-    '0007-runtime-py-line-budget.md',
-    '0008-public-facade-and-function-budget.md',
-    '0009-runtime-module-registry.md',
-    '0010-addon-pure-logic-coverage.md',
-  ]
+describe('architecture guide', () => {
+  const ARCH = 'docs/architecture.md'
 
-  it('has the index, the decision set, and no separate template file', () => {
-    expect(fs.existsSync(repoPath('docs/adr/README.md'))).toBe(true)
-    for (const adr of adrs) expect(fs.existsSync(repoPath('docs/adr', adr))).toBe(true)
-    const templateFiles = fs.readdirSync(ADR_DIR).filter((name) => /template/i.test(name))
-    expect(templateFiles).toEqual([])
+  it('is the only architecture document; the old ADR directory is gone', () => {
+    expect(fs.existsSync(repoPath(ARCH))).toBe(true)
+    expect(fs.existsSync(repoPath('docs/adr'))).toBe(false)
+    expect(readText('README.md')).toContain('docs/architecture.md')
   })
 
-  it('indexes every ADR and keeps an inline template', () => {
-    const index = readText('docs/adr/README.md')
-    for (const adr of adrs) expect(index).toContain('(' + adr + ')')
-    expect(index).toContain('## Template')
-    expect(index).toContain('## Decision')
-    expect(index).toMatch(/When to write one/i)
-  })
-
-  it('gives every ADR the same reviewable structure', () => {
-    for (const adr of adrs) {
-      const text = readText('docs/adr/' + adr)
-      for (const heading of [
-        '## Context',
-        '## Decision',
-        '## Consequences',
-        '## Alternatives considered',
-      ]) {
-        expect(text, adr + ' must contain ' + heading).toContain(heading)
-      }
-      expect(brokenRelativeLinks('docs/adr/' + adr), adr + ' has broken links').toEqual([])
+  it('covers the system, boundaries, build, tests, and invariants', () => {
+    const text = readText(ARCH)
+    for (const heading of [
+      '## 1. System shape',
+      '## 2. Host plugin',
+      '## 3. Backend runtime',
+      '## 4. Python domain library',
+      '## 5. Blender addon',
+      '## 6. Build, package, and release',
+      '## 7. Test layers',
+      '## 8. Quality gates and invariants',
+      '## 9. Key choices and consequences',
+      '## 10. How to change safely',
+    ]) {
+      expect(text, ARCH + ' must contain ' + heading).toContain(heading)
     }
+    for (const fact of [
+      '15 tools',
+      '34 planning families',
+      '228 operations',
+      '38 addon commands',
+      '29 HTTP routes',
+      'protocol 11',
+    ]) {
+      expect(text).toContain(fact)
+    }
+  })
+
+  it('has no broken relative links', () => {
+    expect(brokenRelativeLinks(ARCH)).toEqual([])
   })
 })
 

@@ -167,7 +167,7 @@ The plugin exposes 15 tools. All planning, audit, assembly, export, and evaluati
 - AI install prompt: docs/AI-安装提示词.md
 - Deployment SOP: docs/部署SOP.md
 - Third-party checklist: docs/给第三方的安装清单.md
-- Architecture decisions: docs/adr/README.md
+- Architecture: docs/architecture.md
 - Modeling skill: skills/blender-modeling/
 - Release notes: GitHub Releases and CHANGELOG.md
 

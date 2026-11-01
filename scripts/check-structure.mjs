@@ -8,7 +8,7 @@
  *      名称集合与 tests/fixtures/capability.lock.json 一致；
  *   ③ 架构文件全部存在；
  *   ④ src 内部相对 import 图无环（.js 说明符映射回 .ts）；
- *   ⑤ 生产源码单文件 ≤600 行（B9 / ADR 0006，runtime/catalog.ts 白名单）。
+ *   ⑤ 生产源码单文件 ≤600 行（B9，runtime/catalog.ts 白名单）。
  *
  * 用法：
  *   node scripts/check-structure.mjs                 # 人读摘要，失败退出 1
@@ -263,9 +263,9 @@ const edges = [...graph].reduce((n, [, set]) => n + set.size, 0)
 for (const c of cycles) failures.push('import 环: ' + c.join(' -> '))
 
 // ---------- ⑤ 生产源码单文件行预算 ----------
-// B9 / ADR 0006：src 与 runtime 的 TypeScript、addon 的 Python 单文件 ≤600 行；
+// B9：src 与 runtime 的 TypeScript、addon 的 Python 单文件 ≤600 行；
 // 唯一例外是 runtime/catalog.ts（纯数据表，不是逻辑）。runtime/ext 是第三方
-// 生成代码，不在本预算范围。B10 / ADR 0007：runtime/py 的 Blender 侧脚本库
+// 生成代码，不在本预算范围。B10：runtime/py 的 Blender 侧脚本库
 // 使用 1000 行预算（单体函数本身较宽），同样禁止继续膨胀。
 const LINE_BUDGET = 600
 const PY_LINE_BUDGET = 1000
