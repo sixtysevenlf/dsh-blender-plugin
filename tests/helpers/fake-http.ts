@@ -27,7 +27,7 @@ export async function startFakeHost(handler: FakeHandler): Promise<FakeHost> {
       raw += chunk.toString('utf8')
     })
     req.on('end', () => {
-      let body: any = null
+      let body: any
       try {
         body = raw ? JSON.parse(raw) : null
       } catch {

@@ -69,7 +69,7 @@ export function buildJobParts(
     if (!name) continue
     // 模块真实文件在 runtime/py/<domain>/ 下（唯一清单 runtime/py/modules.json）；
     // 注入通道必须是真实实现文件，否则 exec 出去的只是 import 语句。
-    let f = null
+    let f: string | null
     try {
       f = pyModuleFile(name)
     } catch (e2) {

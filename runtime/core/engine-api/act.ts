@@ -27,7 +27,7 @@ export function createActApi(E: EngineApiDeps) {
       }
       const errLine = pick('DSH_ACT_ERR')
       const okLine = pick('DSH_ACT_OK')
-      let p: Record<string, unknown> | null = null
+      let p: Record<string, unknown> | null
       try {
         p = JSON.parse(
           (errLine || okLine || '').slice((errLine ? 'DSH_ACT_ERR ' : 'DSH_ACT_OK ').length).trim(),

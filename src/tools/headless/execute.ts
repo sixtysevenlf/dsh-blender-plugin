@@ -98,7 +98,7 @@ async function runSync(
   runId: string,
   serverBudget: number,
 ): Promise<unknown> {
-  let res: Record<string, unknown> | null = null
+  let res: Record<string, unknown> | null
   try {
     // 预算 = 等待窗口 + 2 s 余量：到点就转 promoted 回执
     res = await backendPost(

@@ -33,7 +33,7 @@ permissions:
   contents: read
 
 env:
-  NODE_VERSION: '22.17.0'
+  NODE_VERSION: '22.22.2'
   PYTHON_VERSION: '3.11'
   PYTHONIOENCODING: utf-8
   PYTHONUTF8: '1'

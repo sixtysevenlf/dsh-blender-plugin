@@ -223,7 +223,7 @@ async function call(
   if (init.origin) headers.origin = init.origin
   const res = await fetch(base + path, { method: init.method || 'GET', headers, body })
   const text = await res.text()
-  let json: any = null
+  let json: any
   try {
     json = JSON.parse(text)
   } catch {

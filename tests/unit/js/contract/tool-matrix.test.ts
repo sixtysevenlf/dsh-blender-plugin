@@ -386,7 +386,7 @@ describe('A1 backendUnreachable：连接被拒时 5s 内可读失败', () => {
     plugin.apply(f.ctx, { autoStart: false, tui: false, port })
     const t = f.tools.find((x) => x.name === name)!
     const started = Date.now()
-    let evidence = ''
+    let evidence: string
     try {
       const out = await Promise.race([
         (t.execute as any)(UNREACHABLE_ARGS[name] ?? { op: 'status' }, {}),
@@ -436,7 +436,7 @@ describe('A1 timeoutAbort：exec.signal abort 后快速结束', () => {
     const started = Date.now()
     const pending = run(name, args, { signal: ac.signal })
     setTimeout(() => ac.abort(), 60)
-    let evidence = ''
+    let evidence: string
     try {
       const out = await Promise.race([
         pending,

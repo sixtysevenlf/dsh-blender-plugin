@@ -138,7 +138,7 @@ export function workerCall(
         const line = buf.slice(0, nl)
         buf = buf.slice(nl + 1)
         if (!line.trim()) continue
-        let obj: Record<string, unknown> | null = null
+        let obj: Record<string, unknown> | null
         try {
           obj = JSON.parse(line) as Record<string, unknown>
         } catch (e) {

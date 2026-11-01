@@ -34,7 +34,7 @@ export function collectArtifacts(
         .readdirSync(outdirWsl)
         .map((n) => {
           const p = path.join(outdirWsl, n)
-          let st: fs.Stats | null = null
+          let st: fs.Stats | null
           try {
             st = fs.statSync(p)
           } catch (e) {

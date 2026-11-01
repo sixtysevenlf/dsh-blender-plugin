@@ -146,7 +146,7 @@ export async function injectModule(
   const hashAttr = attr + '_fp'
   // 内容指纹（size + mtime）：模块文件一改，下次调用自动重新注入 —— 开发闭环必需。
   // 注意：K 跨后端重启保留，所以"只查 hasattr"会让改了文件却不生效（v0.7.0 修）。
-  let fp = 'x'
+  let fp: string
   try {
     const st = fs.statSync(file)
     fp = String(st.size) + '-' + String(Math.round(st.mtimeMs)) + '-k' + KIT_HASH

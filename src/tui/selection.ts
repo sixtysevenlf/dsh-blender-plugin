@@ -181,7 +181,7 @@ export async function selectionTick(deps: {
     await done(false, { reason: '没有对象名可插入（空选中）' })
     return
   }
-  let staged = false
+  let staged: boolean
   try {
     staged =
       chips.attachContext({

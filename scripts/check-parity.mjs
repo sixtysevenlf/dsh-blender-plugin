@@ -98,7 +98,7 @@ function ok(id, label, detail) {
 
 const tmp = fs.mkdtempSync(path.join(TMP_ROOT, 'dsh-parity-'))
 let exitCode = 0
-let report = null
+let report
 try {
   // Extract the pre-migration runtime modules from git. (No second worktree:
   // the main checkout is outside this agent's write scope. No tar either: the
