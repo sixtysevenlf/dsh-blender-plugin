@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 // F4.1: F1.1 split launch.ts into launch/resolve.ts. These tests exercise the
 // Windows launch-agent handshake directly (CFG and fetch are controlled here)
@@ -75,7 +75,10 @@ describe('tryLaunchAgent (windows launch agent handshake)', () => {
   it('returns null when the health probe fails or is not ok', async () => {
     h.cfg.launchAgentUrl = 'http://127.0.0.1:7788'
     const steps: string[] = []
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({}, false)))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({}, false)),
+    )
     await expect(tryLaunchAgent({}, 9876, steps, base)).resolves.toBeNull()
     vi.stubGlobal(
       'fetch',

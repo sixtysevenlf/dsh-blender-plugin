@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 // and that a probe failure degrades to [] instead of throwing.
 
 const h = vi.hoisted(() => ({
-  winSamePortHolders: vi.fn((port: number) => [4242]),
+  winSamePortHolders: vi.fn((_port: number) => [4242]),
   winKillPids: vi.fn((pids: number[]) => pids.map(String)),
   serverPidsFromProcRows: vi.fn(() => [9999]),
 }))

@@ -103,7 +103,11 @@ describe('plugin applies to the documented Cordis surface', () => {
     // unconditionally; the installed-version cross-check remains environment-gated.
     const manifest = JSON.parse(fs.readFileSync(pkgPath('package.json'), 'utf8'))
     const peers = manifest.peerDependencies as Record<string, string>
-    for (const dep of ['@deepseek-ai/cordis', '@deepseek-ai/dsh-tools', '@deepseek-ai/schemastery']) {
+    for (const dep of [
+      '@deepseek-ai/cordis',
+      '@deepseek-ai/dsh-tools',
+      '@deepseek-ai/schemastery',
+    ]) {
       expect(typeof peers[dep], dep).toBe('string')
       expect(peers[dep].length, dep).toBeGreaterThan(0)
     }

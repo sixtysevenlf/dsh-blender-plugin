@@ -169,9 +169,15 @@ describe('samePortHolders and killHolders', () => {
 
 describe('holderResponsive', () => {
   it('returns true only when /health answers ok', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true })),
+    )
     await expect(holderResponsive(9877, 50)).resolves.toBe(true)
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false })),
+    )
     await expect(holderResponsive(9877, 50)).resolves.toBe(false)
     vi.stubGlobal(
       'fetch',

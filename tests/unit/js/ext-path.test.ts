@@ -49,7 +49,9 @@ describe('ext external-validator paths', () => {
       }
     }
     const p = built.resolveExtPaths()
-    expect(p.gltfRunner.replace(/\\/g, '/')).toMatch(/\/lib\/runtime\/ext\/gltf_validate_runner\.js$/)
+    expect(p.gltfRunner.replace(/\\/g, '/')).toMatch(
+      /\/lib\/runtime\/ext\/gltf_validate_runner\.js$/,
+    )
     expect(fs.existsSync(p.gltfRunner)).toBe(true)
     expect(p.gltfRunnerExists).toBe(true)
   })

@@ -1,4 +1,3 @@
-import { EventEmitter } from 'node:events'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 // F4.1 item 4: win-spawn.test.ts could only grep spawn.ts source. Here the real
@@ -71,10 +70,7 @@ describe('spawnChild spawn options (issue #51 / F0.0)', () => {
     expect(h.spawn).toHaveBeenCalledTimes(1)
     const [file, args, opts] = h.spawn.mock.calls[0] as [string, string[], any]
     expect(file).toBe(process.execPath)
-    expect(args.slice(0, 2)).toEqual([
-      expect.stringMatching(/server\.(mjs|js)$/),
-      '--port',
-    ])
+    expect(args.slice(0, 2)).toEqual([expect.stringMatching(/server\.(mjs|js)$/), '--port'])
     expect(args[2]).toBe('9877')
     expect(opts.env.ELECTRON_RUN_AS_NODE).toBe('1')
     expect(opts.env.PATH).toBe(process.env.PATH)
