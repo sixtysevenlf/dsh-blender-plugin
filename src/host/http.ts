@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { ABORT_HINT, HOLDER } from '../constants.js'
 import { execSignal } from './exec-context.js'
-import { base, withTimeout } from './backend.js'
+import { base, withTimeout } from './backend/index.js'
 import { asRecord, isRecord, text } from '../contracts/dynamic.js'
 
 export interface FrameResult {

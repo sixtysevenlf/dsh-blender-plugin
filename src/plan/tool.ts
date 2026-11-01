@@ -1,7 +1,7 @@
 import { vTool } from '../contracts/tool.js'
 import { ANY_SCHEMA } from '../tools/schema-diagnostic.js'
 import { BACKEND_HINT, PLUGIN_VERSION, T } from '../constants.js'
-import { ensureBackend } from '../host/backend.js'
+import { ensureBackend } from '../host/backend/index.js'
 import { backendPost, jsonPayload, leasedText } from '../host/http.js'
 import { renderStructured } from '../ui/cards.js'
 import { finishPlanResponse, planViaWorker } from './headless-target.js'

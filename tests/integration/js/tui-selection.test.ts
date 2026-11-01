@@ -6,12 +6,12 @@ import {
   selectionMessageText,
   selectionTick,
   __tuiHostInternals,
-} from '../../../src/tui-host'
+} from '../../../src/tui/index'
 import { pkgPath } from '../../helpers/pkg'
 import { startFakeHost, type FakeHost } from '../../helpers/fake-http'
 
 // v2.3 Blender native selection -> DSH draft. Two halves must agree byte for byte:
-// the TUI host picker text (src/tui-host.ts) and the Web bundle (src/client/index.js).
+// the TUI host picker text (src/tui/index.ts) and the Web bundle (src/client/index.js).
 // Also pins the CAS consume protocol: only a staged chip consumes ok:true, a failed
 // attach retries, and the third failure consumes ok:false with a reason.
 

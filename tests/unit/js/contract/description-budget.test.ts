@@ -35,11 +35,17 @@ const payload = (opts?: unknown): CatalogView => catalogPayload(opts) as unknown
 // catalog keeps its sizing contract, and the pure discoverability helpers keep
 // correcting wrong channel choices instead of failing silently.
 
+// F1.2：tool 可下沉到 src/tools/<tool>/*.ts，递归收集并保留相对路径（schemaChars 按来源文件切片）。
+function walkToolSources(dir: string, out: string[] = []): string[] {
+  for (const entry of fs.readdirSync(pkgPath(dir), { withFileTypes: true })) {
+    const rel = path.join(dir, entry.name)
+    if (entry.isDirectory()) walkToolSources(rel, out)
+    else if (entry.name.endsWith('.ts')) out.push(rel)
+  }
+  return out
+}
 const TOOL_SOURCES = [
-  ...fs
-    .readdirSync(pkgPath('src', 'tools'))
-    .filter((f) => f.endsWith('.ts'))
-    .map((f) => path.join('src', 'tools', f)),
+  ...walkToolSources(path.join('src', 'tools')),
   path.join('src', 'plan', 'tool.ts'),
 ]
 
@@ -58,16 +64,11 @@ function schemaChars(name: string, sourceRel: string): number {
   const start = text.indexOf("name: '" + name + "'")
   const desc = text.indexOf('description:', start)
   const params = text.indexOf('parameters:', desc)
-  const endMarkers = [
-    '\n          output:',
-    '\n          isConcurrencySafe:',
-    '\n          timeoutMs:',
-    '\n          async execute(',
-    '\n          execute(',
-  ]
-    .map((marker) => text.indexOf(marker, params))
-    .filter((at) => at > params)
-  const end = endMarkers.length > 0 ? Math.min(...endMarkers) : text.indexOf('\n        },', params)
+  // F1.2：tool 声明拆到 src/tools/<tool>/register.ts 后缩进层级可变，边界标记按"任意缩进"匹配。
+  const endRe = /\n\s*(?:output:|isConcurrencySafe:|timeoutMs:|async execute\(|execute\()/g
+  endRe.lastIndex = params
+  const marker = endRe.exec(text)
+  const end = marker ? marker.index : text.indexOf('\n        },', params)
   const segment = end > desc ? text.slice(desc, end) : text.slice(desc)
   return (segment.match(/'((?:[^'\\]|\\.)*)'/g) || []).join('').length
 }

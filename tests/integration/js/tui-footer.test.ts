@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { footerField } from '../../../src/tui-host'
+import { footerField } from '../../../src/tui/index'
 import { startBackend, type Backend } from '../../helpers/backend'
 import { startFakeAddon } from '../../helpers/fake-addon.mjs'
 import { startFakeHost, type FakeHost } from '../../helpers/fake-http'

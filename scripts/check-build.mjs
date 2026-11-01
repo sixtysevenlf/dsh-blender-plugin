@@ -84,12 +84,12 @@ if (!failures.length) {
       'lib/index.js',
       'lib/plugin.js',
       'lib/tools/index.js',
-      'lib/tools/viewport.js',
+      'lib/tools/viewport/index.js',
       'lib/plan/tool.js',
-      'lib/host/backend.js',
+      'lib/host/backend/index.js',
       'lib/host/http.js',
       'lib/ui/cards.js',
-      'lib/headless/receipts.js',
+      'lib/headless/receipts/index.js',
       'lib/types/index.d.ts',
     ]
     const missing = required.filter((f) => !fs.existsSync(path.join(tmp, f)))
@@ -112,8 +112,7 @@ function walk(dir) {
       if (ent.name === 'venv' || ent.name === 'node_modules' || ent.name === '__pycache__') continue
       walk(p)
     }
-    // src/tui-host.ts 由守卫测试单独覆盖，这里不重复断言
-    else if (ent.name === 'tui-host.ts') continue
+    // src/tui-host.ts 已在 F1.2 删除（facade 迁到 src/tui/index.ts），这里只做通用断言
     else if (ent.name.endsWith('.ts') && fs.readFileSync(p, 'utf8').includes('@ts-nocheck')) {
       nocheck.push(path.relative(ROOT, p).split(path.sep).join('/'))
     }
