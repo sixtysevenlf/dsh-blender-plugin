@@ -40,15 +40,20 @@ describe('single source of truth', () => {
     expect(Number(match![2])).toBe(catalog.ops_count)
   })
 
-  it('keeps the workspace AGENTS.md counts equal to the catalog when present', () => {
-    const agents = pkgPath('..', 'AGENTS.md')
-    if (!fs.existsSync(agents)) return
+  it('keeps the repository AGENTS.md counts equal to the catalog', () => {
+    // F4.1: this used to resolve pkgPath('..', 'AGENTS.md') (the parent directory,
+    // where no AGENTS.md exists) and silently return. Assert existence and match
+    // the real "34 families / 228 ops" wording used in the repo guide.
+    const agents = pkgPath('AGENTS.md')
+    expect(fs.existsSync(agents)).toBe(true)
     const text = fs.readFileSync(agents, 'utf8')
-    const match = text.match(/(\d+) 个 family \/ (\d+) 个 op/)
+    const match = text.match(/(\d+) families \/ (\d+) ops/)
     const catalog = payload({})
     expect(match).not.toBeNull()
     expect(Number(match![1])).toBe(catalog.families.length)
     expect(Number(match![2])).toBe(catalog.ops_count)
+    // The remaining contract counts in the guide must stay advertised as well.
+    expect(text).toMatch(/38 addon commands\s*\/\s*29 routes\s*\/\s*protocol 11/)
   })
 
   it('keeps the count sync script runnable against the built runtime', () => {

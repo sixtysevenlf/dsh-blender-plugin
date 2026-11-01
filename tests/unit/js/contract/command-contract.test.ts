@@ -91,8 +91,14 @@ describe('addon command surface', () => {
       'create_hunyuan_job',
       'create_rodin_job',
     ]
+    expect(gated).toHaveLength(7)
     for (const name of gated) expect(registrySource, name).toContain('"' + name + '"')
     for (const name of gated) expect(COMMAND_CATALOG[name]?.gate, name).toBeTruthy()
+    // The catalog also gates read/download commands; the 7 above are the write
+    // subset. Both counts are pinned so a lost/renamed gate cannot pass silently.
+    const allGated = Object.keys(COMMAND_CATALOG).filter((n) => COMMAND_CATALOG[n]?.gate)
+    expect(allGated).toHaveLength(15)
+    for (const name of gated) expect(allGated, name).toContain(name)
   })
 
   it('pauses every non-read command and keeps read-only ones safe', () => {

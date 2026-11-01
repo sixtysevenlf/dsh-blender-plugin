@@ -3,7 +3,6 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { serverPidsFromProcRows } from '../../../runtime/ports.js'
 import {
-  IS_WIN,
   parseNetstatListeners,
   parseTasklistImage,
   winKillPids,
@@ -14,13 +13,6 @@ const ROOT = process.cwd()
 
 function read(rel: string): string {
   return readFileSync(path.join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n')
-}
-
-function fnBody(source: string, signature: string): string {
-  const start = source.indexOf(signature)
-  if (start < 0) return ''
-  const end = /\n}\n/.exec(source.slice(start))
-  return end ? source.slice(start, start + end.index + 2) : ''
 }
 
 describe('win_proc parsers', () => {
@@ -82,57 +74,23 @@ describe('win_proc parsers', () => {
     expect(parseTasklistImage(null)).toBe('')
   })
 
-  it('returns no Windows PIDs off Windows', () => {
-    if (IS_WIN) return
-    expect(winSamePortHolders(9877)).toEqual([])
-    expect(winKillPids([1234])).toEqual([])
+  it('returns safe arrays on every platform, including Windows (F4.1: was vacuous)', () => {
+    // F0.0 regression: the old body was `if (IS_WIN) return`, so on Windows the
+    // only F0.0 coverage for these probes was skipped. Assert the observable
+    // contract on all platforms; invalid/empty input must fail closed to [].
+    expect(winKillPids([])).toEqual([])
+    const holders = winSamePortHolders(0)
+    expect(Array.isArray(holders)).toBe(true)
+    expect(holders.every((pid) => Number.isInteger(pid) && pid > 0)).toBe(true)
   })
 })
 
-describe('issue #51 wiring', () => {
-  const backend =
-    read('src/host/backend/spawn.ts') +
-    '\n' +
-    read('src/host/backend/process-scan.ts') +
-    '\n' +
-    read('src/host/backend/index.ts')
-  const lifecycle = read('runtime/http/lifecycle.ts')
-  const ports = read('runtime/ports.ts')
+describe('issue #51 static invariants', () => {
+  // Behavior for spawnChild/killBackendByCmd lives in src-backend-spawn.test.ts and
+  // backend-win-cleanup.test.ts (F4.1). What remains here are artifacts that can
+  // only be checked as source: the generated catalog probe and cross-platform guards.
   const catalog = read('runtime/catalog/logic.ts')
   const winProc = read('runtime/win_proc.ts')
-
-  it('spawnChild passes ELECTRON_RUN_AS_NODE and windowsHide', () => {
-    const body = fnBody(backend, 'export function spawnChild(')
-    expect(body).toContain('ELECTRON_RUN_AS_NODE')
-    expect(body).toContain('windowsHide: true')
-    expect(body).toContain("on('error'")
-    expect(body).toContain("on('exit'")
-    expect(body).not.toContain('child.unref()\n  return')
-  })
-
-  it('spawnChild attaches error before unref', () => {
-    const body = fnBody(backend, 'export function spawnChild(')
-    expect(body.indexOf("on('error'")).toBeGreaterThanOrEqual(0)
-    expect(body.indexOf("on('error'")).toBeLessThan(body.indexOf('.unref()'))
-  })
-
-  it('host cleanup has a win32 branch before the POSIX probes', () => {
-    const body = fnBody(backend, 'export function killBackendByCmd(')
-    expect(body).toContain('IS_WIN')
-    expect(body).toContain('winSamePortHolders(port)')
-    expect(body).toContain('winKillPids(')
-    expect(body.indexOf('IS_WIN')).toBeLessThan(body.indexOf("readdirSync('/proc')"))
-  })
-
-  it('backend lifecycle imports the shared port primitives', () => {
-    expect(lifecycle).toContain('holderResponsive')
-    expect(lifecycle).toContain('killHolders')
-    expect(ports).toContain('winSamePortHolders')
-    expect(ports).toContain('winKillPids')
-    expect(ports).toContain('server\\.(mjs|js)')
-    const body = fnBody(ports, 'export function samePortHolders(')
-    expect(body).toContain("process.platform === 'win32'")
-  })
 
   it('catalog probe runs in node mode when the host is Electron', () => {
     expect(catalog).toContain('ELECTRON_RUN_AS_NODE')
