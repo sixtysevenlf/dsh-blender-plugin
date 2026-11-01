@@ -140,7 +140,12 @@
     "test:coverage": "node node_modules/vitest/vitest.mjs run --coverage --no-file-parallelism --coverage.reporter=text-summary --coverage.reporter=json-summary --coverage.reporter=lcov --coverage.reporter=cobertura",
     "check:coverage": "node scripts/check-coverage.mjs",
     "typecheck:addon": "pyright -p pyrightconfig.addon.json",
-    "test:addon-unit": "node scripts/test.mjs addon-unit"
+    "test:addon-unit": "node scripts/test.mjs addon-unit",
+    "check:no-shims": "node scripts/check-no-shims.mjs",
+    "check:runtime-layout": "node scripts/check-runtime-layout.mjs",
+    "check:import-boundaries": "node scripts/check-import-boundaries.mjs",
+    "check:doc-paths": "node scripts/check-doc-paths.mjs",
+    "check:finalization": "npm run check:function-budget && npm run check:no-shims && npm run check:runtime-layout && npm run check:import-boundaries && npm run check:doc-paths"
   },
   "exports": {
     ".": {
