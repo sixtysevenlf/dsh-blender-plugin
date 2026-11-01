@@ -4,8 +4,8 @@ import {
   registerTuiHost,
   tuiHostSummary,
   __tuiHostInternals,
-} from '../../../src/tui-host'
-import type { TuiHostOptions } from '../../../src/tui-host'
+} from '../../../src/tui/index'
+import type { TuiHostOptions } from '../../../src/tui/index'
 import { startFakeHost, type FakeHost } from '../../helpers/fake-http'
 
 // /blender command and the dsh-TUI wiring. The host seams are optional: a host

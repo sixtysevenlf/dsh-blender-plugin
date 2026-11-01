@@ -112,8 +112,18 @@ describe('headless file option guard', () => {
       pkgPath('runtime', 'execution', 'headless', 'result.ts'),
       'utf8',
     )
-    const headlessTool = fs.readFileSync(pkgPath('src', 'tools', 'headless.ts'), 'utf8')
-    const jobTool = fs.readFileSync(pkgPath('src', 'tools', 'job.ts'), 'utf8')
+    // F1.2：headless/job 工具已拆成目录，接线断言读拆分后的执行层/注册层
+    const readToolSplit = (tool: string, files: string[]) =>
+      files
+        .map((f) => fs.readFileSync(pkgPath('src', 'tools', tool, f), 'utf8'))
+        .join(String.fromCharCode(10))
+    const headlessTool = readToolSplit('headless', [
+      'index.ts',
+      'register.ts',
+      'execute.ts',
+      'receipt.ts',
+    ])
+    const jobTool = readToolSplit('job', ['index.ts', 'register.ts', 'execute.ts', 'presenter.ts'])
     expect(jobScript).toMatch(/from ['"]\.\.\/\.\.\/file_guard\.js['"]/)
     expect(jobScript).toContain('validateFileOpt(opts.file)')
     expect(jobScript).toContain('describeMissingInput')

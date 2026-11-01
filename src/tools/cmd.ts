@@ -1,7 +1,7 @@
 import { vTool } from '../contracts/tool.js'
 import { ANY_SCHEMA } from './schema-diagnostic.js'
 import { T, BACKEND_HINT } from '../constants.js'
-import { ensureBackend } from '../host/backend.js'
+import { ensureBackend } from '../host/backend/index.js'
 import { backendPost, leasedText } from '../host/http.js'
 import { renderOne } from '../ui/cards.js'
 import { toolError } from './errors.js'

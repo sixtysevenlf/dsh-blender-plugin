@@ -90,7 +90,12 @@ describe('win_proc parsers', () => {
 })
 
 describe('issue #51 wiring', () => {
-  const backend = read('src/host/backend.ts')
+  const backend =
+    read('src/host/backend/spawn.ts') +
+    '\n' +
+    read('src/host/backend/process-scan.ts') +
+    '\n' +
+    read('src/host/backend/index.ts')
   const lifecycle = read('runtime/http/lifecycle.ts')
   const catalog = read('runtime/catalog.ts')
   const winProc = read('runtime/win_proc.ts')

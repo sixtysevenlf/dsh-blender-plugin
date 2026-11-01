@@ -54,7 +54,11 @@ describe('headless hard exit', () => {
       pkgPath('runtime', 'execution', 'headless', 'script.ts'),
       'utf8',
     )
-    const tool = fs.readFileSync(pkgPath('src', 'tools', 'headless.ts'), 'utf8')
+    // F1.2：headless 工具已拆目录；schema 参数与执行体分别在 register.ts / execute.ts
+    const tool =
+      fs.readFileSync(pkgPath('src', 'tools', 'headless', 'register.ts'), 'utf8') +
+      String.fromCharCode(10) +
+      fs.readFileSync(pkgPath('src', 'tools', 'headless', 'execute.ts'), 'utf8')
     expect(jobScript).toMatch(/from ['"]\.\.\/\.\.\/hard_exit\.js['"]/)
     expect(jobScript).toContain('hardExitJobParts(opts)')
     expect(headless).toMatch(/from ['"]\.\.\/\.\.\/hard_exit\.js['"]/)

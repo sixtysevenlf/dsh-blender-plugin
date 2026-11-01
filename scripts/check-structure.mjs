@@ -79,13 +79,18 @@ function scanToolFile(file) {
     if (!list.includes(rel(file))) list.push(rel(file))
   }
 }
-const toolFiles = fs.existsSync(TOOLS_DIR)
-  ? fs
-      .readdirSync(TOOLS_DIR)
-      .filter((f) => f.endsWith('.ts'))
-      .sort()
-  : []
-for (const f of toolFiles) scanToolFile(path.join(TOOLS_DIR, f))
+// ② 起 tool handler 允许下沉到 src/tools/<tool>/*.ts（F1.2 拆分），扫描递归且记相对路径。
+function walkToolFiles(dir) {
+  const out = []
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, ent.name)
+    if (ent.isDirectory()) out.push(...walkToolFiles(p))
+    else if (ent.name.endsWith('.ts')) out.push(rel(p))
+  }
+  return out
+}
+const toolFiles = fs.existsSync(TOOLS_DIR) ? walkToolFiles(TOOLS_DIR).sort() : []
+for (const f of toolFiles) scanToolFile(path.join(ROOT, f))
 scanToolFile(path.join(ROOT, 'src', 'plan', 'tool.ts'))
 
 const LOCK = path.join(ROOT, 'tests', 'fixtures', 'capability.lock.json')
@@ -127,38 +132,78 @@ const TARGET_FILES = [
   'src/host/exec-context.ts',
   'src/contracts/lossless.ts',
   'src/contracts/tool.ts',
-  'src/host/backend.ts',
+  'src/host/backend/index.ts',
+  'src/host/backend/spawn.ts',
+  'src/host/backend/process-scan.ts',
+  'src/host/backend/port-holders.ts',
+  'src/host/runtime-bridge.ts',
   'src/host/http.ts',
   'src/utils/frame-cache.ts',
   'src/utils/image.ts',
   'src/plan/headless-target.ts',
   'src/ui/cards.ts',
-  'src/headless/receipts.ts',
+  'src/headless/receipts/index.ts',
+  'src/headless/receipts/envelope.ts',
+  'src/headless/receipts/human-text.ts',
   'src/tools/schema-diagnostic.ts',
   'src/plugin.ts',
+  'src/plugin-lifecycle.ts',
+  'src/plugin-surfaces.ts',
   'src/tools/errors.ts',
   'src/host/skill.ts',
   'src/plan/tool.ts',
   'src/tools/index.ts',
-  'src/tui-host.ts',
-  'src/tools/viewport.ts',
-  'src/tools/see.ts',
-  'src/tools/do.ts',
-  'src/tools/watch.ts',
+  'src/tui/index.ts',
+  'src/tui/register/index.ts',
+  'src/tui/register/lifecycle.ts',
+  'src/tui/register/commands.ts',
+  'src/tools/viewport/index.ts',
+  'src/tools/viewport/register.ts',
+  'src/tools/viewport/execute.ts',
+  'src/tools/viewport/presenter.ts',
+  'src/tools/job/index.ts',
+  'src/tools/job/register.ts',
+  'src/tools/job/execute.ts',
+  'src/tools/job/presenter.ts',
+  'src/tools/see/index.ts',
+  'src/tools/see/register.ts',
+  'src/tools/see/execute.ts',
+  'src/tools/see/presenter.ts',
+  'src/tools/do/index.ts',
+  'src/tools/do/register.ts',
+  'src/tools/do/execute.ts',
+  'src/tools/do/envelope.ts',
+  'src/tools/watch/index.ts',
+  'src/tools/watch/register.ts',
+  'src/tools/watch/execute.ts',
+  'src/tools/watch/response.ts',
+  'src/tools/loop/index.ts',
+  'src/tools/loop/register.ts',
+  'src/tools/loop/execute.ts',
+  'src/tools/loop/response.ts',
+  'src/tools/headless/index.ts',
+  'src/tools/headless/register.ts',
+  'src/tools/headless/execute.ts',
+  'src/tools/headless/receipt.ts',
+  'src/tools/worker/index.ts',
+  'src/tools/worker/register.ts',
+  'src/tools/worker/execute.ts',
+  'src/tools/txn/index.ts',
+  'src/tools/txn/register.ts',
+  'src/tools/txn/execute.ts',
+  'src/tools/txn/response.ts',
+  'src/tools/preset/index.ts',
+  'src/tools/preset/register.ts',
+  'src/tools/preset/execute.ts',
+  'src/tools/preset/response.ts',
   'src/tools/cmd.ts',
   'src/tools/commands.ts',
-  'src/tools/loop.ts',
   'src/tools/perf.ts',
   'src/tools/opt.ts',
-  'src/tools/headless.ts',
-  'src/tools/worker.ts',
-  'src/tools/txn.ts',
-  'src/tools/preset.ts',
-  'src/tools/job.ts',
 ]
 const missing = TARGET_FILES.filter((f) => !fs.existsSync(path.join(ROOT, f)))
 for (const f of missing) failures.push('目标文件缺失: ' + f)
-const extraTools = toolFiles.filter((f) => !TARGET_FILES.includes('src/tools/' + f))
+const extraTools = toolFiles.filter((f) => !TARGET_FILES.includes(f))
 if (extraTools.length) failures.push('src/tools 下有意料外的文件: ' + extraTools.join(', '))
 
 // ---------- ④ import 图无环 ----------

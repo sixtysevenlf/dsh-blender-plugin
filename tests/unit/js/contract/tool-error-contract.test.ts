@@ -6,7 +6,7 @@ import * as plugin from '../../../../src/index'
 import { createFakeContext } from '../../../helpers/fake-context'
 import { closedPort, startFakeBackend } from '../../../helpers/fake-backend.mjs'
 import { validateFileOpt } from '../../../../runtime/file_guard.js'
-import { setPaused } from '../../../../src/host/backend'
+import { setPaused } from '../../../../src/host/backend/index'
 
 const { losslessSanitize, errorLine, redactSecrets, toolError, headlessReceipt } =
   plugin.__internals
