@@ -421,14 +421,6 @@
       "expires": "2026-12-31"
     },
     {
-      "file": "runtime/py/assembly/assembly_impl/repair.py",
-      "name": "asm_repair",
-      "lines": 267,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
       "file": "runtime/py/assembly/assembly_impl/scan.py",
       "name": "_classify_pair",
       "lines": 166,
@@ -493,14 +485,6 @@
       "expires": "2026-12-31"
     },
     {
-      "file": "runtime/py/core/audit_impl/common.py",
-      "name": "_shell_normals",
-      "lines": 140,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
       "file": "runtime/py/core/audit_impl/conn_helpers.py",
       "name": "_load_file_objects",
       "lines": 179,
@@ -512,14 +496,6 @@
       "file": "runtime/py/core/audit_impl/connectivity.py",
       "name": "_conn_analyze",
       "lines": 166,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/core/audit_impl/mesh.py",
-      "name": "audit_mesh",
-      "lines": 267,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"
@@ -621,25 +597,9 @@
       "expires": "2026-12-31"
     },
     {
-      "file": "runtime/py/export/deliver_impl/export.py",
-      "name": "deliver_export",
-      "lines": 250,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
       "file": "runtime/py/export/deliver_impl/verify.py",
       "name": "deliver_verify",
       "lines": 189,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/geometry/geo.py",
-      "name": "geo_selftest",
-      "lines": 128,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"
@@ -701,14 +661,6 @@
       "expires": "2026-12-31"
     },
     {
-      "file": "runtime/py/render/calib.py",
-      "name": "calib_run",
-      "lines": 129,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
       "file": "runtime/py/render/material.py",
       "name": "_build_preset",
       "lines": 143,
@@ -720,14 +672,6 @@
       "file": "runtime/py/render/imgtools_impl/api.py",
       "name": "img_calib",
       "lines": 177,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/render/imgtools_impl/hough.py",
-      "name": "_hough_lines",
-      "lines": 149,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"
@@ -768,14 +712,6 @@
       "file": "runtime/py/render/visualreport_impl/api.py",
       "name": "visualreport_report",
       "lines": 227,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/render/visualreport_impl/process.py",
-      "name": "_process_view",
-      "lines": 124,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"
