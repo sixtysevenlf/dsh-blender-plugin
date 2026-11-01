@@ -6,66 +6,32 @@ became test_audit_file(ctx); every st_check reports through ctx.check, the
 temporary .blend dir lives under ctx.test_dir, and the module no longer emits
 its own HEADLESS report or calls sys.exit.
 """
-
 import json as _json
 import os as _os
 import shutil as _shutil
-import sys as _sys
 import tempfile as _tempfile
 
-import bmesh as _bmesh
 import bpy as _bpy
 
-ST_CTX = "DSH_SELFTEST_CUBE"
-ST_PASS, ST_FAILS, ST_SKIP, ST_MEAS, ST_BLENDS = [], [], [], {}, {}
-_CTX = None
-
-
-def st_check(name, cond, detail=""):
-    ok = bool(cond)
-    if _CTX is not None:
-        _CTX.check(name, ok, detail)
-    if ok:
-        ST_PASS.append(name)
-        print("  [OK]   " + name)
-    else:
-        ST_FAILS.append({"clause": name, "detail": str(detail)[:500]})
-        print("  [FAIL] " + name + "  <- " + str(detail)[:300])
-
-
-def st_note(name, detail):
-    ST_SKIP.append({"clause": name, "detail": str(detail)[:300]})
-    print("  [SKIP] " + name + "  " + str(detail)[:200])
-
-
-def st_get_api():
-    """拿 K.dsh_audit_api（preload / 引擎注入）；没有就从 runtime/py/core/audit.py 兜底 exec 一份。"""
-    K = globals().get("K")
-    if K is None:
-        K = _sys.modules.get("dsh_rt_kernel")
-    api = getattr(K, "dsh_audit_api", None) if K is not None else None
-    if api is not None:
-        return api, "K.dsh_audit_api"
-    cands = []
-    if "__file__" in globals():
-        cands.append(_os.path.join(_os.path.dirname(_os.path.abspath(globals()["__file__"])),
-                                   _os.pardir, "runtime", "audit.py"))
-    cands += ["/home/sixtyseven67/DSH/dsh-blender-plugin/runtime/py/core/audit.py",
-              "dsh-blender-plugin/runtime/py/core/audit.py"]
-    for p in cands:
-        for q in (p, _os.path.abspath(p)):
-            if _os.path.exists(q):
-                ns = {"__name__": "dsh_audit_selftest_inline"}
-                exec(compile(open(q, encoding="utf-8").read(), q, "exec"), ns)
-                return ns, q
-    return None, None
-
+import support_audit_file as _sf
+from support_audit_file import (
+    bind,
+    st_get_api,
+    ST_CTX,
+    st_check,
+    st_note,
+    st_clean_scene,
+    st_cube,
+    st_save,
+    st_counts,
+    st_boxes_equal,
+)
 
 ST_API, ST_API_SRC = st_get_api()
-
+ST_MEAS, ST_BLENDS = {}, {}
 
 def st_call(op, args=None):
-    """统一调用：优先 API 对象可调用（v0.9.1 形态），否则走 dispatch（返回 str → json.loads）。"""
+    """Call the audit API: callable form, else dispatch and decode JSON."""
     if callable(ST_API):
         return ST_API(op, args or {})
     if isinstance(ST_API, dict) and "dispatch" in ST_API:
@@ -73,63 +39,9 @@ def st_call(op, args=None):
     return _json.loads(ST_API["dispatch"](str(op), _json.dumps(args or {})))
 
 
-def st_clean_scene():
-    for ob in list(_bpy.data.objects):
-        try:
-            _bpy.data.objects.remove(ob, do_unlink=True)
-        except Exception:
-            pass
-    for me in list(_bpy.data.meshes):
-        try:
-            if me.users == 0:
-                _bpy.data.meshes.remove(me)
-        except Exception:
-            pass
-
-
-def st_cube(name, loc, drop_face=False):
-    """1×1×1 立方体（[-0.5,0.5]³ 再平移到 loc）；drop_face=True 删一个面 → 开放网格。"""
-    me = _bpy.data.meshes.new(name + "_mesh")
-    bm = _bmesh.new()
-    _bmesh.ops.create_cube(bm, size=1.0)
-    if drop_face:
-        bm.faces.ensure_lookup_table()
-        _bmesh.ops.delete(bm, geom=[bm.faces[0]], context="FACES")
-    bm.to_mesh(me)
-    bm.free()
-    ob = _bpy.data.objects.new(name, me)
-    ob.location = tuple(loc)
-    _bpy.context.scene.collection.objects.link(ob)
-    return ob
-
-
-def st_save(path):
-    _bpy.ops.wm.save_as_mainfile(filepath=path, copy=True, check_existing=False)
-
-
-def st_counts():
-    return {"objects": len(_bpy.data.objects), "collections": len(_bpy.data.collections),
-            "libraries": len(_bpy.data.libraries), "meshes": len(_bpy.data.meshes),
-            "materials": len(_bpy.data.materials), "images": len(_bpy.data.images)}
-
-
-def st_boxes_equal(x, y, tol=1e-9):
-    """逐项比较 bbox 字典（min/max/size，3 轴都要相等）。"""
-    if not x or not y:
-        return False
-    for k in ("min", "max", "size"):
-        a, b = x.get(k), y.get(k)
-        if a is None or b is None or len(a) != len(b):
-            return False
-        for i in range(3):
-            if abs(float(a[i]) - float(b[i])) > tol:
-                return False
-    return True
-
-
-def _st_checks():
+def _st_checks(ctx):
     A = None
-    tmp = _tempfile.mkdtemp(prefix="dsh_audit_fileselftest_", dir=str(_CTX.test_dir))
+    tmp = _tempfile.mkdtemp(prefix="dsh_audit_fileselftest_", dir=str(ctx.test_dir))
     A = _os.path.join(tmp, "A.blend")
     B = _os.path.join(tmp, "B.blend")
     C = _os.path.join(tmp, "C_open.blend")
@@ -476,10 +388,10 @@ def _st_checks():
 
 
 def test_audit_file(ctx):
-    global _CTX, ST_API, ST_API_SRC
-    _CTX = ctx
+    global ST_API, ST_API_SRC
+    bind(ctx)
     ST_API = ctx.api("audit")
     ST_API_SRC = "K.dsh_audit_api"
-    _st_checks()
-    if not ST_FAILS:
+    _st_checks(ctx)
+    if not _sf.ST_FAILS:
         _shutil.rmtree(ST_BLENDS.get("dir") or "", ignore_errors=True)

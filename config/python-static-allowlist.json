@@ -404,14 +404,6 @@
       "expires": "2027-06-30"
     },
     {
-      "path": "tests/e2e/blender/native/deliver.py",
-      "code": "F401",
-      "count": 1,
-      "reason": "Historical test/helper import kept for clarity or native-runner context; cleanup deferred.",
-      "owner": "lead",
-      "expires": "2027-06-30"
-    },
-    {
       "path": "tests/e2e/blender/native/evalharness.py",
       "code": "F401",
       "count": 2,
