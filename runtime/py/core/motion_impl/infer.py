@@ -184,6 +184,285 @@ def _consensus(cands):
     }
 
 
+def _motion_infer_axis_p1(_state):
+    jid, max_distance, min_score, objects, parent = (
+        _state["jid"], _state["max_distance"], _state["min_score"], _state["objects"], _state["parent"])
+    sample_cap = _state["sample_cap"]
+    a, child_names, ev, f, ob, parent_names, v = (_state.get("a"), _state.get("child_names"), _state.get("ev"), _state.get("f"), _state.get("ob"), _state.get("parent_names"), _state.get("v"))
+    try:
+        t0 = time.perf_counter()
+        st = _store()
+        jrec = None
+        if jid is not None:
+            jrec = st["joints"].get(str(jid))
+            if jrec is None:
+                return _j({"ok": False, "error": "关节未登记: %s" % jid, "have": sorted(st["joints"])})
+            child_names = jrec["child"]
+            parent_names = jrec["parent"] if parent is None else parent
+        else:
+            child_names = _names(objects)
+            parent_names = _names(parent)
+        if not child_names:
+            return _j({"ok": False, "error": "没有输入：给 jid（用已登记关节）或 objects（要定轴的对象名）"})
+
+        child, miss_c, nonmesh_c = _objs(child_names)
+        par, miss_p, nonmesh_p = _objs(parent_names)
+        if not child:
+            return _j({"ok": False, "error": "child 组没有可用 mesh 对象", "child": _names(child_names),
+                       "missing": miss_c, "non_mesh": nonmesh_c})
+
+        dg = bpy.context.evaluated_depsgraph_get()
+        per_obj, total_samples = [], 0
+        VV, FF, _ = _group_tris(child, dg)
+        for ob in child:
+            v, f = _mesh_tris_world(ob, dg)
+            if len(v) == 0:
+                continue
+            ev = _symmetry_evidence(ob.name, v, f, sample_cap=sample_cap, min_score=min_score)
+            if ev is None:
+                per_obj.append({"label": ob.name, "passed": False, "reason": "几何不足（顶点<4 或无三角面）",
+                                "verts": int(len(v)), "tris": int(len(f))})
+                continue
+            ev["source"] = "rotational_symmetry"
+            per_obj.append(ev)
+            total_samples += ev["samples"]
+
+        group_ev = None
+        if len(VV) and len(child) > 1:
+            group_ev = _symmetry_evidence("group:%s" % _link_name(child_names), VV, FF,
+                                          sample_cap=sample_cap, min_score=min_score)
+            if group_ev is not None:
+                group_ev["source"] = "group_symmetry"
+
+        contact_ev = None
+        if par:
+            try:
+                contact_ev = _contact_evidence(par, child, dg, max_distance=max_distance)
+            except Exception as e:
+                contact_ev = {"available": False, "reason": "%s: %s" % (type(e).__name__, str(e)[:160])}
+
+        cands = [c for c in per_obj if c.get("passed")]
+        if group_ev is not None:
+            cands.append(group_ev)
+        cons = _consensus(cands)
+
+        contact_ok = bool(contact_ev and contact_ev.get("available") and contact_ev.get("passed"))
+        contact_axis = None
+        if contact_ok:
+            contact_axis = {"label": "contact:%s" % _link_name(child_names), "score": None,
+                            "axis": contact_ev["axis"], "anchor": contact_ev["anchor"],
+                            "snapped": contact_ev.get("snapped"), "source": "contact_region"}
+
+        # 两条独立证据（旋转对称 / 接触带）都通过时：一致 → 更强；不一致 → 如实报矛盾，不硬选
+        conflict = None
+        if cons is not None and contact_axis is not None:
+            a = _angle_deg(cons["axis"], contact_axis["axis"])
+            if a is not None and a > CONSENSUS_ANGLE_DEG:
+                conflict = {"symmetry_axis": cons["axis"], "symmetry_score": cons["score"],
+                            "symmetry_supporters": cons["supporters"],
+                            "contact_axis": contact_axis["axis"],
+                            "contact_elongation": contact_ev.get("elongation"),
+                            "angle_deg": _r(a, 4), "tol_deg": CONSENSUS_ANGLE_DEG,
+                            "note": "两条证据互相矛盾（方形板绕自身法线也旋转对称，而铰链线在接触带上）"}
+
+        hypothesis = None
+        hyp_axis = None
+        if jrec is not None and jrec.get("axis"):
+            hyp_axis = jrec["axis"]
+        verdict, reason, chosen = "unresolved", "", None
+    finally:
+        _state.update((k, v) for k, v in locals().items() if k != "_state")
+
+def _motion_infer_axis_p2(_state):
+    child_names, conflict, cons, contact_axis = (
+        _state.get("child_names"), _state.get("conflict"), _state.get("cons"), _state.get("contact_axis"))
+    anchor = (_state.get("anchor"))
+    try:
+        if conflict:
+            chosen = None
+        elif cons is not None:
+            # 两证据一致时锚点取接触带（关节界面更贴近关节帧语义）；只有对称证据时取对称轴锚点
+            anchor = (contact_axis["anchor"] if contact_axis is not None else cons["anchor"])
+            chosen = {"axis": cons["axis"], "anchor": anchor, "source": cons["source"],
+                      "score": cons["score"], "passers": cons["supporters"],
+                      "anchor_source": ("contact_region" if contact_axis is not None else cons["source"])}
+        elif contact_axis is not None:
+            chosen = {"axis": contact_axis["axis"], "anchor": contact_axis["anchor"],
+                      "source": "contact_region", "score": None,
+                      "passers": ["contact:%s" % _link_name(child_names)],
+                      "anchor_source": "contact_region"}
+
+    finally:
+        _state.update((k, v) for k, v in locals().items() if k != "_state")
+
+def _motion_infer_axis_p3(_state):
+    conflict, contact_axis, contact_ev, group_ev, hyp_axis = (
+        _state.get("conflict"), _state.get("contact_axis"), _state.get("contact_ev"), _state.get("group_ev"), _state.get("hyp_axis"))
+    jrec, min_score, per_obj = _state.get("jrec"), _state["min_score"], _state.get("per_obj")
+    anchor_line, best_near, c, cand_all, chosen, con_agree, contact_angle, contact_ok, d, disagreeing, hp, hyp_evidence, near, near_miss, nm, passers, reason, sym_agree, top = (_state.get("anchor_line"), _state.get("best_near"), _state.get("c"), _state.get("cand_all"), _state.get("chosen"), _state.get("con_agree"), _state.get("contact_angle"), _state.get("contact_ok"), _state.get("d"), _state.get("disagreeing"), _state.get("hp"), _state.get("hyp_evidence"), _state.get("near"), _state.get("near_miss"), _state.get("nm"), _state.get("passers"), _state.get("reason"), _state.get("sym_agree"), _state.get("top"))
+    try:
+        if hyp_axis is not None:
+            # 有假设轴 → 判"支持 / 反驳 / 证据不足"
+            cand_all = [c for c in per_obj if c.get("axis")] + ([group_ev] if group_ev else [])
+            near = [(c["label"], _angle_deg(c["axis"], hyp_axis), c.get("score"), c.get("passed"))
+                    for c in cand_all if c.get("axis")]
+            near = [n for n in near if n[1] is not None]
+            near.sort(key=lambda n: n[1])
+            best_near = near[0] if near else None
+            hyp_evidence = {"candidates": [{"label": a, "angle_deg": _r(b, 4), "score": c, "passed": d}
+                                           for (a, b, c, d) in near[:6]]}
+            contact_ok = bool(contact_ev and contact_ev.get("available") and contact_ev.get("passed"))
+            contact_angle = _angle_deg(contact_ev["axis"], hyp_axis) if contact_ok else None
+            if contact_angle is not None:
+                hyp_evidence["contact_angle_deg"] = _r(contact_angle, 4)
+            sym_agree = (best_near is not None and best_near[3] and best_near[1] <= CONSENSUS_ANGLE_DEG)
+            con_agree = (contact_angle is not None and contact_angle <= CONSENSUS_ANGLE_DEG)
+            passers = [n for n in near if n[3]]
+            near_miss = [n for n in near if (not n[3]) and n[1] is not None and n[1] <= CONSENSUS_ANGLE_DEG]
+            disagreeing = [n for n in passers if n[1] > CONSENSUS_ANGLE_DEG]
+            if sym_agree or con_agree:
+                verdict = "supported"
+                reason = "假设轴与实测证据一致（%s）" % (
+                    "旋转对称候选 %s 夹角 %.2f°" % (best_near[0], best_near[1]) if sym_agree
+                    else "接触带夹角 %.2f°" % contact_angle)
+                if conflict:
+                    reason += "；另有矛盾证据需注意（%s）" % conflict["note"]
+                chosen = {"axis": _rl(np.asarray(hyp_axis, dtype=np.float64), 9),
+                          "anchor": jrec.get("anchor") or (best_near and None) or None,
+                          "source": "hypothesis_confirmed", "score": (best_near[2] if best_near else None),
+                          "passers": [best_near[0]] if best_near else []}
+                hp = _canon_dir(np.asarray(hyp_axis, dtype=np.float64))
+                anchor_line = None
+                if con_agree and contact_ev.get("anchor"):
+                    anchor_line = contact_ev["anchor"]
+                elif best_near is not None:
+                    for c in cand_all:
+                        if c.get("label") == best_near[0]:
+                            anchor_line = c.get("anchor")
+                chosen["anchor"] = anchor_line or jrec.get("anchor") or _rl(hp, 9)
+                chosen["anchor_source"] = ("contact_region" if con_agree and contact_ev.get("anchor")
+                                           else "rotational_symmetry")
+            elif disagreeing and not near_miss:
+                # 有可辨识候选，且假设方向附近什么都没有 → 明确反驳
+                d = min(disagreeing, key=lambda n: n[1])
+                verdict = "refuted"
+                reason = ("假设轴与实测轴不符：可辨识的候选是 %s（夹角 %.1f° > %.1f°），"
+                          "且假设方向附近没有任何候选（夹角 ≤ %.1f° 内为空）"
+                          % (d[0], d[1], CONSENSUS_ANGLE_DEG, CONSENSUS_ANGLE_DEG))
+                chosen = None
+            elif disagreeing and near_miss:
+                d = min(disagreeing, key=lambda n: n[1])
+                nm = near_miss[0]
+                verdict = "unresolved"
+                reason = ("证据冲突：假设方向附近有候选 %s（夹角 %.1f°）但评分 %.3f < %.2f（不可辨识），"
+                          "同时另有可辨识候选 %s 与假设夹角 %.1f° → 不能判定，也不构成反驳"
+                          % (nm[0], nm[1], float(nm[2] or 0.0), min_score, d[0], d[1]))
+                chosen = None
+            elif contact_ok and contact_angle is not None and contact_angle > CONSENSUS_ANGLE_DEG:
+                verdict = "unresolved"
+                reason = ("接触带方向与假设不符（夹角 %.1f°），但没有可用的旋转对称证据 → "
+                          "单靠接触带（判据较弱）不足以反驳假设" % contact_angle)
+                chosen = None
+            elif near_miss:
+                nm = near_miss[0]
+                verdict = "unresolved"
+                reason = ("候选与假设同向（%.1f°）但评分 %.3f < %.2f（或退化）→ 证据不足，不能判定"
+                          % (nm[1], float(nm[2] or 0.0), min_score))
+            else:
+                verdict = "unresolved"
+                reason = "没有任何通过阈值的候选轴，也没有细长接触带 → 证据不足（缺：可辨识的旋转对称几何或父↔子接触带）"
+            hypothesis = {"axis": _rl(hyp_axis, 9), "anchor": _rl(jrec.get("anchor"), 9) if jrec.get("anchor") else None,
+                          "evidence": hyp_evidence}
+        else:
+            if conflict:
+                verdict = "unresolved"
+                reason = ("两条独立证据给出不同轴：旋转对称 %s（score %.3f）vs 接触带 %s（elongation %.3g），"
+                          "夹角 %.1f° > %.1f° → 缺判别依据，请显式给 axis"
+                          % (_rl(conflict["symmetry_axis"], 4), float(conflict["symmetry_score"] or 0.0),
+                             _rl(conflict["contact_axis"], 4), float(conflict["contact_elongation"] or 0.0),
+                             conflict["angle_deg"], CONSENSUS_ANGLE_DEG))
+            elif chosen is not None:
+                verdict = "supported"
+                if chosen["source"] == "contact_region":
+                    reason = "无旋转对称证据，但父↔子接触带细长（elongation %.3g）且方向明确 → 取接触带方向为轴" % \
+                             float(contact_ev.get("elongation") or 0.0)
+                elif contact_axis is not None:
+                    reason = ("两条证据一致：旋转对称 %s（score %.3f）+ 接触带同向（夹角 ≤ %.1f°）"
+                              % (chosen["source"], float(chosen["score"] or 0.0), CONSENSUS_ANGLE_DEG))
+                else:
+                    reason = ("旋转对称证据通过：%s（score %.3f，收获 %d 个同向候选）"
+                              % (chosen["source"], float(chosen["score"] or 0.0), len(chosen.get("passers") or [])))
+            else:
+                top = max([float(c.get("score") or 0.0) for c in per_obj if c.get("score") is not None] or [0.0])
+                verdict = "unresolved"
+                reason = ("没有对象达到评分阈值 %.2f（最高 %.3f）%s → 证据不足"
+                          % (min_score, top,
+                             "；且候选退化（球/近立方无唯一轴）" if any(c.get("degenerate") for c in per_obj) else ""))
+
+    finally:
+        _state.update((k, v) for k, v in locals().items() if k != "_state")
+
+def _motion_infer_axis_p4(_state):
+    FF, VV, child, chosen, conflict = (
+        _state.get("FF"), _state.get("VV"), _state.get("child"), _state.get("chosen"), _state.get("conflict"))
+    cons, contact_ev, group_ev, hypothesis, jid = (
+        _state.get("cons"), _state.get("contact_ev"), _state.get("group_ev"), _state.get("hypothesis"), _state["jid"])
+    min_score, miss_c, miss_p, nonmesh_c, nonmesh_p = (
+        _state["min_score"], _state.get("miss_c"), _state.get("miss_p"), _state.get("nonmesh_c"), _state.get("nonmesh_p"))
+    note, par, per_obj, reason, sample_cap = (
+        _state["note"], _state.get("par"), _state.get("per_obj"), _state.get("reason"), _state["sample_cap"])
+    t0, total_samples, verdict = _state.get("t0"), _state.get("total_samples"), _state.get("verdict")
+    try:
+        missing = []
+        if verdict == "unresolved":
+            if conflict:
+                missing.append("缺：判别依据（旋转对称轴与接触带方向矛盾，需显式给 axis 或补第三种证据）")
+            if not any(c.get("score") is not None for c in per_obj):
+                missing.append("child 组没有任何可评分的三角面")
+            missing.append("缺：自转对称件（圆柱/销/轮）——薄平板绕铰链轴没有旋转对称")
+            if not par:
+                missing.append("缺：父组（没有父组就算不了父↔子接触带）")
+            elif not (contact_ev and contact_ev.get("available")):
+                missing.append("缺：父↔子近邻接触点（max_distance 内点数 < %d）" % CONTACT_MIN_POINTS)
+            elif not contact_ev.get("passed"):
+                missing.append("缺：细长接触带（elongation < %.2f）" % ELONGATION_THRESHOLD)
+
+        out = {
+            "ok": verdict != "unresolved",
+            "op": "infer_axis",
+            "jid": (str(jid) if jid is not None else None),
+            "child": [o.name for o in child],
+            "parent": [o.name for o in par],
+            "missing_objects": miss_c + miss_p,
+            "non_mesh": nonmesh_c + nonmesh_p,
+            "verdict": verdict,
+            "reason": reason,
+            "missing_evidence": missing,
+            "axis": (chosen["axis"] if chosen else None),
+            "anchor": (chosen["anchor"] if chosen else None),
+            "axis_source": (chosen["source"] if chosen else None),
+            "anchor_source": (chosen.get("anchor_source") if chosen else None),
+            "axis_conflict": conflict,
+            "hypothesis": hypothesis,
+            "evidence": {
+                "sample_cap": int(sample_cap), "min_score": float(min_score),
+                "angle_tol_deg": CONSENSUS_ANGLE_DEG,
+                "total_samples": int(total_samples),
+                "child_verts": int(len(VV)), "child_tris": int(len(FF)),
+                "per_object": per_obj,
+                "group": group_ev,
+                "contact": contact_ev,
+                "consensus": cons,
+                "units": {"length": "场景单位（1 单位 = %g m）" % _scene_mpu(), "angle": "deg"},
+                "method": "面积加权质心+惯性主轴；90°/180° 旋转后 27 邻格最近邻距离评分（cap=5%% 对角线，cell=2%%）",
+            },
+            "note": str(note),
+            "ms": int((time.perf_counter() - t0) * 1000),
+        }
+        return _j(out)
+    finally:
+        _state.update((k, v) for k, v in locals().items() if k != "_state")
+
 def motion_infer_axis(jid=None, objects=None, parent=None, sample_cap=SYMMETRY_SAMPLE_CAP,
                       min_score=SYMMETRY_MIN_SCORE, max_distance=None, note=""):
     """从几何实测轴与锚点，并给出**证据**（采样点数 / 评分 / 候选 / 退化 / 接触带）。
@@ -191,245 +470,11 @@ def motion_infer_axis(jid=None, objects=None, parent=None, sample_cap=SYMMETRY_S
     证据 = ① 逐对象的旋转对称轴（圆柱/销/轮） ② 合并组的对称轴 ③ 父↔子接触带方向。
     verdict：有通过证据 → supported；有假设轴且与实测明确不符 → refuted；证据不足 → unresolved。
     """
-    t0 = time.perf_counter()
-    st = _store()
-    jrec = None
-    if jid is not None:
-        jrec = st["joints"].get(str(jid))
-        if jrec is None:
-            return _j({"ok": False, "error": "关节未登记: %s" % jid, "have": sorted(st["joints"])})
-        child_names = jrec["child"]
-        parent_names = jrec["parent"] if parent is None else parent
-    else:
-        child_names = _names(objects)
-        parent_names = _names(parent)
-    if not child_names:
-        return _j({"ok": False, "error": "没有输入：给 jid（用已登记关节）或 objects（要定轴的对象名）"})
-
-    child, miss_c, nonmesh_c = _objs(child_names)
-    par, miss_p, nonmesh_p = _objs(parent_names)
-    if not child:
-        return _j({"ok": False, "error": "child 组没有可用 mesh 对象", "child": _names(child_names),
-                   "missing": miss_c, "non_mesh": nonmesh_c})
-
-    dg = bpy.context.evaluated_depsgraph_get()
-    per_obj, total_samples = [], 0
-    VV, FF, _ = _group_tris(child, dg)
-    for ob in child:
-        v, f = _mesh_tris_world(ob, dg)
-        if len(v) == 0:
-            continue
-        ev = _symmetry_evidence(ob.name, v, f, sample_cap=sample_cap, min_score=min_score)
-        if ev is None:
-            per_obj.append({"label": ob.name, "passed": False, "reason": "几何不足（顶点<4 或无三角面）",
-                            "verts": int(len(v)), "tris": int(len(f))})
-            continue
-        ev["source"] = "rotational_symmetry"
-        per_obj.append(ev)
-        total_samples += ev["samples"]
-
-    group_ev = None
-    if len(VV) and len(child) > 1:
-        group_ev = _symmetry_evidence("group:%s" % _link_name(child_names), VV, FF,
-                                      sample_cap=sample_cap, min_score=min_score)
-        if group_ev is not None:
-            group_ev["source"] = "group_symmetry"
-
-    contact_ev = None
-    if par:
-        try:
-            contact_ev = _contact_evidence(par, child, dg, max_distance=max_distance)
-        except Exception as e:
-            contact_ev = {"available": False, "reason": "%s: %s" % (type(e).__name__, str(e)[:160])}
-
-    cands = [c for c in per_obj if c.get("passed")]
-    if group_ev is not None:
-        cands.append(group_ev)
-    cons = _consensus(cands)
-
-    contact_ok = bool(contact_ev and contact_ev.get("available") and contact_ev.get("passed"))
-    contact_axis = None
-    if contact_ok:
-        contact_axis = {"label": "contact:%s" % _link_name(child_names), "score": None,
-                        "axis": contact_ev["axis"], "anchor": contact_ev["anchor"],
-                        "snapped": contact_ev.get("snapped"), "source": "contact_region"}
-
-    # 两条独立证据（旋转对称 / 接触带）都通过时：一致 → 更强；不一致 → 如实报矛盾，不硬选
-    conflict = None
-    if cons is not None and contact_axis is not None:
-        a = _angle_deg(cons["axis"], contact_axis["axis"])
-        if a is not None and a > CONSENSUS_ANGLE_DEG:
-            conflict = {"symmetry_axis": cons["axis"], "symmetry_score": cons["score"],
-                        "symmetry_supporters": cons["supporters"],
-                        "contact_axis": contact_axis["axis"],
-                        "contact_elongation": contact_ev.get("elongation"),
-                        "angle_deg": _r(a, 4), "tol_deg": CONSENSUS_ANGLE_DEG,
-                        "note": "两条证据互相矛盾（方形板绕自身法线也旋转对称，而铰链线在接触带上）"}
-
-    hypothesis = None
-    hyp_axis = None
-    if jrec is not None and jrec.get("axis"):
-        hyp_axis = jrec["axis"]
-    verdict, reason, chosen = "unresolved", "", None
-    if conflict:
-        chosen = None
-    elif cons is not None:
-        # 两证据一致时锚点取接触带（关节界面更贴近关节帧语义）；只有对称证据时取对称轴锚点
-        anchor = (contact_axis["anchor"] if contact_axis is not None else cons["anchor"])
-        chosen = {"axis": cons["axis"], "anchor": anchor, "source": cons["source"],
-                  "score": cons["score"], "passers": cons["supporters"],
-                  "anchor_source": ("contact_region" if contact_axis is not None else cons["source"])}
-    elif contact_axis is not None:
-        chosen = {"axis": contact_axis["axis"], "anchor": contact_axis["anchor"],
-                  "source": "contact_region", "score": None,
-                  "passers": ["contact:%s" % _link_name(child_names)],
-                  "anchor_source": "contact_region"}
-
-    if hyp_axis is not None:
-        # 有假设轴 → 判"支持 / 反驳 / 证据不足"
-        cand_all = [c for c in per_obj if c.get("axis")] + ([group_ev] if group_ev else [])
-        near = [(c["label"], _angle_deg(c["axis"], hyp_axis), c.get("score"), c.get("passed"))
-                for c in cand_all if c.get("axis")]
-        near = [n for n in near if n[1] is not None]
-        near.sort(key=lambda n: n[1])
-        best_near = near[0] if near else None
-        hyp_evidence = {"candidates": [{"label": a, "angle_deg": _r(b, 4), "score": c, "passed": d}
-                                       for (a, b, c, d) in near[:6]]}
-        contact_ok = bool(contact_ev and contact_ev.get("available") and contact_ev.get("passed"))
-        contact_angle = _angle_deg(contact_ev["axis"], hyp_axis) if contact_ok else None
-        if contact_angle is not None:
-            hyp_evidence["contact_angle_deg"] = _r(contact_angle, 4)
-        sym_agree = (best_near is not None and best_near[3] and best_near[1] <= CONSENSUS_ANGLE_DEG)
-        con_agree = (contact_angle is not None and contact_angle <= CONSENSUS_ANGLE_DEG)
-        passers = [n for n in near if n[3]]
-        near_miss = [n for n in near if (not n[3]) and n[1] is not None and n[1] <= CONSENSUS_ANGLE_DEG]
-        disagreeing = [n for n in passers if n[1] > CONSENSUS_ANGLE_DEG]
-        if sym_agree or con_agree:
-            verdict = "supported"
-            reason = "假设轴与实测证据一致（%s）" % (
-                "旋转对称候选 %s 夹角 %.2f°" % (best_near[0], best_near[1]) if sym_agree
-                else "接触带夹角 %.2f°" % contact_angle)
-            if conflict:
-                reason += "；另有矛盾证据需注意（%s）" % conflict["note"]
-            chosen = {"axis": _rl(np.asarray(hyp_axis, dtype=np.float64), 9),
-                      "anchor": jrec.get("anchor") or (best_near and None) or None,
-                      "source": "hypothesis_confirmed", "score": (best_near[2] if best_near else None),
-                      "passers": [best_near[0]] if best_near else []}
-            hp = _canon_dir(np.asarray(hyp_axis, dtype=np.float64))
-            anchor_line = None
-            if con_agree and contact_ev.get("anchor"):
-                anchor_line = contact_ev["anchor"]
-            elif best_near is not None:
-                for c in cand_all:
-                    if c.get("label") == best_near[0]:
-                        anchor_line = c.get("anchor")
-            chosen["anchor"] = anchor_line or jrec.get("anchor") or _rl(hp, 9)
-            chosen["anchor_source"] = ("contact_region" if con_agree and contact_ev.get("anchor")
-                                       else "rotational_symmetry")
-        elif disagreeing and not near_miss:
-            # 有可辨识候选，且假设方向附近什么都没有 → 明确反驳
-            d = min(disagreeing, key=lambda n: n[1])
-            verdict = "refuted"
-            reason = ("假设轴与实测轴不符：可辨识的候选是 %s（夹角 %.1f° > %.1f°），"
-                      "且假设方向附近没有任何候选（夹角 ≤ %.1f° 内为空）"
-                      % (d[0], d[1], CONSENSUS_ANGLE_DEG, CONSENSUS_ANGLE_DEG))
-            chosen = None
-        elif disagreeing and near_miss:
-            d = min(disagreeing, key=lambda n: n[1])
-            nm = near_miss[0]
-            verdict = "unresolved"
-            reason = ("证据冲突：假设方向附近有候选 %s（夹角 %.1f°）但评分 %.3f < %.2f（不可辨识），"
-                      "同时另有可辨识候选 %s 与假设夹角 %.1f° → 不能判定，也不构成反驳"
-                      % (nm[0], nm[1], float(nm[2] or 0.0), min_score, d[0], d[1]))
-            chosen = None
-        elif contact_ok and contact_angle is not None and contact_angle > CONSENSUS_ANGLE_DEG:
-            verdict = "unresolved"
-            reason = ("接触带方向与假设不符（夹角 %.1f°），但没有可用的旋转对称证据 → "
-                      "单靠接触带（判据较弱）不足以反驳假设" % contact_angle)
-            chosen = None
-        elif near_miss:
-            nm = near_miss[0]
-            verdict = "unresolved"
-            reason = ("候选与假设同向（%.1f°）但评分 %.3f < %.2f（或退化）→ 证据不足，不能判定"
-                      % (nm[1], float(nm[2] or 0.0), min_score))
-        else:
-            verdict = "unresolved"
-            reason = "没有任何通过阈值的候选轴，也没有细长接触带 → 证据不足（缺：可辨识的旋转对称几何或父↔子接触带）"
-        hypothesis = {"axis": _rl(hyp_axis, 9), "anchor": _rl(jrec.get("anchor"), 9) if jrec.get("anchor") else None,
-                      "evidence": hyp_evidence}
-    else:
-        if conflict:
-            verdict = "unresolved"
-            reason = ("两条独立证据给出不同轴：旋转对称 %s（score %.3f）vs 接触带 %s（elongation %.3g），"
-                      "夹角 %.1f° > %.1f° → 缺判别依据，请显式给 axis"
-                      % (_rl(conflict["symmetry_axis"], 4), float(conflict["symmetry_score"] or 0.0),
-                         _rl(conflict["contact_axis"], 4), float(conflict["contact_elongation"] or 0.0),
-                         conflict["angle_deg"], CONSENSUS_ANGLE_DEG))
-        elif chosen is not None:
-            verdict = "supported"
-            if chosen["source"] == "contact_region":
-                reason = "无旋转对称证据，但父↔子接触带细长（elongation %.3g）且方向明确 → 取接触带方向为轴" % \
-                         float(contact_ev.get("elongation") or 0.0)
-            elif contact_axis is not None:
-                reason = ("两条证据一致：旋转对称 %s（score %.3f）+ 接触带同向（夹角 ≤ %.1f°）"
-                          % (chosen["source"], float(chosen["score"] or 0.0), CONSENSUS_ANGLE_DEG))
-            else:
-                reason = ("旋转对称证据通过：%s（score %.3f，收获 %d 个同向候选）"
-                          % (chosen["source"], float(chosen["score"] or 0.0), len(chosen.get("passers") or [])))
-        else:
-            top = max([float(c.get("score") or 0.0) for c in per_obj if c.get("score") is not None] or [0.0])
-            verdict = "unresolved"
-            reason = ("没有对象达到评分阈值 %.2f（最高 %.3f）%s → 证据不足"
-                      % (min_score, top,
-                         "；且候选退化（球/近立方无唯一轴）" if any(c.get("degenerate") for c in per_obj) else ""))
-
-    missing = []
-    if verdict == "unresolved":
-        if conflict:
-            missing.append("缺：判别依据（旋转对称轴与接触带方向矛盾，需显式给 axis 或补第三种证据）")
-        if not any(c.get("score") is not None for c in per_obj):
-            missing.append("child 组没有任何可评分的三角面")
-        missing.append("缺：自转对称件（圆柱/销/轮）——薄平板绕铰链轴没有旋转对称")
-        if not par:
-            missing.append("缺：父组（没有父组就算不了父↔子接触带）")
-        elif not (contact_ev and contact_ev.get("available")):
-            missing.append("缺：父↔子近邻接触点（max_distance 内点数 < %d）" % CONTACT_MIN_POINTS)
-        elif not contact_ev.get("passed"):
-            missing.append("缺：细长接触带（elongation < %.2f）" % ELONGATION_THRESHOLD)
-
-    out = {
-        "ok": verdict != "unresolved",
-        "op": "infer_axis",
-        "jid": (str(jid) if jid is not None else None),
-        "child": [o.name for o in child],
-        "parent": [o.name for o in par],
-        "missing_objects": miss_c + miss_p,
-        "non_mesh": nonmesh_c + nonmesh_p,
-        "verdict": verdict,
-        "reason": reason,
-        "missing_evidence": missing,
-        "axis": (chosen["axis"] if chosen else None),
-        "anchor": (chosen["anchor"] if chosen else None),
-        "axis_source": (chosen["source"] if chosen else None),
-        "anchor_source": (chosen.get("anchor_source") if chosen else None),
-        "axis_conflict": conflict,
-        "hypothesis": hypothesis,
-        "evidence": {
-            "sample_cap": int(sample_cap), "min_score": float(min_score),
-            "angle_tol_deg": CONSENSUS_ANGLE_DEG,
-            "total_samples": int(total_samples),
-            "child_verts": int(len(VV)), "child_tris": int(len(FF)),
-            "per_object": per_obj,
-            "group": group_ev,
-            "contact": contact_ev,
-            "consensus": cons,
-            "units": {"length": "场景单位（1 单位 = %g m）" % _scene_mpu(), "angle": "deg"},
-            "method": "面积加权质心+惯性主轴；90°/180° 旋转后 27 邻格最近邻距离评分（cap=5%% 对角线，cell=2%%）",
-        },
-        "note": str(note),
-        "ms": int((time.perf_counter() - t0) * 1000),
-    }
-    return _j(out)
+    _state = dict(locals())
+    for _fn_ in (_motion_infer_axis_p1, _motion_infer_axis_p2, _motion_infer_axis_p3, _motion_infer_axis_p4):
+        _r = _fn_(_state)
+        if _r is not None:
+            return _r
 
 
 # ============================================================ 关节登记
