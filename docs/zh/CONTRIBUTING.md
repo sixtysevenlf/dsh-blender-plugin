@@ -28,7 +28,7 @@ AGENTS.md 说明各层怎么拼在一起、什么算“装好了”，以及命�
 
 前置条件：
 
-- 开发与测试使用 Node.js **22.17**；Node.js 20 未验证。
+- 开发与测试使用 Node.js **24.9** 或更高版本；CI 使用 Node 24。
 - Blender **4.2 LTS**（已验证）；Blender 5.x 尚未验证（GUI 模式需要随包 addon；无头模式只需要可执行文件）。
 - Python **3.11+**，装在带 `pytest` 的虚拟环境（virtualenv）里，用 `PYTHON` 指向它
   （Windows 另设 `PYTHONIOENCODING=utf-8`、`PYTHONUTF8=1`）。

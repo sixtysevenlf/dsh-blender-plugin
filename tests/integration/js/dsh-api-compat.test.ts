@@ -84,7 +84,7 @@ describe('plugin applies to the documented Cordis surface', () => {
       expect(manifest.peerDependencies[dep], dep).toBeTruthy()
     }
     expect(manifest.exports['./client']).toBeTruthy()
-    expect(manifest.engines.node).toMatch(/>=22\.17/)
+    expect(manifest.engines.node).toMatch(/>=24\.9/)
     expect(manifest.main).toBe('./lib/index.js')
   })
 

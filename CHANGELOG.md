@@ -1,5 +1,9 @@
 # CHANGELOG — dsh-blender-plugin
 
+## Unreleased
+
+- 开发与 CI 基线升级到 Node.js 24.9（Node 24）；TypeScript 对齐 DSH 的 6.0.3，`@types/node` 对齐 24.x，`jsdom` 对齐 DSH 的 29.1.1；npm 11.6+ 随 Node 24.9 提供。
+
 ## v3.0.1（2026-11-02）—— Python 静态检查与 IDE 收尾
 
 > 不新增建模能力；清理 Ruff allowlist、pyright 噪音与 native E2E 的全局注入，重建 addon zip。

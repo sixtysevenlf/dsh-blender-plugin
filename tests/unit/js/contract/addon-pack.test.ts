@@ -11,7 +11,7 @@ describe('F4.5 final-state addon pack invariants', () => {
     expect(registry).toContain('WIRE_COMMAND_COUNT = 39')
     const pkg = JSON.parse(read('package.json')) as { version: string; engines?: { node?: string } }
     expect(pkg.version).toBe('3.0.1')
-    expect(pkg.engines?.node).toBe('>=22.17.0')
+    expect(pkg.engines?.node).toBe('>=24.9.0')
     const init = read('addon/dsh_blender_bridge/__init__.py')
     expect(init).toMatch(/"version": \(1, 11\)/)
     expect(read('addon/dsh_blender_bridge/protocol.py')).toContain('ADDON_PROTOCOL_VERSION = 11')

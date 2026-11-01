@@ -35,7 +35,7 @@ DSH × Blender 把 DeepSeek Harness 接到 Blender，让 AI 能在真实 Blender
 ### 前置条件
 
 - 已安装并可用的 DSH（DeepSeek Harness）。
-- 从 npm 安装时不需要单独安装 Node.js；只有从源码构建才需要 Node.js **22.17** 或更高版本。CI 与测试基线为 Node.js **22.17**，Node.js 20 未验证。
+- 从 npm 安装时不需要单独安装 Node.js；只有从源码构建才需要 Node.js **24.9** 或更高版本。Node.js **24.9** 是最低支持版本，CI 使用 Node 24。
 - Blender **4.2 LTS** 是已验证版本；4.x 可能可用，5.x 尚未验证。GUI 模式必须先安装随包 addon；无头模式只需要能找到 Blender 可执行文件。
 - addon 兼容性：随包 addon 是唯一需要、也是唯一支持的 agent 桥。其他 addon 与之不冲突；旧的 `MCP for Blender` / `blender_mcp` 冲突（同占 127.0.0.1:9876），停用即可，不必卸载。
 - 可选：如果你想重新构建插件，需要 DSH 源码 checkout。
@@ -213,7 +213,7 @@ addon 仍然是唯一支持的 Blender 侧 agent 桥。其他占用 9876 端口�
 
 ## 开发
 
-- CI 与测试基线为 Node.js **22.17**；Node.js 20 未验证。
+- Node.js **24.9** 是最低支持版本；CI 使用 Node 24。
 - Python 测试需要装有 `pytest` 的虚拟环境（virtualenv），用 `PYTHON` 指向该解释器（Windows 另设
   `PYTHONIOENCODING=utf-8`、`PYTHONUTF8=1`）；测试直接导入 TypeScript 源码。
 - 命令的唯一事实源（安装、构建、typecheck、测试、lint、打包）见
