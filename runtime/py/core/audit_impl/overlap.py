@@ -625,7 +625,41 @@ def audit_interference(a=None, b=None, file_a=None, file_b=None, objects_a=None,
           "volume_units3_to_mm3": _r(mm3, 6)}
     sides, cleanups = {}, {}
 
-    def _body():
+
+    def _fill_bbox(out, cand, src, mm_per_unit, mm3):
+        if cand is None:
+            out["bbox"] = None
+            out["bbox_mm"] = None
+            out["bbox_source"] = "无候选盒（交集可证为空）"
+            return
+        b, bm = _box_pair(cand[0], cand[1], mm_per_unit)
+        out["bbox"] = b
+        out["bbox_mm"] = bm
+        out["bbox_source"] = src
+        out["bbox_volume_mm3"] = _r(float(_boxvol(cand)) * mm3, 4)
+
+    try:
+        sides, cleanups = _resolve_two_sides(a, b, file_a, file_b, objects_a, objects_b, include_hidden)
+        res = _audit_interference_body(_fill_bbox, floor, include_hidden, limit, max_tris, mm3, mm_per_unit, rays, samples, seed, sides, ub)
+    except Exception as e:
+        res = _exc_body(e, "interference")
+    finally:
+        for fn in cleanups.values():
+            fn()
+    if cleanups:
+        res["cleanup"] = {t: cleanups[t]() for t in sorted(cleanups)}
+    res["ms"] = int((_t.perf_counter() - t0) * 1000)
+    return _j(res)
+
+
+def _audit_body_p1(_state):
+    _fill_bbox, floor, include_hidden, limit, max_tris = (
+        _state["_fill_bbox"], _state["floor"], _state["include_hidden"], _state["limit"], _state["max_tris"])
+    mm3, mm_per_unit, rays, samples, seed = (
+        _state["mm3"], _state["mm_per_unit"], _state["rays"], _state["samples"], _state["seed"])
+    sides, ub = _state["sides"], _state["ub"]
+    bad, det, fb_hi, fb_lo, rows, t, trunc, who = (_state.get("bad"), _state.get("det"), _state.get("fb_hi"), _state.get("fb_lo"), _state.get("rows"), _state.get("t"), _state.get("trunc"), _state.get("who"))
+    try:
         base = {"method": "monte-carlo(ray-parity, 只在交叠 bbox 内采样)", "units": ub,
                 "samples": int(max(1, int(samples))), "seed": int(seed), "rays": int(max(1, min(3, int(rays)))),
                 "include_hidden": bool(include_hidden), "material_mm3": _r(floor, 6), "limit": int(limit),
@@ -710,6 +744,17 @@ def audit_interference(a=None, b=None, file_a=None, file_b=None, objects_a=None,
         box_vol = float(_boxvol(cand))
         frac, n_used, st = _estimate_volume(ta, tb, tree_a, tree_b, cand, samples, seed, sa["aabb"], sb["aabb"],
                                            rays=rays)
+    finally:
+        _state.update((k, v) for k, v in locals().items() if k != "_state")
+
+def _audit_body_p2(_state):
+    _fill_bbox, box_vol, cand, cand_src, floor = (
+        _state["_fill_bbox"], _state.get("box_vol"), _state.get("cand"), _state.get("cand_src"), _state["floor"])
+    frac, mm3, mm_per_unit, n_used, out = (
+        _state.get("frac"), _state["mm3"], _state["mm_per_unit"], _state.get("n_used"), _state.get("out"))
+    pair_count, st = _state.get("pair_count"), _state.get("st")
+    need = (_state.get("need"))
+    try:
         out.update({"samples_used": int(n_used), "in_overlap_bbox": int(st["points"]),
                     "inside_a": st["inside_a"], "inside_b": st["inside_b"], "inside_both": st["inside_both"],
                     "parity_unknown": {"a": st["unknown_a"], "b": st["unknown_b"]},
@@ -760,28 +805,12 @@ def audit_interference(a=None, b=None, file_a=None, file_b=None, objects_a=None,
                         "next_step": "samples ≥ %d 才能把上界压到下限（现 n=%d；误差 ∝1/√n）" % (need, n_used),
                         "samples_needed_for_floor": need})
         return out
-
-    def _fill_bbox(out, cand, src, mm_per_unit, mm3):
-        if cand is None:
-            out["bbox"] = None
-            out["bbox_mm"] = None
-            out["bbox_source"] = "无候选盒（交集可证为空）"
-            return
-        b, bm = _box_pair(cand[0], cand[1], mm_per_unit)
-        out["bbox"] = b
-        out["bbox_mm"] = bm
-        out["bbox_source"] = src
-        out["bbox_volume_mm3"] = _r(float(_boxvol(cand)) * mm3, 4)
-
-    try:
-        sides, cleanups = _resolve_two_sides(a, b, file_a, file_b, objects_a, objects_b, include_hidden)
-        res = _body()
-    except Exception as e:
-        res = _exc_body(e, "interference")
     finally:
-        for fn in cleanups.values():
-            fn()
-    if cleanups:
-        res["cleanup"] = {t: cleanups[t]() for t in sorted(cleanups)}
-    res["ms"] = int((_t.perf_counter() - t0) * 1000)
-    return _j(res)
+        _state.update((k, v) for k, v in locals().items() if k != "_state")
+
+def _audit_interference_body(_fill_bbox, floor, include_hidden, limit, max_tris, mm3, mm_per_unit, rays, samples, seed, sides, ub):
+    _state = dict(locals())
+    for _fn_ in (_audit_body_p1, _audit_body_p2):
+        _r = _fn_(_state)
+        if _r is not None:
+            return _r

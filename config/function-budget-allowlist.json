@@ -1,17 +1,9 @@
 {
-  "generatedAt": "2026-11-01T02:39:01.222Z",
+  "generatedAt": "2026-11-01T02:42:47.793Z",
   "reason": "Baseline debt captured by F1.0; burn down in F1/F2/F3.",
   "owner": "lead",
   "expires": "2026-12-31",
   "functions": [
-    {
-      "file": "runtime/py/assembly/assembly_impl/manifest.py",
-      "name": "_manifest_validate",
-      "lines": 193,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
     {
       "file": "runtime/py/assembly/assembly_impl/manifest.py",
       "name": "asm_manifest",
@@ -21,33 +13,9 @@
       "expires": "2026-12-31"
     },
     {
-      "file": "runtime/py/assembly/vehicle_impl/loft.py",
-      "name": "vehicle_loft",
-      "lines": 194,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
       "file": "runtime/py/core/audit_impl/conn_helpers.py",
       "name": "_load_file_objects",
       "lines": 179,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/core/audit_impl/overlap.py",
-      "name": "audit_interference",
-      "lines": 195,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/core/audit_impl/overlap.py",
-      "name": "_body",
-      "lines": 135,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"
@@ -72,22 +40,6 @@
       "file": "runtime/py/core/motion_impl/usda.py",
       "name": "motion_export_usda",
       "lines": 173,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/export/deliver_impl/verify.py",
-      "name": "deliver_verify",
-      "lines": 189,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/geometry/surface_impl/api.py",
-      "name": "surface_selftest",
-      "lines": 187,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"

@@ -70,6 +70,212 @@ def _dv_scan_stl(path):
     return out
 
 
+def _deliver_verify_p1(_state):
+    manifest, path_or_dir = _state.get("manifest"), _state["path_or_dir"]
+    cands, d, last, lm, prefer, stem = (_state.get("cands"), _state.get("d"), _state.get("last"), _state.get("lm"), _state.get("prefer"), _state.get("stem"))
+    try:
+        st = None
+        try:
+            st = _dv_store()
+        except Exception:
+            st = None
+        p = path_or_dir
+        if not p:
+            last = (st or {}).get("last")
+            if not last:
+                return _dv_j({"ok": False, "error": "没给 path_or_dir，也没有可参考的最近导出记录", "checks": []})
+            p = last["dir"]
+        p = _dv_win(p)
+        if not os.path.exists(p):
+            return _dv_j({"ok": False, "error": "路径不存在：%s" % p, "checks": [
+                {"name": "path_exists", "ok": False, "detail": "路径不存在: %s" % p}]})
+        target_file = None
+        if os.path.isfile(p):
+            target_file = p
+            d = os.path.dirname(p)
+            if os.path.basename(p).endswith("_manifest.json"):
+                if manifest == "auto":
+                    manifest = p
+        else:
+            d = p
+        checks = []
+
+        def chk(name, ok, detail="", **extra):
+            rec = {"name": name, "ok": bool(ok), "detail": detail}
+            rec.update(extra)
+            checks.append(rec)
+            return bool(ok)
+
+        # ---- 1. 清单
+        man, man_path, man_src = None, None, None
+        if manifest and manifest != "auto" and str(manifest) != "memory":
+            man_path = _dv_win(manifest)
+            if os.path.isfile(man_path):
+                try:
+                    man = json.loads(open(man_path, encoding="utf-8").read())
+                    man_src = "explicit"
+                except Exception as e:
+                    chk("manifest_loadable", False, "清单解析失败（%s）：%s" % (type(e).__name__, e), path=man_path)
+            else:
+                chk("manifest_exists", False, "指定的清单不存在：%s" % man_path, path=man_path)
+        else:
+            cands = []
+            try:
+                cands = sorted([os.path.join(d, n) for n in os.listdir(d) if n.endswith("_manifest.json")])
+            except Exception:
+                cands = []
+            if target_file and not target_file.endswith("_manifest.json"):
+                stem = os.path.basename(target_file).rsplit(".", 1)[0]
+                prefer = os.path.join(d, stem + "_manifest.json")
+                if os.path.isfile(prefer):
+                    cands = [prefer] + [c for c in cands if c != prefer]
+            if len(cands) > 1 and st and st.get("last") and st["last"].get("manifest"):
+                lm = _dv_win(st["last"]["manifest"])
+                if lm in cands:
+                    cands = [lm] + [c for c in cands if c != lm]
+            if cands:
+                man_path = cands[0]
+                try:
+                    man = json.loads(open(man_path, encoding="utf-8").read())
+                    man_src = "auto"
+                except Exception as e:
+                    chk("manifest_loadable", False, "清单解析失败（%s）：%s" % (type(e).__name__, e), path=man_path)
+            elif str(manifest) == "memory" and st and st.get("last"):
+                man = st["last"]
+                man_src = "memory(显式 memory 模式，比磁盘清单弱)"
+        chk("manifest_available", man is not None,
+            ("清单来源=%s path=%s" % (man_src, man_path)) if man is not None
+            else "目录 %s 里没有 *_manifest.json（manifest=False 导出或路径给错）—— 显式传 manifest=<路径>；"
+                 "确实没清单时可用 manifest='memory' 拿最近一次导出的记录（较弱，会在返回里标出来）" % d,
+            manifest_path=man_path, manifest_source=man_src, candidates=len(cands) if str(manifest) == "auto" else None)
+        if man is None:
+            return _dv_j({"ok": False, "target": p, "manifest": man_path, "manifest_source": man_src,
+                       "passed": len([c for c in checks if c["ok"]]), "failed": len([c for c in checks if not c["ok"]]),
+                       "failed_checks": [c["name"] for c in checks if not c["ok"]], "checks": checks,
+                       "hint": "先 deliver_export(..., manifest=True) 再 verify；或 deliver_verify(<带清单的目录>)"})
+
+        # ---- 2. 逐文件：存在 / 字节 / md5 / 面数
+        flist = man.get("files") or []
+        if not flist and target_file:
+            flist = [{"role": os.path.basename(target_file).rsplit(".", 1)[-1], "path": target_file}]
+        obs = {"files": {}}
+    finally:
+        _state.update((k, v) for k, v in locals().items() if k != "_state")
+
+def _deliver_verify_p2(_state):
+    chk, flist, man, obs, target_file = (
+        _state.get("chk"), _state.get("flist"), _state.get("man"), _state.get("obs"), _state.get("target_file"))
+    base, dev, exists, exp_g, exp_hi, exp_lo, exp_u, ext, f, fp, got_bytes, got_md5, mt, nb, sc, want = (_state.get("base"), _state.get("dev"), _state.get("exists"), _state.get("exp_g"), _state.get("exp_hi"), _state.get("exp_lo"), _state.get("exp_u"), _state.get("ext"), _state.get("f"), _state.get("fp"), _state.get("got_bytes"), _state.get("got_md5"), _state.get("mt"), _state.get("nb"), _state.get("sc"), _state.get("want"))
+    try:
+        for f in flist:
+            fp = _dv_win(f.get("path") or "")
+            if not fp or not os.path.isfile(fp):
+                if target_file and os.path.basename(fp) == os.path.basename(target_file):
+                    fp = target_file
+            base = os.path.basename(str(fp))
+            exists = bool(fp) and os.path.isfile(fp)
+            chk("file_exists:" + base, exists, ("存在 %s" % fp) if exists else "清单里的文件不存在: %s" % fp, path=fp)
+            if not exists:
+                continue
+            got_bytes = os.path.getsize(fp)
+            got_md5 = _dv_md5(fp)
+            obs["files"][base] = {"bytes": got_bytes, "md5": got_md5}
+            chk("file_nonempty:" + base, got_bytes > 0, "%d 字节" % got_bytes, bytes=got_bytes)
+            chk("md5_match:" + base, (not f.get("md5")) or got_md5 == f.get("md5"),
+                "文件 md5=%s / 清单 md5=%s" % (got_md5, f.get("md5")), md5=got_md5, manifest_md5=f.get("md5"))
+            if f.get("bytes") is not None:
+                chk("size_match:" + base, int(f["bytes"]) == got_bytes,
+                    "文件 %d 字节 / 清单 %d 字节" % (got_bytes, int(f["bytes"])), bytes=got_bytes, manifest_bytes=int(f["bytes"]))
+            ext = base.rsplit(".", 1)[-1].lower()
+            if ext == "obj":
+                sc = _dv_scan_obj(fp)
+                obs["obj"] = sc
+                chk("triangle_count_match:" + base, sc["triangles"] == int(man.get("counts", {}).get("triangles", f.get("triangles", -1))),
+                    "OBJ 里 %d 个三角面 / 清单 %s" % (sc["triangles"], man.get("counts", {}).get("triangles", f.get("triangles"))),
+                    triangles=sc["triangles"], manifest_triangles=man.get("counts", {}).get("triangles"))
+                exp_g = int(man.get("counts", {}).get("groups", f.get("groups", -1)))
+                exp_u = int(man.get("counts", {}).get("usemtl", f.get("usemtl", -1)))
+                chk("obj_group_count_match:" + base, sc["groups"] == exp_g,
+                    "g 行 %d 个 / 对象(组)数 %d" % (sc["groups"], exp_g), groups=sc["groups"], manifest_groups=exp_g)
+                chk("obj_usemtl_count_match:" + base, sc["usemtl"] == exp_u,
+                    "usemtl 行 %d 个 / 材质引用数 %d" % (sc["usemtl"], exp_u), usemtl=sc["usemtl"], manifest_usemtl=exp_u)
+                chk("obj_has_normals:" + base, sc["normals"] >= 1, "vn 行 %d 个" % sc["normals"], normals=sc["normals"])
+                # 从文件自己的 v 行重算 bbox，与清单里的 normalize 记录对拍（不信清单的自述）
+                nb = man.get("normalize") or {}
+                exp_lo, exp_hi = nb.get("bbox_after_min"), nb.get("bbox_after_max")
+                if sc.get("bbox_min") and exp_lo and exp_hi:
+                    dev = max(abs(sc["bbox_min"][i] - float(exp_lo[i])) for i in range(3))
+                    dev = max(dev, max(abs(sc["bbox_max"][i] - float(exp_hi[i])) for i in range(3)))
+                    chk("obj_bbox_matches_manifest:" + base, dev <= 2e-4,
+                        "文件 bbox=%s..%s / 清单记录=%s..%s（最大偏差 %.2e，容差 2e-4=两次 5 位小数舍入）"
+                        % (sc["bbox_min"], sc["bbox_max"], exp_lo, exp_hi, dev), max_dev=dev)
+                if nb.get("applied") and sc.get("longest_edge") is not None:
+                    want = 2.0 * float(nb.get("target_half_extent") or 0)
+                    chk("obj_normalized_longest_edge:" + base, abs(sc["longest_edge"] - want) <= 1e-4 * max(1.0, want),
+                        "文件里最长边 %.5f / 期望 %.5f（2 × target_half_extent）" % (sc["longest_edge"], want),
+                        longest=sc["longest_edge"], expected=want)
+            elif ext == "stl":
+                sc = _dv_scan_stl(fp)
+                obs["stl"] = sc
+                mt = int(man.get("counts", {}).get("triangles", f.get("triangles", -1)))
+                chk("triangle_count_match:" + base, sc.get("triangles") == mt,
+                    "STL 头声明 %s 个三角面 / 清单 %d" % (sc.get("triangles"), mt), triangles=sc.get("triangles"), manifest_triangles=mt)
+                chk("stl_size_consistent:" + base, sc.get("expected_bytes") == got_bytes,
+                    "84+50×%s = %s 字节 / 实际 %d 字节" % (sc.get("triangles"), sc.get("expected_bytes"), got_bytes),
+                    expected_bytes=sc.get("expected_bytes"), bytes=got_bytes)
+                nb = man.get("normalize") or {}
+                if nb.get("applied") and sc.get("longest_edge") is not None:
+                    want = 2.0 * float(nb.get("target_half_extent") or 0)
+                    chk("stl_normalized_longest_edge:" + base, abs(sc["longest_edge"] - want) <= 1e-4 * max(1.0, want),
+                        "文件里最长边 %.5f / 期望 %.5f（2 × target_half_extent）" % (sc["longest_edge"], want),
+                        longest=sc["longest_edge"], expected=want)
+
+        # ---- 3. 单位块 / 归一化可反推（归档铁律）
+        u = man.get("units") or {}
+        note = str(u.get("note") or "")
+        has_num = any(c.isdigit() for c in note)
+        has_unit = ("mm" in note) or (" m" in note) or ("m =" in note)
+        chk("units_note_has_units", bool(note) and has_num and has_unit,
+            ("note=%s | meters_per_unit=%s m | millimeters_per_unit=%s mm"
+             % (note, u.get("meters_per_unit"), u.get("millimeters_per_unit"))) if note
+            else "清单没有单位换算块（units_note=False 或旧清单）",
+            meters_per_unit=u.get("meters_per_unit"), millimeters_per_unit=u.get("millimeters_per_unit"))
+        nz = man.get("normalize") or {}
+    finally:
+        _state.update((k, v) for k, v in locals().items() if k != "_state")
+
+def _deliver_verify_p3(_state):
+    checks, chk, man, man_path, man_src = (
+        _state.get("checks"), _state.get("chk"), _state.get("man"), _state.get("man_path"), _state.get("man_src"))
+    nz, obs, p = _state.get("nz"), _state.get("obs"), _state.get("p")
+    longest, ok, want = (_state.get("longest"), _state.get("ok"), _state.get("want"))
+    try:
+        if nz.get("applied"):
+            ok = (float(nz.get("scale") or 0) > 0) and (nz.get("center") is not None) and (nz.get("bbox_before_min") is not None)
+            chk("normalize_recoverable", ok,
+                "scale=%s center=%s target_half_extent=%s 原 bbox=%s..%s（p_orig = p_out/scale + center）"
+                % (nz.get("scale"), nz.get("center"), nz.get("target_half_extent"), nz.get("bbox_before_min"), nz.get("bbox_before_max")),
+                scale=nz.get("scale"), center=nz.get("center"), target_half_extent=nz.get("target_half_extent"))
+            if nz.get("bbox_after_size"):
+                longest = max(nz["bbox_after_size"])
+                want = 2.0 * float(nz.get("target_half_extent") or 0)
+                chk("normalize_longest_edge", abs(longest - want) <= 1e-4 * max(1.0, want),
+                    "归一化后最长边 %.6f / 期望 %.6f（2 × target_half_extent）" % (longest, want),
+                    longest=longest, expected=want)
+        else:
+            chk("normalize_recoverable", nz.get("bbox_before_min") is not None,
+                "未归一化（normalize=False）：scale=1、center=(0,0,0)，文件尺度即原始尺度；原 bbox=%s..%s"
+                % (nz.get("bbox_before_min"), nz.get("bbox_before_max")), scale=1.0)
+
+        passed = len([c for c in checks if c["ok"]])
+        fail = [c["name"] for c in checks if not c["ok"]]
+        return _dv_j({"ok": len(fail) == 0, "target": p, "manifest": man_path, "manifest_source": man_src,
+                   "passed": passed, "failed": len(fail), "failed_checks": fail, "checks": checks,
+                   "observed": obs, "counts": man.get("counts"),
+                   "note": "逐项核对；任何一项 FAIL 都意味着这个交付物不能按清单归档"})
+    finally:
+        _state.update((k, v) for k, v in locals().items() if k != "_state")
+
 def deliver_verify(path_or_dir=None, manifest="auto"):
     """读回产物逐项自检。返回 {ok, checks:[{name, ok, detail, ...数字}], passed, failed}。
 
@@ -77,188 +283,11 @@ def deliver_verify(path_or_dir=None, manifest="auto"):
     OBJ 的 g 与 usemtl 数量与清单一致 / 单位块带单位 / 归一化可反推（scale+center+原 bbox）。
     `manifest="auto"` → 目录里找 `<name>_manifest.json`（多个则用最近一次导出的那个）。
     """
-    st = None
-    try:
-        st = _dv_store()
-    except Exception:
-        st = None
-    p = path_or_dir
-    if not p:
-        last = (st or {}).get("last")
-        if not last:
-            return _dv_j({"ok": False, "error": "没给 path_or_dir，也没有可参考的最近导出记录", "checks": []})
-        p = last["dir"]
-    p = _dv_win(p)
-    if not os.path.exists(p):
-        return _dv_j({"ok": False, "error": "路径不存在：%s" % p, "checks": [
-            {"name": "path_exists", "ok": False, "detail": "路径不存在: %s" % p}]})
-    target_file = None
-    if os.path.isfile(p):
-        target_file = p
-        d = os.path.dirname(p)
-        if os.path.basename(p).endswith("_manifest.json"):
-            if manifest == "auto":
-                manifest = p
-    else:
-        d = p
-    checks = []
-
-    def chk(name, ok, detail="", **extra):
-        rec = {"name": name, "ok": bool(ok), "detail": detail}
-        rec.update(extra)
-        checks.append(rec)
-        return bool(ok)
-
-    # ---- 1. 清单
-    man, man_path, man_src = None, None, None
-    if manifest and manifest != "auto" and str(manifest) != "memory":
-        man_path = _dv_win(manifest)
-        if os.path.isfile(man_path):
-            try:
-                man = json.loads(open(man_path, encoding="utf-8").read())
-                man_src = "explicit"
-            except Exception as e:
-                chk("manifest_loadable", False, "清单解析失败（%s）：%s" % (type(e).__name__, e), path=man_path)
-        else:
-            chk("manifest_exists", False, "指定的清单不存在：%s" % man_path, path=man_path)
-    else:
-        cands = []
-        try:
-            cands = sorted([os.path.join(d, n) for n in os.listdir(d) if n.endswith("_manifest.json")])
-        except Exception:
-            cands = []
-        if target_file and not target_file.endswith("_manifest.json"):
-            stem = os.path.basename(target_file).rsplit(".", 1)[0]
-            prefer = os.path.join(d, stem + "_manifest.json")
-            if os.path.isfile(prefer):
-                cands = [prefer] + [c for c in cands if c != prefer]
-        if len(cands) > 1 and st and st.get("last") and st["last"].get("manifest"):
-            lm = _dv_win(st["last"]["manifest"])
-            if lm in cands:
-                cands = [lm] + [c for c in cands if c != lm]
-        if cands:
-            man_path = cands[0]
-            try:
-                man = json.loads(open(man_path, encoding="utf-8").read())
-                man_src = "auto"
-            except Exception as e:
-                chk("manifest_loadable", False, "清单解析失败（%s）：%s" % (type(e).__name__, e), path=man_path)
-        elif str(manifest) == "memory" and st and st.get("last"):
-            man = st["last"]
-            man_src = "memory(显式 memory 模式，比磁盘清单弱)"
-    chk("manifest_available", man is not None,
-        ("清单来源=%s path=%s" % (man_src, man_path)) if man is not None
-        else "目录 %s 里没有 *_manifest.json（manifest=False 导出或路径给错）—— 显式传 manifest=<路径>；"
-             "确实没清单时可用 manifest='memory' 拿最近一次导出的记录（较弱，会在返回里标出来）" % d,
-        manifest_path=man_path, manifest_source=man_src, candidates=len(cands) if str(manifest) == "auto" else None)
-    if man is None:
-        return _dv_j({"ok": False, "target": p, "manifest": man_path, "manifest_source": man_src,
-                   "passed": len([c for c in checks if c["ok"]]), "failed": len([c for c in checks if not c["ok"]]),
-                   "failed_checks": [c["name"] for c in checks if not c["ok"]], "checks": checks,
-                   "hint": "先 deliver_export(..., manifest=True) 再 verify；或 deliver_verify(<带清单的目录>)"})
-
-    # ---- 2. 逐文件：存在 / 字节 / md5 / 面数
-    flist = man.get("files") or []
-    if not flist and target_file:
-        flist = [{"role": os.path.basename(target_file).rsplit(".", 1)[-1], "path": target_file}]
-    obs = {"files": {}}
-    for f in flist:
-        fp = _dv_win(f.get("path") or "")
-        if not fp or not os.path.isfile(fp):
-            if target_file and os.path.basename(fp) == os.path.basename(target_file):
-                fp = target_file
-        base = os.path.basename(str(fp))
-        exists = bool(fp) and os.path.isfile(fp)
-        chk("file_exists:" + base, exists, ("存在 %s" % fp) if exists else "清单里的文件不存在: %s" % fp, path=fp)
-        if not exists:
-            continue
-        got_bytes = os.path.getsize(fp)
-        got_md5 = _dv_md5(fp)
-        obs["files"][base] = {"bytes": got_bytes, "md5": got_md5}
-        chk("file_nonempty:" + base, got_bytes > 0, "%d 字节" % got_bytes, bytes=got_bytes)
-        chk("md5_match:" + base, (not f.get("md5")) or got_md5 == f.get("md5"),
-            "文件 md5=%s / 清单 md5=%s" % (got_md5, f.get("md5")), md5=got_md5, manifest_md5=f.get("md5"))
-        if f.get("bytes") is not None:
-            chk("size_match:" + base, int(f["bytes"]) == got_bytes,
-                "文件 %d 字节 / 清单 %d 字节" % (got_bytes, int(f["bytes"])), bytes=got_bytes, manifest_bytes=int(f["bytes"]))
-        ext = base.rsplit(".", 1)[-1].lower()
-        if ext == "obj":
-            sc = _dv_scan_obj(fp)
-            obs["obj"] = sc
-            chk("triangle_count_match:" + base, sc["triangles"] == int(man.get("counts", {}).get("triangles", f.get("triangles", -1))),
-                "OBJ 里 %d 个三角面 / 清单 %s" % (sc["triangles"], man.get("counts", {}).get("triangles", f.get("triangles"))),
-                triangles=sc["triangles"], manifest_triangles=man.get("counts", {}).get("triangles"))
-            exp_g = int(man.get("counts", {}).get("groups", f.get("groups", -1)))
-            exp_u = int(man.get("counts", {}).get("usemtl", f.get("usemtl", -1)))
-            chk("obj_group_count_match:" + base, sc["groups"] == exp_g,
-                "g 行 %d 个 / 对象(组)数 %d" % (sc["groups"], exp_g), groups=sc["groups"], manifest_groups=exp_g)
-            chk("obj_usemtl_count_match:" + base, sc["usemtl"] == exp_u,
-                "usemtl 行 %d 个 / 材质引用数 %d" % (sc["usemtl"], exp_u), usemtl=sc["usemtl"], manifest_usemtl=exp_u)
-            chk("obj_has_normals:" + base, sc["normals"] >= 1, "vn 行 %d 个" % sc["normals"], normals=sc["normals"])
-            # 从文件自己的 v 行重算 bbox，与清单里的 normalize 记录对拍（不信清单的自述）
-            nb = man.get("normalize") or {}
-            exp_lo, exp_hi = nb.get("bbox_after_min"), nb.get("bbox_after_max")
-            if sc.get("bbox_min") and exp_lo and exp_hi:
-                dev = max(abs(sc["bbox_min"][i] - float(exp_lo[i])) for i in range(3))
-                dev = max(dev, max(abs(sc["bbox_max"][i] - float(exp_hi[i])) for i in range(3)))
-                chk("obj_bbox_matches_manifest:" + base, dev <= 2e-4,
-                    "文件 bbox=%s..%s / 清单记录=%s..%s（最大偏差 %.2e，容差 2e-4=两次 5 位小数舍入）"
-                    % (sc["bbox_min"], sc["bbox_max"], exp_lo, exp_hi, dev), max_dev=dev)
-            if nb.get("applied") and sc.get("longest_edge") is not None:
-                want = 2.0 * float(nb.get("target_half_extent") or 0)
-                chk("obj_normalized_longest_edge:" + base, abs(sc["longest_edge"] - want) <= 1e-4 * max(1.0, want),
-                    "文件里最长边 %.5f / 期望 %.5f（2 × target_half_extent）" % (sc["longest_edge"], want),
-                    longest=sc["longest_edge"], expected=want)
-        elif ext == "stl":
-            sc = _dv_scan_stl(fp)
-            obs["stl"] = sc
-            mt = int(man.get("counts", {}).get("triangles", f.get("triangles", -1)))
-            chk("triangle_count_match:" + base, sc.get("triangles") == mt,
-                "STL 头声明 %s 个三角面 / 清单 %d" % (sc.get("triangles"), mt), triangles=sc.get("triangles"), manifest_triangles=mt)
-            chk("stl_size_consistent:" + base, sc.get("expected_bytes") == got_bytes,
-                "84+50×%s = %s 字节 / 实际 %d 字节" % (sc.get("triangles"), sc.get("expected_bytes"), got_bytes),
-                expected_bytes=sc.get("expected_bytes"), bytes=got_bytes)
-            nb = man.get("normalize") or {}
-            if nb.get("applied") and sc.get("longest_edge") is not None:
-                want = 2.0 * float(nb.get("target_half_extent") or 0)
-                chk("stl_normalized_longest_edge:" + base, abs(sc["longest_edge"] - want) <= 1e-4 * max(1.0, want),
-                    "文件里最长边 %.5f / 期望 %.5f（2 × target_half_extent）" % (sc["longest_edge"], want),
-                    longest=sc["longest_edge"], expected=want)
-
-    # ---- 3. 单位块 / 归一化可反推（归档铁律）
-    u = man.get("units") or {}
-    note = str(u.get("note") or "")
-    has_num = any(c.isdigit() for c in note)
-    has_unit = ("mm" in note) or (" m" in note) or ("m =" in note)
-    chk("units_note_has_units", bool(note) and has_num and has_unit,
-        ("note=%s | meters_per_unit=%s m | millimeters_per_unit=%s mm"
-         % (note, u.get("meters_per_unit"), u.get("millimeters_per_unit"))) if note
-        else "清单没有单位换算块（units_note=False 或旧清单）",
-        meters_per_unit=u.get("meters_per_unit"), millimeters_per_unit=u.get("millimeters_per_unit"))
-    nz = man.get("normalize") or {}
-    if nz.get("applied"):
-        ok = (float(nz.get("scale") or 0) > 0) and (nz.get("center") is not None) and (nz.get("bbox_before_min") is not None)
-        chk("normalize_recoverable", ok,
-            "scale=%s center=%s target_half_extent=%s 原 bbox=%s..%s（p_orig = p_out/scale + center）"
-            % (nz.get("scale"), nz.get("center"), nz.get("target_half_extent"), nz.get("bbox_before_min"), nz.get("bbox_before_max")),
-            scale=nz.get("scale"), center=nz.get("center"), target_half_extent=nz.get("target_half_extent"))
-        if nz.get("bbox_after_size"):
-            longest = max(nz["bbox_after_size"])
-            want = 2.0 * float(nz.get("target_half_extent") or 0)
-            chk("normalize_longest_edge", abs(longest - want) <= 1e-4 * max(1.0, want),
-                "归一化后最长边 %.6f / 期望 %.6f（2 × target_half_extent）" % (longest, want),
-                longest=longest, expected=want)
-    else:
-        chk("normalize_recoverable", nz.get("bbox_before_min") is not None,
-            "未归一化（normalize=False）：scale=1、center=(0,0,0)，文件尺度即原始尺度；原 bbox=%s..%s"
-            % (nz.get("bbox_before_min"), nz.get("bbox_before_max")), scale=1.0)
-
-    passed = len([c for c in checks if c["ok"]])
-    fail = [c["name"] for c in checks if not c["ok"]]
-    return _dv_j({"ok": len(fail) == 0, "target": p, "manifest": man_path, "manifest_source": man_src,
-               "passed": passed, "failed": len(fail), "failed_checks": fail, "checks": checks,
-               "observed": obs, "counts": man.get("counts"),
-               "note": "逐项核对；任何一项 FAIL 都意味着这个交付物不能按清单归档"})
+    _state = dict(locals())
+    for _fn_ in (_deliver_verify_p1, _deliver_verify_p2, _deliver_verify_p3):
+        _r = _fn_(_state)
+        if _r is not None:
+            return _r
 
 
 def deliver_help():
