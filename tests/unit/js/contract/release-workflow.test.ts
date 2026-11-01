@@ -27,7 +27,7 @@ describe('manual CD workflow', () => {
   })
 
   it('publishes npm from the packed tarball with provenance', () => {
-    expect(workflow).toContain('npm publish release/*.tgz --access public --provenance')
+    expect(workflow).toContain('npm publish ./release/*.tgz --access public --provenance')
     const pkg = JSON.parse(fs.readFileSync(repoPath('package.json'), 'utf8'))
     expect(pkg.repository && pkg.repository.url).toContain('dsh-blender-plugin')
   })
