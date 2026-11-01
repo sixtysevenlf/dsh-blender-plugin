@@ -70,6 +70,16 @@ const STATUSES = new Set(['covered', 'planned', 'exempt'])
 const PLACEHOLDER = new Set(['', '—', '-', 'n/a', 'N/A'])
 const TOOL_ASPECT_COUNT = 7
 const ROUTE_ASPECT_COUNT = 5
+const TOOL_ASPECT_IDS = [
+  'success',
+  'paramError',
+  'backendUnreachable',
+  'timeoutAbort',
+  'presenter',
+  'lossless',
+  'sessionFallback',
+]
+const ROUTE_ASPECT_IDS = ['normal', 'invalidInput', 'errorMapping', 'lease', 'cors']
 
 const FIXED = {
   protocol: [
@@ -296,19 +306,26 @@ function checkTestRef(reference, row) {
   }
   if (title) {
     const text = readFileSync(absolute, 'utf8').replace(/\r\n/g, '\n')
-    // A title must be a real quoted test title, not just a substring in a comment.
-    const quoted =
-      text.includes("'" + title + "'") ||
-      text.includes('"' + title + '"') ||
-      text.includes('`' + title + '`')
-    if (!quoted) {
+    // A title must be declared by it()/test()/it.each()/test.each(); a quoted
+    // string in a comment or a plain object is not evidence.
+    const declared = [
+      ...text.matchAll(
+        /(?:^|[^.\w])(?:it|test)(?:\.(?:each|only|skip|todo))?\(\s*(['"`])([\s\S]*?)\1/g,
+      ),
+    ].map((match) => match[2])
+    const expanded = new Set(declared)
+    for (const item of declared) {
+      const m = item.match(/^%s (.+)$/)
+      if (m) expanded.add(m[1])
+    }
+    if (!expanded.has(title)) {
       fail(
         row.id +
           ': ' +
           file +
-          ' has no quoted test titled ' +
+          ' has no declared test titled ' +
           JSON.stringify(title) +
-          ' (comment-only matches are not evidence)',
+          ' (comments/plain strings are not evidence)',
       )
       return false
     }
@@ -513,6 +530,7 @@ const ROOT_PATH =
 
 function checkSourceText(label, text) {
   const seen = new Set()
+  let rootTokens = 0
   const tokens = text.match(SOURCE_PATH) || []
   for (let token of tokens) {
     token = token.replace(/[),.;]+$/, '')
@@ -521,7 +539,13 @@ function checkSourceText(label, text) {
     const spec = token.match(new RegExp('^(.*?)(?::(' + BS + 'd+)(?:-(' + BS + 'd+))?)?$'))
     const file = spec[1]
     const line = spec[2] ? Number(spec[2]) : null
-    if (!ROOT_PATH.test(file)) continue
+    if (!ROOT_PATH.test(file)) {
+      if (file.includes('/') && /\.(?:ts|mjs|py|md|json|toml|yml|yaml)$/.test(file)) {
+        fail(label + ': contract source is not a repo path: ' + file)
+      }
+      continue
+    }
+    rootTokens += 1
     const absolute = path.resolve(ROOT, file)
     if (!absolute.startsWith(ROOT + path.sep) && absolute !== ROOT) {
       fail(label + ': contract source escapes the package: ' + file)
@@ -545,6 +569,7 @@ function checkSourceText(label, text) {
       }
     }
   }
+  if (rootTokens === 0) fail(label + ': contract source has no repo path token')
 }
 
 function fsIsFile(target) {
@@ -604,6 +629,10 @@ function checkAspectRows(kind, section, expectedKeys) {
   }
   if (uniqueSorted(aspectIds).length !== aspectIds.length || aspectIds.some((id) => !id)) {
     fail(label + ' aspect ids must be unique non-empty strings')
+  }
+  const canonical = kind === 'tools' ? TOOL_ASPECT_IDS : ROUTE_ASPECT_IDS
+  if (JSON.stringify(aspectIds) !== JSON.stringify(canonical)) {
+    fail(label + ' aspect ids must exactly match canonical ' + canonical.join(','))
   }
   for (const aspect of aspects) {
     if (!aspect || typeof aspect.title !== 'string' || typeof aspect.description !== 'string') {
@@ -748,8 +777,20 @@ function checkCommandMatrix(section, catalogs) {
       fail(label + ' row command is not registered: ' + String(row.command))
     if (seen.has(row.command)) fail(label + ' duplicate command row: ' + String(row.command))
     seen.add(row.command)
+    if (!Number.isInteger(row.index) || row.index < 1) {
+      fail(label + ' row needs a positive index: ' + String(row.command))
+    }
     if (!row.params || typeof row.params !== 'object') {
       fail(label + ' row needs a params object: ' + String(row.command))
+    }
+    if (row.gate !== null && (typeof row.gate !== 'string' || row.gate.trim() === '')) {
+      fail(label + ' row gate must be null or a non-empty string: ' + String(row.command))
+    }
+    if (typeof row.pause_safe !== 'boolean') {
+      fail(label + ' row needs a boolean pause_safe: ' + String(row.command))
+    }
+    if (typeof row.handler !== 'string' || !row.handler.startsWith('addon.dsh_blender_bridge.')) {
+      fail(label + ' row needs an addon handler path: ' + String(row.command))
     }
     if (typeof row.envelope !== 'string' || row.envelope.trim() === '') {
       fail(label + ' row needs an envelope description: ' + String(row.command))
