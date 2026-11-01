@@ -146,6 +146,234 @@ def _urdf_limits_attrs(utype, rec, fallback_travel_m, warnings):
     return ""
 
 
+def _motion_export_urdf_p1(st):
+    dir, fixed_base, joints, masses, mesh_format = (
+        st["dir"], st["fixed_base"], st["joints"], st.get("masses"), st["mesh_format"])
+    meters_per_unit, name = st["meters_per_unit"], st["name"]
+    F, V, Vm, fn, fp, frame, k, mn, mx, objs, v = (st.get("F"), st.get("V"), st.get("Vm"), st.get("fn"), st.get("fp"), st.get("frame"), st.get("k"), st.get("mn"), st.get("mx"), st.get("objs"), st.get("v"))
+    try:
+        t0 = time.perf_counter()
+        if not dir:
+            return _j({"ok": False, "error": "dir 必填（URDF 与网格写到哪）"})
+        recs, err = _select_joints(joints)
+        if err is not None:
+            return _j(json.loads(err))
+        if not recs:
+            return _j({"ok": False, "error": "没有关节可导出（空产出必须失败）",
+                       "registered": sorted(_store()["joints"])})
+        conf = _group_conflicts(recs)
+        if conf:
+            return _j({"ok": False, "error": "关节分组互相重叠：同一个对象属于多个 link（刚体归属矛盾 → "
+                                            "几何与质量会被重复计入）→ 请把各关节的 parent/child 组改成互不重叠",
+                       "conflicts": conf, "units": {"length": "scene_unit"}})
+        fmt = str(mesh_format or "obj").lower()
+        if fmt not in ("obj", "stl"):
+            return _j({"ok": False, "error": "mesh_format 只支持 obj / stl", "given": fmt})
+        mpu = _mpu_arg(meters_per_unit)
+        robot = _safe_name(name, "model")
+        outdir = _win(dir)
+        meshdir = os.path.join(outdir, "meshes")
+        warnings = []
+        try:
+            os.makedirs(meshdir, exist_ok=True)
+        except Exception as e:
+            return _j({"ok": False, "error": "建目录失败: %s: %s" % (type(e).__name__, e), "dir": outdir})
+
+        tree = _build_tree(recs, warnings)
+        if tree is None:
+            return _j({"ok": False, "error": "关节树为空（没有 link）"})
+        links, edges, root = tree["links"], tree["edges"], tree["root"]
+        dg = bpy.context.evaluated_depsgraph_get()
+        masses = masses or {}
+
+        # 兜底行程（m）：模型 bbox 对角线，下限 0.1 m
+        allV = []
+        for k, L in links.items():
+            v, _f, _p = _group_tris(_objs(L["names"])[0], dg)
+            if len(v):
+                allV.append(v)
+        fallback_travel_m = 0.1
+        model_diag_m = 0.0
+        if allV:
+            mn, mx, _d = _bbox(np.concatenate(allV, axis=0))
+            if mn is not None:
+                model_diag_m = float(np.linalg.norm(mx - mn)) * mpu
+                fallback_travel_m = max(0.1, model_diag_m)
+        units_suspect = _units_warnings(mpu, model_diag_m, warnings)
+
+        # 每 link 一个网格（相对 link 帧，单位 m）
+        mesh_files, link_geo = {}, {}
+        for k, L in links.items():
+            objs, _m, _n = _objs(L["names"])
+            V, F, _parts = _group_tris(objs, dg)
+            if len(V) == 0 or len(F) == 0:
+                warnings.append("link %s 没有可导出的三角面 → URDF 里该 link 无 visual/collision" % L["name"])
+                link_geo[k] = None
+                continue
+            frame = np.asarray(L["frame"] or [0.0, 0.0, 0.0], dtype=np.float64)
+            Vm = (V - frame) * mpu
+            fn = "%s.%s" % (L["name"], fmt)
+            fp = os.path.join(meshdir, fn)
+            try:
+                if fmt == "obj":
+                    _write_obj(fp, Vm, F, "DSH motion 导出：link %s / %d 顶点 / %d 三角面 / 单位 m"
+                                           % (L["name"], len(Vm), len(F)))
+                else:
+                    _write_stl(fp, Vm, F, "DSH motion link %s" % L["name"])
+            except Exception as e:
+                return _j({"ok": False, "error": "写网格失败 %s: %s" % (fn, str(e)[:160])})
+            mesh_files[k] = fn
+            link_geo[k] = {"verts": int(len(Vm)), "tris": int(len(F)),
+                           "min": _rl(Vm.min(axis=0), 6), "max": _rl(Vm.max(axis=0), 6),
+                           "bytes": os.path.getsize(fp)}
+
+        L = ['<?xml version="1.0" encoding="utf-8"?>',
+             '<!-- DSH motion v%d 导出（纯字符串生成，SI 单位；bbox 近似惯量） -->' % MOTION_VERSION,
+             '<robot name="%s">' % _esc(robot)]
+        if fixed_base:
+            L.append('  <link name="world"/>')
+            L.append('  <joint name="world_to_%s" type="fixed">' % _esc(links[root]["name"]))
+            L.append('    <origin xyz="0 0 0" rpy="0 0 0"/>')
+            L.append('    <parent link="world"/>')
+            L.append('    <child link="%s"/>' % _esc(links[root]["name"]))
+            L.append('  </joint>')
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+def _motion_export_urdf_p2(st):
+    L, density, dg, edges, effort = st.get("L"), st["density"], st.get("dg"), st.get("edges"), st["effort"]
+    fallback_travel_m, links, masses, mesh_files, meshdir = (
+        st.get("fallback_travel_m"), st.get("links"), st.get("masses"), st.get("mesh_files"), st.get("meshdir"))
+    mpu, note, outdir, robot, root = (
+        st.get("mpu"), st["note"], st.get("outdir"), st.get("robot"), st.get("root"))
+    velocity, warnings = st["velocity"], st.get("warnings")
+    Lk, V, attrs, axis, cf, child, ck, com, dims, e, f, fn, frame, ixx, iyy, izz, jname, k, key, m_explicit, mass, mn, mx, org, parent, pf, r, tag, utype, vloc, vol = (st.get("Lk"), st.get("V"), st.get("attrs"), st.get("axis"), st.get("cf"), st.get("child"), st.get("ck"), st.get("com"), st.get("dims"), st.get("e"), st.get("f"), st.get("fn"), st.get("frame"), st.get("ixx"), st.get("iyy"), st.get("izz"), st.get("jname"), st.get("k"), st.get("key"), st.get("m_explicit"), st.get("mass"), st.get("mn"), st.get("mx"), st.get("org"), st.get("parent"), st.get("pf"), st.get("r"), st.get("tag"), st.get("utype"), st.get("vloc"), st.get("vol"))
+    try:
+        for k in sorted(links, key=lambda x: links[x]["name"]):
+            Lk = links[k]
+            V, F, _p = _group_tris(_objs(Lk["names"])[0], dg)
+            frame = np.asarray(Lk["frame"] or [0.0, 0.0, 0.0], dtype=np.float64)
+            dims, mass = [0.0, 0.0, 0.0], 0.0
+            com = [0.0, 0.0, 0.0]
+            if len(V):
+                vloc = (V - frame) * mpu
+                mn, mx = vloc.min(axis=0), vloc.max(axis=0)
+                dims = (mx - mn).tolist()
+                com = ((mn + mx) / 2.0).tolist()
+                vol = max(0.0, dims[0] * dims[1] * dims[2])
+                m_explicit = None
+                for key in (Lk["name"],) + tuple(Lk["names"]):
+                    if key in masses:
+                        m_explicit = float(masses[key])
+                        break
+                mass = m_explicit if m_explicit is not None else float(density) * vol * BBOX_FILL_FACTOR
+            ixx = max(MIN_INERTIA, mass / 12.0 * (dims[1] ** 2 + dims[2] ** 2))
+            iyy = max(MIN_INERTIA, mass / 12.0 * (dims[0] ** 2 + dims[2] ** 2))
+            izz = max(MIN_INERTIA, mass / 12.0 * (dims[0] ** 2 + dims[1] ** 2))
+            if mass <= 0:
+                warnings.append("link %s 质量为 0（密度 %g × bbox 体积 × %.2f）→ 惯量夹到 %.0e"
+                                % (Lk["name"], density, BBOX_FILL_FACTOR, MIN_INERTIA))
+            L.append('  <link name="%s">' % _esc(Lk["name"]))
+            L.append('    <inertial>')
+            L.append('      <origin xyz="%s %s %s" rpy="0 0 0"/>' % tuple(_fnum(x) for x in com))
+            L.append('      <mass value="%s"/>' % _fnum(mass))
+            L.append('      <inertia ixx="%s" ixy="0" ixz="0" iyy="%s" iyz="0" izz="%s"/>'
+                     % (_fnum(ixx), _fnum(iyy), _fnum(izz)))
+            L.append('    </inertial>')
+            fn = mesh_files.get(k)
+            if fn:
+                for tag in ("visual", "collision"):
+                    L.append('    <%s>' % tag)
+                    L.append('      <origin xyz="0 0 0" rpy="0 0 0"/>')
+                    L.append('      <geometry>')
+                    L.append('        <mesh filename="meshes/%s"/>' % _esc(fn))
+                    L.append('      </geometry>')
+                    L.append('    </%s>' % tag)
+            else:
+                warnings.append("link %s 无几何：URDF 里没有 visual/collision" % Lk["name"])
+            L.append('  </link>')
+        for ck in sorted(edges, key=lambda x: links[x]["name"]):
+            e = edges[ck]
+            r = e["rec"]
+            child = links[ck]
+            parent = links[e["parent"]]
+            pf = np.asarray(parent["frame"] or [0.0, 0.0, 0.0], dtype=np.float64)
+            cf = np.asarray(child["frame"] or [0.0, 0.0, 0.0], dtype=np.float64)
+            org = (cf - pf) * mpu
+            if r is None:
+                utype, degraded, jname = "fixed", None, e["jid"]
+                axis = [0.0, 0.0, 1.0]
+            else:
+                utype, degraded = _urdf_type(r, warnings)
+                jname = _safe_name(r["id"], "joint")
+                axis = r.get("axis") or [0.0, 0.0, 1.0]
+            L.append('  <joint name="%s" type="%s">' % (_esc(jname), utype))
+            L.append('    <origin xyz="%s %s %s" rpy="0 0 0"/>' % tuple(_fnum(x) for x in org))
+            L.append('    <parent link="%s"/>' % _esc(parent["name"]))
+            L.append('    <child link="%s"/>' % _esc(child["name"]))
+            if utype != "fixed":
+                L.append('    <axis xyz="%s %s %s"/>' % tuple(_fnum(x) for x in axis))
+                attrs = ""
+                if r is not None:
+                    attrs = _urdf_limits_attrs(utype, r, fallback_travel_m, warnings)
+                L.append('    <limit%s effort="%s" velocity="%s"/>'
+                         % (attrs, _fnum(effort), _fnum(velocity if utype != "prismatic" else velocity * mpu)))
+            L.append('  </joint>')
+        L.append('</robot>')
+        text = "\n".join(L) + "\n"
+        path = os.path.join(outdir, robot + ".urdf")
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(text)
+        except Exception as e:
+            return _j({"ok": False, "error": "写 URDF 失败: %s: %s" % (type(e).__name__, e), "path": path})
+
+        chk = _urdf_self_check(text, path, meshdir, mesh_files, root)
+        rec_export = {"kind": "urdf", "path": path, "dir": outdir, "meshes": len(mesh_files),
+                      "bytes": os.path.getsize(path), "links": len(links), "joints": len(edges),
+                      "self_check_ok": chk["ok"], "warnings": len(warnings), "t": _now(),
+                      "note": str(note)}
+        _store()["exports"].append(rec_export)
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+def _motion_export_urdf_p3(st):
+    chk, edges, link_geo, links, mesh_files = (
+        st.get("chk"), st.get("edges"), st.get("link_geo"), st.get("links"), st.get("mesh_files"))
+    meshdir, model_diag_m, mpu, note, outdir = (
+        st.get("meshdir"), st.get("model_diag_m"), st.get("mpu"), st["note"], st.get("outdir"))
+    path, robot, root, t0, units_suspect = (
+        st.get("path"), st.get("robot"), st.get("root"), st.get("t0"), st.get("units_suspect"))
+    warnings = st.get("warnings")
+    try:
+        del _store()["exports"][:-50]
+        _log("export_urdf", {"path": path, "links": len(links), "joints": len(edges),
+                             "self_check_ok": chk["ok"]})
+        if not chk["ok"]:
+            return _j({"ok": False, "error": "URDF 结构自检未通过（产物已写出，但不合格）",
+                       "path": path, "self_check": chk, "warnings": warnings})
+        return _j({"ok": True, "op": "export_urdf", "path": path, "dir": outdir, "mesh_dir": meshdir,
+                   "robot": robot, "root_link": links[root]["name"],
+                   "links": [{"link": links[k]["name"], "objects": links[k]["names"],
+                              "frame_m": _rl(np.asarray(links[k]["frame"] or [0, 0, 0]) * mpu, 6),
+                              "mesh": mesh_files.get(k), "geo": link_geo.get(k)}
+                             for k in sorted(links, key=lambda x: links[x]["name"])],
+                   "joints": [{"joint": e["jid"], "type": (_urdf_type(e["rec"], [])[0] if e["rec"] else "fixed"),
+                               "parent": links[e["parent"]]["name"], "child": links[e["child"]]["name"],
+                               "synthesized": bool(e.get("synthesized")),
+                               "degraded_from": (_urdf_type(e["rec"], [])[1] if e["rec"] else None)}
+                              for e in [edges[c] for c in sorted(edges, key=lambda x: links[x]["name"])]],
+                   "units": {"urdf": "SI（m / rad / kg / kg·m²）",
+                             "meters_per_unit": mpu,
+                             "model_diagonal_m": _r(model_diag_m, 6),
+                             "scene_units_suspect": units_suspect,
+                             "note": "场景单位 × meters_per_unit = 米；OBJ 顶点已是米；"
+                                     "meters_per_unit 可传 \"scene\" 读 scene.unit_settings.scale_length"},
+                   "warnings": warnings, "self_check": chk,
+                   "ms": int((time.perf_counter() - t0) * 1000), "note": str(note)})
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
 def motion_export_urdf(dir=None, name="model", joints=None, meters_per_unit=0.001,
                        density=DEFAULT_DENSITY, masses=None, mesh_format="obj",
                        effort=DEFAULT_EFFORT, velocity=DEFAULT_VELOCITY, fixed_base=False, note=""):
@@ -155,201 +383,11 @@ def motion_export_urdf(dir=None, name="model", joints=None, meters_per_unit=0.00
           （默认 0.001 = 场景 1 单位 = 1 mm，与上游 stage 约定一致；米制场景请传 1.0）。
     惯量：bbox 近似（质心=bbox 中心，盒体公式，填充系数 BBOX_FILL_FACTOR=0.4，质量=体积×密度）。
     """
-    t0 = time.perf_counter()
-    if not dir:
-        return _j({"ok": False, "error": "dir 必填（URDF 与网格写到哪）"})
-    recs, err = _select_joints(joints)
-    if err is not None:
-        return _j(json.loads(err))
-    if not recs:
-        return _j({"ok": False, "error": "没有关节可导出（空产出必须失败）",
-                   "registered": sorted(_store()["joints"])})
-    conf = _group_conflicts(recs)
-    if conf:
-        return _j({"ok": False, "error": "关节分组互相重叠：同一个对象属于多个 link（刚体归属矛盾 → "
-                                        "几何与质量会被重复计入）→ 请把各关节的 parent/child 组改成互不重叠",
-                   "conflicts": conf, "units": {"length": "scene_unit"}})
-    fmt = str(mesh_format or "obj").lower()
-    if fmt not in ("obj", "stl"):
-        return _j({"ok": False, "error": "mesh_format 只支持 obj / stl", "given": fmt})
-    mpu = _mpu_arg(meters_per_unit)
-    robot = _safe_name(name, "model")
-    outdir = _win(dir)
-    meshdir = os.path.join(outdir, "meshes")
-    warnings = []
-    try:
-        os.makedirs(meshdir, exist_ok=True)
-    except Exception as e:
-        return _j({"ok": False, "error": "建目录失败: %s: %s" % (type(e).__name__, e), "dir": outdir})
-
-    tree = _build_tree(recs, warnings)
-    if tree is None:
-        return _j({"ok": False, "error": "关节树为空（没有 link）"})
-    links, edges, root = tree["links"], tree["edges"], tree["root"]
-    dg = bpy.context.evaluated_depsgraph_get()
-    masses = masses or {}
-
-    # 兜底行程（m）：模型 bbox 对角线，下限 0.1 m
-    allV = []
-    for k, L in links.items():
-        v, _f, _p = _group_tris(_objs(L["names"])[0], dg)
-        if len(v):
-            allV.append(v)
-    fallback_travel_m = 0.1
-    model_diag_m = 0.0
-    if allV:
-        mn, mx, _d = _bbox(np.concatenate(allV, axis=0))
-        if mn is not None:
-            model_diag_m = float(np.linalg.norm(mx - mn)) * mpu
-            fallback_travel_m = max(0.1, model_diag_m)
-    units_suspect = _units_warnings(mpu, model_diag_m, warnings)
-
-    # 每 link 一个网格（相对 link 帧，单位 m）
-    mesh_files, link_geo = {}, {}
-    for k, L in links.items():
-        objs, _m, _n = _objs(L["names"])
-        V, F, _parts = _group_tris(objs, dg)
-        if len(V) == 0 or len(F) == 0:
-            warnings.append("link %s 没有可导出的三角面 → URDF 里该 link 无 visual/collision" % L["name"])
-            link_geo[k] = None
-            continue
-        frame = np.asarray(L["frame"] or [0.0, 0.0, 0.0], dtype=np.float64)
-        Vm = (V - frame) * mpu
-        fn = "%s.%s" % (L["name"], fmt)
-        fp = os.path.join(meshdir, fn)
-        try:
-            if fmt == "obj":
-                _write_obj(fp, Vm, F, "DSH motion 导出：link %s / %d 顶点 / %d 三角面 / 单位 m"
-                                       % (L["name"], len(Vm), len(F)))
-            else:
-                _write_stl(fp, Vm, F, "DSH motion link %s" % L["name"])
-        except Exception as e:
-            return _j({"ok": False, "error": "写网格失败 %s: %s" % (fn, str(e)[:160])})
-        mesh_files[k] = fn
-        link_geo[k] = {"verts": int(len(Vm)), "tris": int(len(F)),
-                       "min": _rl(Vm.min(axis=0), 6), "max": _rl(Vm.max(axis=0), 6),
-                       "bytes": os.path.getsize(fp)}
-
-    L = ['<?xml version="1.0" encoding="utf-8"?>',
-         '<!-- DSH motion v%d 导出（纯字符串生成，SI 单位；bbox 近似惯量） -->' % MOTION_VERSION,
-         '<robot name="%s">' % _esc(robot)]
-    if fixed_base:
-        L.append('  <link name="world"/>')
-        L.append('  <joint name="world_to_%s" type="fixed">' % _esc(links[root]["name"]))
-        L.append('    <origin xyz="0 0 0" rpy="0 0 0"/>')
-        L.append('    <parent link="world"/>')
-        L.append('    <child link="%s"/>' % _esc(links[root]["name"]))
-        L.append('  </joint>')
-    for k in sorted(links, key=lambda x: links[x]["name"]):
-        Lk = links[k]
-        V, F, _p = _group_tris(_objs(Lk["names"])[0], dg)
-        frame = np.asarray(Lk["frame"] or [0.0, 0.0, 0.0], dtype=np.float64)
-        dims, mass = [0.0, 0.0, 0.0], 0.0
-        com = [0.0, 0.0, 0.0]
-        if len(V):
-            vloc = (V - frame) * mpu
-            mn, mx = vloc.min(axis=0), vloc.max(axis=0)
-            dims = (mx - mn).tolist()
-            com = ((mn + mx) / 2.0).tolist()
-            vol = max(0.0, dims[0] * dims[1] * dims[2])
-            m_explicit = None
-            for key in (Lk["name"],) + tuple(Lk["names"]):
-                if key in masses:
-                    m_explicit = float(masses[key])
-                    break
-            mass = m_explicit if m_explicit is not None else float(density) * vol * BBOX_FILL_FACTOR
-        ixx = max(MIN_INERTIA, mass / 12.0 * (dims[1] ** 2 + dims[2] ** 2))
-        iyy = max(MIN_INERTIA, mass / 12.0 * (dims[0] ** 2 + dims[2] ** 2))
-        izz = max(MIN_INERTIA, mass / 12.0 * (dims[0] ** 2 + dims[1] ** 2))
-        if mass <= 0:
-            warnings.append("link %s 质量为 0（密度 %g × bbox 体积 × %.2f）→ 惯量夹到 %.0e"
-                            % (Lk["name"], density, BBOX_FILL_FACTOR, MIN_INERTIA))
-        L.append('  <link name="%s">' % _esc(Lk["name"]))
-        L.append('    <inertial>')
-        L.append('      <origin xyz="%s %s %s" rpy="0 0 0"/>' % tuple(_fnum(x) for x in com))
-        L.append('      <mass value="%s"/>' % _fnum(mass))
-        L.append('      <inertia ixx="%s" ixy="0" ixz="0" iyy="%s" iyz="0" izz="%s"/>'
-                 % (_fnum(ixx), _fnum(iyy), _fnum(izz)))
-        L.append('    </inertial>')
-        fn = mesh_files.get(k)
-        if fn:
-            for tag in ("visual", "collision"):
-                L.append('    <%s>' % tag)
-                L.append('      <origin xyz="0 0 0" rpy="0 0 0"/>')
-                L.append('      <geometry>')
-                L.append('        <mesh filename="meshes/%s"/>' % _esc(fn))
-                L.append('      </geometry>')
-                L.append('    </%s>' % tag)
-        else:
-            warnings.append("link %s 无几何：URDF 里没有 visual/collision" % Lk["name"])
-        L.append('  </link>')
-    for ck in sorted(edges, key=lambda x: links[x]["name"]):
-        e = edges[ck]
-        r = e["rec"]
-        child = links[ck]
-        parent = links[e["parent"]]
-        pf = np.asarray(parent["frame"] or [0.0, 0.0, 0.0], dtype=np.float64)
-        cf = np.asarray(child["frame"] or [0.0, 0.0, 0.0], dtype=np.float64)
-        org = (cf - pf) * mpu
-        if r is None:
-            utype, degraded, jname = "fixed", None, e["jid"]
-            axis = [0.0, 0.0, 1.0]
-        else:
-            utype, degraded = _urdf_type(r, warnings)
-            jname = _safe_name(r["id"], "joint")
-            axis = r.get("axis") or [0.0, 0.0, 1.0]
-        L.append('  <joint name="%s" type="%s">' % (_esc(jname), utype))
-        L.append('    <origin xyz="%s %s %s" rpy="0 0 0"/>' % tuple(_fnum(x) for x in org))
-        L.append('    <parent link="%s"/>' % _esc(parent["name"]))
-        L.append('    <child link="%s"/>' % _esc(child["name"]))
-        if utype != "fixed":
-            L.append('    <axis xyz="%s %s %s"/>' % tuple(_fnum(x) for x in axis))
-            attrs = ""
-            if r is not None:
-                attrs = _urdf_limits_attrs(utype, r, fallback_travel_m, warnings)
-            L.append('    <limit%s effort="%s" velocity="%s"/>'
-                     % (attrs, _fnum(effort), _fnum(velocity if utype != "prismatic" else velocity * mpu)))
-        L.append('  </joint>')
-    L.append('</robot>')
-    text = "\n".join(L) + "\n"
-    path = os.path.join(outdir, robot + ".urdf")
-    try:
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(text)
-    except Exception as e:
-        return _j({"ok": False, "error": "写 URDF 失败: %s: %s" % (type(e).__name__, e), "path": path})
-
-    chk = _urdf_self_check(text, path, meshdir, mesh_files, root)
-    rec_export = {"kind": "urdf", "path": path, "dir": outdir, "meshes": len(mesh_files),
-                  "bytes": os.path.getsize(path), "links": len(links), "joints": len(edges),
-                  "self_check_ok": chk["ok"], "warnings": len(warnings), "t": _now(),
-                  "note": str(note)}
-    _store()["exports"].append(rec_export)
-    del _store()["exports"][:-50]
-    _log("export_urdf", {"path": path, "links": len(links), "joints": len(edges),
-                         "self_check_ok": chk["ok"]})
-    if not chk["ok"]:
-        return _j({"ok": False, "error": "URDF 结构自检未通过（产物已写出，但不合格）",
-                   "path": path, "self_check": chk, "warnings": warnings})
-    return _j({"ok": True, "op": "export_urdf", "path": path, "dir": outdir, "mesh_dir": meshdir,
-               "robot": robot, "root_link": links[root]["name"],
-               "links": [{"link": links[k]["name"], "objects": links[k]["names"],
-                          "frame_m": _rl(np.asarray(links[k]["frame"] or [0, 0, 0]) * mpu, 6),
-                          "mesh": mesh_files.get(k), "geo": link_geo.get(k)}
-                         for k in sorted(links, key=lambda x: links[x]["name"])],
-               "joints": [{"joint": e["jid"], "type": (_urdf_type(e["rec"], [])[0] if e["rec"] else "fixed"),
-                           "parent": links[e["parent"]]["name"], "child": links[e["child"]]["name"],
-                           "synthesized": bool(e.get("synthesized")),
-                           "degraded_from": (_urdf_type(e["rec"], [])[1] if e["rec"] else None)}
-                          for e in [edges[c] for c in sorted(edges, key=lambda x: links[x]["name"])]],
-               "units": {"urdf": "SI（m / rad / kg / kg·m²）",
-                         "meters_per_unit": mpu,
-                         "model_diagonal_m": _r(model_diag_m, 6),
-                         "scene_units_suspect": units_suspect,
-                         "note": "场景单位 × meters_per_unit = 米；OBJ 顶点已是米；"
-                                 "meters_per_unit 可传 \"scene\" 读 scene.unit_settings.scale_length"},
-               "warnings": warnings, "self_check": chk,
-               "ms": int((time.perf_counter() - t0) * 1000), "note": str(note)})
+    st = dict(locals())
+    for _fn_ in (_motion_export_urdf_p1, _motion_export_urdf_p2, _motion_export_urdf_p3):
+        _r = _fn_(st)
+        if _r is not None:
+            return _r
 
 
 def _write_obj(path, V, F, header):

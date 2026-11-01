@@ -5,16 +5,16 @@ from .plan import _aggregate, _collect_echo, _eval_pass_if, _path_get, _status_o
 from .run import gate_run
 
 
-def gate_selftest():
-    """自检：造一个"该过"的场景 + 一个"该挂"的门，断言三态判定与 pass_if/degrade_if/skipped 语义都对。
+def _gate_selftest_p1(st):
+    try:
+        import bmesh
+        ev = {}
+        made = []
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
 
-    v3（F8）新增断言：① 任一 skipped/degraded ⇒ 顶层 degraded（pass+skipped 不再算 pass）；
-    ② print preset 的 degrade_if（真实字段：min_mm vs resolution_mm）在真机回执上把"判据为真但分辨率
-    不可信"的门判成 degraded，且 echo 与 receipt 里的真实值一致。
-    """
-    import bmesh
-    ev = {}
-    made = []
+def _gate_selftest_p2a(st):
+    bmesh, ev, made = st["bmesh"], st["ev"], st["made"]
     try:
         me = bpy.data.meshes.new("__dsh_gate_selftest")
         ob = bpy.data.objects.new("__dsh_gate_selftest", me)
@@ -59,6 +59,12 @@ def gate_selftest():
                               and u["error"] == "error" and u["agg_degraded"] == "degraded"
                               and u["agg_fail_beats_degraded"] == "fail" and u["agg_all_pass"] == "pass")
         # v0.9.6（F2）单元级：**嵌套三态**（audit_connectivity 的门结论在 gate 里）+ **skipped 汇总（v3 收紧）**
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+def _gate_selftest_p2b(st):
+    ev = st["ev"]
+    try:
         ev["nested_tri_unit"] = {
             "conn_pass": _status_of({"ok": True, "analyzed": True, "gate": {"ok": True, "state": "pass", "verdict": "pass"}}),
             "conn_fail": _status_of({"ok": True, "analyzed": True, "gate": {"ok": False, "state": "fail", "verdict": "fail"}}),
@@ -149,6 +155,13 @@ def gate_selftest():
         # bed_warning ⇒ print_report 顶层 warnings 非空、echo 也带出来。
         # 注：这条只证「warnings 确实产生 + 确实被 echo + 门确实 degraded」；「仅凭 warnings 就能降级」
         # 由上面的合成回执 _warned 单独锁（那条的分辨率是 0.1mm ⇒ 排除分辨率因素）。
+    finally:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+def _gate_selftest_p2c(st):
+    bmesh, ev, made, ob, ok1 = st["bmesh"], st["ev"], st["made"], st["ob"], st["ok1"]
+    r2 = st["r2"]
+    try:
         import mathutils as _mu
         tilt_me = bpy.data.meshes.new("__dsh_gate_selftest_tilt")
         tilt_ob = bpy.data.objects.new("__dsh_gate_selftest_tilt", tilt_me)
@@ -214,10 +227,28 @@ def gate_selftest():
                   and (ev.get("bad_field") or {}).get("state") == "error"
                   and "没有的字段" in ((ev.get("bad_field") or {}).get("error") or ""))
         return _j({"ok": ok, "evidence": ev})
-    except Exception as e:
-        return _j({"ok": False, "evidence": ev, "error": "%s: %s" % (type(e).__name__, str(e)[:220])})
     finally:
-        for nm in made:
+        st.update((k, v) for k, v in locals().items() if k != "st")
+
+def gate_selftest():
+    """自检：造一个"该过"的场景 + 一个"该挂"的门，断言三态判定与 pass_if/degrade_if/skipped 语义都对。
+
+    v3（F8）新增断言：① 任一 skipped/degraded ⇒ 顶层 degraded（pass+skipped 不再算 pass）；
+    ② print preset 的 degrade_if（真实字段：min_mm vs resolution_mm）在真机回执上把"判据为真但分辨率
+    不可信"的门判成 degraded，且 echo 与 receipt 里的真实值一致。
+    """
+    st = dict(locals())
+    _gate_selftest_p1(st)
+    try:
+        for _fn_ in (_gate_selftest_p2a, _gate_selftest_p2b, _gate_selftest_p2c):
+            _r = _fn_(st)
+            if _r is not None:
+                return _r
+    except Exception as e:
+        return _j({"ok": False, "evidence": st.get("ev"),
+                   "error": "%s: %s" % (type(e).__name__, str(e)[:220])})
+    finally:
+        for nm in (st.get("made") or []):
             o = bpy.data.objects.get(nm)
             if o is not None:
                 m = o.data
@@ -226,6 +257,7 @@ def gate_selftest():
                     bpy.data.meshes.remove(m, do_unlink=True)
                 except Exception:
                     pass
+
 
 
 def gate_help():
