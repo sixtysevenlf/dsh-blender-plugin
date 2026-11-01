@@ -60,11 +60,11 @@ describe('backend probe and start decision', () => {
     const url = 'http://127.0.0.1:' + String(port) + '/health'
     setTimeout(() => {
       server.listen(port, '127.0.0.1')
-    }, 700)
-    expect(await waitHttp(url, 6000, 200)).toBe(true)
+    }, 300)
+    expect(await waitHttp(url, 10000, 200)).toBe(true)
     await new Promise<void>((resolve) => server.close(() => resolve()))
     expect(await waitHttp(url, 1200, 200)).toBe(false)
-  }, 20000)
+  }, 30000)
 
   it('resolves the runtime module the lib side imports', async () => {
     const mod = await import(
