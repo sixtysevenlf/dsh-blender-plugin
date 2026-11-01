@@ -1,8 +1,10 @@
 # CHANGELOG — dsh-blender-plugin
 
-## Unreleased
+## v3.0.2（2026-11-02）—— Node.js 24.9 基线
 
-- 开发与 CI 基线升级到 Node.js 24.9（Node 24）；TypeScript 对齐 DSH 的 6.0.3，`@types/node` 对齐 24.x，`jsdom` 对齐 DSH 的 29.1.1；npm 11.6+ 随 Node 24.9 提供。
+- 最低 Node.js 版本提升到 24.9，与 DSH 当前要求一致；CI/CD 使用 Node 24。
+- 开发工具链对齐 DSH：TypeScript 6.0.3、jsdom 29.1.1；`@types/node` 对齐 24.x。
+- npm 发布改用 trusted publishing（OIDC），不再依赖 `NPM_TOKEN`。
 
 ## v3.0.1（2026-11-02）—— Python 静态检查与 IDE 收尾
 
