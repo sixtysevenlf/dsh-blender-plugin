@@ -32,7 +32,8 @@ Targets were written first, then each legacy file was deleted (plan section 6.7)
 | tests/ledger_recover_selftest.mjs | migrated | tests/unit/js/ledger-recover.test.ts | migrated |  |
 | tests/linux_selftest.mjs | merged | tests/unit/js/platform-paths.test.ts | merged | merged with mac_selftest.mjs into a platform decision table |
 | tests/mac_selftest.mjs | merged | tests/unit/js/platform-paths.test.ts | merged | merged with linux_selftest.mjs; macOS branch skipIf on this host |
-| tests/windows_hide_selftest.mjs | migrated | tests/unit/js/static/windows-hide.test.ts | migrated | static source guard |`
+| tests/windows_hide_selftest.mjs | migrated | tests/unit/js/static/windows-hide.test.ts | migrated | static source guard |
+| tests/win_spawn_selftest.mjs | migrated | tests/unit/js/win-spawn.test.ts | migrated | issue #51: win32 spawn/port cleanup + parser/wiring guards |`
 
 ## 2. Integration layer (JS)
 

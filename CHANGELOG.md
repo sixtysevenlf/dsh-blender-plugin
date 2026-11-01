@@ -22,6 +22,10 @@
 - 行为矩阵 346 rows（344 covered / 0 planned / 2 exempt），覆盖 15 tools / 38 commands / 34 families / 228 ops / 29 routes。
 - C5 以 f001e1d 为基线（ADR 0005）：JS 71.38 lines / 69.09 branches / 74.31 functions；changed lines 71.5%；Python pure 76.95 lines / 71.71 branches；critical 与 executionModules floor 全过。
 
+### 修复
+
+- **win32 后端子进程启动失败不再打死宿主（#51）**：`spawnChild` 显式传 `ELECTRON_RUN_AS_NODE=1` 与 `windowsHide:true`，并在 `unref()` 前挂 `error` 监听；win32 残留后端清理走 `runtime/win_proc.ts`（CIM → netstat/tasklist → taskkill /T /F），`EADDRINUSE` 自愈恢复；catalog 探针同修。
+
 ### Phase R：runtime TypeScript
 
 - 原 60 个 runtime/*.mjs（7,307 行）迁为 strict TypeScript，编译到 lib/runtime/*.js；T5b 又拆出 headless 与 plan-dispatch 子模块，当前自有 runtime TS 为 82 个模块。

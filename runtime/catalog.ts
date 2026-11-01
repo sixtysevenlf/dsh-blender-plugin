@@ -724,7 +724,8 @@ export function probeDiskCatalog(timeoutMs: unknown): DiskCatalog {
       encoding: 'utf8',
       timeout: Math.max(2000, Math.min(30000, Number(timeoutMs) || 8000)),
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: Object.assign({}, process.env, { DSH_PROVENANCE_PROBE: '1' }),
+      // issue #51：宿主在 Electron 里时 process.execPath 是 GUI 可执行体；探针子进程必须走 node 模式。
+      env: Object.assign({}, process.env, { DSH_PROVENANCE_PROBE: '1', ELECTRON_RUN_AS_NODE: '1' }),
       // windowsHide: node.exe 是 console-subsystem，宿主无控制台时会被新配控制台（issue #43；非 Windows no-op）
       windowsHide: true,
     })

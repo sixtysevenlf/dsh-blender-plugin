@@ -1,23 +1,47 @@
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { errorMessage } from '../json.js'
+import { PY_ROOT } from '../../paths.js'
 
 const RUNTIME_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+const PACKAGE_ROOT = path.dirname(PY_ROOT)
+
+export interface ExtPaths {
+  extDir: string
+  gltfRunner: string
+  open3dRunner: string
+  gltfRunnerExists: boolean
+  open3dRunnerExists: boolean
+}
+
+/** Resolve both source and built layouts without hard-coding .mjs / lib paths. */
+export function resolveExtPaths(): ExtPaths {
+  const extDir = path.join(PACKAGE_ROOT, 'runtime', 'ext')
+  const builtRunner = path.join(RUNTIME_DIR, 'ext', 'gltf_validate_runner.js')
+  const sourceRunner = path.join(extDir, 'gltf_validate_runner.ts')
+  const gltfRunner = fs.existsSync(builtRunner) ? builtRunner : sourceRunner
+  const open3dRunner = path.join(PY_ROOT, 'py', 'export', 'open3d_check.py')
+  return {
+    extDir,
+    gltfRunner,
+    open3dRunner,
+    gltfRunnerExists: fs.existsSync(gltfRunner),
+    open3dRunnerExists: fs.existsSync(open3dRunner),
+  }
+}
 
 /** External validators (glTF-Validator / open3d) run locally and never take a Blender round-trip. */
 export async function extCheckOp(op: string, payload?: unknown): Promise<unknown> {
   const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {}
   const cp = await import('node:child_process')
-  const extDir = path.join(RUNTIME_DIR, 'ext')
+  const { extDir, gltfRunner, open3dRunner } = resolveExtPaths()
   const winPath = String(p.path || '')
   const wslPath = /^[A-Za-z]:[\\/]/.test(winPath)
     ? '/mnt/' + winPath[0].toLowerCase() + winPath.slice(2).replace(/\\/g, '/')
     : winPath
   // T8：open3d_check.py 已随导出域移入 runtime/py/export/；ext/ 只留 venv 与 gltf_validate_runner.mjs。
-  const runner =
-    op === 'gltf_validate'
-      ? path.join(extDir, 'gltf_validate_runner.mjs')
-      : path.join(RUNTIME_DIR, 'py', 'export', 'open3d_check.py')
+  const runner = op === 'gltf_validate' ? gltfRunner : open3dRunner
   // 后端跑在 WSL 时 node 看到的是 Linux 文件系统：**先给 WSL 路径**；在 Windows 时反过来。
   const isWin = process.platform === 'win32'
   const first = isWin ? winPath : wslPath

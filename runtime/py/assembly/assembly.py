@@ -5,45 +5,15 @@
 runtime/assembly.py shim、K.dsh_assembly_api 仍从本文件进入。实现包保持原函数顺序与
 全局名，避免把 4k 行单文件继续堆在领域包根。
 """
+import importlib
 import os
 import sys
 
-def _dsh_root():
-    """定位插件根（runtime 的上一级），使 runtime.py.* 可 import。"""
-    K = sys.modules.get("dsh_rt_kernel")
-    runtime_dir = getattr(K, "runtime_dir", None) if K is not None else None
-    candidates = []
-    if runtime_dir:
-        p = os.path.abspath(str(runtime_dir))
-        for _ in range(4):
-            candidates.append(p)
-            p = os.path.dirname(p)
-    try:
-        here = os.path.dirname(os.path.abspath(__file__))
-        candidates.extend([here,
-                           os.path.dirname(here),
-                           os.path.dirname(os.path.dirname(here)),
-                           os.path.dirname(os.path.dirname(os.path.dirname(here)))])
-    except NameError:
-        pass
-    for cand in candidates:
-        marker = os.path.join(cand, "runtime", "py", "assembly", "assembly_impl", "__init__.py")
-        if os.path.isfile(marker):
-            return cand
-    return None
+_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
-
-def _dsh_impl():
-    root = _dsh_root()
-    if root is None:
-        raise RuntimeError("assembly facade 找不到插件根（runtime/py/assembly/assembly_impl）")
-    if root not in sys.path:
-        sys.path.insert(0, root)
-    import importlib
-    return importlib.import_module("runtime.py.assembly.assembly_impl")
-
-
-_impl = _dsh_impl()
+_impl = importlib.import_module("runtime.py._facade").load_impl("assembly", "assembly")
 for _name in getattr(_impl, "__all__", ()):
     globals()[_name] = getattr(_impl, _name)
 del _name
