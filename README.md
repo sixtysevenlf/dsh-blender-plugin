@@ -50,11 +50,11 @@ This is the supported installation path. It does not require `git clone`, `npm c
 
    - **DSH Web or DSH TUI:** install into the profile you actually run:
 
-         dsh plugin --profile <profile> add dsh-blender-plugin@3.0.0
+         dsh plugin --profile <profile> add dsh-blender-plugin@3.0.1
 
      Then restart DSH in step 3.
 
-   - **DSH Desktop:** open the Plugins page and install the bundle `dsh-blender-plugin@3.0.0`. DSH Desktop applies the bundle from the Plugins page and does not need a DSH restart.
+   - **DSH Desktop:** open the Plugins page and install the bundle `dsh-blender-plugin@3.0.1`. DSH Desktop applies the bundle from the Plugins page and does not need a DSH restart.
 
 3. **Restart DSH (DSH Web and DSH TUI only).** If you installed from the DSH Desktop Plugins page, skip this step.
 
@@ -78,7 +78,7 @@ Copy this prompt into an agent that can run commands:
     port 9876), disable it; do not uninstall the user's other addons and
     do not ask them to.
     Then install the DSH × Blender plugin from npm for my DSH profile:
-    dsh plugin --profile <profile> add dsh-blender-plugin@3.0.0
+    dsh plugin --profile <profile> add dsh-blender-plugin@3.0.1
     Read docs/AI-安装提示词.md first, follow it exactly,
     and finish with the acceptance check: doctor must return kind=ok for the
     GUI route, or worker start + see must return a frame for the headless-only route.

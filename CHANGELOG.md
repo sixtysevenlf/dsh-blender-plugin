@@ -1,5 +1,16 @@
 # CHANGELOG — dsh-blender-plugin
 
+## v3.0.1（2026-11-02）—— Python 静态检查与 IDE 收尾
+
+> 不新增建模能力；清理 Ruff allowlist、pyright 噪音与 native E2E 的全局注入，重建 addon zip。
+
+- 删除 config/python-static-allowlist.json；`npm run check:python-static` 直接跑 Ruff，不再维护历史例外。
+- native E2E 的 upstream 模块改用显式 import + `support.bind(ctx)`，不再通过 globals() 注入 PREFIX/api/chk/K。
+- 根 pyrightconfig 仅对 legacy native E2E 与 runtime/py 关闭诊断；typed-core 与 pure-logic scope 仍严格。
+- 修复 addon 的 2 个 pyright error，逐项 triage 29 个 warning；不新增 baseline。
+- 增加 NumPy 类型检查依赖（仅开发/IDE；Blender 运行时自带 NumPy）。
+- 重建 addon/dsh_blender_bridge.zip；安装命令为 `dsh plugin --profile <profile> add dsh-blender-plugin@3.0.1`。
+
 ## v3.0.0（2026-11-01）—— 工程健康化重构（breaking：addon 改 zip 包）
 
 > 模型工具 15 个；plan catalog 34 family / 228 op；addon command 38 个、protocol 11；
