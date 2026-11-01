@@ -82,4 +82,5 @@ if _K is not None:
                             "render_lock": render_lock, "lock": render_lock,
                             "view_menu_full_text": view_menu_full_text, "vt_options": _vt_options,
                             "default_views_fallback": list(DEFAULT_VIEWS_FALLBACK),
-                            "default_views_legacy": list(DEFAULT_VIEWS_LEGACY)})
+                            "default_views_legacy": list(DEFAULT_VIEWS_LEGACY)},
+                           default_op="render_views")

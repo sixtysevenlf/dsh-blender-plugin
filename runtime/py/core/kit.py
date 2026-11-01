@@ -137,11 +137,20 @@ class Api(dict):
 
     历史坑：API 曾是普通 dict ⇒ 进程内 `api(args)` 报 TypeError: dict object is not callable；
     两个模块各自写了转换 shim。这里统一定义，模块不要再自己造。
+
+    default_op 是模块级契约：`api({...})` 使用它分派；未声明时保持历史的 help 行为。
+    `api()` 始终是 help，`api["dispatch"](op, json)` 仍返回原始 str。
     """
 
+    def __init__(self, *args, default_op="help", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.default_op = str(default_op or "help")
+
     def __call__(self, op=None, args=None, **kw):
-        if op is None or isinstance(op, dict):
-            args, op = (op if isinstance(op, dict) else args), "help"
+        if isinstance(op, dict):
+            args, op = op, self.default_op
+        elif op is None:
+            op = "help"
         payload = args if isinstance(args, str) else j(dict(args or {}, **kw))
         out = self["dispatch"](str(op), payload)
         return out if isinstance(out, dict) else json.loads(out)
@@ -150,7 +159,7 @@ class Api(dict):
         return self(op, args, **kw)
 
 
-def register(name, version, ops, dispatch=None, extra=None):
+def register(name, version, ops, dispatch=None, extra=None, default_op="help"):
     """把 `K.dsh_<name>_api` 注册成标准 Api（模块尾部一行搞定，别再手写 _DshApi）。
 
     ops: {"op名": 可调用}  —— 同时成为 API 的键，便于 `K.dsh_x_api["op"](...)` 直接调。
@@ -161,7 +170,7 @@ def register(name, version, ops, dispatch=None, extra=None):
     for k, v in (ops or {}).items():
         d[k] = v
     d.update(extra or {})
-    a = Api(d)
+    a = Api(d, default_op=default_op)
     setattr(_kernel(), "dsh_%s_api" % name, a)
     return a
 
