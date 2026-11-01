@@ -34,17 +34,15 @@ plan catalog 应能列出 **34 family / 228 op**。
 
 ## 2. 安装插件
 
-~~~bash
-cd <插件目录>          # 解包后的 dsh-blender-plugin/
-ls lib/index.js        # ← 先构建，有这个文件才可用（本仓库不提交 lib/）
+普通用户从 npm 安装（不需要 clone 或构建）：
 
-# 构建（新 clone 必须）：
-npm ci --legacy-peer-deps && npm run build
+~~~bash
+dsh plugin --profile <profile> add dsh-blender-plugin@3.0.0
+dsh --profile <profile> --dump-config | grep -A3 dsh-blender-plugin
+# 然后重启 DSH
 ~~~
 
-然后按 bundle 方式装进 profile：`node_modules/dsh-blender-plugin` 建软链 →
-profile 的 `package.json` 里 `dependencies`（`link:`）+ `dsh.profile.bundles` 各加一行 →
-`dsh --profile <profile> --dump-config` 预演 → 重启 DSH。
+只有修改插件源码时才需要 clone + `npm ci --legacy-peer-deps` + `npm run build`，再把 checkout 以 `link:` 方式装进 profile。
 
 ## 3. 连接 Blender addon（人工一步）
 

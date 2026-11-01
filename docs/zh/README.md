@@ -35,20 +35,44 @@ DSH × Blender 把 DeepSeek Harness 接到 Blender，让 AI 能在真实 Blender
 ### 前置条件
 
 - 已安装并可用的 DSH（DeepSeek Harness）。
-- Node.js **22.17** 或更高版本（后端运行环境）；CI 与测试基线为 Node.js **22.17**，Node.js 20 未验证。
+- 从 npm 安装时不需要单独安装 Node.js；只有从源码构建才需要 Node.js **22.17** 或更高版本。CI 与测试基线为 Node.js **22.17**，Node.js 20 未验证。
 - Blender **4.2 LTS** 是已验证版本；4.x 可能可用，5.x 尚未验证。GUI 模式必须先安装随包 addon；无头模式只需要能找到 Blender 可执行文件。
 - addon 兼容性：随包 addon 是唯一需要、也是唯一支持的 agent 桥。其他 addon 与之不冲突；旧的 `MCP for Blender` / `blender_mcp` 冲突（同占 127.0.0.1:9876），停用即可，不必卸载。
 - 可选：如果你想重新构建插件，需要 DSH 源码 checkout。
 
-### 方案 A：让 AI 帮你装
+### 方案 A：从 npm 安装（普通用户）
+
+这是普通用户的支持路径，不需要 `git clone`、`npm ci` 或 `npm run build`。
+
+1. **先安装随包 addon。** 从 [最新 GitHub Release](https://github.com/sixtysevenlf/dsh-blender-plugin/releases/latest) 下载 `dsh_blender_bridge.zip`；在 Blender 中打开 `Edit > Preferences > Add-ons > Install`，选择 zip，启用 **DSH Blender Bridge**，在 3D 视图按 `N` 打开面板，点 **Connect**。
+
+2. **从 npm 安装 DSH 插件。** 使用你实际运行的 profile：
+
+        dsh plugin --profile <profile> add dsh-blender-plugin@3.0.0
+
+   如果使用 DSH Desktop，也可以在 Plugins 页面安装 bundle `dsh-blender-plugin@3.0.0`。
+
+3. **重启 DSH**。
+
+4. **验证安装。** GUI 路线的唯一验收判据是 `doctor` 返回 `kind` 等于 `ok`：
+
+        curl -sS http://127.0.0.1:9877/doctor
+
+   GUI 路线：`curl -sS http://127.0.0.1:9877/health` 和 `/doctor`，`doctor.kind` 必须是 `ok`。
+
+   纯无头路线（不装 addon）：`blender_rt_worker(op="start")` 后接 `op="see"`，必须返回一帧图。
+
+addon 仍然是唯一支持的 Blender 侧 agent 桥。其他占用 9876 端口的桥接 addon 要停用；普通建模、材质、渲染、资产类 addon 不受影响。
+
+### 方案 B：让 AI 帮你装
 
 把下面这段提示词交给能执行命令的 AI：
 
-    请先安装并启用本仓库提供的 addon：addon/dsh_blender_bridge.zip。
+    请先安装并启用最新 GitHub Release 提供的 addon：dsh_blender_bridge.zip。
     如果已有桥接类 addon（MCP for Blender / blender_mcp，或任何在 9876 端口
     提供服务的 addon），先停用它；不要卸载用户的其他 addon，也不要要求用户这么做。
-    然后从 https://github.com/sixtysevenlf/dsh-blender-plugin
-    安装 DSH × Blender 插件到我的 DSH profile。
+    然后从 npm 安装 DSH × Blender 插件到我的 DSH profile：
+    dsh plugin --profile <profile> add dsh-blender-plugin@3.0.0
     先读 docs/AI-安装提示词.md 并严格照做；
     最后必须验收：GUI 路线 doctor 返回 kind=ok，
     纯无头路线用 worker start + see 能返回一帧图。
@@ -62,7 +86,7 @@ DSH × Blender 把 DeepSeek Harness 接到 Blender，让 AI 能在真实 Blender
 
     curl -fsSL https://raw.githubusercontent.com/sixtysevenlf/dsh-blender-plugin/main/skills/blender-modeling/install.sh | bash
 
-### 方案 B：手动安装
+### 方案 C：从源码手动安装（开发者）
 
 1. **先安装随包 addon。**
 
@@ -70,7 +94,7 @@ DSH × Blender 把 DeepSeek Harness 接到 Blender，让 AI 能在真实 Blender
 
    只能用这个 addon 作为 agent 桥。若已启用 `MCP for Blender` / `blender_mcp`（或其他自带 9876 服务的 addon），停用它即可，不必卸载；其他 addon 可以留着。如果后面的安装用不了，先回来检查这一步。
 
-2. 克隆仓库并构建。lib/ 是构建产物，不再入库，所以新 clone 必须先构建一次。
+2. **开发者路径：** 克隆仓库并构建。lib/ 是构建产物，不再入库，所以新 clone 必须先构建一次；普通用户请使用上面的 npm 安装。
 
         git clone https://github.com/sixtysevenlf/dsh-blender-plugin.git
         cd dsh-blender-plugin
