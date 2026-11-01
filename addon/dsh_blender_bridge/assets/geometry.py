@@ -15,8 +15,8 @@ def compute_aabb(obj):
     world_bbox_corners = [obj.matrix_world @ corner for corner in local_bbox_corners]
 
     # Compute axis-aligned min/max coordinates
-    min_corner = mathutils.Vector(map(min, zip(*world_bbox_corners)))
-    max_corner = mathutils.Vector(map(max, zip(*world_bbox_corners)))
+    min_corner = mathutils.Vector(tuple(min(axis) for axis in zip(*world_bbox_corners)))
+    max_corner = mathutils.Vector(tuple(max(axis) for axis in zip(*world_bbox_corners)))
 
     return [
         [*min_corner], [*max_corner]

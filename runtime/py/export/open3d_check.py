@@ -7,7 +7,6 @@ import sys
 def main():
     p = sys.argv[1] if len(sys.argv) > 1 else ""
     try:
-        import numpy as np
         import open3d as o3d
     except Exception as e:
         print("EXT " + json.dumps({"ok": False, "installed": False,

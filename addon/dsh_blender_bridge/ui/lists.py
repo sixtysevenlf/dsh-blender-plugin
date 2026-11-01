@@ -11,7 +11,7 @@ from ..recorders.activity import get_activity_tracker
 
 LIST_UI_CAP = 500
 
-_LAST_UI_STATE_KEY = {"key": None}
+_LAST_UI_STATE_KEY: dict[str, object] = {"key": None}
 
 
 class DSHBB_SelectionItem(bpy.types.PropertyGroup):
@@ -143,7 +143,6 @@ def _sync_ui_list(collection, entries):
 
 # 面板绘制异常记录：写场景属性 + 日志文件（用户不方便看控制台时也能诊断）
 def log_panel_error(tb):
-    import traceback
     text = str(tb)[-4000:]
     try:
         base = bpy.app.tempdir or tempfile.gettempdir()

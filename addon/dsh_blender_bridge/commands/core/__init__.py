@@ -102,7 +102,7 @@ class CoreCommands(SceneExportMixin, BpyApiLookupCommands, ScreenshotCommands):
             obj_info["world_bounding_box"] = bounding_box
 
         # Add material slots
-        for slot in obj.material_slots:
+        for slot in obj.material_slots:  # pyright: ignore[reportGeneralTypeIssues]
             if slot.material:
                 obj_info["materials"].append(slot.material.name)
 

@@ -206,7 +206,6 @@ def _mask_array(me):
 
 def _dab_points(points, radius, spacing_frac=0.25):
     """把控制点插值成 dab 序列（相邻点间距 > radius*spacing_frac 就补点）。"""
-    import numpy as np
     pts = [Vector(p) for p in points]
     if len(pts) == 1:
         return [[float(c) for c in pts[0]]]
@@ -675,7 +674,6 @@ def sculpt_remesh(objects=None, scope="ACTIVE", object=None, mode="VOXEL", voxel
 
 def sculpt_selftest():
     """自检：临时球体 → 位移笔刷 → 体素重构 → 断言确实改了几何 → 删净。"""
-    import numpy as np
     before = set(o.name for o in bpy.data.objects)
     me = bpy.data.meshes.new("__dsh_sculpt_selftest")
     ob = bpy.data.objects.new("__dsh_sculpt_selftest", me)

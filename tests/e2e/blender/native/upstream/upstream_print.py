@@ -6,13 +6,10 @@ the native runner. The support module binds K and the original helper names to c
 """
 from __future__ import annotations
 
-import json
-import math
 
-import bmesh
-import bpy
 
 import support as U
+from support import PREFIX, api, chk, new_plate, new_sphere
 
 
 
@@ -56,5 +53,5 @@ def t_print():
 
 
 def test_print(ctx):
-    U.install(globals(), ctx)
+    U.bind(ctx)
     U.run([t_print], "上游整合 A3 打印检查（原 upstream_integration_selftest.py 拆分）")

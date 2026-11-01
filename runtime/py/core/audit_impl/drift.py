@@ -79,7 +79,6 @@ def _src_tris(src):
 
 
 def _normalize_tris(tris):
-    import numpy as np
     p = tris.reshape(-1, 3)
     lo, hi = p.min(axis=0), p.max(axis=0)
     c = (lo + hi) / 2.0
@@ -110,7 +109,6 @@ BVH_MAX_TRIS = 0             # **0 = 不设上限（默认全跑）**；显式�
 
 def _surface_mean_dist(P, tris_target):
     """P 每点到目标三角面集合的最近距离均值 —— BVHTree（C 实现）= 点到**曲面**，不是点到点。"""
-    import numpy as np
     from mathutils.bvhtree import BVHTree
     V = tris_target.reshape(-1, 3).tolist()
     polys = [(3 * i, 3 * i + 1, 3 * i + 2) for i in range(len(tris_target))]
@@ -133,7 +131,6 @@ def _nn_mean(P, Q, cell=None, fast=True):
     与 Procedura 的 cell≈2/cbrt(N) 同口径）—— 比逐点慢路径快约一个量级；任何异常/退化
     （单格点数 >32、孤立点）都回退到慢路径，结果口径不变。
     """
-    import numpy as np
     if len(P) == 0 or len(Q) == 0:
         return float("nan")
     if cell is None:

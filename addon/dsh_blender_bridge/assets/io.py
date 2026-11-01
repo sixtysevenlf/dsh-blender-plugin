@@ -7,7 +7,7 @@ import tempfile
 import os
 import shutil
 import os.path as osp
-from contextlib import contextmanager, redirect_stdout, suppress
+from contextlib import suppress
 
 from .geometry import compute_aabb
 

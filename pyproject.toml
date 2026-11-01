@@ -15,10 +15,10 @@ markers = [
 ]
 
 [tool.ruff]
-# Python static quality gate for the add-on, runtime Python and tests. The
-# historical baseline is tracked by config/python-static-allowlist.json; new
-# violations fail `npm run check:python-static`. Broad style rules are
-# deliberately not enabled here: formatting is a separate concern.
+# Python static quality gate for the add-on, runtime Python and tests. Every
+# violation fails `npm run check:python-static`; there is no checked-in
+# baseline. Broad style rules are deliberately not enabled here: formatting is
+# a separate concern.
 target-version = "py311"
 line-length = 120
 

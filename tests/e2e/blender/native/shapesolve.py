@@ -7,11 +7,9 @@ ctx.test_dir, and the archived main_safe/HEADLESS/sys.exit tail is gone.
 """
 
 import json
-import math
 import os
 import sys
 import tempfile
-import traceback
 
 HERE = os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else os.getcwd()
 RT = os.path.normpath(os.path.join(HERE, "..", "runtime"))

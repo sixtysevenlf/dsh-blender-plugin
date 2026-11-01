@@ -249,7 +249,6 @@ import sys as _sys
 _K = _sys.modules.get("dsh_rt_kernel")
 def montage_selftest():
     # 拼图自检：两张 8x8 纯色 PNG -> 拼成 2 列 -> 检查产物落盘
-    import json
 
     def _d(x):
         return json.loads(x) if isinstance(x, str) else x

@@ -6,20 +6,19 @@ the native runner. The support module binds K and the original helper names to c
 """
 from __future__ import annotations
 
-import json
 import math
 
-import bmesh
 import bpy
 
 import support as U
+from support import PREFIX, chk
 
 
 
 def t_rectify_and_polyline():
     """照片透视校正（四角单应）与折线族拟合（更强形状族 + K 扫描）。"""
-    img = getattr(K, "dsh_img_api", None)  # noqa: F821
-    v = getattr(K, "dsh_vehicle_api", None)  # noqa: F821
+    img = getattr(U.K, "dsh_img_api", None)
+    v = getattr(U.K, "dsh_vehicle_api", None)
     if img is None or v is None:
         raise RuntimeError("模块没注入：K.dsh_img_api / K.dsh_vehicle_api")
     prof = [(0, 400, 110, 600), (400, 430, 110, 780), (900, 470, 289, 900), (1400, 560, 110, 925),
@@ -41,8 +40,7 @@ def t_rectify_and_polyline():
 
 def t_feature_lines():
     """特征线层：折痕落在指定高度/位置；凹陷按 A/B 量出真实收窄；横向线自动插站。"""
-    import bpy  # noqa: F401
-    v = getattr(K, "dsh_vehicle_api", None)  # noqa: F821
+    v = getattr(U.K, "dsh_vehicle_api", None)
     if v is None:
         raise RuntimeError("模块没注入：K.dsh_vehicle_api")
     prof = [(0, 400, 110, 600), (400, 430, 110, 780), (900, 470, 289, 900), (1400, 560, 110, 925),
@@ -76,8 +74,7 @@ def t_feature_lines():
 
 def t_crease_radius():
     """圆角特征线：radius_mm 走 Bevel 权重 + Bevel 修改器（真半径圆弧，而非折痕权重近似）。"""
-    import bpy  # noqa: F401
-    v = getattr(K, "dsh_vehicle_api", None)  # noqa: F821
+    v = getattr(U.K, "dsh_vehicle_api", None)
     if v is None:
         raise RuntimeError("模块没注入：K.dsh_vehicle_api")
     prof = [(0, 400, 110, 600), (400, 430, 110, 780), (900, 470, 289, 900), (1400, 560, 110, 925),
@@ -104,7 +101,7 @@ def t_crease_radius():
 
 def t_shape_layer():
     """通用还原方法层：类别协议齐全 + 旋转体通路 + 委托量具/放样仍可用。"""
-    sh = getattr(K, "dsh_shape_api", None)  # noqa: F821
+    sh = getattr(U.K, "dsh_shape_api", None)
     if sh is None:
         raise RuntimeError("模块没注入：K.dsh_shape_api（preload 里加 shapegen？）")
     st = sh("selftest", {})
@@ -136,10 +133,9 @@ def t_shape_layer():
 
 def t_shape_extensions():
     """通用还原扩展：自定义/非对称截面（翼型）· 圆角 G2 控制 · 旋转体多体量装配。"""
-    import math
     import bpy  # noqa: F401
-    v = getattr(K, "dsh_vehicle_api", None)  # noqa: F821
-    sh = getattr(K, "dsh_shape_api", None)  # noqa: F821
+    v = getattr(U.K, "dsh_vehicle_api", None)
+    sh = getattr(U.K, "dsh_shape_api", None)
     if v is None or sh is None:
         raise RuntimeError("模块没注入：K.dsh_vehicle_api / K.dsh_shape_api")
     prof = [(0, 400, 110, 600), (900, 470, 289, 900), (1900, 760, 110, 900), (2900, 560, 110, 900), (4300, 400, 110, 600)]
@@ -179,5 +175,5 @@ def t_shape_extensions():
 
 
 def test_shape(ctx):
-    U.install(globals(), ctx)
+    U.bind(ctx)
     U.run([t_rectify_and_polyline, t_feature_lines, t_crease_radius, t_shape_layer, t_shape_extensions], "上游整合 A5 形状还原（原 upstream_integration_selftest.py 拆分）")

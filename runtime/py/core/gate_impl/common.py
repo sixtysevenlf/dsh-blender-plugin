@@ -55,14 +55,15 @@ print preset 现在用 `degrade_if = params['min_mm'] < detail['walls']['objects
 变量从该门回执的顶层字段解析 —— 写成什么字段，回执里就只回**那几个字段**（自带瘦身）。`degrade_if` 用**同一套**
 受限表达式与同一套变量解析；`echo` 走点路径（`detail.walls.objects.0.resolution_mm`）取真实字段做证据。
 """
-import ast
+import ast as ast
 import hashlib
-import json
-import os
+import json as json
+import os as os
 import sys
-import time
+import time as time
 
-import bpy
+import bpy as bpy
+
 
 
 import sys as _sys_kit

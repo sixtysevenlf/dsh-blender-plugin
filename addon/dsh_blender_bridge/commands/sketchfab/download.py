@@ -96,6 +96,8 @@ class SketchfabCommands(SketchfabClientMixin):
             download_url, error = _request_download_url(uid, api_key)
             if error:
                 return error
+            if not download_url:
+                return {"error": "Sketchfab returned no download URL"}
 
             # Download the model (already has timeout)
             model_response = requests.get(download_url, timeout=60)  # 60 second timeout

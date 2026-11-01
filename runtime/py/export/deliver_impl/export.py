@@ -177,7 +177,8 @@ def _dv_write_files(f, nm, out_dir, per_part_materials, parts, mats, head, warn,
             info = _dv_write_obj(obj_path, parts, head, mtl_name)
             files["obj"] = {"role": "obj", "path": _dv_win(obj_path), "bytes": os.path.getsize(obj_path),
                             "md5": _dv_md5(obj_path), "triangles": n_tri, "vertices": info["vertices"],
-                            "normals": info["normals"], "groups": info["groups"], "usemtl": info["usemtl"]}
+                            "normals": info["normals"], "groups": info["groups"], "usemtl": info["usemtl"],
+                            "usemtl_unique": info["usemtl_unique"]}
             if mtl_name:
                 mtl_path = os.path.join(out_dir, mtl_name)
                 minfo = _dv_write_mtl(mtl_path, mats, ["# DSH deliver v%d  name=%s" % (DELIVER_VERSION, nm),
@@ -256,7 +257,7 @@ def _dv_finish(out_dir, nm, f, files, objects_rec, counts, mats, norm, units, gu
     st["exports"].append({"t": _dv_now(), "dir": out_dir, "name": nm, "fmt": f, "objects": counts["objects"],
                           "triangles": counts["triangles"], "md5": {k: v.get("md5") for k, v in files.items()}})
     del st["exports"][:-50]
-    result["hint"] = "交付前先 K.dsh_deliver_api['verify'](%r) 逐项核对（md5 / 面数 / g 与 usemtl 数量）" % out_dir
+    result["hint"] = "交付前先 K.dsh_deliver_api['verify'](%r) 逐项核对（md5 / 面数 / g 与 usemtl 行数）" % out_dir
     return result
 
 
@@ -313,6 +314,7 @@ def deliver_export(dir=None, objects=None, scope=None, name="model", fmt="obj", 
         return _dv_j(werr)
     objects_rec = _dv_objects_record(parts)
     counts = {"objects": len(parts), "triangles": n_tri, "vertices": n_v, "materials": len(mats),
-              "groups": len(parts), "usemtl": len(set(p["material_ref"] for p in parts))}
+              "groups": len(parts), "usemtl": len(parts),
+              "usemtl_unique": len(set(p["material_ref"] for p in parts))}
     return _dv_j(_dv_finish(out_dir, nm, f, files, objects_rec, counts, mats, norm, units, guessed,
                             by_src, excluded, empty, missing, warn, gate_rec, manifest, t0))

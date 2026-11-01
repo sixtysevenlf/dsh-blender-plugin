@@ -7,12 +7,10 @@ the native runner. The support module binds K and the original helper names to c
 from __future__ import annotations
 
 import json
-import math
 
-import bmesh
-import bpy
 
 import support as U
+from support import PREFIX, api, chk, new_sphere
 
 
 
@@ -44,5 +42,5 @@ def t_sculpt():
 
 
 def test_sculpt(ctx):
-    U.install(globals(), ctx)
+    U.bind(ctx)
     U.run([t_sculpt], "上游整合 A1 雕刻自检（原 upstream_integration_selftest.py 拆分）")

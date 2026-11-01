@@ -16,7 +16,7 @@ class HunyuanClientMixin:
         region: str,
         secret_id: str,
         secret_key: str,
-        host: str = None
+        host: str | None = None
     ):
         return get_tencent_cloud_sign_headers(
             method, path, headParams, data, service, region, secret_id, secret_key, host

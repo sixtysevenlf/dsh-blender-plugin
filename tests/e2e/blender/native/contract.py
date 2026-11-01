@@ -11,7 +11,6 @@ drift demotion, report.  The evidence/stale checks move to the GUI module
 
 from __future__ import annotations
 
-import json
 
 import bpy
 

@@ -7,12 +7,11 @@ the native runner. The support module binds K and the original helper names to c
 from __future__ import annotations
 
 import json
-import math
 
-import bmesh
 import bpy
 
 import support as U
+from support import PREFIX, api, chk
 
 
 
@@ -58,7 +57,7 @@ def t_material():
 def t_render_guard():
     """渲染状态跟踪：install → idle → mark → 磁盘标记为 rendering → clear → 标记消失。
     注意：guard 的 API 挂在 K.dsh_render_guard（名字里没有 _api 后缀，见 render_guard.py 尾部）。"""
-    rg = getattr(K, "dsh_render_guard", None)  # noqa: F821
+    rg = getattr(U.K, "dsh_render_guard", None)
     if rg is None:
         raise RuntimeError("模块没注入：K.dsh_render_guard（preload 里漏了 render_guard？）")
     r = rg("install", {})
@@ -77,5 +76,5 @@ def t_render_guard():
 
 
 def test_material_render(ctx):
-    U.install(globals(), ctx)
+    U.bind(ctx)
     U.run([t_material, t_render_guard], "上游整合 A4 材质与渲染守卫（原 upstream_integration_selftest.py 拆分）")

@@ -5,8 +5,8 @@ import mathutils
 import traceback
 import uuid
 import zlib
-import hashlib, hmac, base64
-from contextlib import contextmanager, redirect_stdout, suppress
+import hashlib
+from contextlib import suppress
 
 from ...protocol import MAX_SNAPSHOT_OBJECTS, MAX_SNAPSHOT_SELECTED
 
@@ -118,7 +118,7 @@ class WorldSnapshotCommands:
                 if channels:
                     animation["channels"] = channels
                 animation["keyframe_count"] = total_keyframes
-                if frame_min is not None:
+                if frame_min is not None and frame_max is not None:
                     animation["frame_range"] = [round(float(frame_min), 3),
                                                 round(float(frame_max), 3)]
 

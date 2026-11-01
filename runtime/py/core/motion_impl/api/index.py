@@ -2,7 +2,6 @@
 """motion dispatch/reset + kernel API registration (entry surface preserved)."""
 from ..common import *  # noqa: F401,F403
 from ..infer import motion_infer_axis, motion_joint, motion_joints
-from ..transforms import TOL_MAT, _snap_diff
 from ..measure import motion_measure
 from ..urdf import motion_export_urdf
 from ..usda import motion_export_usda

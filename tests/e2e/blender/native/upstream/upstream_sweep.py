@@ -6,13 +6,10 @@ the native runner. The support module binds K and the original helper names to c
 """
 from __future__ import annotations
 
-import json
-import math
 
-import bmesh
-import bpy
 
 import support as U
+from support import PREFIX, api, chk
 
 
 
@@ -31,5 +28,5 @@ def t_sweep():
 
 
 def test_sweep(ctx):
-    U.install(globals(), ctx)
+    U.bind(ctx)
     U.run([t_sweep], "上游整合 A3 扫掠（原 upstream_integration_selftest.py 拆分）")

@@ -7,19 +7,18 @@ the native runner. The support module binds K and the original helper names to c
 from __future__ import annotations
 
 import json
-import math
 
-import bmesh
 import bpy
 
 import support as U
+from support import PREFIX, chk
 
 
 
 def t_gate():
     """规格驱动门包：plan/run/selftest + 三态判定 + 未知 op 与坏字段必须报错（不静默 pass）。"""
     import bmesh as _bm
-    g = getattr(K, "dsh_gate_api", None)  # noqa: F821
+    g = getattr(U.K, "dsh_gate_api", None)
     if g is None:
         raise RuntimeError("模块没注入：K.dsh_gate_api（preload 里漏了 gate？）")
     me = bpy.data.meshes.new(PREFIX + "gate")
@@ -66,5 +65,5 @@ def t_gate():
 
 
 def test_gate(ctx):
-    U.install(globals(), ctx)
+    U.bind(ctx)
     U.run([t_gate], "上游整合 A4 规格驱动门（原 upstream_integration_selftest.py 拆分）")

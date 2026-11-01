@@ -3,7 +3,7 @@
 import bpy
 import time
 from collections import deque
-from contextlib import contextmanager, redirect_stdout, suppress
+from contextlib import contextmanager
 
 MAX_EDIT_EVENTS = 256
 

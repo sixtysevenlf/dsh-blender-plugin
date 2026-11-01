@@ -3,3 +3,7 @@
 # runtime bpy, addon registration, operators, sockets, or rendering. Never install this in
 # the runtime or use it to claim addon behavior; behavior is covered by the real-Blender E2E.
 fake-bpy-module-4.2==20260730
+
+# NumPy has inline type information. Blender supplies NumPy at runtime; this
+# install is only for local/CI type-checking of legacy addon modules that import it.
+numpy>=2.0,<3

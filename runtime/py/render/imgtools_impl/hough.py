@@ -5,7 +5,6 @@ from .analysis import _dilate, _rnd, _sobel
 # -*- coding: utf-8 -*-
 """Split from imgtools.py; behavior preserved by the facade."""
 from .common import *  # noqa: F401,F403
-from .analysis import _dilate, _rnd, _sobel
 
 
 def _hough_points(gray, m_region, point_cap):

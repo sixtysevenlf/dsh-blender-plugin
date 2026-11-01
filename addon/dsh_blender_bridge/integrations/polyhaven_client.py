@@ -1,13 +1,12 @@
 """ Poly Haven HTTP, cache, parsing and material helpers. """
 
-import re
 import time
 import requests
 import os
 import zlib
-import hashlib, hmac, base64
+import hashlib
 from urllib.parse import quote, urlencode, urlparse, urlunparse, parse_qsl
-from contextlib import contextmanager, redirect_stdout, suppress
+from contextlib import suppress
 
 from ..protocol import ADDON_VERSION
 from ..config import REQ_HEADERS
@@ -37,16 +36,16 @@ POLYHAVEN_CHUNK_SIZE = 1024 * 1024
 # rejected as an unsupported format.
 from .polyhaven_spec import (
     POLYHAVEN_SUPPORTED_FORMATS,
-    POLYHAVEN_DEFAULT_FORMATS,
-    POLYHAVEN_MODEL_FALLBACK_FORMAT,
+    POLYHAVEN_DEFAULT_FORMATS as POLYHAVEN_DEFAULT_FORMATS,
+    POLYHAVEN_MODEL_FALLBACK_FORMAT as POLYHAVEN_MODEL_FALLBACK_FORMAT,
     POLYHAVEN_TEXTURE_MAPS,
-    POLYHAVEN_COLOR_ROLES,
+    POLYHAVEN_COLOR_ROLES as POLYHAVEN_COLOR_ROLES,
+    POLYHAVEN_SEARCH_LIMIT as POLYHAVEN_SEARCH_LIMIT,
+    POLYHAVEN_SEARCH_MAX_LIMIT as POLYHAVEN_SEARCH_MAX_LIMIT,
+    POLYHAVEN_TAXONOMY_DEPTH_ALL as POLYHAVEN_TAXONOMY_DEPTH_ALL,
     POLYHAVEN_SLUG_RE,
     POLYHAVEN_SITE,
     POLYHAVEN_ASSET_TYPES,
-    POLYHAVEN_SEARCH_LIMIT,
-    POLYHAVEN_SEARCH_MAX_LIMIT,
-    POLYHAVEN_TAXONOMY_DEPTH_ALL,
     POLYHAVEN_PREVIEW_SIZE,
 )
 

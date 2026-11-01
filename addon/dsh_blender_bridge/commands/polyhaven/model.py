@@ -59,7 +59,7 @@ class PolyHavenModelMixin:
         linked every LOD on top of each other plus whatever else the file
         happened to hold, which for some assets is a second model.
         """
-        with bpy.data.libraries.load(blend_path, link=False) as (data_from, data_to):
+        with bpy.data.libraries.load(blend_path, link=False) as (data_from, data_to):  # pyright: ignore[reportGeneralTypeIssues]
             available = list(data_from.collections)
             # LOD0 is the full-detail version. Taking it directly leaves the
             # coarser ones in the file rather than in the scene.
@@ -108,6 +108,8 @@ class PolyHavenModelMixin:
         before = {obj.name for obj in bpy.data.objects}
 
         try:
+            if main_file_path is None:
+                raise RuntimeError("model download returned no main file")
             if file_format == "blend":
                 written_by = _polyhaven_blend_version(main_file_path)
                 if written_by and written_by > bpy.app.version[:2]:

@@ -6,8 +6,9 @@ from .export import deliver_export
 # ---------------------------------------------------------------- 读回自检
 
 def _dv_scan_obj(path):
-    """读回 OBJ 自己数：f（三角面）/ g / usemtl / v / vn + **从 v 行重算 bbox**（校验要咬文件本身，不是咬清单）。"""
+    """读回 OBJ 自己数：f（三角面）/ g / usemtl 行数与唯一材质名 / v / vn + **从 v 行重算 bbox**。"""
     n_f = n_g = n_u = n_v = n_vn = 0
+    u_names = set()
     lo = [1e30, 1e30, 1e30]
     hi = [-1e30, -1e30, -1e30]
     with open(path, "r", encoding="utf-8", errors="replace") as fh:
@@ -18,6 +19,7 @@ def _dv_scan_obj(path):
                 n_g += 1
             elif line.startswith("usemtl "):
                 n_u += 1
+                u_names.add(line[7:].strip())
             elif line.startswith("v "):
                 n_v += 1
                 try:
@@ -32,7 +34,8 @@ def _dv_scan_obj(path):
                     pass
             elif line.startswith("vn "):
                 n_vn += 1
-    out = {"triangles": n_f, "groups": n_g, "usemtl": n_u, "vertices": n_v, "normals": n_vn}
+    out = {"triangles": n_f, "groups": n_g, "usemtl": n_u, "usemtl_unique": len(u_names),
+           "vertices": n_v, "normals": n_vn}
     if n_v:
         out["bbox_min"] = [_dv_r(x) for x in lo]
         out["bbox_max"] = [_dv_r(x) for x in hi]
@@ -193,12 +196,32 @@ def _deliver_verify_p2(_state):
                 chk("triangle_count_match:" + base, sc["triangles"] == int(man.get("counts", {}).get("triangles", f.get("triangles", -1))),
                     "OBJ 里 %d 个三角面 / 清单 %s" % (sc["triangles"], man.get("counts", {}).get("triangles", f.get("triangles"))),
                     triangles=sc["triangles"], manifest_triangles=man.get("counts", {}).get("triangles"))
-                exp_g = int(man.get("counts", {}).get("groups", f.get("groups", -1)))
-                exp_u = int(man.get("counts", {}).get("usemtl", f.get("usemtl", -1)))
+                counts = man.get("counts") or {}
+                exp_g = int(counts.get("groups", f.get("groups", counts.get("objects", f.get("objects", -1)))))
+                exp_u = int(counts.get("usemtl", f.get("usemtl", -1)))
+                exp_uu = counts.get("usemtl_unique", f.get("usemtl_unique"))
+                exp_lines = exp_g if exp_g >= 0 else exp_u
                 chk("obj_group_count_match:" + base, sc["groups"] == exp_g,
                     "g 行 %d 个 / 对象(组)数 %d" % (sc["groups"], exp_g), groups=sc["groups"], manifest_groups=exp_g)
-                chk("obj_usemtl_count_match:" + base, sc["usemtl"] == exp_u,
-                    "usemtl 行 %d 个 / 材质引用数 %d" % (sc["usemtl"], exp_u), usemtl=sc["usemtl"], manifest_usemtl=exp_u)
+                chk("obj_usemtl_count_match:" + base, sc["usemtl"] == exp_lines,
+                    "usemtl 行 %d 个 / 对象(组)数 %d" % (sc["usemtl"], exp_lines),
+                    usemtl=sc["usemtl"], manifest_lines=exp_lines)
+                if exp_uu is None:
+                    # 3.0.0 及更早的清单把 counts.usemtl 存成唯一材质数，没有
+                    # usemtl_unique；按旧口径兼容，行数仍由 groups/objects 校验。
+                    meta_ok = exp_u in (sc["usemtl"], sc["usemtl_unique"])
+                    chk("obj_usemtl_metadata_match:" + base, meta_ok,
+                        "清单 usemtl=%d（legacy：唯一材质数或行数）；文件行=%d / 唯一=%d"
+                        % (exp_u, sc["usemtl"], sc["usemtl_unique"]),
+                        manifest_usemtl=exp_u, usemtl=sc["usemtl"], usemtl_unique=sc["usemtl_unique"])
+                else:
+                    exp_uu = int(exp_uu)
+                    meta_ok = exp_u == sc["usemtl"] and exp_uu == sc["usemtl_unique"]
+                    chk("obj_usemtl_metadata_match:" + base, meta_ok,
+                        "清单 usemtl=%d / usemtl_unique=%d；文件行=%d / 唯一=%d"
+                        % (exp_u, exp_uu, sc["usemtl"], sc["usemtl_unique"]),
+                        manifest_usemtl=exp_u, manifest_usemtl_unique=exp_uu,
+                        usemtl=sc["usemtl"], usemtl_unique=sc["usemtl_unique"])
                 chk("obj_has_normals:" + base, sc["normals"] >= 1, "vn 行 %d 个" % sc["normals"], normals=sc["normals"])
                 # 从文件自己的 v 行重算 bbox，与清单里的 normalize 记录对拍（不信清单的自述）
                 nb = man.get("normalize") or {}
@@ -280,7 +303,9 @@ def deliver_verify(path_or_dir=None, manifest="auto"):
     """读回产物逐项自检。返回 {ok, checks:[{name, ok, detail, ...数字}], passed, failed}。
 
     检查项：清单可用 / 文件存在且有字节 / md5 与清单一致 / 三角面数与清单一致 /
-    OBJ 的 g 与 usemtl 数量与清单一致 / 单位块带单位 / 归一化可反推（scale+center+原 bbox）。
+    OBJ 的 g 与 usemtl 行数（= 对象数）与清单一致；usemtl_unique 只作唯一材质数诊断，
+    旧清单（3.0.0 及更早，usemtl 为唯一材质数）按 legacy 口径兼容。
+    单位块带单位 / 归一化可反推（scale+center+原 bbox）。
     `manifest="auto"` → 目录里找 `<name>_manifest.json`（多个则用最近一次导出的那个）。
     """
     _state = dict(locals())
@@ -297,7 +322,7 @@ def deliver_help():
         "ops": {
             "export": "export(dir, objects=None, scope=None, name='model', fmt='obj'|'stl', normalize=True, "
                       "target_half_extent=1.0, per_part_materials=True, manifest=True, units_note=True, include_hidden=False)",
-            "verify": "verify(path_or_dir=None, manifest='auto') → 逐项 PASS/FAIL（md5 / 面数 / g 与 usemtl / 单位 / 归一化可反推）；"
+            "verify": "verify(path_or_dir=None, manifest='auto') → 逐项 PASS/FAIL（md5 / 面数 / g 与 usemtl 行数 / 单位 / 归一化可反推）；"
                       "manifest='auto' 只认磁盘上的 *_manifest.json，manifest='memory' 才是拿最近一次导出的内存记录（较弱）",
             "help": "help() → 本速查",
         },
@@ -305,7 +330,8 @@ def deliver_help():
                    "→ 然后 K.dsh_deliver_api['verify']('D:/Blender/house')",
         "rules": ["空产出（挑不到对象 / 全是空网格）→ ok:false，不静默成功",
                   "归一化记录 scale/center/原 bbox → p_orig = p_out / scale + center（归档铁律）",
-                  "OBJ：每对象一个 g + usemtl；MTL 的 Kd 来自材质，取不到给确定性灰阶并在 guessed_colors 里点名",
+                  "OBJ：每对象一个 g + usemtl（共享材质也每对象一行；usemtl_unique 只记唯一材质数）；"
+                  "MTL 的 Kd 来自材质，取不到给确定性灰阶并在 guessed_colors 里点名",
                   "STL 不携带材质（per_part_materials 对 stl 无效）",
                   "坐标轴：Blender 世界系 Z-up 原样写出，不做 Y-up 转换"],
     })

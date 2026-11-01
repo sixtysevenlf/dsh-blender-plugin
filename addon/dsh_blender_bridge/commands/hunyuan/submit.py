@@ -24,8 +24,8 @@ class HunyuanSubmitCommands:
 
     def create_hunyuan_job_main_site(
         self,
-        text_prompt: str = None,
-        image: str = None
+        text_prompt: str | None = None,
+        image: str | None = None
     ):
         try:
             secret_id = self._get_hunyuan3d_secret_id()
@@ -94,8 +94,8 @@ class HunyuanSubmitCommands:
 
     def create_hunyuan_job_local_site(
         self,
-        text_prompt: str = None,
-        image: str = None):
+        text_prompt: str | None = None,
+        image: str | None = None):
         try:
             base_url = self._get_hunyuan3d_api_url().rstrip('/')
             octree_resolution = bpy.context.scene.dshbb_hunyuan3d_octree_resolution

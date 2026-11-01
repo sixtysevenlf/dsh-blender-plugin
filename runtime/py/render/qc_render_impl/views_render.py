@@ -5,10 +5,10 @@
 因此异常路径下 finally 仍能拿到"已经改到一半的现场"，与拆分前语义一致。
 """
 from .common import *  # noqa: F401,F403
-from .lock import _lock_acquire, _lock_holder_default, _lock_line, _lock_path, _lock_release
-from .geom import _aabb, _apply_step, _collect_objs, _corners, _db_counts, _focus_box, _md5, _montage_api, _project_px, _safe, _solve_view
-from .rig import _add_rig, _aim_rig, _alpha_stats, _apply_samples, _device_info, _device_line, _device_live, _device_slim, _engine_label, _restore_engine_samples, _set_engine
-from .parts import PARTS_PALETTE, _legend_line_count, _parts_assign, _parts_groups, _parts_legend_rows, _parts_override, _parts_restore, _write_parts_legend
+from .lock import _lock_release
+from .geom import _apply_step, _corners, _db_counts, _focus_box, _md5, _montage_api, _project_px, _safe, _solve_view
+from .rig import _add_rig, _aim_rig, _alpha_stats, _device_info, _device_line, _device_live, _device_slim, _engine_label
+from .parts import _legend_line_count, _parts_override, _parts_restore, _write_parts_legend
 
 
 def _qv_scene(st):

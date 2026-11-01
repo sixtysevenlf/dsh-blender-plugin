@@ -135,7 +135,7 @@ def _severity(depth_mm, frac):
 def _c_interference_report_p1(st):
     depth_eps, include_hidden, limit, scope = st["depth_eps"], st["include_hidden"], st["limit"], st["scope"]
     try:
-        import numpy as np
+        import numpy as np  # noqa: F401  # handed to the next split stage through st
         t0 = time.perf_counter()
         objs = _scope_objects(scope, include_hidden)
         if not objs:

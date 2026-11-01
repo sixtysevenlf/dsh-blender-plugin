@@ -17,7 +17,6 @@ Design rules (see plan section 6.5.1):
 from __future__ import annotations
 
 import json
-import os
 import re
 import sys
 import traceback

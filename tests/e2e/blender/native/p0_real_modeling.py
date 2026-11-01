@@ -7,7 +7,7 @@ hard-coded D:/DSH/blender/tmp/p0_e2e, and the final ok is a ctx check.
 """
 
 
-import bpy, bmesh, json, os, time, math
+import bpy, bmesh, json, os, time
 from mathutils import Vector
 
 EV = {}

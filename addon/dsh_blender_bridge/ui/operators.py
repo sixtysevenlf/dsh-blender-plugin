@@ -1,7 +1,6 @@
 """ Operators. """
 
 import bpy
-from contextlib import contextmanager, redirect_stdout
 
 from ..commands.selection import best_collection_for_selection, record_selection_send, send_collection_to_dsh, send_selection_to_dsh
 from .. import config

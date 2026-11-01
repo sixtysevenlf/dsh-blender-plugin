@@ -19,7 +19,7 @@
   viewport（默认）  GPUOffScreen.draw_view3d —— 就是用户视口渲染出来的样子（含着色/覆盖物设置），零场景改动
   render           临时相机 + bpy.ops.render.opengl（Workbench/EEVEE 快渲），用完彻底还原
 """
-import bpy, json, math, time, os, struct, zlib, tempfile
+import bpy, json, time, os, struct, zlib, tempfile
 
 VIEW_VERSION = 3
 
@@ -795,7 +795,7 @@ def selftest():
         out["gpu_init"] = "ok"
     except Exception as e:
         out["gpu_init"] = "ERR " + str(e)[:120]
-    from mathutils import Vector, Matrix
+    from mathutils import Vector
     cam_data = bpy.data.cameras.new("st")
     cam = bpy.data.objects.new("st", cam_data)
     bpy.context.scene.collection.objects.link(cam)

@@ -5,7 +5,7 @@ Ported from the archived mate_selftest.py.  The archived main() became test_mate
 outdir is explicit (ctx.test_dir) and every check reports through ctx.check.
 """
 
-import bpy, json, math, os, sys
+import bpy, json, os
 
 MEAS = {}
 _CTX = None

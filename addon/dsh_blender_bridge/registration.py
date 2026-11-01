@@ -1,7 +1,7 @@
 """ Registration entry point for the add-on (F3.2 split from __init__). """
 
 import bpy
-from bpy.props import IntProperty, BoolProperty
+from bpy.props import IntProperty
 
 from .commands.selection import on_selection_mode_update
 from .config import register_auto_start, unregister_auto_start

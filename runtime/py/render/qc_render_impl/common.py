@@ -120,15 +120,17 @@ v0.9.1 新增参数（老参数一个都没动）：
     色彩变换出图后逐项核对还原，没还原 → ok:false。
 """
 import bpy
-import hashlib
+import hashlib as hashlib
 import json
-import math
+import math as math
 import os
 import tempfile
-import time
+import time as time
 
-import numpy as np
-from mathutils import Vector
+from mathutils import Vector as Vector
+
+import numpy as np  # noqa: F401  # re-exported to the split qc_render modules
+
 
 QC_RENDER_VERSION = 3      # v0.9.1：A1 未知名硬失败 / A2 QC 默认 Standard / E1 渲染锁 / B1-B2 可调用 API
 DEFAULT_RES = (512, 512)

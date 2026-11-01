@@ -1,13 +1,13 @@
 """ Add-on preferences. """
 
 import bpy
-from bpy.props import IntProperty, BoolProperty
+from bpy.props import BoolProperty
 
 from ..compat import ADDON_MODULE
 from ..recorders.edit_capture import sync_edit_capture_handlers
 
 class DSHBB_AddonPreferences(bpy.types.AddonPreferences):
-    bl_idname = ADDON_MODULE
+    bl_idname = ADDON_MODULE  # pyright: ignore[reportAssignmentType]
 
     def _on_telemetry_consent_changed(self, context):
         try:

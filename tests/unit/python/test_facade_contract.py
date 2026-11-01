@@ -7,7 +7,6 @@ separator on Windows but not on POSIX. The shared helper builds it with
 os.path.join, so both platforms use the same contract.
 """
 import ast
-import os
 import posixpath
 import sys
 import types

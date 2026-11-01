@@ -48,15 +48,17 @@ ops（走 blender_rt_plan 或 K.dsh_visualreport_api）：
   · 参考图与渲染图的掩膜都来自"前景 vs 背景"启发式，照片类参考图需先抠背景（否则掩膜不可信）；
   · top_defects 的面积是**像素差**，px_per_mm 缺失时只给像素口径（mm 字段为 null）。
 """
-import json
+import json as json
 import math
 import os
 import re
 import sys
 import time
 
-import bpy
-import numpy as np
+import bpy as bpy
+
+import numpy as np  # noqa: F401  # re-exported to the split visualreport modules
+
 
 VISUALREPORT_VERSION = 1
 

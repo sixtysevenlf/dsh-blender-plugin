@@ -83,7 +83,7 @@ def test_visualreport(ctx):
     _CTX = ctx
     K = ctx.K
     t_start = time.perf_counter()
-    api = getattr(K, "dsh_visualreport_api", None)   # noqa: F821  （headless 注入的持久内核）
+    api = getattr(K, "dsh_visualreport_api", None)
     check("K.dsh_visualreport_api 已注册", api is not None, "preload 要带 visualreport")
     if api is None:
         return finish(t_start)

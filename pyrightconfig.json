@@ -4,6 +4,7 @@
   "venv": ".venv",
   "include": ["addon/dsh_blender_bridge"],
   "exclude": ["**/__pycache__", "**/*.zip"],
+  "ignore": ["tests/e2e/blender/native", "runtime/py"],
   "typeCheckingMode": "basic",
   "reportMissingModuleSource": "none",
   "reportMissingTypeStubs": false,
