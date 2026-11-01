@@ -605,125 +605,117 @@ def _sensitivity(apply_fn, defs, views, refs, resolution, objective, best, best_
                                   "（补一个能看到它的视图，或缩参数量程）")}
     return out
 # ────────────────────────────── op: solve ──────────────────────────────
-def shapesolve_solve(setup=None, params=None, views=None, objective=None, iterations=200,
-                     budget_ms=10000, seed=0, out_dir=None, resolution=256, init=None,
-                     max_tris=300000):
-    """多视正交轮廓拟合：反推 params，让当前场景在给定相机下的轮廓最贴参考图。
+def _ss_init_initvals(defs, init):
+    """init 覆盖值校验（只允许声明的参数名）；返回 (init_vals, err)。"""
+    init_vals = {}
+    if init is None:
+        return init_vals, None
+    if not isinstance(init, dict):
+        return None, _err("init 必须是 {参数名: 值} 对象", stage="validate")
+    allowed = {p["name"] for p in defs}
+    for k, v in init.items():
+        if str(k) not in allowed:
+            return None, _err("init 里不认识的参数 %r" % k, allowed=sorted(allowed), stage="validate")
+        nv = _num(v)
+        if nv is None:
+            return None, _err("init.%s 必须是数字" % k, stage="validate")
+        init_vals[str(k)] = nv
+    return init_vals, None
 
-    入参（全量）：setup / params / views / objective / iterations / budget_ms / seed /
-                  out_dir / resolution / init（可选：覆盖参数初值）/ max_tris
-    回执：ok / best / score / best_iou_mean / per_view / sensitivity / repro / …
-    """
-    t0 = time.perf_counter()
+
+def _ss_validate(setup, params, views, resolution, objective, iterations, budget_ms, seed, max_tris, init):
+    """全量入参校验；返回 (cfg, err)。"""
     if not isinstance(setup, str) or not setup.strip():
-        return _err("setup 必填：Python 代码，必须定义 apply(params_dict)（负责按参数设置场景几何）",
-                    stage="validate")
+        return None, _err("setup 必填：Python 代码，必须定义 apply(params_dict)（负责按参数设置场景几何）",
+                          stage="validate")
     defs, perr = _norm_params(params)
     if perr:
-        return _err(perr, stage="validate")
+        return None, _err(perr, stage="validate")
     res = _num(resolution)
     if res is None or int(res) != res or int(res) < 64 or int(res) > 512:
-        return _err("resolution 必须是 64..512 的整数（默认 256）", stage="validate")
+        return None, _err("resolution 必须是 64..512 的整数（默认 256）", stage="validate")
     res = int(res)
     nviews, verr = _norm_views(views, res)
     if verr:
-        return _err(verr, stage="validate")
+        return None, _err(verr, stage="validate")
     obj, oerr = _norm_objective(objective)
     if oerr:
-        return _err(oerr, stage="validate")
+        return None, _err(oerr, stage="validate")
     it = _num(iterations)
     if it is None or int(it) != it or int(it) < 1:
-        return _err("iterations 必须是 ≥1 的整数", stage="validate")
+        return None, _err("iterations 必须是 ≥1 的整数", stage="validate")
     it = int(it)
     bud = _num(budget_ms)
     if bud is None or bud < 0:
-        return _err("budget_ms 必须是 ≥0 的数字（0 = 不限）", stage="validate")
+        return None, _err("budget_ms 必须是 ≥0 的数字（0 = 不限）", stage="validate")
     sd = _num(seed)
     if sd is None or int(sd) != sd:
-        return _err("seed 必须是整数", stage="validate")
+        return None, _err("seed 必须是整数", stage="validate")
     sd = int(sd)
     mt = _num(max_tris)
     if mt is None or int(mt) < 1:
         mt = 300000
     mt = int(mt)
-    init_vals = {}
-    if init is not None:
-        if not isinstance(init, dict):
-            return _err("init 必须是 {参数名: 值} 对象", stage="validate")
-        allowed = {p["name"] for p in defs}
-        for k, v in init.items():
-            if str(k) not in allowed:
-                return _err("init 里不认识的参数 %r" % k, allowed=sorted(allowed), stage="validate")
-            nv = _num(v)
-            if nv is None:
-                return _err("init.%s 必须是数字" % k, stage="validate")
-            init_vals[str(k)] = nv
-    try:
-        apply_fn, _ns = _compile_setup(setup)
-    except Exception as e:
-        return _err(str(e), stage="setup")
+    init_vals, ierr = _ss_init_initvals(defs, init)
+    if ierr is not None:
+        return None, ierr
+    return {"defs": defs, "res": res, "nviews": nviews, "obj": obj, "it": it, "bud": bud,
+            "sd": sd, "mt": mt, "init_vals": init_vals}, None
+
+
+def _ss_refs(nviews, res):
+    """逐视图加载参考掩膜；返回 (refs, err)。"""
     refs = []
-    try:
-        for vi, vw in enumerate(nviews):
-            r, rerr = _load_ref_mask(vw["ref"], res, mask_mode=vw["mask_mode"], invert=vw["invert"])
-            if rerr:
-                return _err("视图 %d 的参考图不可用: %s" % (vi, rerr), stage="ref")
-            refs.append(r)
-    except Exception as e:
-        return _err("参考图处理异常: %s: %s" % (type(e).__name__, str(e)[:200]), stage="ref")
+    for vi, vw in enumerate(nviews):
+        r, rerr = _load_ref_mask(vw["ref"], res, mask_mode=vw["mask_mode"], invert=vw["invert"])
+        if rerr:
+            return None, _err("视图 %d 的参考图不可用: %s" % (vi, rerr), stage="ref")
+        refs.append(r)
+    return refs, None
+
+
+def _ss_scene_ok(mt):
+    """初始场景必须能取到投影网格；返回 err 或 None。"""
     try:
         _got, gerr = _collect_scene_tris(mt)
     except Exception as e:
         gerr = "%s: %s" % (type(e).__name__, str(e)[:200])
-    if gerr:
-        return _err("初始场景没有可用于投影的网格：%s —— setup 里要先造出基线体，apply 再去改它" % gerr,
-                    stage="scene", hint="例：setup 里 create_cube 一次 + apply(p) 只改 object.scale")
-    try:
-        opt = _optimize(apply_fn, defs, nviews, refs, res, obj, it, bud, sd, init_vals)
-    except Exception as e:
-        import traceback
-        return _err("优化失败: %s: %s" % (type(e).__name__, str(e)[:240]), stage="optimize",
-                    traceback=traceback.format_exc()[-600:])
-    best = opt["best"]
-    try:
-        final_score, final_rows, _fm = _evaluate(apply_fn, best, nviews, refs, res, obj)
-    except Exception as e:
-        return _err("收尾 apply(best) 失败: %s: %s" % (type(e).__name__, str(e)[:200]), stage="final")
-    base_iou = _mean_iou(final_rows)
-    sens = _sensitivity(apply_fn, defs, nviews, refs, res, obj, best, final_score, base_iou)
-    # 收尾：场景停在 best（敏感性扰动会改场景，必须再 apply 一次）
-    try:
-        _evaluate(apply_fn, best, nviews, refs, res, obj)
-    except Exception:
-        pass
+    if not gerr:
+        return None
+    return _err("初始场景没有可用于投影的网格：%s —— setup 里要先造出基线体，apply 再去改它" % gerr,
+                stage="scene", hint="例：setup 里 create_cube 一次 + apply(p) 只改 object.scale")
+
+
+def _ss_out(cfg, setup, best, final_score, final_rows, refs, sens, opt):
+    """回执主体（含 repro 参数/脚本与 honest_limits）。"""
     repro_args = {
         "setup": setup,
-        "params": [dict(p, init=_r(best[p["name"]], 10)) for p in defs],
+        "params": [dict(p, init=_r(best[p["name"]], 10)) for p in cfg["defs"]],
         "views": [{"ref": v["ref_raw"], "from": v["from"], "look_at": v["look_at"],
                    "ortho_scale": v["ortho_scale"], "weight": v["weight"],
-                   "invert": v["invert"], "mask_mode": v["mask_mode"]} for v in nviews],
-        "objective": obj, "iterations": it, "budget_ms": int(bud), "seed": sd,
-        "resolution": res, "max_tris": mt,
+                   "invert": v["invert"], "mask_mode": v["mask_mode"]} for v in cfg["nviews"]],
+        "objective": cfg["obj"], "iterations": cfg["it"], "budget_ms": int(cfg["bud"]), "seed": cfg["sd"],
+        "resolution": cfg["res"], "max_tris": cfg["mt"],
     }
     repro_script = ('K.dsh_shapesolve_api("solve", '
                     + json.dumps(repro_args, ensure_ascii=False) + ')')
-    out = {
+    return {
         "ok": True, "version": SHAPESOLVE_VERSION,
         "best": {k: _r(v, 10) for k, v in best.items()},
         "score": _r(final_score, 6),
-        "best_iou_mean": _r(base_iou, 6),
+        "best_iou_mean": _r(_mean_iou(final_rows), 6),
         "per_view": final_rows,
         "refs": [{"view": r["info"].get("mode"), "path": r["info"].get("path"),
                   "orig_size": r["info"].get("orig_size"),
                   "foreground_frac": r["info"].get("foreground_frac"),
                   "threshold": r["info"].get("threshold")} for r in refs],
-        "params": [{k: p[k] for k in ("name", "min", "max", "init", "integer")} for p in defs],
-        "objective": obj, "resolution": res,
-        "iterations": it, "iterations_run": int(opt["iterations_run"]),
+        "params": [{k: p[k] for k in ("name", "min", "max", "init", "integer")} for p in cfg["defs"]],
+        "objective": cfg["obj"], "resolution": cfg["res"],
+        "iterations": cfg["it"], "iterations_run": int(opt["iterations_run"]),
         "eval_count": int(opt["eval_count"]), "budget_hit": bool(opt["budget_hit"]),
-        "seed": sd, "optimize_ms": int(opt["optimize_ms"]),
+        "seed": cfg["sd"], "optimize_ms": int(opt["optimize_ms"]),
         "sensitivity": sens,
-        "repro": {"seed": sd, "best": {k: _r(v, 10) for k, v in best.items()},
+        "repro": {"seed": cfg["sd"], "best": {k: _r(v, 10) for k, v in best.items()},
                   "args": repro_args, "script": repro_script,
                   "apply_best": "apply(%s)" % json.dumps({k: _r(v, 10) for k, v in best.items()},
                                                           ensure_ascii=False)},
@@ -736,18 +728,75 @@ def shapesolve_solve(setup=None, params=None, views=None, objective=None, iterat
             "只求轮廓：材质/内部结构/遮挡不参与打分；多物体场景按全部可见 mesh 的并集轮廓算",
         ],
     }
-    if out_dir:
-        try:
-            d = _win(out_dir)
-            if d:
-                os.makedirs(d, exist_ok=True)
-                p = os.path.join(d, "shapesolve_receipt.json")
-                with open(p, "w", encoding="utf-8") as fh:
-                    json.dump({k: v for k, v in out.items() if k != "repro"}, fh,
-                              ensure_ascii=False, indent=2)
-                out["out"] = {"dir": d, "receipt": p}
-        except Exception as e:
-            out["out"] = {"error": "%s: %s" % (type(e).__name__, str(e)[:160])}
+
+
+def _ss_write_out(out, out_dir):
+    """回执落盘（失败只写 out.error，不致命）。"""
+    if not out_dir:
+        return out
+    try:
+        d = _win(out_dir)
+        if d:
+            os.makedirs(d, exist_ok=True)
+            p = os.path.join(d, "shapesolve_receipt.json")
+            with open(p, "w", encoding="utf-8") as fh:
+                json.dump({k: v for k, v in out.items() if k != "repro"}, fh,
+                          ensure_ascii=False, indent=2)
+            out["out"] = {"dir": d, "receipt": p}
+    except Exception as e:
+        out["out"] = {"error": "%s: %s" % (type(e).__name__, str(e)[:160])}
+    return out
+
+
+def shapesolve_solve(setup=None, params=None, views=None, objective=None, iterations=200,
+                     budget_ms=10000, seed=0, out_dir=None, resolution=256, init=None,
+                     max_tris=300000):
+    """多视正交轮廓拟合：反推 params，让当前场景在给定相机下的轮廓最贴参考图。
+
+    入参（全量）：setup / params / views / objective / iterations / budget_ms / seed /
+                  out_dir / resolution / init（可选：覆盖参数初值）/ max_tris
+    回执：ok / best / score / best_iou_mean / per_view / sensitivity / repro / …
+    """
+    t0 = time.perf_counter()
+    cfg, verr = _ss_validate(setup, params, views, resolution, objective, iterations,
+                             budget_ms, seed, max_tris, init)
+    if verr is not None:
+        return verr
+    try:
+        apply_fn, _ns = _compile_setup(setup)
+    except Exception as e:
+        return _err(str(e), stage="setup")
+    try:
+        refs, rerr = _ss_refs(cfg["nviews"], cfg["res"])
+    except Exception as e:
+        return _err("参考图处理异常: %s: %s" % (type(e).__name__, str(e)[:200]), stage="ref")
+    if rerr is not None:
+        return rerr
+    serr = _ss_scene_ok(cfg["mt"])
+    if serr is not None:
+        return serr
+    try:
+        opt = _optimize(apply_fn, cfg["defs"], cfg["nviews"], refs, cfg["res"], cfg["obj"],
+                        cfg["it"], cfg["bud"], cfg["sd"], cfg["init_vals"])
+    except Exception as e:
+        import traceback
+        return _err("优化失败: %s: %s" % (type(e).__name__, str(e)[:240]), stage="optimize",
+                    traceback=traceback.format_exc()[-600:])
+    best = opt["best"]
+    try:
+        final_score, final_rows, _fm = _evaluate(apply_fn, best, cfg["nviews"], refs, cfg["res"], cfg["obj"])
+    except Exception as e:
+        return _err("收尾 apply(best) 失败: %s: %s" % (type(e).__name__, str(e)[:200]), stage="final")
+    base_iou = _mean_iou(final_rows)
+    sens = _sensitivity(apply_fn, cfg["defs"], cfg["nviews"], refs, cfg["res"], cfg["obj"],
+                        best, final_score, base_iou)
+    # 收尾：场景停在 best（敏感性扰动会改场景，必须再 apply 一次）
+    try:
+        _evaluate(apply_fn, best, cfg["nviews"], refs, cfg["res"], cfg["obj"])
+    except Exception:
+        pass
+    out = _ss_out(cfg, setup, best, final_score, final_rows, refs, sens, opt)
+    out = _ss_write_out(out, out_dir)
     return _j(_receipt(out, t0))
 # ────────────────────────────── 模块内 selftest / help ──────────────────────────────
 def _mask_to_png(path, mask_topdown, res):

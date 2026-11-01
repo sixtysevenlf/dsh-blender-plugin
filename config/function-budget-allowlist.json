@@ -237,22 +237,6 @@
       "expires": "2026-12-31"
     },
     {
-      "file": "runtime/py/geometry/sculpt.py",
-      "name": "_apply_one",
-      "lines": 131,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/geometry/shapesolve.py",
-      "name": "shapesolve_solve",
-      "lines": 144,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
       "file": "runtime/py/geometry/blockout_impl/api.py",
       "name": "blockout_refsheet",
       "lines": 159,
@@ -264,14 +248,6 @@
       "file": "runtime/py/geometry/blockout_impl/ops.py",
       "name": "blockout_base",
       "lines": 161,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/geometry/blockout_impl/present.py",
-      "name": "blockout_turntable",
-      "lines": 133,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"
@@ -296,22 +272,6 @@
       "file": "runtime/py/render/imgtools_impl/api.py",
       "name": "img_calib",
       "lines": 177,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/render/imgtools_impl/measure.py",
-      "name": "img_probe",
-      "lines": 143,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
-      "file": "runtime/py/render/imgtools_impl/measure.py",
-      "name": "img_measure",
-      "lines": 144,
       "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
       "owner": "lead",
       "expires": "2026-12-31"
