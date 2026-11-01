@@ -32,11 +32,15 @@ def _asm_resolve_targets(ctx):
     flags = ctx["flags"]
     merge, dry_run = flags["merge"], flags["dry_run"]
     names, objs = [], []
-    if merge:
+    if merge and dry_run:
         err, names = _asm_merge_targets(ctx)
         if err:
             return err, None
     else:
+        if merge:
+            err, names = _asm_merge_targets(ctx)
+            if err:
+                return err, None
         info = _pick_objects(ctx["scope"], ctx["objects"], include_hidden=False)
         if info.get("error"):
             return _err(info["error"], objects=info.get("names"), missing=info.get("missing"),
