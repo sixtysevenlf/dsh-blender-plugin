@@ -15,7 +15,9 @@ MODEL_DOWNLOAD_TIMEOUT = 120
 
 
 def _safe_file_name(name, fallback):
-    name = re.sub(r"[^A-Za-z0-9._-]", "_", osp.basename(str(name or "")))
+    # Treat both separators as path separators on every platform: a Windows-style
+    # traversal name must not survive as a literal filename when tests run on POSIX.
+    name = re.sub(r"[^A-Za-z0-9._-]", "_", osp.basename(str(name or "").replace("\\", "/")))
     return name if name.strip(".") else fallback
 
 
