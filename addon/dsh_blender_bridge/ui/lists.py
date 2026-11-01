@@ -11,7 +11,7 @@ from ..recorders.activity import get_activity_tracker
 
 LIST_UI_CAP = 500
 
-_LAST_UI_STATE_KEY = {"key": None}
+_LAST_UI_STATE_KEY: dict[str, object] = {"key": None}
 
 
 class DSHBB_SelectionItem(bpy.types.PropertyGroup):

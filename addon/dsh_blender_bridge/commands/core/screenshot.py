@@ -50,10 +50,10 @@ class ScreenshotCommands:
                 else:
                     width, height = src_w, src_h
 
-                offscreen = gpu.types.GPUOffScreen(width, height)
+                offscreen = gpu.types.GPUOffScreen(width, height)  # pyright: ignore[reportCallIssue]
                 try:
                     offscreen.draw_view3d(
-                        bpy.context.scene, bpy.context.view_layer, space, region,
+                        bpy.context.scene, bpy.context.view_layer, space, region,  # pyright: ignore[reportArgumentType]
                         r3d.view_matrix, r3d.window_matrix, do_color_management=True,
                     )
                     buf = offscreen.texture_color.read()

@@ -85,6 +85,8 @@ class PolypizzaCommands(PolypizzaClientMixin):
             content, error = _download_glb_content(download_url)
             if error:
                 return error
+            if content is None:
+                return {"error": "Poly Pizza returned an empty GLB"}
 
             # Every Poly Pizza model is a single self-contained .glb - no zip,
             # no sidecar textures - so it goes straight to disk and into glTF import.

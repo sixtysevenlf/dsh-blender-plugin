@@ -19,6 +19,7 @@ tests/e2e/blender (inside Blender). This file never claims Blender coverage.
 """
 import ast
 import importlib
+import importlib.util
 import os
 import sys
 import types
@@ -96,10 +97,15 @@ def test_importable_modules_expose_documented_entry_points(booted_runtime):
         assert not missing, f"{name} lost {missing}"
 
 
-def test_blender_only_dependencies_fail_by_name(booted_runtime):
+def test_blender_only_dependencies_fail_by_name(booted_runtime, monkeypatch):
     # Honest boundary: these import bmesh/numpy and cannot run outside Blender.
     # The assertion pins the dependency name instead of skipping silently.
+    # A developer venv may also carry numpy for type checking; simulate its
+    # absence so the boundary is still exercised rather than skipped.
+    numpy_installed = importlib.util.find_spec("numpy") is not None
     for name, dependency in BLENDER_ONLY.items():
+        if dependency == "numpy" and numpy_installed:
+            monkeypatch.setitem(sys.modules, "numpy", None)
         with pytest.raises(ModuleNotFoundError) as excinfo:
             importlib.import_module(name)
         assert excinfo.value.name == dependency, f"{name} failed for {excinfo.value.name!r}, expected {dependency!r}"

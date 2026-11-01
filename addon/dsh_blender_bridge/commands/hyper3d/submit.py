@@ -24,8 +24,8 @@ class Hyper3DSubmitCommands:
 
     def create_rodin_job_main_site(
             self,
-            text_prompt: str=None,
-            images: list[tuple[str, str]]=None,
+            text_prompt: str | None = None,
+            images: list[tuple[str, str]] | None = None,
             bbox_condition=None
         ):
         try:
@@ -60,15 +60,15 @@ class Hyper3DSubmitCommands:
 
     def create_rodin_job_fal_ai(
             self,
-            text_prompt: str=None,
-            images: list[tuple[str, str]]=None,
+            text_prompt: str | None = None,
+            images: list[tuple[str, str]] | None = None,
             bbox_condition=None
         ):
         try:
             api_key = self._get_hyper3d_api_key()
             if not api_key:
                 return {"error": "Hyper3D API key is not given"}
-            req_data = {
+            req_data: dict[str, object] = {
                 "tier": "Sketch",
             }
             if images:

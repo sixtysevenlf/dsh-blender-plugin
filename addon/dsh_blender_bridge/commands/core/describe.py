@@ -96,7 +96,7 @@ class DescribeCommands:
         for tree_type in tree_type_candidates:
             tmp_tree = None
             try:
-                tmp_tree = bpy.data.node_groups.new(name="__mcp_introspect_tmp__", type=tree_type)
+                tmp_tree = bpy.data.node_groups.new(name="__mcp_introspect_tmp__", type=tree_type)  # pyright: ignore[reportArgumentType]
                 node = tmp_tree.nodes.new(type=bl_idname)
                 tree = tmp_tree
                 used_tree_type = tree_type
@@ -175,7 +175,8 @@ class DescribeCommands:
                 result["warnings"] = warnings
             return result
         finally:
-            try:
-                bpy.data.node_groups.remove(tree)
-            except Exception:
-                pass
+            if tree is not None:
+                try:
+                    bpy.data.node_groups.remove(tree)
+                except Exception:
+                    pass

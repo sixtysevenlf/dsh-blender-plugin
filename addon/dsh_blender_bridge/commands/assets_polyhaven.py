@@ -193,6 +193,7 @@ class PolyHavenCommands(PolyHavenImportMixin):
             assets, note, error = _filter_min_size(assets, min_size_m)
             if error:
                 return error
+            assert assets is not None
 
             # Trimmed and lower-cased so equivalent queries share a cache entry,
             # both here and at Poly Haven's edge.
@@ -203,6 +204,7 @@ class PolyHavenCommands(PolyHavenImportMixin):
                 return error
             if rank_note is not None:
                 note = rank_note
+            assert ordered is not None
 
             selected = ordered[:limit]
 

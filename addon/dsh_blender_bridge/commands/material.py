@@ -65,7 +65,7 @@ class MaterialCommands:
                 map_key = img.get("polyhaven_map")
                 # Role first: assets whose albedo is not called "Diffuse" are
                 # not in the table, but were resolved at download time.
-                role = img.get("polyhaven_role") or POLYHAVEN_TEXTURE_MAPS.get(map_key)
+                role = img.get("polyhaven_role") or POLYHAVEN_TEXTURE_MAPS.get(map_key or "")
                 if not role:
                     continue
                 if not img.packed_file:
