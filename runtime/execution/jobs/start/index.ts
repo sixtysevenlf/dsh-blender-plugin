@@ -21,6 +21,10 @@ export function startJob(
   const p = buildJobScript(d.E, opts)
   const so = fs.createWriteStream(p.outPath),
     se = fs.createWriteStream(p.errPath)
+  // Log streams are best-effort: an outdir removed while a stream is still opening must not
+  // surface as an unhandled ENOENT and fail an otherwise successful job.
+  so.on('error', () => {})
+  se.on('error', () => {})
   const j = buildJobRecord(p)
   const { child, stopHb } = spawnJobChild(d, j, p, so, se, opts)
   child.on('close', (code, sig) => {
