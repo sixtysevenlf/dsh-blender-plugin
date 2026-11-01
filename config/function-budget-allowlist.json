@@ -205,14 +205,6 @@
       "expires": "2026-12-31"
     },
     {
-      "file": "runtime/py/render/qc_render_impl/selftest.py",
-      "name": "qc_render_selftest",
-      "lines": 584,
-      "reason": "Baseline; split in F1.1/F2.1/F2.2/F3.2",
-      "owner": "lead",
-      "expires": "2026-12-31"
-    },
-    {
       "file": "runtime/py/render/visualreport_impl/api.py",
       "name": "visualreport_report",
       "lines": 227,
