@@ -8,17 +8,14 @@ export interface ProcRow {
   toks: string[]
 }
 
-export interface PortArgResult {
-  port: number | null
-  source: 'argv' | 'env' | 'default'
-}
-
-/** Parse an explicit CLI port flag (argv token, not a substring). */
+/** Parse an explicit CLI port flag (argv token, not a substring).
+ * Keeps the pre-F1.3 semantics exactly: when the flag is present, the next
+ * token is passed through Number() even if it is NaN/0/negative/fractional;
+ * only a missing flag returns null (and lets the caller fall back to env/CFG). */
 export function parsePortArg(argv: readonly string[], flag = '--port'): number | null {
   const i = argv.indexOf(flag)
   if (i < 0) return null
-  const n = Number(argv[i + 1])
-  return Number.isInteger(n) && n > 0 ? n : null
+  return Number(argv[i + 1])
 }
 
 /** Pure argv-token matcher for the /proc rows (also used by unit tests). */
