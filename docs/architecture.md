@@ -95,7 +95,7 @@ protocol do not change during that migration.
 
 - npm run build compiles runtime, host, and client.
 - lib/ is generated and is not committed.
-- prepack builds lib/ and checks the artifact.
+- prepack builds lib/; CI's check:build verifies the artifact.
 - npm pack produces the published tarball: lib/, runtime Python, addon package, skills, docs, and tests.
 - The addon zip is built from addon/dsh_blender_bridge/ and attached to the release.
 - npm run smoke:install installs the tarball into a clean directory and checks that the entry loads,
@@ -162,7 +162,7 @@ policy; a floor must not be lowered without a documented policy change in this g
 | Strict TypeScript runtime compiled to lib/ | Type errors fail before tests; package ships JS, not backend TS; build is required before backend/E2E |
 | Vitest + pytest + real-Blender harness | Fast inner loop; E2E stays on-demand/release because it needs Blender |
 | Addon is a package plus a deterministic zip | Reviewable modules and stable install artifact; users must remove the old single-file addon |
-| lib/ is generated, not committed | Review diffs stay clean; prepack and install smoke must verify the tarball |
+| lib/ is generated, not committed | Review diffs stay clean; check:build and install smoke must verify the artifact |
 | Python domains plus one modules.json registry | One place to add a module; no flat shims or duplicate path maps |
 | Small public facades plus implementation packages | Stable public imports and preload names; facades must stay boring |
 | File, function, and coverage budgets | Reviewable size and measured debt; exceptions need owner, reason, and expiry |

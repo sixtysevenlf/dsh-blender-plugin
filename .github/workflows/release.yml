@@ -101,6 +101,7 @@ jobs:
           npm run format:check
           npm run build
           npm run check:build
+          npm run check:git-hygiene
           npm run check:structure
           npm run test:parity
       - name: Unit, integration, contract and addon tests

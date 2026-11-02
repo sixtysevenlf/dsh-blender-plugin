@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * scripts/check-build.mjs —— prepack / CI 的构建检查。
+ * scripts/check-build.mjs —— CI 的构建检查。
  *
  * 不写仓库里的 lib/（那是发布产物，由 scripts/build.mjs / npm run build 在发版时重建），而是：
  *   ① 用与 npm run typecheck 同一个 tsc（scripts/typecheck.mjs --print）把 src 编译到临时目录；
@@ -159,21 +159,6 @@ steps.push({
   step: 'runtime-ts',
   exit: tsNocheck.length ? 1 : 0,
   output: runtimeTs.length + ' .ts, ' + tsNocheck.length + ' @ts-nocheck',
-})
-
-// ⑦ git 卫生：lib/ 不再入库
-const trackedLib = spawnSync('git', ['ls-files', 'lib'], { cwd: ROOT, encoding: 'utf8' })
-const trackedLibFiles = String(trackedLib.stdout || '').trim()
-if (trackedLib.status !== 0)
-  failures.push('git ls-files lib 失败: ' + String(trackedLib.stderr || '').trim())
-else if (trackedLibFiles)
-  failures.push(
-    'lib/ 仍被 git 跟踪（应为构建产物）: ' + trackedLibFiles.split(/\r?\n/).length + ' files',
-  )
-steps.push({
-  step: 'lib-not-tracked',
-  exit: trackedLibFiles ? 1 : 0,
-  output: trackedLibFiles ? trackedLibFiles.split(/\r?\n/).length + ' tracked' : 'untracked',
 })
 
 // ⑤ 客户端产物同步

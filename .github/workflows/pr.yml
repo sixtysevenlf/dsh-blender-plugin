@@ -50,6 +50,7 @@ jobs:
           npm run build
           npm run check:structure
           npm run check:build
+          npm run check:git-hygiene
       - name: Unit and integration tests
         run: |
           npm run test:unit
