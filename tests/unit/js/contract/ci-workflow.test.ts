@@ -5,6 +5,10 @@ import { repoPath } from '../../../helpers/docs'
 const pr = fs.readFileSync(repoPath('.github/workflows/pr.yml'), 'utf8')
 const release = fs.readFileSync(repoPath('.github/workflows/release.yml'), 'utf8')
 const all = pr + '\n' + release
+const pkg = JSON.parse(fs.readFileSync(repoPath('package.json'), 'utf8')) as {
+  scripts: Record<string, string>
+}
+const checkBuildSource = fs.readFileSync(repoPath('scripts/check-build.mjs'), 'utf8')
 
 const actionRefs = (text: string): string[] =>
   [...text.matchAll(/^\s*-?\s*uses:\s*(\S+)/gm)].map((m) => m[1])
@@ -67,5 +71,19 @@ describe('CI workflow hygiene', () => {
     expect(release).not.toContain('github.event.inputs')
     expect(release).toContain('name: release')
     expect(release).toContain('--draft')
+  })
+})
+
+describe('build hooks and VCS gate wiring', () => {
+  it('keeps prepack build-only', () => {
+    expect(pkg.scripts.prepack).toBe('npm run build')
+  })
+
+  it('keeps git out of check-build', () => {
+    expect(checkBuildSource).not.toContain("spawnSync('git'")
+  })
+
+  it('runs git hygiene in both workflows', () => {
+    for (const text of [pr, release]) expect(text).toContain('npm run check:git-hygiene')
   })
 })
