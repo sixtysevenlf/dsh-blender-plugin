@@ -1,5 +1,12 @@
 # CHANGELOG — dsh-blender-plugin
 
+## v3.0.4（2026-11-02）—— 修复 git 源安装
+
+- 修复 #71：`prepack` 只构建 `lib/`，不再在安装路径执行 `check-build`；`check:git-hygiene` 独立成脚本，只由 CI 与本地 clone 执行。
+- `scripts/check-build.mjs` 删除 `git ls-files lib` 步骤，因此在没有 `.git` 的解包目录里也能通过。
+- 新增 `npm run check:git-hygiene`：缺少 `.git` 或检出根目录不匹配时 fail-closed；PR gate 与 release verify 都会执行。
+- 无 API / 协议 / 工具计数变化（15 tools / 34 family / 228 op / addon 1.11 / protocol 11）。
+
 ## v3.0.3（2026-11-02）—— Node.js 24.9 基线
 
 - 最低 Node.js 版本提升到 24.9，与 DSH 当前要求一致；CI/CD 使用 Node 24。
