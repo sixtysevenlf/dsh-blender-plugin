@@ -62,7 +62,7 @@ class SketchfabClientMixin:
                             1. In the 3D Viewport, find the DSH Blender Bridge panel in the sidebar (press N if hidden)
                             2. Keep the 'Use Sketchfab' checkbox checked
                             3. Enter your Sketchfab API Key
-                            4. Restart the connection to Claude"""
+                            4. Restart the DSH Blender Bridge connection"""
             }
         else:
             return {
@@ -71,7 +71,7 @@ class SketchfabClientMixin:
                             1. In the 3D Viewport, find the DSH Blender Bridge panel in the sidebar (press N if hidden)
                             2. Check the 'Use assets from Sketchfab' checkbox
                             3. Enter your Sketchfab API Key
-                            4. Restart the connection to Claude"""
+                            4. Restart the DSH Blender Bridge connection"""
             }
 
     def search_sketchfab_models(self, query, categories=None, count=20, downloadable=True):

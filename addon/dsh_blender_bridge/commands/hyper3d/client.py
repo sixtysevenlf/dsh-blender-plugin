@@ -18,7 +18,7 @@ class Hyper3DClientMixin:
                                 1. In the 3D Viewport, find the DSH Blender Bridge panel in the sidebar (press N if hidden)
                                 2. Keep the 'Use Hyper3D Rodin 3D model generation' checkbox checked
                                 3. Choose the right plaform and fill in the API Key
-                                4. Restart the connection to Claude"""
+                                4. Restart the DSH Blender Bridge connection"""
                 }
             mode = bpy.context.scene.dshbb_hyper3d_mode
             message = f"Hyper3D Rodin integration is enabled and ready to use. Mode: {mode}. " + \
@@ -33,5 +33,5 @@ class Hyper3DClientMixin:
                 "message": """Hyper3D Rodin integration is currently disabled. To enable it:
                             1. In the 3D Viewport, find the DSH Blender Bridge panel in the sidebar (press N if hidden)
                             2. Check the 'Use Hyper3D Rodin 3D model generation' checkbox
-                            3. Restart the connection to Claude"""
+                            3. Restart the DSH Blender Bridge connection"""
             }

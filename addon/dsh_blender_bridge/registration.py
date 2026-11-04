@@ -39,7 +39,7 @@ def _register_connection_properties():
 
     bpy.types.Scene.dshbb_auto_start_server = bpy.props.BoolProperty(
         name="Auto-Start Server",
-        description="Automatically start the MCP server when Blender loads",
+        description="Automatically start the DSH Blender Bridge server when Blender loads",
         default=True
     )
 

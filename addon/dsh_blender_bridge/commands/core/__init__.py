@@ -16,7 +16,7 @@ from .screenshot import ScreenshotCommands
 
 class CoreCommands(SceneExportMixin, BpyApiLookupCommands, ScreenshotCommands):
     def get_addon_info(self):
-        """Version/capability handshake for the MCP server (and install tooling)."""
+        """Version/capability handshake for the DSH plugin (and install tooling)."""
         return {
             "name": ADDON_NAME,
             "addon_version": list(ADDON_VERSION),

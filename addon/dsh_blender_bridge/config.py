@@ -46,7 +46,7 @@ _user_stopped_server = False
 
 
 def _dshbb_port_has_listener(host, port):
-    """Return True when another process already owns the MCP endpoint."""
+    """Return True when another process already owns the bridge endpoint."""
     probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     probe.settimeout(0.15)
     try:

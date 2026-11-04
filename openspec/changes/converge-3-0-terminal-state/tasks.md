@@ -42,10 +42,10 @@
 
 ## 6. S4 文档与叙事
 
-- [ ] 6.1 归档 3 篇被取代文档到 `docs/archive/` 并写 `docs/archive/README.md`；验证：入链全部指向新位置，`check:doc-paths` 通过。
-- [ ] 6.2 `skills/blender-modeling/SKILL.md` 重编号（消除 3→9 断号）、修正 "plannner" 拼写与版本行；验证：标题序号连续，`check:doc-paths` 通过。
-- [ ] 6.3 曲面算法单一来源：删除 `docs/曲面算法.md`，以 `skills/blender-modeling/references/曲面算法.md` 为真源，更新 4 处入链；验证：`grep -rn "docs/曲面算法" ` 只剩 CHANGELOG 历史条目。
-- [ ] 6.4 用户可见 MCP / Claude 文案改 Bridge（保留上游署名、`BLENDERMCP_*` env 兼容与许可证文本）；验证：`grep -rn "Claude\|MCP" addon/dsh_blender_bridge --include=*.py` 只剩署名/兼容/历史注释，`test:addon-unit` 通过。
+- [x] 6.1 归档 3 篇被取代文档到 `docs/archive/` 并写 `docs/archive/README.md`；验证：入链全部指向新位置，`check:doc-paths` 通过。
+- [x] 6.2 `skills/blender-modeling/SKILL.md` 重编号（消除 3→9 断号）、修正 "plannner" 拼写与版本行；验证：标题序号连续，`check:doc-paths` 通过。
+- [x] 6.3 曲面算法单一来源：删除 `docs/曲面算法.md`，以 `skills/blender-modeling/references/曲面算法.md` 为真源，更新 4 处入链；验证：`grep -rn "docs/曲面算法" ` 只剩 CHANGELOG 历史条目。
+- [x] 6.4 用户可见 MCP / Claude 文案改 Bridge（保留上游署名、`BLENDERMCP_*` env 兼容与许可证文本）；验证：`grep -rn "Claude\|MCP" addon/dsh_blender_bridge --include=*.py` 只剩署名/兼容/历史注释，`test:addon-unit` 通过。
 - [ ] 6.5 清理代码/测试/脚本中的重构计划编号（800+ 处 ID 形状 token），新增 `check-plan-ids`（先 warn 后 enforce，豁免 CHANGELOG/archive/architecture 历史说明）；验证：enforce 模式下零命中，`npm run lint` 通过。
 - [ ] 6.6 扩展 `check-doc-paths`：链接存在、非 archive 文档有入链（中英对应文件互指计入，中文与英文侧都必须有入链）、禁止引用不存在路径；验证：warn 模式收集存量后转 enforced，全绿。
 - [ ] 6.7 `tests/BEHAVIOR_MATRIX.md` 行号引用改为"文件 + 符号名"，matrix 门禁校验符号存在；验证：故意改一个符号名时门禁失败，恢复后通过。

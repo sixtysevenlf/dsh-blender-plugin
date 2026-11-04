@@ -1,12 +1,12 @@
 ---
 name: blender-modeling
-description: Blender 建模与交付教程（v2.6，GUI 优先，无头备用）——先按决策树选形（分面硬表面 / 光滑硬表面 / 有机 / 重复阵列 / 布尔），再走流水线（冻结规格 → 场景准备 → 白模 → 粗形精修 → 修改器栈 → 清理 → 装配/验收 → 交付）。覆盖参考图量测（img_digest/probe/measure/calib）、无头多视轮廓拟合（shapesolve）、装配扫描/清单/合并/修复/门/导出（asm_*）、白模与 Seedance 参考包（blockout_*，含 4 视图与转台 MP4）、同机位 QC（visualreport_report）、缺陷注入评估（eval_run）、交互式无头会话（worker see/watch，rt_do/rt_see session）与强制门（gate_/deliver_export require_gate）。用于做 3D 物体、按参考图还原、量比例、装配体检、修穿模/浮空、批量白模、交付导出与验收。
+description: Blender 建模与交付教程（v3.0.5，GUI 优先，无头备用）——先按决策树选形（分面硬表面 / 光滑硬表面 / 有机 / 重复阵列 / 布尔），再走流水线（冻结规格 → 场景准备 → 白模 → 粗形精修 → 修改器栈 → 清理 → 装配/验收 → 交付）。覆盖参考图量测（img_digest/probe/measure/calib）、无头多视轮廓拟合（shapesolve）、装配扫描/清单/合并/修复/门/导出（asm_*）、白模与 Seedance 参考包（blockout_*，含 4 视图与转台 MP4）、同机位 QC（visualreport_report）、缺陷注入评估（eval_run）、交互式无头会话（worker see/watch，rt_do/rt_see session）与强制门（gate_/deliver_export require_gate）。用于做 3D 物体、按参考图还原、量比例、装配体检、修穿模/浮空、批量白模、交付导出与验收。
 license: MIT（融合自 RobLe3/cc-blender-skill 与 arjun988/blender-skills，见 NOTICE.md）
 ---
 
 # Blender 建模流程
 
-> **v2.6 · 2026-10-28**：配套插件 dsh-blender-plugin v2.6.2，15 个模型工具，plan 通道 34 个 family / 228 个 op。**默认 GUI 优先**：先开 GUI Blender + Connect；无头是备用路径（GUI 不可用/批处理/长活），但无头也能 rt_see，同样能“改一步、同步看一步”。
+> **v3.0.5 · 2026-11-05**：配套插件 dsh-blender-plugin v3.0.5，15 个模型工具，plan 通道 34 个 family / 228 个 op，addon v1.11 / protocol 11。**默认 GUI 优先**：先开 GUI Blender + Connect；无头是备用路径（GUI 不可用/批处理/长活），但无头也能 rt_see，同样能“改一步、同步看一步”。
 > 旧版按 v2/v3/v7 记录的“哪段是哪次实测加的”不再写在正文；需要追溯看 CHANGELOG。下面只写**当前有效口径**。
 
 先定形状，再走流程，改一步看一眼。**不要一口气写完整个模型再回来看**——每一步都要有画面或数字证据。
@@ -338,7 +338,7 @@ plan 通道返回 receipt.v2 信封（contract/op/verdict/summary/top_defects/ne
 
 **判据**：能用第一选择就不用第二选择；第二选择必须在回执里写明“为什么不用插件 op”。
 
-## 9. 当前 plan 通道速查（v2.6 · 34 个 family / 228 个 op）
+## 4. 当前 plan 通道速查（v3.0.5 · 34 个 family / 228 个 op）
 
 先 blender_rt_plan(op="catalog") 看“什么时候用 / 别用 / 最小骨架”，再单族展开。常用家族：
 
@@ -360,7 +360,7 @@ plan 通道返回 receipt.v2 信封（contract/op/verdict/summary/top_defects/ne
 | material / motion / generator | 材质/机构/参数化 | material_build / motion_* / generator_save|run |
 | surface | 参数化曲面候选/质检/导出 | surface_loft / surface_sweep / surface_patch / surface_tessellate / surface_validate / surface_export |
 | clear / calib | 间隙/门标定 | clear_check / calib_run |
-| pipe / plannner | 多步链/规划器 | pipe_run / planner_* |
+| pipe / planner | 多步链/规划器 | pipe_run / planner_* |
 
 规则：
 - op 名拼错会回 did_you_mean；参数名写错会回“不认识的参数”，照提示改。
@@ -368,9 +368,9 @@ plan 通道返回 receipt.v2 信封（contract/op/verdict/summary/top_defects/ne
 - 大结果会落 results/ 目录；回执文本截断时用 out_json/结果文件。
 - plan 传 session="auto" 时按 family 自动起无头 worker；首次冷启动约 2 s，之后复用。
 
-## 10. P0–P2 新链路配方（可直接照抄）
+## 5. P0–P2 新链路配方（可直接照抄）
 
-### Recipe 10.1 交互式无头建模（没有人看画面）
+### Recipe 5.1 交互式无头建模（没有人看画面）
 
     # 1) 起一个持久无头会话（preload 决定能直接调哪些 K API）
     blender_rt_worker(op="start", name="s1",
@@ -387,7 +387,7 @@ plan 通道返回 receipt.v2 信封（contract/op/verdict/summary/top_defects/ne
 
 判据：start 一次约 2–3 s；之后每步 exec 0–2 ms、see 50–100 ms（320–560 px）。如果 see 要几秒，说明走错通道/每步在冷启动。
 
-### Recipe 10.2 参考图 → 尺寸 → 白模 → 验收
+### Recipe 5.2 参考图 → 尺寸 → 白模 → 验收
 
     # 1) 先量：无标定会给 needs_scale，不猜 mm
     blender_rt_plan(op="img_digest", args={path:"ref.png"}, session="auto")
@@ -407,7 +407,7 @@ plan 通道返回 receipt.v2 信封（contract/op/verdict/summary/top_defects/ne
 
 注意：IoU 只是单视轮廓的必要条件；还要用尺寸/接口/装配门交叉验证。
 
-### Recipe 10.3 装配：清单 → 扫描 → 安全修复 → 门 → 导出
+### Recipe 5.3 装配：清单 → 扫描 → 安全修复 → 门 → 导出
 
     # 1) 清单（id/文件/md5/接口/allow）
     blender_rt_plan(op="asm_manifest", args={action:"build", parts:[...]}, session="auto")
@@ -426,7 +426,7 @@ plan 通道返回 receipt.v2 信封（contract/op/verdict/summary/top_defects/ne
 
 边界：hidden_ok 是 manifest 里声明允许的隐藏交叠，不是穿模；不要为了让 clash=0 随意扩大 allow。非合并导出 gate 非 pass 时文件会写出但 verdict=fail + warnings，不可当出厂件。
 
-### Recipe 10.4 Seedance 参考包（4 视图 + 转台 MP4）
+### Recipe 5.4 Seedance 参考包（4 视图 + 转台 MP4）
 
     blender_rt_plan(op="blockout_refsheet", args={
       objects:["robot_torso","robot_arm"],
@@ -442,7 +442,7 @@ plan 通道返回 receipt.v2 信封（contract/op/verdict/summary/top_defects/ne
 
 产物：4 PNG + 2x2 拼图 + refsheet.json（units/bbox/forward_axis/fps）+ 可选 MP4。MP4 无 alpha；无 FFMPEG 构建回退 PNG 序列并标 degraded。白模是参考包，不是高模。
 
-### Recipe 10.5 轮廓反推（shapesolve）与复核
+### Recipe 5.5 轮廓反推（shapesolve）与复核
 
     blender_rt_plan(op="shapesolve_solve", args={
       setup:"def apply(p): ...",
@@ -453,7 +453,7 @@ plan 通道返回 receipt.v2 信封（contract/op/verdict/summary/top_defects/ne
 
 复核：best 参数写回几何 → blockout/渲染 → visualreport 或 img_measure 量尺寸；不要拿拟合目标函数当验收。
 
-### Recipe 10.6 强制门交付
+### Recipe 5.6 强制门交付
 
     # 先体检/留回退点
     blender_rt_plan(op="gate_preflight", session="auto")
@@ -465,7 +465,7 @@ plan 通道返回 receipt.v2 信封（contract/op/verdict/summary/top_defects/ne
 
 deliver_export 也支持 require_gate=true；gate_deliver 是弱模型/交付流程的一键强制路径。degraded 要显式 allow_degraded 并说明，不能静默变绿。
 
-### Recipe 10.7 缺陷注入评估（改门之后先跑它）
+### Recipe 5.7 缺陷注入评估（改门之后先跑它）
 
     blender_rt_plan(op="eval_run", args={
       suite:"assembly", out_json:"D:/out/eval.json"
@@ -473,7 +473,7 @@ deliver_export 也支持 require_gate=true；gate_deliver 是弱模型/交付流
 
 读数：capture_rate / missed / false_positive / baseline_pass；assembly/reference 绿、core 缺依赖时 degraded 是正常。capture_rate 只代表合成缺陷集，不等于真实项目通过率。
 
-### 10.8 多 Agent 并行：按插件架构分工
+### 5.8 多 Agent 并行：按插件架构分工
 
 多 Agent 不是“几个模型同时自由建模”，而是“共享同一份合同，各自只写自己的作用域”。默认分工：
 
@@ -502,7 +502,7 @@ deliver_export 也支持 require_gate=true；gate_deliver 是弱模型/交付流
 - 视觉：visualreport（同机位）；
 - 交付：asm_export + manifest/ledger。
 
-### 10.9 反模式清单（出现就返工）
+### 5.9 反模式清单（出现就返工）
 
 | 反模式 | 为什么错 | 正确做法 |
 |---|---|---|
@@ -522,7 +522,7 @@ deliver_export 也支持 require_gate=true；gate_deliver 是弱模型/交付流
 | 无标定写 mm | 数字是编的 | img_measure/img_calib 或标 needs_scale |
 | 让 VLM 看全图代替数字门 | 看不到 mm 级缺陷 | 数字门 + 局部 crop |
 
-### 10.10 新会话开场模板（直接复制）
+### 5.10 新会话开场模板（直接复制）
 
     你在 DSH × Blender 插件环境里建模。必须按插件架构走：
     1) 先 blender_rt_plan(op="catalog") 查能力，不要自造几何/验收；
@@ -534,7 +534,7 @@ deliver_export 也支持 require_gate=true；gate_deliver 是弱模型/交付流
     7) 长活走 rt_job/headless as_job；交互小步用 rt_worker + rt_do/rt_see(session)。
     任务：<目标/单位/交付/参考图/预算/禁用项>
 
-### 10.11 从零到交付的四条最短路径
+### 5.11 从零到交付的四条最短路径
 
 **A. 单个硬表面道具**
 catalog → blockout_base 或基本体 + Bevel/crease_lines → audit_mesh → 材质/UV（按需）→ qc_render_views → asm_export（单件也可，manifest 仍建议）。
@@ -549,7 +549,7 @@ img_digest → img_measure/calib → spec 尺寸表 → blockout_base/shape_loft
 **D. Seedance 基础白模包**
 blockout_batch 出 N 件 → blockout_refsheet（4 视图 + 拼图 + refsheet.json）→ blockout_turntable（MP4）→ 检查 units/bbox/forward_axis → 交付到 D:/Blender/<项目>/。
 
-### 10.12 门/评估的当前口径（别记旧版）
+### 5.12 门/评估的当前口径（别记旧版）
 
 - gate_run / asm_gate / visualreport / eval 都是三态：pass / fail / degraded；ok 只在 pass 时为 true。
 - gate 里 skipped 会把顶层压成 degraded；degraded 要补证据，不能静默变绿。
@@ -557,7 +557,7 @@ blockout_batch 出 N 件 → blockout_refsheet（4 视图 + 拼图 + refsheet.js
 - 同机位 visualreport 的 IoU 是轮廓必要条件，不是整体像不像；跨机位/引擎分数不可比。
 - asm_export 非合并导出 gate 非 pass 时文件会写出但 verdict=fail + warnings，不可当出厂件。
 
-## 11. 常见故障与边界（当前版本）
+## 6. 常见故障与边界（当前版本）
 
 | 症状 | 原因 | 处理 |
 |---|---|---|
@@ -575,7 +575,7 @@ blockout_batch 出 N 件 → blockout_refsheet（4 视图 + 拼图 + refsheet.js
 
 明确不覆盖/未装依赖：landmark/人脸（无 cv2/MediaPipe）、OCR、DXF、Open3D/manifold3d/glTF-Validator 未安装；不要写成已支持。生物/有机高模、电影级布光/合成、角色绑定动画也不在本 skill 的覆盖范围。
 
-## 12. 交付前最终清单（逐条打勾）
+## 7. 交付前最终清单（逐条打勾）
 
 1. 单位/前向轴/上轴已确认；所有尺寸来自标定或 spec，不来自猜。
 2. 单件 audit_mesh 通过；拓扑改动前有 txn.snapshot 或 gate_checkpoint。
@@ -592,11 +592,11 @@ blockout_batch 出 N 件 → blockout_refsheet（4 视图 + 拼图 + refsheet.js
 ## 附录 A. 通用 Blender 深水参考（不是首选路径）
 
 > 以下内容保留通用建模知识/数值门/渲染经验，供“catalog 里确实没有对应 op”时参考。
-> **默认路径始终是 §1–§3 的架构规则 + §9–§10 的插件配方**；任何参考做法做完仍必须回到插件门（audit/asm/gate/visualreport）验收，不许自写判据。
+> **默认路径始终是 §1–§3 的架构规则 + §4–§5 的插件配方**；任何参考做法做完仍必须回到插件门（audit/asm/gate/visualreport）验收，不许自写判据。
 
 ### A.4. 六条必踩的坑
 
-### 4.0 六条坑怎么分流（P2-3：能机械判定的交给门，不能的写进 checklist）
+### A.4.1 六条坑怎么分流（P2-3：能机械判定的交给门，不能的写进 checklist）
 
 | 坑 | 能不能机械判定 | 落在哪 |
 |---|---|---|
@@ -642,7 +642,7 @@ blockout_batch 出 N 件 → blockout_refsheet（4 视图 + 拼图 + refsheet.js
 展示模型的做法是**隐藏交叠**：让两件在不可见处互相压进去一点，缝就没了。
 
 > ★ **纠正一条被写死的通则**：老版本把"拼件互相插入 **5–15mm**"当硬规则；v4/v5 把它换成"`1–2×` 接口特征尺寸"，
-> 但**那仍是规范性的固定倍数/下限**。**v6 撤回全部这类通则**（见 §13）：本技能不再给任何通用倍数、百分比或下限。
+> 但**那仍是规范性的固定倍数/下限**。**v6 撤回全部这类通则**：本技能不再给任何通用倍数、百分比或下限。
 
 **① 展示层（本技能负责的那部分）：隐藏交叠 + 按 spec 复核**
 
@@ -817,7 +817,7 @@ panel 级根本没法 QC —— 最后是组员自己改成"**灰材质 + 单侧
 | 拓扑定型后再镜像 | **apply Mirror 在改拓扑之前** | 拓扑一变，镜像缝的对齐就不保证 |
 
 **顺序对不对，用回执判**（不是靠背）：`evaluated_get(depsgraph).to_mesh()` 取求值后的
-`verts / faces / bbox`，与你要的目标对拍；再加 §6 的数值门。**改了顺序就重跑一遍门。**
+`verts / faces / bbox`，与你要的目标对拍；再加附录 A.6 的数值门。**改了顺序就重跑一遍门。**
 
 补充规则：布尔保持 live 到导出前；拓扑定型再 apply 镜像；**不要叠多层 subsurf 而没有支撑边**；应用缩放（Apply Scale）之后再布尔 / 导出。
 
@@ -834,7 +834,7 @@ panel 级根本没法 QC —— 最后是组员自己改成"**灰材质 + 单侧
 | 阵列首尾对不上（履带 / 链节） | 本配方口径的 `FIT_CURVE` 阵列给不了精确闭环节距 → 配方 6b 参数化**销轴弦长**路径 |
 | headless 里 ops 报 context/poll 错 | 坑四：改 bmesh / data API，或用 temp_override |
 
-### 5.1 「删除内部面」的正确做法（★ 老版本这里教错了）
+### A.5.1 「删除内部面」的正确做法（★ 老版本这里教错了）
 
 老版本的症状表写"网格里有看不见的内部面 → Clean Up → **Delete Loose**"。**这是错的**：
 `Delete Loose` 只删除**不属于任何面的顶点与边**，**一个面都不会删**。
@@ -908,9 +908,9 @@ def buried_faces(obj, eps=1e-5):
 **MUST NOT**：轮廓没认可就删 blockout；过早 apply 所有修改器；留默认名；没有比例参照就开始建模；跳过清理；
 **用单张成品图验收形体**；**在法线未验证的前提下下穿模结论**；**拿单视 IoU 当"整体像不像"**。
 
-### 6.1 交接前必跑（P0-4）：三条命令 + 一张回执
+### A.6.1 交接前必跑（P0-4）：三条命令 + 一张回执
 
-照抄命令；**判据与字段一律查 §6 那张表**（本节不重复门表）。
+照抄命令；**判据与字段一律查附录 A.6 那张表**（本节不重复门表）。
 
 ```python
 # ① 单件 / 集合的网格健康（boundary / nonmanifold / degenerate / loose / self-intersections / normals）
@@ -939,11 +939,11 @@ blender_rt_plan(op="audit_scene", args={"summary_only": True, "top_k": 10, "self
 
 ### A.6.5 渲染 / 动画 / 长活（★ v7 新增，按《QBZ-191 全程分解视频》实测补）
 
-> §0–§6 管的是**形状对不对**；这一节管**画面对不对、活跑不跑得完**。
+> §0–§3 与附录 A.4–A.6 管的是**形状对不对**；这一节管**画面对不对、活跑不跑得完**。
 > 两者的失败模式完全不同，而且渲染阶段的坑**更隐蔽**：
 > 几何错了 `audit_mesh` 会红；**取景错了它只会安静地给你一张切边的图**。
 
-### 6.5.1 取景：不许用包围盒估算，必须逐帧投影自检 ★本节最高价值
+### A.6.5.1 取景：不许用包围盒估算，必须逐帧投影自检 ★本节最高价值
 
 **实测事故（QBZ-191 爆炸图，返工 2 轮）**：
 
@@ -1016,10 +1016,10 @@ assert worst <= 1.0, "切边：worst NDC=%.3f" % worst
 **通则三：单位先统一。** `kit.bounds_all()` 回 **mm**，`matrix_world @ v.co` 是 **m** —— 混算就得到 `dist=6.1e15`。
 任何"顶点 / 包围盒"混用处先 `* 1000`。
 
-### 6.5.2 爆炸图 / 分解动画：位置、幅度、地板、顺序
+### A.6.5.2 爆炸图 / 分解动画：位置、幅度、地板、顺序
 
 - **改了 `obj.location` 之后必须 `bpy.context.view_layer.update()`**，否则 `matrix_world` 还是旧的
-  （§6.5.1 事故 2 的根因）。对"每帧算包围盒"的动画尤其致命。
+  （附录 A.6.5.1 事故 2 的根因）。对"每帧算包围盒"的动画尤其致命。
 - **幅度先定"总跨度"，再按比例分配每件位移**，不要逐件手调。目标 **≈1.4–1.6 倍物体长度**；
   实测 2.2 倍（2129 mm vs 946 mm 枪长）时零件**小如星点**，统一缩放 0.42 → 1445×904 mm 才读得出骨架。
 - **地板会吃掉整个画面**：分解件下坠到摄影棚地板以下（实测 Z 到 −1146 mm）。
@@ -1030,7 +1030,7 @@ assert worst <= 1.0, "切边：worst NDC=%.3f" % worst
 - **收尾必须打印未匹配清单**，`UNMATCHED []` 才算全件编排到了（否则会有件默默不动）。
 - **缓动**：机械感用 **ease-out**（`1-(1-u)**2.4`），分 8 段采样打关键帧，比默认 Bezier 更像"脱开"。
 
-### 6.5.3 长活（>2 min）：默认必须能被打断 ★
+### A.6.5.3 长活（>2 min）：默认必须能被打断 ★
 
 **实测**：10 分钟渲染期间后端重启 ⇒ `blender_rt_job(op="wait")` 回 `Error: terminated`，
 作业变 `stale：pid 已不存在`。**这是常态，不是异常。**
@@ -1045,7 +1045,7 @@ assert worst <= 1.0, "切边：worst NDC=%.3f" % worst
 6. **作业句柄归属要认清**：`as_job=true` 回的是 **Blender 侧台账 id**，用 `blender_rt_job(op=wait/collect)` 收；
    拿它去 DSH 的 `job_output` 会回 `unknown job`（两套注册表）。
 
-### 6.5.4 渲染耗时：先测 3 帧，再排期
+### A.6.5.4 渲染耗时：先测 3 帧，再排期
 
 **实测模型**（Cycles/OptiX + 降噪，138 件 / 191k 面，全件每帧都在动，RTX 4060 Laptop）：
 
@@ -1063,14 +1063,14 @@ assert worst <= 1.0, "切边：worst NDC=%.3f" % worst
 
 ⚠ **`use_persistent_data` 在 Blender 5.2 挂在 `scene.render`，不在 `scene.cycles`。**
 包在 `try/except` 里会**静默失败**（我连续失败 **26 次**才发现）——
-**任何 setter 都不许静默失败，必须回读校验**（这是 §6 "静默空产出必须失败" 的同一条纪律）：
+**任何 setter 都不许静默失败，必须回读校验**（这是附录 A.6 "静默空产出必须失败" 的同一条纪律）：
 
 ```python
 sc.render.use_persistent_data = True
 assert sc.render.use_persistent_data is True, "没生效：属性可能在别的对象上"
 ```
 
-### 6.5.5 视频：低帧率渲染 + 光流插值（省 3 倍，但必须先量帧间位移）
+### A.6.5.5 视频：低帧率渲染 + 光流插值（省 3 倍，但必须先量帧间位移）
 
 **判据不是"我觉得能动"，是"每帧位移多少像素"**：
 
@@ -1102,13 +1102,13 @@ ffmpeg -start_number 1 -framerate 10 -i seq_%04d.png \
 > ⚠ ffmpeg 7：`-vsync vfr` 与 `-r` 冲突（报 `One of -r/-fpsmax was specified together a non-CFR`），改 `-fps_mode cfr`。
 > ⚠ 时间轴要多留 3 帧，否则 30 fps 输出差 2 帧凑不满 30.000 s。
 
-### 6.5.6 Blender 5.2 API 变更（实测，会直接报错）
+### A.6.5.6 Blender 5.2 API 变更（实测，会直接报错）
 
 | 症状 | 原因 | 改法 |
 |---|---|---|
 | `'Action' object has no attribute 'fcurves'` | 5.2 改 layered / slotted action | 不要遍历 `action.fcurves`；要控制缓动就**自己按缓动采样打关键帧** |
 | `bpy_prop_collection[slice]: slice steps not supported` | `vertices[::n]` 不支持步长切片 | `[o.data.vertices[i] for i in range(0, n, step)]` |
-| `CyclesRenderSettings has no attribute 'use_persistent_data'` | 属性移到 `scene.render` | 见 §6.5.4 |
+| `CyclesRenderSettings has no attribute 'use_persistent_data'` | 属性移到 `scene.render` | 见附录 A.6.5.4 |
 | `Scene.frame_set()` expected int, not float | 帧号必须整数 | `int(1 + round(t * fps))` |
 | GUI 里 `open_mainfile` 后见空网格 | 用的是"用户当前视口" | 传 `from=` / `look_at=` 走自定义视角 |
 | `module 'dsh_rt_kernel' has no attribute 'dsh_audit_api'` | 该模块**没被 preload 进内核** | `blender_rt_headless(..., preload="audit")`；或查已加载：`K.dsh_kit.kapi("audit")`（找不到会列出可用模块名） |
@@ -1140,7 +1140,7 @@ ng.links.new(rl.outputs['Image'], gl.inputs['Image'])
 ng.links.new(gl.outputs['Image'], out.inputs['Image'])
 sc.render.use_compositing = True
 ```
-### 6.5.7 渲染 / 动画的验收回执
+### A.6.5.7 渲染 / 动画的验收回执
 
 ```text
 【渲染回执】<镜头名 / agent>   <ISO 时间>

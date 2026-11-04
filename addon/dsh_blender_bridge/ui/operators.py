@@ -184,8 +184,8 @@ class DSHBB_OT_SendCollectionToDSH(bpy.types.Operator):
 
 class DSHBB_OT_StartServer(bpy.types.Operator):
     bl_idname = "dshbb.start_server"
-    bl_label = "Connect to Claude"
-    bl_description = "Start the DSH Blender Bridge server to connect with Claude"
+    bl_label = "Connect to DSH"
+    bl_description = "Start the DSH Blender Bridge server to connect with DSH"
 
     def execute(self, context):
         config._user_stopped_server = False
@@ -204,8 +204,8 @@ class DSHBB_OT_StartServer(bpy.types.Operator):
 # Operator to stop the server
 class DSHBB_OT_StopServer(bpy.types.Operator):
     bl_idname = "dshbb.stop_server"
-    bl_label = "Stop the connection to Claude"
-    bl_description = "Stop the connection to Claude"
+    bl_label = "Stop the connection to DSH"
+    bl_description = "Stop the connection to DSH"
 
     def execute(self, context):
         config._user_stopped_server = True

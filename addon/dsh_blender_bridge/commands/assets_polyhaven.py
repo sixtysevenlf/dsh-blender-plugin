@@ -144,7 +144,7 @@ class PolyHavenCommands(PolyHavenImportMixin):
                 "message": """PolyHaven integration is currently disabled. To enable it:
                             1. In the 3D Viewport, find the DSH Blender Bridge panel in the sidebar (press N if hidden)
                             2. Check the 'Use assets from Poly Haven' checkbox
-                            3. Restart the connection to Claude"""
+                            3. Restart the DSH Blender Bridge connection"""
             }
 
     def get_polyhaven_categories(self, asset_type):

@@ -18,7 +18,7 @@ class ScreenshotCommands:
         # screen.screenshot_area captures the OS window framebuffer, which is
         # all-black whenever the Blender window is not composited in the
         # foreground (the normal case when Blender is driven headless-style via
-        # MCP). Render the viewport with gpu.types.GPUOffScreen.draw_view3d
+        # the DSH plugin). Render the viewport with gpu.types.GPUOffScreen.draw_view3d
         # instead, which is independent of window compositing state, and fall
         # back to the window grab if offscreen rendering is unavailable (e.g. no
         # GPU context). The response reports which path produced the image.
@@ -63,7 +63,7 @@ class ScreenshotCommands:
                 buf.dimensions = width * height * 4
                 pixels = np.asarray(buf, dtype=np.float32) / 255.0  # GPU buffer is 0..255
 
-                image = bpy.data.images.new("mcp_viewport", width, height, alpha=True)
+                image = bpy.data.images.new("bridge_viewport", width, height, alpha=True)
                 image.pixels.foreach_set(pixels.ravel())
                 image.filepath_raw = filepath
                 image.file_format = format.upper()

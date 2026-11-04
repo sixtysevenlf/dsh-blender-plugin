@@ -193,7 +193,7 @@ The plugin exposes 15 tools. All planning, audit, assembly, export, and evaluati
 
 ## Documentation
 
-- Surface algorithm: docs/曲面算法.md
+- Surface algorithm: skills/blender-modeling/references/曲面算法.md
 - Step-by-step guide: docs/操作教程.md
 - Configuration: docs/配置参考.md
 - AI install prompt: docs/AI-安装提示词.md

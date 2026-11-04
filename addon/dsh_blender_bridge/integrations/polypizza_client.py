@@ -2,7 +2,7 @@
 
 POLYPIZZA_API_BASE = "https://api.poly.pizza/v1.1"
 
-# The MCP server resolves human-friendly category/licence names to the numeric
+# The DSH plugin resolves human-friendly category/licence names to the numeric
 # ids the API filters on, so only ids arrive here. Every query parameter of
 # the API is Capitalized (Limit, Page, Category, License, Animated — see
 # poly.pizza/apispec/v1.1.yaml): lowercase variants are accepted with HTTP 200
@@ -10,7 +10,7 @@ POLYPIZZA_API_BASE = "https://api.poly.pizza/v1.1"
 
 
 def _polypizza_category_id(category):
-    """Validate a numeric category id (names are resolved by the MCP server)."""
+    """Validate a numeric category id (names are resolved by the DSH plugin)."""
     if category is None or category == "":
         return None
     if isinstance(category, bool) or not (
@@ -25,7 +25,7 @@ def _polypizza_category_id(category):
 
 
 def _polypizza_licence_id(licence):
-    """Validate a numeric licence id (names are resolved by the MCP server)."""
+    """Validate a numeric licence id (names are resolved by the DSH plugin)."""
     if licence is None or licence == "":
         return None
     if isinstance(licence, bool) or not (
@@ -59,7 +59,7 @@ def _polypizza_filter_params(category=None, licence=None, animated=False):
 
 
 def _polypizza_summarize_model(model):
-    """Trim an API record down to the fields worth sending back over MCP."""
+    """Trim an API record down to the fields worth sending back over the bridge."""
     creator = model.get("Creator") or {}
     return {
         "ID": model.get("ID"),
