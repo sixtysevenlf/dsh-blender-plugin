@@ -56,7 +56,7 @@ describe('commands(): bounded addon budgets', () => {
     for (const call of integrationCalls) {
       const timeoutMs = Number(call[2])
       expect(timeoutMs, String(call[0])).toBeGreaterThan(0)
-      expect(timeoutMs, String(call[0])).toBeLessThanOrEqual(5000)
+      expect(timeoutMs, String(call[0])).toBeLessThanOrEqual(3000)
     }
   })
 

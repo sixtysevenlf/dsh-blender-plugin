@@ -93,8 +93,10 @@ describe('op=start: /health 通不等于通道就绪', () => {
     const call = mocks.backendJson.mock.calls[0]
     expect(call[1]).toBe('/status')
     const timeoutMs = Number(call[2])
-    expect(timeoutMs).toBeGreaterThan(0)
-    expect(timeoutMs).toBeLessThanOrEqual(6000)
+    // 真机 /status 稳态 ~6.0s、后端刚起首调 8.98–9.43s（3.5s addon 预算 + ~2.5s diagnose + 启动队列）：
+    // 预算必须盖住首调，否则模型只拿到 host 的 aborted，拿不到 status.addonError。
+    expect(timeoutMs).toBeGreaterThanOrEqual(10000)
+    expect(timeoutMs).toBeLessThanOrEqual(12000)
   })
 
   it('separates "backend up, addon/bpy not responding" from "channel ready"', async () => {

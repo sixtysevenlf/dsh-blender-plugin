@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 const h = vi.hoisted(() => ({
   response: null as Record<string, unknown> | null,
   backendChecks: 0,
+  backendJsonCalls: [] as unknown[][],
 }))
 
 vi.mock('../../../src/host/backend/index.js', () => ({
@@ -18,7 +19,10 @@ vi.mock('../../../src/host/backend/index.js', () => ({
 }))
 
 vi.mock('../../../src/host/http.js', () => ({
-  backendJson: async () => h.response,
+  backendJson: async (...args: unknown[]) => {
+    h.backendJsonCalls.push(args)
+    return h.response
+  },
 }))
 
 import { registerCommands } from '../../../src/tools/commands.js'
@@ -45,6 +49,7 @@ async function run(response: Record<string, unknown>): Promise<any> {
 afterEach(() => {
   h.response = null
   h.backendChecks = 0
+  h.backendJsonCalls.length = 0
 })
 
 describe('blender_rt_commands next_action', () => {
@@ -87,5 +92,16 @@ describe('blender_rt_commands next_action', () => {
     })
     expect(String(out.text)).toContain('可用命令 19 条')
     expect(String(out.text)).toContain('可用：ping')
+  })
+
+  it('keeps the /commands client budget below the host static deadline', async () => {
+    await run({ ok: false, error: 'addon boom' })
+
+    const call = h.backendJsonCalls[0]
+    expect(call[1]).toBe('/commands')
+    const timeoutMs = Number(call[2])
+    expect(timeoutMs).toBeGreaterThan(0)
+    // 宿主 timeoutMs:T.commands = 60000；内层预算必须更小，先于宿主截止收口。
+    expect(timeoutMs).toBeLessThan(60000)
   })
 })

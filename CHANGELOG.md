@@ -3,10 +3,10 @@
 ## v3.0.6（未发布）—— 修复首调失败与诊断自相矛盾
 
 - Windows 自动探测补 Steam 库：扫描 `%ProgramFiles%\Steam`、`%ProgramFiles(x86)%\Steam`、`%ProgramW6432%\Steam` 与 `{C,D,E,F}\{Program Files\Steam, Program Files (x86)\Steam, Steam, SteamLibrary}`，并解析 `steamapps/libraryfolders.vdf` 中的其它库；命中来源记 `auto:steam`。这是「Blender 装在 Steam 库里、首调直接失败」的根因。
-- `blender_rt_worker(op="start")` 在 spawn 前预检 blender.exe：为空时立即返回结构化 `blender_exe_missing`（含 `DSH_BLENDER_EXE` / `dsh-blender.config.json` / Steam 路径示例），不再抛 Node 的 `TypeError: The "file" argument must be of type string`。
+- `blender_rt_worker(op="start")` / `blender_rt_job(op="start")` 在 spawn 前预检 blender.exe：为空时立即返回结构化 `blender_exe_missing`（含 `DSH_BLENDER_EXE` / `dsh-blender.config.json` / Steam 路径示例），不再抛 Node 的 `TypeError: The "file" argument must be of type string`。
 - `blender_viewport(op="start")` 不再把「9877 后端进程在」当成「Blender/addon 通道可用」：/health 通后再做有界 /status，区分「后端在 + addon/bpy 可用」与「后端在、addon/bpy 未响应」。
-- `op="doctor"` 与 `GET /status` 说真话：9876 TCP 通但 addon 在预算内没回 bpy 往返时，返回 `kind: "addon-unresponsive"`（不再落成 `blender-unreachable`）；/status 透出 `addonError`，宿主超时报 `backend_timeout` 而不是 `backend_unreachable`。
-- 加大 addon 往返预算但收紧单次截止：/status 3.5s、doctor 3s、/commands 的 FLAGS 15s + 5 个集成各 5s（最坏 40s < 宿主 60s）；消除「宿主先 abort、模型看不到任何诊断」。
+- `op="doctor"` 与 `GET /status` 说真话：9876 TCP 通但 addon 在预算内没回 bpy 往返时，返回 `kind: "addon-unresponsive"`（不再落成 `blender-unreachable`）；addon 明确回了错误（非超时，如「AI 操作已暂停」）时归因 `kind: "addon-error"`，不再写成 `main-thread-busy`；/status 透出 `addonError`，宿主超时报 `backend_timeout` 而不是 `backend_unreachable`。
+- 预算分层并保持倒挂关系：/status 3.5s、doctor 3s；/commands 的 FLAGS 15s + 5 个集成各 3s（每次失败还会串一次 ~2.5s 诊断，最坏 ≈42.5s < 客户端 45s < 宿主静态截止 60s）；`blender_rt_commands` 客户端预算改为 45s，先于宿主 deadline 收口；`op="start"` 的 /status 探测预算提到 12s（覆盖后端刚起首调 ~9s），不再让宿主先 abort、模型看不到 addonError。
 - `blender_rt_commands` 在 socket 级失败时返回 `addon_unreachable`，next_action 指向 N 面板 Connect + 有界 `op=doctor`，不再指向会阻塞的 `op=status`。
 - addon 面板文案改为「Bridge listening / Bridge server stopped」等，不再暗示它连接了 MCP server。
 - 无 API / 协议 / 工具计数变化（15 tools / 34 family / 228 op / addon 1.11 / protocol 11）。

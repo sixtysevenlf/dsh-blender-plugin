@@ -76,10 +76,15 @@ export const T = {
 
 /**
  * P0-3（status/doctor 说真话）：host 侧有界探测预算。
- * 必须小于 backend 内部预算（/status 的 addon 往返 5s），超时才能先于宿主触发并给出结构化诊断。
+ * 外层的超时必须**大于** backend 内部预算，否则模型先拿到 host 的 aborted，看不到 addonError 诊断；
+ * 同时要明显小于 T.viewport（60s），保证工具自身仍有界。
  */
-/** op=start：/health 通后再探 /status，判定 addon/bpy 是否可用（backend 内部预算 5s）。 */
-export const VIEWPORT_START_STATUS_TIMEOUT_MS = 6000
+/**
+ * op=start：/health 通后再探 /status，判定 addon/bpy 是否可用。
+ * backend 侧 /status 的 addon 预算 3.5s；transport 超时后 lifecycle 还会串一次 diagnose()（~2.5s），
+ * 真机实测稳态 ~6.0s、后端刚起（启动队列）首调 8.98–9.43s。预算取 12s 覆盖首调，仍远小于 T.viewport 60s。
+ */
+export const VIEWPORT_START_STATUS_TIMEOUT_MS = 12000
 /** op=doctor catch：先探 /health 区分「后端在」与「后端没起」。 */
 export const VIEWPORT_DOCTOR_HEALTH_TIMEOUT_MS = 800
 

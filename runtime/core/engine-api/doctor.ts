@@ -21,10 +21,10 @@ import { metricsView } from './metrics.js'
 export const ADDON_STATUS_TIMEOUT_MS = 3500
 /** /doctor 的 status 阶段预算：更短，给 diagnose() 的 ping 探针留时间（A3 半开场景总目标 <10s）。 */
 export const ADDON_DOCTOR_STATUS_TIMEOUT_MS = 3000
-/** /commands 读 5 个开关（FLAGS_CODE）预算：最坏 15+25=40s < 宿主 60s。 */
+/** /commands 的 FLAGS + 5 个集成必须整段落在客户端预算内：15s + 5×(3s+~2.5s 诊断)≈42.5s < 45s 客户端 < 60s 宿主。 */
 export const ADDON_FLAGS_TIMEOUT_MS = 15000
-/** /commands 单个集成 status 预算（5 个串行）。 */
-export const ADDON_INTEGRATION_TIMEOUT_MS = 5000
+/** /commands 单个集成 status 预算（5 个串行；失败还会各串一次 ~2.5s 诊断，故取 3s）。 */
+export const ADDON_INTEGRATION_TIMEOUT_MS = 3000
 
 const TIMEOUT_RE = /timeout|timed out|aborted|abort/i
 
@@ -102,6 +102,26 @@ export async function statusView(
 }
 
 /**
+ * P2（PR review）：addon 明确回了错误（非超时）时的归因。
+ * 这类失败说明通道在（TCP 通、addon 有响应），不要归成 main-thread-busy / blender-unreachable。
+ */
+export function addonErrorDiagnosis(error: string): Record<string, unknown> {
+  return {
+    kind: 'addon-error',
+    tcp: true,
+    ping: null,
+    error: error,
+    stage: 'execute_code',
+    summary:
+      '后端（9877）在、9876 端口也通，addon 回了错误（不是超时）：' +
+      error +
+      ' —— 通道本身仍在，按 addonError 处理（如操作已暂停 / 参数或脚本报错），不是 main-thread-busy。',
+    fix: '按 addonError 的具体报错修（例如在 DSH 里恢复被暂停的「AI 操作」；脚本/参数错误按报错改参数），不要按「主线程忙」重试。',
+    hint: 'TCP 127.0.0.1:9876 通，但 addon 明确回了错误 → 归因 addonError，不是通道未起、也不是主线程忙。',
+  }
+}
+
+/**
  * P0-3：doctor 失败分支。TCP 已通时把「addon 不回包」与「后端没起」分开 ——
  * 超时不再落成 blender-unreachable（现场 seq 52-56 的 start/doctor 自相矛盾即源于此）。
  */
@@ -114,13 +134,16 @@ async function failedDoctor(
   // addon.send 的包装层（engine/lifecycle.ts）在 transport 错误后已经跑过一次 diagnose()
   // 并挂在 err.diagnosis 上 —— 复用它，避免 doctor 失败路径再串一个 ~2.5s 的探针。
   const timeout = isAddonTimeout(e)
+  const err = errorMessage(e)
+  // P2（PR review）：非超时错误（如「AI 操作已暂停」/脚本报错）不是 main-thread-busy。
+  // diagnose() 在 ping 通时会固定归成 main-thread-busy，这里直接按 addonError 归因，不再串诊探针。
+  if (!timeout)
+    return { ok: false, addon: addonErrorDiagnosis(err), metrics: metricsView(E), error: err }
   const attached =
     (e as { diagnosis?: Diagnosis }).diagnosis ||
     (timeout ? (metrics.lastDiagnosis as Diagnosis | null) : null)
   const d: Diagnosis | null = attached || (await diagnose().catch(() => null))
   if (d) metrics.lastDiagnosis = d
-  const err = errorMessage(e)
-  if (!timeout) return { ok: false, addon: d, metrics: metricsView(E), error: err }
   // 走到这里说明 doctor 入口的 tcpProbe() 已经通了：9876 有监听，只是 addon 不回 bpy 往返。
   const addon = {
     ...(d || {}),

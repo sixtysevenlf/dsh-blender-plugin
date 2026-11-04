@@ -3,7 +3,8 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { spawn } from 'node:child_process'
 import type { ChildProcess, SpawnOptions } from 'node:child_process'
-import { CFG, winToWsl, wslToWin } from '../../config.js'
+import { winToWsl, wslToWin } from '../../config.js'
+import { assertBlenderExe, blenderExeSource } from '../exe-guard.js'
 import {
   BLENDER_EXE,
   USER_CONFIG_WIN,
@@ -15,6 +16,9 @@ import { KERNEL_BOOTSTRAP } from '../../core/kernel/index.js'
 import { errorMessage } from '../../core/json.js'
 import type { WorkerRecord, WorkersCtx } from './api.js'
 import { workerAlive, workerCall, workerSnapshot, workerState, workerKey } from './api.js'
+
+// P2-3：assertBlenderExe 提到 runtime/execution/exe-guard.ts（job 通道共用），这里保持旧导出名兼容。
+export { assertBlenderExe } from '../exe-guard.js'
 
 export interface WorkerInfo {
   timedOut?: boolean
@@ -191,33 +195,7 @@ async function warmupWorker(w: WorkerRecord): Promise<Record<string, unknown>> {
 }
 
 // P0-1：BLENDER_EXE 为空时 spawn() 会同步抛 Node 的 TypeError，child.on('error')
-// 与 assertWorkerReady 的 hint 都走不到。启动前预检，给出可执行的配置指引。
-export function assertBlenderExe(exe: unknown, detectedFrom?: unknown): void {
-  if (typeof exe === 'string' && exe.trim()) return
-  const from =
-    detectedFrom === undefined || detectedFrom === null || !String(detectedFrom).trim()
-      ? blenderExeSource()
-      : String(detectedFrom)
-  const err = new Error(
-    '没找到 Blender 可执行文件（blenderExe 为空；探测来源: ' + from + '）',
-  ) as Error & { code: string; hint: string }
-  err.code = 'blender_exe_missing'
-  err.hint =
-    '设置 DSH_BLENDER_EXE 或 dsh-blender.config.json 的 blenderExe（当前探测来源: ' +
-    from +
-    '）；Steam 版路径形如 <Steam>\\steamapps\\common\\Blender\\blender.exe（如 D:\\Program Files\\Steam\\steamapps\\common\\Blender\\blender.exe）；改完重启 DSH，再 blender_rt_worker op=start'
-  throw err
-}
-
-function blenderExeSource(): string {
-  try {
-    const cfg = CFG as unknown as { source?: { blenderExe?: unknown } }
-    const from = cfg.source ? cfg.source.blenderExe : undefined
-    if (from !== undefined && from !== null && String(from).trim()) return String(from)
-  } catch (e) {}
-  return 'unknown'
-}
-
+// 与 assertWorkerReady 的 hint 都走不到。启动前预检（实现在 exe-guard.ts），给出可执行的配置指引。
 export async function workerStart(
   ctx: WorkersCtx,
   opts: Record<string, unknown> = {},
