@@ -29,7 +29,6 @@
     "runtime",
     "!runtime/ext/venv",
     "!runtime/ext/node_modules",
-    "!runtime/ext/pkg.tgz",
     "!runtime/__pycache__",
     "!runtime/**/*.ts",
     "!runtime/**/*.mts",
