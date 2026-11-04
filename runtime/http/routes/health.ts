@@ -59,6 +59,9 @@ export function createHealthRoutes(E: HttpRouteDeps) {
         json(res, 200, {
           ok: true,
           region: s.region,
+          // P0-3：statusView 已经把 addon 失败收进 addonError；路由必须透出，否则
+          // presenter 的 addonError / addon_unresponsive 判定在生产里是死代码。
+          addonError: s.addonError || null,
           plugin: s.plugin || null,
           runs: s.runs || [],
           jobs: s.jobs || [],

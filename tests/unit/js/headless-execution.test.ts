@@ -264,7 +264,7 @@ describe('headless run: failure modes', () => {
     })
     const h = makeHarness(tmp)
     const p = createHeadlessRun(h.deps).headless({ script: 'print(1)', outdir: tmp })
-    await expect(p).rejects.toMatchObject({ code: 'blender-exe-missing' })
+    await expect(p).rejects.toMatchObject({ code: 'blender_exe_missing' })
   })
 
   it('reports a non-zero exit code', async () => {

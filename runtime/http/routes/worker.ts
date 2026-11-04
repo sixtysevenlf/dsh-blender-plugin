@@ -97,7 +97,13 @@ export function createWorkerRoutes(E: HttpRouteDeps) {
           }
         } catch (e) {
           stats.lastError = errorMessage(e)
-          return { ok: false, op: op, error: stats.lastError, hint: errorField(e, 'hint') || null }
+          return {
+            ok: false,
+            op: op,
+            error: stats.lastError,
+            hint: errorField(e, 'hint') || null,
+            code: errorField(e, 'code') || null,
+          }
         }
       })
       return

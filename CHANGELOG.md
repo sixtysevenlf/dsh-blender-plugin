@@ -1,5 +1,16 @@
 # CHANGELOG — dsh-blender-plugin
 
+## v3.0.6（未发布）—— 修复首调失败与诊断自相矛盾
+
+- Windows 自动探测补 Steam 库：扫描 `%ProgramFiles%\Steam`、`%ProgramFiles(x86)%\Steam`、`%ProgramW6432%\Steam` 与 `{C,D,E,F}\{Program Files\Steam, Program Files (x86)\Steam, Steam, SteamLibrary}`，并解析 `steamapps/libraryfolders.vdf` 中的其它库；命中来源记 `auto:steam`。这是「Blender 装在 Steam 库里、首调直接失败」的根因。
+- `blender_rt_worker(op="start")` 在 spawn 前预检 blender.exe：为空时立即返回结构化 `blender_exe_missing`（含 `DSH_BLENDER_EXE` / `dsh-blender.config.json` / Steam 路径示例），不再抛 Node 的 `TypeError: The "file" argument must be of type string`。
+- `blender_viewport(op="start")` 不再把「9877 后端进程在」当成「Blender/addon 通道可用」：/health 通后再做有界 /status，区分「后端在 + addon/bpy 可用」与「后端在、addon/bpy 未响应」。
+- `op="doctor"` 与 `GET /status` 说真话：9876 TCP 通但 addon 在预算内没回 bpy 往返时，返回 `kind: "addon-unresponsive"`（不再落成 `blender-unreachable`）；/status 透出 `addonError`，宿主超时报 `backend_timeout` 而不是 `backend_unreachable`。
+- 加大 addon 往返预算但收紧单次截止：/status 3.5s、doctor 3s、/commands 的 FLAGS 15s + 5 个集成各 5s（最坏 40s < 宿主 60s）；消除「宿主先 abort、模型看不到任何诊断」。
+- `blender_rt_commands` 在 socket 级失败时返回 `addon_unreachable`，next_action 指向 N 面板 Connect + 有界 `op=doctor`，不再指向会阻塞的 `op=status`。
+- addon 面板文案改为「Bridge listening / Bridge server stopped」等，不再暗示它连接了 MCP server。
+- 无 API / 协议 / 工具计数变化（15 tools / 34 family / 228 op / addon 1.11 / protocol 11）。
+
 ## v3.0.5（2026-11-04）—— 修复源码注入 __file__ 缺失
 
 - 修复 #73：源码注入的 Python 模块现在会收到真实模块路径作为 `__file__`，`audit` / `qc` / `contract` 等高层算子不再报 `NameError`。

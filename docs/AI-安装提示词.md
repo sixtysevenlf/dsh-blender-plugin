@@ -106,6 +106,7 @@ blender_rt_do(code="print(K.out_dir)", session="auto")       # 同步 exec，不
 | 回执 | 含义 | 处置 |
 |---|---|---|
 | `blender-unreachable` | Blender 没跑，或 addon 没 Connect | `blender_viewport(op="launch")`；或人工在 Blender 里按 `N` → Connect；纯无头可改用 `blender_rt_worker` |
+| `addon-unresponsive`（`/doctor` 的 `addon.kind`） | `9876` 端口通，但 addon 在预算内（3s）没回 `execute_code` 的 bpy 往返（超时） | 确认 Blender 在运行且「DSH Blender Bridge」已 Connect；等长命令/渲染结束，必要时重启 Blender；`op=start` 只管 9877 后端，不修这条通道 |
 | `main-thread-busy` | 主线程被渲染 / 模态操作占住 | 等它空下来，或改走无头（`blender_rt_headless` / `blender_rt_worker`） |
 | 后端不可用 | 后端进程没起来 | `blender_viewport(op="start")` |
 | 工具数 / op 数与文档不符（如仍是旧目录） | 插件/lib 与宿主版本不一致，或升级后没重启 | 重新安装 v3.0.5 → **重启 DSH** → `blender_rt_plan(op="catalog")` 复核 34/228 |

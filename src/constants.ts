@@ -75,6 +75,15 @@ export const T = {
 }
 
 /**
+ * P0-3（status/doctor 说真话）：host 侧有界探测预算。
+ * 必须小于 backend 内部预算（/status 的 addon 往返 5s），超时才能先于宿主触发并给出结构化诊断。
+ */
+/** op=start：/health 通后再探 /status，判定 addon/bpy 是否可用（backend 内部预算 5s）。 */
+export const VIEWPORT_START_STATUS_TIMEOUT_MS = 6000
+/** op=doctor catch：先探 /health 区分「后端在」与「后端没起」。 */
+export const VIEWPORT_DOCTOR_HEALTH_TIMEOUT_MS = 800
+
+/**
  * v0.9.2（R2 自证）：插件 import 到的 @deepseek-ai/dsh-tools 是哪一份、哪一版。
  * 本机解析链：插件 node_modules → ~/dsh-harness（fake checkout）→ /usr/lib/node_modules
  * 的**全局安装**。DSH 一升级，这里就是升级后那份；而全局安装位置一变，插件会在载入期

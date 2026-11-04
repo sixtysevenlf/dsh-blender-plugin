@@ -3,7 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { spawn } from 'node:child_process'
 import type { ChildProcess, SpawnOptions } from 'node:child_process'
-import { winToWsl, wslToWin } from '../../config.js'
+import { CFG, winToWsl, wslToWin } from '../../config.js'
 import {
   BLENDER_EXE,
   USER_CONFIG_WIN,
@@ -190,6 +190,34 @@ async function warmupWorker(w: WorkerRecord): Promise<Record<string, unknown>> {
   }
 }
 
+// P0-1：BLENDER_EXE 为空时 spawn() 会同步抛 Node 的 TypeError，child.on('error')
+// 与 assertWorkerReady 的 hint 都走不到。启动前预检，给出可执行的配置指引。
+export function assertBlenderExe(exe: unknown, detectedFrom?: unknown): void {
+  if (typeof exe === 'string' && exe.trim()) return
+  const from =
+    detectedFrom === undefined || detectedFrom === null || !String(detectedFrom).trim()
+      ? blenderExeSource()
+      : String(detectedFrom)
+  const err = new Error(
+    '没找到 Blender 可执行文件（blenderExe 为空；探测来源: ' + from + '）',
+  ) as Error & { code: string; hint: string }
+  err.code = 'blender_exe_missing'
+  err.hint =
+    '设置 DSH_BLENDER_EXE 或 dsh-blender.config.json 的 blenderExe（当前探测来源: ' +
+    from +
+    '）；Steam 版路径形如 <Steam>\\steamapps\\common\\Blender\\blender.exe（如 D:\\Program Files\\Steam\\steamapps\\common\\Blender\\blender.exe）；改完重启 DSH，再 blender_rt_worker op=start'
+  throw err
+}
+
+function blenderExeSource(): string {
+  try {
+    const cfg = CFG as unknown as { source?: { blenderExe?: unknown } }
+    const from = cfg.source ? cfg.source.blenderExe : undefined
+    if (from !== undefined && from !== null && String(from).trim()) return String(from)
+  } catch (e) {}
+  return 'unknown'
+}
+
 export async function workerStart(
   ctx: WorkersCtx,
   opts: Record<string, unknown> = {},
@@ -197,6 +225,8 @@ export async function workerStart(
 ): Promise<Record<string, unknown>> {
   const w = workerState(ctx, nameArg !== undefined ? nameArg : opts.name)
   if (workerAlive(w) && w.ready) return workerSnapshot(w)
+  // 预检必须在 prepareBootFile 写盘与 spawn 之前：exe 为空时不再触发 Node 原始 TypeError。
+  assertBlenderExe(BLENDER_EXE, blenderExeSource())
   if (w.child) {
     try {
       w.child.kill('SIGKILL')

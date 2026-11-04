@@ -62,7 +62,7 @@ export async function executeHeadless(input: {
           : '/mnt/d/.../blender.exe') +
       ' ② 包根写 dsh-blender.config.json: {"blenderExe":"..."}' +
       ' ③ ~/.dsh/dsh-blender.config.json。当前探测结果见 blender_viewport op=doctor 的 config 字段。'
-    throw Object.assign(new Error(msg), { code: 'blender-exe-missing', hint: hint })
+    throw Object.assign(new Error(msg), { code: 'blender_exe_missing', hint: hint })
   }
   return { res, stdout: String(res.so || ''), stderr: String(res.se || ''), ms, logsClosed }
 }

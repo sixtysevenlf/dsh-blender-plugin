@@ -6,6 +6,9 @@ import { base, childAlive, getChild, isPaused } from '../../host/backend/index.j
 import { tuiHostSummary } from '../../tui/index.js'
 
 const NL = String.fromCharCode(10)
+// P0-3：把「超时/被 abort」与「连接被拒」分开 —— 前者是 addon/bpy 往返没回，后者才是后端没起。
+const TIMEOUT_RE = /timeout|timed out|aborted|abort|ETIMEDOUT/i
+const REFUSED_RE = /ECONNREFUSED|ECONNRESET|EHOSTUNREACH|ENOTFOUND|fetch failed|socket hang up/i
 
 export function renderViewportOutput(
   _args: unknown,
@@ -188,7 +191,7 @@ export function formatStatus(port: number, raw: unknown): string {
   const plugin = s.plugin ? asRecord(s.plugin) : null
   const runs = asArray(s.runs)
   const child = getChild()
-  return JSON.stringify({
+  const payload: Record<string, unknown> = {
     running: true,
     paused: isPaused(),
     child: child
@@ -220,7 +223,21 @@ export function formatStatus(port: number, raw: unknown): string {
     workDir: ledger ? ledger.workDir || null : null,
     workDirWritable: !!(ledger && ledger.writable),
     workDirWarning: ledger && !ledger.writable ? text(ledger.hint || ledger.lastError || '') : null,
-  })
+  }
+  return appendAddonVerdict(payload, s)
+}
+
+/** P0-3：addon 出问题时如实标注，next_action 指向 Blender addon（不是 op=start）。 */
+function appendAddonVerdict(payload: Record<string, unknown>, s: Record<string, unknown>): string {
+  if (!s.addonError) return JSON.stringify(payload)
+  const addonError = text(s.addonError)
+  payload.addonError = addonError
+  const timeout = isTimeoutError(addonError)
+  payload.code = timeout ? 'addon_unresponsive' : 'addon_error'
+  payload.next_action = timeout
+    ? '后端（9877）在，addon/bpy 没在预算内回包：检查 Blender 是否运行且「DSH Blender Bridge」已 Connect、是否卡在渲染/模态操作；重载 addon 后用 op=doctor 复核'
+    : '后端（9877）在，addon 回了错误：按 addonError 修（检查 Blender 是否运行、「DSH Blender Bridge」是否 Connect），再用 op=doctor 复核'
+  return JSON.stringify(payload)
 }
 
 function formatRun(raw: unknown): Record<string, unknown> {
@@ -237,17 +254,44 @@ function formatRun(raw: unknown): Record<string, unknown> {
   }
 }
 
+/** P0-3：超时/被 abort ≠ 连接被拒 —— 判定两套 verdict 的共用判据。 */
+export function isTimeoutError(e: unknown): boolean {
+  const name = e && typeof e === 'object' ? String((e as { name?: unknown }).name || '') : ''
+  return name === 'TimeoutError' || name === 'AbortError' || TIMEOUT_RE.test(errorText(e))
+}
+
 export function formatStatusError(port: number, e: unknown): string {
+  const err = errorText(e)
+  if (isTimeoutError(e))
+    return JSON.stringify({
+      running: false,
+      url: base(port) + '/',
+      error: err,
+      code: 'backend_timeout',
+      next_action:
+        '先 blender_viewport op=doctor（有界，≤10s）确认 addon/bpy 是否可用；不要反复 op=start —— 超时不等于后端没起',
+      hint: '这次没在预算内拿到 /status 回执：可能是 addon/bpy 往返卡住（Blender 在渲染/模态操作）或本次等待被宿主打断；/health 通就说明后端进程在',
+    })
+  const refused = REFUSED_RE.test(err)
   return JSON.stringify({
     running: false,
     url: base(port) + '/',
-    error: errorText(e),
+    error: err,
     code: 'backend_unreachable',
-    next_action: '用 blender_viewport op=start 拉起后端；仍失败看 op=doctor',
-    hint: '用 blender_viewport op=start 拉起',
+    next_action: refused
+      ? '用 blender_viewport op=start 拉起后端；仍失败看 op=doctor'
+      : '用 blender_viewport op=doctor 先判因（看 /health）；确实没起再用 op=start',
+    hint: refused
+      ? '连接被拒绝：9877 没有进程在监听 —— 用 blender_viewport op=start 拉起后端'
+      : '未判定为连接拒绝：先 op=doctor 看 /health，再决定是否 op=start',
   })
 }
 
+/** 错误文本带上 cause（Node fetch 把 ECONNREFUSED 藏在 TypeError('fetch failed').cause 里）。 */
 function errorText(e: unknown): string {
-  return e instanceof Error ? e.message : String(e)
+  if (e instanceof Error) {
+    const cause = (e as Error & { cause?: unknown }).cause
+    return cause === undefined ? e.message : e.message + ': ' + errorText(cause)
+  }
+  return String(e)
 }

@@ -28,12 +28,22 @@ export function registerCommands(ctx: HostContext, port: number): void {
                 BACKEND_HINT,
               )
             const r = await backendJson(port, '/commands', 120000)
-            if (!r || r.ok !== true)
+            if (!r || r.ok !== true) {
+              const errText = text(r.error || r.raw || 'unknown')
+              // socket 级失败说明 addon 桥没连上：status 探针自身会阻塞约 20s 再指向 start，
+              // 形成死循环。改为有界的 Connect / doctor 指引。
+              if (/socket closed|ECONNRESET|EPIPE|ECONNREFUSED|connect timeout/i.test(errText))
+                return toolError(
+                  'addon_unreachable',
+                  'COMMANDS 失败 · ' + errText,
+                  '先切回 Blender，在 N 面板点 Connect（addon 监听 127.0.0.1:9876）；再跑 blender_viewport op=doctor 做有界体检，通过后重试本命令',
+                )
               return toolError(
                 'backend_error',
-                'COMMANDS 失败 · ' + text(r.error || r.raw || 'unknown'),
-                '先 blender_viewport op=status 确认后端与 addon',
+                'COMMANDS 失败 · ' + errText,
+                '先跑 blender_viewport op=doctor 做有界体检（进程 / 端口 / addon 桥），按提示修复后重试本命令',
               )
+            }
             const disabled = asArray(r.disabled)
             const integrations = asRecord(r.integrations)
             const available = asArray(r.available)
