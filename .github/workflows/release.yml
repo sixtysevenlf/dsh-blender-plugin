@@ -60,13 +60,8 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-      - name: Create Python venv
-        run: python -m venv .venv
-      - name: Install dependencies
-        run: |
-          npm ci --legacy-peer-deps
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -r requirements-dev.txt -r requirements-typecheck.txt
+      - name: Set up development environment
+        run: node scripts/setup-dev.mjs
       - name: Validate version and release settings
         env:
           VERSION: ${{ inputs.version }}

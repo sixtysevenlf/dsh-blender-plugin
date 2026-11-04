@@ -109,6 +109,7 @@
     "vitest": "^5.0.5"
   },
   "scripts": {
+    "setup:dev": "node scripts/setup-dev.mjs",
     "build": "node scripts/build.mjs all",
     "build:addon": "node scripts/build-addon.mjs",
     "check:addon": "node scripts/build-addon.mjs --check",

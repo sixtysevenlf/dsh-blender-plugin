@@ -85,12 +85,8 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
-      - name: Create Python venv
-        run: python -m venv .venv
-      - name: Install dependencies
-        run: |
-          npm ci --legacy-peer-deps
-          .venv/bin/python -m pip install -r requirements-dev.txt -r requirements-typecheck.txt
+      - name: Set up development environment
+        run: node scripts/setup-dev.mjs
       - name: Addon unit tests (no Blender)
         env:
           PYTHON: .venv/bin/python

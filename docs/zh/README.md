@@ -98,11 +98,11 @@ addon 仍然是唯一支持的 Blender 侧 agent 桥。其他占用 9876 端口�
 
    只能用这个 addon 作为 agent 桥。若已启用 `MCP for Blender` / `blender_mcp`（或其他自带 9876 服务的 addon），停用它即可，不必卸载；其他 addon 可以留着。如果后面的安装用不了，先回来检查这一步。
 
-2. **开发者路径：** 克隆仓库并构建。lib/ 是构建产物，不再入库，所以新 clone 必须先构建一次；除非你在开发这个插件，否则请使用上面的 npm 安装。
+2. **开发者路径：** 克隆仓库并构建。lib/ 是构建产物，不再入库，所以新 clone 必须先构建一次。`npm run setup:dev` 会装好 npm 与 Python 开发依赖（并创建 `.venv`）；除非你在开发这个插件，否则请使用上面的 npm 安装。
 
         git clone https://github.com/sixtysevenlf/dsh-blender-plugin.git
         cd dsh-blender-plugin
-        npm ci --legacy-peer-deps
+        npm run setup:dev
         npm run build
 
 3. 把插件加入 DSH profile。先把 checkout 软链到 profile，再在 profile 的 package.json 里加依赖和 bundle 条目。
@@ -214,9 +214,14 @@ addon 仍然是唯一支持的 Blender 侧 agent 桥。其他占用 9876 端口�
 ## 开发
 
 - Node.js **24.9** 是最低支持版本；CI 使用 Node 24。
-- Python 测试需要装有 `pytest` 的虚拟环境（virtualenv），用 `PYTHON` 指向该解释器（Windows 另设
-  `PYTHONIOENCODING=utf-8`、`PYTHONUTF8=1`）；测试直接导入 TypeScript 源码。
-- 命令的唯一事实源（安装、构建、typecheck、测试、lint、打包）见
+- 开发环境：克隆后运行 `npm run setup:dev`，它会探测 Python 3.11+、创建或复用 `.venv`，安装
+  `requirements-dev.txt`、`requirements-typecheck.txt` 与 npm 依赖（仅当 `node_modules` 缺失时才跑
+  `npm ci --legacy-peer-deps`）。`npm run setup:dev -- --check` 只验证不写入；
+  `npm run setup:dev -- --force` 重建 `.venv`。`.venv` 与 `node_modules` 都不入库。
+- Python 测试需要装有 `pytest` 的虚拟环境（virtualenv，由 `npm run setup:dev` 创建）。测试会自动探测
+  `.venv`；需要换解释器时用 `PYTHON` 指向别处（Windows 另设 `PYTHONIOENCODING=utf-8`、
+  `PYTHONUTF8=1`）；测试直接导入 TypeScript 源码。
+- 命令的唯一事实源（构建、typecheck、测试、lint、打包）见
   [`AGENTS.md` §1](../../AGENTS.md#1-commands-single-source)；`lib/` 由 `src/` 重新构建，不要手改。
 - 测试分层、fixture 与各层命令：[`tests/README.md`](../../tests/README.md)。
 - 贡献流程：[English CONTRIBUTING](../../CONTRIBUTING.md) · [中文 CONTRIBUTING](./CONTRIBUTING.md)。

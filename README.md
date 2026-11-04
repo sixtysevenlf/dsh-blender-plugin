@@ -100,11 +100,11 @@ Install the standalone modeling skill (only needed for hosts that do not load th
 
    Keep this addon as your only agent bridge. If `MCP for Blender` / `blender_mcp` (or another addon that opens its own server on 9876) is enabled, turn it off — uninstalling is not required. Your other addons can stay. If the rest of the installation does not work, check this step first.
 
-2. **Developer path:** clone the repository and build it. `lib/` is a build artifact and is not committed, so a fresh clone must build once before use. Unless you are developing the plugin, use the npm install above.
+2. **Developer path:** clone the repository and build it. `lib/` is a build artifact and is not committed, so a fresh clone must build once before use. `npm run setup:dev` installs the npm and Python development dependencies (creating `.venv`); unless you are developing the plugin, use the npm install above.
 
         git clone https://github.com/sixtysevenlf/dsh-blender-plugin.git
         cd dsh-blender-plugin
-        npm ci --legacy-peer-deps
+        npm run setup:dev
         npm run build
         # Optional: DSH_CHECKOUT=/path/to/dsh-harness npm run build links DSH host packages
 
@@ -217,9 +217,15 @@ The plugin exposes 15 tools. All planning, audit, assembly, export, and evaluati
 ## Development
 
 - Node.js **24.9** is the minimum supported version; CI runs on Node 24.
-- Python tests need a virtualenv with `pytest`. Point `PYTHON` at its interpreter
-  (`PYTHONIOENCODING=utf-8` and `PYTHONUTF8=1` on Windows); tests import the TypeScript sources directly.
-- The canonical command table — install, build, typecheck, test, lint, pack — is
+- Development environment: `npm run setup:dev` after cloning discovers Python 3.11+, creates or reuses
+  `.venv`, installs `requirements-dev.txt`, `requirements-typecheck.txt`, and npm dependencies
+  (`npm ci --legacy-peer-deps` only when `node_modules` is missing). `npm run setup:dev -- --check`
+  verifies without writing; `npm run setup:dev -- --force` recreates `.venv`. `.venv` and
+  `node_modules` are never committed.
+- Python tests need a virtualenv with `pytest` (created by `npm run setup:dev`). Tests auto-detect
+  `.venv`; point `PYTHON` at another interpreter when needed (`PYTHONIOENCODING=utf-8` and
+  `PYTHONUTF8=1` on Windows); tests import the TypeScript sources directly.
+- The canonical command table — build, typecheck, test, lint, pack — is
   [`AGENTS.md` §1](AGENTS.md#1-commands-single-source). `lib/` is rebuilt from `runtime/` and `src/`; never hand-edit it.
 - Test layers, fixtures, and per-layer commands: [`tests/README.md`](tests/README.md).
 - Contribution workflow: [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`docs/zh/CONTRIBUTING.md`](docs/zh/CONTRIBUTING.md).

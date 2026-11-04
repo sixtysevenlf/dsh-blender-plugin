@@ -54,10 +54,11 @@ npm package. npm scripts in package.json call these files; tests live under test
 
 ### Typecheck and development utilities
 
-| Script          | Purpose                                                     | Main caller                     | Writes                              |
-| --------------- | ----------------------------------------------------------- | ------------------------------- | ----------------------------------- |
-| typecheck.mjs   | Reproducible tsc lookup and typecheck entry                 | npm run typecheck / typecheck:* | lib/runtime when build is requested |
-| sync_counts.mjs | Refresh catalog counts in display text; --dry reports drift | manual plus single-source test  | docs/AGENTS text (normal mode)      |
+| Script          | Purpose                                                                                       | Main caller                     | Writes                                |
+| --------------- | --------------------------------------------------------------------------------------------- | ------------------------------- | ------------------------------------- |
+| setup-dev.mjs   | One-command dev environment: Python discovery, .venv, requirements, npm deps, --check/--force | npm run setup:dev               | .venv/ and node_modules/ when missing |
+| typecheck.mjs   | Reproducible tsc lookup and typecheck entry                                                   | npm run typecheck / typecheck:* | lib/runtime when build is requested   |
+| sync_counts.mjs | Refresh catalog counts in display text; --dry reports drift                                   | manual plus single-source test  | docs/AGENTS text (normal mode)        |
 
 ## Checked scripts and type coverage
 

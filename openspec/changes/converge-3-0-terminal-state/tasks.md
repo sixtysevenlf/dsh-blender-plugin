@@ -53,10 +53,10 @@
 
 ## 7. S5 开发环境一键配置
 
-- [ ] 7.1 写 `scripts/setup-dev.mjs`（Python 发现顺序、`.venv` 创建/复用、安装 `requirements-dev.txt` + `requirements-typecheck.txt`、`--check` / `--force`、失败非零带提示），并在 `package.json` 加 `setup:dev`；验证：删除 `.venv` 后 `npm run setup:dev` 一次成功，重复运行幂等，`npm run setup:dev -- --check` 通过。
-- [ ] 7.2 CI 两处内联 venv 步骤改为调用脚本（`.github/workflows/pr.yml:88-96`、`release.yml:63-69`）；验证：workflow diff 只保留脚本调用，本地等价命令通过，无法本地验证的 CI 行为在 PR 描述注明。
-- [ ] 7.3 文档收敛：`CONTRIBUTING.md`、`README.md`、`docs/zh/CONTRIBUTING.md` 的安装命令改为 `npm run setup:dev`，`scripts/README.md` 登记新脚本；验证：文档命令照抄可用，中英文档互链正确。
-- [ ] 7.4 干净环境验收（Windows；CI 覆盖 Linux）：setup 后跑 `npm run typecheck` + `test:unit` + `test:python`；验证：三项全绿，输出贴 PR。
+- [x] 7.1 写 `scripts/setup-dev.mjs`（Python 发现顺序、`.venv` 创建/复用、安装 `requirements-dev.txt` + `requirements-typecheck.txt`、`--check` / `--force`、失败非零带提示），并在 `package.json` 加 `setup:dev`；验证：删除 `.venv` 后 `npm run setup:dev` 一次成功，重复运行幂等，`npm run setup:dev -- --check` 通过。
+- [x] 7.2 CI 两处内联 venv 步骤改为调用脚本（`.github/workflows/pr.yml:88-96`、`release.yml:63-69`）；验证：workflow diff 只保留脚本调用，本地等价命令通过，无法本地验证的 CI 行为在 PR 描述注明。
+- [x] 7.3 文档收敛：`CONTRIBUTING.md`、`README.md`、`docs/zh/CONTRIBUTING.md` 的安装命令改为 `npm run setup:dev`，`scripts/README.md` 登记新脚本；验证：文档命令照抄可用，中英文档互链正确。
+- [x] 7.4 干净环境验收（Windows；CI 覆盖 Linux）：setup 后跑 `npm run typecheck` + `test:unit` + `test:python`；验证：三项全绿，输出贴 PR。
 
 ## 8. 集成验收
 
