@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AUDIT_PATH, pyModuleFile } from '../../../runtime/paths.js'
+import { AUDIT_PATH, pyModuleFile, pyModuleNames } from '../../../runtime/paths.js'
 import { injectModule, preloadChunk } from '../../../runtime/core/kernel/api.js'
 
 describe('kernel module injection', () => {
@@ -8,6 +8,13 @@ describe('kernel module injection', () => {
     expect(code).toContain('"__file__": ' + JSON.stringify(AUDIT_PATH))
     expect(pyModuleFile('audit')).toBe(AUDIT_PATH)
     expect(code).toContain('"__name__": "audit"')
+  })
+
+  it('gives every registered preload module its real __file__', () => {
+    for (const name of pyModuleNames()) {
+      const code = preloadChunk(name)
+      expect(code).toContain('"__file__": ' + JSON.stringify(pyModuleFile(name)))
+    }
   })
 
   it('sets __file__ before injecting a module into the kernel globals', async () => {

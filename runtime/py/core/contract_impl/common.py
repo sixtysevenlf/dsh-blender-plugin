@@ -65,14 +65,10 @@ SEV_DEPTH_MED_MM = 0.5
 SEV_FRAC_HIGH = 0.25                   # 严重度分档：体积占比
 SEV_FRAC_MED = 0.02
 FEATURES_JSON_NAME = "assembly_features.json"
-# Compatibility fallback: normal imports and the current preloadChunk /
-# injectModule paths provide a real __file__, but older engines, direct exec
-# loaders, and tests may not. When __file__ is absent, _features_path()
-# resolves the feature library through K.runtime_dir / find_runtime_file.
-try:
-    _HERE = os.path.dirname(os.path.abspath(__file__))
-except NameError:
-    _HERE = ""
+# All supported loaders provide __file__: normal import, preloadChunk,
+# injectModule, and offline_bootstrap. A missing __file__ is an injection
+# contract violation, so there is no compatibility fallback here.
+_HERE = os.path.dirname(os.path.abspath(__file__))
 FEATURES_JSON = os.path.join(_HERE, FEATURES_JSON_NAME)
 
 

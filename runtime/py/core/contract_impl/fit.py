@@ -7,11 +7,10 @@ from .mate import _aabb_pairs, _bvh, _fit_value, _inside_mask, _mesh_data, _near
 def _features_path():
     """定位 assembly_features.json（T8 起在 runtime/py/assembly/，旧扁平布局仍兼容）。
 
-    Do not rely on os.path.dirname(__file__) alone. Older source-injection
-    loaders may omit __file__ or point it at a temporary wrapper script. The
-    current engine supplies the real module path, but this lookup still prefers
-    K.runtime_dir / find_runtime_file, then falls back to the module directory,
-    the sibling assembly package, and ../runtime (for direct tests).
+    Path lookup prefers K.runtime_dir / find_runtime_file, then falls back to
+    the module directory, the sibling assembly package, and ../runtime (for
+    direct tests). All supported loaders provide the real module path; a
+    missing __file__ is treated as an injection contract violation, not masked.
     """
     try:
         p = _KIT.find_runtime_file(FEATURES_JSON_NAME)
