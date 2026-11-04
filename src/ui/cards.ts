@@ -2,13 +2,6 @@ import { asArray, asRecord, text } from '../contracts/dynamic.js'
 
 export type CardBlock = { type: 'text'; text: string } | { type: 'image'; attachment: unknown }
 
-export interface CardValue {
-  text?: unknown
-  envelope?: unknown
-  image?: unknown
-  images?: unknown
-}
-
 export function renderOne(_args: unknown, value: unknown): CardBlock[] {
   const v = asRecord(value)
   const blocks: CardBlock[] = [{ type: 'text', text: String(v.text || '') }]

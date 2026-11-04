@@ -3,9 +3,8 @@ import { clipText, safeStringify } from '../../ui/cards.js'
 import { redactSecrets } from '../../tools/errors.js'
 import { asRecord, isRecord, text } from '../../contracts/dynamic.js'
 
-// 本文件只需要 ctx 的这几个字段（结构打字）：不 import envelope 的类型，
-// 否则 envelope（要调 headlessHumanText）与本文件形成 import 环（check-structure ④）。
-interface ReceiptContext {
+/** 回执上下文：envelope（构造信封）与本文件（人读叙述）共用的唯一声明。 */
+export interface ReceiptContext {
   mode?: 'sync' | 'job' | 'promoted'
   runId?: string | null
   jobId?: string | null

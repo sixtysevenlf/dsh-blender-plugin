@@ -4,14 +4,7 @@ import { backendJson, backendPost, leasedText } from '../../host/http.js'
 import { clipText, safeStringify } from '../../ui/cards.js'
 import { toolError } from '../../tools/errors.js'
 import { asRecord, isRecord, text } from '../../contracts/dynamic.js'
-
-export interface ReceiptContext {
-  mode?: 'sync' | 'job' | 'promoted'
-  runId?: string | null
-  jobId?: string | null
-  notes?: string[]
-  hint?: string | null
-}
+import { headlessHumanText, type ReceiptContext } from './human-text.js'
 
 /**
  * v0.9.3（D1/F3）：客户端单次等待上限。超过它就**不干等**，转作业层并回 jobId（对齐 bash 的 promoted 语义）。
@@ -327,4 +320,3 @@ export async function fetchJobStatus(port: number, id: string): Promise<unknown>
     return null
   }
 }
-import { headlessHumanText } from './human-text.js'

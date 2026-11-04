@@ -44,5 +44,3 @@ export function dedupeNote(repeats: number): string {
     ' · **与上一张完全相同**（第 ' + String(repeats + 1) + ' 次）⇒ 未重复附图；要重发传 force:true'
   )
 }
-
-/** PNG → durable attachment（v0.9.2 起失败**不再静默**：返回 {ref} 或 {why}，由调用方写进工具文本） */

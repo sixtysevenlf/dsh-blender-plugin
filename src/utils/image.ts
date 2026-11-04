@@ -117,7 +117,6 @@ export async function attachPaths(
   }
   return { images, used, failed }
 }
-/** 无头 see 兜底：走 /worker 的 see op（Workbench 离屏；不依赖 GUI addon）。返回 {text,image} 或 null。 */
 
 /** 从 plan 回执里收集可附图路径（≤2 张；只认常见产物字段） */
 export function planImagePaths(res: unknown): string[] {

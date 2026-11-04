@@ -11,7 +11,6 @@ export {
   receiptEnvelope,
   headlessReceipt,
   promotedReceipt,
-  type ReceiptContext,
   type ToolReceipt,
 } from './envelope.js'
-export { headlessHumanText } from './human-text.js'
+export { headlessHumanText, type ReceiptContext } from './human-text.js'
