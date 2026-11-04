@@ -82,8 +82,8 @@ async function handleQcRender(E: PlanCallDeps, o: string, payload: unknown): Pro
   const p: Record<string, unknown> =
     payload !== null && typeof payload === 'object' ? (payload as Record<string, unknown>) : {}
   if (p.asJob) {
-    const { readModuleSource, jobStart } = E
-    const mods = ['qc', 'qc_render'].map(readModuleSource).join(String.fromCharCode(10))
+    const { preloadChunk, jobStart } = E
+    const mods = ['qc', 'qc_render'].map(preloadChunk).join(String.fromCharCode(10))
     const driver =
       'import json as _json' +
       String.fromCharCode(10) +

@@ -120,11 +120,12 @@ export function readScriptPath(p: unknown): { win: string; wsl: string } {
  */
 export function preloadChunk(name: unknown): string {
   const clean = String(name).trim().replace(/\.py$/, '')
-  const src = readModuleSource(clean)
+  const file = pyModuleFile(clean)
+  const src = fs.readFileSync(file, 'utf8')
   const ns = '__dsh_ns_' + clean.replace(/[^A-Za-z0-9_]/g, '_')
   return [
     '# ---- preload ' + clean + '.py（独立命名空间：私有 helper 不互相覆写）----',
-    ns + ' = {"__name__": ' + JSON.stringify(clean) + '}',
+    ns + ' = {"__name__": ' + JSON.stringify(clean) + ', "__file__": ' + JSON.stringify(file) + '}',
     'exec(compile(' +
       JSON.stringify(src) +
       ', ' +
@@ -193,7 +194,16 @@ export async function injectModule(
     ')'
   const out = await deps.addon.send(
     'execute_code',
-    { code: KERNEL_BOOTSTRAP + '\n' + (prelude ? prelude + '\n' : '') + src + tail },
+    {
+      code:
+        KERNEL_BOOTSTRAP +
+        '\n__file__ = ' +
+        JSON.stringify(file) +
+        '\n' +
+        (prelude ? prelude + '\n' : '') +
+        src +
+        tail,
+    },
     60000,
     { noMark: true },
   )
