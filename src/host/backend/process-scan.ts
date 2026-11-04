@@ -2,8 +2,7 @@
 import { execFileSync } from 'node:child_process'
 import { readdirSync, readFileSync } from 'node:fs'
 import { IS_WIN } from '../../constants.js'
-import { serverPidsFromProcRows, winKillPids } from '../runtime-bridge.js'
-import { winSamePortHolders } from './port-holders.js'
+import { serverPidsFromProcRows, winKillPids, winSamePortHolders } from '../runtime-bridge.js'
 
 /**
  * 按 /proc 扫出"本插件历史代次拉起的后端"，按 signal 停掉（默认 SIGTERM）。

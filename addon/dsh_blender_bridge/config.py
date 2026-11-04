@@ -30,6 +30,42 @@ def read_env_var(name):
     return os.getenv(legacy) if legacy else None
 
 
+# ---------------------------------------------------------------- credentials
+# 凭据单一所有者（S2 4.5）：add-on preferences 是唯一的持久化位置，环境变量仍是
+# 后备（DSHBB_* 新名优先，旧名 BLENDERMCP_* 兼容，见 read_env_var）。历史上每个
+# 凭据还在 Scene 上镜像了一份（随 .blend 保存），server 与面板都要写"有 prefs 用
+# prefs、否则用 scene"的分支，导致同一把 key 用哪个取决于当前打开的文件。现在
+# Scene 副本已删除；免费试用按钮用进程内 override（reload 后失效），不覆盖用户
+# 已保存的私钥。
+_session_credentials = {}
+
+
+def set_session_credential(name, value):
+    """Set a session-only credential override (empty value clears it)."""
+    if value:
+        _session_credentials[name] = value
+    else:
+        _session_credentials.pop(name, None)
+
+
+def clear_session_credentials():
+    """Drop every session-only credential override (add-on reload / reset)."""
+    _session_credentials.clear()
+
+
+def get_credential(pref_attr, env_var):
+    """Read one credential: session override -> add-on preferences -> env var."""
+    override = _session_credentials.get(pref_attr)
+    if override:
+        return override
+    prefs = get_dshbb_addon_preferences()
+    if prefs:
+        value = getattr(prefs, pref_attr, "")
+        if value:
+            return value
+    return read_env_var(env_var) or ""
+
+
 RODIN_FREE_TRIAL_KEY = "vibecoding"
 DISCORD_URL = "https://discord.gg/SNqPn4TcKQ"
 # Public site link shown by the N-panel; kept here so UI code does not import

@@ -23,12 +23,16 @@ export function createHostApi(E: EngineApiDeps) {
       return info
     },
     /**
-     * 启动时连上常驻 socket，并**尽力**补一次 `get_addon_info`（不 await、失败即忽略 ——
-     * 绝不让"addon 没起来"或"addon 正忙"拖慢后端启动）。
+     * 启动时连上常驻 socket。
+     *
+     * E2 修复（serial tax）：首版这里还发过一次"尽力而为"的未 await `get_addon_info`。
+     * AddonClient 的请求是**串行队列**（transport/probes.ts 里 queue.then(run)），这条不等待的
+     * 探测会占住队列头最多 3s 超时 —— 紧接着的 /status、/doctor 只能排在它后面，预算被迫
+     * 收紧到 3.5s/3s。该探测的结果从未被使用，连接本身由 ensure() 建立；删掉它，串行队列
+     * 不再替启动探测付税（与 lifecycle 的失败 diagnose 各司其职，不重复）。
      */
     async start() {
       await addon.ensure()
-      addon.send('get_addon_info', {}, 3000).catch(() => null) // 尽力而为，不阻塞 listen
       return true
     },
     // v0.9.4（P1-1）：worker 现在是多实例 —— 关后端时要把**所有**实例收干净（原来只杀单例）

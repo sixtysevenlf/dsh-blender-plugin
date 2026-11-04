@@ -15,7 +15,7 @@ type Staged = { staging?: any; win?: string; wsl?: string; exists?: boolean; err
 
 function stageWith(workdirPath: string): Staged {
   const code = [
-    "import { writeHeadlessScript } from './lib/runtime/engine.js';",
+    "import { writeHeadlessScript } from './lib/runtime/staging.js';",
     "import fs from 'node:fs';",
     'const r = writeHeadlessScript(\'print("probe")\');',
     'console.log(JSON.stringify({ staging: r.staging, win: r.win, wsl: r.wsl, exists: fs.existsSync(r.wsl) }));',

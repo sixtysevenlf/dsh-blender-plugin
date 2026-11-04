@@ -16,10 +16,8 @@ vi.mock('../../../src/constants.js', () => ({
 }))
 vi.mock('../../../src/host/runtime-bridge.js', () => ({
   winKillPids: h.winKillPids,
-  serverPidsFromProcRows: h.serverPidsFromProcRows,
-}))
-vi.mock('../../../src/host/backend/port-holders.js', () => ({
   winSamePortHolders: h.winSamePortHolders,
+  serverPidsFromProcRows: h.serverPidsFromProcRows,
 }))
 
 import { killBackendByCmd } from '../../../src/host/backend/process-scan.js'

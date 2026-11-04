@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { AddonClient } from '../../../runtime/engine.js'
+import { AddonClient } from '../../../runtime/transport/probes.js'
 import { detectProtocol } from '../../../runtime/addon-protocol.js'
 import { startFakeAddon } from '../../helpers/fake-addon.mjs'
 

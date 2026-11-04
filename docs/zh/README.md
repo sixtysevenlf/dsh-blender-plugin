@@ -190,7 +190,7 @@ addon 仍然是唯一支持的 Blender 侧 agent 桥。其他占用 9876 端口�
 
 ## 文档
 
-- 曲面算法：docs/曲面算法.md
+- 曲面算法：skills/blender-modeling/references/曲面算法.md
 - 操作教程：docs/操作教程.md
 - 配置参考：docs/配置参考.md
 - AI 安装提示词：docs/AI-安装提示词.md

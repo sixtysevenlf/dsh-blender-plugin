@@ -1,0 +1,188 @@
+{
+  "version": 1,
+  "note": "Public facade registry (finalization §1.1.2, S2 tasks 4.1/4.3). Exactly two public facades exist: src/index.ts (DSH host entry, package main/exports -> built lib/index.js) and runtime/engine.ts (backend/engine entry). Every exported name must be listed with at least one in-repo consumer that imports it through the facade (source path or built lib path); a new export that is not registered here, or a registry entry whose export/consumer is gone, fails npm run check:no-shims. An export reachable only through a facade must never be added to silence a gate: migrate internal code to the owning module instead. Regeneration is a review step, not codegen: grep the consumers (see consumers array), then update this file and the facade in the same change.",
+  "facades": {
+    "src/index.ts": {
+      "exports": [
+        {
+          "name": "name",
+          "consumers": [
+            "tests/integration/js/dsh-api-compat.test.ts",
+            "tests/unit/js/contract/skill-bundle.test.ts",
+            "tests/unit/js/contract/tool-matrix.test.ts"
+          ]
+        },
+        {
+          "name": "inject",
+          "consumers": [
+            "tests/integration/js/dsh-api-compat.test.ts",
+            "tests/unit/js/contract/skill-bundle.test.ts"
+          ]
+        },
+        {
+          "name": "Config",
+          "consumers": ["tests/integration/js/dsh-api-compat.test.ts"]
+        },
+        {
+          "name": "apply",
+          "consumers": [
+            "tests/integration/js/dsh-api-compat.test.ts",
+            "tests/unit/js/contract/lifecycle-config.test.ts",
+            "tests/unit/js/contract/tool-matrix.test.ts"
+          ]
+        },
+        {
+          "name": "__internals",
+          "consumers": [
+            "tests/integration/js/dsh-api-compat.test.ts",
+            "tests/unit/js/contract/lossless.test.ts",
+            "tests/unit/js/contract/tool-presenter.test.ts"
+          ]
+        },
+        {
+          "name": "frameDedupe",
+          "consumers": ["tests/unit/js/frame-dedupe.test.ts"]
+        },
+        {
+          "name": "resetFrameCache",
+          "consumers": ["tests/unit/js/frame-dedupe.test.ts"]
+        }
+      ]
+    },
+    "runtime/engine.ts": {
+      "exports": [
+        {
+          "name": "PLUGIN_VERSION",
+          "consumers": ["runtime/catalog/logic.ts"]
+        },
+        {
+          "name": "engineProvenance",
+          "consumers": [
+            "runtime/server.ts",
+            "tests/integration/js/route-matrix.test.ts",
+            "tests/unit/js/provenance.test.ts"
+          ]
+        },
+        {
+          "name": "COMMAND_CATALOG",
+          "consumers": ["scripts/check-parity.mjs"]
+        },
+        {
+          "name": "PLAN_CATALOG",
+          "consumers": ["scripts/check-parity.mjs", "tests/unit/js/shape-search.test.ts"]
+        },
+        {
+          "name": "TOOL_DETAIL",
+          "consumers": ["scripts/check-parity.mjs"]
+        },
+        {
+          "name": "PLAN_TOOL_MAP",
+          "consumers": ["scripts/check-parity.mjs"]
+        },
+        {
+          "name": "planOpNames",
+          "consumers": [
+            "scripts/check-parity.mjs",
+            "tests/unit/js/contract/catalog.test.ts",
+            "tests/unit/js/contract/description-budget.test.ts",
+            "tests/unit/js/contract/guidance.test.ts",
+            "tests/unit/js/shape-search.test.ts"
+          ]
+        },
+        {
+          "name": "planOpSuggestion",
+          "consumers": [
+            "scripts/check-parity.mjs",
+            "tests/unit/js/contract/description-budget.test.ts"
+          ]
+        },
+        {
+          "name": "planOpCrossChannelHint",
+          "consumers": [
+            "scripts/check-parity.mjs",
+            "tests/unit/js/contract/description-budget.test.ts"
+          ]
+        },
+        {
+          "name": "catalogFingerprint",
+          "consumers": [
+            "scripts/check-parity.mjs",
+            "scripts/install-smoke.mjs",
+            "runtime/catalog/logic.ts"
+          ]
+        },
+        {
+          "name": "PLAN_READ_ONLY_OPS",
+          "consumers": ["scripts/check-parity.mjs", "tests/unit/js/contract/single-source.test.ts"]
+        },
+        {
+          "name": "PLAN_READ_ONLY",
+          "consumers": ["scripts/check-parity.mjs", "tests/unit/js/shape-search.test.ts"]
+        },
+        {
+          "name": "MODELING_CLASS_GUIDE",
+          "consumers": ["scripts/check-parity.mjs", "tests/unit/js/contract/guidance.test.ts"]
+        },
+        {
+          "name": "renderClassText",
+          "consumers": ["scripts/check-parity.mjs"]
+        },
+        {
+          "name": "classGuideStats",
+          "consumers": ["scripts/check-parity.mjs", "tests/unit/js/contract/guidance.test.ts"]
+        },
+        {
+          "name": "renderHandoff",
+          "consumers": ["scripts/check-parity.mjs", "tests/unit/js/contract/guidance.test.ts"]
+        },
+        {
+          "name": "MODEL_FACING_TOOLS",
+          "consumers": ["scripts/check-parity.mjs", "tests/unit/js/contract/guidance.test.ts"]
+        },
+        {
+          "name": "catalogPayload",
+          "consumers": [
+            "scripts/check-parity.mjs",
+            "scripts/sync_counts.mjs",
+            "tests/unit/js/contract/catalog.test.ts",
+            "tests/unit/js/contract/catalog-dispatch-parity.test.ts",
+            "tests/unit/js/contract/description-budget.test.ts",
+            "tests/unit/js/contract/guidance.test.ts",
+            "tests/unit/js/contract/op-contract.test.ts",
+            "tests/unit/js/contract/single-source.test.ts",
+            "tests/unit/js/contract/surface-fit.test.ts",
+            "tests/unit/js/shape-search.test.ts"
+          ]
+        },
+        {
+          "name": "GATE_FLAGS",
+          "consumers": ["scripts/check-parity.mjs"]
+        },
+        {
+          "name": "FLAGS_CODE",
+          "consumers": ["scripts/check-parity.mjs"]
+        },
+        {
+          "name": "PATH_GUARD",
+          "consumers": ["scripts/check-parity.mjs", "tests/unit/js/platform-paths.test.ts"]
+        },
+        {
+          "name": "createEngine",
+          "consumers": [
+            "runtime/server.ts",
+            "scripts/install-smoke.mjs",
+            "tools/gui-channel-probe.mjs",
+            "tests/e2e/blender_42_headless.mjs",
+            "tests/unit/js/engine-surface.test.ts"
+          ]
+        }
+      ]
+    }
+  },
+  "retired": [
+    "src/tui-host.ts",
+    "runtime/execution/headless.ts",
+    "runtime/core/server-compat.ts",
+    "src/host/backend/port-holders.ts"
+  ]
+}

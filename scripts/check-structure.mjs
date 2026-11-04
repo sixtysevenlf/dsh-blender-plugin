@@ -136,7 +136,6 @@ const TARGET_FILES = [
   'src/host/backend/index.ts',
   'src/host/backend/spawn.ts',
   'src/host/backend/process-scan.ts',
-  'src/host/backend/port-holders.ts',
   'src/host/runtime-bridge.ts',
   'src/host/http.ts',
   'src/utils/frame-cache.ts',

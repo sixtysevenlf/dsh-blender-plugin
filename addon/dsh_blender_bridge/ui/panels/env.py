@@ -31,7 +31,7 @@ class DSHBB_PT_EnvGen(bpy.types.Panel):
             if prefs:
                 col.prop(prefs, "sketchfab_api_key", text="API Key")
             else:
-                col.prop(scene, "dshbb_sketchfab_api_key", text="API Key")
+                col.label(text="API keys live in the add-on preferences", icon="INFO")
 
         sub = draw_api_toggle(layout, scene, "dshbb_use_polypizza", "Poly Pizza")
         if sub:
@@ -39,4 +39,4 @@ class DSHBB_PT_EnvGen(bpy.types.Panel):
             if prefs:
                 col.prop(prefs, "polypizza_api_key", text="API Key")
             else:
-                col.prop(scene, "dshbb_polypizza_api_key", text="API Key")
+                col.label(text="API keys live in the add-on preferences", icon="INFO")

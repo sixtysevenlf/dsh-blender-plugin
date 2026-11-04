@@ -81,8 +81,9 @@ export const T = {
  */
 /**
  * op=start：/health 通后再探 /status，判定 addon/bpy 是否可用。
- * backend 侧 /status 的 addon 预算 3.5s；transport 超时后 lifecycle 还会串一次 diagnose()（~2.5s），
- * 真机实测稳态 ~6.0s、后端刚起（启动队列）首调 8.98–9.43s。预算取 12s 覆盖首调，仍远小于 T.viewport 60s。
+ * E2 修复后 backend 侧 /status 的 addon 预算 5s；transport 超时后 lifecycle 还会串一次 diagnose()（~2.5s），
+ * 半开 addon 稳态 ≈7.5s；启动探测不再占串行队列，首调只多一次冷启动开销。预算取 12s 覆盖首调，
+ * 仍远小于 T.viewport 60s。
  */
 export const VIEWPORT_START_STATUS_TIMEOUT_MS = 12000
 /** op=doctor catch：先探 /health 区分「后端在」与「后端没起」。 */

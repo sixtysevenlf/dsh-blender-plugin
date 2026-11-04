@@ -4,7 +4,7 @@ import bpy
 
 from ..commands.selection import best_collection_for_selection, record_selection_send, send_collection_to_dsh, send_selection_to_dsh
 from .. import config
-from ..config import RODIN_FREE_TRIAL_KEY, get_dshbb_addon_preferences
+from ..config import RODIN_FREE_TRIAL_KEY, get_dshbb_addon_preferences, set_session_credential
 from ..protocol import redraw_view3d_panels
 from ..server import DSHBlenderBridgeServer
 
@@ -31,6 +31,10 @@ class DSHBB_OT_SetFreeTrialHyper3DAPIKey(bpy.types.Operator):
     bl_label = "Set Free Trial API Key"
 
     def execute(self, context):
+        # 凭据单一所有者是 add-on preferences（config.get_credential）。免费试用
+        # 只写进程内 session override：本次 Blender 会话生效，reload/重开后失效，
+        # 不会覆盖用户已保存的私钥；Scene 属性副本已在 S2 4.5 删除。
+        set_session_credential("hyper3d_api_key", RODIN_FREE_TRIAL_KEY)
         prefs = get_dshbb_addon_preferences(context)
         if prefs:
             if not prefs.hyper3d_api_key or prefs.hyper3d_api_key == RODIN_FREE_TRIAL_KEY:
@@ -40,7 +44,6 @@ class DSHBB_OT_SetFreeTrialHyper3DAPIKey(bpy.types.Operator):
                     {'INFO'},
                     "Using free trial for this session only; saved private key was kept."
                 )
-        context.scene.dshbb_hyper3d_api_key = RODIN_FREE_TRIAL_KEY
         context.scene.dshbb_hyper3d_mode = 'MAIN_SITE'
         self.report({'INFO'}, "API Key set successfully!")
         return {'FINISHED'}

@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { COMMAND_CATALOG, COMMAND_CATALOG_OMISSIONS } from '../../../../runtime/catalog/index.js'
-import { AddonClient } from '../../../../runtime/engine.js'
+import { AddonClient } from '../../../../runtime/transport/probes.js'
 import { startFakeAddon } from '../../../helpers/fake-addon.mjs'
 import { pkgPath } from '../../../helpers/pkg'
 

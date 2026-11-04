@@ -15,12 +15,13 @@ import { metricsView } from './metrics.js'
  * 这里的预算必须落在宿主之前，否则模型只拿到 aborted，看不到任何结构化诊断。
  */
 /**
- * /status 的 bpy 往返（REGION_CODE）预算。注意 installAddonSend 在 transport 错误后还会
- * 串一次 diagnose()（半开 addon 约 2.5s），所以这里不能贴着 host 的 20s，留足余量。
+ * /status 的 bpy 往返（REGION_CODE）预算：5s —— E2 修复后的诚实值（启动探测不再占串行队列头，
+ * 修复前只能收到 3.5s）。注意 installAddonSend 在 transport 错误后还会串一次 diagnose()
+ * （半开 addon 约 2.5s），所以这里不能贴着 host 的 20s，留足余量（半开稳态 ≈5s + 2.5s）。
  */
-export const ADDON_STATUS_TIMEOUT_MS = 3500
-/** /doctor 的 status 阶段预算：更短，给 diagnose() 的 ping 探针留时间（A3 半开场景总目标 <10s）。 */
-export const ADDON_DOCTOR_STATUS_TIMEOUT_MS = 3000
+export const ADDON_STATUS_TIMEOUT_MS = 5000
+/** /doctor 的 status 阶段预算：4s（E2 修复后回调；半开场景 ≈4s + 复用诊断 ≈2.5s，仍 <10s 目标）。 */
+export const ADDON_DOCTOR_STATUS_TIMEOUT_MS = 4000
 /** /commands 的 FLAGS + 5 个集成必须整段落在客户端预算内：15s + 5×(3s+~2.5s 诊断)≈42.5s < 45s 客户端 < 60s 宿主。 */
 export const ADDON_FLAGS_TIMEOUT_MS = 15000
 /** /commands 单个集成 status 预算（5 个串行；失败还会各串一次 ~2.5s 诊断，故取 3s）。 */

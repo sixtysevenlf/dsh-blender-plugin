@@ -1,4 +1,5 @@
-import { AddonClient, GATE_FLAGS } from './engine.js'
+import { AddonClient } from './transport/probes.js'
+import { GATE_FLAGS } from './core/flags.js'
 import { errorMessage } from './core/json.js'
 const a = new AddonClient()
 const out: Record<string, { ok: boolean; ms: number; r?: string; err?: string }> = {}

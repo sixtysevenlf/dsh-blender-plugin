@@ -24,14 +24,14 @@
 
 ## 4. S2 facade 与双入口收口
 
-- [ ] 4.1 生成 engine.ts 消费者清单（check-build、check-parity、install-smoke、`catalog/logic.ts`、测试文件）并冻结为清单文件；验证：清单与 `grep -rn "runtime/engine" tests scripts src runtime` 结果一致，约 32 个名字。
-- [ ] 4.2 按 4.1 裁剪 `runtime/engine.ts`（87 → ~20 导出，删除 38 个 py `*_PATH` 与其余 facade-dead），内部导入改直接模块；验证：`npm run typecheck`、`check:build`、`check:parity`、install-smoke 全绿，`grep` 无残留导入失败。
-- [ ] 4.3 扩展 `check-no-shims`：覆盖公共 facade 登记（导出必须登记、新增需写消费者）；验证：添加未登记导出时脚本失败。
-- [ ] 4.4 删除中间层：`src/host/backend/port-holders.ts`、`protocol.py` 三导出、`runtime/core/engine-api/frame.ts` 转发、`qc_impl/api.py` 的 `exec(compile(...))` 兜底、合并 `recovery` 两层（`runtime/recover.ts` 与 `execution/ledger/recover.ts`）；验证：相关单测与 `test:unit` 全绿，`check-no-shims` 通过。
-- [ ] 4.5 addon 凭据单一所有者（scene props 或 prefs 二选一，~8 处 `if prefs else scene prop` 收敛），补命令级测试；验证：`npm run test:addon-unit` 通过，GUI E2E 里设置/读取凭据路径人工确认。
-- [ ] 4.6 删除 `runtime/config.ts:20-21` 的 `detectBlenderExe` 再导出，测试改为直接 import `runtime/blender-detect.js`；验证：`npm run typecheck` 与 `test:unit` 通过，`grep` 无 `from './config.js'` 的 detectBlenderExe 导入。
-- [ ] 4.7 处理 E2 串行税：启动探测不阻塞串行 addon 队列 / 与 lifecycle diagnose 去重，再回调预算到 `/status 5s、doctor 4s`；验证：`tests/integration/js/doctor-bounded.test.ts` 通过且记录改造前后耗时（贴到 PR）。
-- [ ] 4.8 更新 `docs/architecture.md` 的 facade、双入口、收税点章节；验证：`check:doc-paths` 通过。
+- [x] 4.1 生成 engine.ts 消费者清单（check-build、check-parity、install-smoke、`catalog/logic.ts`、测试文件）并冻结为清单文件；验证：清单与 `grep -rn "runtime/engine" tests scripts src runtime` 结果一致，约 32 个名字。（实现：清单落在 `config/facades.json`，两个 facade 共 29 个登记导出；`scripts/check-no-shims.mjs` 逐条校验导出仍存在且至少有一个消费者路径引用。）
+- [x] 4.2 按 4.1 裁剪 `runtime/engine.ts`（87 → ~20 导出，删除 38 个 py `*_PATH` 与其余 facade-dead），内部导入改直接模块；验证：`npm run typecheck`、`check:build`、`check:parity`、install-smoke 全绿，`grep` 无残留导入失败。（实际 88 → 22：`engineProvenance` 被 provenance 测试与 server 使用、`PLUGIN_VERSION` 被 catalog/logic 子探针使用；`check-parity` 新增 `DECLARED_ENGINE_REMOVALS` 65 个名字，若再出现即失败。）
+- [x] 4.3 扩展 `check-no-shims`：覆盖公共 facade 登记（导出必须登记、新增需写消费者）；验证：添加未登记导出时脚本失败。（实现：登记表 `config/facades.json`；另以 `config/exceptions.json` 登记 3 个 `single-line-reexport` barrel。故意在 `runtime/engine.ts` 加未登记导出 `writeHeadlessScript` → exit 1。）
+- [x] 4.4 删除中间层：`src/host/backend/port-holders.ts`、`protocol.py` 三导出、`runtime/core/engine-api/frame.ts` 转发、`qc_impl/api.py` 的 `exec(compile(...))` 兜底、合并 `recovery` 两层（`runtime/recover.ts` 与 `execution/ledger/recover.ts`）；验证：相关单测与 `test:unit` 全绿，`check-no-shims` 通过。（`protocol.py` 三导出在 S1 3.5 已删，故本步 no-op；`qc_impl` 删兜底后只走 `K.dsh_qc_render_api` 并保留错误 + hint；`runtime/recover.ts` 删除、纯逻辑并入 `execution/ledger/recover.ts`，新增 `test_qc_render_loader.py` 3 条 AST 测试。）
+- [x] 4.5 addon 凭据单一所有者（scene props 或 prefs 二选一，~8 处 `if prefs else scene prop` 收敛），补命令级测试；验证：`npm run test:addon-unit` 通过，GUI E2E 里设置/读取凭据路径人工确认。（单一所有者 = add-on preferences；`config.get_credential` 顺序 session override → prefs → `DSHBB_*`/旧 `BLENDERMCP_*` env；6 个 scene 镜像属性删除；面板只画 prefs；免费试用写 session override 不覆盖已存私钥；`tests/unit/python/test_addon_credentials.py` 5 条红→绿。GUI 面板仅 bpy-stub/人工覆盖，无真 GUI E2E。）
+- [x] 4.6 删除 `runtime/config.ts:20-21` 的 `detectBlenderExe` 再导出，测试改为直接 import `runtime/blender-detect.js`；验证：`npm run typecheck` 与 `test:unit` 通过，`grep` 无 `from './config.js'` 的 detectBlenderExe 导入。
+- [x] 4.7 处理 E2 串行税：启动探测不阻塞串行 addon 队列 / 与 lifecycle diagnose 去重，再回调预算到 `/status 5s、doctor 4s`；验证：`tests/integration/js/doctor-bounded.test.ts` 通过且记录改造前后耗时（贴到 PR）。（收税点实际在 `runtime/core/engine-api/host.ts` `start()` 里未 await 的 `get_addon_info` 3s 探测，design 误写为 src/host；删除后 cold/warm `/status` 8983/6026ms → 7531/7528ms、`/doctor` 8495/5526ms → 6540/6521ms；预算回调 5000/4000，测试断言 cold/warm gap <2s。）
+- [x] 4.8 更新 `docs/architecture.md` 的 facade、双入口、收税点章节；验证：`check:doc-paths` 通过。（新增「Public facades and the dual entry」「Addon serial queue and startup probes」、§5 凭据单一所有者、§8 门禁与例外登记、§9 选择表；无新规则文件。）
 
 ## 5. S3 死代码与软带登记
 

@@ -18,8 +18,6 @@ import { fileURLToPath } from 'node:url'
 import { isRecord, readString } from './core/json.js'
 import { errorMessage } from './core/json.js'
 import { detectBlenderExe } from './blender-detect.js'
-export { detectBlenderExe }
-export type { BlenderDetectDeps, BlenderDetectResult } from './blender-detect.js'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 /**
@@ -366,8 +364,9 @@ function resolveWorkDir(): WorkDirInfo {
 }
 
 const WORK = resolveWorkDir()
-/** blender.exe 探测在 runtime/blender-detect.ts（可注入依赖；Windows 含 Steam 库）。这里保留再导出，
- *  外部与 tests 仍从 runtime/config.js 拿 detectBlenderExe；探测来源见 CFG.source.blenderExe。 */
+/** blender.exe 探测在 runtime/blender-detect.ts（可注入依赖；Windows 含 Steam 库）。S2 4.6 起
+ *  config.ts 不再转出 detectBlenderExe：需要探测结果的调用方直接 import blender-detect.js；
+ *  这里只用一次（模块级 CFG），探测来源见 CFG.source.blenderExe。 */
 const BLENDER = detectBlenderExe({ fileCfg: FILE.cfg })
 
 function num(v: unknown, d: number): number {

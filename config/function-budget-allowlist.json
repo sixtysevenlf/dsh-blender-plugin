@@ -886,7 +886,7 @@
       "reviewBy": "2027-06-30"
     },
     {
-      "file": "runtime/recover.ts",
+      "file": "runtime/execution/ledger/recover.ts",
       "name": "recoverFromDisk",
       "lines": 103,
       "classification": "orchestration",
