@@ -43,7 +43,10 @@ function errorText(r) {
 function realPath(p) {
   const abs = path.resolve(p)
   try {
-    return fs.realpathSync(abs)
+    // Windows 的 8.3 短路径（如 C:\Users\SIXTYS~1\...）下 fs.realpathSync 不展开短名，
+    // 而 git rev-parse --show-toplevel 返回长名；用 native 实现保证两边可比。
+    const realpath = fs.realpathSync.native ?? fs.realpathSync
+    return realpath(abs)
   } catch {
     return abs
   }
