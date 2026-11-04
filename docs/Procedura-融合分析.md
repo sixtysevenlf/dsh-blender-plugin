@@ -89,7 +89,7 @@ Isaac 物理验证（按评估不引）；`mate_check` 自动落状态（当前�
 | 项 | 理由 |
 |---|---|
 | `vendor/harness/` 整套 agent 运行时、16 个 stage 提示词 | 你已有 DSH 自己的 harness + 提示词体系，重复造轮子零收益 |
-| `scripts/results-server.ts` | `montage.py` + `qc_compare` 已覆盖大部分；仅"跨 run 指标表"时可借其对照思路 |
+| 其 `results-server` 脚本 | `montage.py` + `qc_compare` 已覆盖大部分；仅"跨 run 指标表"时可借其对照思路 |
 | Isaac Sim 物理验证 | 重依赖（多 GB + 账号），收益边际；先用 Blender 侧运动学扫掠 |
 | FDM 公差数值（0.25/0.15/-0.05/0.2） | 是给 FDM 打印标定的，按你的工艺重标定，别照抄 |
 

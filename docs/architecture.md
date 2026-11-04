@@ -58,7 +58,7 @@ Layout:
 - runtime/execution/: headless, jobs, workers, recovery;
 - runtime/http/: server, routes, lease, host views;
 - runtime/transport/: frames, sockets, protocol helpers;
-- runtime/contracts/: generated or checked contract tables;
+- contract tables: `config/contracts.json` is the catalog <-> Python link layer (described in section 8); there is no separate runtime contract-table directory;
 - runtime/py/: the Blender-side Python library described below.
 
 The runtime build precedes the host build because host modules import boundary helpers from the built
@@ -304,3 +304,15 @@ policy; a floor must not be lowered without a documented policy change in this g
 5. If a size, coverage, or type exception is unavoidable, add an owned, expiring entry rather than a
    blanket ignore.
 6. Keep release steps out of the foundation plan; release has its own checklist and human sign-off.
+
+## 11. Narrative history
+
+The refactor plan, the working spec, and the debt ledger are historical evidence and live outside git;
+this repository documents behavior and the terminal state only. Plan-shaped IDs (D1, F2.3, S3, ...) are
+no longer a maintained narrative: config/plan-ids.json carries the remaining exemptions, and
+scripts/check-plan-ids.mjs is the ratchet that keeps new ones out.
+
+Two historical analyses are kept for traceability, not as current guidance:
+[Procedura fusion analysis](Procedura-融合分析.md) (2026-09-17) and
+[flash capability analysis](flash建模上限-整合方案.md). The OpenSpec change archive is the story going
+forward.

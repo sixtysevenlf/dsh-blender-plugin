@@ -39,17 +39,17 @@ npm package. npm scripts in package.json call these files; tests live under test
 | Script                      | Purpose                                                                      | Main caller                                  | Writes                                   |
 | --------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------- | ---------------------------------------- |
 | check-any.mjs               | Explicit-any AST gate                                                        | npm run lint / check:any                     | stdout only                              |
-| check-behavior-matrix.mjs   | Validate the behavior coverage matrix against live catalogs                  | npm run test:matrix                          | coverage/matrix artifacts when requested |
+| check-behavior-matrix.mjs   | Validate the behavior coverage matrix against live catalogs (tools, routes, addon commands, plan ops) | npm run test:matrix | coverage/matrix artifacts when requested |
 | check-build.mjs             | Verify lib/ is current and entry/client are synchronized                     | npm run check:build                          | stdout only                              |
 | check-coverage.mjs          | Single coverage gate: JS global/changed, critical/execution, Python, E2E     | npm run check:coverage                       | stdout only                              |
-| check-doc-paths.mjs         | Check doc links, commands, inbound links and nonexistent path refs           | npm run check:doc-paths / check:finalization | stdout only                              |
+| check-doc-paths.mjs         | Check doc links, commands, inbound links and nonexistent path refs; --enforce ratchets against config/doc-links-baseline.json (orphan list intentionally empty) | npm run check:doc-paths / check:finalization | stdout only |
 | check-exceptions.mjs        | Validate config/exceptions.json: kind enum, path exists, owned and unexpired | npm run lint / check:exceptions              | stdout only                              |
-| check-plan-ids.mjs          | Inventory plan-ID-shaped tokens; warn now, --enforce ratchet after cleanup   | npm run check:plan-ids                       | stdout only                              |
+| check-plan-ids.mjs          | Inventory plan-ID-shaped tokens; warn by default, --enforce ratchets against config/plan-id-baseline.json | npm run check:plan-ids | stdout only |
 | check-routes.mjs            | Assert the generated route tables match config/routing.json byte for byte    | npm run check:routes                         | stdout only                              |
-| check-function-budget.mjs   | File and function line budgets                                               | check:function-budget / check:finalization   | stdout only                              |
+| check-function-budget.mjs   | File and function line budgets; 80-120 line functions register in config/function-budget-allowlist.json | check:function-budget / check:finalization | stdout only |
 | check-git-hygiene.mjs       | Ensure lib/ is untracked; requires a git checkout                            | npm run check:git-hygiene / CI               | stdout only                              |
 | check-import-boundaries.mjs | Layer boundaries for host, runtime and addon                                 | check:finalization                           | stdout only                              |
-| check-no-shims.mjs          | No flat compatibility shims or retired dual-entry files                      | check:finalization                           | stdout only                              |
+| check-no-shims.mjs          | No flat compatibility shims or retired dual-entry files; config/facades.json lists registered public facades | check:finalization | stdout only |
 | check-parity.mjs            | Contract/catalog/package parity snapshot                                     | npm run test:parity                          | stdout only                              |
 | check-python-static.mjs     | Ruff baseline plus pure-logic pyright                                        | npm run check:python-static                  | stdout only                              |
 | check-runtime-layout.mjs    | modules.json is the only Python module map; every module resolves            | check:finalization                           | stdout only                              |

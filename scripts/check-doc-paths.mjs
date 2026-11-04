@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// F6.1 + D10: relative doc links, advertised commands, inbound links and nonexistent path refs.
+// 文档链接门禁：相对链接、命令存在性、入链图与不存在路径引用。
 //
-// 硬检查（沿用 F6.1，失败即退出 1）：相对链接目标存在、不越出仓库、npm run 的脚本存在。
+// 硬检查（失败即退出 1）：相对链接目标存在、不越出仓库、npm run 的脚本存在。
 // 新增检查（6.6 的准备，默认 warn；--enforce 只对"超出基线的增量"失败）：
 //   1. 每个非归档文档至少有一条入链（中英文对偶互链按普通链接计）。
 //   2. 文档正文里引用的仓库路径必须存在（禁止 runtime/catalog.ts 这类幽灵路径）。
@@ -85,7 +85,7 @@ function rel(p) {
   return path.relative(ROOT, p).split(path.sep).join('/')
 }
 
-/* ---------- 1. 既有硬检查（F6.1） ---------- */
+/* ---------- 1. 既有硬检查 ---------- */
 
 let pkg = null
 try {
@@ -125,7 +125,7 @@ for (const relPath of legacyDocs) {
   }
 }
 
-/* ---------- 2. 扩展文档集合（D10） ---------- */
+/* ---------- 2. 扩展文档集合 ---------- */
 
 const rootDocs = EXTENDED_ROOT_DOCS.filter((relPath) => existsSync(path.join(ROOT, relPath)))
 const allDocs = []

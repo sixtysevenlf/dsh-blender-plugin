@@ -1,7 +1,7 @@
 {
   "version": 1,
   "tool": "check-doc-paths",
-  "generatedAt": "2026-11-04T19:05:13.812Z",
+  "generatedAt": "2026-11-04T19:23:51.184Z",
   "docs": [
     "AGENTS.md",
     "CONTRIBUTING.md",
@@ -32,47 +32,26 @@
     "MIGRATIONS.md": 7,
     "README.md": 6,
     "SECURITY.md": 2,
-    "docs/AI-安装提示词.md": 1,
-    "docs/DSH-更新适配.md": 0,
-    "docs/EEVEE-工作要点.md": 0,
-    "docs/Procedura-融合分析.md": 0,
-    "docs/architecture.md": 4,
-    "docs/examples/chair-backrest/results.md": 0,
-    "docs/flash建模上限-整合方案.md": 0,
+    "docs/AI-安装提示词.md": 3,
+    "docs/DSH-更新适配.md": 2,
+    "docs/EEVEE-工作要点.md": 2,
+    "docs/Procedura-融合分析.md": 1,
+    "docs/architecture.md": 6,
+    "docs/examples/chair-backrest/results.md": 1,
+    "docs/flash建模上限-整合方案.md": 1,
     "docs/zh/CONTRIBUTING.md": 4,
     "docs/zh/README.md": 4,
     "docs/zh/SECURITY.md": 2,
-    "docs/假设驱动建模-cookbook.md": 0,
+    "docs/假设驱动建模-cookbook.md": 1,
     "docs/宿主集成-接口契约-v2.3增补.md": 3,
-    "docs/操作教程.md": 3,
-    "docs/给第三方的安装清单.md": 0,
+    "docs/操作教程.md": 5,
+    "docs/给第三方的安装清单.md": 2,
     "docs/证据分级与读图纪律.md": 1,
-    "docs/部署SOP.md": 0,
-    "docs/配置参考.md": 3
+    "docs/部署SOP.md": 2,
+    "docs/配置参考.md": 5
   },
-  "orphanDocs": [
-    "docs/DSH-更新适配.md",
-    "docs/EEVEE-工作要点.md",
-    "docs/Procedura-融合分析.md",
-    "docs/examples/chair-backrest/results.md",
-    "docs/flash建模上限-整合方案.md",
-    "docs/假设驱动建模-cookbook.md",
-    "docs/给第三方的安装清单.md",
-    "docs/部署SOP.md"
-  ],
+  "orphanDocs": [],
   "missingRefs": [
-    {
-      "doc": "docs/操作教程.md",
-      "target": "scripts/addons"
-    },
-    {
-      "doc": "docs/操作教程.md",
-      "target": "tests/png_decode.py"
-    },
-    {
-      "doc": "docs/配置参考.md",
-      "target": "runtime/config.mjs"
-    },
     {
       "doc": "docs/宿主集成-接口契约-v2.3增补.md",
       "target": "tests/selection_store_selftest.mjs"
@@ -92,18 +71,6 @@
     {
       "doc": "docs/宿主集成-接口契约-v2.3增补.md",
       "target": "runtime/selectionstore.mjs"
-    },
-    {
-      "doc": "docs/architecture.md",
-      "target": "runtime/contracts/"
-    },
-    {
-      "doc": "docs/EEVEE-工作要点.md",
-      "target": "skills/stylized-shading/material_pipeline.md"
-    },
-    {
-      "doc": "docs/Procedura-融合分析.md",
-      "target": "scripts/results-server.ts"
     },
     {
       "doc": "MIGRATIONS.md",

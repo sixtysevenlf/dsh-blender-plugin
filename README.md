@@ -193,15 +193,16 @@ The plugin exposes 15 tools. All planning, audit, assembly, export, and evaluati
 
 ## Documentation
 
-- Surface algorithm: skills/blender-modeling/references/曲面算法.md
-- Step-by-step guide: docs/操作教程.md
-- Configuration: docs/配置参考.md
-- AI install prompt: docs/AI-安装提示词.md
-- Deployment SOP: docs/部署SOP.md
-- Third-party checklist: docs/给第三方的安装清单.md
-- Architecture: docs/architecture.md
-- Modeling skill: skills/blender-modeling/
-- Release notes: GitHub Releases and CHANGELOG.md
+- Surface algorithm: [skills/blender-modeling/references/曲面算法.md](skills/blender-modeling/references/曲面算法.md)
+- Step-by-step guide: [docs/操作教程.md](docs/操作教程.md)
+- Configuration: [docs/配置参考.md](docs/配置参考.md)
+- AI install prompt: [docs/AI-安装提示词.md](docs/AI-安装提示词.md)
+- Deployment SOP: [docs/部署SOP.md](docs/部署SOP.md)
+- Third-party checklist: [docs/给第三方的安装清单.md](docs/给第三方的安装清单.md)
+- DSH upgrade compatibility: [docs/DSH-更新适配.md](docs/DSH-更新适配.md)
+- Architecture: [docs/architecture.md](docs/architecture.md)
+- Modeling skill: [skills/blender-modeling/](skills/blender-modeling/)
+- Release notes: [GitHub Releases](https://github.com/sixtysevenlf/dsh-blender-plugin/releases) and [CHANGELOG.md](CHANGELOG.md)
 
 ## Troubleshooting
 

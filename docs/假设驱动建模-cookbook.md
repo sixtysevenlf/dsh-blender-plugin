@@ -287,7 +287,7 @@ spec = {
 1. **`bpy.data.libraries.write` 写出的是「无场景的库文件」** —— 用 `blender -b file.blend` 打不开、也渲不了。**分件导出应改用** `bpy.ops.wm.save_as_mainfile(filepath=..., copy=True)`（`copy=True` 不会改动当前 filepath）。
 2. **`transform_apply` 不会缩放 Bevel 修改器的宽度** —— 做「等比归一」时必须**先把修改器烘进网格**（`bpy.ops.object.modifier_apply(modifier=...)`）再 `transform_apply`，否则倒角宽度不随缩放变化，成品尺寸对不上。
 
-## 附：rt_loop 建模用 measure 模板（外部反馈 #4 P2-2）
+## 附：rt_loop 建模用 measure 模板（外部反馈 #4 的第二项建议）
 
 目标：把「结构相似度」变成可标量化的 score，从而让内环能自动搜参数。现成 measure（`K.dsh_measure`）：
 

@@ -190,15 +190,16 @@ addon 仍然是唯一支持的 Blender 侧 agent 桥。其他占用 9876 端口�
 
 ## 文档
 
-- 曲面算法：skills/blender-modeling/references/曲面算法.md
-- 操作教程：docs/操作教程.md
-- 配置参考：docs/配置参考.md
-- AI 安装提示词：docs/AI-安装提示词.md
-- 部署 SOP：docs/部署SOP.md
-- 第三方安装清单：docs/给第三方的安装清单.md
-- 架构说明：docs/architecture.md
-- 建模 skill：skills/blender-modeling/
-- 版本说明：GitHub Releases 与 CHANGELOG.md
+- 曲面算法：[skills/blender-modeling/references/曲面算法.md](../../skills/blender-modeling/references/曲面算法.md)
+- 操作教程：[docs/操作教程.md](../操作教程.md)
+- 配置参考：[docs/配置参考.md](../配置参考.md)
+- AI 安装提示词：[docs/AI-安装提示词.md](../AI-安装提示词.md)
+- 部署 SOP：[docs/部署SOP.md](../部署SOP.md)
+- 第三方安装清单：[docs/给第三方的安装清单.md](../给第三方的安装清单.md)
+- DSH 升级适配：[docs/DSH-更新适配.md](../DSH-更新适配.md)
+- 架构说明：[docs/architecture.md](../architecture.md)
+- 建模 skill：[skills/blender-modeling/](../../skills/blender-modeling/)
+- 版本说明：[GitHub Releases](https://github.com/sixtysevenlf/dsh-blender-plugin/releases) 与 [CHANGELOG.md](../../CHANGELOG.md)
 
 ## 常见问题
 

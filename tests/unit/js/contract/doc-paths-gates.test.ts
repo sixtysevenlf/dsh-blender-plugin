@@ -70,10 +70,21 @@ describe('check-doc-paths', () => {
     expect(report!.mode).toBe('warn')
     expect(report!.legacy.failures).toEqual([])
     expect(report!.docs.extendedCount).toBe(22)
-    expect(report!.findings.orphanDocs).toHaveLength(8)
-    expect(report!.findings.missingRefs).toHaveLength(13)
+    expect(report!.findings.orphanDocs).toHaveLength(0)
+    expect(report!.findings.missingRefs).toHaveLength(7)
     expect(report!.baseline.present).toBe(true)
+    expect(report!.baseline.acceptedOrphans).toBe(0)
+    expect(report!.baseline.acceptedMissingRefs).toBe(7)
     expect(report!.baseline.matches).toBe(true)
+    expect(report!.findings.missingRefs.map((entry) => entry.doc + ' -> ' + entry.target)).toEqual([
+      'docs/宿主集成-接口契约-v2.3增补.md -> tests/selection_store_selftest.mjs',
+      'docs/宿主集成-接口契约-v2.3增补.md -> tests/host_routes_selftest.mjs',
+      'docs/宿主集成-接口契约-v2.3增补.md -> tests/client_bundle_selftest.mjs',
+      'docs/宿主集成-接口契约-v2.3增补.md -> tests/tui_host_selftest.mjs',
+      'docs/宿主集成-接口契约-v2.3增补.md -> runtime/selectionstore.mjs',
+      'MIGRATIONS.md -> docs/宿主集成-接口契约.md',
+      'MIGRATIONS.md -> scripts/addons/dsh_blender_bridge/',
+    ])
   })
 
   it('keeps the legacy hard checks: missing link target fails', () => {
