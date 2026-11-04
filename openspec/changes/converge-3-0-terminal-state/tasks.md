@@ -36,7 +36,7 @@
 ## 5. S3 死代码与软带登记
 
 - [x] 5.1 按设计 D9 清单逐项删除（5 个未用导出、`__unusedAsRecord`、重复 `ReceiptContext`、`import_model_files` 链、`compat.py`、`core/render-state.ts`），每项先 `grep` 消费者；验证：`grep` 命中为 0，`npm run typecheck` 与 `test:unit` 通过。（偏差：`compat.py` 只删 `bpy_version`/`is_bpy_at_least`，保留被 4 处生产导入的 `ADDON_MODULE`；`core/render-state.ts` 有真实消费者链 assemble→plan-dispatch→render-guard，保留并报告。）
-- [ ] 5.2 `package.json` 删除 `runtime/ext/pkg.tgz` 打包条目，清理工作区 85 个陈旧 `.pyc`；验证：`npm pack --dry-run` 文件清单不再含 pkg.tgz，`git status` 无新增缓存文件。
+- [x] 5.2 `package.json` 删除 `runtime/ext/pkg.tgz` 打包条目，清理工作区 85 个陈旧 `.pyc`；验证：`npm pack --dry-run` 文件清单不再含 pkg.tgz，`git status` 无新增缓存文件。（pkg.tgz 负条目在 a87676f 删除；集成时清理了仓库内全部 `__pycache__`/`.pyc`（含测试运行再生的 211 个）与 `.pytest_cache`，`.venv`/`node_modules`/`.git` 不动。）
 - [x] 5.3 105 个 80–120 行函数逐类登记理由与 reviewBy（分派表 / 线性流水线 / 生成式目录），只拆有内聚收益者；验证：`check-function-budget` 通过且白名单条目全部带 reviewBy。（实际登记 106 个，8 类；未拆任何函数，理由见 design D11；文件级预算与 >120 预算逻辑保持不变。）
 - [x] 5.4 更新 `docs/architecture.md` 例外登记表与 5.3 的分类说明；验证：`check:doc-paths` 与 `check-exceptions` 通过。（两级登记：路径级 config/exceptions.json、函数级 config/function-budget-allowlist.json。）
 
@@ -46,10 +46,11 @@
 - [x] 6.2 `skills/blender-modeling/SKILL.md` 重编号（消除 3→9 断号）、修正 "plannner" 拼写与版本行；验证：标题序号连续，`check:doc-paths` 通过。
 - [x] 6.3 曲面算法单一来源：删除 `docs/曲面算法.md`，以 `skills/blender-modeling/references/曲面算法.md` 为真源，更新 4 处入链；验证：`grep -rn "docs/曲面算法" ` 只剩 CHANGELOG 历史条目。
 - [x] 6.4 用户可见 MCP / Claude 文案改 Bridge（保留上游署名、`BLENDERMCP_*` env 兼容与许可证文本）；验证：`grep -rn "Claude\|MCP" addon/dsh_blender_bridge --include=*.py` 只剩署名/兼容/历史注释，`test:addon-unit` 通过。
+- [x] 6.5 清理代码/测试/脚本中的重构计划编号（800+ 处 ID 形状 token），新增 `check-plan-ids`（先 warn 后 enforce，豁免 CHANGELOG/archive/architecture 历史说明）；验证：enforce 模式下零命中，`npm run lint` 通过。（终态：1436 token/91 文件全部被 90 文件豁免或清理，residual 0；5 条窄豁免为误报：motion_impl/measure.py 的 F0=faces index、blockout_impl/present.py 的 F12=Blender 渲染快捷键、3 个 surface-fit 测试的 M3=域阶段；`check-plan-ids --enforce` 已接入 `npm run lint`。清理过程中修复了 codemod 越界改写的 164 处字符串字面量、1 处 TS 语法与 1 处 M3 断言，未放松任何断言。）
 - [ ] 6.5 清理代码/测试/脚本中的重构计划编号（800+ 处 ID 形状 token），新增 `check-plan-ids`（先 warn 后 enforce，豁免 CHANGELOG/archive/architecture 历史说明）；验证：enforce 模式下零命中，`npm run lint` 通过。
-- [ ] 6.6 扩展 `check-doc-paths`：链接存在、非 archive 文档有入链（中英对应文件互指计入，中文与英文侧都必须有入链）、禁止引用不存在路径；验证：warn 模式收集存量后转 enforced，全绿。
-- [ ] 6.7 `tests/BEHAVIOR_MATRIX.md` 行号引用改为"文件 + 符号名"，matrix 门禁校验符号存在；验证：故意改一个符号名时门禁失败，恢复后通过。
-- [ ] 6.8 双语文档同步（`docs/zh/` 与英文侧），更新 `docs/architecture.md` 的叙事历史说明；验证：两语言版本链接互指正确。
+- [x] 6.6 扩展 `check-doc-paths`：链接存在、非 archive 文档有入链（中英对应文件互指计入，中文与英文侧都必须有入链）、禁止引用不存在路径；验证：warn 模式收集存量后转 enforced，全绿。（终态：17 篇 legacy docs + 22 篇 extended docs；0 orphan、0 新缺失路径；仅保留 7 条有理由的历史引用（5 条 frozen host-contract selftest/selectionstore + 2 条 MIGRATIONS 删除路径），已写入 config/doc-links-baseline.json 并 record 在测试里；`--enforce` 接入 lint；破窗证据：临时 orphan + ghost path → exit 1，删除后 exit 0。）
+- [x] 6.7 `tests/BEHAVIOR_MATRIX.md` 行号引用改为"文件 + 符号名"，matrix 门禁校验符号存在；验证：故意改一个符号名时门禁失败，恢复后通过。（5 处 line ref → `path:symbol`（含 `docs/操作教程.md §1.1` 章节锚）；门禁拒绝 `path:line` 并校验符号 word-boundary 存在；346 行/344 covered/2 exempt 不变；新增 2 条回归测试并保留破窗证据。）
+- [x] 6.8 双语文档同步（`docs/zh/` 与英文侧），更新 `docs/architecture.md` 的叙事历史说明；验证：两语言版本链接互指正确。（README/zh 文档列表改为真实 markdown 链接并互链；SECURITY en+zh 同步纠正凭据/遥测/addon 代码位置三处旧声明；architecture 新增 §11 Narrative history：计划/spec/debt ledger 作为仓库外历史证据，仓库内以行为与门禁为准。）
 
 ## 7. S5 开发环境一键配置
 
