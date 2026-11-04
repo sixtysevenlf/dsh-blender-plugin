@@ -1,8 +1,8 @@
 {
   "schema": "dsh-behavior-matrix/1",
-  "generatedAt": "2026-11-02T12:34:00.619Z",
-  "node": "v24.14.0",
-  "pluginVersion": "3.0.4",
+  "generatedAt": "2026-11-04T13:01:03.829Z",
+  "node": "v24.18.0",
+  "pluginVersion": "3.0.5",
   "generatedBy": "node scripts/check-behavior-matrix.mjs --generate",
   "generators": {
     "tools": "tests/unit/js/contract/tool-matrix.test.ts (A1_MATRIX_OUT)",
@@ -59,7 +59,7 @@
         "tool": "blender_rt_see",
         "aspect": "success",
         "status": "PASS",
-        "evidence": "视口帧 320px · 6ms · 70B · hash 3766854d"
+        "evidence": "视口帧 320px · 3ms · 70B · hash 3766854d"
       },
       {
         "tool": "blender_rt_do",
@@ -143,7 +143,7 @@
         "tool": "blender_viewport",
         "aspect": "success",
         "status": "PASS",
-        "evidence": "{\"running\":true,\"paused\":false,\"child\":\"none\",\"watchdog\":\"15s\",\"endpoint\":\"http://127.0.0.1:55078\",\"viewportRegion\":null,\"shading\":null,\"window\":null,\"stats\":{}"
+        "evidence": "{\"running\":true,\"paused\":false,\"child\":\"none\",\"watchdog\":\"15s\",\"endpoint\":\"http://127.0.0.1:7002\",\"viewportRegion\":null,\"shading\":null,\"window\":null,\"stats\":{},"
       },
       {
         "tool": "blender_rt_see",
@@ -240,97 +240,97 @@
         "tool": "blender_rt_see",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:55081）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:6438）"
       },
       {
         "tool": "blender_rt_do",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:55083）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:6440）"
       },
       {
         "tool": "blender_rt_watch",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:55085）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:6442）"
       },
       {
         "tool": "blender_rt_cmd",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:55087）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:6444）"
       },
       {
         "tool": "blender_rt_commands",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:55089）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:6446）"
       },
       {
         "tool": "blender_rt_loop",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:55091）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:6448）"
       },
       {
         "tool": "blender_rt_perf",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:55093）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:6450）"
       },
       {
         "tool": "blender_rt_opt",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:55095）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:6452）"
       },
       {
         "tool": "blender_rt_headless",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:55097）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:6454）"
       },
       {
         "tool": "blender_rt_plan",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:55099）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:6456）"
       },
       {
         "tool": "blender_rt_worker",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:55101）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:6458）"
       },
       {
         "tool": "blender_rt_txn",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:55103）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:6460）"
       },
       {
         "tool": "blender_rt_preset",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:55106）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:6462）"
       },
       {
         "tool": "blender_rt_job",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:55108）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:6465）"
       },
       {
         "tool": "blender_viewport",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: {\"running\":false,\"url\":\"http://127.0.0.1:55110/\",\"error\":\"fetch failed\",\"code\":\"backend_unreachable\",\"next_action\":\"用 blender_viewport op=st"
+        "evidence": "resolve: {\"running\":false,\"url\":\"http://127.0.0.1:6467/\",\"error\":\"fetch failed\",\"code\":\"backend_unreachable\",\"next_action\":\"用 blender_viewport op=sta"
       },
       {
         "tool": "blender_rt_see",
         "aspect": "timeoutAbort",
         "status": "PASS",
-        "evidence": "resolve: 取帧失败 · 127.0.0.1:55078 · Error: 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job 并按 runId 回收；本插件的内部超时通常先于"
+        "evidence": "resolve: 取帧失败 · 127.0.0.1:7002 · Error: 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job 并按 runId 回收；本插件的内部超时通常先于宿"
       },
       {
         "tool": "blender_rt_do",
@@ -414,7 +414,7 @@
         "tool": "blender_viewport",
         "aspect": "timeoutAbort",
         "status": "PASS",
-        "evidence": "resolve: {\"running\":false,\"url\":\"http://127.0.0.1:55078/\",\"error\":\"宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_jo"
+        "evidence": "resolve: {\"running\":false,\"url\":\"http://127.0.0.1:7002/\",\"error\":\"宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job"
       },
       {
         "tool": "blender_rt_see",
@@ -594,7 +594,7 @@
         "tool": "blender_viewport",
         "aspect": "lossless",
         "status": "PASS",
-        "evidence": "snapshotJsonValue 通过；JSON round-trip 等价；string(671 chars)"
+        "evidence": "snapshotJsonValue 通过；JSON round-trip 等价；string(634 chars)"
       },
       {
         "tool": "blender_rt_see",
@@ -769,19 +769,19 @@
         "route": "/health",
         "aspect": "normal",
         "status": "PASS",
-        "evidence": "200 application/json · ok=true lease.active=false backend.pid=42616"
+        "evidence": "200 application/json · ok=true lease.active=false backend.pid=43828"
       },
       {
         "route": "/status",
         "aspect": "normal",
         "status": "PASS",
-        "evidence": "200 application/json · ok=true plugin.version=3.0.4"
+        "evidence": "200 application/json · ok=true plugin.version=3.0.5"
       },
       {
         "route": "/doctor",
         "aspect": "normal",
         "status": "PASS",
-        "evidence": "200 application/json · ok=true config.http=127.0.0.1:55164"
+        "evidence": "200 application/json · ok=true config.http=127.0.0.1:2724"
       },
       {
         "route": "/launch",

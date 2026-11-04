@@ -1,5 +1,12 @@
 # CHANGELOG — dsh-blender-plugin
 
+## v3.0.5（2026-11-04）—— 修复源码注入 __file__ 缺失
+
+- 修复 #73：源码注入的 Python 模块现在会收到真实模块路径作为 `__file__`，`audit` / `qc` / `contract` 等高层算子不再报 `NameError`。
+- `preloadChunk` 与 `injectModule` 统一注入 `__file__`；`qc_render` 的 asJob 路径改用 `preloadChunk`。
+- 清理 `contract_impl/common.py` 中重构期留下的 `__file__` fallback；保留 `kit.py` 的活跃 fallback。
+- 无 API / 协议 / 工具计数变化（15 tools / 34 family / 228 op / addon 1.11 / protocol 11）。
+
 ## v3.0.4（2026-11-02）—— 修复 git 源安装
 
 - 修复 #71：`prepack` 只构建 `lib/`，不再在安装路径执行 `check-build`；`check:git-hygiene` 独立成脚本，只由 CI 与本地 clone 执行。
