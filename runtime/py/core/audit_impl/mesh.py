@@ -336,7 +336,7 @@ def audit_scene(envelope=None, limit=40, eps_area=1e-9, summary_only=False, top_
                 self_intersect=False):
     """全场景体检：先给你"哪几个对象最脏"，再按需 audit_mesh 深挖。
 
-    v0.9.6（D3 · 瘦身）：summary_only=true 只回判据字段；top_k=N 只回最脏的 N 个（默认沿用 limit）。
+    v0.9.6（瘦身）：summary_only=true 只回判据字段；top_k=N 只回最脏的 N 个（默认沿用 limit）。
     v0.9.6（复审修复）：自交检查**默认不跑**（保持"一次便宜的初筛"这个性能契约），但这时结论只能是
         **degraded**（clean=false）——"跳过检查"不许读成"没问题"。要一条能当门用的完整结论，
         传 self_intersect=true（全场景逐对象跑一遍 BVH 自交，代价按面数走）。
@@ -422,7 +422,7 @@ def _mat_sig(ob):
 
 
 def audit_duplicates(limit=30, top_k=None):
-    """同名资源审计（D7）：把 Foo / Foo.001 这类分叉分组，并比较内容是否不同。"""
+    """同名资源审计：把 Foo / Foo.001 这类分叉分组，并比较内容是否不同。"""
     k = int(top_k) if top_k is not None else int(limit)
     import hashlib
     out = {"ok": True, "materials": [], "meshes": [],
@@ -458,7 +458,7 @@ def audit_duplicates(limit=30, top_k=None):
         out["meshes"].append({"base": base, "variants": [m.name for m in items], "distinct_signatures": len(sigs),
                               "users": [int(m.users) for m in items]})
     out["count"] = {"materials": len(out["materials"]), "meshes": len(out["meshes"])}
-    # v0.9.6（D3）：limit/top_k 原来收了参数却没用（静默失效）—— 现在真正生效并回报被截断的总数
+    # v0.9.6：limit/top_k 原来收了参数却没用（静默失效）—— 现在真正生效并回报被截断的总数
     for _key in ("materials", "meshes"):
         if len(out[_key]) > k:
             out[_key + "_total"] = len(out[_key])
@@ -469,7 +469,7 @@ def audit_duplicates(limit=30, top_k=None):
 
 
 def purge_orphans():
-    """清理 users==0 的 datablock（D1 配套：孤儿灯/相机/网格/材质/图像）。"""
+    """清理 users==0 的 datablock（配套：孤儿灯/相机/网格/材质/图像）。"""
     removed = {}
     targets = [("lights", bpy.data.lights), ("cameras", bpy.data.cameras), ("meshes", bpy.data.meshes),
                ("materials", bpy.data.materials), ("images", bpy.data.images), ("node_groups", bpy.data.node_groups),

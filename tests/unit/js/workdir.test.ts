@@ -6,7 +6,7 @@ import path from 'node:path'
 import { describeConfig, wslPathShared } from '../../../runtime/config.js'
 import { pkgPath } from '../../helpers/pkg'
 
-// v0.9.6 (D3): the isolated workDir used to be os.tmpdir() (WSL /tmp is its own
+// v0.9.6: the isolated workDir used to be os.tmpdir() (WSL /tmp is its own
 // tmpfs). Node can write there but Windows blender.exe cannot read it, so the
 // receipt came back empty and looked like a broken lease. The workDir must be
 // judged (and substituted loudly) by mount-table visibility.

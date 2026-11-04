@@ -1,4 +1,4 @@
-// 作业子进程 spawn 与输出接线（F1.1 从 jobs/start.ts 拆出，行为冻结）
+// 作业子进程 spawn 与输出接线（从 jobs/start.ts 拆出，行为冻结）
 import fs from 'node:fs'
 import { spawn } from 'node:child_process'
 import type { ChildProcess, SpawnOptions } from 'node:child_process'
@@ -20,7 +20,7 @@ export function spawnJobChild(
   opts: Record<string, unknown>,
 ): { child: ChildProcess; stopHb: () => void } {
   const jobs = d.jobs
-  // P2-3：job 与 worker 共用预检；为空时立即抛 blender_exe_missing，
+  // job 与 worker 共用预检；为空时立即抛 blender_exe_missing，
   // 不再让 spawn(null) 抛 Node 的原始 TypeError（路由/工具层拿不到可执行指引）。
   assertBlenderExe(BLENDER_EXE, blenderExeSource(), 'blender_rt_job op=start')
   const spawnOpts: SpawnOptions = {
@@ -35,7 +35,7 @@ export function spawnJobChild(
   const child: ChildProcess = spawn(BLENDER_EXE as string, p.args, spawnOpts)
   j.child = child
   j.pid = child.pid
-  // v0.9.3（D5）：stage 扫描 + 行数/字节计数（stdout 仍然 pipe 到日志文件）
+  // v0.9.3：stage 扫描 + 行数/字节计数（stdout 仍然 pipe 到日志文件）
   const scanOut = makeStageScanner(j),
     scanErr = makeStageScanner(j)
   if (child.stdout)
@@ -74,7 +74,7 @@ export function spawnJobChild(
     engine: p.engineMode,
     timeoutMs: p.timeoutMs,
     stage: null,
-    file: p.fileOpt === undefined ? null : String(p.fileOpt), // F-09（A3）：台账记 file，事后可区分"没给档"与"给了没开"
+    file: p.fileOpt === undefined ? null : String(p.fileOpt), // F-09：台账记 file，事后可区分"没给档"与"给了没开"
     dir: wslToWin(p.dir),
     stdoutLog: wslToWin(p.outPath),
     stderrLog: wslToWin(p.errPath),

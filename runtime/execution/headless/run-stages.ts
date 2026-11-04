@@ -62,7 +62,7 @@ export function prepareRun(opts: HeadlessOpts, deps: HeadlessDeps): RunSetup {
   const p = prepareHeadlessOptions(opts, deps)
   const built = buildHeadlessScript(p)
   deps.metrics.headlessRuns++
-  // ---- v0.9.3（D1/D5）：日志**边跑边写** + 运行台账登记（id 与作业同空间：op=status/collect id=run-…）
+  // ---- v0.9.3：日志**边跑边写** + 运行台账登记（id 与作业同空间：op=status/collect id=run-…）
   const logDirWsl = p.outdirWsl || winToWsl(WIN_TMP)
   const logStreams = createHeadlessLogStreams(logDirWsl, t0, p.runId)
   const { runRec, stopRunHb } = createRunState({
@@ -157,11 +157,11 @@ export async function collectHeadlessOutcome(input: CollectInput): Promise<Headl
   metrics.lastHeadlessMs = ms
   const parsedOut = parseHeadlessStdout(stdout)
   let parsed = parsedOut.parsed
-  // ---- v0.9.3（D4.3）：路径静默改写体检
+  // ---- v0.9.3：路径静默改写体检
   const pathWarnings: unknown[] = pathAudit(stdout, stderr)
-  // ---- v0.9.6（D3）：workDir 不共享 → 脚本改落别处，这件事必须出现在回执里（不许静默）
+  // ---- v0.9.6：workDir 不共享 → 脚本改落别处，这件事必须出现在回执里（不许静默）
   withWorkdirWarning(pathWarnings, built.sp ? built.sp.staging : null)
-  // ---- 日志兜底：正常路径已在 push() 里边跑边写（D5）；流没建起来时这里补一次全量
+  // ---- 日志兜底：正常路径已在 push() 里边跑边写；流没建起来时这里补一次全量
   let logs = logStreams.logs
   if (!logStreams.soStream) {
     logs = writeFallbackLogs(logDirWsl, logStreams.stamp, p.runId, stdout, stderr)
@@ -174,7 +174,7 @@ export async function collectHeadlessOutcome(input: CollectInput): Promise<Headl
   const runOk = !res.timedOut && res.exitCode === 0 && !gpuFailed && (!expectEval || expectEval.ok)
   const failureClass = classifyFailure(res, !!gpuFailed, failure.lastException)
   const FAIL_HINT = failureHint(failureClass)
-  // ---- v0.9.3（F1/F2）：shots 行 + 取景自诊断（主体占画面 <5% → warning）
+  // ---- v0.9.3：shots 行 + 取景自诊断（主体占画面 <5% → warning）
   const shotsSummary = parsedOut.shotsRes ? summarizeShots(parsedOut.shotsRes) : null
   parsed = applyShotsResult(parsed, shotsSummary)
   const outJsonInfo = writeResultJson(
@@ -183,8 +183,8 @@ export async function collectHeadlessOutcome(input: CollectInput): Promise<Headl
     { dumpResult: input.dumpResult, readScriptPath: input.readScriptPath },
     p.runId,
   )
-  // ---- v0.8.10（A2/D4）：台账终态
-  // v0.9.3（D2）：结构化回执的"真值"落在 runRec 上 —— op=collect/status 与同步回执同一份数据
+  // ---- v0.8.10：台账终态
+  // v0.9.3：结构化回执的"真值"落在 runRec 上 —— op=collect/status 与同步回执同一份数据
   const resultTruncated = !!(parsed !== null && outJsonInfo.path && outJsonInfo.bytes > 4000)
   return {
     childEnv,
@@ -262,7 +262,7 @@ export function recordCompletedRun(input: RecordInput): void {
       script: runRec.script,
       pid: runRec.pid,
       file: p.fileOpt === undefined ? null : String(p.fileOpt),
-      inputFile: p.inputFileInfo, // F-09（A3）
+      inputFile: p.inputFileInfo, // F-09
       stage: runRec.stageName || null,
       resultPath: outJsonInfo.path,
       stageMs: typeof runRec.stageAt === 'number' ? runRec.stageAt - runRec.startedAt : null,

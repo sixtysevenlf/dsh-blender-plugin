@@ -74,9 +74,9 @@ describe('win_proc parsers', () => {
     expect(parseTasklistImage(null)).toBe('')
   })
 
-  it('returns safe arrays on every platform, including Windows (F4.1: was vacuous)', () => {
-    // F0.0 regression: the old body was `if (IS_WIN) return`, so on Windows the
-    // only F0.0 coverage for these probes was skipped. Assert the observable
+  it('returns safe arrays on every platform, including Windows (was vacuous)', () => {
+    // regression: the old body was `if (IS_WIN) return`, so on Windows the
+    // only coverage for these probes was skipped. Assert the observable
     // contract on all platforms; invalid/empty input must fail closed to [].
     expect(winKillPids([])).toEqual([])
     const holders = winSamePortHolders(0)
@@ -87,7 +87,7 @@ describe('win_proc parsers', () => {
 
 describe('issue #51 static invariants', () => {
   // Behavior for spawnChild/killBackendByCmd lives in src-backend-spawn.test.ts and
-  // backend-win-cleanup.test.ts (F4.1). What remains here are artifacts that can
+  // backend-win-cleanup.test.ts. What remains here are artifacts that can
   // only be checked as source: the generated catalog probe and cross-platform guards.
   const catalog = read('runtime/catalog/logic.ts')
   const winProc = read('runtime/win_proc.ts')

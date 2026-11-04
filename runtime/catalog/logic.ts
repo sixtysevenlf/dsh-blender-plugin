@@ -1,4 +1,4 @@
-// plan/command 目录逻辑（F1.1 从 catalog.ts 拆出，行为冻结）
+// plan/command 目录逻辑（从 catalog.ts 拆出，行为冻结）
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -218,7 +218,7 @@ export function renderFamilyText(e: PlanFamily): string {
  *   op="catalog", args={full:true}        → 附带结构化 families/tools
  */
 /**
- * S4 · 单一事实源：/plan 通道的只读 op 白名单（唯一声明处）（本文件是唯一声明处）。
+ * 单一事实源：/plan 通道的只读 op 白名单（唯一声明处）（本文件是唯一声明处）。
  * server.mjs 直接消费；tests/unit/js/contract/single-source.test.ts 与冻结基线逐名对拍，防迁移丢项/多项。
  * 判据：不改场景、不动对象变换、不注册 handler。新增只读 op 只改这一处。
  */

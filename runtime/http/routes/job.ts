@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { HttpRouteDeps } from './deps.js'
 import { errorCode, errorMessage, errorField } from '../../core/json.js'
-// HTTP 路由 /job：作业层（T7）
+// HTTP 路由 /job：作业层
 export function createJobRoutes(E: HttpRouteDeps) {
   const { engine, isReadOnly, json, leaseGate, pushRtt, readBody, stats, streamJson } = E
   return {
@@ -21,7 +21,7 @@ export function createJobRoutes(E: HttpRouteDeps) {
         return
       }
       stats.job = (stats.job || 0) + 1
-      // v0.9.3（D6.2）：op=wait 会阻塞到终态/超时 → 走流式回执（每 15 s 一行心跳，客户端不会被判超时）
+      // v0.9.3：op=wait 会阻塞到终态/超时 → 走流式回执（每 15 s 一行心跳，客户端不会被判超时）
       if (op === 'wait') {
         await streamJson(res, async () => {
           try {
@@ -42,7 +42,7 @@ export function createJobRoutes(E: HttpRouteDeps) {
         })
         return
       }
-      const t0j = Date.now() // v0.9.4（P2-1）：作业路由耗时进 rtt 分布（P2-2 那种"偶发卡住"要看出趋势）
+      const t0j = Date.now() // v0.9.4：作业路由耗时进 rtt 分布（那种"偶发卡住"要看出趋势）
       try {
         if (op === 'start') {
           json(res, 200, { ok: true, op: op, job: engine.job.start(payload) })
@@ -67,7 +67,7 @@ export function createJobRoutes(E: HttpRouteDeps) {
         json(res, 200, { ok: true, op: 'list', jobs: engine.job.list() })
       } catch (e) {
         stats.lastError = errorMessage(e)
-        // P2-3：把 blender_exe_missing 等结构化 code 透出，工具层才能给配置指引而不是泛化 backend_error。
+        // 把 blender_exe_missing 等结构化 code 透出，工具层才能给配置指引而不是泛化 backend_error。
         json(res, 200, {
           ok: false,
           op: op,

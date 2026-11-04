@@ -21,7 +21,7 @@ class CoreCommands(SceneExportMixin, BpyApiLookupCommands, ScreenshotCommands):
             "name": ADDON_NAME,
             "addon_version": list(ADDON_VERSION),
             "protocol_version": ADDON_PROTOCOL_VERSION,
-            # D6: derive from the single command registry instead of a hardcoded
+            # derive from the single command registry instead of a hardcoded
             # subset, so the handshake cannot drift from the dispatch table.
             "capabilities": sorted(COMMAND_NAMES),
             "blender_version": bpy.app.version_string,
@@ -63,7 +63,7 @@ class CoreCommands(SceneExportMixin, BpyApiLookupCommands, ScreenshotCommands):
 
     @staticmethod
     def _get_aabb(obj):
-        """World-space AABB; kept as a thin server-facing alias (F3.3)."""
+        """World-space AABB; kept as a thin server-facing alias."""
         return compute_aabb(obj)
 
     def get_object_info(self, name):

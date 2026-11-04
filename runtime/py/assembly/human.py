@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DSH 人形素体（P2 · 零素材路线）：模型只填数字，几何由 Skin + Subsurf 生成。
+"""DSH 人形素体（零素材路线）：模型只填数字，几何由 Skin + Subsurf 生成。
 
 为什么走这条：flash 手写人体顶点/拓扑做不到，而硬表面是它的强项 —— 所以人形只需要
 **比例正确的素体**（可装配、可摆姿、可挂装甲），不需要写实解剖。
@@ -34,7 +34,7 @@ if _KIT is None:
     raise RuntimeError("human 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
-_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_j = _KIT.j  # 共享内核（原自带实现已删）
 _api = _KIT.api  # 共享内核
 def _num(v, name, lo, hi, default=None):
     if v is None:

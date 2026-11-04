@@ -1,4 +1,4 @@
-"""Host-side backend integration (T11b.7 B layer): qc self-check.
+"""Host-side backend integration (B layer): qc self-check.
 
 No Blender is started here.  The test talks HTTP to an already running plugin
 backend (the same one the GUI uses) and verifies that the host-side qc math

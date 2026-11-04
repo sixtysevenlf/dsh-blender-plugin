@@ -1,4 +1,4 @@
-"""Unit checks for selection/collection posting and state helpers (F3.4).
+"""Unit checks for selection/collection posting and state helpers.
 
 Payload construction itself lives in test_addon_selection.py; this file covers
 the collection pickers, POST envelope, failure branches and the command class.

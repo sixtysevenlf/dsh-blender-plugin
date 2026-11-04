@@ -37,7 +37,7 @@ if _KIT is None:
     raise RuntimeError("qc 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
-_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_j = _KIT.j  # 共享内核（原自带实现已删）
 def _kernel():
     import sys
     return sys.modules.get("dsh_rt_kernel")
@@ -68,7 +68,7 @@ def write_png(path, w, h, rgb_bytes):
 
 
 
-# ---------------------------------------------------------------- v0.8.10（C6）纯 Python GIF 解码
+# ---------------------------------------------------------------- v0.8.10纯 Python GIF 解码
 def _gif_lzw(min_code, data, expected):
     """GIF LZW 解码（返回索引序列）。"""
     clear = 1 << min_code

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""GUI native E2E: OpenGL view capture and diagnostics (T11b.7).
+"""GUI native E2E: OpenGL view capture and diagnostics.
 
 native/view_diag.py covers projection/coverage/empty-frame without OpenGL.
 bpy.ops.render.opengl needs a real window, so the capture path lives here and

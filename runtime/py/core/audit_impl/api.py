@@ -125,7 +125,7 @@ def audit_help():
                                        " + 三态 verdict",
                        "selftest": "audit_selftest()",
                        "gate_selftest": "audit_gate_selftest() → 装配级判据合成自检"},
-               "file_mode": "v0.9.1（C2）：connectivity / gate / measure 都接受 file=<.blend 路径> —— "
+               "file_mode": "v0.9.1：connectivity / gate / measure 都接受 file=<.blend 路径> —— "
                             "把文件里的对象**临时**追加进会话跑同一条链路，finally 删净（对象/临时集合/"
                             "新造孤儿数据/库条目），返回体给 source / file_load / cleanup；此时 objects/scope "
                             "当**文件内的对象名**筛选（append 不带集合成员关系）。"

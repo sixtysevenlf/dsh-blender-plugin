@@ -27,7 +27,7 @@ export function registerCommands(ctx: HostContext, port: number): void {
                 '后端不可用（127.0.0.1:' + String(port) + '）',
                 BACKEND_HINT,
               )
-            // P1（PR review）：客户端预算必须 < timeoutMs:T.commands(60s) 的宿主静态截止，
+            // （PR review）：客户端预算必须 < timeoutMs:T.commands(60s) 的宿主静态截止，
             // 否则 addon 慢时宿主先 abort，模型拿不到 /commands 的场景/集成回执。
             // 后端侧最坏 ≈15 + 5×(3+2.5s 诊断)≈42.5s < 本预算 45s，整段回执能在客户端预算内返回。
             const r = await backendJson(port, '/commands', 45000)

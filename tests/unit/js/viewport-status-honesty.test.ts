@@ -1,5 +1,5 @@
 /**
- * P0-3 回归：status/doctor 必须说真话 + 有界超时。
+ * 回归：status/doctor 必须说真话 + 有界超时。
  *
  * 现场（会话日志 seq 52-56）：op=start 只探 /health 就宣称「后端已在运行」，
  * op=doctor 又一律说「后端可能没起」，formatStatusError 把所有异常压成
@@ -94,7 +94,7 @@ describe('op=start: /health 通不等于通道就绪', () => {
     const call = mocks.backendJson.mock.calls[0]
     expect(call[1]).toBe('/status')
     const timeoutMs = Number(call[2])
-    // E2 修复后半开 /status 稳态 ≈7.5s（5s addon 预算 + ~2.5s diagnose），首调不再有启动探测税：
+    // 修复后半开 /status 稳态 ≈7.5s（5s addon 预算 + ~2.5s diagnose），首调不再有启动探测税：
     // 预算必须盖住首调，否则模型只拿到 host 的 aborted，拿不到 status.addonError。
     expect(timeoutMs).toBeGreaterThanOrEqual(10000)
     expect(timeoutMs).toBeLessThanOrEqual(12000)

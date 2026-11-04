@@ -1,4 +1,4 @@
-// Python 脚本前导/收尾：workdir、script-file 上下文、env、PATH_GUARD、shots、文件指纹（T6）
+// Python 脚本前导/收尾：workdir、script-file 上下文、env、PATH_GUARD、shots、文件指纹
 // @imports
 import { IS_MAC, IS_WIN, IS_WSL } from '../config.js'
 import fs from 'node:fs'
@@ -69,7 +69,7 @@ function envPrelude(envPairs: unknown): string {
 }
 
 /**
- * v0.9.3（D4.3）：路径体检 —— Windows Blender 把 '/home/x' 当"当前盘根下的相对路径"，
+ * v0.9.3：路径体检 —— Windows Blender 把 '/home/x' 当"当前盘根下的相对路径"，
  * 静默写到 C:\home\x（证据：Saved: 'C:homesixtyseven67DSH…' 紧随其后 os.path.exists() -> false）。
  * 这里在脚本收尾时检查 scene.render.filepath；配合 stdout 里的 Saved: 扫描（pathAudit）。
  *
@@ -81,7 +81,7 @@ export const PATH_GUARD =
   IS_MAC || IS_WIN || !IS_WSL
     ? ''
     : [
-        '# ---- DSH 路径体检（v0.9.3 / D4.3）----',
+        '# ---- DSH 路径体检（v0.9.3）----',
         'try:',
         '    import json as _dsh_pj',
         '    _dsh_pw = []',
@@ -100,7 +100,7 @@ function shotsBlock(args: unknown): string {
   // ⚠ JSON.stringify 出来的是 JS 字面量（true/false/null），**不是 Python 字面量** —— 直接内联会 NameError: true。
   // 所以走 json.loads(<JSON 字符串字面量>)：既安全又保留 true/false/null 的语义。
   return [
-    '# ---- DSH shots（v0.9.3 / F1）：多视角渲染一体化 ----',
+    '# ---- DSH shots（v0.9.3）：多视角渲染一体化 ----',
     'import json as _dsh_sjson, bpy as _dsh_sbpy',
     '_dsh_shots_args = _dsh_sjson.loads(' + JSON.stringify(JSON.stringify(args)) + ')',
     'try:',
@@ -128,7 +128,7 @@ export interface FileFingerprint {
   md5Note?: string
   error?: string
 }
-/** 文件指纹（F6）：返回 {path,size,mtimeMs,md5,md5Partial}；>512MB 只哈希前 64MB 并标注 partial */
+/** 文件指纹：返回 {path,size,mtimeMs,md5,md5Partial}；>512MB 只哈希前 64MB 并标注 partial */
 function fileFingerprint(winPath: unknown, wslPath: string): FileFingerprint {
   const out: FileFingerprint = {
     path: winPath ? String(winPath) : null,

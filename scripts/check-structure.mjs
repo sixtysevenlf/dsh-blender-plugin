@@ -9,7 +9,7 @@
  *      名称集合与 tests/fixtures/capability.lock.json 一致；
  *   ③ 架构文件全部存在；
  *   ④ src 内部相对 import 图无环（.js 说明符映射回 .ts）；
- *   ⑤ 生产源码单文件 ≤600 行（B9；例外登记在 config/exceptions.json 的 file-budget 条目）。
+ *   ⑤ 生产源码单文件 ≤600 行（例外登记在 config/exceptions.json 的 file-budget 条目）。
  *
  * 用法：
  *   node scripts/check-structure.mjs                 # 人读摘要，失败退出 1
@@ -80,7 +80,7 @@ function scanToolFile(file) {
     if (!list.includes(rel(file))) list.push(rel(file))
   }
 }
-// ② 起 tool handler 允许下沉到 src/tools/<tool>/*.ts（F1.2 拆分），扫描递归且记相对路径。
+// ② 起 tool handler 允许下沉到 src/tools/<tool>/*.ts（拆分），扫描递归且记相对路径。
 function walkToolFiles(dir) {
   const out = []
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -263,10 +263,10 @@ const edges = [...graph].reduce((n, [, set]) => n + set.size, 0)
 for (const c of cycles) failures.push('import 环: ' + c.join(' -> '))
 
 // ---------- ⑤ 生产源码单文件行预算 ----------
-// B9：src 与 runtime 的 TypeScript、addon 的 Python 单文件 ≤600 行；
+// src 与 runtime 的 TypeScript、addon 的 Python 单文件 ≤600 行；
 // 例外只来自 config/exceptions.json 的 kind=file-budget 条目（reason/owner/reviewBy
 // 由 check:exceptions 校验），脚本内不再维护内联白名单。runtime/ext 是第三方
-// 生成代码，不在本预算范围。B10：runtime/py 的 Blender 侧脚本库
+// 生成代码，不在本预算范围。runtime/py 的 Blender 侧脚本库
 // 使用 1000 行预算（单体函数本身较宽），同样禁止继续膨胀。
 const LINE_BUDGET = 600
 const PY_LINE_BUDGET = 1000

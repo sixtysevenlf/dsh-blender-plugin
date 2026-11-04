@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""T8/F2.3 static layout contract: 5 domain packages, no flat runtime shims.
+"""Static layout contract: 5 domain packages, no flat runtime shims.
 
 No bpy/numpy needed: everything here parses sources. The real import smoke runs
-inside Blender. F2.3 deleted the 38 one-version re-export shims; the only module
+inside Blender. The 38 one-version re-export shims are gone; the only module
 registry is runtime/py/modules.json, so every public name must resolve to a real
 file under runtime/py/<domain>/.
 """
@@ -18,7 +18,7 @@ PY = os.path.join(RT, "py")
 MANIFEST_FILE = os.path.join(PY, "modules.json")
 with open(MANIFEST_FILE, encoding="utf-8") as _fh:
     MANIFEST = json.load(_fh)
-# F2.0：唯一映射源 runtime/py/modules.json（顺序 = 清单插入顺序，与各 __init__.__all__ 一致）。
+# 唯一映射源 runtime/py/modules.json（顺序 = 清单插入顺序，与各 __init__.__all__ 一致）。
 DOMAINS = {d: [n for n, dom in MANIFEST["modules"].items() if dom == d] for d in MANIFEST["domains"]}
 ALL_MODULES = [n for names in DOMAINS.values() for n in names]
 DOMAIN_NAMES = tuple(MANIFEST["domains"])
@@ -37,9 +37,9 @@ def _docstring_skipped(body):
 
 
 def test_no_flat_runtime_modules():
-    """F2.3: runtime/*.py shims and unlisted flat modules are gone; registry-only."""
+    """runtime/*.py shims and unlisted flat modules are gone; registry-only."""
     flat = sorted(p for p in os.listdir(RT) if p.endswith(".py"))
-    assert flat == [], "runtime/*.py must not exist after F2.3: %r" % flat
+    assert flat == [], "runtime/*.py must not exist after the domain split: %r" % flat
 
 
 def test_domain_packages_and_real_files():
@@ -126,7 +126,7 @@ def _module_node(rel):
 
 
 def test_python_import_graph_has_no_cycles_or_cross_domain_edges():
-    """F2.3 guard: domain packages import within their own domain, without cycles."""
+    """Guard: domain packages import within their own domain, without cycles."""
     files = []
     for dirpath, dirnames, filenames in os.walk(PY):
         dirnames[:] = [d for d in dirnames if d != "__pycache__"]
@@ -178,7 +178,7 @@ def test_python_import_graph_has_no_cycles_or_cross_domain_edges():
 
 
 def test_modules_manifest_is_single_source():
-    """F2.0/F2.3：modules.json 唯一清单，paths.ts / offline_bootstrap.py 都读它。"""
+    """modules.json 唯一清单，paths.ts / offline_bootstrap.py 都读它。"""
     assert MANIFEST["version"] >= 1
     assert MANIFEST["domains"] == ["core", "geometry", "assembly", "render", "export"]
     assert len(MANIFEST["modules"]) == len(set(MANIFEST["modules"])) == 41

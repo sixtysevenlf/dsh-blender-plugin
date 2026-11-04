@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Integration-layer environment smoke (F4.1: was `assert True`).
+"""Integration-layer environment smoke (was `assert True`).
 
 Every test in tests/integration/python assumes two things: loopback TCP works on
 this machine and the repository root is importable. The previous body asserted

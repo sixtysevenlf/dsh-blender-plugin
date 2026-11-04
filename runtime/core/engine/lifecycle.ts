@@ -1,4 +1,4 @@
-// engine 生命周期：指标 / addon.send 包装（F1.1 从 engine.ts 拆出，行为冻结）
+// engine 生命周期：指标 / addon.send 包装（从 engine.ts 拆出，行为冻结）
 import { diagnose } from '../../transport/probes.js'
 import { errorMessage } from '../json.js'
 import type { EngineMetrics } from './index.js'

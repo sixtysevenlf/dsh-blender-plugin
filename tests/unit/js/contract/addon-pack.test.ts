@@ -4,7 +4,7 @@ import { repoPath } from '../../../helpers/docs'
 
 const read = (relative: string): string => fs.readFileSync(repoPath(relative), 'utf8')
 
-describe('F4.5 final-state addon pack invariants', () => {
+describe('final-state addon pack invariants', () => {
   it('keeps the single command registry counts in source and package metadata', () => {
     const registry = read('addon/dsh_blender_bridge/command_registry.py')
     expect(registry).toContain('REGISTERED_COMMAND_COUNT = 38')

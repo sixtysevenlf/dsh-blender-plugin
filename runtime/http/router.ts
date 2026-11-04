@@ -1,4 +1,4 @@
-// HTTP 路由分发（T7）：注册表匹配 → 处理器；未命中 404，处理器抛错 500。
+// HTTP 路由分发：注册表匹配 → 处理器；未命中 404，处理器抛错 500。
 // 匹配顺序由 routes/index.mjs 的数组顺序决定（与拆分前 if 链顺序一致）。
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { json } from './response.js'

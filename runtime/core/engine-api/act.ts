@@ -1,4 +1,4 @@
-// engine API：Python 执行/命令透传（F1.1 从 server-compat.ts 拆出）
+// engine API：Python 执行/命令透传（从 server-compat.ts 拆出）
 import { ACT_WRAPPER } from '../../paths.js'
 import { KERNEL_BOOTSTRAP } from '../kernel/index.js'
 import { enrichError } from '../errors.js'
@@ -65,7 +65,7 @@ export function createActApi(E: EngineApiDeps) {
     /** 通用命令透传：任意 addon 命令名 + 参数（MCP 那层不暴露的也能调） */
     async cmd(name: unknown, params: Record<string, unknown> = {}, timeoutMs = 120000) {
       if (!name || typeof name !== 'string') throw new Error('cmd: name required')
-      // v0.9.6（D1）：把 plan op 当 addon 命令发是实测出现过的弯路（qc_render_catalog），
+      // v0.9.6：把 plan op 当 addon 命令发是实测出现过的弯路（qc_render_catalog），
       // 这里在**本地**就纠正，不再浪费一次 Blender 往返。
       const hint = planOpCrossChannelHint(name)
       if (hint) return { status: 'error', result: 'CMD_HINT ' + hint, hint_shown: true }

@@ -467,7 +467,7 @@ def _render_views(objs, opt, tag):
                                     cols=opt["sheet_cols"])
             except Exception as e:
                 sheet = {"ok": False, "error": "%s: %s" % (type(e).__name__, str(e)[:200]),
-                         "hint": "sheet 是附加产物（P0 允许只给单张 views）：先看 views 里的 PNG"}
+                         "hint": "sheet 是附加产物（允许只给单张 views）：先看 views 里的 PNG"}
                 warnings.append("sheet 拼图失败：%s" % str(e)[:160])
         ms = int(round((time.perf_counter() - t0) * 1000.0))
         return {"ok": True, "engine": "BLENDER_WORKBENCH", "via": via_used, "res": list(opt["res"]),

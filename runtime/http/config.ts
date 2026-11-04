@@ -1,4 +1,4 @@
-// HTTP 服务配置与请求统计（T7）。PORT/HOST 在模块加载时解析一次，保持与拆分前一致。
+// HTTP 服务配置与请求统计。PORT/HOST 在模块加载时解析一次，保持与拆分前一致。
 import { CFG } from '../config.js'
 import { parsePortArg } from '../ports.js'
 
@@ -58,7 +58,7 @@ export const stats: HttpStats = {
   startedAt: Date.now(),
 }
 
-/** v0.9.4（P2-1）：各路由最近 20 次耗时的 p50/p95 —— 只观测，不自动重启。 */
+/** v0.9.4：各路由最近 20 次耗时的 p50/p95 —— 只观测，不自动重启。 */
 const RTT_N = 20
 export const RTT: Record<string, number[]> = {
   frame: [],

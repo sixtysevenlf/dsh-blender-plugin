@@ -309,7 +309,7 @@ def blockout_selftest():
         ev["glb"] = {k: (r.get("export") or {}).get("glb", {}).get(k)
                      for k in ("path", "bytes", "magic_ok", "nodes", "md5")}
         bbox = r.get("bbox_mm") or {}
-        # P2-C：turntable / refsheet 冒烟（小帧数/小分辨率，只看产物与魔数）
+        # turntable / refsheet 冒烟（小帧数/小分辨率，只看产物与魔数）
         tt_ok = False
         try:
             tt = blockout_turntable(objects=names, name="unittest", out_dir=d, frames=4, fps=12,
@@ -402,7 +402,7 @@ def blockout_help():
                          "axis": "x|y|z", "at_mm": [0, 0, 30], "mirror": True},
             "uv_sphere": {"id": "h1", "prim": "uv_sphere", "radius_mm": 25, "at_mm": [0, 0, 50]},
         },
-        "render": {"engine": "workbench（P0 只此一种）", "res": "[512,512]",
+        "render": {"engine": "workbench（只此一种）", "res": "[512,512]",
                    "views": "auto3 | front,right,top | [{name,az,el}] | az=35,el=20",
                    "sheet": "true=单行拼图 / 数字=列数；qc_render 路径也自己拼",
                    "via": "auto（优先 qc_render）/ internal / qc"},

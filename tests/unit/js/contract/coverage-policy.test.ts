@@ -33,9 +33,9 @@ describe('coverage policy', () => {
   })
 
   it('keeps long-term quality floors under the measured values', () => {
-    // F4.1: an empty criticalModules list would make the loop below vacuous.
+    // an empty criticalModules list would make the loop below vacuous.
     // The baseline tracks exactly the five threshold modules; the former sixth key
-    // (runtime/catalog.ts) was a stale phantom and is gone (S1 3.2).
+    // (runtime/catalog.ts) was a stale phantom and is gone (3.2).
     expect(thresholds.javascript.criticalModules).toHaveLength(5)
     expect(Object.keys(baseline.criticalModules)).toHaveLength(5)
     for (const mod of thresholds.javascript.criticalModules) {

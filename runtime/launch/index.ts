@@ -1,4 +1,4 @@
-// S3-c / F1.1：拉起 GUI Blender（组装：解析 → 代理/干跑 → spawn → 等端口）
+//拉起 GUI Blender（组装：解析 → 代理/干跑 → spawn → 等端口）
 import path from 'node:path'
 import fs from 'node:fs'
 import { CFG, winToWsl, wslToWin } from '../config.js'

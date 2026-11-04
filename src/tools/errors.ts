@@ -1,5 +1,5 @@
 /**
- * A8: one error shape for the model-facing tool channel.
+ * one error shape for the model-facing tool channel.
  *
  * A tool failure is not just a sentence: the model needs a stable code (so a
  * caller can branch), a clean message (no raw stack from Blender/host), a
@@ -61,7 +61,7 @@ export function errorLine(error: unknown): string {
 
 /**
  * Build a lossless tool failure. text keeps the human/model channel readable;
- * envelope.error is the machine-readable channel used by the A8 contract.
+ * envelope.error is the machine-readable channel used by the contract.
  */
 export function toolError(
   code: string,

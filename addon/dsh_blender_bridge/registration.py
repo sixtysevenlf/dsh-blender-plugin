@@ -1,4 +1,4 @@
-""" Registration entry point for the add-on (F3.2 split from __init__). """
+""" Registration entry point for the add-on (split from __init__). """
 
 import bpy
 from bpy.props import IntProperty

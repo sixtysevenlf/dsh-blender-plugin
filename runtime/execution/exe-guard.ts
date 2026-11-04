@@ -1,4 +1,4 @@
-// 共享的 blender.exe 预检（P0-1 首调 / P2-3 job 通道）：
+// 共享的 blender.exe 预检（首调 job 通道）：
 // worker 与 job 两条 spawn 路径都必须在 spawn 前失败，否则 Node 会同步抛 TypeError，
 // child.on('error') / 就绪判断里的 hint 根本走不到。
 import { CFG } from '../config.js'

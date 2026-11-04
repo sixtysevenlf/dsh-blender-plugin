@@ -98,7 +98,7 @@ describe('plugin applies to the documented Cordis surface', () => {
   })
 
   it('validates the declared peer ranges against a discoverable host tree', () => {
-    // F4.1: this test used to start with `if (!host) return`, i.e. it asserted
+    // this test used to start with `if (!host) return`, i.e. it asserted
     // nothing when the host tree was absent. The declared contract is now checked
     // unconditionally; the installed-version cross-check remains environment-gated.
     const manifest = JSON.parse(fs.readFileSync(pkgPath('package.json'), 'utf8'))

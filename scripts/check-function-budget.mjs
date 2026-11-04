@@ -10,8 +10,7 @@
  * config/function-budget-allowlist.json with a real classification (see
  * CLASSES), a reason, the class owner and a future reviewBy date. The gate
  * fails on an unregistered, unclassified, expired or stale entry, so the band
- * cannot turn into an unowned dumping ground (design D11, finalization
- * §1.1.4: no unowned exceptions).
+ * cannot turn into an unowned dumping ground (no unowned exceptions).
  *
  * Path-level exceptions (file line budgets) are owned by config/exceptions.json
  * (kind=file-budget) and enforced by scripts/check-structure.mjs; this gate

@@ -79,7 +79,7 @@ for (const mod of thresholds.javascript.criticalModules) {
   check('critical ' + mod.module + '.branches', js[key].branches?.pct, mod.branches)
 }
 
-// 3b) Execution-engine lifecycle modules (T5b ratchet floors, see config)
+// 3b) Execution-engine lifecycle modules (ratchet floors, see config)
 for (const mod of thresholds.javascript.executionModules || []) {
   const key = Object.keys(js).find((k) => k !== 'total' && norm(k).endsWith(mod.module))
   if (!key) {

@@ -31,11 +31,11 @@ interface CatalogView {
 }
 const payload = (opts?: unknown): CatalogView => catalogPayload(opts) as unknown as CatalogView
 
-// D1: tool schemas and the plan description stay inside a fixed budget, the
+// tool schemas and the plan description stay inside a fixed budget, the
 // catalog keeps its sizing contract, and the pure discoverability helpers keep
 // correcting wrong channel choices instead of failing silently.
 
-// F1.2：tool 可下沉到 src/tools/<tool>/*.ts，递归收集并保留相对路径（schemaChars 按来源文件切片）。
+// tool 可下沉到 src/tools/<tool>/*.ts，递归收集并保留相对路径（schemaChars 按来源文件切片）。
 function walkToolSources(dir: string, out: string[] = []): string[] {
   for (const entry of fs.readdirSync(pkgPath(dir), { withFileTypes: true })) {
     const rel = path.join(dir, entry.name)
@@ -64,7 +64,7 @@ function schemaChars(name: string, sourceRel: string): number {
   const start = text.indexOf("name: '" + name + "'")
   const desc = text.indexOf('description:', start)
   const params = text.indexOf('parameters:', desc)
-  // F1.2：tool 声明拆到 src/tools/<tool>/register.ts 后缩进层级可变，边界标记按"任意缩进"匹配。
+  // tool 声明拆到 src/tools/<tool>/register.ts 后缩进层级可变，边界标记按"任意缩进"匹配。
   const endRe = /\n\s*(?:output:|isConcurrencySafe:|timeoutMs:|async execute\(|execute\()/g
   endRe.lastIndex = params
   const marker = endRe.exec(text)

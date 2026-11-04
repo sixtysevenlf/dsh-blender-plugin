@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DSH UV 四件套（v0.9.6 · 上游整合 A3）—— 交付带贴图的 OBJ/MTL 就必须有 UV，而旧 runtime 全库
+"""DSH UV 四件套（v0.9.6 · 上游整合）—— 交付带贴图的 OBJ/MTL 就必须有 UV，而旧 runtime 全库
 unwrap/smart_project = 0 命中。
 
 ops：
@@ -28,7 +28,7 @@ if _KIT is None:
     raise RuntimeError("uv_tools 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
-_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_j = _KIT.j  # 共享内核（原自带实现已删）
 def _num(v, name, lo=None, hi=None, default=None):
     if v is None:
         if default is None:

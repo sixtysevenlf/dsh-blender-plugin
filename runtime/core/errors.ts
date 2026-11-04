@@ -1,9 +1,9 @@
-// Blender 侧常见报错的补充提示（T6）
+// Blender 侧常见报错的补充提示
 // @imports
 import { wslPathShared } from '../config.js'
 import { WSL_TMP } from '../paths.js'
 
-/** v0.8.7：把 Blender 侧常见坑的报错补一句可执行提示（外部反馈 #4 的 P2-3） */
+/** v0.8.7：把 Blender 侧常见坑的报错补一句可执行提示（外部反馈 #4 的） */
 export function enrichError(msg: unknown, tb: unknown): string {
   const s = String(msg || '')
   const t = String(tb || '')
@@ -46,7 +46,7 @@ export function enrichError(msg: unknown, tb: unknown): string {
     /No such file or directory|could not be opened|无法读取/i.test(both) &&
     /wsl\.localhost|\\\\wsl/i.test(both)
   ) {
-    // v0.9.6（D3）：这条以前被误诊成"UNC 形态问题"。真正常见的根因是**挂载不共享**：
+    // v0.9.6：这条以前被误诊成"UNC 形态问题"。真正常见的根因是**挂载不共享**：
     // Node 写得进（在 WSL 命名空间里），Windows 的 Blender 看不见那个挂载点。
     const sh = wslPathShared(WSL_TMP)
     return (

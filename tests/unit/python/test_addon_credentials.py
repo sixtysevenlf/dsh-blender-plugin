@@ -1,4 +1,4 @@
-"""凭据单一所有者（S2 4.5）。
+"""凭据单一所有者。
 
 旧行为：每个 API 凭据存两处 —— Scene 属性（跟着 .blend 保存）与 add-on
 preferences 互相镜像；server 读 prefs -> scene -> env，面板画"有 prefs 就画

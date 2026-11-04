@@ -6,7 +6,7 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { pkgPath } from '../../helpers/pkg'
 
-// v0.9.6 (D3): the loaded-version self check must use a content fingerprint,
+// v0.9.6: the loaded-version self check must use a content fingerprint,
 // never mtime — a touch used to fake "stale", a same-second rewrite used to
 // fake "fresh". A clean process is the judge for the on-disk catalog.
 
@@ -32,7 +32,7 @@ function copyRuntime(src: string, dest: string) {
 const md5 = (p: string) => createHash('md5').update(fs.readFileSync(p)).digest('hex')
 
 beforeAll(async () => {
-  // T15: the shipped runtime is built JS under lib/runtime; Python assets stay in package runtime/.
+  // the shipped runtime is built JS under lib/runtime; Python assets stay in package runtime/.
   copyRuntime(pkgPath('lib', 'runtime'), COPY_RT)
   copyRuntime(pkgPath('runtime'), path.join(TMP, 'runtime'))
   fs.copyFileSync(pkgPath('package.json'), path.join(TMP, 'package.json'))

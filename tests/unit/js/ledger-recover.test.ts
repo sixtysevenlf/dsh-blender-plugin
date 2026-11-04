@@ -67,7 +67,7 @@ describe('ledger recovery', () => {
   })
 
   it('keeps a failed summary failed instead of calling it done', () => {
-    const d = mk('A2')
+    const d = mk('failed')
     write(
       path.join(d, 'summary.json'),
       JSON.stringify({ id: 'job-x', status: 'failed', exitCode: 1, finishedAt: 124 }),

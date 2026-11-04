@@ -46,7 +46,7 @@ export interface ParsedHeadlessStdout {
 
 export function parseHeadlessStdout(stdout: string): ParsedHeadlessStdout {
   // ---- 结果契约：HEADLESS <单行 JSON>（取最后一条）
-  // v0.9.3（D3）：末行不是合法 JSON 时**不再覆盖 raw**（旧版回 {_parse_error, raw} 顶掉真实输出，
+  // v0.9.3：末行不是合法 JSON 时**不再覆盖 raw**（旧版回 {_parse_error, raw} 顶掉真实输出，
   // 调用方只能看到 "_parse_error: Unexpected token 'O'"）。现在 parsed 保持 null，解析失败单独记在
   // resultParseError 里，stdout 原文（stdoutTail / logs）原样保留。
   let parsed: unknown = null
@@ -59,7 +59,7 @@ export function parseHeadlessStdout(stdout: string): ParsedHeadlessStdout {
       parseError = { message: errorMessage(e).slice(0, 200), line: head.slice(0, 400) }
     }
   }
-  // ---- v0.9.3（F1）：shots 回执（DSH_SHOTS <单行 JSON>）
+  // ---- v0.9.3：shots 回执（DSH_SHOTS <单行 JSON>）
   let shotsRes: Record<string, unknown> | null = null
   const shot = lastTaggedPayload(stdout, 'DSH_SHOTS ')
   if (shot !== null) {
@@ -271,12 +271,12 @@ export function writeResultJson(
         fs.mkdirSync(path.dirname(t.wsl), { recursive: true })
         fs.writeFileSync(t.wsl, s, 'utf8')
         outJsonInfo.path = t.win
-        outJsonInfo.wsl = t.wsl // D4.2：Windows 形态 + WSL 可见形态各一份
+        outJsonInfo.wsl = t.wsl // Windows 形态 + WSL 可见形态各一份
       } else if (s.length > 4000) {
         const dump = d.dumpResult(parsed, runId)
         outJsonInfo.path = dump.path
         outJsonInfo.bytes = dump.bytes
-        outJsonInfo.wsl = outJsonInfo.path ? winToWsl(outJsonInfo.path) : null // D4.2：两种形态都给
+        outJsonInfo.wsl = outJsonInfo.path ? winToWsl(outJsonInfo.path) : null // 两种形态都给
       }
     }
   } catch (e) {

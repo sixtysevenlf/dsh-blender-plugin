@@ -120,7 +120,7 @@ export function winToWsl(p: unknown): string {
   if (IS_WIN || IS_MAC) return s
   const m = s.match(/^([A-Za-z]):[\\/](.*)$/)
   if (m) return '/mnt/' + m[1].toLowerCase() + '/' + m[2].replace(/\\/g, '/')
-  // v0.9.3（D4）：UNC 形态（\\wsl.localhost\<distro>\home\… 或 \\wsl$\…）→ WSL 可见的 /home/…
+  // v0.9.3：UNC 形态（\\wsl.localhost\<distro>\home\… 或 \\wsl$\…）→ WSL 可见的 /home/…
   // 旧版**原样返回** → 一旦 workDir 是 WSL 路径（wslToWin 先转成 UNC），台账 / results / trajectory
   // 就全落在一个 Node 打不开的 UNC 串上（实测：stale 对账查不到台账）。
   const u = s.match(/^\\\\wsl(?:\.localhost)?\\[^\\]+\\(.*)$/i)
@@ -149,9 +149,9 @@ export function wslToWin(p: unknown): string {
 }
 
 /**
- * v0.9.6（D3 · workDir 共享性自证）：这个 WSL 路径，Windows 侧的 Blender 到底看不看得见？
+ * v0.9.6（workDir 共享性自证）：这个 WSL 路径，Windows 侧的 Blender 到底看不看得见？
  *
- * 为什么需要它（现场实测 2026-09-26，租约自检 D2 失败）：
+ * 为什么需要它（现场实测 2026-09-26，租约自检失败）：
  *   自检把隔离工作目录设在 os.tmpdir()（WSL 的 /tmp）。Node 侧写脚本**成功**，
  *   但 Windows 的 blender.exe 打不开，报
  *     OSError: Python file "\\wsl.localhost\Ubuntu\tmp\…\dsh_headless_*.py" could not be opened
@@ -315,7 +315,7 @@ function resolveWorkDirRaw(): RawWorkDir {
 }
 
 /**
- * S9：workDir **可写性自证 + 回退**（现场：/mnt/d 变只读后，后端写不了自己的 status/ledger 就起不来，
+ * workDir **可写性自证 + 回退**（现场：/mnt/d 变只读后，后端写不了自己的 status/ledger 就起不来，
  * 而报错只说"看后端日志"，没有一句"你的 workDir 不可写"—— 40 分钟就这么没了）。
  * 顺序：配置/自动探测的候选 → 包内 tmp（工作区内，通常可写）→ OS tmpdir。回退必须显式留痕。
  */
@@ -364,7 +364,7 @@ function resolveWorkDir(): WorkDirInfo {
 }
 
 const WORK = resolveWorkDir()
-/** blender.exe 探测在 runtime/blender-detect.ts（可注入依赖；Windows 含 Steam 库）。S2 4.6 起
+/** blender.exe 探测在 runtime/blender-detect.ts（可注入依赖；Windows 含 Steam 库）。
  *  config.ts 不再转出 detectBlenderExe：需要探测结果的调用方直接 import blender-detect.js；
  *  这里只用一次（模块级 CFG），探测来源见 CFG.source.blenderExe。 */
 const BLENDER = detectBlenderExe({ fileCfg: FILE.cfg })
@@ -400,7 +400,7 @@ export const CFG = {
   // 目录（成对：Windows 侧给 Blender 写，宿主侧给 Node 读）
   workDirWin: WORK.win,
   workDirWsl: WORK.wsl,
-  /** S9：workDir 探写结果与回退留痕（null=原候选可写；非 null=已回退，见 errs） */
+  /** workDir 探写结果与回退留痕（null=原候选可写；非 null=已回退，见 errs） */
   workDirFallback: WORK.fallback || null,
   workDirWritable: WORK.writable !== false,
   // 无头进程
@@ -455,7 +455,7 @@ export function describeConfig(over: { httpPort?: number | string } = {}) {
       wsl: CFG.workDirWsl,
       from: CFG.source.workDir,
       fallback: CFG.workDirFallback,
-      // v0.9.6（D3）：这个工作目录 Windows 侧看不看得见（false = 无头脚本会打不开，必须换目录）
+      // v0.9.6：这个工作目录 Windows 侧看不看得见（false = 无头脚本会打不开，必须换目录）
       shared: wslPathShared(CFG.workDirWsl),
     },
     blenderExe: CFG.blenderExe,

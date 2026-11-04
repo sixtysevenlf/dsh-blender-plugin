@@ -1,4 +1,4 @@
-// 轨迹包装面（F1.1：从 trajectory.ts 拆出，行为冻结）
+// 轨迹包装面（从 trajectory.ts 拆出，行为冻结）
 import type { TrajWriteDeps } from './record.js'
 import { trajRecord } from './record.js'
 

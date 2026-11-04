@@ -81,7 +81,7 @@ describe('npm package install contract', () => {
     expect(files.some((f: string) => f.includes('node_modules'))).toBe(false)
     expect(files.some((f: string) => f.includes('pkg.tgz'))).toBe(false)
     expect(files.some((f: string) => f.endsWith('.pyc'))).toBe(false)
-    // T15: runtime/source TypeScript must not ship; .d.ts declarations are allowed (package types).
+    // runtime/source TypeScript must not ship; .d.ts declarations are allowed (package types).
     expect(files.some((f: string) => f.endsWith('.ts') && !f.endsWith('.d.ts'))).toBe(false)
     expect(files.some((f: string) => f.startsWith('runtime/') && /\.(?:ts|mts)$/.test(f))).toBe(
       false,

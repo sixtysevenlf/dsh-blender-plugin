@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DSH 沿路径扫掠（v0.9.6 · 上游整合 A5）—— 管路/线缆/轨道/护栏这类"沿路径"件。
+"""DSH 沿路径扫掠（v0.9.6 · 上游整合）—— 管路/线缆/轨道/护栏这类"沿路径"件。
 
 旧 runtime 里 sweep 只在 qc/motion 里作为"扫描"出现，**没有沿路径成形的能力**。
 上游 blend-ai 有 sweep_profile_along_path + analyze_sweep_path（先算路径弯折是否够宽）。
@@ -29,7 +29,7 @@ if _KIT is None:
     raise RuntimeError("sweep 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
-_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_j = _KIT.j  # 共享内核（原自带实现已删）
 def _num(v, name, lo=None, hi=None, default=None):
     if v is None:
         if default is None:

@@ -17,7 +17,7 @@ function buildDoTool(ctx: HostContext, port: number) {
       ' file 参数可直接执行工作区脚本（等价 K.run(path)，支持 WSL / Windows / 相对 .blend 三种路径）；' +
       ' 内置路径辅助 K.win_path / K.wsl_path / K.blend_path / K.out_dir；' +
       ' ④ 返回的 ms 即**主线程占用**，>1 s 会提示改走 blender_rt_headless / blender_rt_worker。' +
-      ' **P0 无头交互**：GUI 不在线或传 session 时，自动降级到持久无头会话（exec + Workbench see，同一 worker 热路径；不是 job/异步）。' +
+      ' **无头交互**：GUI 不在线或传 session 时，自动降级到持久无头会话（exec + Workbench see，同一 worker 热路径；不是 job/异步）。' +
       '第一次会冷启动 worker，之后每步 ~50–150ms；session 名固定即复用同一个 Blender 会话。',
     parameters: {
       code: {

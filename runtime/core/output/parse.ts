@@ -1,4 +1,4 @@
-// stdout 标记解析 / 路径改写（F1.1 从 output.ts 拆出，行为冻结）
+// stdout 标记解析 / 路径改写（从 output.ts 拆出，行为冻结）
 import fs from 'node:fs'
 import { winToWsl } from '../../config.js'
 
@@ -29,7 +29,7 @@ function jsonFromStdout(out: unknown): unknown {
 /** 路径映射见 config.mjs：winToWsl / wslToWin（Windows 上原样返回） */
 
 /** 无头运行用的 python 脚本落到 Windows 可见目录；/mnt 不可写时退回包内 tmp + UNC */
-/** v0.8.10（A3）：长输出"头+尾+省略标记"—— 旧版只回尾部，长 JSON 的头被吃掉 */
+/** v0.8.10：长输出"头+尾+省略标记"—— 旧版只回尾部，长 JSON 的头被吃掉 */
 function clipMiddle(s: unknown, head: number, tail: number): string {
   const t = String(s == null ? '' : s)
   if (t.length <= head + tail) return t

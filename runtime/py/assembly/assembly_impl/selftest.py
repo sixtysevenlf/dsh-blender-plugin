@@ -54,7 +54,7 @@ def asm_selftest():
         man = os.path.join(tmpdir, "assembly.json")
         m1 = json.loads(asm_manifest(action="init", path=man, assembly="selftest", force=True))
         m2 = json.loads(asm_manifest(action="add_part", path=man,
-                                     part={"id": "P1", "file": partfile, "objects": ["__dsh_asm_a"]}))
+                                     part={"id": "part_a", "file": partfile, "objects": ["__dsh_asm_a"]}))
         m3 = json.loads(asm_manifest(action="seal", path=man))
         ev["manifest_roundtrip"] = bool(m1.get("ok") and m2.get("ok") and m3.get("ok"))
         ev["manifest_sealed"] = bool(m3.get("sealed"))

@@ -1,4 +1,4 @@
-// 资产门开关与只读查询载荷（T6）
+// 资产门开关与只读查询载荷
 // @imports
 
 export const GATE_FLAGS = [

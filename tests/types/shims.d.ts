@@ -1,5 +1,5 @@
 /**
- * tests 严格类型检查的边界声明（T5）。
+ * tests 严格类型检查的边界声明。
  *
  * runtime/*.ts 是后端源码（tests 直接 import，Vite/tsc 解析 .js 说明符到 .ts），lib/*.js 是构建产物；
  * 两者在测试里按黑盒使用。这里把它们声明为 any，让 tsconfig.test.json 能对

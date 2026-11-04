@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // @ts-check
 /**
- * scripts/gen-routes.mjs — generate both route tables from config/routing.json (D3).
+ * scripts/gen-routes.mjs — generate both route tables from config/routing.json .
  *
  * config/routing.json is the single source of truth for plan/EXT routing. This
  * script renders:

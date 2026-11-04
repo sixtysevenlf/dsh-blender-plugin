@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""S2 4.4: qc_impl/api.py 不得再 exec(compile(...)) 现场加载 qc_render.py。
+"""qc_impl/api.py 不得再 exec(compile(...)) 现场加载 qc_render.py。
 
 旧兜底会在内核没有 K.dsh_qc_render_api 时，去 runtime 目录找一份 qc_render.py
 执行 —— 领域包布局下它绕过了 preload 注入，可能和真正注入的模块版本不一致

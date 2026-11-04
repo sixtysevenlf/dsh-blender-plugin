@@ -41,7 +41,7 @@ def qc_load(path):
             bpy.data.images.remove(img)
         except Exception:
             pass
-        # v0.8.10（C6）：GIF 走内置纯 Python 解码兜底（本机无 PIL/pip/ffmpeg）
+        # v0.8.10：GIF 走内置纯 Python 解码兜底（本机无 PIL/pip/ffmpeg）
         if str(p).lower().endswith(".gif"):
             try:
                 _a = _gif_first_frame(p)
@@ -99,7 +99,7 @@ def qc_iou(a, b):
     w = min(a.shape[1], b.shape[1])
     a2 = qc_resize_mask(a, h, w)
     b2 = qc_resize_mask(b, h, w)
-    # S2：度量收敛到共享内核（唯一实现）
+    # 度量收敛到共享内核（唯一实现）
     _iou, inter, union = _KIT.iou(a2, b2)
     return {"iou": (0.0 if _iou is None else _iou), "inter": inter, "union": union,
             "a_px": int(a2.sum()), "b_px": int(b2.sum())}

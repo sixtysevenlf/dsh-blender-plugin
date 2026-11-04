@@ -42,7 +42,7 @@ export interface Config {
   tui: boolean
 }
 
-// v1.0.1+S11：z 不可用时（降级模式）不给 schema —— 宿主不会因为这里再抛一次而整体失败。
+// v1.0.1：z 不可用时（降级模式）不给 schema —— 宿主不会因为这里再抛一次而整体失败。
 export const Config = z
   ? z.object({
       port: z.natural().default(resolveHttpPort()),
@@ -56,7 +56,7 @@ export function apply(ctx: HostContext, config: Config): void {
   // 放在 degraded 分支之前 —— 即使 schemastery 解析失败、工具降级，技能内容也仍然可用。
   registerBundledSkill(ctx)
 
-  // v1.0.1+S11（issue #10）：解析失败 ⇒ 降级但不消失（见 registerSchemaDiagnostic）。
+  // v1.0.1（issue #10）：解析失败 ⇒ 降级但不消失（见 registerSchemaDiagnostic）。
   if (!z) {
     registerSchemaDiagnostic(ctx)
     return

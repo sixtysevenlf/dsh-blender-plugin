@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "Public facade registry (finalization §1.1.2, S2 tasks 4.1/4.3). Exactly two public facades exist: src/index.ts (DSH host entry, package main/exports -> built lib/index.js) and runtime/engine.ts (backend/engine entry). Every exported name must be listed with at least one in-repo consumer that imports it through the facade (source path or built lib path); a new export that is not registered here, or a registry entry whose export/consumer is gone, fails npm run check:no-shims. An export reachable only through a facade must never be added to silence a gate: migrate internal code to the owning module instead. Regeneration is a review step, not codegen: grep the consumers (see consumers array), then update this file and the facade in the same change.",
+  "note": "Public facade registry. Exactly two public facades exist: src/index.ts (DSH host entry, package main/exports -> built lib/index.js) and runtime/engine.ts (backend/engine entry). Every exported name must be listed with at least one in-repo consumer that imports it through the facade (source path or built lib path); a new export that is not registered here, or a registry entry whose export/consumer is gone, fails npm run check:no-shims. An export reachable only through a facade must never be added to silence a gate: migrate internal code to the owning module instead. Regeneration is a review step, not codegen: grep the consumers (see consumers array), then update this file and the facade in the same change.",
   "facades": {
     "src/index.ts": {
       "exports": [

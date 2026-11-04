@@ -1,4 +1,4 @@
-// 作业层入口（T6 / F1.1 拆分）：start/status/collect/wait/kill/list
+// 作业层入口（拆分）：start/status/collect/wait/kill/list
 import { createLedger } from '../ledger/index.js'
 import type { JobsDeps } from './types.js'
 import { jobDir, jobArtifacts, jobSnapshot, tailFile } from './snapshot.js'

@@ -3,7 +3,7 @@ import { ADDON_NAME_HINTS, LAUNCH_BOOT_PY, addonNameHit } from '../../../runtime
 import { startBackend, freePort, type Backend } from '../../helpers/backend'
 import { startFakeAddon } from '../../helpers/fake-addon.mjs'
 
-// S3-c launch: the addon name hints must only match this repo's bridge (no MCP
+// launch: the addon name hints must only match this repo's bridge (no MCP
 // for Blender compatibility), the injected boot script must wire the addon and
 // the status file, and op=launch must be idempotent / dry-runnable / honest when
 // the exe is missing. Spawning a real Blender process is E2E-only.

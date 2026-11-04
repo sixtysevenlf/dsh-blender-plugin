@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "D2 link layer: catalog family -> python dispatch table. Consumed by scripts/catalog_dispatch_keys.py and tests/unit/js/contract/catalog-dispatch-parity.test.ts. Catalog ops must map to a literal python dispatch key; aliases and both-side extras are declared here, never silently skipped.",
+  "note": "link layer: catalog family -> python dispatch table. Consumed by scripts/catalog_dispatch_keys.py and tests/unit/js/contract/catalog-dispatch-parity.test.ts. Catalog ops must map to a literal python dispatch key; aliases and both-side extras are declared here, never silently skipped.",
   "pythonTables": {
     "sculpt": {
       "kind": "local-dict",
@@ -208,8 +208,8 @@
       "api": "dsh_qc_api",
       "table": "qc",
       "catalogExtras": {
-        "compare_auto": "Known pre-existing drift (S1 parity audit): qc_compare_auto routes dispatch sub \"compare_auto\", but dsh_qc_api dispatch keys use \"compare\". No host-side handler exists; reported as a follow-up bug instead of hiding it with an alias.",
-        "align_iou": "Known pre-existing drift (S1 parity audit): qc_align_iou routes dispatch sub \"align_iou\", which dsh_qc_api does not expose (closest keys: align_search / iou). Reported as a follow-up bug."
+        "compare_auto": "Known pre-existing drift (parity audit): qc_compare_auto routes dispatch sub \"compare_auto\", but dsh_qc_api dispatch keys use \"compare\". No host-side handler exists; reported as a follow-up bug instead of hiding it with an alias.",
+        "align_iou": "Known pre-existing drift (parity audit): qc_align_iou routes dispatch sub \"align_iou\", which dsh_qc_api does not expose (closest keys: align_search / iou). Reported as a follow-up bug."
       },
       "pythonExtras": [
         "iou",

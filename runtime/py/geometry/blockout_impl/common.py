@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DSH Blockout 白模（P0-C）—— 一次调用把"说清楚比例"变成可渲染、可导出、可交接的占位几何。
+"""DSH Blockout 白模—— 一次调用把"说清楚比例"变成可渲染、可导出、可交接的占位几何。
 
 现场问题：弱模型先手写几何再补比例，往往"看起来有件、量起来没数"；而参考图/装配/干涉检查
 都需要一个**尺寸可信、命名统一、集合隔离**的白模。本模块只做白模（不做成品细节）：
@@ -42,8 +42,8 @@ render 产物：<outdir>/<tag>_<view>.png × N + 可选 <tag>_sheet.png（横向
 单位口径：**Blender 默认 1 单位 = 1 m**（scene.unit_settings.scale_length 跟随；mm_per_unit 由 kit.units() 给出），
     parts 里的 mm 数 → BU = mm / mm_per_unit（默认 ×0.001）。scene 单位设置不改（不污染用户场景）。
 
-诚实边界（P0）：
-  · 渲染只支持 Workbench（不接 EEVEE/Cycles：白模要快、要稳）；视角全透视（P0 不提供正交）；
+诚实边界：
+  · 渲染只支持 Workbench（不接 EEVEE/Cycles：白模要快、要稳）；视角全透视（不提供正交）；
   · sheet 是简单横向/网格拼图（无文字标注）；qc_render 路径下也会自己拼（不依赖 montage）；
   · landmarks 只记录不建空物体（避免污染对象计数）；audit 是内建轻量体检，不是 audit.py 全套；
   · batch 默认逐件清理（cleanup=true），要保留全部件请传 cleanup=false 并保证 name 唯一。

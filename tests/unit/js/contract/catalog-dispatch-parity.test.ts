@@ -6,7 +6,7 @@ import path from 'node:path'
 import { catalogPayload } from '../../../../runtime/engine.js'
 import { pkgPath } from '../../../helpers/pkg'
 
-// D2 parity gate: the human-readable catalog (runtime/catalog/data.ts) and the
+// parity gate: the human-readable catalog (runtime/catalog/data.ts) and the
 // literal Python dispatch tables (runtime/py/**) must stay in lockstep. The link
 // layer is config/contracts.json (family -> python table + declared extras/
 // aliases); scripts/catalog_dispatch_keys.py collects the literal dict keys with

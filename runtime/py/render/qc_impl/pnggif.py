@@ -25,7 +25,7 @@ def _gif_first_frame(path):
         if b == 0x21:                                     # extension
             label = data[i + 1]; i += 2
             if label == 0xF9 and i + 6 < len(data):       # graphic control
-                # 结构：21 F9 <blockSize=4> <packed> <delay:2> <transparentIdx> 00
+                # 结构：21 <blockSize=4> <packed> <delay:2> <transparentIdx> 00
                 i += 1                                        # ← 旧版漏了 blockSize 这一字节，导致后面全部错位
                 packed = data[i]; i += 1
                 i += 2                                        # delay

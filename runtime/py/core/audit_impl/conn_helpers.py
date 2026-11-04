@@ -42,9 +42,9 @@ def _objs_for(objects, scope, include_hidden=False):
 
 
 # ============================================================================
-# v0.9.1（C2）：file= 临时加载 —— 把"会话绑定"解开（上报一律用文件里的原名）
+# v0.9.1：file= 临时加载 —— 把"会话绑定"解开（上报一律用文件里的原名）
 # ----------------------------------------------------------------------------
-# 来源：rifle-build《93 反馈》C1/C2（P2）："check_* / audit_* 都要先在会话里注册组件，批处理 12 个
+# 来源：rifle-build《93 反馈》："check_* / audit_* 都要先在会话里注册组件，批处理 12 个
 # part 时不便"。口径全部取本机实测（Blender 5.2，2026-09）：
 #   * bpy.data.libraries.load(link=False) 是**数据 API**：无头/GUI 都能用（bpy.ops.wm.append 要 GUI 上下文）；
 #   * 加载进来的对象**不属于任何集合** —— 不链到临时集合，evaluated_get 拿不到几何（tris=0）；
@@ -335,7 +335,7 @@ def _file_names(objects=None, scope=None):
 
 
 def _objs_with_optional_file(objects, scope, include_hidden, file):
-    """C2 三个 op 的统一入口：file= 时临时加载该文件（names 用来在文件内筛），否则走 _objs_for（会话）。
+    """三个 op 的统一入口：file= 时临时加载该文件（names 用来在文件内筛），否则走 _objs_for（会话）。
 
     返回 dict：{objs, missing, err, name_of, source, load, cleanup}
     —— cleanup 由调用方在 finally 里执行（无论成功失败都要跑），它的返回值就是返回体的 cleanup 字段。

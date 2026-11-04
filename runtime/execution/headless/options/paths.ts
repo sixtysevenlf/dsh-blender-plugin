@@ -1,4 +1,4 @@
-// headless 选项：路径/脚本/输入文件解析（F1.1 从 options.ts 拆出）
+// headless 选项：路径/脚本/输入文件解析（从 options.ts 拆出）
 import fs from 'node:fs'
 import { winToWsl, wslToWin } from '../../../config.js'
 import { WIN_TMP } from '../../../paths.js'
@@ -20,7 +20,7 @@ export interface HeadlessPaths {
 }
 
 export function resolveHeadlessPaths(opts: HeadlessOpts, deps: HeadlessDeps): HeadlessPaths {
-  // ---- v0.9.3（D4）：outdir 接受 WSL 路径（/home/…、/mnt/d/…）与 Windows 路径。
+  // ---- v0.9.3：outdir 接受 WSL 路径（/home/…、/mnt/d/…）与 Windows 路径。
   // 旧版把入参**原样**塞给 Windows 的 blender.exe → '/home/x' 被当相对盘根，静默写到 C:\home\x。
   // 现在：Node 侧用 outdirWsl 读写、Blender 侧用 outdirWin（/home/… → \\wsl.localhost\<distro>\home\…）。
   const outdirArg = opts.outdir ? slipFixPath(String(opts.outdir), null) : null
@@ -51,7 +51,7 @@ export function resolveHeadlessPaths(opts: HeadlessOpts, deps: HeadlessDeps): He
       )
     }
   }
-  // ---- v0.9.3（F6）：inputFile 指纹 —— 探针跑在 02:55 版、04:07 才发现文件已被重存（浪费 4 次探针）
+  // ---- v0.9.3：inputFile 指纹 —— 探针跑在 02:55 版、04:07 才发现文件已被重存（浪费 4 次探针）
   // （必须在 fileLooksPython 之后：否则 TDZ ReferenceError —— 实测踩过）
   const inputFileInfo =
     fileOpt && !fileLooksPython

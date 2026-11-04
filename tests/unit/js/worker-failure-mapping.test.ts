@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-// P0-1 (transport side): /worker must pass the structured error code through so
+// (transport side): /worker must pass the structured error code through so
 // the host tool layer can stop wrapping "Blender executable missing" in the
 // generic backend_error code.
 

@@ -1,5 +1,5 @@
 /**
- * P0-3 集成回归（验收 A3/A6）：9876 有监听但 addon 不回包（半开）时，
+ * 集成回归（验收）：9876 有监听但 addon 不回包（半开）时，
  * 真实 lib 后端的 /status 与 /doctor 必须在 10s 内返回结构化诊断，且指向 addon，
  * 而不是 host 先 20s abort / 统一报 backend_unreachable。
  *

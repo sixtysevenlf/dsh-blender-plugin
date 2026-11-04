@@ -51,7 +51,7 @@ afterAll(() => {
   for (const root of tmpRoots) fs.rmSync(root, { recursive: true, force: true })
 })
 
-describe('generated route tables (D3)', () => {
+describe('generated route tables', () => {
   it('keeps the checked-in tables fresh against config/routing.json', () => {
     const result = check(PACKAGE)
     expect(result.status).toBe(0)

@@ -36,7 +36,7 @@ const TMP_ROOT = process.env.DSH_TMP || os.tmpdir()
 // Premium/Tripo channel; nothing else may disappear without adding it here.
 const DECLARED_CATALOG_REMOVALS = ['get_tripo_status']
 
-// Declared public-surface removals: S2/4.2 shrinks runtime/engine.ts from the
+// Declared public-surface removals: /4.2 shrinks runtime/engine.ts from the
 // 87 re-exports of the TS migration to the ~20 names actually consumed through
 // the built lib/runtime/engine.js path (config/facades.json is the registry).
 // Filters the base export NAME SET (not the file): a name listed here must

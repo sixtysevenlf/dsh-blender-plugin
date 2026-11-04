@@ -1,4 +1,4 @@
-// 写权限租约（T7）：多 agent / 多会话同时驱动一个 Blender 时，靠它避免互相踩。
+// 写权限租约：多 agent / 多会话同时驱动一个 Blender 时，靠它避免互相踩。
 // 语义与拆分前逐字一致：不持租约不拦；显式持租约后别人的写操作 409；TTL 过期自动失效。
 import { CFG } from '../config.js'
 import { PLAN_READ_ONLY_OPS } from '../catalog/index.js'
@@ -162,7 +162,7 @@ const READ_ONLY_OPS: Record<string, string[]> = {
   '/worker': ['status', 'list', 'see', 'ping'],
   '/txn': ['list', 'marks', 'help', 'edit_status'],
   '/preset': ['list', 'get', 'help'],
-  // v0.9.3（D6）：wait 只是"阻塞读"，kill 只作用于作业自己的子进程（不碰 live 场景）——
+  // v0.9.3：wait 只是"阻塞读"，kill 只作用于作业自己的子进程（不碰 live 场景）——
   // 它们不该被别的会话的写租约挡住（否则"我的作业我收不回来"）。
   '/job': ['status', 'collect', 'list', 'wait', 'kill'],
 }

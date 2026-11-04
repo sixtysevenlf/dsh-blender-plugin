@@ -102,7 +102,7 @@ describe('source guards (WSL/Windows branches still exist)', () => {
     expect(/if\s*\(!IS_WSL\)\s*return\s*s\b/.test(config)).toBe(true)
     expect(config).toContain('WSL_INTEROP')
     expect(config).toContain('/proc/version')
-    // v3.0.5（P0-2）：Windows/PATH 探测整段拆到 runtime/blender-detect.ts（S2 4.6 起
+    // v3.0.5：Windows/PATH 探测整段拆到 runtime/blender-detect.ts（4.6 起
     // config.ts 也不再转出 detectBlenderExe）；判据不变 —— 两个文件合起来仍保留这两个分支标记。
     const detect = config + NL + read('runtime/blender-detect.ts')
     expect(detect).toContain('Blender Foundation')
@@ -136,7 +136,7 @@ describe('macOS branch (runs only on macOS)', () => {
   // (\\wsl.localhost\...) and native backslashes, so the macOS expectations below
   // only hold on a Mac. Mirrors the sibling skipIf above.
   it.skipIf(!IS_MAC)('compiles the Blender-side path helpers with Python (macOS identity)', () => {
-    // F4.1: environment gaps must fail loudly (and be rerun), never become a
+    // environment gaps must fail loudly (and be rerun), never become a
     // silent green. A macOS runner without python3/python is an environment error.
     const python = pythonAvailable()
     expect(python, 'macOS PATH_HELPERS probe needs python3 or python on PATH').not.toBeNull()

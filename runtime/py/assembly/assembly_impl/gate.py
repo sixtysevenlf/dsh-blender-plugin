@@ -423,7 +423,7 @@ def _asm_gate_p3(_state):
         shots_block = {"state": "skipped", "shots": [],
                        "note": "v1 不出图（shots 先 false）；数字结论以 audit_clash_all/measure 为准"}
         if shots:
-            shots_block["warn"] = "shots=true 但本版未实现穿透特写出图（P1 接 qc_render_views）"
+            shots_block["warn"] = "shots=true 但本版未实现穿透特写出图（接 qc_render_views）"
         verdict_line = ("装配门 %s（export_allowed=%s）：%s"
                         % (verdict, verdict == "pass",
                            " · ".join("%s=%s" % (g["id"], g["state"]) for g in gates)))

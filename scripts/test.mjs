@@ -51,11 +51,7 @@ function run(file, args, label) {
 }
 
 function runBudget() {
-  run(
-    process.execPath,
-    [path.join(PKG, 'scripts', 'check-function-budget.mjs')],
-    'Function budget (F1.0)',
-  )
+  run(process.execPath, [path.join(PKG, 'scripts', 'check-function-budget.mjs')], 'Function budget')
 }
 
 function runJs() {

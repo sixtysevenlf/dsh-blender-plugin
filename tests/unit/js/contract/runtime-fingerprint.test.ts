@@ -4,7 +4,7 @@ import { pkgPath } from '../../../helpers/pkg'
 import { RUNTIME_DIR, runtimeFingerprint, sha12 } from '../../../../runtime/core/evidence.js'
 import { pyModuleFile, pyModuleNames } from '../../../../runtime/paths.js'
 
-// F2.3 follow-up: runtimeFingerprint() must enumerate the Python module registry
+// follow-up: runtimeFingerprint() must enumerate the Python module registry
 // (runtime/py/modules.json) instead of flat runtime/<name>.py shims. The keys stay
 // stable (<name>.py) so receipts remain comparable with pre-F2.3 builds.
 const manifest = JSON.parse(fs.readFileSync(pkgPath('runtime', 'py', 'modules.json'), 'utf8')) as {
@@ -18,7 +18,7 @@ function nonPythonRuntimeFiles(): string[] {
     .sort()
 }
 
-describe('runtime fingerprint (F2.3 registry-only Python sources)', () => {
+describe('runtime fingerprint (registry-only Python sources)', () => {
   it('keys every modules.json module plus non-Python runtime files', () => {
     const fp = runtimeFingerprint()
     expect(

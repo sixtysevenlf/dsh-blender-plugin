@@ -1,4 +1,4 @@
-"""Static contract for the honest surface_fit receipt (T2).
+"""Static contract for the honest surface_fit receipt.
 
 This test never imports bpy: it parses runtime/py/geometry/surface.py plus its
 surface_impl package and asserts the catalog-declared `fit` op is actually
@@ -89,7 +89,7 @@ def _surface_fit_function():
 
 
 def test_surface_fit_executes_the_honest_refusal():
-    """A6: the op must actually refuse with ok:false + reason + next_action."""
+    """The op must actually refuse with ok:false + reason + next_action."""
     receipt = _surface_fit_function()(points=[])
     assert receipt["ok"] is False
     assert receipt["stage"] == "M3"

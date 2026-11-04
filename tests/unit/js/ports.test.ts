@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// F4.1 / F0.3: runtime/ports.ts is the EADDRINUSE holder cleanup used by the
+//runtime/ports.ts is the EADDRINUSE holder cleanup used by the
 // HTTP lifecycle. These tests inject fake /proc rows and force the win32 probe
 // module, so the parsers, the kill signal and the Windows fallback are proven
 // without touching the real process table (no taskkill/netstat side effects).
@@ -77,7 +77,7 @@ describe('parsePortArg legacy semantics', () => {
   })
 })
 
-describe('readProcRows over a fake /proc (F0.3)', () => {
+describe('readProcRows over a fake /proc', () => {
   it('reads numeric pid cmdlines and skips its own pid / bad entries', () => {
     stubProc({
       '101': ['node', '/opt/dsh/lib/runtime/server.js', '--port', '9877'],

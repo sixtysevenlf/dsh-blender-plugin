@@ -177,6 +177,31 @@
     {
       "path": "tests/unit/js/contract/plan-ids-gates.test.ts",
       "reason": "闸门自测：fixture 故意构造 D3/F4.2/T14 等 ID 形状的输入来验证扫描器文法。"
+    },
+    {
+      "path": "runtime/py/core/motion_impl/measure.py",
+      "prefixes": ["F"],
+      "reason": "运动测量实现：F0 是面索引数组（faces）的局部变量名，不是功能 ID。"
+    },
+    {
+      "path": "runtime/py/geometry/blockout_impl/present.py",
+      "prefixes": ["F"],
+      "reason": "present 实现：F12 是 Blender 渲染快捷键，不是功能 ID。"
+    },
+    {
+      "path": "tests/unit/python/test_surface_fit_contract.py",
+      "prefixes": ["M"],
+      "reason": "曲面拟合合同：M3 是建模里程碑/拟合阶段名（reported stage 值），断言必须保留该领域值。"
+    },
+    {
+      "path": "tests/unit/js/contract/surface-fit.test.ts",
+      "prefixes": ["M"],
+      "reason": "曲面拟合合同：M3 是建模里程碑/拟合阶段名，断言必须保留该领域值。"
+    },
+    {
+      "path": "tests/unit/js/contract/catalog.test.ts",
+      "prefixes": ["M"],
+      "reason": "catalog 详情断言：surface 族的 M3 是拟合阶段领域词（与 runtime/catalog/data.ts 一致）。"
     }
   ]
 }

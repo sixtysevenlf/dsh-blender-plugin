@@ -343,7 +343,7 @@ def audit_connectivity(objects=None, scope=None, include_hidden=False, visible_f
                        per_object=False):
     """连通分量体检：这堆对象到底连成几块？哪几块是"看得见的浮块"？归因到哪个对象？
 
-    v0.9.1（C2）：新增 file=<.blend 路径> —— 把该文件里的对象**临时**追加进会话，跑同一条分析链路，
+    v0.9.1：新增 file=<.blend 路径> —— 把该文件里的对象**临时**追加进会话，跑同一条分析链路，
     跑完（无论成败）在 finally 里删干净；返回体的 source / file_load / cleanup 说明来源、加载了什么、
     删了什么。此时 objects/scope 当"文件内的**对象名**"筛选（append 不带集合成员关系）。
     报告里的对象名一律是**文件里的原名**（重名追加时 Blender 会加 .001，用 object_names 核对）。
@@ -504,7 +504,7 @@ def audit_gate(objects=None, scope=None, include_hidden=False, envelope=None, vi
                micro_gap_mm=MICRO_GAP_MM, max_floater_span_fraction=None, max_tris=None, file=None):
     """出厂门：连通 + （可选）包络 + 三态。任何"未分析"都降级为 degraded，绝不给通过。
 
-    v0.9.1（C2）：新增 file=<.blend 路径>（临时加载 → 跑同一条链路 → finally 删净；source/file_load/
+    v0.9.1：新增 file=<.blend 路径>（临时加载 → 跑同一条链路 → finally 删净；source/file_load/
     cleanup 上报来源与收尾）。包络检查用的 per-object bbox 在 file= 模式下以**文件原名**上报。
     老签名与老返回键一个没动，只做加法（新增 object_names / aabb / source / file_load / cleanup）。
     """

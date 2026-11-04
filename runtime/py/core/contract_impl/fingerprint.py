@@ -205,7 +205,7 @@ def c_status():
                "note": "demoted_now = 本次读取时因几何漂移（中心>10%对角线 或 尺寸>20%）被自动降级的连接"})
 
 
-# ---------------------------------------------------------------- S2：三态判定与翻转
+# ----------------------------------------------------------------：三态判定与翻转
 
 def c_verify(conn_id, err=None, tolerance=None, identifiable=None, probe_err=None,
              probe_tolerance=None, evidence_labels=None, note=""):
@@ -293,7 +293,7 @@ def c_advance(conn_id, status, why=""):
 
 
 def c_report(path=None):
-    """生成 Markdown 报告：假设/区间/判定/证据/复现命令（S7 的 provenance 表）。"""
+    """生成 Markdown 报告：假设/区间/判定/证据/复现命令（provenance 表）。"""
     st = _store()
     L = ["# 契约与假设报告（自动生成）", "", "> 生成时间：%s" % _now(), "",
          "## 组件（%d）" % len(st["components"]), "", "| 组件 | 对象 | 标签 | 缺失对象 |", "|---|---|---|---|"]
@@ -336,7 +336,7 @@ def c_report(path=None):
 
 
 # ============================================================================
-# v0.9.0 S3：装配级判据（配合门 / 装配特征库 / 干涉报告）
+# v0.9.0：装配级判据（配合门 / 装配特征库 / 干涉报告）
 # ----------------------------------------------------------------------------
 # 来源：SpatiaOS/Procedura（MIT）
 #   * src/motion/geometry.ts —— analyzeContactRegion / analyzeMateRegistration / computeMeshVolume

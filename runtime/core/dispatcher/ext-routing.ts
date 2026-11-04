@@ -1,4 +1,4 @@
-// EXT 前缀路由 + gui/render/contract 兜底（F1.1 从 dispatch.ts 拆出；D3 起由生成表驱动）
+// EXT 前缀路由 + gui/render/contract 兜底（从 dispatch.ts 拆出；由 config/routing.json 生成表驱动）
 import type { PlanCallDeps } from './index.js'
 import { EXT_ROUTES } from './routes.generated.js'
 import type { RouteDecision } from './plan-call.js'

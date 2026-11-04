@@ -1,18 +1,18 @@
 # -*- coding: utf-8 -*-
-"""Regression tests for the offline bootstrap (T8 follow-up, updated for F2.3).
+"""Regression tests for the offline bootstrap (domain-package layout).
 
-Defect 1 found by the archived E2E suite after T8 split the Python runtime into
+Defect 1 was found by the archived E2E suite after the Python runtime split into
 domain packages: every module was exec'd into one shared globals dict, so
 private helpers collided (assembly _num(v) was replaced by mesh_fix
 _num(v, name, ...) and asm_export raised TypeError).
 
 Defect 2 (the flat runtime directory hosting the real uv_tools.py / generator.py
-was not on the module search path) was fixed by the F2.0 manifest and is now
-moot: F2.3 moved both modules into geometry and deleted every flat file, so the
+was not on the module search path) was fixed by the manifest and is now
+moot: both modules now live in geometry and every flat file is gone, so the
 bootstrap resolves modules only through runtime/py/modules.json.
 
 These tests are static / import-only; the real Blender run is covered by
-tests/e2e/blender and the T12 E2E job.
+tests/e2e/blender and the E2E job.
 """
 import importlib.util
 import os
@@ -55,7 +55,7 @@ def test_domain_lookup_is_registry_only():
 
 
 def test_manifest_is_primary_registry():
-    """F2.0：modules.json（唯一映射源）决定路径；F2.3 起无扁平 fallback。"""
+    """modules.json（唯一映射源）决定路径；扁平 fallback 已删除。"""
     bootstrap = _load_bootstrap()
     modules = bootstrap._load_manifest(bootstrap.RT)
     assert modules is not None

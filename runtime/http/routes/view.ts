@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { objArg } from './deps.js'
 import type { HttpRouteDeps } from './deps.js'
 import { errorMessage, errorField } from '../../core/json.js'
-// HTTP 路由 /view：自定义视角（T7）
+// HTTP 路由 /view：自定义视角
 export function createViewRoutes(E: HttpRouteDeps) {
   const { engine, json, pushRtt, readBody, stats } = E
   return {

@@ -28,7 +28,7 @@ export async function executeSee(
   const size = Math.max(120, Math.min(1600, Number(args.max_size || 560)))
   const frm = numTriple(args.from) ?? null
   const look = numTriple(args.look_at) ?? null
-  // P0：显式 session → 直接走无头 worker（不探 GUI）。
+  // 显式 session → 直接走无头 worker（不探 GUI）。
   const wantSession = args.session ? String(args.session) : ''
   if (wantSession) return executeSessionSee(args, ctx, port, size, frm, look, wantSession)
   if (frm || look) return executeCustomView(args, ctx, port, size, frm, look)
@@ -95,7 +95,7 @@ async function executeCustomView(
     spec.width = size
     spec.height = Math.max(120, Math.round((size * 9) / 16))
   }
-  // v0.9.4（P0-1）：diagnostics 只在显式给出时透传
+  // v0.9.4：diagnostics 只在显式给出时透传
   if (args.diagnostics !== undefined) spec.diagnostics = !!args.diagnostics
   let fv
   try {
@@ -116,7 +116,7 @@ async function executeCustomView(
       BACKEND_HINT,
     )
   }
-  // v0.9.4（P0-2）：同一视角签名 + 同一 hash ⇒ 不重复附图
+  // v0.9.4：同一视角签名 + 同一 hash ⇒ 不重复附图
   const dkey =
     'view:' +
     JSON.stringify([
@@ -180,7 +180,7 @@ async function executePlainFrame(
       BACKEND_HINT,
     )
   }
-  // v0.9.4（P0-2）：默认视口帧同样去重（键含 size / area，互不串味）
+  // v0.9.4：默认视口帧同样去重（键含 size / area，互不串味）
   const dd = frameDedupe(
     full ? 'area:' + String(area) : 'viewport:' + String(size),
     f.hash,

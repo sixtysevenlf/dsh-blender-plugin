@@ -1,4 +1,4 @@
-// Port and process-owner primitives (F1.3). Shared by the HTTP lifecycle,
+// Port and process-owner primitives. Shared by the HTTP lifecycle,
 // the host process scan and tests; the Windows branch delegates to win_proc.
 import fs from 'node:fs'
 import { winKillPids, winSamePortHolders } from './win_proc.js'

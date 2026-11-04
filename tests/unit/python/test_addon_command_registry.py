@@ -1,4 +1,4 @@
-"""Unit checks for the single add-on command registry (F3.1/F3.4).
+"""Unit checks for the single add-on command registry.
 
 The registry is the one table behind protocol, server dispatch and the command
 matrix. These tests prove the counts, groups, gates, pause policy and handler
@@ -41,7 +41,7 @@ def test_ping_is_wire_only():
 
 
 def test_dispatch_table_is_derived_from_the_registry(monkeypatch):
-    """D6: the server resolves commands through registry.WIRE_SPECS, not its own table."""
+    """The server resolves commands through registry.WIRE_SPECS, not its own table."""
     server = server_module.DSHBlenderBridgeServer(port=0)
     scene = bpy.context.scene
     previous = {}
@@ -64,7 +64,7 @@ def test_dispatch_table_is_derived_from_the_registry(monkeypatch):
 
 
 def test_protocol_no_longer_reexports_the_command_registry():
-    """D6: protocol keeps only PAUSE_SAFE_COMMANDS; command_registry owns the truth."""
+    """Protocol keeps only PAUSE_SAFE_COMMANDS; command_registry owns the truth."""
     assert protocol.PAUSE_SAFE_COMMANDS == registry.PAUSE_SAFE_COMMANDS
     for name in ("COMMAND_NAMES", "COMMAND_GROUPS", "GATED_COMMAND_GROUPS"):
         assert not hasattr(protocol, name), name

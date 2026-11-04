@@ -1,4 +1,4 @@
-// 轨迹记录器（F1.1：从 trajectory.ts 拆出，行为冻结）
+// 轨迹记录器（从 trajectory.ts 拆出，行为冻结）
 import path from 'node:path'
 import fs from 'node:fs'
 
@@ -26,7 +26,7 @@ export function trajRecord(
   extra: unknown,
 ): void {
   if (deps.TRAJ_OFF) return
-  // v0.9.6（D1）：加 family / args_keys / hint_shown —— 用来做"家族覆盖率"和"意图→工具"周报。
+  // v0.9.6：加 family / args_keys / hint_shown —— 用来做"家族覆盖率"和"意图→工具"周报。
   // family 只对 plan 路由有意义（frame 的"op"其实是尺寸、act 的"op"是代码片段，切出来是噪声）。
   const fam = route === 'plan' && op ? String(op).split('_')[0] : null
   try {
@@ -65,7 +65,7 @@ export function trajRecord(
         args_bytes: s.length,
         args_digest: trajShortHash(s),
         args_head: s ? s.slice(0, deps.TRAJ_FULL ? 8000 : 300) : null,
-        // v0.9.6（D1）：可统计"家族覆盖率"与"参数键分布"（不记值，只记键名）
+        // v0.9.6：可统计"家族覆盖率"与"参数键分布"（不记值，只记键名）
         family: fam,
         args_keys:
           args && typeof args === 'object' && !Array.isArray(args)

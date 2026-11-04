@@ -1,4 +1,4 @@
-// addon 传输层：TCP 探活、现场诊断、协议信息与 AddonClient（T6）
+// addon 传输层：TCP 探活、现场诊断、协议信息与 AddonClient
 // @imports
 import { ADDRESS } from '../paths.js'
 import net from 'node:net'

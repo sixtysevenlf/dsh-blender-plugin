@@ -80,7 +80,7 @@ afterAll(async () => {
   if (addon) await addon.close()
 })
 
-describe('backend HTTP routes against a fake addon (T7)', () => {
+describe('backend HTTP routes against a fake addon', () => {
   it('serves /health, /who and /host/state', async () => {
     const h = (await (await fetch(base + '/health')).json()) as any
     expect(h.ok).toBe(true)

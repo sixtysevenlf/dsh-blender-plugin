@@ -22,7 +22,7 @@ const catalogFull = () =>
   catalogPayload({ full: true }) as unknown as { detail: CatalogDetailRow[] }
 const handoffPayload = () => catalogPayload({ handoff: true }) as unknown as HandoffView
 
-// S6: the "which tool / which family" guidance cannot rot silently: every class
+// the "which tool / which family" guidance cannot rot silently: every class
 // row is complete and hard-worded, every referenced op/tool exists, the pinned
 // families keep a hard warning, and the handoff block stays small enough for a
 // sub-agent prompt.

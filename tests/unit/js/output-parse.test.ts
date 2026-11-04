@@ -8,7 +8,7 @@ import {
   slipFixPath,
 } from '../../../runtime/core/output/parse.js'
 
-// F4.1: F1.1 split these pure helpers out of runtime/core/output.ts; they are
+// split these pure helpers out of runtime/core/output.ts; they are
 // imported directly here so a regression in one phase cannot hide behind the
 // tool-level tests that only exercise the assembled output path.
 

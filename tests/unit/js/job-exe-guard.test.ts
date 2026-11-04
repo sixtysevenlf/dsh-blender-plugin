@@ -1,5 +1,5 @@
 /**
- * P2-3 回归（PR #75 review）：job 通道的 blender.exe 预检与错误码透出。
+ * 回归（PR #75 review）：job 通道的 blender.exe 预检与错误码透出。
  *
  * 旧行为：runtime/execution/jobs/start/spawn.ts 直接 spawn(BLENDER_EXE as string)，
  * blenderExe=null 时抛 Node 的 TypeError；/job 路由 catch 不带 code，tools/job 一律映射 backend_error。

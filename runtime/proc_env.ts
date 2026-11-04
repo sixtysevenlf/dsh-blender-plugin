@@ -1,11 +1,11 @@
 /**
- * S8 · 子进程环境与安全 JSON 读取（从 engine.mjs 外移）—— launch.mjs 需要它们（S3-c 搬移时漏了依赖）。
+ * 子进程环境与安全 JSON 读取（从 engine.mjs 外移）—— launch.mjs 需要它们（搬移时漏了依赖）。
  */
 import fs from 'node:fs'
 import { IS_MAC, IS_WIN } from './config.js'
 
 /**
- * v0.9.3（D5 / 外部反馈 2026-09-24）：子进程基础环境 —— 三处 spawn 统一走它。
+ * v0.9.3（外部反馈 2026-09-24）：子进程基础环境 —— 三处 spawn 统一走它。
  *
  * 旧版只注入 PYTHONIOENCODING。Blender 的 Python stdout 被重定向（pipe）时是**块缓冲**，
  * 于是 job 的 stdout.log / stderr.log 在任务运行期间**全程 0 字节**，只有进程退出才落盘

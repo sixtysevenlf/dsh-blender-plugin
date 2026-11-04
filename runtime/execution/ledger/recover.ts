@@ -1,4 +1,4 @@
-// 台账对账（单一实现，S2 4.4 合并）：磁盘证据 + pid 收敛 + run/job 回执形状。
+// 台账对账（单一实现）：磁盘证据 + pid 收敛 + run/job 回执形状。
 // 原两层：runtime/recover.ts（纯磁盘对账，可脱离 Blender 单测）与
 // runtime/execution/ledger/recover.ts（runSnapshot 视图 + 注入 win/wsl 映射与 pidAlive 的包装）。
 // 现在只有一个归属：本文件。tests/unit/js/ledger-recover.test.ts 直接 import 这里的纯逻辑。
@@ -298,7 +298,7 @@ export function reconcileLedger(
 }
 
 /**
- * v0.9.3（D2）：run（blender_rt_headless 的同步执行）与 job 同一份结构化回执形状 ——
+ * v0.9.3：run（blender_rt_headless 的同步执行）与 job 同一份结构化回执形状 ——
  * collect/status 收 run-… 与 job-… 都是同一套字段，调用方不必分辨两者。
  */
 function runSnapshot(r: Record<string, unknown>): Record<string, unknown> {

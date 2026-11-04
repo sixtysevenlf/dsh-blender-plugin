@@ -1,4 +1,4 @@
-// shape-search 入口（F1.1 拆分）：解析 → 脚本 → 内环 → 结果
+// shape-search 入口（拆分）：解析 → 脚本 → 内环 → 结果
 import type { AddonClient } from '../../../transport/probes.js'
 import { parseShapeSearchPayload } from './parse.js'
 import {

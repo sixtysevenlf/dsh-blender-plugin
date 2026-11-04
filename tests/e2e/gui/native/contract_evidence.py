@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""GUI native E2E: contract evidence ledger and staleness (T11b.7).
+"""GUI native E2E: contract evidence ledger and staleness.
 
 The headless module native/contract.py covers the contract core.  The archived
 case also captured OpenGL evidence and checked ledger staleness; this module is

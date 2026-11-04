@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DSH 制造检查（v0.9.6 · 上游整合 A4）—— 3D 打印/加工口径的壁厚与悬垂。
+"""DSH 制造检查（v0.9.6 · 上游整合）—— 3D 打印/加工口径的壁厚与悬垂。
 
 旧 runtime 里 thin wall / overhang 关键词 = 0 命中；audit_* 只管干涉/连通/包络，不管"能不能造出来"。
 本模块不依赖 Blender 的 3D Print Toolbox 插件（那是上游 blend-ai 的做法），自己用 BVH 射线测壁厚、
@@ -34,7 +34,7 @@ if _KIT is None:
     raise RuntimeError("printcheck 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
-_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_j = _KIT.j  # 共享内核（原自带实现已删）
 def _num(v, name, lo=None, hi=None, default=None):
     if v is None:
         if default is None:
@@ -147,7 +147,7 @@ def print_walls(objects=None, scope="ACTIVE", min_mm=1.0, max_samples=4000, mm_p
             n.normalize()
             fsize = math.sqrt(max(float(p.area), 0.0))
             sizes.append(fsize)
-            # v0.9.6（P0 标定抓到）：原来 off = 0.25*面尺寸（40x30 面的 off≈8.7mm）**比板厚还大**
+            # v0.9.6（标定抓到）：原来 off = 0.25*面尺寸（40x30 面的 off≈8.7mm）**比板厚还大**
             # ⇒ 射线起点跑到零件外面，薄板一个样本都采不到（40x30x0.3mm 实测报 30mm、thin=0）。
             # 改为：起点只避开自己这一面片（极小偏移），用**命中面法线**区分「同一表面片」与「对壁」：
             #   同向（n·hn > 0）⇒ 还是同一片，继续往前找；反向（n·hn < -0.5）⇒ 找到对壁，取该距离。
@@ -166,7 +166,7 @@ def print_walls(objects=None, scope="ACTIVE", min_mm=1.0, max_samples=4000, mm_p
                 hit = bvh.ray_cast(origin, -n, 1e9)
             if hit is None or hit[3] is None:
                 continue
-            # v0.9.6（P0 标定抓到 · 第二个真 bug）：各向异性缩放不能用平均 scale ——
+            # v0.9.6（标定抓到 · 第二个真 bug）：各向异性缩放不能用平均 scale ——
             # 底板 z 缩 0.1（3mm→0.3mm）时 sc≈0.7，会把 0.3mm 算成 2.1mm ⇒ 薄壁漏判。
             # 正确做法：把命中点与面心都用**世界矩阵**变换后再量距离（对任意仿射都成立）。
             _mw = ob.matrix_world
@@ -472,7 +472,7 @@ def print_report(objects=None, scope="ACTIVE", min_mm=1.0, max_angle_deg=45.0, u
     # v1.0.5：overhang 那一侧的自证警告（平台面判据可能判错）必须在顶层可见 —— 门/交付脚本读顶层与 rows
     _owarn = sorted(set(str(b["bed_warning"]) for b in o.get("objects", []) if b.get("bed_warning")))
     return _j({"ok": all(r["ok"] for r in rows), "objects": rows,
-               # v0.9.6（整合方案 P0）：门友好汇总 —— 判据用顶层字段，别让 gate spec 去翻 objects[]
+               # v0.9.6（整合方案）：门友好汇总 —— 判据用顶层字段，别让 gate spec 去翻 objects[]
                "walls_ok": all(bool(a.get("ok")) for a in w.get("objects", [])),
                "overhang_ok": all(bool(b.get("ok")) for b in o.get("objects", [])),
                "thin_samples_total": _thin_total,

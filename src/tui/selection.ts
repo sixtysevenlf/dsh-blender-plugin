@@ -152,7 +152,7 @@ export function selectionChipTitle(sel: unknown): string {
 
 /**
  * 一次轮询（导出给自检）：取未消费的选中 → 挂 chip → consume。
- * 与 Web 桥同一套 CAS 语义（§S3.2）：成功才 consume(ok:true)；挂不上不消费、下一 tick 重试，第 3 次失败
+ * 与 Web 桥同一套 CAS 语义：成功才 consume(ok:true)；挂不上不消费、下一 tick 重试，第 3 次失败
  * consume(ok:false, reason)；空选中直接 consume(ok:false)（没有可重试的东西）。
  */
 export async function selectionTick(deps: {

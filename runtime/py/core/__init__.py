@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""runtime.py.core — T8 领域包（Phase E）：共享内核 / 契约 / 门 / 事务 / runner / worker / 规划 / 配方 / 管线 / 性能 / 运动 / 扫描 / 审计 / 离线引导
+"""runtime.py.core — 领域包（Phase E）：共享内核 / 契约 / 门 / 事务 / runner / worker / 规划 / 配方 / 管线 / 性能 / 运动 / 扫描 / 审计 / 离线引导
 
 模块列表见 __all__。**本包自身 import 安全**：不 eager import 子模块（子模块需要
 bpy/numpy 与共享内核 K.dsh_kit，只在 Blender 注入路径或显式访问时才加载）。

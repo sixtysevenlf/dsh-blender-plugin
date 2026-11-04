@@ -16,7 +16,7 @@ export function planHeadlessTarget(op: string): HeadlessTarget | null {
   if (alias) return { api: alias[0], sub: alias[1], preload: alias[2] }
   // The generated worker table owns the ordering: exact aliases first, then prefix
   // rows by precedence. qc_render_ is rank 8, ahead of qc_ (rank 17), which keeps the
-  // D3 P0 fix for headless qc_render_*: the worker serves dsh_qc_render_api and has no
+  // fix for headless qc_render_*: the worker serves dsh_qc_render_api and has no
   // GUI flat-exec fallback, so the more specific prefix must win. Strip lengths also
   // come from config/routing.json rather than being repeated here.
   for (const row of PLAN_HEADLESS_MAP) {

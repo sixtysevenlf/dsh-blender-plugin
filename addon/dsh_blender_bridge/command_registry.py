@@ -1,4 +1,4 @@
-""" Single command registry for the Blender add-on (F3.1).
+""" Single command registry for the Blender add-on.
 
 One table owns every wire command: name, accepted parameter names, the
 server attribute that handles it, the feature gate that must be enabled, and

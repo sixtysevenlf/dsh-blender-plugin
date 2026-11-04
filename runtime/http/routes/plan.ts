@@ -1,12 +1,12 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { HttpRouteDeps } from './deps.js'
 import { errorMessage, errorField } from '../../core/json.js'
-// HTTP 路由 /plan：契约层/规划器/catalog（T7）
+// HTTP 路由 /plan：契约层/规划器/catalog
 export function createPlanRoutes(E: HttpRouteDeps) {
   const { engine, isReadOnly, json, leaseGate, pushRtt, readBody, stats } = E
   return {
     async plan(req: IncomingMessage, res: ServerResponse, _url: URL, _p: string): Promise<void> {
-      // 契约层（S1+S2）与规划器（S3）统一入口：op + args
+      // 契约层与规划器统一入口：op + args
       const raw = await readBody(req)
       let payload: Record<string, unknown>
       try {

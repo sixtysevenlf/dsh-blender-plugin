@@ -1,4 +1,4 @@
-// 作业查询面（F1.1 从 jobs.ts 拆出，行为冻结）
+// 作业查询面（从 jobs.ts 拆出，行为冻结）
 import path from 'node:path'
 import { winToWsl } from '../../config.js'
 import type { JobsDeps, JobRecord } from './types.js'
@@ -68,7 +68,7 @@ export function jobCollect(ctx: JobsCtx, id: unknown, tail = 4000): Record<strin
     const rLogs = (r.logs || null) as { stdoutWsl?: string; stderrWsl?: string } | null
     const soP = rLogs && rLogs.stdoutWsl ? rLogs.stdoutWsl : null
     const seP = rLogs && rLogs.stderrWsl ? rLogs.stderrWsl : null
-    // v0.9.3（D5）：日志是边跑边写的 → 运行中也能 tail（旧版 collect 对 run 直接回 unknown）
+    // v0.9.3：日志是边跑边写的 → 运行中也能 tail（旧版 collect 对 run 直接回 unknown）
     if (soP) {
       const t = tailFile(soP, tail)
       if (t !== null) snap.stdoutTail = t

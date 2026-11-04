@@ -1,4 +1,4 @@
-// engine API：内环 loop_*（F1.1 从 server-compat.ts 拆出）
+// engine API：内环 loop_*（从 server-compat.ts 拆出）
 import { extractLoop } from '../output/index.js'
 import { KERNEL_BOOTSTRAP } from '../kernel/index.js'
 import type { EngineApiDeps } from './index.js'

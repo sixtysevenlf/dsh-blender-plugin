@@ -1,4 +1,4 @@
-// 启动子进程计划与 detached spawn（F1.1 从 launch.ts 拆出）
+// 启动子进程计划与 detached spawn（从 launch.ts 拆出）
 import { spawn } from 'node:child_process'
 import type { ChildProcess } from 'node:child_process'
 import fs from 'node:fs'

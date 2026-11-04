@@ -4,7 +4,7 @@ import {
   buildHeadlessPreload,
 } from '../../../runtime/execution/headless/options/gpu.js'
 
-// F4.1: F1.1 split headless options into phases; these direct assertions pin the
+// split headless options into phases; these direct assertions pin the
 // engine/GPU prelude and the preload module assembly without spawning Blender.
 
 const deps = {

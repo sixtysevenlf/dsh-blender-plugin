@@ -1,4 +1,4 @@
-"""Unit checks for the pure helpers extracted during F3.2/F3.3.
+"""Unit checks for the pure helpers extracted during the add-on split.
 
 These are direct assertions on the helpers the package split produced:
 selection caps, AABB geometry, and the Sketchfab / Poly Pizza import result

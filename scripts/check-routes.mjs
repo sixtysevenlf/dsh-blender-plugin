@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // @ts-check
 /**
- * scripts/check-routes.mjs — verify the generated route tables are fresh (D3).
+ * scripts/check-routes.mjs — verify the generated route tables are fresh .
  *
  * config/routing.json is the single routing source; scripts/gen-routes.mjs renders
  * the two generated tables. This gate fails when a generated file is missing,

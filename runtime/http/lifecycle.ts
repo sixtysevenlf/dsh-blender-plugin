@@ -1,4 +1,4 @@
-// HTTP 生命周期（T7）：端口占用自愈、优雅退出、启动日志。
+// HTTP 生命周期：端口占用自愈、优雅退出、启动日志。
 // 与拆分前一致：EADDRINUSE 先探活（能应答就让位），死进程 SIGTERM→600ms→SIGKILL→300ms 重试，最多 2 次。
 import type { Server } from 'node:http'
 import fs from 'node:fs'

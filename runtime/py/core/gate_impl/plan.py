@@ -56,10 +56,10 @@ def _norm_spec(data):
         out["gates"].append({"id": str(g.get("id") or ("g%d" % i)), "op": op,
                              "args": g.get("args") or {}, "pass_if": str(g.get("pass_if") or ""),
                              "note": g.get("note"),
-                             # v0.9.6（F2）：这些键"一个都没给"⇒ 该门 skipped（未配置/不适用），
+                             # v0.9.6：这些键"一个都没给"⇒ 该门 skipped（未配置/不适用），
                              # 显式列进回执 skipped[]；v3 起 skipped 会把顶层压成 degraded。"组"= 候选键名的或关系。
                              "skip_if_missing": _norm_skip_groups(g.get("skip_if_missing")),
-                             # v3（F8）：判据为真但证据不可信 ⇒ 降级；echo 把真实字段带进回执做证据。
+                             # v3：判据为真但证据不可信 ⇒ 降级；echo 把真实字段带进回执做证据。
                              "degrade_if": str(g.get("degrade_if") or ""),
                              "echo": _norm_str_list(g.get("echo"))})
     return out
@@ -283,7 +283,7 @@ def _eval_pass_if(expr, receipt, label="pass_if"):
 
 
 def _aggregate(states):
-    """整包三态（v3 · F8 收紧）：任一 fail/error ⇒ fail；否则任一 **degraded 或 skipped** ⇒ degraded；否则 pass。
+    """整包三态（v3 收紧）：任一 fail/error ⇒ fail；否则任一 **degraded 或 skipped** ⇒ degraded；否则 pass。
 
     最小修（Lead 决议）：**任一门 skipped 或 degraded 都导致顶层 degraded，fail 优先** ——
     旧口径 `pass + skipped = pass` 被否决（"没量过干涉"不许拿绿，也不许为"健康默认 preset"降标准）。
@@ -319,7 +319,7 @@ def _tri_of(d):
 def _status_of(receipt):
     """把一个门回执判成三态：pass / fail / degraded（回执不是对象 ⇒ error）。
 
-    v0.9.6（复审修复 · F2）：**三态不总在顶层**。`audit_connectivity` 的顶层 `ok` 只表示"分析跑完了"，
+    v0.9.6（复审修复）：**三态不总在顶层**。`audit_connectivity` 的顶层 `ok` 只表示"分析跑完了"，
     门结论在**嵌套 `gate`**（`gate.state` / `gate.verdict`）里 —— 顶层读不出三态时必须往嵌套里看，
     否则：① pass_if 写 `state` 就是"引用不存在的字段"（必 error）；② "未分析/未确认 ⇒ degraded"
     会因为顶层 `ok=true` 被读成 pass（假通过）。域内名 `unresolved`（干涉证据不足）等同 degraded。

@@ -57,7 +57,7 @@ describe('headless hard exit', () => {
       pkgPath('runtime', 'execution', 'headless', 'script.ts'),
       'utf8',
     )
-    // F1.2：headless 工具已拆目录；schema 参数与执行体分别在 register.ts / execute.ts
+    // headless 工具已拆目录；schema 参数与执行体分别在 register.ts / execute.ts
     const tool =
       fs.readFileSync(pkgPath('src', 'tools', 'headless', 'register.ts'), 'utf8') +
       String.fromCharCode(10) +

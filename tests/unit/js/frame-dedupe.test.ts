@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import * as plugin from '../../../lib/index.js'
 
-// P0-2 frame dedupe: only same key + same hash counts as a duplicate; force
+// frame dedupe: only same key + same hash counts as a duplicate; force
 // always releases; channels never suppress each other; empty hash never dedupes
 // (better one extra frame than a silently dropped image).
 

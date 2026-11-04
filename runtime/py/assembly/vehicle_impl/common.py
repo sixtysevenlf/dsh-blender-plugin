@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DSH 车辆外壳（P3）：参考图 → 纵向剖面数字 → 放样成壳 → 比例门 + 间隙（构造性防穿模）。
+"""DSH 车辆外壳：参考图 → 纵向剖面数字 → 放样成壳 → 比例门 + 间隙（构造性防穿模）。
 
 为什么这么设计（对着 GitHub 上的做法定的）：
   * fpagerie/cargen（Blender 插件）证明车壳可以**从参数生成**：长/宽/高、轴距、前轴到车头、轮+胎半径、
@@ -54,7 +54,7 @@ if _KIT is None:
     raise RuntimeError("vehicle 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
-_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_j = _KIT.j  # 共享内核（原自带实现已删）
 _api = _KIT.api  # 共享内核
 def _num(v, name, lo, hi, dflt=None):
     if v is None:

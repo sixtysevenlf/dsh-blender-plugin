@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import { pyModuleFile, pyModuleNames, PY_DOMAINS } from '../../../../runtime/paths.js'
 import { pkgPath } from '../../../helpers/pkg'
 
-// F2.0：唯一映射源 runtime/py/modules.json；这里不再维护第二份硬编码清单。
+// 唯一映射源 runtime/py/modules.json；这里不再维护第二份硬编码清单。
 const manifest = JSON.parse(fs.readFileSync(pkgPath('runtime', 'py', 'modules.json'), 'utf8')) as {
   version: number
   domains: string[]
@@ -17,7 +17,7 @@ const DOMAINS: Record<string, string[]> = Object.fromEntries(
 )
 const ALL = Object.values(DOMAINS).flat()
 
-describe('runtime domain package layout (T8)', () => {
+describe('runtime domain package layout', () => {
   it('keeps the five plan domain packages and their exact module sets', () => {
     expect(PY_DOMAINS).toEqual(['core', 'geometry', 'assembly', 'render', 'export'])
     for (const [dom, names] of Object.entries(DOMAINS)) {
@@ -43,7 +43,7 @@ describe('runtime domain package layout (T8)', () => {
     expect(pyModuleFile('kit.py')).toBe(pkgPath('runtime', 'py', 'core', 'kit.py'))
   })
 
-  it('has no flat runtime modules left after F2.3', () => {
+  it('has no flat runtime modules left', () => {
     const flat = fs
       .readdirSync(pkgPath('runtime'))
       .filter((f) => f.endsWith('.py'))

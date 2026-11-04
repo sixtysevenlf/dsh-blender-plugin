@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { pkgPath } from '../../helpers/pkg'
 
-// P0-1 regression: spawn(null, ...) throws Node's
+// regression: spawn(null, ...) throws Node's
 // `The "file" argument must be of type string. Received null` synchronously,
 // before child.on('error') / assertWorkerReady() hints can ever run. workerStart
 // must precheck BLENDER_EXE and throw a structured blender_exe_missing error

@@ -1,4 +1,4 @@
-// /session 路由入口（T7 / F1.1 拆分）
+// /session 路由入口（拆分）
 import type { HttpRouteDeps } from '../deps.js'
 import { createLaunchHandler } from './create.js'
 import { createWhoHandler } from './list.js'

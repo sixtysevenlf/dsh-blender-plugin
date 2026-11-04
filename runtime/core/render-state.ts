@@ -1,4 +1,4 @@
-// render_guard 标记文件读写（零 Blender 往返）（T6）
+// render_guard 标记文件读写（零 Blender 往返）
 // @imports
 import path from 'node:path'
 import { winToWsl } from '../config.js'

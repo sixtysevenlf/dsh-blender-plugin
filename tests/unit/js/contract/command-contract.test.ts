@@ -6,7 +6,7 @@ import { AddonClient } from '../../../../runtime/transport/probes.js'
 import { startFakeAddon } from '../../../helpers/fake-addon.mjs'
 import { pkgPath } from '../../../helpers/pkg'
 
-// F3: the addon now has one command_registry.py; server/protocol derive from it.
+// the addon now has one command_registry.py; server/protocol derive from it.
 // This contract test reads the tree rather than a fixed file list so the split
 // into commands/<domain>/ does not make the source scan silently empty.
 
@@ -116,7 +116,7 @@ describe('addon command surface', () => {
   it('advertises protocol 11 with capabilities derived from the command registry', () => {
     expect(protocolSource).toMatch(/ADDON_PROTOCOL_VERSION\s*=\s*11/)
     expect(coreInfo).toContain('"protocol_version": ADDON_PROTOCOL_VERSION')
-    // D6: the handshake must not drift back to a hardcoded capability list.
+    // the handshake must not drift back to a hardcoded capability list.
     expect(coreInfo).toMatch(/"capabilities":\s*sorted\(COMMAND_NAMES\)/)
     expect(coreInfo).not.toMatch(/"capabilities":\s*sorted\(\[/)
     expect(coreInfo).toMatch(/from \.\.\.command_registry import COMMAND_NAMES/)

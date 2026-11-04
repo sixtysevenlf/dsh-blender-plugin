@@ -1,4 +1,4 @@
-// worker 登记与单次请求（F1.1 从 workers.ts 拆出，行为冻结）
+// worker 登记与单次请求（从 workers.ts 拆出，行为冻结）
 import net from 'node:net'
 import type { ChildProcess } from 'node:child_process'
 

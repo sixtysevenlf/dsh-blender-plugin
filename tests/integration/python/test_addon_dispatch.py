@@ -55,7 +55,7 @@ def test_real_get_addon_info_contract():
     assert info["addon_version"] == [1, 11]
     assert info["protocol_version"] == 11
     assert info["blender_version"] == "4.2.10"
-    # D6: the handshake derives capabilities from the registry, so it is the full
+    # the handshake derives capabilities from the registry, so it is the full
     # registered command set (38) instead of the old hardcoded 16-name subset.
     assert info["capabilities"] == sorted(command_registry.COMMAND_NAMES)
     assert len(info["capabilities"]) == 38

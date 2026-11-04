@@ -18,7 +18,7 @@ import types
 
 KIT_VERSION = 1
 
-# T8（Phase E）：领域包布局。runtime/py/<domain>/ 是真实实现；runtime/<name>.py 只留 shim。
+# 领域包布局（Phase E）：runtime/py/<domain>/ 是真实实现；runtime/<name>.py 只留 shim。
 RUNTIME_DOMAINS = ("core", "geometry", "assembly", "render", "export")
 
 
@@ -284,7 +284,7 @@ def dispatch_table(ops, op, args_json=None):
     """标准 dispatch：解析 → 摊平 → 查表 → 调用 → 统一错误回执。"""
     kw = flatten(args_json)
     try:
-        kw = resolve_refs(kw)   # S5-b：单发 op 也支持 "@工件[.路径]"
+        kw = resolve_refs(kw)   # 单发 op 也支持 "@工件[.路径]"
     except KeyError as e:
         return err("引用解析失败: %s" % str(e)[:160], op=op)
     fn = ops.get(str(op))

@@ -1,6 +1,6 @@
 import type { ServerResponse, IncomingMessage } from 'node:http'
 import { errorMessage, errorField } from '../core/json.js'
-// HTTP 响应原语（T7）：JSON / ndjson 流式 / 请求体读取 / 宿主 CORS。
+// HTTP 响应原语：JSON / ndjson 流式 / 请求体读取 / 宿主 CORS。
 // 行为冻结：状态码、content-type、cache-control、心跳间隔（15 s）、body 上限（4 MiB）全部不变。
 function json(res: ServerResponse, code: number, obj: unknown): void {
   const body = JSON.stringify(obj)

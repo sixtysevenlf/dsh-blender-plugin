@@ -5,7 +5,7 @@ from .fingerprint import _r4
 from .mate import _aabb_pairs, _bvh, _fit_value, _inside_mask, _mesh_data, _nearest, _overlap_estimate, _pt_tri_dist, _r6, _sample_surface, _units, _units_block
 
 def _features_path():
-    """定位 assembly_features.json（T8 起在 runtime/py/assembly/，旧扁平布局仍兼容）。
+    """定位 assembly_features.json（位于 runtime/py/assembly/，旧扁平布局仍兼容）。
 
     Path lookup prefers K.runtime_dir / find_runtime_file, then falls back to
     the module directory, the sibling assembly package, and ../runtime (for

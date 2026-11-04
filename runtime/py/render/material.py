@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DSH 材质节点图（v0.9.6 · 上游整合 A6）—— 把"每次手写节点连线"变成一次 op 调用。
+"""DSH 材质节点图（v0.9.6 · 上游整合）—— 把"每次手写节点连线"变成一次 op 调用。
 
 实测动机（工作区 7,182 个脚本）：ShaderNode/nodes.new 命中 **2,732 次 / 204 个文件** ——
 每个 build 脚本都各自写一遍 TexCoord → Mapping → Noise → ColorRamp → Principled 的连线，
@@ -38,7 +38,7 @@ if _KIT is None:
     raise RuntimeError("material 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
-_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_j = _KIT.j  # 共享内核（原自带实现已删）
 def _num(v, name, lo=None, hi=None, default=None):
     if v is None:
         if default is None:

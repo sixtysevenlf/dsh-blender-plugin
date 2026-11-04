@@ -674,7 +674,7 @@
       "name": "shape_draft_check",
       "lines": 94,
       "classification": "validation",
-      "reason": "S0 draft-table validation: required fields plus mm/face-count rule violations.",
+      "reason": "draft-table validation: required fields plus mm/face-count rule violations.",
       "owner": "qa",
       "reviewBy": "2027-06-30"
     },

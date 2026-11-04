@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""离线逃生口（S9）—— 后端挂了也能用插件能力（官方化，替代手搓 15 行）。
+"""离线逃生口—— 后端挂了也能用插件能力（官方化，替代手搓 15 行）。
 
 现场：后端一挂，headless/job/do 全废；用户只能在 blender.exe -b 里手搓 dsh_rt_kernel 模块、
 再 import runtime/py/assembly/vehicle.py + runtime/py/core/audit.py 才恢复能力。这个文件就是那 15 行的官方版。
@@ -161,7 +161,7 @@ def boot(modules=(), runtime_dir=None):
     if getattr(K, "dsh_kit", None) is None:
         _exec(_kit_file(rt), {"K": K, "__name__": "kit", "__file__": _kit_file(rt)}, "kit")
     ns: dict[str, object] = {"K": K}
-    # v2.6.3（T8 回归修复）：每个模块必须 exec 到自己的命名空间。
+    # v2.6.3（回归修复）：每个模块必须 exec 到自己的命名空间。
     # 旧实现把所有模块塞进同一个 globals，而各模块都定义 _num/_r/_j/_path 等私有 helper，
     # 后加载的模块会把前面的顶掉（实测 assembly 的 _num(v) 被 mesh_fix 的 _num(v,name,...) 覆盖，
     # asm_export 直接报 TypeError: _num() missing 1 required positional argument: 'name'）。

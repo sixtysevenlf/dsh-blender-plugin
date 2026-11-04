@@ -43,7 +43,7 @@ class DSHBlenderBridgeServer(*command_mixins()):
     # Credentials live in exactly one place: add-on preferences, with the
     # DSHBB_*/BLENDERMCP_* environment variables as fallback
     # (config.get_credential). Session overrides serve the Hyper3D free-trial
-    # button. The old Scene-property mirror was removed in S2 4.5, so a saved
+    # button. The old Scene-property mirror was removed in 4.5, so a saved
     # .blend can no longer silently override the stored key.
     def _get_hyper3d_api_key(self):
         return get_credential("hyper3d_api_key", "DSHBB_HYPER3D_API_KEY")

@@ -1,5 +1,5 @@
 /**
- * S8 · 无头脚本暂存（从 engine.mjs 外移）—— 让 launch.mjs 也能用它（S3-c 搬 launchBlender 时漏了这个依赖）。
+ * 无头脚本暂存（从 engine.mjs 外移）—— 让 launch.mjs 也能用它（搬 launchBlender 时漏了这个依赖）。
  *
  * 只管「Windows 侧看不看得见」；后端**自身** status/ledger 的可写性另见 server 侧 ensureWritableWorkDir。
  */
@@ -11,7 +11,7 @@ import { WIN_TMP, WSL_TMP, PY_ROOT, blenderJoin } from './paths.js'
 import { errorMessage } from './core/json.js'
 
 /**
- * 把无头脚本落到一个**两端都能读**的位置（v0.9.6 D3 起带共享性自证）。
+ * 把无头脚本落到一个**两端都能读**的位置（v0.9.6 起带共享性自证）。
  *
  * 现场踩到：workDir 落在 WSL 的独立挂载（如 /tmp tmpfs）时，Node 侧写成功、Windows 的 blender.exe
  * 却打不开 → `OSError: Python file "\\wsl.localhost\Ubuntu\tmp\…\dsh_headless_*.py" could not be opened`，
@@ -20,7 +20,7 @@ import { errorMessage } from './core/json.js'
  * 返回 {wsl, win, staging}；staging 会原样进回执（替换了目录就必须说清，不许静默）。
  */
 /**
- * 无头脚本文件名（issue A1：旧名只到毫秒 → 同毫秒并发两个 run 共写同一个 .py，
+ * 无头脚本文件名（issue：旧名只到毫秒 → 同毫秒并发两个 run 共写同一个 .py，
  * 一方脚本被另一方覆写——"跑的不是我给的那份"这类难查症状的根）。
  * 唯一性 = 毫秒 + 进程内单调序号（同进程零碰撞）+ 4 位随机（跨进程防撞）。
  * 纯命名逻辑，tests/unit/js/headless-file-guard.test.ts 直接对它做 5000 次碰撞测试。

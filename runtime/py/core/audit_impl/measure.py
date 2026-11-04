@@ -8,7 +8,7 @@ def audit_measure(objects=None, scope=None, include_hidden=False, neighbors=True
                   file=None):
     """测量包：世界 bbox + 逐轴间隙/重叠（mm 与 %）+ 邻居（契约图 + 空间最近 k）。
 
-    v0.9.1（C2）：新增 file=<.blend 路径>（临时加载 → 跑同一条链路 → finally 删净；source/file_load/
+    v0.9.1：新增 file=<.blend 路径>（临时加载 → 跑同一条链路 → finally 删净；source/file_load/
     cleanup 上报来源与收尾）。items[].name / pairs[].a|b / neighbors 的键一律是**文件里的原名**。
     老签名与老返回键一个没动，只做加法（新增 object_names / aabb / source / file_load / cleanup）。
     """

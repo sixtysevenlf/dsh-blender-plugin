@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// finalization §1.1.2 + S2 tasks 4.1/4.3：公共 facade 登记与中间层收口门禁。
+// 公共 facade 登记与中间层收口门禁：每个导出都要有真实消费者，退役中间层不得复活。
 /**
  * 两条断言：
  *

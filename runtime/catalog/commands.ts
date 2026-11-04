@@ -1,4 +1,4 @@
-// addon command 目录表（F1.1 从 catalog.ts 拆出）
+// addon command 目录表（从 catalog.ts 拆出）
 export const COMMAND_CATALOG: Record<string, { d: string; gate: string | null }> = {
   ping: { d: '存活探测（不碰 bpy 数据）', gate: null },
   get_scene_info: { d: '场景概览（无参）', gate: null },
@@ -81,7 +81,7 @@ export const COMMAND_CATALOG: Record<string, { d: string; gate: string | null }>
   import_generated_asset_hunyuan: { d: '导入 Hunyuan3D 生成结果', gate: 'dshbb_use_hunyuan3d' },
 }
 
-// Wire-only addon commands that are deliberately not model-facing (D6). Declared
+// Wire-only addon commands that are deliberately not model-facing . Declared
 // here so the host catalog <-> addon registry parity is checkable in both
 // directions; addon/dsh_blender_bridge/command_registry.py COMMAND_NAMES stays
 // the only command truth. Consumed by tests/unit/js/contract/command-contract.test.ts

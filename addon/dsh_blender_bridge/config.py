@@ -31,7 +31,7 @@ def read_env_var(name):
 
 
 # ---------------------------------------------------------------- credentials
-# 凭据单一所有者（S2 4.5）：add-on preferences 是唯一的持久化位置，环境变量仍是
+# 凭据单一所有者（4.5）：add-on preferences 是唯一的持久化位置，环境变量仍是
 # 后备（DSHBB_* 新名优先，旧名 BLENDERMCP_* 兼容，见 read_env_var）。历史上每个
 # 凭据还在 Scene 上镜像了一份（随 .blend 保存），server 与面板都要写"有 prefs 用
 # prefs、否则用 scene"的分支，导致同一把 key 用哪个取决于当前打开的文件。现在

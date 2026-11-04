@@ -76,7 +76,7 @@ export function buildHeadlessReceipt(r: HeadlessReceiptInput): Record<string, un
       r.ledgerWin +
       '）',
     scriptFile: r.scriptFile,
-    inputFile: r.inputFile, // v0.9.3（F6）
+    inputFile: r.inputFile, // v0.9.3
     outJson: r.outJson.path,
     outJsonWsl: r.outJson.wsl || null,
     resultBytes: r.outJson.bytes,
@@ -84,7 +84,7 @@ export function buildHeadlessReceipt(r: HeadlessReceiptInput): Record<string, un
     resultPathWsl: r.outJson.wsl || null,
     resultTruncated: r.resultTruncated,
     resultJson: r.result,
-    resultParseError: r.parseError, // v0.9.3（D2/D3）
+    resultParseError: r.parseError, // v0.9.3
     stdoutTail: stdoutTail,
     stderrTail: stderrTail,
     stage: rec.stage,
@@ -93,7 +93,7 @@ export function buildHeadlessReceipt(r: HeadlessReceiptInput): Record<string, un
     lastOutputAt: rec.lastOutputAt,
     lines: rec.lines,
     shots: r.shots,
-    pathWarnings: r.pathWarnings, // v0.9.3（F1/F2/D4.3）
+    pathWarnings: r.pathWarnings, // v0.9.3
     outdir: { win: r.outdirWin, wsl: r.outdirWsl },
     childEnvKeys: r.childEnvKeys,
     exitCode: r.res.exitCode,
@@ -104,7 +104,7 @@ export function buildHeadlessReceipt(r: HeadlessReceiptInput): Record<string, un
     blender: r.blenderExe,
     script: r.built.sp ? r.built.sp.win : null,
     args: r.built.args,
-    scriptStaging: r.built.sp ? r.built.sp.staging || null : null, // v0.9.6（D3）：脚本落在哪 + 是否替换了 workDir
+    scriptStaging: r.built.sp ? r.built.sp.staging || null : null, // v0.9.6：脚本落在哪 + 是否替换了 workDir
     preload: r.preload,
     gpu: r.gpu,
     engine: r.engine,

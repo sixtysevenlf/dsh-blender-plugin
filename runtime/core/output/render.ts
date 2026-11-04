@@ -1,4 +1,4 @@
-// catalog 页渲染（F1.1 从 output.ts 拆出，行为冻结）
+// catalog 页渲染（从 output.ts 拆出，行为冻结）
 import type { Provenance } from '../evidence.js'
 import { engineProvenance } from '../evidence.js'
 import {
@@ -31,14 +31,14 @@ function catalogIndexLines(): string[] {
   for (const e of PLAN_CATALOG) {
     L.push('· ' + e.f + (e.prefix ? '（' + e.prefix + '*）' : '') + '：' + e.when)
     L.push('    ops: ' + e.ops.join(' '))
-    // 默认页是「一页索引」：骨架封顶 90 字符（v2.6 P0：family 从 28→30，保持默认目录 ≤9600 字符）；
+    // 默认页是「一页索引」：骨架封顶 90 字符（v2.6：family 从 28→30，保持默认目录 ≤9600 字符）；
     // 完整骨架在 args={family:…} 与 handoff 块里。
     if (e.sk)
       L.push(
         '    骨架: ' +
           (e.sk.length > 90 ? e.sk.slice(0, 90) + '…（完整见 args={family:…}）' : e.sk),
       )
-    // S6 起 not 里带了『；**别…**』硬警告（可操作那句）—— 默认页只显示它，
+    // not 文本里带了『；**别…**』硬警告（可操作那句）—— 默认页只显示它，
     // 完整 not 在 args={family:…} 与 handoff 块里；这样一页索引仍能保持短。
     const _not = String(e.not || '')
     const _wi = _not.indexOf('；**别')
@@ -63,7 +63,7 @@ function catalogIndexLines(): string[] {
 /** 目录自证行（loaded/current/diskVerdict） */
 function catalogProvenanceLines(prov: Provenance): string[] {
   const L: string[] = []
-  // v0.9.6（D3）：加载版本自证 —— 一行给出"进程里这份 vs 磁盘上那份"的内容指纹（不是 mtime）
+  // v0.9.6：加载版本自证 —— 一行给出"进程里这份 vs 磁盘上那份"的内容指纹（不是 mtime）
   if (prov.stale === true) {
     L.push(
       '⚠ 目录自证 FAIL：磁盘上的 engine.mjs 与**本进程加载的**不一致（loaded ' +
@@ -130,12 +130,12 @@ function renderCatalogIndex(o: Record<string, unknown>, prov: Provenance): Recor
 export function catalogPayload(opts?: unknown): Record<string, unknown> {
   const o: Record<string, unknown> =
     opts && typeof opts === 'object' ? (opts as Record<string, unknown>) : {}
-  // v0.9.6（D3）：加载版本自证 —— 目录里也要带"本进程加载的是哪一代"，避免磁盘 mtime 冒充加载版本
+  // v0.9.6：加载版本自证 —— 目录里也要带"本进程加载的是哪一代"，避免磁盘 mtime 冒充加载版本
   const prov: Provenance = engineProvenance({
     verify: o.verify === true || o.verify === 'true',
     verifyTimeoutMs: o.verifyTimeoutMs,
   })
-  // v0.9.6（D2）：工具参数细节（重工具的长尾）也走这里 —— 一个入口覆盖"哪个 op / 哪个 family / 哪个工具"
+  // v0.9.6：工具参数细节（重工具的长尾）也走这里 —— 一个入口覆盖"哪个 op / 哪个 family / 哪个工具"
   if (o.tool) {
     const t = String(o.tool).replace(/^blender_/, '')
     const hit = TOOL_DETAIL[t]

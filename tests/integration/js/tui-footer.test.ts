@@ -4,7 +4,7 @@ import { startBackend, type Backend } from '../../helpers/backend'
 import { startFakeAddon } from '../../helpers/fake-addon.mjs'
 import { startFakeHost, type FakeHost } from '../../helpers/fake-http'
 
-// dsh-TUI footer field (contract v2.3 addendum section S6). The field is a pure
+// dsh-TUI footer field (contract v2.3 addendum section). The field is a pure
 // function of GET /host/state, so the whole status matrix is testable without
 // Blender. The live half drives a real backend plus a fake addon: an addon
 // refusal with the pause text must show the paused state, and a success clears it.

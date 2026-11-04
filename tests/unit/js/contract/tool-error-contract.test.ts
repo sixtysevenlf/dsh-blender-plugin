@@ -57,7 +57,7 @@ function parse(value: any): any {
   return null
 }
 
-describe('A8 error, lossless and security contract', () => {
+describe('error, lossless and security contract', () => {
   it('strips stack frames and secrets from diagnostics', () => {
     const raw =
       'Traceback (most recent call last):\n  File "x.py", line 1\nsk-abcdefghijklmnop\nBearer abcdefghijkl\napi_key=supersecret\nPOST failed'

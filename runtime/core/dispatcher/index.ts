@@ -1,4 +1,4 @@
-// plan/EXT 前缀路由入口（F1.1：dispatch.ts → dispatcher/）
+// plan/EXT 前缀路由入口（拆分自 dispatch.ts）
 export interface PlanCallDeps {
   SESSION_NAME: string
   addon: import('../../transport/probes.js').AddonClient

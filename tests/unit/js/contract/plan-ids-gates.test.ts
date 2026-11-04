@@ -218,8 +218,10 @@ describe('check-plan-ids', () => {
     expect(status).toBe(0)
     expect(report).not.toBeNull()
     expect(report!.ok).toBe(true)
-    expect(report!.totals.residual).toBeGreaterThan(0)
+    // 终态：仓库零残留；新增的 plan-ID 形状 token 必须先清理或按需豁免。
+    expect(report!.totals.residual).toBe(0)
     expect(report!.baseline.present).toBe(true)
     expect(report!.baseline.matches).toBe(true)
+    expect(report!.baseline.recordedResidual).toBe(0)
   })
 })

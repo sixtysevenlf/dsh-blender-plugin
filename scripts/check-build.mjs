@@ -112,7 +112,7 @@ function walk(dir) {
       if (ent.name === 'venv' || ent.name === 'node_modules' || ent.name === '__pycache__') continue
       walk(p)
     }
-    // src/tui-host.ts 已在 F1.2 删除（facade 迁到 src/tui/index.ts），这里只做通用断言
+    // src/tui-host.ts 已在 删除（facade 迁到 src/tui/index.ts），这里只做通用断言
     else if (ent.name.endsWith('.ts') && fs.readFileSync(p, 'utf8').includes('@ts-nocheck')) {
       nocheck.push(path.relative(ROOT, p).split(path.sep).join('/'))
     }

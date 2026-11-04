@@ -1,4 +1,4 @@
-// 作业启动入口（F1.1 拆分）：记录 / spawn / 收尾
+// 作业启动入口（拆分）：记录 / spawn / 收尾
 import fs from 'node:fs'
 import { jobSnapshot } from '../snapshot.js'
 import { errorMessage } from '../../../core/json.js'

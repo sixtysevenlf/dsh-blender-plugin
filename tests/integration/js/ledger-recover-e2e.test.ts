@@ -4,7 +4,7 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { startBackend, type Backend } from '../../helpers/backend'
 
-// S8 recovery: a backend restart must recover a running job from the on-disk
+// recovery: a backend restart must recover a running job from the on-disk
 // ledger instead of declaring success. Seeded ledger fixtures (no Blender):
 // summary.json, stdout.log HEADLESS receipt, an empty dir, and an incomplete
 // stdout that stopped at DSH_STAGE preload-done. The real-headless progress,

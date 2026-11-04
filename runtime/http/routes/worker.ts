@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { HttpRouteDeps } from './deps.js'
 import { errorMessage, errorField } from '../../core/json.js'
-// HTTP 路由 /worker：热无头会话（T7）
+// HTTP 路由 /worker：热无头会话
 export function createWorkerRoutes(E: HttpRouteDeps) {
   const { engine, isReadOnly, json, leaseGate, readBody, stats, streamJson } = E
   return {
@@ -15,8 +15,8 @@ export function createWorkerRoutes(E: HttpRouteDeps) {
         payload = {}
       }
       const op = String(payload.op || 'status')
-      // P0：worker 是**独立无头进程**，不碰 live GUI 场景 ⇒ 显式 isolated:true 时不占全局写租约，
-      // 否则多会话并行建模会互相 409（C 组调研的 P0 阻塞项）。同一 worker 仍由自身串行。
+      // worker 是**独立无头进程**，不碰 live GUI 场景 ⇒ 显式 isolated:true 时不占全局写租约，
+      // 否则多会话并行建模会互相 409（C 组调研的 阻塞项）。同一 worker 仍由自身串行。
       const gate = payload.isolated || isReadOnly('/worker', op) ? null : leaseGate(payload)
       if (gate) {
         json(res, 409, gate)
@@ -25,7 +25,7 @@ export function createWorkerRoutes(E: HttpRouteDeps) {
       stats.worker = (stats.worker || 0) + 1
       await streamJson(res, async () => {
         try {
-          // v0.9.4（P1-1）：全部按 name 走（缺省 = 'default'，与老调用逐字节同义）
+          // v0.9.4：全部按 name 走（缺省 = 'default'，与老调用逐字节同义）
           if (op === 'start')
             return {
               ok: true,
@@ -67,7 +67,7 @@ export function createWorkerRoutes(E: HttpRouteDeps) {
             }
           }
           if (op === 'see') {
-            // P0 无头 see：临时相机 + Workbench 离屏；返回 png_b64 + coverage + ms
+            // 无头 see：临时相机 + Workbench 离屏；返回 png_b64 + coverage + ms
             return {
               ok: true,
               op: op,

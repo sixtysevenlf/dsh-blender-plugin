@@ -33,7 +33,7 @@ class DSHBB_OT_SetFreeTrialHyper3DAPIKey(bpy.types.Operator):
     def execute(self, context):
         # 凭据单一所有者是 add-on preferences（config.get_credential）。免费试用
         # 只写进程内 session override：本次 Blender 会话生效，reload/重开后失效，
-        # 不会覆盖用户已保存的私钥；Scene 属性副本已在 S2 4.5 删除。
+        # 不会覆盖用户已保存的私钥；Scene 属性副本已在 4.5 删除。
         set_session_credential("hyper3d_api_key", RODIN_FREE_TRIAL_KEY)
         prefs = get_dshbb_addon_preferences(context)
         if prefs:

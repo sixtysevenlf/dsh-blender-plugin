@@ -1,4 +1,4 @@
-// plan/qc/audit 前缀路由（F1.1 从 dispatch.ts 拆出；D3 起由 config/routing.json 生成表驱动）
+// plan/qc/audit 前缀路由（从 dispatch.ts 拆出；由 config/routing.json 生成表驱动）
 import { WIN_TMP, blenderJoin } from '../../paths.js'
 import { extractLoop } from '../output/index.js'
 import { KERNEL_BOOTSTRAP } from '../kernel/index.js'

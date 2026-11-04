@@ -74,7 +74,7 @@ export function jobSnapshot(j: JobRecord): Record<string, unknown> {
     exitCode: j.exitCode,
     signal: j.signal,
     engine: j.engineMode,
-    // ---- v0.9.3（D5）：运行中就能看到进度（不再"6 分钟纯黑盒"）
+    // ---- v0.9.3：运行中就能看到进度（不再"6 分钟纯黑盒"）
     stage: j.stage || null,
     stageName: j.stageName || null,
     stageAt: j.stageAt || null,
@@ -83,7 +83,7 @@ export function jobSnapshot(j: JobRecord): Record<string, unknown> {
     idleMs: j.lastOutputAt ? now - j.lastOutputAt : now - j.startedAt,
     lines: j.lines || 0,
     logBytes: logBytes,
-    // ---- v0.9.3（D2/D3）：结构化结果（不必再手写正则从 stdout 里抠）
+    // ---- v0.9.3：结构化结果（不必再手写正则从 stdout 里抠）
     resultJson: j.parsed || null,
     result: j.parsed || null,
     resultParseError: j.parseError || null,

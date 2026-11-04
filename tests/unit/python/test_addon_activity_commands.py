@@ -1,4 +1,4 @@
-"""Unit checks for the activity command wrappers (F3.4).
+"""Unit checks for the activity command wrappers.
 
 The real recorder/tracker is replaced by a double; these tests only assert the
 command envelope, the paused flag and the consent gate.

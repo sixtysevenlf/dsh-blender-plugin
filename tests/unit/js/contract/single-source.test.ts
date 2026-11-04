@@ -10,7 +10,7 @@ interface CatalogView {
 }
 const payload = (opts?: unknown): CatalogView => catalogPayload(opts) as unknown as CatalogView
 
-// S4: the read-only plan whitelist is derived from the engine, the frozen
+// the read-only plan whitelist is derived from the engine, the frozen
 // baseline must match it name by name, and the hand-written family/op counts in
 // the model-facing description must equal what the catalog computes.
 
@@ -41,7 +41,7 @@ describe('single source of truth', () => {
   })
 
   it('keeps the repository AGENTS.md counts equal to the catalog', () => {
-    // F4.1: this used to resolve pkgPath('..', 'AGENTS.md') (the parent directory,
+    // this used to resolve pkgPath('..', 'AGENTS.md') (the parent directory,
     // where no AGENTS.md exists) and silently return. Assert existence and match
     // the real "34 families / 228 ops" wording used in the repo guide.
     const agents = pkgPath('AGENTS.md')

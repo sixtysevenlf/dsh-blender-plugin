@@ -59,7 +59,7 @@ function makeDeps() {
   return { deps, send, sends, ensures }
 }
 
-describe('dispatcher F1.1 regression guards', () => {
+describe('dispatcher regression guards', () => {
   it('routes montage through the direct montage API, not generic dispatch', async () => {
     const { deps, sends, ensures } = makeDeps()
     const decision = await routeMainPlanOps(deps, 'montage_create', { label: 'x' })

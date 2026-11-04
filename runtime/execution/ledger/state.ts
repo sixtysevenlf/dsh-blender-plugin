@@ -1,4 +1,4 @@
-// 运行台账（内存 runs + 磁盘 JSONL + 可写性自证）：F1.1 从 ledger.ts 拆出
+// 运行台账（内存 runs + 磁盘 JSONL + 可写性自证）：从 ledger.ts 拆出
 import path from 'node:path'
 import { winToWsl } from '../../config.js'
 import { WIN_TMP, WSL_TMP } from '../../paths.js'
@@ -32,7 +32,7 @@ export function createLedgerStore() {
   const runs = new Map<string, unknown>()
   const LEDGER = path.join(winToWsl(WIN_TMP), 'jobs', 'index.jsonl')
 
-  // ---- v0.9.3（D4/D8 同源）：workDir 可写性 —— 旧版台账/日志写失败是**静默**的
+  // ---- v0.9.3（同源）：workDir 可写性 —— 旧版台账/日志写失败是**静默**的
   // （实测：workDir 落在只读挂载上时，磁盘台账一条都写不进去，而 op=list/status 只会说"没有记录"）。
   let ledgerWarn: LedgerWarn | null = null
   let workdirProbeCache: WorkdirProbe | null = null

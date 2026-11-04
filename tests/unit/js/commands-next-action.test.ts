@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-// P1 regression: a "socket closed" failure from /commands used to tell the model
+// regression: a "socket closed" failure from /commands used to tell the model
 // to run blender_viewport op=status, which itself blocks 20s and then points at
 // op=start, forming a three-hop loop. The next_action must now be a bounded,
 // executable step (reconnect the addon / op=doctor) instead.

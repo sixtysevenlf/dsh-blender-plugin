@@ -1,4 +1,4 @@
-// headless 选项：preload 与 GPU/引擎前导（F1.1 从 options.ts 拆出）
+// headless 选项：preload 与 GPU/引擎前导（从 options.ts 拆出）
 import fs from 'node:fs'
 import { GPU_PRELUDE, pyModuleFile } from '../../../paths.js'
 import type { HeadlessDeps, HeadlessOpts } from '../types.js'
@@ -17,7 +17,7 @@ export function buildHeadlessPreload(opts: HeadlessOpts, deps: HeadlessDeps): He
     : opts.preload
       ? String(opts.preload).split(',')
       : []
-  // ---- v0.9.3（F1）：shots=[…] 多视角渲染一体化 —— 自动带上 qc_render（渲染 harness 就在里面）
+  // ---- v0.9.3：shots=[…] 多视角渲染一体化 —— 自动带上 qc_render（渲染 harness 就在里面）
   const shotsSpec: Record<string, unknown> | null = Array.isArray(opts.shots)
     ? { views: opts.shots }
     : opts.shots && typeof opts.shots === 'object'

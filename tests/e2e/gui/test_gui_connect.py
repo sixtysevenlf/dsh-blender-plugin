@@ -1,4 +1,4 @@
-"""GUI Blender E2E: Connect button + real socket round-trip (T10, release machine).
+"""GUI Blender E2E: Connect button + real socket round-trip (release machine).
 
 Run: DSH_BLENDER_EXE=/path/to/blender pytest tests/e2e/gui -m gui -v
 """

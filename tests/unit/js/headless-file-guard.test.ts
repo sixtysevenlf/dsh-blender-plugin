@@ -128,7 +128,7 @@ describe('headless file option guard', () => {
       pkgPath('runtime', 'execution', 'headless', 'result.ts'),
       'utf8',
     )
-    // F1.2：headless/job 工具已拆成目录，接线断言读拆分后的执行层/注册层
+    // headless/job 工具已拆成目录，接线断言读拆分后的执行层/注册层
     const readToolSplit = (tool: string, files: string[]) =>
       files
         .map((f) => fs.readFileSync(pkgPath('src', 'tools', tool, f), 'utf8'))
@@ -147,7 +147,7 @@ describe('headless file option guard', () => {
     expect(jobStart).toContain('noInputFileWarning')
     expect(headlessOptions).toContain('validateFileOpt(opts.file)')
     expect(headlessOptions).toContain('describeMissingInput')
-    // F2.2 tail：警告合并在 run-stages 阶段，index 只负责顺序调用。
+    // tail：警告合并在 run-stages 阶段，index 只负责顺序调用。
     expect(headlessIndex).toContain('finishRunRecord(')
     expect(headlessStages).toContain('finishRunWarnings(')
     expect(headlessResult).toContain('noInputFileWarning')

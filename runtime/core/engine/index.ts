@@ -1,5 +1,5 @@
-// engine 装配入口（T6 / F1.1 拆分）：类型 + createEngine 薄装配
-// T6：createEngine 只做装配与分发 —— 各能力在 core/*、execution/*、transport/* 中实现。
+// engine 装配入口（拆分）：类型 + createEngine 薄装配
+// createEngine 只做装配与分发 —— 各能力在 core/*、execution/*、transport/* 中实现。
 // 行为冻结：公开 surface（工具/路由/指标/租约相关回执）与拆分前完全一致。
 import type { AddonClient as AddonClientType } from '../../transport/probes.js'
 import type { createJobsApi } from '../../execution/jobs/index.js'
