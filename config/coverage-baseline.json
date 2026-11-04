@@ -36,10 +36,6 @@
     "src/tools/index.ts": {
       "lines": 100,
       "branches": 100
-    },
-    "runtime/catalog.ts": {
-      "lines": 96.93,
-      "branches": 78.57
     }
   },
   "python": {

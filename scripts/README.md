@@ -42,6 +42,7 @@ npm package. npm scripts in package.json call these files; tests live under test
 | check-build.mjs             | Verify lib/ is current and entry/client are synchronized                 | npm run check:build                          | stdout only                              |
 | check-coverage.mjs          | Single coverage gate: JS global/changed, critical/execution, Python, E2E | npm run check:coverage                       | stdout only                              |
 | check-doc-paths.mjs         | Check relative links and advertised commands in human/AI docs            | npm run check:doc-paths / check:finalization | stdout only                              |
+| check-exceptions.mjs        | Validate config/exceptions.json: kind enum, path exists, owned and unexpired | npm run lint / check:exceptions             | stdout only                              |
 | check-function-budget.mjs   | File and function line budgets                                           | check:function-budget / check:finalization   | stdout only                              |
 | check-git-hygiene.mjs       | Ensure lib/ is untracked; requires a git checkout                        | npm run check:git-hygiene / CI               | stdout only                              |
 | check-import-boundaries.mjs | Layer boundaries for host, runtime and addon                             | check:finalization                           | stdout only                              |

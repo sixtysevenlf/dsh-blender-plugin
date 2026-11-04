@@ -130,8 +130,10 @@ These are the rules that protect the architecture:
   check:structure.
 - Functions target <=80 lines and may not exceed 120 without a recorded exception; the function budget
   has no stale entries.
-- runtime/py implementation files stay <=1,000 lines; TS and addon files stay <=600 lines. The only
-  data-table exception is runtime/catalog.ts.
+- runtime/py implementation files stay <=1,000 lines; TS and addon files stay <=600 lines. Size
+  exceptions live in config/exceptions.json (kind=file-budget, with reason/owner/reviewBy) and are
+  checked by npm run check:exceptions; the plan catalog data table runtime/catalog/data.ts is the
+  single registered one.
 - Every Python module is in modules.json; there are no flat shims and no second registry.
 - No explicit any in foundation host/runtime files; type debt is a ledger, not a whole-file exemption.
 - Coverage floors are enforced by check:coverage; E2E scenario coverage is separate from line coverage.
