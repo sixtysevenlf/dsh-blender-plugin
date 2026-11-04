@@ -35,6 +35,7 @@ export interface PlanCallDeps {
   ensureVisualReport: () => Promise<unknown>
   jobStart: (opts: Record<string, unknown>) => Record<string, unknown>
   readModuleSource: (name: string) => string
+  preloadChunk: (name: string) => string
 }
 
 import { prepareEvidencePayload, routeMainPlanOps, routeModulePlanOps } from './plan-call.js'

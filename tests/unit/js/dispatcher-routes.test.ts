@@ -54,6 +54,7 @@ function makeDeps() {
     ...ensures,
     jobStart: vi.fn(() => ({ id: 'j1' })),
     readModuleSource: vi.fn(() => ''),
+    preloadChunk: vi.fn((name: string) => '# preload ' + name),
   } as unknown as PlanCallDeps
   return { deps, send, sends, ensures }
 }
@@ -86,5 +87,17 @@ describe('dispatcher F1.1 regression guards', () => {
     const code = String((sends[0].payload as Record<string, unknown>).code)
     expect(code).toContain('dsh_contract_api["dispatch"]')
     expect(out).toMatchObject({ ok: true })
+  })
+
+  it('preloads qc modules for the asJob qc_render path', async () => {
+    const { deps } = makeDeps()
+    const decision = await routeMainPlanOps(deps, 'qc_render_views', { asJob: true })
+    await (decision as { result: Promise<unknown> }).result
+    const preloadChunk = deps.preloadChunk as unknown as ReturnType<typeof vi.fn>
+    expect(preloadChunk.mock.calls.map((call) => call[0])).toEqual(['qc', 'qc_render'])
+    const jobStart = deps.jobStart as unknown as ReturnType<typeof vi.fn>
+    const opts = jobStart.mock.calls[0]?.[0] as Record<string, unknown>
+    expect(String(opts.script)).toContain('# preload qc')
+    expect(String(opts.script)).toContain('# preload qc_render')
   })
 })
