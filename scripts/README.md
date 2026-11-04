@@ -17,13 +17,13 @@ npm package. npm scripts in package.json call these files; tests live under test
 
 ### Build and packaging
 
-| Script           | Purpose                                                                                      | Main caller                                | Writes                                 |
-| ---------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------ | -------------------------------------- |
-| build.mjs        | Compile runtime, host, or all targets through tsc; optional client build                     | npm run build / build:host / build:runtime | lib/                                   |
-| build-addon.mjs  | Build and verify the addon zip                                                               | npm run build:addon / check:addon          | addon zip                              |
-| build-client.mjs | Build the hand-written client half into lib/client.js; --check verifies freshness            | build.mjs, check-build.mjs                 | lib/client.js                          |
-| build.sh         | Deprecated convenience wrapper for optional DSH_CHECKOUT linking; canonical is npm run build | manual only                                | node_modules links, lib/ via build.mjs |
-| ensure-build.mjs | Ensure lib/ exists and is fresh before tests/checks                                          | imported by checkers and test helpers      | lib/                                   |
+| Script           | Purpose                                                                                      | Main caller                                | Writes                                                                    |
+| ---------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------- |
+| build.mjs        | Compile runtime, host, or all targets through tsc; optional client build                     | npm run build / build:host / build:runtime | lib/                                                                      |
+| build-addon.mjs  | Build and verify the addon zip                                                               | npm run build:addon / check:addon          | addon zip                                                                 |
+| build-client.mjs | Build the hand-written client half into lib/client.js; --check verifies freshness            | build.mjs, check-build.mjs                 | lib/client.js                                                             |
+| build.sh         | Deprecated convenience wrapper for optional DSH_CHECKOUT linking; canonical is npm run build | manual only                                | node_modules links, lib/ via build.mjs                                    |
+| ensure-build.mjs | Ensure lib/ exists and is fresh before tests/checks                                          | imported by checkers and test helpers      | lib/                                                                      |
 | gen-routes.mjs   | Render the worker/GUI route tables from config/routing.json; header carries the source hash  | npm run build                              | src/plan/routes.generated.ts, runtime/core/dispatcher/routes.generated.ts |
 
 ### Test entry points
@@ -36,24 +36,25 @@ npm package. npm scripts in package.json call these files; tests live under test
 
 ### Quality gates
 
-| Script                      | Purpose                                                                  | Main caller                                  | Writes                                   |
-| --------------------------- | ------------------------------------------------------------------------ | -------------------------------------------- | ---------------------------------------- |
-| check-any.mjs               | Explicit-any AST gate                                                    | npm run lint / check:any                     | stdout only                              |
-| check-behavior-matrix.mjs   | Validate the behavior coverage matrix against live catalogs              | npm run test:matrix                          | coverage/matrix artifacts when requested |
-| check-build.mjs             | Verify lib/ is current and entry/client are synchronized                 | npm run check:build                          | stdout only                              |
-| check-coverage.mjs          | Single coverage gate: JS global/changed, critical/execution, Python, E2E | npm run check:coverage                       | stdout only                              |
-| check-doc-paths.mjs         | Check relative links and advertised commands in human/AI docs            | npm run check:doc-paths / check:finalization | stdout only                              |
-| check-exceptions.mjs        | Validate config/exceptions.json: kind enum, path exists, owned and unexpired | npm run lint / check:exceptions             | stdout only                              |
-| check-routes.mjs           | Assert the generated route tables match config/routing.json byte for byte | npm run check:routes                        | stdout only                              |
-| check-function-budget.mjs   | File and function line budgets                                           | check:function-budget / check:finalization   | stdout only                              |
-| check-git-hygiene.mjs       | Ensure lib/ is untracked; requires a git checkout                        | npm run check:git-hygiene / CI               | stdout only                              |
-| check-import-boundaries.mjs | Layer boundaries for host, runtime and addon                             | check:finalization                           | stdout only                              |
-| check-no-shims.mjs          | No flat compatibility shims or retired dual-entry files                  | check:finalization                           | stdout only                              |
-| check-parity.mjs            | Contract/catalog/package parity snapshot                                 | npm run test:parity                          | stdout only                              |
-| check-python-static.mjs     | Ruff baseline plus pure-logic pyright                                    | npm run check:python-static                  | stdout only                              |
-| check-runtime-layout.mjs    | modules.json is the only Python module map; every module resolves        | check:finalization                           | stdout only                              |
-| check-structure.mjs         | Entry/file map, module budgets and import cycles                         | npm run check:structure / check:finalization | stdout only                              |
-| engine-probe.sh             | Manual engine/HTTP probe; not part of the pytest or npm gate             | manual                                       | none                                     |
+| Script                      | Purpose                                                                      | Main caller                                  | Writes                                   |
+| --------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------- | ---------------------------------------- |
+| check-any.mjs               | Explicit-any AST gate                                                        | npm run lint / check:any                     | stdout only                              |
+| check-behavior-matrix.mjs   | Validate the behavior coverage matrix against live catalogs                  | npm run test:matrix                          | coverage/matrix artifacts when requested |
+| check-build.mjs             | Verify lib/ is current and entry/client are synchronized                     | npm run check:build                          | stdout only                              |
+| check-coverage.mjs          | Single coverage gate: JS global/changed, critical/execution, Python, E2E     | npm run check:coverage                       | stdout only                              |
+| check-doc-paths.mjs         | Check doc links, commands, inbound links and nonexistent path refs           | npm run check:doc-paths / check:finalization | stdout only                              |
+| check-exceptions.mjs        | Validate config/exceptions.json: kind enum, path exists, owned and unexpired | npm run lint / check:exceptions              | stdout only                              |
+| check-plan-ids.mjs          | Inventory plan-ID-shaped tokens; warn now, --enforce ratchet after cleanup   | npm run check:plan-ids                       | stdout only                              |
+| check-routes.mjs            | Assert the generated route tables match config/routing.json byte for byte    | npm run check:routes                         | stdout only                              |
+| check-function-budget.mjs   | File and function line budgets                                               | check:function-budget / check:finalization   | stdout only                              |
+| check-git-hygiene.mjs       | Ensure lib/ is untracked; requires a git checkout                            | npm run check:git-hygiene / CI               | stdout only                              |
+| check-import-boundaries.mjs | Layer boundaries for host, runtime and addon                                 | check:finalization                           | stdout only                              |
+| check-no-shims.mjs          | No flat compatibility shims or retired dual-entry files                      | check:finalization                           | stdout only                              |
+| check-parity.mjs            | Contract/catalog/package parity snapshot                                     | npm run test:parity                          | stdout only                              |
+| check-python-static.mjs     | Ruff baseline plus pure-logic pyright                                        | npm run check:python-static                  | stdout only                              |
+| check-runtime-layout.mjs    | modules.json is the only Python module map; every module resolves            | check:finalization                           | stdout only                              |
+| check-structure.mjs         | Entry/file map, module budgets and import cycles                             | npm run check:structure / check:finalization | stdout only                              |
+| engine-probe.sh             | Manual engine/HTTP probe; not part of the pytest or npm gate                 | manual                                       | none                                     |
 
 ### Typecheck and development utilities
 

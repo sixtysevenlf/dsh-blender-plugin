@@ -151,6 +151,7 @@
     "check:runtime-layout": "node scripts/check-runtime-layout.mjs",
     "check:import-boundaries": "node scripts/check-import-boundaries.mjs",
     "check:doc-paths": "node scripts/check-doc-paths.mjs",
+    "check:plan-ids": "node scripts/check-plan-ids.mjs",
     "check:finalization": "npm run check:function-budget && npm run check:no-shims && npm run check:runtime-layout && npm run check:import-boundaries && npm run check:doc-paths && npm run typecheck:scripts"
   },
   "exports": {

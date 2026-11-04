@@ -1,0 +1,2092 @@
+{
+  "version": 1,
+  "tool": "check-plan-ids",
+  "generatedAt": "2026-11-04T19:08:51.769Z",
+  "mode": "warn",
+  "totals": {
+    "all": 2135,
+    "exempt": 1419,
+    "residual": 716
+  },
+  "byPrefix": {
+    "F": 200,
+    "D": 102,
+    "S": 115,
+    "C": 22,
+    "P": 121,
+    "E": 6,
+    "T": 79,
+    "A": 58,
+    "B": 7,
+    "M": 6
+  },
+  "byKind": {
+    "feature": 200,
+    "decision": 102,
+    "slice": 115,
+    "contract": 22,
+    "priority": 121,
+    "evaluation": 6,
+    "task": 79,
+    "acceptance": 58,
+    "bug": 7,
+    "milestone": 6
+  },
+  "files": {
+    "addon/dsh_blender_bridge/assets/geometry.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "addon/dsh_blender_bridge/command_registry.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "addon/dsh_blender_bridge/commands/core/__init__.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "addon/dsh_blender_bridge/config.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "addon/dsh_blender_bridge/registration.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "addon/dsh_blender_bridge/server.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "addon/dsh_blender_bridge/ui/operators.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "AGENTS.md": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "CHANGELOG.md": {
+      "count": 214,
+      "exempt": 214,
+      "residual": 0
+    },
+    "config/contracts.json": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "config/coverage-move-manifest.json": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "config/coverage-thresholds.json": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "config/facades.json": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "config/function-budget-allowlist.json": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "docs/操作教程.md": {
+      "count": 19,
+      "exempt": 17,
+      "residual": 2
+    },
+    "docs/给第三方的安装清单.md": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "docs/假设驱动建模-cookbook.md": {
+      "count": 9,
+      "exempt": 8,
+      "residual": 1
+    },
+    "docs/宿主集成-接口契约-v2.3增补.md": {
+      "count": 52,
+      "exempt": 52,
+      "residual": 0
+    },
+    "docs/证据分级与读图纪律.md": {
+      "count": 5,
+      "exempt": 5,
+      "residual": 0
+    },
+    "docs/AI-安装提示词.md": {
+      "count": 8,
+      "exempt": 8,
+      "residual": 0
+    },
+    "docs/architecture.md": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "docs/archive/插件与技能优化验收.md": {
+      "count": 78,
+      "exempt": 78,
+      "residual": 0
+    },
+    "docs/archive/headless优先-路线决定.md": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "docs/archive/v2.6.0-更新说明.md": {
+      "count": 3,
+      "exempt": 3,
+      "residual": 0
+    },
+    "docs/examples/chair-backrest/run.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "docs/flash建模上限-整合方案.md": {
+      "count": 9,
+      "exempt": 0,
+      "residual": 9
+    },
+    "docs/Procedura-融合分析.md": {
+      "count": 3,
+      "exempt": 3,
+      "residual": 0
+    },
+    "MIGRATIONS.md": {
+      "count": 5,
+      "exempt": 5,
+      "residual": 0
+    },
+    "runtime/backend_probe.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/catalog/commands.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/catalog/data.ts": {
+      "count": 8,
+      "exempt": 7,
+      "residual": 1
+    },
+    "runtime/catalog/index.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/catalog/logic.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/catalog/tools.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/classes.ts": {
+      "count": 7,
+      "exempt": 7,
+      "residual": 0
+    },
+    "runtime/config.ts": {
+      "count": 7,
+      "exempt": 0,
+      "residual": 7
+    },
+    "runtime/core/dispatcher/ext-routing.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/core/dispatcher/index.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/core/dispatcher/plan-call.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/core/engine-api/act.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/core/engine-api/doctor.ts": {
+      "count": 7,
+      "exempt": 0,
+      "residual": 7
+    },
+    "runtime/core/engine-api/frame.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/core/engine-api/host.ts": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "runtime/core/engine-api/index.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/core/engine-api/loop.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/core/engine-api/metrics.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/core/engine-api/view.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/core/engine/assemble.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/core/engine/index.ts": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "runtime/core/engine/lifecycle.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/core/errors.ts": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "runtime/core/evidence.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/core/flags.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/core/kernel/bootstrap.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/core/kernel/index.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/core/output/index.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/core/output/parse.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/core/output/render.ts": {
+      "count": 6,
+      "exempt": 0,
+      "residual": 6
+    },
+    "runtime/core/plan-dispatch.ts": {
+      "count": 5,
+      "exempt": 0,
+      "residual": 5
+    },
+    "runtime/core/plan/render-guard.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/core/plan/shape-search/axes.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/core/plan/shape-search/index.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/core/plan/shape-search/parse.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/core/plan/shape-search/rank.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/core/plan/shape-search/search.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/core/progress.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/core/render-state.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/core/scripts.ts": {
+      "count": 5,
+      "exempt": 0,
+      "residual": 5
+    },
+    "runtime/engine.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/execution/exe-guard.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/execution/headless/index.ts": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "runtime/execution/headless/options/gpu.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/execution/headless/options/index.ts": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "runtime/execution/headless/options/paths.ts": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "runtime/execution/headless/process.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/execution/headless/receipt.ts": {
+      "count": 4,
+      "exempt": 0,
+      "residual": 4
+    },
+    "runtime/execution/headless/result.ts": {
+      "count": 4,
+      "exempt": 0,
+      "residual": 4
+    },
+    "runtime/execution/headless/run-stages.ts": {
+      "count": 8,
+      "exempt": 0,
+      "residual": 8
+    },
+    "runtime/execution/headless/run-state.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/execution/headless/script.ts": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "runtime/execution/jobs/api.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/execution/jobs/index.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/execution/jobs/kill.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/execution/jobs/script/index.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/execution/jobs/script/preload.ts": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "runtime/execution/jobs/snapshot.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/execution/jobs/start/args.ts": {
+      "count": 6,
+      "exempt": 0,
+      "residual": 6
+    },
+    "runtime/execution/jobs/start/index.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/execution/jobs/start/spawn.ts": {
+      "count": 4,
+      "exempt": 0,
+      "residual": 4
+    },
+    "runtime/execution/ledger/index.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/execution/ledger/recover.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/execution/ledger/state.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/execution/preset.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/execution/trajectory/index.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/execution/trajectory/read.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/execution/trajectory/record.ts": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "runtime/execution/txn.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/execution/workers/api.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/execution/workers/index.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/execution/workers/lifecycle.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/execution/workers/worker-start.ts": {
+      "count": 5,
+      "exempt": 0,
+      "residual": 5
+    },
+    "runtime/file_guard.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/config.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/http/host/index.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/http/host/routes.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/host/scene-items.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/jobs.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/lease.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/http/lifecycle.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/response.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/router.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/routes/act.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/routes/commands.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/routes/deps.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/routes/frame.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/routes/headless.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/routes/health.ts": {
+      "count": 4,
+      "exempt": 0,
+      "residual": 4
+    },
+    "runtime/http/routes/index.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/routes/job.ts": {
+      "count": 5,
+      "exempt": 0,
+      "residual": 5
+    },
+    "runtime/http/routes/loop.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/routes/opt.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/routes/perf.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/routes/plan.ts": {
+      "count": 4,
+      "exempt": 0,
+      "residual": 4
+    },
+    "runtime/http/routes/preset.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/routes/session/close.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/routes/session/create.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/routes/session/index.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/http/routes/session/list.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/routes/txn.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/routes/view.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/http/routes/worker.ts": {
+      "count": 5,
+      "exempt": 0,
+      "residual": 5
+    },
+    "runtime/launch/index.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/launch/resolve.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/launch/spawn.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/launch/wait.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/paths.ts": {
+      "count": 27,
+      "exempt": 0,
+      "residual": 27
+    },
+    "runtime/ports.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/proc_env.ts": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "runtime/py/__init__.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/assembly/__init__.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/assembly/assembly_features.json": {
+      "count": 16,
+      "exempt": 16,
+      "residual": 0
+    },
+    "runtime/py/assembly/assembly_impl/common.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/assembly/assembly_impl/gate.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/assembly/assembly_impl/selftest.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/assembly/clearance.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/assembly/human.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/assembly/vehicle_impl/api.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/assembly/vehicle_impl/common.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/core/__init__.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/core/audit_impl/api.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/core/audit_impl/common.py": {
+      "count": 7,
+      "exempt": 0,
+      "residual": 7
+    },
+    "runtime/py/core/audit_impl/conn_helpers.py": {
+      "count": 4,
+      "exempt": 0,
+      "residual": 4
+    },
+    "runtime/py/core/audit_impl/connectivity.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/core/audit_impl/measure.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/core/audit_impl/mesh.py": {
+      "count": 4,
+      "exempt": 0,
+      "residual": 4
+    },
+    "runtime/py/core/audit_impl/overlap.py": {
+      "count": 4,
+      "exempt": 0,
+      "residual": 4
+    },
+    "runtime/py/core/contract_impl/common.py": {
+      "count": 8,
+      "exempt": 0,
+      "residual": 8
+    },
+    "runtime/py/core/contract_impl/fingerprint.py": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "runtime/py/core/contract_impl/fit.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/core/evalharness.py": {
+      "count": 25,
+      "exempt": 25,
+      "residual": 0
+    },
+    "runtime/py/core/gate_impl/api.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/core/gate_impl/common.py": {
+      "count": 15,
+      "exempt": 0,
+      "residual": 15
+    },
+    "runtime/py/core/gate_impl/plan.py": {
+      "count": 4,
+      "exempt": 0,
+      "residual": 4
+    },
+    "runtime/py/core/gate_impl/run.py": {
+      "count": 11,
+      "exempt": 0,
+      "residual": 11
+    },
+    "runtime/py/core/gate_impl/selftest.py": {
+      "count": 6,
+      "exempt": 0,
+      "residual": 6
+    },
+    "runtime/py/core/kit.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/core/motion_impl/common.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/core/motion_impl/measure.py": {
+      "count": 4,
+      "exempt": 0,
+      "residual": 4
+    },
+    "runtime/py/core/offline_bootstrap.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/core/perf.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/core/pipeline.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/core/planner.py": {
+      "count": 5,
+      "exempt": 0,
+      "residual": 5
+    },
+    "runtime/py/core/presets.py": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "runtime/py/core/runner.py": {
+      "count": 5,
+      "exempt": 0,
+      "residual": 5
+    },
+    "runtime/py/core/sweep.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/export/__init__.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/export/deliver_impl/export.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/export/open3d_check.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/export/printcheck.py": {
+      "count": 5,
+      "exempt": 0,
+      "residual": 5
+    },
+    "runtime/py/geometry/__init__.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/geometry/blockout_impl/api.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/geometry/blockout_impl/common.py": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "runtime/py/geometry/blockout_impl/geometry.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/geometry/blockout_impl/present.py": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "runtime/py/geometry/blockout_impl/templates.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/geometry/faceeval.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/geometry/generator.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/geometry/mesh_fix.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/geometry/sculpt.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/geometry/shapegen.py": {
+      "count": 45,
+      "exempt": 45,
+      "residual": 0
+    },
+    "runtime/py/geometry/shapesolve.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/geometry/surface_impl/api.py": {
+      "count": 14,
+      "exempt": 14,
+      "residual": 0
+    },
+    "runtime/py/geometry/surface_impl/build.py": {
+      "count": 2,
+      "exempt": 2,
+      "residual": 0
+    },
+    "runtime/py/geometry/surface_impl/common.py": {
+      "count": 9,
+      "exempt": 9,
+      "residual": 0
+    },
+    "runtime/py/geometry/surface_impl/objects.py": {
+      "count": 19,
+      "exempt": 19,
+      "residual": 0
+    },
+    "runtime/py/geometry/surface_impl/validate.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "runtime/py/geometry/uv_tools.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/render/__init__.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/render/calib.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/render/imgtools_impl/api.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/render/imgtools_impl/common.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/render/imgtools_impl/ops_basic.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/render/material.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/render/montage.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/render/qc_impl/align.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/render/qc_impl/api.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/render/qc_impl/common.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/render/qc_impl/load.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/render/qc_impl/metrics.py": {
+      "count": 4,
+      "exempt": 0,
+      "residual": 4
+    },
+    "runtime/py/render/qc_impl/pnggif.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/py/render/qc_render_impl/common.py": {
+      "count": 27,
+      "exempt": 27,
+      "residual": 0
+    },
+    "runtime/py/render/qc_render_impl/dispatch.py": {
+      "count": 3,
+      "exempt": 3,
+      "residual": 0
+    },
+    "runtime/py/render/qc_render_impl/geom.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "runtime/py/render/qc_render_impl/lock.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "runtime/py/render/qc_render_impl/rig.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "runtime/py/render/qc_render_impl/selftest.py": {
+      "count": 110,
+      "exempt": 110,
+      "residual": 0
+    },
+    "runtime/py/render/qc_render_impl/views_render.py": {
+      "count": 18,
+      "exempt": 18,
+      "residual": 0
+    },
+    "runtime/py/render/qc_render_impl/views.py": {
+      "count": 12,
+      "exempt": 12,
+      "residual": 0
+    },
+    "runtime/py/render/render_guard.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/py/render/view.py": {
+      "count": 6,
+      "exempt": 0,
+      "residual": 6
+    },
+    "runtime/py/render/visualreport_impl/common.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/selectionstore.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "runtime/server.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "runtime/staging.ts": {
+      "count": 4,
+      "exempt": 0,
+      "residual": 4
+    },
+    "runtime/transport/probes.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "scripts/check-behavior-matrix.mjs": {
+      "count": 10,
+      "exempt": 0,
+      "residual": 10
+    },
+    "scripts/check-build.mjs": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "scripts/check-coverage.mjs": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "scripts/check-doc-paths.mjs": {
+      "count": 5,
+      "exempt": 0,
+      "residual": 5
+    },
+    "scripts/check-function-budget.mjs": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "scripts/check-import-boundaries.mjs": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "scripts/check-no-shims.mjs": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "scripts/check-parity.mjs": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "scripts/check-plan-ids.mjs": {
+      "count": 4,
+      "exempt": 0,
+      "residual": 4
+    },
+    "scripts/check-routes.mjs": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "scripts/check-runtime-layout.mjs": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "scripts/check-structure.mjs": {
+      "count": 4,
+      "exempt": 0,
+      "residual": 4
+    },
+    "scripts/gen-routes.mjs": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "scripts/sync_counts.mjs": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "scripts/test.mjs": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "skills/blender-modeling/README.md": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "skills/blender-modeling/references/参考图通用还原SOP.md": {
+      "count": 20,
+      "exempt": 20,
+      "residual": 0
+    },
+    "skills/blender-modeling/references/曲面算法.md": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "skills/blender-modeling/references/验收清单.md": {
+      "count": 2,
+      "exempt": 2,
+      "residual": 0
+    },
+    "skills/blender-modeling/SKILL.md": {
+      "count": 29,
+      "exempt": 29,
+      "residual": 0
+    },
+    "src/client/index.js": {
+      "count": 4,
+      "exempt": 0,
+      "residual": 4
+    },
+    "src/constants.ts": {
+      "count": 5,
+      "exempt": 0,
+      "residual": 5
+    },
+    "src/contracts/lossless.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "src/contracts/tool.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "src/headless/receipts/envelope.ts": {
+      "count": 5,
+      "exempt": 0,
+      "residual": 5
+    },
+    "src/headless/receipts/index.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "src/host/backend/index.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "src/host/backend/process-scan.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "src/host/http.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "src/plan/headless-target.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "src/plugin-lifecycle.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "src/plugin-surfaces.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "src/plugin.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "src/tools/commands.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "src/tools/do/execute.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "src/tools/do/index.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "src/tools/do/register.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "src/tools/errors.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "src/tools/headless/execute.ts": {
+      "count": 5,
+      "exempt": 0,
+      "residual": 5
+    },
+    "src/tools/headless/index.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "src/tools/job/execute.ts": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "src/tools/job/index.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "src/tools/schema-diagnostic.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "src/tools/see/execute.ts": {
+      "count": 4,
+      "exempt": 0,
+      "residual": 4
+    },
+    "src/tools/see/index.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "src/tools/viewport/execute.ts": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "src/tools/viewport/index.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "src/tools/viewport/presenter.ts": {
+      "count": 7,
+      "exempt": 0,
+      "residual": 7
+    },
+    "src/tools/worker/index.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "src/tui/selection.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "src/ui/cards.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "src/utils/frame-cache.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/BEHAVIOR_MATRIX.json": {
+      "count": 22,
+      "exempt": 22,
+      "residual": 0
+    },
+    "tests/BEHAVIOR_MATRIX.md": {
+      "count": 340,
+      "exempt": 336,
+      "residual": 4
+    },
+    "tests/e2e/blender_42_headless.mjs": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/e2e/blender/harness.py": {
+      "count": 2,
+      "exempt": 2,
+      "residual": 0
+    },
+    "tests/e2e/blender/native_manifest.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native_runner.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native_support.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/assembly_export.py": {
+      "count": 9,
+      "exempt": 9,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/assembly_repair.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/assembly.py": {
+      "count": 19,
+      "exempt": 19,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/audit_file.py": {
+      "count": 3,
+      "exempt": 3,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/audit_review.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/blockout_refsheet.py": {
+      "count": 25,
+      "exempt": 25,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/blockout.py": {
+      "count": 36,
+      "exempt": 36,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/contract.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/deliver.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/evalharness.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/gate_review.py": {
+      "count": 30,
+      "exempt": 30,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/geo.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/imgtools.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/mate.py": {
+      "count": 6,
+      "exempt": 6,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/motion.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/p0_real_modeling.py": {
+      "count": 3,
+      "exempt": 3,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/plan.py": {
+      "count": 2,
+      "exempt": 2,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/qc_render_api.py": {
+      "count": 9,
+      "exempt": 9,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/shapesolve.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/support_gate_review.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/surface.py": {
+      "count": 7,
+      "exempt": 7,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/txn_restore.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/txn.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/support.py": {
+      "count": 3,
+      "exempt": 3,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_assembly_vehicle.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_audit_smoke.py": {
+      "count": 5,
+      "exempt": 5,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_gate.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_material_render.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_mesh_fix.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_pipeline.py": {
+      "count": 6,
+      "exempt": 6,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_print.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_sculpt.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_shape.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_sweep.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_uv.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/view_diag.py": {
+      "count": 2,
+      "exempt": 2,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/visualreport.py": {
+      "count": 29,
+      "exempt": 29,
+      "residual": 0
+    },
+    "tests/e2e/blender/package_check.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/runner.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/test_addon_e2e.py": {
+      "count": 2,
+      "exempt": 2,
+      "residual": 0
+    },
+    "tests/e2e/blender/test_native_e2e.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/gui/native/contract_evidence.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/e2e/gui/native/view_capture.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/e2e/gui/test_gui_connect.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/e2e/gui/test_native_gui.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/e2e/gui/test_qc_backend.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/fixtures/README.md": {
+      "count": 2,
+      "exempt": 2,
+      "residual": 0
+    },
+    "tests/helpers/ensure-build.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/helpers/global-setup.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/integration/js/backend-probe.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/integration/js/doctor-bounded.test.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "tests/integration/js/dsh-api-compat.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/integration/js/launch.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/integration/js/ledger-recover-e2e.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/integration/js/package-contract.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/integration/js/route-matrix.test.ts": {
+      "count": 9,
+      "exempt": 0,
+      "residual": 9
+    },
+    "tests/integration/js/server-routes.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/integration/js/tui-footer.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/integration/js/viewport-start-honesty.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/integration/python/test_addon_command_matrix.py": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "tests/integration/python/test_addon_dispatch.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/integration/python/test_addon_launcher_contract.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "tests/integration/python/test_smoke.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/MIGRATION.md": {
+      "count": 12,
+      "exempt": 12,
+      "residual": 0
+    },
+    "tests/types/shims.d.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/backend-win-cleanup.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/blender-detect.test.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "tests/unit/js/commands-budget.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/commands-next-action.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/contract/addon-pack.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/contract/catalog-dispatch-parity.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/contract/catalog.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/contract/command-contract.test.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "tests/unit/js/contract/coverage-policy.test.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "tests/unit/js/contract/description-budget.test.ts": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "tests/unit/js/contract/guidance.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/contract/plan-ids-gates.test.ts": {
+      "count": 14,
+      "exempt": 14,
+      "residual": 0
+    },
+    "tests/unit/js/contract/routes-generated.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/contract/runtime-fingerprint.test.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "tests/unit/js/contract/runtime-layout.test.ts": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "tests/unit/js/contract/single-source.test.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "tests/unit/js/contract/surface-fit.test.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "tests/unit/js/contract/tool-error-contract.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/contract/tool-failure-matrix.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/contract/tool-matrix.test.ts": {
+      "count": 9,
+      "exempt": 0,
+      "residual": 9
+    },
+    "tests/unit/js/dispatcher-routes.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/doctor-addon-error.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/engine-surface.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/execution-jobs-workers.test.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "tests/unit/js/ext-check-routing.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/ext-path.test.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "tests/unit/js/frame-dedupe.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/headless-exe-guard.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/headless-file-guard.test.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "tests/unit/js/headless-hard-exit.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/headless-options.test.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "tests/unit/js/headless-stages.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/job-exe-guard.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/job-spawn-guard.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/launch-resolve.test.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "tests/unit/js/ledger-recover.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/output-parse.test.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "tests/unit/js/platform-paths.test.ts": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "tests/unit/js/ports.test.ts": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "tests/unit/js/provenance.test.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "tests/unit/js/shape-search.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/src-backend-spawn.test.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "tests/unit/js/viewport-status-honesty.test.ts": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "tests/unit/js/win-spawn.test.ts": {
+      "count": 4,
+      "exempt": 0,
+      "residual": 4
+    },
+    "tests/unit/js/workdir.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/worker-exe-guard.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/js/worker-failure-mapping.test.ts": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/python/test_addon_activity_commands.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/python/test_addon_command_registry.py": {
+      "count": 3,
+      "exempt": 0,
+      "residual": 3
+    },
+    "tests/unit/python/test_addon_credentials.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/python/test_addon_import_helpers.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/python/test_addon_registration.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/python/test_addon_selection_send.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/python/test_facade_contract.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "tests/unit/python/test_generator_dispatch.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/python/test_import_smoke.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "tests/unit/python/test_kit_api.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/python/test_modules_registry.py": {
+      "count": 2,
+      "exempt": 0,
+      "residual": 2
+    },
+    "tests/unit/python/test_offline_bootstrap.py": {
+      "count": 8,
+      "exempt": 0,
+      "residual": 8
+    },
+    "tests/unit/python/test_qc_render_loader.py": {
+      "count": 1,
+      "exempt": 0,
+      "residual": 1
+    },
+    "tests/unit/python/test_runtime_layout.py": {
+      "count": 7,
+      "exempt": 0,
+      "residual": 7
+    },
+    "tests/unit/python/test_surface_fit_contract.py": {
+      "count": 4,
+      "exempt": 0,
+      "residual": 4
+    }
+  }
+}
