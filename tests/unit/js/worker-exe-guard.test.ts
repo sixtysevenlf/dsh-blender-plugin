@@ -172,15 +172,18 @@ describe('workerStart exe guard', () => {
     expect(snap.pid).toBe(4242)
   })
 
-  it('guards after the live-worker early return and before prepareBootFile / spawn', () => {
+  it('guards after the live-worker early return and before boot-file writing / spawn', () => {
+    // 源码顺序是防御性断言（行为断言在上面用了 mock spawn）；用正则容忍格式/参数变化，
+    // 不要绑死某一行原文——否则重命名局部变量就会误报。
     const src = fs.readFileSync(pkgPath('runtime/execution/workers/worker-start.ts'), 'utf8')
-    const earlyReturn = src.indexOf('if (workerAlive(w) && w.ready) return workerSnapshot(w)')
-    const guard = src.indexOf('assertBlenderExe(BLENDER_EXE')
-    const bootFile = src.indexOf('const bootWin = prepareBootFile(')
-    const spawn = src.indexOf('spawn(BLENDER_EXE')
-    expect(earlyReturn).toBeGreaterThan(-1)
-    expect(guard).toBeGreaterThan(earlyReturn)
-    expect(bootFile).toBeGreaterThan(guard)
-    expect(spawn).toBeGreaterThan(bootFile)
+    const earlyReturn =
+      /if\s*\(\s*workerAlive\(w\)\s*&&\s*w\.ready\s*\)\s*return\s+workerSnapshot\(w\)/.exec(src)
+    const guard = /assertBlenderExe\(\s*BLENDER_EXE\s*,\s*blenderExeSource\(\)\s*\)/.exec(src)
+    const bootFile = /const\s+bootWin\s*=\s*prepareBootFile\(/.exec(src)
+    const spawn = /spawn\(\s*BLENDER_EXE\s+as\s+string/.exec(src)
+    for (const m of [earlyReturn, guard, bootFile, spawn]) expect(m).toBeTruthy()
+    expect(guard!.index).toBeGreaterThan(earlyReturn!.index)
+    expect(bootFile!.index).toBeGreaterThan(guard!.index)
+    expect(spawn!.index).toBeGreaterThan(bootFile!.index)
   })
 })

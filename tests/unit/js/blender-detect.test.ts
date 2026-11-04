@@ -101,6 +101,11 @@ describe('detectBlenderExe · Steam (Windows)', () => {
       isWin: true,
       isMac: false,
       fileCfg: {},
+      // 只认 fixture 树：本机真实 Steam（D:）存在，不能让它抢在 fixture 前面命中。
+      exists: (p: string) => norm(p).startsWith(norm(home) + '/') && fs.existsSync(p),
+      exec: () => {
+        throw new Error('where.exe: blender not in PATH')
+      },
     })
 
     expect(got.from).toBe('auto:steam')
@@ -119,6 +124,10 @@ describe('detectBlenderExe · Steam (Windows)', () => {
       isWin: true,
       isMac: false,
       fileCfg: {},
+      exists: (p: string) => norm(p).startsWith(norm(home) + '/') && fs.existsSync(p),
+      exec: () => {
+        throw new Error('where.exe: blender not in PATH')
+      },
     })
 
     expect(got.from).toBe('auto:steam')
@@ -149,6 +158,30 @@ describe('detectBlenderExe · Steam (Windows)', () => {
     expect(norm(exe).startsWith('d:/')).toBe(true)
   })
 
+  it('uses HKCU SteamPath so a library on G: is found without a C-F Steam root', () => {
+    const root = path.join('G:' + path.sep, 'Steam')
+    const exe = path.join(root, 'steamapps', 'common', 'Blender', 'blender.exe')
+    const exists = (p: string): boolean => norm(p) === norm(root) || norm(p) === norm(exe)
+
+    const got = detectBlenderExe({
+      env: {},
+      isWin: true,
+      isMac: false,
+      fileCfg: {},
+      exists,
+      listDir: () => [],
+      readText: () => null,
+      exec: (cmd: string) => {
+        if (cmd === 'reg.exe')
+          return 'HKEY_CURRENT_USER\\Software\\Valve\\Steam\n    SteamPath    REG_SZ    G:/Steam\n'
+        throw new Error('where.exe: blender not in PATH')
+      },
+    })
+
+    expect(got.from).toBe('auto:steam')
+    expect(norm(got.exe)).toBe(norm(exe))
+  })
+
   it('reports not-found without throwing when nothing is installed', () => {
     const got = detectBlenderExe({
       env: {},
@@ -177,6 +210,52 @@ describe('detectBlenderExe · official install (Windows regression)', () => {
       isWin: true,
       isMac: false,
       fileCfg: {},
+    })
+
+    expect(got.from).toBe('auto:install')
+    expect(norm(got.exe)).toBe(norm(exe))
+  })
+})
+
+describe('detectBlenderExe · macOS / Linux (injected probes)', () => {
+  it('finds a macOS .app bundle under /Applications', () => {
+    const exe = path.join('/Applications', 'Blender.app', 'Contents', 'MacOS', 'Blender')
+    const exists = (p: string): boolean => norm(p) === norm(exe)
+
+    const got = detectBlenderExe({
+      env: {},
+      isWin: false,
+      isMac: true,
+      fileCfg: {},
+      homedir: () => '/Users/test',
+      exists,
+      listDir: (p: string) => (norm(p) === '/applications' ? ['Blender.app'] : []),
+      readText: () => null,
+      exec: () => {
+        throw new Error('which: blender not in PATH')
+      },
+    })
+
+    expect(got.from).toBe('auto:install')
+    expect(norm(got.exe)).toBe(norm(exe))
+  })
+
+  it('finds the Steam-library install on a WSL mount', () => {
+    const base = '/mnt/d'
+    const exe = path.join(base, 'SteamLibrary', 'steamapps', 'common', 'Blender', 'blender.exe')
+    const exists = (p: string): boolean => norm(p) === norm(base) || norm(p) === norm(exe)
+
+    const got = detectBlenderExe({
+      env: {},
+      isWin: false,
+      isMac: false,
+      fileCfg: {},
+      exists,
+      listDir: () => [],
+      readText: () => null,
+      exec: () => {
+        throw new Error('which: blender not in PATH')
+      },
     })
 
     expect(got.from).toBe('auto:install')

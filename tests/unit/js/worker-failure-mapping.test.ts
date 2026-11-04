@@ -75,6 +75,17 @@ describe('/worker route error envelope', () => {
       code: null,
     })
   })
+
+  it('does not leak arbitrary Node error codes to the model', async () => {
+    const err: any = new Error('The "file" argument must be of type string')
+    err.code = 'ERR_INVALID_ARG_TYPE'
+    const { route, captured } = routeHarness(async () => {
+      throw err
+    })
+    await route.worker({} as any, {} as any, new URL('http://127.0.0.1:9877/worker'), '/worker')
+    expect(captured.value.code).toBeNull()
+    expect(captured.value.error).toContain('The "file" argument')
+  })
 })
 
 describe('executeWorker failure mapping', () => {

@@ -60,7 +60,10 @@ const STEAM_REL_DIRS: string[][] = [
   ['SteamLibrary'],
 ]
 const STEAM_ENV_KEYS = ['ProgramFiles', 'ProgramFiles(x86)', 'ProgramW6432']
-const DRIVE_LETTERS = ['C', 'D', 'E', 'F']
+// 注册表里 Steam 客户端自己记录的安装目录（HKCU\Software\Valve\Steam\SteamPath）——
+// Steam 装在 G:/H: 或非默认目录时，只有它能把 vdf 链起来（32 位安装再看 WOW6432Node）。
+const STEAM_REG_KEYS = ['HKCU\\Software\\Valve\\Steam', 'HKLM\\SOFTWARE\\WOW6432Node\\Valve\\Steam']
+const DRIVE_LETTERS = ['C', 'D', 'E', 'F', 'G', 'H']
 
 function normPath(p: string): string {
   return String(p).replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
@@ -152,6 +155,21 @@ function parseVdfPaths(text: string | null): string[] {
   return out
 }
 
+/** 从 HKCU/HKLM 的 SteamPath 读 Steam 安装根；读不到（非 Windows / 无注册表）返回 null。 */
+function steamPathFromRegistry(d: BlenderDetectDeps): string | null {
+  if (!d.isWin) return null
+  for (const key of STEAM_REG_KEYS) {
+    try {
+      const out = d.exec('reg.exe', ['query', key, '/v', 'SteamPath'])
+      const m = /SteamPath\s+REG_SZ\s+(.+)/i.exec(out)
+      if (m && m[1].trim()) return m[1].trim().replace(/[\\/]+$/, '')
+    } catch (e) {
+      /* 注册表读不到就继续试常见根 */
+    }
+  }
+  return null
+}
+
 /** 一个 Steam 根下的库目录：根自己 + libraryfolders.vdf 列出的（vdf 缺失/损坏就只剩根） */
 function steamLibraries(d: BlenderDetectDeps, root: string): string[] {
   const libs: string[] = []
@@ -162,9 +180,14 @@ function steamLibraries(d: BlenderDetectDeps, root: string): string[] {
   return libs
 }
 
-/** 存在的 Steam 根：%ProgramFiles%/%ProgramFiles(x86)%/%ProgramW6432% 下的 Steam，再补 C/D/E/F 常见位置 */
+/**
+ * 存在的 Steam 根：注册表 SteamPath 优先（覆盖 G:/H: 与非默认目录），
+ * 再补 %ProgramFiles%/%ProgramFiles(x86)%/%ProgramW6432% 下的 Steam 与 C–H 常见位置。
+ */
 function steamRoots(d: BlenderDetectDeps): string[] {
   const all: string[] = []
+  const regRoot = steamPathFromRegistry(d)
+  if (regRoot) pushUnique(all, regRoot)
   for (const key of STEAM_ENV_KEYS) {
     const base = readString(d.env[key])
     if (base) pushUnique(all, path.join(base, 'Steam'))

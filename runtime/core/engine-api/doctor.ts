@@ -106,18 +106,27 @@ export async function statusView(
  * 这类失败说明通道在（TCP 通、addon 有响应），不要归成 main-thread-busy / blender-unreachable。
  */
 export function addonErrorDiagnosis(error: string): Record<string, unknown> {
+  // Blender 正在渲染时主线程命令会先吃 BUSY_RENDER：这是「等渲染」，不是 addon 坏 / 主线程忙。
+  const busy = /BUSY_RENDER/.test(error)
   return {
     kind: 'addon-error',
     tcp: true,
     ping: null,
     error: error,
     stage: 'execute_code',
-    summary:
-      '后端（9877）在、9876 端口也通，addon 回了错误（不是超时）：' +
-      error +
-      ' —— 通道本身仍在，按 addonError 处理（如操作已暂停 / 参数或脚本报错），不是 main-thread-busy。',
-    fix: '按 addonError 的具体报错修（例如在 DSH 里恢复被暂停的「AI 操作」；脚本/参数错误按报错改参数），不要按「主线程忙」重试。',
-    hint: 'TCP 127.0.0.1:9876 通，但 addon 明确回了错误 → 归因 addonError，不是通道未起、也不是主线程忙。',
+    summary: busy
+      ? '后端（9877）在、9876 端口也通，Blender 正在渲染（BUSY_RENDER）：' +
+        error +
+        ' —— 主线程被渲染占用，不是 addon 进程坏、也不是通道未起。'
+      : '后端（9877）在、9876 端口也通，addon 回了错误（不是超时）：' +
+        error +
+        ' —— 通道本身仍在，按 addonError 处理（如操作已暂停 / 参数或脚本报错），不是 main-thread-busy。',
+    fix: busy
+      ? '等渲染结束，或用 blender_rt_plan(op="render_wait") 等它；长渲染一开始就走 blender_rt_job。不要按「主线程忙」反复重试，也不用 op=start（那只修 9877 后端进程）。'
+      : '按 addonError 的具体报错修（例如在 DSH 里恢复被暂停的「AI 操作」；脚本/参数错误按报错改参数），不要按「主线程忙」重试。',
+    hint: busy
+      ? 'BUSY_RENDER：主线程命令会排队到超时，等渲染结束再发。'
+      : 'TCP 127.0.0.1:9876 通，但 addon 明确回了错误 → 归因 addonError，不是通道未起、也不是主线程忙。',
   }
 }
 

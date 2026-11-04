@@ -53,7 +53,8 @@ vi.mock('../../../src/tui/index.js', () => ({
 }))
 
 const { executeViewport } = await import('../../../src/tools/viewport/execute.js')
-const { formatStatus, formatStatusError } = await import('../../../src/tools/viewport/presenter.js')
+const { formatDoctor, formatStatus, formatStatusError } =
+  await import('../../../src/tools/viewport/presenter.js')
 
 const PORT = 9877
 const HEALTH = 'http://127.0.0.1:9877/health'
@@ -179,6 +180,65 @@ describe('formatStatusError: timeout and refused connections are different verdi
     expect(parsed.code).toBe('backend_unreachable')
     expect(parsed.next_action).toContain('op=start')
     expect(parsed.hint).toBeTruthy()
+  })
+
+  it('classifies a TCP connect timeout (ETIMEDOUT) as backend_unreachable, not backend_timeout', () => {
+    const connectTimeout = new TypeError('fetch failed', {
+      cause: new Error('connect ETIMEDOUT 127.0.0.1:9877'),
+    })
+    const parsed = JSON.parse(formatStatusError(PORT, connectTimeout))
+
+    expect(parsed.code).toBe('backend_unreachable')
+    expect(parsed.next_action).toContain('op=start')
+  })
+
+  it('survives a cyclic error cause chain instead of blowing the presenter stack', () => {
+    const loop = new Error('fetch failed') as Error & { cause?: unknown }
+    loop.cause = loop
+
+    expect(() => formatStatusError(PORT, loop)).not.toThrow()
+    const parsed = JSON.parse(formatStatusError(PORT, loop))
+    expect(parsed.error).toContain('循环 cause')
+  })
+})
+
+describe('formatStatus: BUSY_RENDER is "wait for the render", not "addon broken"', () => {
+  it('reports code=busy_render and points at render_wait instead of op=start', () => {
+    const parsed = JSON.parse(
+      formatStatus(PORT, {
+        ok: true,
+        region: null,
+        addonError: 'BUSY_RENDER：Blender 正在渲染（12 s，scene=Scene）—— 主线程命令会排队到超时',
+        stats: {},
+        ledger: { writable: true, workDir: { wsl: '/tmp' } },
+      }),
+    )
+
+    expect(parsed.running).toBe(true)
+    expect(parsed.code).toBe('busy_render')
+    expect(parsed.next_action).toContain('render_wait')
+    expect(parsed.next_action).not.toContain('用 blender_viewport op=start')
+  })
+})
+
+describe('formatDoctor: the doctor verdict beats the cached lastDiagnosis', () => {
+  it('shows d.addon.kind/summary/fix and ignores a stale metrics.lastDiagnosis', () => {
+    const out = formatDoctor({
+      ok: false,
+      error: 'addon timeout: execute_code',
+      addon: {
+        kind: 'addon-unresponsive',
+        summary: 'addon 在 3000ms 内没回 bpy 往返',
+        fix: '检查 Blender 是否运行且 DSH Blender Bridge 已 Connect',
+      },
+      metrics: { lastDiagnosis: { kind: 'main-thread-busy', summary: '旧缓存' } },
+    })
+
+    expect(out).toContain('诊断：addon-unresponsive')
+    expect(out).toContain('结论：addon 在 3000ms 内没回 bpy 往返')
+    expect(out).toContain('修法：检查 Blender 是否运行')
+    expect(out).not.toContain('main-thread-busy')
+    expect(out).not.toContain('旧缓存')
   })
 })
 

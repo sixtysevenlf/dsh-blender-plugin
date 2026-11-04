@@ -7,8 +7,14 @@ import { tuiHostSummary } from '../../tui/index.js'
 
 const NL = String.fromCharCode(10)
 // P0-3：把「超时/被 abort」与「连接被拒」分开 —— 前者是 addon/bpy 往返没回，后者才是后端没起。
-const TIMEOUT_RE = /timeout|timed out|aborted|abort|ETIMEDOUT/i
-const REFUSED_RE = /ECONNREFUSED|ECONNRESET|EHOSTUNREACH|ENOTFOUND|fetch failed|socket hang up/i
+const TIMEOUT_RE = /timeout|timed out|aborted|abort/i
+// 连接级失败：TCP connect 超时（ETIMEDOUT / connect timeout）说明**连不上**，
+// 不是「后端在、往返慢」→ 必须先于 timeout 判定（formatStatusError 的顺序就是契约）。
+const CONN_RE =
+  /ECONNREFUSED|ECONNRESET|EHOSTUNREACH|ENOTFOUND|ETIMEDOUT|connect timeout|fetch failed|socket hang up/i
+// Blender 正在渲染时主线程命令会先吃 BUSY_RENDER（engine/lifecycle.ts）—— 这是「等渲染」，不是 addon 坏。
+const BUSY_RE = /BUSY_RENDER/i
+const MAX_CAUSE_DEPTH = 4
 
 export function renderViewportOutput(
   _args: unknown,
@@ -133,9 +139,14 @@ function appendLaunchBootLines(lines: string[], x: Record<string, unknown>): voi
 export function formatDoctor(raw: unknown): string {
   const d = asRecord(raw)
   const metrics = asRecord(d.metrics)
+  const addon = d.addon ? asRecord(d.addon) : null
   const diag = d.diagnosis ? asRecord(d.diagnosis) : asRecord(metrics.lastDiagnosis)
   const lines: string[] = []
-  lines.push('诊断：' + text(d.kind || diag.kind || (d.ok ? 'ok' : 'unknown')))
+  // P2：doctor 失败时权威结论在 d.addon（kind/summary/fix）；metrics.lastDiagnosis 只是历史探针缓存，
+  // 旧写法先读它会让「AI 操作已暂停」显示成 main-thread-busy。
+  lines.push(
+    '诊断：' + text((addon && addon.kind) || d.kind || diag.kind || (d.ok ? 'ok' : 'unknown')),
+  )
   lines.push('宿主 API：' + HOST_API) // v0.9.2（R2）：DSH 升级后一眼看出插件挂的是哪份 dsh-tools
   lines.push(tuiHostSummary()) // v2.6.1：dsh-TUI 宿主半边接上了哪些接缝
   lines.push('插件：v' + PLUGIN_VERSION + ' @ ' + HERE)
@@ -145,9 +156,13 @@ export function formatDoctor(raw: unknown): string {
         ? '已解析（' + schemaResolve.via + '）'
         : '❌ ' + String(schemaResolve.error || '未解析') + ' —— 工具未注册（降级模式）'),
   )
-  if (diag.summary) lines.push('结论：' + text(diag.summary))
-  if (diag.fix) lines.push('修法：' + text(diag.fix))
-  if (d.addon) lines.push('addon：' + JSON.stringify(d.addon))
+  const summary =
+    addon && addon.summary ? text(addon.summary) : diag.summary ? text(diag.summary) : ''
+  const fix = addon && addon.fix ? text(addon.fix) : diag.fix ? text(diag.fix) : ''
+  if (summary) lines.push('结论：' + summary)
+  if (fix) lines.push('修法：' + fix)
+  if (addon) lines.push('addon：' + JSON.stringify(addon))
+  if (!d.ok && d.error && !addon) lines.push('错误：' + text(d.error))
   const ledger = d.ledger ? asRecord(d.ledger) : null
   const workDir = ledger ? asRecord(ledger.workDir) : null
   if (ledger)
@@ -232,11 +247,14 @@ function appendAddonVerdict(payload: Record<string, unknown>, s: Record<string, 
   if (!s.addonError) return JSON.stringify(payload)
   const addonError = text(s.addonError)
   payload.addonError = addonError
-  const timeout = isTimeoutError(addonError)
-  payload.code = timeout ? 'addon_unresponsive' : 'addon_error'
-  payload.next_action = timeout
-    ? '后端（9877）在，addon/bpy 没在预算内回包：检查 Blender 是否运行且「DSH Blender Bridge」已 Connect、是否卡在渲染/模态操作；重载 addon 后用 op=doctor 复核'
-    : '后端（9877）在，addon 回了错误：按 addonError 修（检查 Blender 是否运行、「DSH Blender Bridge」是否 Connect），再用 op=doctor 复核'
+  const busy = BUSY_RE.test(addonError)
+  const timeout = !busy && isTimeoutError(addonError)
+  payload.code = busy ? 'busy_render' : timeout ? 'addon_unresponsive' : 'addon_error'
+  payload.next_action = busy
+    ? 'Blender 正在渲染（BUSY_RENDER）：用 blender_rt_plan(op="render_wait") 等渲染结束，或等渲染完再发；长渲染一开始就走 blender_rt_job。不要 op=start（那只修 9877 后端进程）'
+    : timeout
+      ? '后端（9877）在，addon/bpy 没在预算内回包：检查 Blender 是否运行且「DSH Blender Bridge」已 Connect、是否卡在渲染/模态操作；重载 addon 后用 op=doctor 复核'
+      : '后端（9877）在，addon 回了错误：按 addonError 修（检查 Blender 是否运行、「DSH Blender Bridge」是否 Connect），再用 op=doctor 复核'
   return JSON.stringify(payload)
 }
 
@@ -262,6 +280,28 @@ export function isTimeoutError(e: unknown): boolean {
 
 export function formatStatusError(port: number, e: unknown): string {
   const err = errorText(e)
+  // 顺序：渲染占用 → 连接级失败 → 宿主等待超时 → 未分类。
+  // ETIMEDOUT / connect timeout 是连接级失败，归 backend_unreachable；这里若先判 timeout 会误报。
+  if (BUSY_RE.test(err))
+    return JSON.stringify({
+      running: false,
+      url: base(port) + '/',
+      error: err,
+      code: 'busy_render',
+      next_action:
+        'Blender 正在渲染（BUSY_RENDER）：用 blender_rt_plan(op="render_wait") 等渲染结束；长渲染改走 blender_rt_job；不要 op=start（后端进程不需要重启）',
+      hint: '主线程被渲染占用，/status 的 bpy 往返排不上队；等渲染结束再查',
+    })
+  const refused = CONN_RE.test(err)
+  if (refused)
+    return JSON.stringify({
+      running: false,
+      url: base(port) + '/',
+      error: err,
+      code: 'backend_unreachable',
+      next_action: '用 blender_viewport op=start 拉起后端；仍失败看 op=doctor',
+      hint: '连接层失败（拒绝 / 重置 / connect 超时）：9877 没有可用的监听进程 —— 用 blender_viewport op=start 拉起后端',
+    })
   if (isTimeoutError(e))
     return JSON.stringify({
       running: false,
@@ -272,26 +312,28 @@ export function formatStatusError(port: number, e: unknown): string {
         '先 blender_viewport op=doctor（有界，≤10s）确认 addon/bpy 是否可用；不要反复 op=start —— 超时不等于后端没起',
       hint: '这次没在预算内拿到 /status 回执：可能是 addon/bpy 往返卡住（Blender 在渲染/模态操作）或本次等待被宿主打断；/health 通就说明后端进程在',
     })
-  const refused = REFUSED_RE.test(err)
   return JSON.stringify({
     running: false,
     url: base(port) + '/',
     error: err,
     code: 'backend_unreachable',
-    next_action: refused
-      ? '用 blender_viewport op=start 拉起后端；仍失败看 op=doctor'
-      : '用 blender_viewport op=doctor 先判因（看 /health）；确实没起再用 op=start',
-    hint: refused
-      ? '连接被拒绝：9877 没有进程在监听 —— 用 blender_viewport op=start 拉起后端'
-      : '未判定为连接拒绝：先 op=doctor 看 /health，再决定是否 op=start',
+    next_action: '用 blender_viewport op=doctor 先判因（看 /health）；确实没起再用 op=start',
+    hint: '未判定为连接级失败：先 op=doctor 看 /health，再决定是否 op=start',
   })
 }
 
-/** 错误文本带上 cause（Node fetch 把 ECONNREFUSED 藏在 TypeError('fetch failed').cause 里）。 */
-function errorText(e: unknown): string {
+/**
+ * 错误文本带上 cause（Node fetch 把 ECONNREFUSED 藏在 TypeError('fetch failed').cause 里）。
+ * 深度/环保护：宿主或第三方错误可能把 cause 链成环，递归拼字符串会把 presenter 自己炸掉。
+ */
+function errorText(e: unknown, depth = 0, seen: unknown[] = []): string {
   if (e instanceof Error) {
+    if (depth >= MAX_CAUSE_DEPTH) return e.message + ' …（cause 链过深，已截断）'
+    if (seen.indexOf(e) !== -1) return '[循环 cause：' + e.message + ']'
     const cause = (e as Error & { cause?: unknown }).cause
-    return cause === undefined ? e.message : e.message + ': ' + errorText(cause)
+    return cause === undefined
+      ? e.message
+      : e.message + ': ' + errorText(cause, depth + 1, seen.concat([e]))
   }
   return String(e)
 }

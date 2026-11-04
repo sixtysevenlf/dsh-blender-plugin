@@ -37,6 +37,7 @@ export async function startBackend(
     workDir?: string
     addonPort?: number
   } = {},
+  _attempt = 0,
 ): Promise<Backend> {
   const port = await freePort()
   const workDir = options.workDir || fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-it-'))
@@ -69,21 +70,41 @@ export async function startBackend(
   const base = 'http://127.0.0.1:' + String(port)
   const deadline = Date.now() + 15000
   let up = false
+  let healthDetail = ''
   while (Date.now() < deadline) {
+    // 子进程已退出（端口被抢 / 启动崩溃）就没必要等满 15s。
+    if (child.exitCode !== null) break
     try {
       const response = await fetch(base + '/health')
       if (response.ok) {
-        up = true
-        break
+        // 必须确认是本插件的 JSON 回执：freePort() 先关探测 socket 再 spawn，
+        // 并行 worker 可能拿到同一个 ephemeral 端口——抢输的那个会「健康检查」到
+        // 另一个测试的纯文本 'ok' 服务器，然后在断言处炸成 JSON.parse('ok')。
+        const body = (await response.json().catch(() => null)) as Record<string, unknown> | null
+        if (body && body.ok === true) {
+          up = true
+          break
+        }
+        healthDetail = 'health 不是后端 JSON：' + JSON.stringify(body).slice(0, 80)
       }
-    } catch {
-      /* not listening yet */
+    } catch (e) {
+      healthDetail = String(e)
     }
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
   if (!up) {
     child.kill('SIGKILL')
-    throw new Error('backend did not become healthy: ' + log.slice(-1000))
+    // 端口竞争是 ephemeral 分配的固有小概率事件：换一个端口重试，而不是把
+    // 别人服务器的响应当成自己的后端（那会变成与代码无关的 flaky）。
+    if (_attempt < 2) {
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      return startBackend(options, _attempt + 1)
+    }
+    throw new Error(
+      'backend did not become healthy: ' +
+        log.slice(-1000) +
+        (healthDetail ? ' (' + healthDetail + ')' : ''),
+    )
   }
   const post = async (route: string, body?: unknown) => {
     const response = await fetch(base + route, {
