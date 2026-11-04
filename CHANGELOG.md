@@ -1,5 +1,22 @@
 # CHANGELOG — dsh-blender-plugin
 
+## v3.0.6（未发布）—— 修复首调失败与诊断自相矛盾
+
+- Windows 自动探测补 Steam 库：扫描 `%ProgramFiles%\Steam`、`%ProgramFiles(x86)%\Steam`、`%ProgramW6432%\Steam` 与 `{C,D,E,F}\{Program Files\Steam, Program Files (x86)\Steam, Steam, SteamLibrary}`，并解析 `steamapps/libraryfolders.vdf` 中的其它库；命中来源记 `auto:steam`。这是「Blender 装在 Steam 库里、首调直接失败」的根因。
+- `blender_rt_worker(op="start")` / `blender_rt_job(op="start")` 在 spawn 前预检 blender.exe：为空时立即返回结构化 `blender_exe_missing`（含 `DSH_BLENDER_EXE` / `dsh-blender.config.json` / Steam 路径示例），不再抛 Node 的 `TypeError: The "file" argument must be of type string`。
+- `blender_viewport(op="start")` 不再把「9877 后端进程在」当成「Blender/addon 通道可用」：/health 通后再做有界 /status，区分「后端在 + addon/bpy 可用」与「后端在、addon/bpy 未响应」。
+- `op="doctor"` 与 `GET /status` 说真话：9876 TCP 通但 addon 在预算内没回 bpy 往返时，返回 `kind: "addon-unresponsive"`（不再落成 `blender-unreachable`）；addon 明确回了错误（非超时，如「AI 操作已暂停」）时归因 `kind: "addon-error"`，不再写成 `main-thread-busy`；/status 透出 `addonError`，宿主超时报 `backend_timeout` 而不是 `backend_unreachable`。
+- 预算分层并保持倒挂关系：/status 3.5s、doctor 3s；/commands 的 FLAGS 15s + 5 个集成各 3s（每次失败还会串一次 ~2.5s 诊断，最坏 ≈42.5s < 客户端 45s < 宿主静态截止 60s）；`blender_rt_commands` 客户端预算改为 45s，先于宿主 deadline 收口；`op="start"` 的 /status 探测预算提到 12s（覆盖后端刚起首调 ~9s），不再让宿主先 abort、模型看不到 addonError。
+- `blender_rt_commands` 在 socket 级失败时返回 `addon_unreachable`，next_action 指向 N 面板 Connect + 有界 `op=doctor`，不再指向会阻塞的 `op=status`。
+- addon 面板文案改为「Bridge listening / Bridge server stopped」等，不再暗示它连接了 MCP server。
+- `blender_viewport(op="status")` 的失败分类修正：连接级失败（ETIMEDOUT / connect timeout / ECONNREFUSED 等）统一报 `backend_unreachable`，不再误报 `backend_timeout`；Blender 正在渲染时单列 `busy_render` 并指向 `render_wait`，不再归成 addon 坏。`errorText` 的 cause 链加深度/环保护。
+- `/doctor` 在 addon 明确回错时优先展示 `addon.kind/summary/fix`（不再读历史 `metrics.lastDiagnosis`）；`BUSY_RENDER` 的修法指向等待渲染。
+- `/worker` 只透出 `blender_exe_missing` 这一种约定 code；Node 内部错误码（`ERR_INVALID_ARG_TYPE` 等）不再变成模型可见的结构化错误码。
+- `blender_rt_headless` 现在真的把运行时的 `blender_exe_missing` 透出（含配置指引），与文档一致；此前一律吞成 `backend_error`。
+- Windows Steam 探测补注册表 `SteamPath`（HKCU / HKLM WOW6432Node）与 G–H 盘常见根。
+- 回归测试加固：`doctor-bounded` 先预热再计时（预算 12s，稳态 6–9s）、补 macOS/Linux 探测用例与 HKCU SteamPath 用例、worker 源码顺序断言改成正则。
+- 无 API / 协议 / 工具计数变化（15 tools / 34 family / 228 op / addon 1.11 / protocol 11）。
+
 ## v3.0.5（2026-11-04）—— 修复源码注入 __file__ 缺失
 
 - 修复 #73：源码注入的 Python 模块现在会收到真实模块路径作为 `__file__`，`audit` / `qc` / `contract` 等高层算子不再报 `NameError`。

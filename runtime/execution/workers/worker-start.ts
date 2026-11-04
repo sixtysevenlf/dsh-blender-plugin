@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import { spawn } from 'node:child_process'
 import type { ChildProcess, SpawnOptions } from 'node:child_process'
 import { winToWsl, wslToWin } from '../../config.js'
+import { assertBlenderExe, blenderExeSource } from '../exe-guard.js'
 import {
   BLENDER_EXE,
   USER_CONFIG_WIN,
@@ -15,6 +16,9 @@ import { KERNEL_BOOTSTRAP } from '../../core/kernel/index.js'
 import { errorMessage } from '../../core/json.js'
 import type { WorkerRecord, WorkersCtx } from './api.js'
 import { workerAlive, workerCall, workerSnapshot, workerState, workerKey } from './api.js'
+
+// P2-3：assertBlenderExe 提到 runtime/execution/exe-guard.ts（job 通道共用），这里保持旧导出名兼容。
+export { assertBlenderExe } from '../exe-guard.js'
 
 export interface WorkerInfo {
   timedOut?: boolean
@@ -190,6 +194,8 @@ async function warmupWorker(w: WorkerRecord): Promise<Record<string, unknown>> {
   }
 }
 
+// P0-1：BLENDER_EXE 为空时 spawn() 会同步抛 Node 的 TypeError，child.on('error')
+// 与 assertWorkerReady 的 hint 都走不到。启动前预检（实现在 exe-guard.ts），给出可执行的配置指引。
 export async function workerStart(
   ctx: WorkersCtx,
   opts: Record<string, unknown> = {},
@@ -197,6 +203,8 @@ export async function workerStart(
 ): Promise<Record<string, unknown>> {
   const w = workerState(ctx, nameArg !== undefined ? nameArg : opts.name)
   if (workerAlive(w) && w.ready) return workerSnapshot(w)
+  // 预检必须在 prepareBootFile 写盘与 spawn 之前：exe 为空时不再触发 Node 原始 TypeError。
+  assertBlenderExe(BLENDER_EXE, blenderExeSource())
   if (w.child) {
     try {
       w.child.kill('SIGKILL')

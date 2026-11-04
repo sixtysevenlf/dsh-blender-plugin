@@ -5,7 +5,7 @@ import { backendPost, leasedText, splitArgs } from '../../host/http.js'
 import { HEADLESS_WAIT_MS, newRunId, promotedFromTimeout } from '../../headless/receipts/index.js'
 import { detectFileAlias } from '../../host/runtime-bridge.js'
 import { toolError } from '../errors.js'
-import { asRecord } from '../../contracts/dynamic.js'
+import { asRecord, text } from '../../contracts/dynamic.js'
 import { attachShots, missingResultText, runAsJob, syncReceipt } from './receipt.js'
 
 export async function executeHeadless(
@@ -113,14 +113,25 @@ async function runSync(
   }
   const lt = leasedText(res)
   if (lt) return { text: lt }
-  if (!res || res.error)
+  if (!res || res.error) {
+    const errText =
+      String((res && (res.error || res.raw)) || 'unknown') +
+      (res && res.hint ? '\n' + String(res.hint) : '')
+    const code = res ? text(res.code) : ''
+    // P2：runtime /headless 从 v3.0.6 起会回 code=blender_exe_missing；工具层此前一律吞成
+    // backend_error，导致 docs 承诺的「headless 报 blender_exe_missing」是假的。
+    if (code === 'blender_exe_missing' || code === 'blender-exe-missing')
+      return toolError(
+        'blender_exe_missing',
+        'HEADLESS 失败 · ' + errText,
+        '设置 DSH_BLENDER_EXE 或 dsh-blender.config.json 的 blenderExe（Steam 版形如 D:/.../steamapps/common/Blender/blender.exe）；改完重启 DSH，再 blender_rt_headless 重试',
+      )
     return toolError(
       'backend_error',
-      'HEADLESS 失败 · ' +
-        String((res && (res.error || res.raw)) || 'unknown') +
-        (res && res.hint ? '\n' + String(res.hint) : ''),
+      'HEADLESS 失败 · ' + errText,
       '检查 Blender 路径/Dsh 后端；详情见 blender_viewport op=doctor 与 headless 日志',
     )
+  }
   // 后端 /headless 的信封是 {ok, ms, result:<引擎回执>} —— 结构化字段在 result 里
   const bodyRes = res && res.result && typeof res.result === 'object' ? asRecord(res.result) : null
   // 注意：**不能**拿 "resultJson 为空" 当缺字段 —— 脚本末行不是 JSON 时 resultJson 本来就该是 null（D3）。

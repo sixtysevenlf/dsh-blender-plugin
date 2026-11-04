@@ -37,12 +37,22 @@ export async function executeJob(args: Record<string, unknown>, port: number): P
   const r = await backendPost(port, '/job', buildJobBody(op, args), budgetFor(op, args))
   const lt = leasedText(r)
   if (lt) return { text: lt }
-  if (!r || r.ok !== true)
+  if (!r || r.ok !== true) {
+    const errText = text(r.error || r.raw || 'unknown')
+    // P2-3：blenderExe 为空的失败必须带自己的 code，否则模型看到的是泛化 backend_error、
+    // 拿不到「怎么配 blender.exe」的可执行指引。
+    if (text(r.code) === 'blender_exe_missing')
+      return toolError(
+        'blender_exe_missing',
+        'JOB ' + op + ' 失败 · ' + errText,
+        '设置 DSH_BLENDER_EXE 或 dsh-blender.config.json 的 blenderExe（Steam 版路径形如 <Steam>\\steamapps\\common\\Blender\\blender.exe）；改完重启 DSH，再 blender_rt_job op=start 重试',
+      )
     return toolError(
       'backend_error',
-      'JOB ' + op + ' 失败 · ' + text(r.error || r.raw || 'unknown'),
+      'JOB ' + op + ' 失败 · ' + errText,
       '用 blender_rt_job op=list 查看作业',
     )
+  }
   if (op === 'list') return renderJobList(r)
   return reportJob(op, asRecord(r.job))
 }

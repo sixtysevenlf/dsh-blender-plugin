@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { HttpRouteDeps } from './deps.js'
-import { errorMessage } from '../../core/json.js'
+import { errorCode, errorMessage, errorField } from '../../core/json.js'
 // HTTP 路由 /job：作业层（T7）
 export function createJobRoutes(E: HttpRouteDeps) {
   const { engine, isReadOnly, json, leaseGate, pushRtt, readBody, stats, streamJson } = E
@@ -32,7 +32,12 @@ export function createJobRoutes(E: HttpRouteDeps) {
             return { ok: true, op: op, job: j }
           } catch (e) {
             stats.lastError = errorMessage(e)
-            return { ok: false, op: op, error: stats.lastError }
+            return {
+              ok: false,
+              op: op,
+              error: stats.lastError,
+              code: errorField(e, 'code') || errorCode(e) || null,
+            }
           }
         })
         return
@@ -62,7 +67,13 @@ export function createJobRoutes(E: HttpRouteDeps) {
         json(res, 200, { ok: true, op: 'list', jobs: engine.job.list() })
       } catch (e) {
         stats.lastError = errorMessage(e)
-        json(res, 200, { ok: false, op: op, error: stats.lastError })
+        // P2-3：把 blender_exe_missing 等结构化 code 透出，工具层才能给配置指引而不是泛化 backend_error。
+        json(res, 200, {
+          ok: false,
+          op: op,
+          error: stats.lastError,
+          code: errorField(e, 'code') || errorCode(e) || null,
+        })
       } finally {
         pushRtt('job', Date.now() - t0j)
       }

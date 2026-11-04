@@ -97,7 +97,16 @@ export function createWorkerRoutes(E: HttpRouteDeps) {
           }
         } catch (e) {
           stats.lastError = errorMessage(e)
-          return { ok: false, op: op, error: stats.lastError, hint: errorField(e, 'hint') || null }
+          const code = errorField(e, 'code')
+          return {
+            ok: false,
+            op: op,
+            error: stats.lastError,
+            hint: errorField(e, 'hint') || null,
+            // 只透出本插件约定、工具层认识的 code：Node 内部错误码（ERR_INVALID_ARG_TYPE 等）
+            // 不该变成模型可见的「结构化错误码」。
+            code: code === 'blender_exe_missing' ? code : null,
+          }
         }
       })
       return

@@ -81,18 +81,19 @@ class DSHBB_PT_Panel(bpy.types.Panel):
 
     @staticmethod
     def _draw_connection(layout, scene):
-        # Connection
+        # Local bridge server (NOT an MCP/DSH connection): the panel must not claim
+        # that starting this socket server means the agent is connected.
         box = layout.box()
         col = box.column()
         if scene.dshbb_server_running:
             server = getattr(bpy.types, "dshbb_server", None)
             running_port = getattr(server, "port", scene.dshbb_port)
-            col.label(text=f"Connected on port {running_port}", icon="CHECKMARK")
-            col.operator("dshbb.stop_server", text="Disconnect", icon="X")
+            col.label(text=f"Bridge listening on 127.0.0.1:{running_port}", icon="CHECKMARK")
+            col.operator("dshbb.stop_server", text="Stop bridge server", icon="X")
         else:
-            col.label(text="Not connected", icon="RADIOBUT_OFF")
+            col.label(text="Bridge server stopped (DSH not connected)", icon="RADIOBUT_OFF")
             col.prop(scene, "dshbb_port")
-            col.operator("dshbb.start_server", text="Connect to MCP server", icon="PLAY")
+            col.operator("dshbb.start_server", text="Start bridge server", icon="PLAY")
 
     def _draw_selection(self, layout, scene, activity):
         # v1.8 · Selection → DSH（在 Blender 原生选区里选，按按钮进 DSH 下一条消息）

@@ -101,8 +101,11 @@ describe('source guards (WSL/Windows branches still exist)', () => {
     expect(/if\s*\(!IS_WSL\)\s*return\s*s\b/.test(config)).toBe(true)
     expect(config).toContain('WSL_INTEROP')
     expect(config).toContain('/proc/version')
-    expect(config).toContain('Blender Foundation')
-    expect(config).toContain('where.exe')
+    // v3.0.5（P0-2）：Windows/PATH 探测整段拆到 runtime/blender-detect.ts（config.ts 只留再导出），
+    // 判据不变 —— 两个文件合起来仍然保留这两个分支标记。
+    const detect = config + NL + read('runtime/blender-detect.ts')
+    expect(detect).toContain('Blender Foundation')
+    expect(detect).toContain('where.exe')
   })
   it('keeps the WSL path-helper rewrite', () => {
     const source =

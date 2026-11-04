@@ -1,5 +1,10 @@
 /** blender_viewport 的执行层：op 分发 + 每个 op 一个阶段函数（行为与 v2.6.2 一致）。 */
-import { HOLDER, SERVER_PATH } from '../../constants.js'
+import {
+  HOLDER,
+  SERVER_PATH,
+  VIEWPORT_DOCTOR_HEALTH_TIMEOUT_MS,
+  VIEWPORT_START_STATUS_TIMEOUT_MS,
+} from '../../constants.js'
 import {
   base,
   killBackendByCmd,
@@ -38,17 +43,43 @@ export async function executeViewport(
 async function opStart(port: number): Promise<string> {
   setPaused(false)
   const url = base(port) + '/health'
-  if (await probeHttp(url, 800)) return '后端已在运行：' + base(port) + '/（看护已启用）'
+  if (await probeHttp(url, 800)) return formatBackendUp(port)
   const how = await startBackend(port)
   // S7：等待改成「轮询到真能服务」（15 s），不再「睡固定窗口后探测一次」。
-  if (await waitHttp(url, 15000, 300))
-    return '后端已启动（' + how + '）：' + base(port) + '/（看护已启用）'
+  if (await waitHttp(url, 15000, 300)) return formatBackendUp(port, how)
   return (
     '启动失败：' +
     how +
     '（15 s 内 /health 仍不通；可先 op=restart 清残留进程，或检查 ' +
     SERVER_PATH +
     ' 与 node）'
+  )
+}
+
+/**
+ * P0-3：/health 通只证明 9877 后端活着，**不证明** Blender/addon/bpy 可用。
+ * 再用有界 /status 看 bpy 往返，把「后端在 + addon/bpy 可用」与「后端在、addon 没响应」分开说。
+ */
+async function formatBackendUp(port: number, how?: string): Promise<string> {
+  const endpoint = base(port) + '/'
+  const addonDown = (detail: string): string =>
+    '后端在（9877）' +
+    endpoint +
+    '：addon/bpy 未响应：' +
+    detail +
+    ' → 检查 Blender 是否运行且「DSH Blender Bridge」已 Connect（op=start 只管后端进程，不修这条通道；op=doctor 复核）'
+  let status: Record<string, unknown>
+  try {
+    status = await backendJson(port, '/status', VIEWPORT_START_STATUS_TIMEOUT_MS)
+  } catch (e: unknown) {
+    return addonDown(errorMessage(e))
+  }
+  if (status.addonError) return addonDown(text(status.addonError))
+  return (
+    (how ? '后端已启动（' + how + '）' : '后端已在运行') +
+    '：' +
+    endpoint +
+    '（看护已启用）· addon/bpy 可用（/status bpy 往返通）'
   )
 }
 
@@ -122,7 +153,17 @@ async function opDoctor(port: number): Promise<string> {
   try {
     return formatDoctor(await backendJson(port, '/doctor'))
   } catch (e: unknown) {
-    return '体检失败：' + errorMessage(e) + '（后端可能没起：blender_viewport op=start）'
+    const err = errorMessage(e)
+    // P0-3：只有 /health 也不通才能说「后端没起」；后端在就是 addon/bpy 往返的问题。
+    const backendUp = await probeHttp(base(port) + '/health', VIEWPORT_DOCTOR_HEALTH_TIMEOUT_MS)
+    if (backendUp)
+      return (
+        '体检失败：' +
+        err +
+        '（后端在（9877），doctor 超时/失败：问题在 addon 或 bpy 往返 —— ' +
+        '检查 Blender 是否运行且「DSH Blender Bridge」已 Connect；op=start 只管后端进程，不修这条通道；op=doctor 稍后重试）'
+      )
+    return '体检失败：' + err + '（后端没起：blender_viewport op=start）'
   }
 }
 

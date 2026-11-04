@@ -17,6 +17,9 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { isRecord, readString } from './core/json.js'
 import { errorMessage } from './core/json.js'
+import { detectBlenderExe } from './blender-detect.js'
+export { detectBlenderExe }
+export type { BlenderDetectDeps, BlenderDetectResult } from './blender-detect.js'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 /**
@@ -362,88 +365,10 @@ function resolveWorkDir(): WorkDirInfo {
   })
 }
 
-function listDirSafe(p: string): string[] {
-  try {
-    return fs.readdirSync(p)
-  } catch (e) {
-    return []
-  }
-}
-
-/** 找 Blender：配置 → 常见安装位置 → PATH（Windows / WSL / macOS 都能用） */
-function detectBlenderExe(): { exe: string | null; from: string } {
-  const given = readString(process.env.DSH_BLENDER_EXE) || readString(FILE.cfg.blenderExe)
-  if (given) return { exe: given, from: 'config' }
-  const cands = []
-  if (IS_WIN) {
-    const pf = process.env.ProgramFiles || 'C:\\Program Files'
-    for (const d of listDirSafe(path.join(pf, 'Blender Foundation'))) {
-      if (/^Blender/i.test(d)) cands.push(path.join(pf, 'Blender Foundation', d, 'blender.exe'))
-    }
-    cands.push(path.join(pf, 'Blender Foundation', 'Blender', 'blender.exe'))
-  } else if (IS_MAC) {
-    // macOS：Blender 官方安装是 .app bundle，可执行文件在 Contents/MacOS 下。
-    // 支持 /Applications、~/Applications 与任意 /Volumes/* 下的版本化目录（Blender 4.2.app、Blender.app…）。
-    const homes = ['/Applications', path.join(os.homedir(), 'Applications')]
-    try {
-      for (const v of listDirSafe('/Volumes')) homes.push(path.join('/Volumes', v, 'Applications'))
-    } catch (e) {
-      /* /Volumes 不可读就算了 */
-    }
-    for (const base of homes) {
-      for (const d of listDirSafe(base)) {
-        if (/^Blender.*\.app$/i.test(d)) {
-          cands.push(path.join(base, d, 'Contents', 'MacOS', 'Blender'))
-        }
-      }
-      // 兜底：未版本化的固定名
-      cands.push(path.join(base, 'Blender.app', 'Contents', 'MacOS', 'Blender'))
-    }
-  } else {
-    // Linux/WSL：扫 /mnt/<盘>/Program Files/Blender Foundation/Blender*/blender.exe（含 Steam 版常见位置）
-    // WSL：扫 /mnt/<盘>/Program Files/Blender Foundation/Blender*/blender.exe（含 Steam 版常见位置）
-    for (const drive of ['c', 'd', 'e', 'f']) {
-      const base = '/mnt/' + drive
-      if (!fs.existsSync(base)) continue
-      for (const d of listDirSafe(path.join(base, 'Program Files', 'Blender Foundation'))) {
-        if (/^Blender/i.test(d))
-          cands.push(path.join(base, 'Program Files', 'Blender Foundation', d, 'blender.exe'))
-      }
-      for (const rel of [
-        'SteamLibrary/steamapps/common/Blender/blender.exe',
-        'Steam/steamapps/common/Blender/blender.exe',
-        'Program Files/Blender Foundation/Blender/blender.exe',
-      ]) {
-        cands.push(path.join(base, rel))
-      }
-    }
-  }
-  for (const c of cands) {
-    try {
-      if (fs.existsSync(c)) return { exe: c, from: 'auto:install' }
-    } catch (e) {}
-  }
-  // PATH 兜底（Linux 用 which，Windows 用 where）
-  try {
-    const cmd = IS_WIN ? 'where.exe' : 'which'
-    // windowsHide: where.exe 是 console-subsystem，宿主无控制台时会被新配控制台（issue #43；非 Windows no-op）
-    const out = execFileSync(cmd, ['blender'], {
-      encoding: 'utf8',
-      timeout: 5000,
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-      .split(/\r?\n/)
-      .filter(Boolean)[0]
-    if (out) return { exe: IS_WIN ? out.trim() : out.trim(), from: 'auto:path' }
-  } catch (e) {
-    /* 没装到 PATH */
-  }
-  return { exe: null, from: 'not-found' }
-}
-
 const WORK = resolveWorkDir()
-const BLENDER = detectBlenderExe()
+/** blender.exe 探测在 runtime/blender-detect.ts（可注入依赖；Windows 含 Steam 库）。这里保留再导出，
+ *  外部与 tests 仍从 runtime/config.js 拿 detectBlenderExe；探测来源见 CFG.source.blenderExe。 */
+const BLENDER = detectBlenderExe({ fileCfg: FILE.cfg })
 
 function num(v: unknown, d: number): number {
   const n = Number(v)

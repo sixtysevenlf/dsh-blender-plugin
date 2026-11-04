@@ -73,6 +73,12 @@ function workerFailure(op: string, raw: unknown): unknown {
   if (rr.stdout && String(rr.stdout).trim())
     bits.push('stdout: ' + redactSecrets(rr.stdout).slice(0, 800))
   if (r.hint) bits.push(text(r.hint))
+  if (text(r.code) === 'blender_exe_missing')
+    return toolError(
+      'blender_exe_missing',
+      bits.join(LF),
+      '设置 DSH_BLENDER_EXE 或 dsh-blender.config.json 的 blenderExe（Steam 版路径形如 <Steam>\\steamapps\\common\\Blender\\blender.exe）；改完重启 DSH，再 blender_rt_worker op=start 重试',
+    )
   return toolError(
     'backend_error',
     bits.join(LF),
