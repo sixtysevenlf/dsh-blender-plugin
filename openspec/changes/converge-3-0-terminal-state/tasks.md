@@ -47,7 +47,6 @@
 - [x] 6.3 曲面算法单一来源：删除 `docs/曲面算法.md`，以 `skills/blender-modeling/references/曲面算法.md` 为真源，更新 4 处入链；验证：`grep -rn "docs/曲面算法" ` 只剩 CHANGELOG 历史条目。
 - [x] 6.4 用户可见 MCP / Claude 文案改 Bridge（保留上游署名、`BLENDERMCP_*` env 兼容与许可证文本）；验证：`grep -rn "Claude\|MCP" addon/dsh_blender_bridge --include=*.py` 只剩署名/兼容/历史注释，`test:addon-unit` 通过。
 - [x] 6.5 清理代码/测试/脚本中的重构计划编号（800+ 处 ID 形状 token），新增 `check-plan-ids`（先 warn 后 enforce，豁免 CHANGELOG/archive/architecture 历史说明）；验证：enforce 模式下零命中，`npm run lint` 通过。（终态：1436 token/91 文件全部被 90 文件豁免或清理，residual 0；5 条窄豁免为误报：motion_impl/measure.py 的 F0=faces index、blockout_impl/present.py 的 F12=Blender 渲染快捷键、3 个 surface-fit 测试的 M3=域阶段；`check-plan-ids --enforce` 已接入 `npm run lint`。清理过程中修复了 codemod 越界改写的 164 处字符串字面量、1 处 TS 语法与 1 处 M3 断言，未放松任何断言。）
-- [ ] 6.5 清理代码/测试/脚本中的重构计划编号（800+ 处 ID 形状 token），新增 `check-plan-ids`（先 warn 后 enforce，豁免 CHANGELOG/archive/architecture 历史说明）；验证：enforce 模式下零命中，`npm run lint` 通过。
 - [x] 6.6 扩展 `check-doc-paths`：链接存在、非 archive 文档有入链（中英对应文件互指计入，中文与英文侧都必须有入链）、禁止引用不存在路径；验证：warn 模式收集存量后转 enforced，全绿。（终态：17 篇 legacy docs + 22 篇 extended docs；0 orphan、0 新缺失路径；仅保留 7 条有理由的历史引用（5 条 frozen host-contract selftest/selectionstore + 2 条 MIGRATIONS 删除路径），已写入 config/doc-links-baseline.json 并 record 在测试里；`--enforce` 接入 lint；破窗证据：临时 orphan + ghost path → exit 1，删除后 exit 0。）
 - [x] 6.7 `tests/BEHAVIOR_MATRIX.md` 行号引用改为"文件 + 符号名"，matrix 门禁校验符号存在；验证：故意改一个符号名时门禁失败，恢复后通过。（5 处 line ref → `path:symbol`（含 `docs/操作教程.md §1.1` 章节锚）；门禁拒绝 `path:line` 并校验符号 word-boundary 存在；346 行/344 covered/2 exempt 不变；新增 2 条回归测试并保留破窗证据。）
 - [x] 6.8 双语文档同步（`docs/zh/` 与英文侧），更新 `docs/architecture.md` 的叙事历史说明；验证：两语言版本链接互指正确。（README/zh 文档列表改为真实 markdown 链接并互链；SECURITY en+zh 同步纠正凭据/遥测/addon 代码位置三处旧声明；architecture 新增 §11 Narrative history：计划/spec/debt ledger 作为仓库外历史证据，仓库内以行为与门禁为准。）
@@ -61,10 +60,10 @@
 
 ## 8. 集成验收
 
-- [ ] 8.1 全门禁：`npm run typecheck`、`test:unit`、`test:integration`、`test:contract`、`test:addon-unit`、`check:python-static`、`build`、`check:build`、`check:parity`、`test:matrix`、`check:exceptions`、`check:routes`、`check:plan-ids`；验证：全部 exit 0，输出贴 PR。
-- [ ] 8.2 `npm pack --dry-run` 与 install smoke（`check:addon` + zip 69 条目）通过；验证：打包清单与 addon zip 均为预期。
-- [ ] 8.3 确认契约计数不变（15 / 34 / 228 / 38 / 29 / protocol 11）并在 PR 声明；验证：`sync_counts` 输出无差异。
-- [ ] 8.4 写 CHANGELOG **3.0.6** 条目（分节：缺陷修复 / 治理（含 engine.ts 公开面变化）/ 开发环境脚本）与 PR 模板（refactor.md）披露；验证：CHANGELOG 结构通过现有发布检查，PR 描述含 AI 披露节。
+- [x] 8.1 全门禁：`npm run typecheck`、`test:unit`、`test:integration`、`test:contract`、`test:addon-unit`、`check:python-static`、`build`、`check:build`、`check:parity`、`test:matrix`、`check:exceptions`、`check:routes`、`check:plan-ids`；验证：全部 exit 0，输出贴 PR。（1298460 全量重跑：typecheck/build/check:build 0；unit 714 passed/1 expected fail/2 skipped；integration 252；contract 412 passed/1 expected fail；addon-unit 99；python 339；parity PASS（exports 22/families 34/ops 228/commands 38/toolDetail 7/routes 29）；matrix 346 行；其余 check 全 0；lint/format 0。）
+- [x] 8.2 `npm pack --dry-run` 与 install smoke（`check:addon` + zip 69 条目）通过；验证：打包清单与 addon zip 均为预期。（pack：1047 files / 2.2 MB package / 7.1 MB unpacked；`check:addon` 0；`smoke:install` 0，fingerprint 22 exports/34/228/38，doctor kind=ok。）
+- [x] 8.3 确认契约计数不变（15 / 34 / 228 / 38 / 29 / protocol 11）并在 PR 声明；验证：`sync_counts` 输出无差异。（`node scripts/sync_counts.mjs` exit 0，"catalog 现算：34 family / 228 op；已改 0 个文件"；matrix 门禁输出 15 tools / 38 commands（38 registered + ping = 39 wire）/ 34 families / 228 ops / 29 routes。）
+- [x] 8.4 写 CHANGELOG **3.0.6** 条目（分节：缺陷修复 / 治理（含 engine.ts 公开面变化）/ 开发环境脚本）与 PR 模板（refactor.md）披露；验证：CHANGELOG 结构通过现有发布检查，PR 描述含 AI 披露节。（CHANGELOG v3.0.6 三节已提交于 1298460；refactor.md 模板已按其章节起草 PR 描述于 .dsh-ops/pr-body.md，推送/建 PR 待用户批准。）
 
 ## Workflow follow-up
 
