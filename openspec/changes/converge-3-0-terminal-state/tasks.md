@@ -37,8 +37,8 @@
 
 - [x] 5.1 按设计 D9 清单逐项删除（5 个未用导出、`__unusedAsRecord`、重复 `ReceiptContext`、`import_model_files` 链、`compat.py`、`core/render-state.ts`），每项先 `grep` 消费者；验证：`grep` 命中为 0，`npm run typecheck` 与 `test:unit` 通过。（偏差：`compat.py` 只删 `bpy_version`/`is_bpy_at_least`，保留被 4 处生产导入的 `ADDON_MODULE`；`core/render-state.ts` 有真实消费者链 assemble→plan-dispatch→render-guard，保留并报告。）
 - [ ] 5.2 `package.json` 删除 `runtime/ext/pkg.tgz` 打包条目，清理工作区 85 个陈旧 `.pyc`；验证：`npm pack --dry-run` 文件清单不再含 pkg.tgz，`git status` 无新增缓存文件。
-- [ ] 5.3 105 个 80–120 行函数逐类登记理由与 reviewBy（分派表 / 线性流水线 / 生成式目录），只拆有内聚收益者；验证：`check-function-budget` 通过且白名单条目全部带 reviewBy。
-- [ ] 5.4 更新 `docs/architecture.md` 例外登记表与 5.3 的分类说明；验证：`check:doc-paths` 与 `check-exceptions` 通过。
+- [x] 5.3 105 个 80–120 行函数逐类登记理由与 reviewBy（分派表 / 线性流水线 / 生成式目录），只拆有内聚收益者；验证：`check-function-budget` 通过且白名单条目全部带 reviewBy。（实际登记 106 个，8 类；未拆任何函数，理由见 design D11；文件级预算与 >120 预算逻辑保持不变。）
+- [x] 5.4 更新 `docs/architecture.md` 例外登记表与 5.3 的分类说明；验证：`check:doc-paths` 与 `check-exceptions` 通过。（两级登记：路径级 config/exceptions.json、函数级 config/function-budget-allowlist.json。）
 
 ## 6. S4 文档与叙事
 

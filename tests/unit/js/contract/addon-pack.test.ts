@@ -31,12 +31,35 @@ describe('F4.5 final-state addon pack invariants', () => {
     expect(fs.existsSync(repoPath('runtime', 'execution', 'headless.ts'))).toBe(false)
   })
 
-  it('keeps the function-budget ledger empty at the final state', () => {
+  it('registers every soft-band function in the function-budget ledger', () => {
     const allow = JSON.parse(read('config/function-budget-allowlist.json')) as {
-      functions: unknown[]
-      files: unknown[]
+      version: number
+      description: string
+      functions: {
+        file: string
+        name: string
+        classification: string
+        reason: string
+        owner: string
+        reviewBy: string
+      }[]
+      files?: unknown
     }
-    expect(allow.functions).toEqual([])
-    expect(allow.files).toEqual([])
+    expect(allow.version).toBe(1)
+    expect(allow.description).toContain('config/exceptions.json')
+    expect(allow.files).toBeUndefined()
+    expect(allow.functions.length).toBeGreaterThan(0)
+    const keys = new Set<string>()
+    for (const row of allow.functions) {
+      expect(row.file.length).toBeGreaterThan(0)
+      expect(row.name.length).toBeGreaterThan(0)
+      expect(row.classification).not.toBe('unclassified')
+      expect(row.owner.length).toBeGreaterThan(0)
+      expect(row.reason.length).toBeGreaterThanOrEqual(16)
+      expect(row.reviewBy).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+      expect(row.reviewBy >= '2027-01-01').toBe(true)
+      keys.add(row.file + '::' + row.name)
+    }
+    expect(keys.size).toBe(allow.functions.length)
   })
 })

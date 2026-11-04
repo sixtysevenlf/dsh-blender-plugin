@@ -135,10 +135,14 @@ These are the rules that protect the architecture:
   transport-only ping is the 39th wire command.
 - src/index.ts stays entry-only; production files stay under the line budgets enforced by
   check:structure.
-- Functions target <=80 lines and may not exceed 120 without a recorded exception; the function budget
-  has no stale entries.
-- runtime/py implementation files stay <=1,000 lines; TS and addon files stay <=600 lines. Size
-  exceptions live in config/exceptions.json (kind=file-budget, with reason/owner/reviewBy) and are
+- Functions target <=80 lines and never exceed 120. The 80-120 soft band is a registered debt
+  ledger, not a warning: every band function has an entry in config/function-budget-allowlist.json
+  with a classification, a real reason, the class owner, and a future reviewBy. npm run
+  check:function-budget fails on an unregistered, unclassified, expired, or stale entry, and cannot
+  waive a function over 120 lines; the classes are dispatch-table, linear-pipeline, generated-catalog,
+  orchestration, formatting, validation, parsing, and integration-io (see [Exceptions](#exceptions)).
+- runtime/py implementation files stay <=1,000 lines; TS and addon files stay <=600 lines. Path-level
+  size exceptions live in config/exceptions.json (kind=file-budget, with reason/owner/reviewBy) and are
   checked by npm run check:exceptions; the plan catalog data table runtime/catalog/data.ts is the
   single registered one.
 - Every Python module is in modules.json; there are no flat shims and no second registry.
@@ -166,14 +170,32 @@ The op surface has two derived data sources; neither is hand-maintained inside t
 
 ### Exceptions
 
-`config/exceptions.json` is the machine-readable registry behind every known exception in this
-guide. Each entry has `id`, `kind`, `path`, `reason`, `owner`, and `reviewBy`; `npm run
+Exceptions are owned at two levels; an unowned, expired, or stale entry fails a gate.
+
+`config/exceptions.json` is the path-level registry behind every known file exception in this guide.
+Each entry has `id`, `kind`, `path`, `reason`, `owner`, and `reviewBy`; `npm run
 check:exceptions` (part of `npm run lint`) rejects an unknown kind, a missing path, a duplicate id,
 a reason shorter than 16 characters, and an expired `reviewBy`. Kinds: `file-budget`,
 `function-budget`, `python-static`, `single-line-reexport`, `facade-export`, `doc-path`,
 `matrix-row`. Only `file-budget` (`runtime/catalog/data.ts`) has an entry today; `python-static`
 exists for future owned static-check waivers but currently has no entries because the static gate has
-no checked-in baseline.
+no checked-in baseline. No `function-budget` entries are used: function-level debt is registered at
+the second level instead.
+
+`config/function-budget-allowlist.json` is the function-level registry for the 80-120 line soft band.
+Every band function has one entry keyed `file::name` with a `classification`, `reason`, class
+`owner`, and future `reviewBy` (current ledger: 2027-06-30). Classes and their owners:
+`dispatch-table` (runtime), `linear-pipeline` (runtime), `generated-catalog` (catalog),
+`orchestration` (runtime), `formatting` (host), `validation` (qa), `parsing` (host),
+`integration-io` (addon). `npm run check:function-budget` (also run by `npm run test:unit` and
+`npm run test:contract`) fails when a band function is unregistered, its classification is unknown,
+its owner differs from the class owner, its `reviewBy` has expired, or its entry went stale
+(registered but no longer in the band). Functions over 120 lines always fail and cannot be waived.
+`node scripts/check-function-budget.mjs --refresh` rewrites the ledger for the current tree, preserving
+classified entries and adding new ones as `unclassified`; unclassified entries fail until a real role
+and reason are written, so a refresh cannot silently re-bless debt. Design D11 chose registration over
+splitting: the band is catalogued by class and no function was split, because none had an
+independently cohesive part worth the churn.
 
 ### Coverage policy
 
