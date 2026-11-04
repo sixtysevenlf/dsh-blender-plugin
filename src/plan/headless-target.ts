@@ -4,73 +4,24 @@ import { attachPaths, planImagePaths } from '../utils/image.js'
 import { redactSecrets } from '../tools/errors.js'
 import { asRecord, isRecord, text } from '../contracts/dynamic.js'
 
-export type HeadlessTarget = { api: string; sub: string; preload: string }
+import { PLAN_HEADLESS_ALIAS, PLAN_HEADLESS_MAP } from './routes.generated.js'
+import type { HeadlessTarget } from './routes.generated.js'
 
-/** P1：plan op → 无头 worker 的模块 API（不给 GUI 也能跑；op 前缀路由 + 别名） */
-export const PLAN_HEADLESS_MAP: ReadonlyArray<readonly [string, string, string]> = [
-  ['visualreport_', 'dsh_visualreport_api', 'visualreport,qc,imgtools'],
-  ['shapesolve_', 'dsh_shapesolve_api', 'shapesolve,imgtools'],
-  [
-    'eval_',
-    'dsh_evalharness_api',
-    'evalharness,assembly,audit,contract,clearance,gate,imgtools,calib,mesh_fix',
-  ],
-  ['surface_', 'dsh_surface_api', 'surface,audit'],
-  ['blockout_', 'dsh_blockout_api', 'blockout,qc,qc_render,montage'],
-  ['asm_', 'dsh_assembly_api', 'assembly,audit,contract,clearance,gate,mesh_fix,geo,txn'],
-  ['img_', 'dsh_img_api', 'imgtools'],
-  ['audit_', 'dsh_audit_api', 'audit'],
-  ['qc_', 'dsh_qc_api', 'qc,imgtools'],
-  ['gate_', 'dsh_gate_api', 'gate,audit'],
-  ['shape_', 'dsh_shape_api', 'shapegen,imgtools'],
-  ['vehicle_', 'dsh_vehicle_api', 'vehicle,audit,clearance,gate'],
-  ['clear_', 'dsh_clearance_api', 'clearance'],
-  ['deliver_', 'dsh_deliver_api', 'deliver,gate'],
-  ['fix_', 'dsh_fix_api', 'mesh_fix'],
-  ['uv_', 'dsh_uv_api', 'uv_tools'],
-  ['print_', 'dsh_print_api', 'printcheck'],
-  ['sculpt_', 'dsh_sculpt_api', 'sculpt'],
-  ['sweep_', 'dsh_sweep_api', 'sweep'],
-  ['material_', 'dsh_material_api', 'material'],
-  ['motion_', 'dsh_motion_api', 'motion'],
-  ['generator_', 'dsh_generator_api', 'generator'],
-  ['face_', 'dsh_face_api', 'faceeval'],
-  ['human_', 'dsh_human_api', 'human,imgtools'],
-]
-export const PLAN_HEADLESS_ALIAS: Record<string, readonly [string, string, string]> = {
-  qc_visual_report: ['dsh_visualreport_api', 'report', 'visualreport,qc,imgtools'],
-  shape_solve: ['dsh_shapesolve_api', 'solve', 'shapesolve,imgtools'],
-  fix_clash: [
-    'dsh_assembly_api',
-    'repair',
-    'assembly,audit,contract,clearance,gate,mesh_fix,geo,txn',
-  ],
-  fix_interference: [
-    'dsh_assembly_api',
-    'fix_interference',
-    'assembly,audit,contract,clearance,gate,mesh_fix,geo,txn',
-  ],
-  audit_clash_all: [
-    'dsh_assembly_api',
-    'scan',
-    'assembly,audit,contract,clearance,gate,mesh_fix,geo,txn',
-  ],
-  model_preflight: ['dsh_gate_api', 'preflight', 'gate,audit'],
-  model_checkpoint: ['dsh_gate_api', 'checkpoint', 'gate,txn'],
-  model_deliver: ['dsh_gate_api', 'deliver', 'gate,audit,txn,deliver'],
-}
+export { PLAN_HEADLESS_ALIAS, PLAN_HEADLESS_MAP }
+export type { HeadlessTarget }
+
 export function planHeadlessTarget(op: string): HeadlessTarget | null {
   const o = String(op || '')
   const alias = PLAN_HEADLESS_ALIAS[o]
   if (alias) return { api: alias[0], sub: alias[1], preload: alias[2] }
-  // qc_render_* 有专用模块（与 GUI 侧 handleQcRender 同口径）：dsh_qc_api 的
-  // render_views 只是转接，worker 里没有 GUI 的旧扁平 exec 兜底，必须在映射表
-  // 匹配 qc_ 之前分流，否则 worker 路径会稳定失败。
-  if (o.indexOf('qc_render_') === 0)
-    return { api: 'dsh_qc_render_api', sub: o.slice(3), preload: 'qc,qc_render' }
+  // The generated worker table owns the ordering: exact aliases first, then prefix
+  // rows by precedence. qc_render_ is rank 8, ahead of qc_ (rank 17), which keeps the
+  // D3 P0 fix for headless qc_render_*: the worker serves dsh_qc_render_api and has no
+  // GUI flat-exec fallback, so the more specific prefix must win. Strip lengths also
+  // come from config/routing.json rather than being repeated here.
   for (const row of PLAN_HEADLESS_MAP) {
-    const p = String(row[0])
-    if (o.indexOf(p) === 0) return { api: row[1], sub: o.slice(p.length), preload: row[2] }
+    const p = row[0]
+    if (o.indexOf(p) === 0) return { api: row[1], sub: o.slice(row[3]), preload: row[2] }
   }
   return null
 }

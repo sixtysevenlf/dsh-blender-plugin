@@ -99,6 +99,7 @@ def main():
         bpy.ops.preferences.addon_install(filepath=zip_path, overwrite=True)
         addon_utils.enable(PACKAGE_NAME, default_set=True)
         import dsh_blender_bridge as addon
+        from dsh_blender_bridge import command_registry
 
         report["raw"]["module_file"] = addon.__file__
         report["raw"]["version"] = list(addon.bl_info["version"])
@@ -110,7 +111,7 @@ def main():
             "module_file": addon.__file__,
             "version": list(addon.bl_info["version"]),
             "protocol": addon.ADDON_PROTOCOL_VERSION,
-            "commands": len(addon.protocol.COMMAND_NAMES),
+            "commands": len(command_registry.COMMAND_NAMES),
         })
 
         connect = bpy.ops.dshbb.start_server()

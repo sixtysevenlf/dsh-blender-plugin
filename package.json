@@ -110,7 +110,7 @@
   },
   "scripts": {
     "setup:dev": "node scripts/setup-dev.mjs",
-    "build": "node scripts/build.mjs all",
+    "build": "node scripts/gen-routes.mjs && node scripts/build.mjs all",
     "build:addon": "node scripts/build-addon.mjs",
     "check:addon": "node scripts/build-addon.mjs --check",
     "typecheck": "node scripts/typecheck.mjs -p tsconfig.runtime.json && node scripts/build.mjs runtime && node scripts/typecheck.mjs && node scripts/typecheck.mjs -p tsconfig.test.json",
@@ -123,6 +123,7 @@
     "format:check": "prettier --check \"{src,tests,scripts,runtime}/**/*.{ts,mts,cts,js,mjs,cjs,json}\" \"*.{ts,json,yml,yaml}\" \"*.mjs\" \".prettierrc.json\" \".github/**/*.{yml,yaml}\"",
     "check:structure": "node scripts/check-structure.mjs",
     "check:exceptions": "node scripts/check-exceptions.mjs",
+    "check:routes": "node scripts/check-routes.mjs",
     "check:function-budget": "node scripts/check-function-budget.mjs",
     "check:build": "node scripts/check-build.mjs",
     "check:git-hygiene": "node scripts/check-git-hygiene.mjs",

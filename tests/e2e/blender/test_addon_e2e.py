@@ -80,7 +80,9 @@ def test_get_addon_info_contract(blender_run):
     assert info["name"] == "DSH Blender Bridge"
     assert info["addon_version"] == [1, 11]
     assert info["protocol_version"] == 11
-    assert len(info["capabilities"]) == 16
+    # 38 registered commands: the handshake capabilities derive from
+    # command_registry.COMMAND_NAMES (D6) rather than a hardcoded 16-name list.
+    assert len(info["capabilities"]) == 38
     assert info["blender_version"].startswith("4.2.")
 
 

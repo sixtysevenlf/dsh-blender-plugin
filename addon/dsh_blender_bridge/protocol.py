@@ -2,12 +2,7 @@
 
 import bpy
 
-from .command_registry import (
-    COMMAND_GROUPS as COMMAND_GROUPS,
-    COMMAND_NAMES as COMMAND_NAMES,
-    GATED_COMMAND_GROUPS as GATED_COMMAND_GROUPS,
-    PAUSE_SAFE_COMMANDS,
-)
+from .command_registry import PAUSE_SAFE_COMMANDS
 
 # Keep in sync with dsh_blender_bridge.addon_manager.EXPECTED_ADDON_PROTOCOL_VERSION.
 ADDON_PROTOCOL_VERSION = 11

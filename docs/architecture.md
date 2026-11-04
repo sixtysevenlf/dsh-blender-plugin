@@ -23,9 +23,10 @@ There are two processes and one TCP bridge:
 - the backend owns jobs, leases, sessions, receipts, and routing;
 - the host owns the model-facing tools and the headless/fallback policy.
 
-The public model surface is 15 tools, 34 planning families, 228 operations, 38 addon commands,
-29 HTTP routes, and protocol 11. These counts are facts, not goals; changing one requires updating
-the catalog, lock, tests, and migration notes in the same change.
+The public model surface is 15 tools, 34 planning families, 228 operations, 38 addon commands
+(38 registered commands; the transport-only ping makes 39 wire commands), 29 HTTP routes, and
+protocol 11. These counts are facts, not goals; changing one requires updating the catalog, lock,
+tests, and migration notes in the same change.
 
 ## 2. Host plugin (src/)
 
@@ -87,13 +88,18 @@ recorders, assets, integrations, and UI. The release artifact is a deterministic
 package.
 
 The addon version is 1.11 and protocol is 11. A register/unregister round trip is part of the tests.
+`addon/dsh_blender_bridge/command_registry.py` is the only command truth: 38 registered commands
+plus the transport-only `ping` (39 wire commands). `get_addon_info` derives its handshake
+capabilities from `command_registry.COMMAND_NAMES`, and the host catalog
+(`runtime/catalog/commands.ts`) is parity-checked in both directions against it.
 The launcher and plugin refuse an incompatible protocol and name the expected addon version. Existing
 users migrate by removing the old single-file addon and installing the release zip; the backend and
 protocol do not change during that migration.
 
 ## 6. Build, package, and release
 
-- npm run build compiles runtime, host, and client.
+- npm run build regenerates the route tables from config/routing.json, then compiles runtime, host,
+  and client.
 - lib/ is generated and is not committed.
 - prepack builds lib/; CI's check:build verifies the artifact.
 - npm pack produces the published tarball: lib/, runtime Python, addon package, skills, docs, and tests.
@@ -117,15 +123,16 @@ Three layers, with a different job each:
 
 Python static checks are part of the same quality surface: ruff over runtime/py, tests, and the addon,
 plus a narrow pyright scope over pure-logic runtime modules. The pyright scope is explicit; it is not a
-claim that all runtime Python is typed. The ruff baseline is an explicit debt ledger with reason,
-owner, and expiry, not a permanent blanket ignore.
+claim that all runtime Python is typed. There is no checked-in ruff baseline: every violation fails the
+gate.
 
 ## 8. Quality gates and invariants
 
 These are the rules that protect the architecture:
 
 - 15 tools / 34 families / 228 ops / 38 addon commands / 29 routes / protocol 11 stay stable unless a
-  declared migration changes them.
+  declared migration changes them. The 38 addon commands are the registered dispatch surface; the
+  transport-only ping is the 39th wire command.
 - src/index.ts stays entry-only; production files stay under the line budgets enforced by
   check:structure.
 - Functions target <=80 lines and may not exceed 120 without a recorded exception; the function budget
@@ -138,6 +145,35 @@ These are the rules that protect the architecture:
 - No explicit any in foundation host/runtime files; type debt is a ledger, not a whole-file exemption.
 - Coverage floors are enforced by check:coverage; E2E scenario coverage is separate from line coverage.
 - Every behavioral change needs a failing test first and evidence in the pull request.
+
+### Contract and routing sources
+
+The op surface has two derived data sources; neither is hand-maintained inside the dispatch code:
+
+- `config/routing.json` is the single routing table (op prefix or exact alias, strip length, python
+  api, GUI vs worker side, preload, timeout, ensure hook). `scripts/gen-routes.mjs` renders
+  `src/plan/routes.generated.ts` (headless worker) and
+  `runtime/core/dispatcher/routes.generated.ts` (GUI). Both files start with an AUTO-GENERATED header
+  plus the source sha256. `npm run build` regenerates them and `npm run check:routes` fails when a
+  generated file is missing, stale, or hand-edited. Generated tables are excluded from the size
+  scanners and validated by `check:routes`.
+- `config/contracts.json` is the catalog <-> Python link layer: family -> python api -> declared
+  extraction of the literal dispatch table. `scripts/catalog_dispatch_keys.py` parses those tables
+  with the Python ast module (no import, no bpy), and
+  `tests/unit/js/contract/catalog-dispatch-parity.test.ts` fails when a catalog op has no python
+  dispatch key. Host-side families, aliases, and python-only keys are declared explicitly in that
+  file, so undeclared drift fails instead of being skipped.
+
+### Exceptions
+
+`config/exceptions.json` is the machine-readable registry behind every known exception in this
+guide. Each entry has `id`, `kind`, `path`, `reason`, `owner`, and `reviewBy`; `npm run
+check:exceptions` (part of `npm run lint`) rejects an unknown kind, a missing path, a duplicate id,
+a reason shorter than 16 characters, and an expired `reviewBy`. Kinds: `file-budget`,
+`function-budget`, `python-static`, `single-line-reexport`, `facade-export`, `doc-path`,
+`matrix-row`. Only `file-budget` (`runtime/catalog/data.ts`) has an entry today; `python-static`
+exists for future owned static-check waivers but currently has no entries because the static gate has
+no checked-in baseline.
 
 ### Coverage policy
 
@@ -168,12 +204,14 @@ policy; a floor must not be lowered without a documented policy change in this g
 | Python domains plus one modules.json registry | One place to add a module; no flat shims or duplicate path maps |
 | Small public facades plus implementation packages | Stable public imports and preload names; facades must stay boring |
 | File, function, and coverage budgets | Reviewable size and measured debt; exceptions need owner, reason, and expiry |
+| One routing table plus codegen; one catalog <-> Python link table | GUI and worker routes cannot drift from config/routing.json; check:routes rejects stale generated tables, and the parity test rejects undeclared dispatch drift |
 
 ## 10. How to change safely
 
 1. Read AGENTS.md for commands and hard rules.
 2. For a boundary or contract change, update the code, the catalog/lock, the contract tests, and the
-   migration notes together.
+   migration notes together. Routing changes start in config/routing.json and regenerate through
+   node scripts/gen-routes.mjs; catalog op changes must also update config/contracts.json.
 3. Add or update a failing test before the behavior change. Keep unit tests free of Blender, display,
    network, and user profile dependencies.
 4. Run the layer gates for what changed, then the full test and static gates. Run real-Blender E2E for

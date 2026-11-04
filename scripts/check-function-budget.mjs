@@ -141,11 +141,23 @@ function validEntry(e) {
 const tsFiles = []
 walk(path.join(ROOT, 'src'), ['.ts'], tsFiles)
 walk(path.join(ROOT, 'runtime'), ['.ts'], tsFiles)
-const tsFns = tsFiles.flatMap(tsFunctions)
+// 生成文件（头行声明 AUTO-GENERATED）由 config/routing.json 派生、由 check:routes
+// 校验新鲜度；它们不是手工生产源码，不参与函数/文件预算。
+const GENERATED_HEADER = '// AUTO-GENERATED FILE'
+const isGeneratedSource = (file) => {
+  try {
+    return fs.readFileSync(file, 'utf8').startsWith(GENERATED_HEADER)
+  } catch {
+    return false
+  }
+}
+const authoredTsFiles = tsFiles.filter((file) => !isGeneratedSource(file))
+const generatedSkipped = tsFiles.length - authoredTsFiles.length
+const tsFns = authoredTsFiles.flatMap(tsFunctions)
 const pyFns = pythonFunctions()
 const allFns = tsFns.concat(pyFns)
 const fileRows = []
-for (const file of tsFiles) {
+for (const file of authoredTsFiles) {
   const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/).length
   if (lines > TS_FILE_BUDGET) fileRows.push({ file: rel(file), lines, budget: TS_FILE_BUDGET })
 }
@@ -260,7 +272,8 @@ const report = {
   node: process.version,
   thresholds: { target: TARGET, hard: HARD, tsFile: TS_FILE_BUDGET, pyFile: PY_FILE_BUDGET },
   counts: {
-    tsFiles: tsFiles.length,
+    tsFiles: authoredTsFiles.length,
+    generatedSkipped,
     tsFunctions: tsFns.length,
     pythonFunctions: pyFns.length,
     hard: hard.length,

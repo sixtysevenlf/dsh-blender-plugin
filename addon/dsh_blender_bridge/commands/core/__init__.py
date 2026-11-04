@@ -7,6 +7,7 @@ import io
 from contextlib import redirect_stdout
 
 from ...assets.geometry import compute_aabb
+from ...command_registry import COMMAND_NAMES
 from ...protocol import ADDON_NAME, ADDON_PROTOCOL_VERSION, ADDON_VERSION
 from ..scene.export import SceneExportMixin
 from .bpy_lookup import BpyApiLookupCommands
@@ -20,24 +21,9 @@ class CoreCommands(SceneExportMixin, BpyApiLookupCommands, ScreenshotCommands):
             "name": ADDON_NAME,
             "addon_version": list(ADDON_VERSION),
             "protocol_version": ADDON_PROTOCOL_VERSION,
-            "capabilities": sorted([
-                "get_scene_info",
-                "get_world_state_snapshot",
-                "get_addon_info",
-                "get_object_info",
-                "get_viewport_screenshot",
-                "execute_code",
-                "describe_node_type",
-                "bpy_api_lookup",
-                "drain_human_activity",
-                "get_activity_state",
-                "get_selection",
-                "send_selection_to_dsh",
-                "get_collections",
-                "send_collection_to_dsh",
-                "get_telemetry_consent",
-                "set_telemetry_consent",
-            ]),
+            # D6: derive from the single command registry instead of a hardcoded
+            # subset, so the handshake cannot drift from the dispatch table.
+            "capabilities": sorted(COMMAND_NAMES),
             "blender_version": bpy.app.version_string,
         }
 

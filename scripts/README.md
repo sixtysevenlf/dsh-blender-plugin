@@ -24,6 +24,7 @@ npm package. npm scripts in package.json call these files; tests live under test
 | build-client.mjs | Build the hand-written client half into lib/client.js; --check verifies freshness            | build.mjs, check-build.mjs                 | lib/client.js                          |
 | build.sh         | Deprecated convenience wrapper for optional DSH_CHECKOUT linking; canonical is npm run build | manual only                                | node_modules links, lib/ via build.mjs |
 | ensure-build.mjs | Ensure lib/ exists and is fresh before tests/checks                                          | imported by checkers and test helpers      | lib/                                   |
+| gen-routes.mjs   | Render the worker/GUI route tables from config/routing.json; header carries the source hash  | npm run build                              | src/plan/routes.generated.ts, runtime/core/dispatcher/routes.generated.ts |
 
 ### Test entry points
 
@@ -43,6 +44,7 @@ npm package. npm scripts in package.json call these files; tests live under test
 | check-coverage.mjs          | Single coverage gate: JS global/changed, critical/execution, Python, E2E | npm run check:coverage                       | stdout only                              |
 | check-doc-paths.mjs         | Check relative links and advertised commands in human/AI docs            | npm run check:doc-paths / check:finalization | stdout only                              |
 | check-exceptions.mjs        | Validate config/exceptions.json: kind enum, path exists, owned and unexpired | npm run lint / check:exceptions             | stdout only                              |
+| check-routes.mjs           | Assert the generated route tables match config/routing.json byte for byte | npm run check:routes                        | stdout only                              |
 | check-function-budget.mjs   | File and function line budgets                                           | check:function-budget / check:finalization   | stdout only                              |
 | check-git-hygiene.mjs       | Ensure lib/ is untracked; requires a git checkout                        | npm run check:git-hygiene / CI               | stdout only                              |
 | check-import-boundaries.mjs | Layer boundaries for host, runtime and addon                             | check:finalization                           | stdout only                              |

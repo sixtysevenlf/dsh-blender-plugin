@@ -299,10 +299,23 @@ function walkSource(dir, out, exts) {
     }
   }
 }
-const budgetFiles = []
-walkSource(path.join(ROOT, 'src'), budgetFiles, ['.ts'])
-walkSource(path.join(ROOT, 'runtime'), budgetFiles, ['.ts'])
-walkSource(path.join(ROOT, 'addon'), budgetFiles, ['.py'])
+const rawBudgetFiles = []
+walkSource(path.join(ROOT, 'src'), rawBudgetFiles, ['.ts'])
+walkSource(path.join(ROOT, 'runtime'), rawBudgetFiles, ['.ts'])
+walkSource(path.join(ROOT, 'addon'), rawBudgetFiles, ['.py'])
+// 生成文件（头行声明 AUTO-GENERATED）是 config/routing.json 的派生产物，由
+// check:routes 校验新鲜度；它们不是手工生产源码，不参与行预算，否则每次扩表
+// 都要改一次脚本白名单。
+const GENERATED_HEADER = '// AUTO-GENERATED FILE'
+const isGeneratedSource = (file) => {
+  try {
+    return fs.readFileSync(file, 'utf8').startsWith(GENERATED_HEADER)
+  } catch {
+    return false
+  }
+}
+const budgetFiles = rawBudgetFiles.filter((file) => !isGeneratedSource(file))
+const generatedSkipped = rawBudgetFiles.filter(isGeneratedSource).map((file) => rel(file))
 const budgetViolations = []
 for (const file of budgetFiles) {
   const key = rel(file)
@@ -315,6 +328,7 @@ for (const file of budgetFiles) {
 const budgetReport = {
   budget: LINE_BUDGET,
   files: budgetFiles.length,
+  generatedSkipped,
   exempt: [...BUDGET_EXEMPT],
   violations: budgetViolations,
 }

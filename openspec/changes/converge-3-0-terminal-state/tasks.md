@@ -16,11 +16,11 @@
 
 - [x] 3.1 新增 `config/exceptions.json` 与 `scripts/check-exceptions.mjs`（path 必须存在、reviewBy 过期失败、kind 枚举），接入 `npm run lint`；验证：故意写入一条不存在的 path 时脚本失败，删除后通过。
 - [x] 3.2 合并三处分散例外源（`check-structure.mjs` 的 `BUDGET_EXEMPT`、`config/coverage-baseline.json` 残留的 `runtime/catalog.ts` 键、python 静态门 allowlist）到 3.1 的登记表（偏差：python 静态门没有 allowlist——`scripts/check-python-static.mjs` 注明 no checked-in baseline，故无可合并项；枚举保留 python-static 供将来用）；验证：`check:structure`、`test:contract`、`check:python-static` 全绿，且 `grep -r "runtime/catalog\.ts" --include=*.md --include=*.mjs --include=*.json` 只剩历史说明。
-- [ ] 3.3 新增 `config/routing.json` 单一路由表、`scripts/gen-routes.mjs` 与两个 generated 文件，接入 build 与 `check:routes`；替换 `src/plan/headless-target.ts` 与 `runtime/core/dispatcher/ext-routing.ts`/`plan-call.ts` 的硬编码表；验证：生成物 hash 校验通过，删除一行源数据后 `check:routes` 失败。
-- [ ] 3.4 新增 catalog ↔ Python dispatch parity 测试（`ast` 解析字面 dict 键），族→模块映射来自 3.3 的 routing 表；验证：故意改名一个 py op 时测试为红，恢复后为绿。
-- [ ] 3.5 addon 命令真源：handshake capabilities 由 `registry.COMMAND_NAMES` 派生（删除硬编码 16）、`protocol.py` 删除 3 个无人消费再导出、host `runtime/catalog/commands.ts` parity 改为双向；验证：`npm run test:addon-unit` 与 python 侧 `test_addon_command_registry.py` 真断言通过，`sync_counts` 后命令数仍为 38/39 口径。
-- [ ] 3.6 更新 `tests/BEHAVIOR_MATRIX.md` 与四把锁（`check-behavior-matrix.mjs`、python dispatch 测试、E2E、matrix doc）中的命令数口径；验证：`npm run test:matrix` 通过。
-- [ ] 3.7 更新 `docs/architecture.md` 的契约/路由/例外章节与 `AGENTS.md` 的计数口径说明（38 注册 + ping 线 = 39）；验证：`check:doc-paths` 通过，人工抽查两处链接可点。
+- [x] 3.3 新增 `config/routing.json` 单一路由表、`scripts/gen-routes.mjs` 与两个 generated 文件，接入 build 与 `check:routes`；替换 `src/plan/headless-target.ts` 与 `runtime/core/dispatcher/ext-routing.ts`/`plan-call.ts` 的硬编码表；验证：生成物 hash 校验通过，删除一行源数据后 `check:routes` 失败。
+- [x] 3.4 新增 catalog ↔ Python dispatch parity 测试（`ast` 解析字面 dict 键），族→模块映射来自 3.3 的 routing 表（实现用 `config/contracts.json`，D2 允许；parity 测试交叉校验 contracts 族集合 == routing 族 ∪ hostSideFamilies）；验证：故意改名一个 py op 时测试为红，恢复后为绿。（遗留 bug：`qc_compare_auto`/`qc_align_iou` 是 catalog 暴露但 python dispatch 无键的既有漂移，已声明为 catalogExtras，待独立缺陷修复。）
+- [x] 3.5 addon 命令真源：handshake capabilities 由 `registry.COMMAND_NAMES` 派生（删除硬编码 16）、`protocol.py` 删除 3 个无人消费再导出、host `runtime/catalog/commands.ts` parity 改为双向；验证：`npm run test:addon-unit` 与 python 侧 `test_addon_command_registry.py` 真断言通过，`sync_counts` 后命令数仍为 38/39 口径。（提交前已 `npm run build:addon` 重建 committed zip。）
+- [x] 3.6 更新 `tests/BEHAVIOR_MATRIX.md` 与四把锁（`check-behavior-matrix.mjs`、python dispatch 测试、E2E、matrix doc）中的命令数口径；验证：`npm run test:matrix` 通过。
+- [x] 3.7 更新 `docs/architecture.md` 的契约/路由/例外章节与 `AGENTS.md` 的计数口径说明（38 注册 + ping 线 = 39）；验证：`check:doc-paths` 通过，人工抽查两处链接可点。
 
 ## 4. S2 facade 与双入口收口
 

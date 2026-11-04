@@ -237,8 +237,13 @@ async function loadCatalogs() {
     addonSource.indexOf('def get_addon_info'),
     addonSource.indexOf('def get_scene_info'),
   )
+  // D6: capabilities derive from command_registry.COMMAND_NAMES; a hardcoded
+  // name list in the handshake is a regression, not an acceptable alternative.
+  const capabilitiesDerived = /"capabilities":\s*sorted\(COMMAND_NAMES\)/.test(handshake)
   const capabilityMatch = handshake.match(/"capabilities":\s*sorted\(\[([\s\S]*?)\]\)/)
-  const capabilityCount = capabilityMatch ? (capabilityMatch[1].match(/"[^"]+"/g) || []).length : 0
+  const literalCapabilityCount = capabilityMatch
+    ? (capabilityMatch[1].match(/"[^"]+"/g) || []).length
+    : 0
 
   // F3.1: one command registry owns the wire table. Counts are explicit constants;
   // the matrix must agree with the registry, not with a hand-maintained list.
@@ -249,6 +254,7 @@ async function loadCatalogs() {
   )
   const wireCommands = [...new Set(rawCommandNames)].sort()
   const registeredCommands = wireCommands.filter((name) => name !== 'ping')
+  const capabilityCount = capabilitiesDerived ? registeredCommands.length : literalCapabilityCount
 
   return {
     toolNames,
@@ -259,6 +265,7 @@ async function loadCatalogs() {
     routes,
     addonSource,
     protocol,
+    capabilitiesDerived,
     capabilityCount,
     addonRegistry: {
       registeredCount: registeredMatch ? Number(registeredMatch[1]) : null,
@@ -371,10 +378,6 @@ function checkAddonCommands(catalogs) {
   if (catalogs.protocol !== 11) {
     fail('addon protocol version is ' + String(catalogs.protocol) + ', expected 11')
   }
-  if (catalogs.capabilityCount !== 16) {
-    fail('addon handshake advertises ' + catalogs.capabilityCount + ' capabilities, expected 16')
-  }
-
   const registry = catalogs.addonRegistry
   if (registry.registeredCount === null) {
     fail('addon command_registry.py has no REGISTERED_COMMAND_COUNT')
@@ -413,6 +416,18 @@ function checkAddonCommands(catalogs) {
     if (!wireSet.has(name)) {
       fail('COMMAND_CATALOG command ' + name + ' is absent from the addon wire registry')
     }
+  }
+  if (!catalogs.capabilitiesDerived) {
+    fail('addon handshake capabilities must derive from command_registry.COMMAND_NAMES (D6)')
+  }
+  if (catalogs.capabilityCount !== registry.registeredCommands.length) {
+    fail(
+      'addon handshake advertises ' +
+        catalogs.capabilityCount +
+        ' capabilities, expected ' +
+        registry.registeredCommands.length +
+        ' registered commands',
+    )
   }
 }
 

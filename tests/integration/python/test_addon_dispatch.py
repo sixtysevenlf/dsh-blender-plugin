@@ -18,6 +18,7 @@ bpy = bpy_stub.install()
 
 server_module = importlib.import_module("addon.dsh_blender_bridge.server")
 protocol = importlib.import_module("addon.dsh_blender_bridge.protocol")
+command_registry = importlib.import_module("addon.dsh_blender_bridge.command_registry")
 
 BASE_COMMANDS = [
     "get_scene_info", "get_world_state_snapshot", "get_addon_info", "get_object_info",
@@ -54,7 +55,10 @@ def test_real_get_addon_info_contract():
     assert info["addon_version"] == [1, 11]
     assert info["protocol_version"] == 11
     assert info["blender_version"] == "4.2.10"
-    assert len(info["capabilities"]) == 16
+    # D6: the handshake derives capabilities from the registry, so it is the full
+    # registered command set (38) instead of the old hardcoded 16-name subset.
+    assert info["capabilities"] == sorted(command_registry.COMMAND_NAMES)
+    assert len(info["capabilities"]) == 38
 
 
 def test_all_38_contract_commands_dispatch(monkeypatch):
@@ -72,7 +76,7 @@ def test_all_38_contract_commands_dispatch(monkeypatch):
         else:
             assert response["result"] == {"handled": name}, name
 
-    assert len(ALL_COMMANDS) == len(protocol.COMMAND_NAMES) == 38
+    assert len(ALL_COMMANDS) == len(command_registry.COMMAND_NAMES) == 38
 
 
 def test_unknown_command_and_handler_exception_shapes(monkeypatch):
@@ -239,7 +243,7 @@ def test_every_read_safe_command_survives_the_pause_gate(monkeypatch):
                 continue
             response = server.execute_command({"type": name, "params": {}})
             assert response["status"] == "success", (name, response)
-        for name in protocol.COMMAND_NAMES:
+        for name in command_registry.COMMAND_NAMES:
             if name.startswith("get_"):
                 assert server.execute_command({"type": name, "params": {}})["status"] == "success", name
     finally:

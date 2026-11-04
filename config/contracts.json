@@ -1,0 +1,373 @@
+{
+  "version": 1,
+  "note": "D2 link layer: catalog family -> python dispatch table. Consumed by scripts/catalog_dispatch_keys.py and tests/unit/js/contract/catalog-dispatch-parity.test.ts. Catalog ops must map to a literal python dispatch key; aliases and both-side extras are declared here, never silently skipped.",
+  "pythonTables": {
+    "sculpt": {
+      "kind": "local-dict",
+      "file": "runtime/py/geometry/sculpt.py",
+      "function": "sculpt_dispatch",
+      "var": "ops"
+    },
+    "fix": {
+      "kind": "local-dict",
+      "file": "runtime/py/geometry/mesh_fix.py",
+      "function": "fix_dispatch",
+      "var": "ops"
+    },
+    "uv": {
+      "kind": "local-dict",
+      "file": "runtime/py/geometry/uv_tools.py",
+      "function": "uv_dispatch",
+      "var": "ops"
+    },
+    "print": {
+      "kind": "local-dict",
+      "file": "runtime/py/export/printcheck.py",
+      "function": "print_dispatch",
+      "var": "ops"
+    },
+    "sweep": {
+      "kind": "local-dict",
+      "file": "runtime/py/core/sweep.py",
+      "function": "sweep_dispatch",
+      "var": "ops"
+    },
+    "audit": {
+      "kind": "local-dict",
+      "file": "runtime/py/core/audit_impl/api.py",
+      "function": "audit_dispatch",
+      "var": "ops"
+    },
+    "qc": {
+      "kind": "helper-dict",
+      "file": "runtime/py/render/qc_impl/api.py",
+      "function": "qc_ops"
+    },
+    "qc_render": {
+      "kind": "local-dict",
+      "file": "runtime/py/render/qc_render_impl/dispatch.py",
+      "function": "qc_render_dispatch",
+      "var": "ops"
+    },
+    "pipe": {
+      "kind": "register-ops",
+      "file": "runtime/py/core/pipeline.py",
+      "name": "pipe"
+    },
+    "shape": {
+      "kind": "local-dict",
+      "file": "runtime/py/geometry/shapegen.py",
+      "function": "shape_dispatch",
+      "var": "ops"
+    },
+    "vehicle": {
+      "kind": "local-dict",
+      "file": "runtime/py/assembly/vehicle_impl/api.py",
+      "function": "vehicle_dispatch",
+      "var": "ops"
+    },
+    "clearance": {
+      "kind": "register-ops",
+      "file": "runtime/py/assembly/clearance.py",
+      "name": "clearance"
+    },
+    "human": {
+      "kind": "local-dict",
+      "file": "runtime/py/assembly/human.py",
+      "function": "human_dispatch",
+      "var": "ops"
+    },
+    "face": {
+      "kind": "local-dict",
+      "file": "runtime/py/geometry/faceeval.py",
+      "function": "face_dispatch",
+      "var": "ops"
+    },
+    "img": {
+      "kind": "local-dict",
+      "file": "runtime/py/render/imgtools_impl/api.py",
+      "function": "img_dispatch",
+      "var": "ops"
+    },
+    "assembly": {
+      "kind": "module-dict",
+      "file": "runtime/py/assembly/assembly_impl/dispatch.py",
+      "var": "_OPS"
+    },
+    "blockout": {
+      "kind": "register-ops",
+      "file": "runtime/py/geometry/blockout_impl/api.py",
+      "name": "blockout"
+    },
+    "eval": {
+      "kind": "register-ops",
+      "file": "runtime/py/core/evalharness.py",
+      "name": "evalharness"
+    },
+    "calib": {
+      "kind": "local-dict",
+      "file": "runtime/py/render/calib.py",
+      "function": "calib_dispatch",
+      "var": "ops"
+    },
+    "visualreport": {
+      "kind": "register-ops",
+      "file": "runtime/py/render/visualreport_impl/api.py",
+      "name": "visualreport"
+    },
+    "shapesolve": {
+      "kind": "register-ops",
+      "file": "runtime/py/geometry/shapesolve.py",
+      "name": "shapesolve"
+    },
+    "surface": {
+      "kind": "register-ops",
+      "file": "runtime/py/geometry/surface_impl/api.py",
+      "name": "surface"
+    },
+    "gate": {
+      "kind": "local-dict",
+      "file": "runtime/py/core/gate_impl/api.py",
+      "function": "gate_dispatch",
+      "var": "ops"
+    },
+    "material": {
+      "kind": "local-dict",
+      "file": "runtime/py/render/material.py",
+      "function": "material_dispatch",
+      "var": "ops"
+    },
+    "deliver": {
+      "kind": "helper-dict",
+      "file": "runtime/py/export/deliver_impl/verify.py",
+      "function": "d_ops"
+    },
+    "motion": {
+      "kind": "helper-dict",
+      "file": "runtime/py/core/motion_impl/api/index.py",
+      "function": "motion_ops"
+    },
+    "generator": {
+      "kind": "local-dict",
+      "file": "runtime/py/geometry/generator.py",
+      "function": "generator_dispatch",
+      "var": "ops"
+    },
+    "plan": {
+      "kind": "helper-dict",
+      "file": "runtime/py/core/planner.py",
+      "function": "p_ops"
+    },
+    "contract": {
+      "kind": "helper-dict",
+      "file": "runtime/py/core/contract_impl/api.py",
+      "function": "c_ops"
+    },
+    "gui": {
+      "kind": "function-names",
+      "file": "runtime/py/render/view.py",
+      "prefix": "gui_"
+    },
+    "montage": {
+      "kind": "api-dict",
+      "file": "runtime/py/render/montage.py",
+      "api": "dsh_montage_api",
+      "ignore": [
+        "version",
+        "dispatch",
+        "selftest"
+      ]
+    }
+  },
+  "families": {
+    "sculpt": {
+      "api": "dsh_sculpt_api",
+      "table": "sculpt"
+    },
+    "fix": {
+      "api": "dsh_fix_api",
+      "table": "fix"
+    },
+    "uv": {
+      "api": "dsh_uv_api",
+      "table": "uv"
+    },
+    "print": {
+      "api": "dsh_print_api",
+      "table": "print"
+    },
+    "sweep": {
+      "api": "dsh_sweep_api",
+      "table": "sweep"
+    },
+    "audit": {
+      "api": "dsh_audit_api",
+      "table": "audit"
+    },
+    "qc": {
+      "api": "dsh_qc_api",
+      "table": "qc",
+      "catalogExtras": {
+        "compare_auto": "Known pre-existing drift (S1 parity audit): qc_compare_auto routes dispatch sub \"compare_auto\", but dsh_qc_api dispatch keys use \"compare\". No host-side handler exists; reported as a follow-up bug instead of hiding it with an alias.",
+        "align_iou": "Known pre-existing drift (S1 parity audit): qc_align_iou routes dispatch sub \"align_iou\", which dsh_qc_api does not expose (closest keys: align_search / iou). Reported as a follow-up bug."
+      },
+      "pythonExtras": [
+        "iou",
+        "align_search",
+        "rotate_mask",
+        "gif_to_png",
+        "resize_mask",
+        "write_png",
+        "render_views",
+        "qc_render_views",
+        "render_help"
+      ]
+    },
+    "qc_render": {
+      "api": "dsh_qc_render_api",
+      "table": "qc_render",
+      "pythonExtras": [
+        "render_views",
+        "qc_render_views",
+        "render_help",
+        "selftest",
+        "render_selftest",
+        "views_catalog",
+        "render_catalog",
+        "render_views_catalog",
+        "view_menu",
+        "render_view_menu",
+        "device_info",
+        "render_device_info",
+        "render_lock",
+        "lock",
+        "qc_render_lock",
+        "status",
+        "render_status"
+      ]
+    },
+    "pipe": {
+      "api": "dsh_pipe_api",
+      "table": "pipe"
+    },
+    "shape": {
+      "api": "dsh_shape_api",
+      "table": "shape",
+      "catalogExtras": {
+        "search": "Host-side op: runtime/core/plan-dispatch.ts shapeSearchOp handles shape_search before the dispatcher, so it is intentionally absent from shapegen dispatch."
+      }
+    },
+    "vehicle": {
+      "api": "dsh_vehicle_api",
+      "table": "vehicle"
+    },
+    "clearance": {
+      "api": "dsh_clearance_api",
+      "table": "clearance"
+    },
+    "human": {
+      "api": "dsh_human_api",
+      "table": "human"
+    },
+    "ext": {
+      "host": "runtime/core/plan-dispatch.ts",
+      "hostReason": "Host-side family: extCheckOp handles gltf_validate / ext_mesh_check before the dispatcher; there is no python dispatch table."
+    },
+    "face": {
+      "api": "dsh_face_api",
+      "table": "face"
+    },
+    "img": {
+      "api": "dsh_img_api",
+      "table": "img"
+    },
+    "assembly": {
+      "api": "dsh_assembly_api",
+      "table": "assembly",
+      "pythonExtras": [
+        "audit_clash_all",
+        "merge_gate",
+        "fix_clash",
+        "fix_interference",
+        "asm_export"
+      ]
+    },
+    "blockout": {
+      "api": "dsh_blockout_api",
+      "table": "blockout"
+    },
+    "eval": {
+      "api": "dsh_evalharness_api",
+      "table": "eval"
+    },
+    "calib": {
+      "api": "dsh_calib_api",
+      "table": "calib"
+    },
+    "visualreport": {
+      "api": "dsh_visualreport_api",
+      "table": "visualreport"
+    },
+    "shapesolve": {
+      "api": "dsh_shapesolve_api",
+      "table": "shapesolve"
+    },
+    "surface": {
+      "api": "dsh_surface_api",
+      "table": "surface"
+    },
+    "gate": {
+      "api": "dsh_gate_api",
+      "table": "gate"
+    },
+    "material": {
+      "api": "dsh_material_api",
+      "table": "material"
+    },
+    "render_guard": {
+      "host": "runtime/core/plan-dispatch.ts",
+      "hostReason": "Host-side family: renderGuardOp handles render_state / render_wait / render_reset / render_guard_install / render_guard_selftest before the dispatcher; there is no python dispatch table."
+    },
+    "render": {
+      "api": "dsh_qc_render_api",
+      "table": "qc_render",
+      "mode": "subset",
+      "aliases": {
+        "lock": "render_lock",
+        "status": "render_status",
+        "help": "render_help"
+      }
+    },
+    "deliver": {
+      "api": "dsh_deliver_api",
+      "table": "deliver"
+    },
+    "motion": {
+      "api": "dsh_motion_api",
+      "table": "motion"
+    },
+    "generator": {
+      "api": "dsh_generator_api",
+      "table": "generator"
+    },
+    "plan": {
+      "api": "dsh_plan_api",
+      "table": "plan"
+    },
+    "contract": {
+      "api": "dsh_contract_api",
+      "table": "contract",
+      "pythonExtras": [
+        "fingerprint"
+      ]
+    },
+    "gui": {
+      "api": "dsh_view_api",
+      "table": "gui"
+    },
+    "montage": {
+      "api": "dsh_montage_api",
+      "table": "montage"
+    }
+  }
+}

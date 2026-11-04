@@ -40,11 +40,34 @@ def test_ping_is_wire_only():
     assert {spec.name for spec in registry.WIRE_COMMANDS} == set(registry.COMMAND_NAMES) | {"ping"}
 
 
-def test_protocol_lists_are_derived_from_the_registry():
-    assert protocol.COMMAND_NAMES == registry.COMMAND_NAMES
-    assert protocol.COMMAND_GROUPS == registry.COMMAND_GROUPS
-    assert protocol.GATED_COMMAND_GROUPS == registry.GATED_COMMAND_GROUPS
+def test_dispatch_table_is_derived_from_the_registry(monkeypatch):
+    """D6: the server resolves commands through registry.WIRE_SPECS, not its own table."""
+    server = server_module.DSHBlenderBridgeServer(port=0)
+    scene = bpy.context.scene
+    previous = {}
+    for gate in registry.GATE_PROPERTIES.values():
+        previous[gate] = getattr(scene, gate, False)
+        setattr(scene, gate, True)
+    try:
+        for spec in registry.WIRE_COMMANDS:
+            assert server._resolve_handler(spec.name) is not None, spec.name
+        assert server._resolve_handler("not_a_command") is None
+        # A spec injected into the registry is dispatchable without touching server code.
+        extra = registry.CommandSpec("unit_injected_command", (), "ping_response", None, True)
+        monkeypatch.setitem(registry.WIRE_SPECS, extra.name, extra)
+        assert server._resolve_handler("unit_injected_command") is not None
+        monkeypatch.delitem(registry.WIRE_SPECS, extra.name)
+        assert server._resolve_handler("unit_injected_command") is None
+    finally:
+        for gate, value in previous.items():
+            setattr(scene, gate, value)
+
+
+def test_protocol_no_longer_reexports_the_command_registry():
+    """D6: protocol keeps only PAUSE_SAFE_COMMANDS; command_registry owns the truth."""
     assert protocol.PAUSE_SAFE_COMMANDS == registry.PAUSE_SAFE_COMMANDS
+    for name in ("COMMAND_NAMES", "COMMAND_GROUPS", "GATED_COMMAND_GROUPS"):
+        assert not hasattr(protocol, name), name
 
 
 def test_groups_cover_every_command_once():

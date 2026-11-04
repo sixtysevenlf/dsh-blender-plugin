@@ -80,3 +80,10 @@ export const COMMAND_CATALOG: Record<string, { d: string; gate: string | null }>
   poll_hunyuan_job_status: { d: 'Hunyuan3D 任务轮询', gate: 'dshbb_use_hunyuan3d' },
   import_generated_asset_hunyuan: { d: '导入 Hunyuan3D 生成结果', gate: 'dshbb_use_hunyuan3d' },
 }
+
+// Wire-only addon commands that are deliberately not model-facing (D6). Declared
+// here so the host catalog <-> addon registry parity is checkable in both
+// directions; addon/dsh_blender_bridge/command_registry.py COMMAND_NAMES stays
+// the only command truth. Consumed by tests/unit/js/contract/command-contract.test.ts
+// and tests/integration/python/test_addon_command_matrix.py.
+export const COMMAND_CATALOG_OMISSIONS: readonly string[] = ['get_polyhaven_asset_preview']

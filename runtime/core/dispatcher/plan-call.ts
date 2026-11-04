@@ -1,8 +1,10 @@
-// plan/qc/audit 前缀路由（F1.1 从 dispatch.ts 拆出，行为冻结）
+// plan/qc/audit 前缀路由（F1.1 从 dispatch.ts 拆出；D3 起由 config/routing.json 生成表驱动）
 import { WIN_TMP, blenderJoin } from '../../paths.js'
 import { extractLoop } from '../output/index.js'
 import { KERNEL_BOOTSTRAP } from '../kernel/index.js'
 import type { PlanCallDeps } from './index.js'
+import { MAIN_ROUTES, MODULE_ROUTES } from './routes.generated.js'
+import type { GuiRoute } from './routes.generated.js'
 
 export type RouteDecision = { matched: true; result: Promise<unknown> } | { matched: false }
 
@@ -61,33 +63,36 @@ export async function dispatchViaKernelModule(
   )
 }
 
-async function handlePlan(E: PlanCallDeps, o: string, payload: unknown): Promise<unknown> {
-  await E.ensurePlanner()
-  const body =
-    'print("LOOP " + K.dsh_plan_api["dispatch"](' +
-    JSON.stringify(o.slice(5)) +
-    ', _json.dumps(_json.loads(' +
-    JSON.stringify(JSON.stringify(payload || {})) +
-    '))))'
-  return extractLoop(
-    await E.addon.send(
-      'execute_code',
-      { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body },
-      300000,
-    ),
-  )
+/** 生成表共用的匹配/切片口径：exact 行按 op 全等，prefix 行按前缀命中。 */
+export function routeMatches(route: GuiRoute, o: string): boolean {
+  return route.match === 'exact' ? o === route.op : o.indexOf(route.prefix) === 0
 }
 
-async function handleQcRender(E: PlanCallDeps, o: string, payload: unknown): Promise<unknown> {
+/** 固定 sub（别名）优先；否则按表里的 strip 长度从 op 上切掉前缀。 */
+function routeSubOp(route: GuiRoute, o: string): string {
+  return route.sub === null ? o.slice(route.strip) : route.sub
+}
+
+async function handleQcRender(
+  E: PlanCallDeps,
+  route: GuiRoute,
+  o: string,
+  payload: unknown,
+): Promise<unknown> {
   const p: Record<string, unknown> =
     payload !== null && typeof payload === 'object' ? (payload as Record<string, unknown>) : {}
   if (p.asJob) {
     const { preloadChunk, jobStart } = E
-    const mods = ['qc', 'qc_render'].map(preloadChunk).join(String.fromCharCode(10))
+    const mods = String(route.preload || 'qc,qc_render')
+      .split(',')
+      .map(preloadChunk)
+      .join(String.fromCharCode(10))
     const driver =
       'import json as _json' +
       String.fromCharCode(10) +
-      'print("HEADLESS " + K.dsh_qc_render_api["render_views"](_json.loads(' +
+      'print("HEADLESS " + K.' +
+      route.api +
+      '["render_views"](_json.loads(' +
       JSON.stringify(JSON.stringify(p)) +
       ')))'
     const j = jobStart({
@@ -112,35 +117,153 @@ async function handleQcRender(E: PlanCallDeps, o: string, payload: unknown): Pro
         '") 跟进；产物与日志在 outdir/jobs/ 下',
     }
   }
-  await E.ensureQcRender()
-  const body =
-    'print("LOOP " + K.dsh_qc_render_api["dispatch"](' +
-    JSON.stringify(o.slice(3)) +
-    ', _json.dumps(_json.loads(' +
-    JSON.stringify(JSON.stringify(p)) +
-    '))))'
-  return extractLoop(
-    await E.addon.send(
-      'execute_code',
-      { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body },
-      900000,
-    ),
+  return dispatchViaKernelModule(
+    E,
+    E[route.ensure],
+    route.api,
+    routeSubOp(route, o),
+    p,
+    route.timeoutMs,
   )
 }
 
-async function handleMontage(E: PlanCallDeps, payload: unknown): Promise<unknown> {
-  await E.ensureMontage()
+async function handleMontage(E: PlanCallDeps, route: GuiRoute, payload: unknown): Promise<unknown> {
+  await E[route.ensure]()
   const body =
-    'print("LOOP " + K.dsh_montage_api["montage"](_json.loads(' +
+    'print("LOOP " + K.' +
+    route.api +
+    '["montage"](_json.loads(' +
     JSON.stringify(JSON.stringify(payload || {})) +
     ')))'
   return extractLoop(
     await E.addon.send(
       'execute_code',
       { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body },
-      300000,
+      route.timeoutMs,
     ),
   )
+}
+
+/** motion_/deliver_ 的模块 API 不是统一 dispatch，需要按函数名直调（行为冻结）。 */
+async function handleModuleAlias(
+  E: PlanCallDeps,
+  route: GuiRoute,
+  o: string,
+  payload: unknown,
+): Promise<unknown> {
+  await E[route.ensure]()
+  const name = o.slice(route.strip)
+  const body = [
+    'import json as _json',
+    'A = K.' + route.api,
+    'P = _json.loads(' + JSON.stringify(JSON.stringify(payload || {})) + ')',
+    'if isinstance(P, dict) and isinstance(P.get("args"), dict): P = P["args"]',
+    'print("LOOP " + (A["dispatch"](' +
+      JSON.stringify(name) +
+      ', _json.dumps(P)) if A.get("dispatch") else A[' +
+      JSON.stringify(name) +
+      '](**P)))',
+  ].join(String.fromCharCode(10))
+  return extractLoop(
+    await E.addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\n' + body }, route.timeoutMs),
+  )
+}
+
+/** gui_* 走 dsh_view_api 的直调入口（名字固定带 gui_ 前缀）。 */
+async function handleView(
+  E: PlanCallDeps,
+  route: GuiRoute,
+  o: string,
+  payload: unknown,
+): Promise<unknown> {
+  await E[route.ensure]()
+  const name = 'gui_' + o.slice(route.strip)
+  const body =
+    'print("LOOP " + K.' +
+    route.api +
+    '[' +
+    JSON.stringify(name) +
+    '](**_json.loads(' +
+    JSON.stringify(JSON.stringify(payload || {})) +
+    ')))'
+  return extractLoop(
+    await E.addon.send(
+      'execute_code',
+      { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body },
+      route.timeoutMs,
+    ),
+  )
+}
+
+/** render_* 的锁查询别名（render_lock_status -> status）在 routing.json 里显式声明。 */
+async function handleRender(
+  E: PlanCallDeps,
+  route: GuiRoute,
+  o: string,
+  payload: unknown,
+): Promise<unknown> {
+  await E[route.ensure]()
+  const rest = o.slice(route.strip)
+  const sub = route.subAliases[rest] || rest
+  const body =
+    'print("LOOP " + K.' +
+    route.api +
+    '["dispatch"](' +
+    JSON.stringify(sub) +
+    ', _json.dumps(_json.loads(' +
+    JSON.stringify(JSON.stringify(payload || {})) +
+    '))))'
+  return extractLoop(
+    await E.addon.send(
+      'execute_code',
+      { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body },
+      route.timeoutMs,
+    ),
+  )
+}
+
+/** 按生成行的 kind 选择调用形态；api/strip/sub/preload/timeout 一律来自 config/routing.json。 */
+export async function handleRoute(
+  E: PlanCallDeps,
+  route: GuiRoute,
+  o: string,
+  payload: unknown,
+): Promise<unknown> {
+  switch (route.kind) {
+    case 'qc-render':
+      return handleQcRender(E, route, o, payload)
+    case 'montage':
+      return handleMontage(E, route, payload)
+    case 'motion':
+    case 'deliver':
+      return handleModuleAlias(E, route, o, payload)
+    case 'view':
+      return handleView(E, route, o, payload)
+    case 'render':
+      return handleRender(E, route, o, payload)
+    default:
+      return dispatchViaKernelModule(
+        E,
+        E[route.ensure],
+        route.api,
+        routeSubOp(route, o),
+        payload,
+        route.timeoutMs,
+      )
+  }
+}
+
+async function routeTable(
+  E: PlanCallDeps,
+  o: string,
+  payload: unknown,
+  routes: readonly GuiRoute[],
+): Promise<RouteDecision> {
+  for (const route of routes) {
+    if (!routeMatches(route, o)) continue
+    return hit(handleRoute(E, route, o, payload))
+  }
+  return miss()
 }
 
 export async function routeMainPlanOps(
@@ -148,79 +271,7 @@ export async function routeMainPlanOps(
   o: string,
   payload: unknown,
 ): Promise<RouteDecision> {
-  if (o.startsWith('plan_')) return hit(handlePlan(E, o, payload))
-  if (o.indexOf('qc_render') === 0) return hit(handleQcRender(E, o, payload))
-  if (o.indexOf('qc_') === 0)
-    return hit(dispatchViaKernelModule(E, E.ensureQc, 'dsh_qc_api', o.slice(3), payload, 300000))
-  if (o === 'audit_clash_all' || o.indexOf('audit_clash_all_') === 0)
-    return hit(
-      dispatchViaKernelModule(E, E.ensureAssembly, 'dsh_assembly_api', 'scan', payload, 900000),
-    )
-  if (o.indexOf('audit_') === 0)
-    return hit(
-      dispatchViaKernelModule(E, E.ensureAudit, 'dsh_audit_api', o.slice(6), payload, 600000),
-    )
-  if (o.indexOf('montage') === 0) return hit(handleMontage(E, payload))
-  return miss()
-}
-
-async function handleMotion(E: PlanCallDeps, o: string, payload: unknown): Promise<unknown> {
-  await E.ensureMotion()
-  const name = o.slice(7)
-  const body = [
-    'import json as _json',
-    'A = K.dsh_motion_api',
-    'P = _json.loads(' + JSON.stringify(JSON.stringify(payload || {})) + ')',
-    'if isinstance(P, dict) and isinstance(P.get("args"), dict): P = P["args"]',
-    'print("LOOP " + (A["dispatch"](' +
-      JSON.stringify(name) +
-      ', _json.dumps(P)) if A.get("dispatch") else A[' +
-      JSON.stringify(name) +
-      '](**P)))',
-  ].join(String.fromCharCode(10))
-  return extractLoop(
-    await E.addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\n' + body }, 900000),
-  )
-}
-
-async function handleDeliver(E: PlanCallDeps, o: string, payload: unknown): Promise<unknown> {
-  await E.ensureDeliver()
-  const name = o.slice(8)
-  const body = [
-    'import json as _json',
-    'A = K.dsh_deliver_api',
-    'P = _json.loads(' + JSON.stringify(JSON.stringify(payload || {})) + ')',
-    'if isinstance(P, dict) and isinstance(P.get("args"), dict): P = P["args"]',
-    'print("LOOP " + (A["dispatch"](' +
-      JSON.stringify(name) +
-      ', _json.dumps(P)) if A.get("dispatch") else A[' +
-      JSON.stringify(name) +
-      '](**P)))',
-  ].join(String.fromCharCode(10))
-  return extractLoop(
-    await E.addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\n' + body }, 300000),
-  )
-}
-
-async function handleAssemblyAlias(
-  E: PlanCallDeps,
-  subOp: string,
-  payload: unknown,
-): Promise<unknown> {
-  await E.ensureAssembly()
-  const body =
-    'print("LOOP " + K.dsh_assembly_api["dispatch"](' +
-    JSON.stringify(subOp) +
-    ', _json.dumps(_json.loads(' +
-    JSON.stringify(JSON.stringify(payload || {})) +
-    '))))'
-  return extractLoop(
-    await E.addon.send(
-      'execute_code',
-      { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body },
-      900000,
-    ),
-  )
+  return routeTable(E, o, payload, MAIN_ROUTES)
 }
 
 export async function routeModulePlanOps(
@@ -228,65 +279,5 @@ export async function routeModulePlanOps(
   o: string,
   payload: unknown,
 ): Promise<RouteDecision> {
-  if (o.indexOf('motion_') === 0) return hit(handleMotion(E, o, payload))
-  if (o.indexOf('deliver_') === 0) return hit(handleDeliver(E, o, payload))
-  if (o.indexOf('generator_') === 0)
-    return hit(
-      dispatchViaKernelModule(
-        E,
-        E.ensureGenerator,
-        'dsh_generator_api',
-        o.slice(10),
-        payload,
-        600000,
-      ),
-    )
-  if (o === 'fix_clash' || o === 'fix_interference') {
-    const sub = o === 'fix_clash' ? 'repair' : 'fix_interference'
-    return hit(handleAssemblyAlias(E, sub, payload))
-  }
-  if (o === 'qc_visual_report') {
-    await E.ensureVisualReport()
-    const body =
-      'print("LOOP " + K.dsh_visualreport_api["dispatch"]("report", _json.dumps(_json.loads(' +
-      JSON.stringify(JSON.stringify(payload || {})) +
-      '))))'
-    return hit(
-      extractLoop(
-        await E.addon.send(
-          'execute_code',
-          { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body },
-          600000,
-        ),
-      ),
-    )
-  }
-  if (o === 'shape_solve') {
-    await E.ensureShapesolve()
-    const body =
-      'print("LOOP " + K.dsh_shapesolve_api["dispatch"]("solve", _json.dumps(_json.loads(' +
-      JSON.stringify(JSON.stringify(payload || {})) +
-      '))))'
-    return hit(
-      extractLoop(
-        await E.addon.send(
-          'execute_code',
-          { code: KERNEL_BOOTSTRAP + '\nimport json as _json\n' + body },
-          900000,
-        ),
-      ),
-    )
-  }
-  if (o === 'model_preflight' || o === 'model_checkpoint' || o === 'model_deliver')
-    return hit(
-      dispatchViaKernelModule(
-        E,
-        E.ensureGate,
-        'dsh_gate_api',
-        o.slice('model_'.length),
-        payload,
-        1800000,
-      ),
-    )
-  return miss()
+  return routeTable(E, o, payload, MODULE_ROUTES)
 }

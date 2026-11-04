@@ -15,7 +15,7 @@ Every other document links here instead of repeating commands.
 
 | Task | Command |
 |---|---|
-| Install dependencies | `npm ci --legacy-peer-deps` |
+| Install dependencies | `npm run setup:dev` (npm ci + fake-bpy stubs + venv; bare `npm ci --legacy-peer-deps` is the CI minimal path) |
 | Build `runtime/` + `src/` → `lib/` | `npm run build` (optional `DSH_CHECKOUT` links DSH host packages) |
 | Build / verify the addon zip | `npm run build:addon` / `npm run check:addon` |
 | Typecheck | `npm run typecheck`; addon typed-core `npm run typecheck:addon` |
@@ -87,6 +87,8 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
 
 - Typecheck and the tests for the touched layer pass; contract counts stay 15 tools / 34 families /
   228 ops / 38 addon commands / 29 routes / protocol 11 unless the change declares a new count.
+  The addon count is 38 **registered** commands; the transport-only `ping` makes 39 wire commands.
+  The single truth is `addon/dsh_blender_bridge/command_registry.py` (see architecture §5).
 - New behavior has a failing test first. No `skip`, no retry, and no relaxed assertion to hide a failure.
 - Docs are updated in the same change, and both language versions stay in sync.
 - No secrets, no build artifacts, no `node_modules` or venv; `lib/` is regenerated, never hand-edited.
