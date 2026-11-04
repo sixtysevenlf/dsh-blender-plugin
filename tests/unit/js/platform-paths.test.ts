@@ -102,7 +102,7 @@ describe('source guards (WSL/Windows branches still exist)', () => {
     expect(/if\s*\(!IS_WSL\)\s*return\s*s\b/.test(config)).toBe(true)
     expect(config).toContain('WSL_INTEROP')
     expect(config).toContain('/proc/version')
-    // v3.0.5：Windows/PATH 探测整段拆到 runtime/blender-detect.ts（4.6 起
+    // v3.0.6：Windows/PATH 探测整段拆到 runtime/blender-detect.ts（4.6 起
     // config.ts 也不再转出 detectBlenderExe）；判据不变 —— 两个文件合起来仍保留这两个分支标记。
     const detect = config + NL + read('runtime/blender-detect.ts')
     expect(detect).toContain('Blender Foundation')

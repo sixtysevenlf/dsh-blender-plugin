@@ -1,6 +1,6 @@
 # CHANGELOG — dsh-blender-plugin
 
-## v3.0.6（未发布）—— 首调失败修复与重构终态收口（治理 + 开发环境）
+## v3.0.6（2026-11-05）—— 首调失败修复与重构终态收口（治理 + 开发环境）
 
 - Windows 自动探测补 Steam 库：扫描 `%ProgramFiles%\Steam`、`%ProgramFiles(x86)%\Steam`、`%ProgramW6432%\Steam` 与 `{C,D,E,F}\{Program Files\Steam, Program Files (x86)\Steam, Steam, SteamLibrary}`，并解析 `steamapps/libraryfolders.vdf` 中的其它库；命中来源记 `auto:steam`。这是「Blender 装在 Steam 库里、首调直接失败」的根因。
 - `blender_rt_worker(op="start")` / `blender_rt_job(op="start")` 在 spawn 前预检 blender.exe：为空时立即返回结构化 `blender_exe_missing`（含 `DSH_BLENDER_EXE` / `dsh-blender.config.json` / Steam 路径示例），不再抛 Node 的 `TypeError: The "file" argument must be of type string`。

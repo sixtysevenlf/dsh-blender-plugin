@@ -61,13 +61,13 @@ describe('human entry cross-links', () => {
   })
 
   it('documents the npm install path for both languages', () => {
-    const npmInstall = 'dsh plugin --profile <profile> add dsh-blender-plugin@3.0.5'
+    const npmInstall = 'dsh plugin --profile <profile> add dsh-blender-plugin@3.0.6'
     for (const text of [README, ZH_README]) {
       expect(text).toContain(npmInstall)
-      expect(text).toContain('dsh-blender-plugin@3.0.5')
+      expect(text).toContain('dsh-blender-plugin@3.0.6')
     }
     expect(readText('docs/给第三方的安装清单.md')).toContain(npmInstall)
-    expect(readText('docs/AI-安装提示词.md')).toContain('dsh-blender-plugin@3.0.5')
+    expect(readText('docs/AI-安装提示词.md')).toContain('dsh-blender-plugin@3.0.6')
   })
 
   it('keeps both language versions structurally paired', () => {
