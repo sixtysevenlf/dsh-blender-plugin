@@ -15,6 +15,7 @@
 - `blender_rt_headless` 现在真的把运行时的 `blender_exe_missing` 透出（含配置指引），与文档一致；此前一律吞成 `backend_error`。
 - Windows Steam 探测补注册表 `SteamPath`（HKCU / HKLM WOW6432Node）与 G–H 盘常见根。
 - 回归测试加固：`doctor-bounded` 先预热再计时（预算 12s，稳态 6–9s）、补 macOS/Linux 探测用例与 HKCU SteamPath 用例、worker 源码顺序断言改成正则。
+- **行为变更（唯一一处）**：`blender_rt_plan` 在无头 worker 会话（`session=...`）下调用 `qc_render_*` 现在路由到 `dsh_qc_render_api` 并预载 `qc_render`；此前 worker 路径命中 `dsh_qc_api` 的 `render_views` 转接函数，而转接依赖 GUI 侧才有的 `K.dsh_qc_render_api`，worker 只 preload `qc,imgtools` 时必然失败（GUI 路径行为不变）。
 - 无 API / 协议 / 工具计数变化（15 tools / 34 family / 228 op / addon 1.11 / protocol 11）。
 
 ## v3.0.5（2026-11-04）—— 修复源码注入 __file__ 缺失

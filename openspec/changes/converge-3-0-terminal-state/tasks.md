@@ -2,15 +2,15 @@
 
 ## 1. 前置与基线
 
-- [ ] 1.1 把 `fix/blender-exe-diagnostics` 推送到仓库并合并到 `main`（此步**不发布**）；验证：`origin/main` 含修复提交（或 squash 后等价提交），`main` 上 `npm test` 与 `npm run check:structure` 全绿，且尚未打 tag / 发布（CHANGELOG 的 v3.0.6 节可先存在但不得标记为已发布）。
-- [ ] 1.2 从合并后的 `main` 开治理分支，把 `openspec/`（config.yaml + 本 change）纳入版本控制；验证：`git status` 仅存在预期改动，`openspec validate converge-3-0-terminal-state` 仍通过。
-- [ ] 1.3 记录基线：保存 `typecheck`、`test:unit`、`test:contract`、`test:integration`、`check:parity`、`test:matrix` 的当前输出到 PR 描述；验证：基线可复现（同一 commit 二次运行结果一致）。
+- [x] 1.1 把 `fix/blender-exe-diagnostics` 推送到仓库并合并到 `main`（此步**不发布**）；验证：`origin/main` 含修复提交（或 squash 后等价提交），`main` 上 `npm test` 与 `npm run check:structure` 全绿，且尚未打 tag / 发布（CHANGELOG 的 v3.0.6 节可先存在但不得标记为已发布）。
+- [x] 1.2 从合并后的 `main` 开治理分支，把 `openspec/`（config.yaml + 本 change）纳入版本控制；验证：`git status` 仅存在预期改动，`openspec validate converge-3-0-terminal-state` 仍通过。
+- [x] 1.3 记录基线：保存 `typecheck`、`test:unit`、`test:contract`、`test:integration`、`check:parity`、`test:matrix` 的当前输出到 PR 描述；验证：基线可复现（同一 commit 二次运行结果一致）。
 
 ## 2. P0 缺陷修复：qc_render worker 路由（独立 PR，先于 S1）
 
-- [ ] 2.1 写失败测试：`planHeadlessTarget('qc_render_views')` 应返回 `{api:'dsh_qc_render_api', sub:'render_views'}` 且 preload 含 `qc_render`；验证：测试当前为红（对照 `src/plan/headless-target.ts` 的 `qc_` 行与 runtime `plan-call.ts` 的 `handleQcRender`）。
-- [ ] 2.2 修复 worker 路由（`qc_render_*` → `dsh_qc_render_api` + preload `qc_render`），保留 GUI 侧行为不变；验证：2.1 的测试转绿，全量 `test:unit` 无新增失败。
-- [ ] 2.3 在 CHANGELOG 的 Unreleased 记录行为变更（worker 下 `qc_render_*` 从报错变为可用）并在 PR 描述声明这是本 change 唯一的行为变更；验证：README/操作教程无需改（GUI 路径不变），CHANGELOG diff 存在。
+- [x] 2.1 写失败测试：`planHeadlessTarget('qc_render_views')` 应返回 `{api:'dsh_qc_render_api', sub:'render_views'}` 且 preload 含 `qc_render`；验证：测试当前为红（对照 `src/plan/headless-target.ts` 的 `qc_` 行与 runtime `plan-call.ts` 的 `handleQcRender`）。
+- [x] 2.2 修复 worker 路由（`qc_render_*` → `dsh_qc_render_api` + preload `qc_render`），保留 GUI 侧行为不变；验证：2.1 的测试转绿，全量 `test:unit` 无新增失败。
+- [x] 2.3 在 CHANGELOG 的 Unreleased 记录行为变更（worker 下 `qc_render_*` 从报错变为可用）并在 PR 描述声明这是本 change 唯一的行为变更；验证：README/操作教程无需改（GUI 路径不变），CHANGELOG diff 存在。
 
 ## 3. S1 契约网
 

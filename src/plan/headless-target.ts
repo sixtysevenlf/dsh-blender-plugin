@@ -63,6 +63,11 @@ export function planHeadlessTarget(op: string): HeadlessTarget | null {
   const o = String(op || '')
   const alias = PLAN_HEADLESS_ALIAS[o]
   if (alias) return { api: alias[0], sub: alias[1], preload: alias[2] }
+  // qc_render_* 有专用模块（与 GUI 侧 handleQcRender 同口径）：dsh_qc_api 的
+  // render_views 只是转接，worker 里没有 GUI 的旧扁平 exec 兜底，必须在映射表
+  // 匹配 qc_ 之前分流，否则 worker 路径会稳定失败。
+  if (o.indexOf('qc_render_') === 0)
+    return { api: 'dsh_qc_render_api', sub: o.slice(3), preload: 'qc,qc_render' }
   for (const row of PLAN_HEADLESS_MAP) {
     const p = String(row[0])
     if (o.indexOf(p) === 0) return { api: row[1], sub: o.slice(p.length), preload: row[2] }
