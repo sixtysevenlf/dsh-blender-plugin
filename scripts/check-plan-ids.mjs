@@ -273,6 +273,8 @@ function findExemption(relPath, prefix) {
   return null
 }
 
+const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
+
 const hits = []
 const byFile = new Map()
 let exemptCount = 0
@@ -320,7 +322,7 @@ const totals = { all: hits.length, exempt: exemptCount, residual }
 const rankedFiles = [...byFile.entries()]
   .map(([file, stats]) => ({ file, ...stats }))
   .filter((item) => item.residual > 0)
-  .sort((a, b) => b.residual - a.residual || a.file.localeCompare(b.file))
+  .sort((a, b) => b.residual - a.residual || cmp(a.file, b.file))
 
 /* ---------- 基线 ---------- */
 
@@ -351,7 +353,25 @@ const currentSnapshot = {
   totals,
   byPrefix,
   byKind,
-  files: Object.fromEntries([...byFile.entries()].sort(([a], [b]) => a.localeCompare(b))),
+  // 码点排序：localeCompare 会随平台/ICU locale 改变文件键顺序，让基线在 Linux CI 与 Windows 本地互相"不匹配"。
+  files: Object.fromEntries([...byFile.entries()].sort(([a], [b]) => cmp(a, b))),
+}
+
+const sameFileSnapshot = (recorded, current) => {
+  const left = Object.keys(recorded).sort(cmp)
+  const right = Object.keys(current).sort(cmp)
+  if (left.length !== right.length) return false
+  return left.every((file, index) => {
+    if (file !== right[index]) return false
+    const a = recorded[file]
+    const b = current[file]
+    if (!isPlainObject(a) || !isPlainObject(b)) return false
+    return (
+      Number(a.count) === Number(b.count) &&
+      Number(a.exempt) === Number(b.exempt) &&
+      Number(a.residual) === Number(b.residual)
+    )
+  })
 }
 
 if (!configFailures) {
@@ -359,8 +379,9 @@ if (!configFailures) {
   if (baseline !== null) {
     baselineReport.present = true
     baselineReport.recordedResidual = Number(baseline.totals && baseline.totals.residual) || 0
+    // 比较按文件键名归一化：JSON 键顺序不应让同一份扫描在别的平台上失去匹配。
     baselineReport.matches =
-      JSON.stringify(baseline.files) === JSON.stringify(currentSnapshot.files) &&
+      sameFileSnapshot(baseline.files, currentSnapshot.files) &&
       baselineReport.recordedResidual === residual
     for (const item of rankedFiles) {
       const recorded = Number(baseline.files[item.file] && baseline.files[item.file].residual) || 0

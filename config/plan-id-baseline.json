@@ -1,11 +1,11 @@
 {
   "version": 1,
   "tool": "check-plan-ids",
-  "generatedAt": "2026-11-04T19:35:56.652Z",
+  "generatedAt": "2026-11-04T23:24:07.182Z",
   "mode": "warn",
   "totals": {
-    "all": 1431,
-    "exempt": 1431,
+    "all": 1433,
+    "exempt": 1433,
     "residual": 0
   },
   "byPrefix": {},
@@ -16,22 +16,7 @@
       "exempt": 214,
       "residual": 0
     },
-    "docs/操作教程.md": {
-      "count": 17,
-      "exempt": 17,
-      "residual": 0
-    },
-    "docs/假设驱动建模-cookbook.md": {
-      "count": 8,
-      "exempt": 8,
-      "residual": 0
-    },
-    "docs/宿主集成-接口契约-v2.3增补.md": {
-      "count": 52,
-      "exempt": 52,
-      "residual": 0
-    },
-    "docs/证据分级与读图纪律.md": {
+    "MIGRATIONS.md": {
       "count": 5,
       "exempt": 5,
       "residual": 0
@@ -41,14 +26,14 @@
       "exempt": 8,
       "residual": 0
     },
+    "docs/Procedura-融合分析.md": {
+      "count": 3,
+      "exempt": 3,
+      "residual": 0
+    },
     "docs/architecture.md": {
       "count": 4,
       "exempt": 4,
-      "residual": 0
-    },
-    "docs/archive/插件与技能优化验收.md": {
-      "count": 78,
-      "exempt": 78,
       "residual": 0
     },
     "docs/archive/headless优先-路线决定.md": {
@@ -61,12 +46,27 @@
       "exempt": 3,
       "residual": 0
     },
-    "docs/Procedura-融合分析.md": {
-      "count": 3,
-      "exempt": 3,
+    "docs/archive/插件与技能优化验收.md": {
+      "count": 78,
+      "exempt": 78,
       "residual": 0
     },
-    "MIGRATIONS.md": {
+    "docs/假设驱动建模-cookbook.md": {
+      "count": 8,
+      "exempt": 8,
+      "residual": 0
+    },
+    "docs/宿主集成-接口契约-v2.3增补.md": {
+      "count": 52,
+      "exempt": 52,
+      "residual": 0
+    },
+    "docs/操作教程.md": {
+      "count": 17,
+      "exempt": 17,
+      "residual": 0
+    },
+    "docs/证据分级与读图纪律.md": {
       "count": 5,
       "exempt": 5,
       "residual": 0
@@ -161,19 +161,24 @@
       "exempt": 110,
       "residual": 0
     },
-    "runtime/py/render/qc_render_impl/views_render.py": {
-      "count": 18,
-      "exempt": 18,
-      "residual": 0
-    },
     "runtime/py/render/qc_render_impl/views.py": {
       "count": 12,
       "exempt": 12,
       "residual": 0
     },
+    "runtime/py/render/qc_render_impl/views_render.py": {
+      "count": 18,
+      "exempt": 18,
+      "residual": 0
+    },
     "skills/blender-modeling/README.md": {
       "count": 1,
       "exempt": 1,
+      "residual": 0
+    },
+    "skills/blender-modeling/SKILL.md": {
+      "count": 29,
+      "exempt": 29,
       "residual": 0
     },
     "skills/blender-modeling/references/参考图通用还原SOP.md": {
@@ -191,11 +196,6 @@
       "exempt": 2,
       "residual": 0
     },
-    "skills/blender-modeling/SKILL.md": {
-      "count": 29,
-      "exempt": 29,
-      "residual": 0
-    },
     "tests/BEHAVIOR_MATRIX.json": {
       "count": 22,
       "exempt": 22,
@@ -206,24 +206,19 @@
       "exempt": 336,
       "residual": 0
     },
+    "tests/MIGRATION.md": {
+      "count": 12,
+      "exempt": 12,
+      "residual": 0
+    },
     "tests/e2e/blender/harness.py": {
       "count": 2,
       "exempt": 2,
       "residual": 0
     },
-    "tests/e2e/blender/native_manifest.py": {
-      "count": 1,
-      "exempt": 1,
-      "residual": 0
-    },
-    "tests/e2e/blender/native_runner.py": {
-      "count": 1,
-      "exempt": 1,
-      "residual": 0
-    },
-    "tests/e2e/blender/native_support.py": {
-      "count": 1,
-      "exempt": 1,
+    "tests/e2e/blender/native/assembly.py": {
+      "count": 19,
+      "exempt": 19,
       "residual": 0
     },
     "tests/e2e/blender/native/assembly_export.py": {
@@ -236,11 +231,6 @@
       "exempt": 1,
       "residual": 0
     },
-    "tests/e2e/blender/native/assembly.py": {
-      "count": 19,
-      "exempt": 19,
-      "residual": 0
-    },
     "tests/e2e/blender/native/audit_file.py": {
       "count": 3,
       "exempt": 3,
@@ -251,14 +241,14 @@
       "exempt": 1,
       "residual": 0
     },
-    "tests/e2e/blender/native/blockout_refsheet.py": {
-      "count": 25,
-      "exempt": 25,
-      "residual": 0
-    },
     "tests/e2e/blender/native/blockout.py": {
       "count": 36,
       "exempt": 36,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/blockout_refsheet.py": {
+      "count": 25,
+      "exempt": 25,
       "residual": 0
     },
     "tests/e2e/blender/native/contract.py": {
@@ -331,12 +321,12 @@
       "exempt": 7,
       "residual": 0
     },
-    "tests/e2e/blender/native/txn_restore.py": {
+    "tests/e2e/blender/native/txn.py": {
       "count": 1,
       "exempt": 1,
       "residual": 0
     },
-    "tests/e2e/blender/native/txn.py": {
+    "tests/e2e/blender/native/txn_restore.py": {
       "count": 1,
       "exempt": 1,
       "residual": 0
@@ -411,6 +401,21 @@
       "exempt": 29,
       "residual": 0
     },
+    "tests/e2e/blender/native_manifest.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native_runner.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native_support.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
     "tests/e2e/blender/package_check.py": {
       "count": 1,
       "exempt": 1,
@@ -436,19 +441,14 @@
       "exempt": 2,
       "residual": 0
     },
-    "tests/MIGRATION.md": {
-      "count": 12,
-      "exempt": 12,
-      "residual": 0
-    },
     "tests/unit/js/contract/catalog.test.ts": {
       "count": 1,
       "exempt": 1,
       "residual": 0
     },
     "tests/unit/js/contract/plan-ids-gates.test.ts": {
-      "count": 14,
-      "exempt": 14,
+      "count": 16,
+      "exempt": 16,
       "residual": 0
     },
     "tests/unit/js/contract/surface-fit.test.ts": {

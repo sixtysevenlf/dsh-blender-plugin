@@ -224,4 +224,22 @@ describe('check-plan-ids', () => {
     expect(report!.baseline.matches).toBe(true)
     expect(report!.baseline.recordedResidual).toBe(0)
   })
+
+  it('matches the recorded baseline regardless of JSON file key order', () => {
+    // 复现 Linux CI 的失败：同一份扫描结果，仅因为 JSON 里 files 键的顺序不同
+    // （localeCompare 受平台 locale 影响）就不应判定为基线漂移。
+    const root = fixture({ 'src/a.ts': '// T14\n', 'src/b.ts': '// D7\n' })
+    const written = run(root, ['--write-baseline'])
+    expect(written.status).toBe(0)
+    const baselineFile = path.join(root, 'config/plan-id-baseline.json')
+    const baseline = JSON.parse(fs.readFileSync(baselineFile, 'utf8')) as {
+      files: Record<string, unknown>
+    }
+    baseline.files = Object.fromEntries(Object.entries(baseline.files).reverse())
+    fs.writeFileSync(baselineFile, JSON.stringify(baseline, null, 2) + '\n')
+    const { status, report } = run(root)
+    expect(status).toBe(0)
+    expect(report!.baseline.matches).toBe(true)
+    expect(report!.baseline.recordedResidual).toBe(2)
+  })
 })
