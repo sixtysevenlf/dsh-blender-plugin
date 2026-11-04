@@ -65,12 +65,13 @@ SEV_DEPTH_MED_MM = 0.5
 SEV_FRAC_HIGH = 0.25                   # 严重度分档：体积占比
 SEV_FRAC_MED = 0.02
 FEATURES_JSON_NAME = "assembly_features.json"
+# Compatibility fallback: normal imports and the current preloadChunk /
+# injectModule paths provide a real __file__, but older engines, direct exec
+# loaders, and tests may not. When __file__ is absent, _features_path()
+# resolves the feature library through K.runtime_dir / find_runtime_file.
 try:
-    _HERE = os.path.dirname(os.path.abspath(__file__))   # 常规 import：本文件所在目录
+    _HERE = os.path.dirname(os.path.abspath(__file__))
 except NameError:
-    # 源码注入通道（引擎 ensureContract / headless preload 都是 exec 源码）里 **没有 __file__**，
-    # 直接引用会 NameError 把整个模块炸掉（实测：blender_rt_plan(op="fit_help") 报 "__file__ is not defined"）。
-    # 这里退成空串，真正的定位交给 _features_path() 里的 K.runtime_dir。
     _HERE = ""
 FEATURES_JSON = os.path.join(_HERE, FEATURES_JSON_NAME)
 
