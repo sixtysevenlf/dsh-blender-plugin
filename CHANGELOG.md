@@ -1,5 +1,16 @@
 # CHANGELOG — dsh-blender-plugin
 
+## Unreleased
+
+- 行为修复：`qc_compare_auto` / `qc_align_iou` 现在能真正分派。此前 catalog 声明了这两个 op，但 Python 侧 `qc_ops()` 没有对应键，调用返回 `unknown qc op`；现补 `compare_auto` 分派与 `qc_align_iou` 的路径级封装（掩膜 bbox 紧裁后算 IoU，只返回 JSON 标量）。`config/contracts.json` 的 qc `catalogExtras` 随之删除，parity 测试与 native E2E 覆盖分派成功。
+- 无 API / 协议 / 工具计数变化（15 tools / 34 family / 228 op / addon 1.11 / protocol 11）。
+
+### 治理
+
+- 例外有主化：addon 8 个命令模块对 `integrations/*_client.py` 私有 helper 的 41 处跨包导入登记为 `python-private-import`（`config/exceptions.json`，owner `addon-integrations`，reviewBy 2027-06-30），并由纯 ast 契约测试逐对校验；`config/doc-links-baseline.json` 的 7 条冻结失效引用补 `review {owner, reviewBy, reason}`，`check:doc-paths --enforce` 拒绝无主/过期的 baseline。
+- 注释去叙事：47 个重构期文件的“从 X 拆出 / 行为冻结”头注释改为职责描述；`addon/dsh_blender_bridge/protocol.py` 删除指向不存在的 `addon_manager` / `trajectory` 的同步注释；注释约定写入 `docs/architecture.md`。
+- 流程收尾：`converge-3-0-terminal-state` 归档到 `openspec/changes/archive/`；清理 19 个干净的历史 worktree（保留 3 个有未提交改动的），`.dsh/`、`.dsh-ops/` 加入 `.gitignore`。
+
 ## v3.0.6（2026-11-05）—— 首调失败修复与重构终态收口（治理 + 开发环境）
 
 - Windows 自动探测补 Steam 库：扫描 `%ProgramFiles%\Steam`、`%ProgramFiles(x86)%\Steam`、`%ProgramW6432%\Steam` 与 `{C,D,E,F}\{Program Files\Steam, Program Files (x86)\Steam, Steam, SteamLibrary}`，并解析 `steamapps/libraryfolders.vdf` 中的其它库；命中来源记 `auto:steam`。这是「Blender 装在 Steam 库里、首调直接失败」的根因。

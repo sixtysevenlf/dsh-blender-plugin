@@ -279,6 +279,7 @@ missingRefs.sort((a, b) => (a.doc === b.doc ? a.line - b.line : a.doc.localeComp
 const baselineReport = {
   path: rel(BASELINE),
   present: false,
+  review: null,
   acceptedOrphans: 0,
   acceptedMissingRefs: 0,
   matches: false,
@@ -288,6 +289,7 @@ const baselineReport = {
 
 const acceptedOrphans = new Set()
 const acceptedRefs = new Set()
+let baselineReview = null
 if (existsSync(BASELINE)) {
   try {
     const raw = JSON.parse(readFileSync(BASELINE, 'utf8'))
@@ -295,6 +297,8 @@ if (existsSync(BASELINE)) {
       throw new Error('需要 {version:1, ...}')
     }
     baselineReport.present = true
+    if (raw.review && typeof raw.review === 'object') baselineReview = raw.review
+    baselineReport.review = baselineReview
     for (const doc of Array.isArray(raw.orphanDocs) ? raw.orphanDocs : [])
       acceptedOrphans.add(String(doc))
     for (const entry of Array.isArray(raw.missingRefs) ? raw.missingRefs : []) {
@@ -315,6 +319,45 @@ if (existsSync(BASELINE)) {
   }
 }
 
+function validReviewDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return false
+  const parsed = new Date(String(value) + 'T00:00:00Z')
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === String(value)
+}
+
+// A baseline that accepts missing refs must name an owner and a review date:
+// an unowned exception is exactly how the ghost runtime/catalog.ts survived.
+// --write-baseline is the bootstrap path, so it writes first and lets the next
+// non-write run report the missing review.
+if (!writeBaseline && baselineReport.present && missingRefs.length > 0) {
+  if (!baselineReview) {
+    failures.push(
+      'baseline ' + rel(BASELINE) + ': missingRefs 非空，必须提供 review {owner, reviewBy, reason}',
+    )
+  } else {
+    if (!baselineReview.owner || String(baselineReview.owner).trim() === '')
+      failures.push('baseline ' + rel(BASELINE) + ': review.owner 不能为空')
+    if (!baselineReview.reason || String(baselineReview.reason).trim() === '')
+      failures.push('baseline ' + rel(BASELINE) + ': review.reason 不能为空')
+    if (!validReviewDate(baselineReview.reviewBy)) {
+      failures.push('baseline ' + rel(BASELINE) + ': review.reviewBy 必须是 YYYY-MM-DD')
+    } else {
+      const today = new Date().toISOString().slice(0, 10)
+      if (String(baselineReview.reviewBy) < today) {
+        failures.push(
+          'baseline ' +
+            rel(BASELINE) +
+            ': review 已过期 (' +
+            baselineReview.reviewBy +
+            ' < ' +
+            today +
+            ')',
+        )
+      }
+    }
+  }
+}
+
 for (const doc of orphanDocs) {
   if (!acceptedOrphans.has(doc)) baselineReport.newOrphans.push(doc)
 }
@@ -332,6 +375,7 @@ const snapshot = {
   inbound: inboundReport,
   orphanDocs,
   missingRefs: missingRefs.map((entry) => ({ doc: entry.doc, target: entry.target })),
+  ...(baselineReview ? { review: baselineReview } : {}),
 }
 
 if (writeBaseline && failures.length === 0) {

@@ -37,6 +37,7 @@ const KINDS = [
   'facade-export',
   'doc-path',
   'matrix-row',
+  'python-private-import',
 ]
 const REQUIRED_FIELDS = ['id', 'kind', 'path', 'reason', 'owner', 'reviewBy']
 const ID_PATTERN = /^EXC-[A-Z0-9][A-Z0-9-]*$/

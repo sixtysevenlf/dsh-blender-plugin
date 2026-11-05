@@ -1,4 +1,4 @@
-// plan 工具参数细节文本（从 catalog.ts 拆出；文本依赖 planOpNames 现算 op 数）
+// plan 工具参数细节文本（文本依赖 planOpNames 现算 op 数）
 import { PLAN_CATALOG, planOpNames } from './data.js'
 
 export const TOOL_DETAIL: Record<string, string> = {

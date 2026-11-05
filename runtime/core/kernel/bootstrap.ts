@@ -1,4 +1,4 @@
-// Blender 持久内核启动脚本（从 kernel.ts 拆出，行为冻结）
+// Blender 持久内核启动脚本
 import { GEO_SRC, KIT_SRC, PATH_HELPERS } from '../../paths.js'
 
 export const KERNEL_BOOTSTRAP = [

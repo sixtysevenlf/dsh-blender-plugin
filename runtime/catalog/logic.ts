@@ -1,4 +1,4 @@
-// plan/command 目录逻辑（从 catalog.ts 拆出，行为冻结）
+// plan/command 目录逻辑
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'

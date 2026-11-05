@@ -1,4 +1,4 @@
-// worker 启动与就绪（从 workers.ts 拆出，行为冻结）
+// worker 启动与就绪
 import path from 'node:path'
 import fs from 'node:fs'
 import { spawn } from 'node:child_process'

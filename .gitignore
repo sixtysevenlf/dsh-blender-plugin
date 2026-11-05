@@ -33,4 +33,6 @@ coverage/
 
 # Local-only working notes and evidence: never commit
 /docs/refactor/
+/.dsh/
+/.dsh-ops/
 .vscode/

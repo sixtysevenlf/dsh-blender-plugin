@@ -1,4 +1,4 @@
-// engine 装配：deps 上下文 + 各能力接线（从 engine.ts 拆出，行为冻结）
+// engine 装配：deps 上下文 + 各能力接线
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { AddonClient } from '../../transport/probes.js'

@@ -109,7 +109,7 @@ const ENGINE_SELF: EngineSelf = (() => {
 /**
  * 按内容哈希（不是 size+mtime）—— 缓存键仍然是 (size, mtime) 以省 IO，但**返回的是内容指纹**。
  *
- * 键集合保持行为冻结：Python 资产仍用旧的扁平模块名 `<name>.py` 作键，但实现文件
+ * 键集合保持不变：Python 资产仍用旧的扁平模块名 `<name>.py` 作键，但实现文件
  * 一律按 `runtime/py/modules.json` 清单解析（现在没有扁平 shim，generator / uv_tools
  * 也在 geometry 领域包），不会随目录里有没有 shim 而漂移。
  */

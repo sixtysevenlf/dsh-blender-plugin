@@ -4,16 +4,15 @@ import bpy
 
 from .command_registry import PAUSE_SAFE_COMMANDS
 
-# Keep in sync with dsh_blender_bridge.addon_manager.EXPECTED_ADDON_PROTOCOL_VERSION.
+# The host probe in runtime/launch/resolve.ts requires protocol 11.
 ADDON_PROTOCOL_VERSION = 11
 
-# Per-snapshot object cap for get_world_state_snapshot. Keep in sync with
-# dsh_blender_bridge.trajectory.MAX_SNAPSHOT_OBJECTS.
+# Per-snapshot object cap for get_world_state_snapshot.
 MAX_SNAPSHOT_OBJECTS = 4000
 
 # Selected-name cap for get_world_state_snapshot: select-all in a large scene
 # would otherwise make `selected` the dominant field of both step snapshots.
-# Keep in sync with dsh_blender_bridge.trajectory.MAX_SNAPSHOT_SELECTED.
+
 MAX_SNAPSHOT_SELECTED = 1000
 
 

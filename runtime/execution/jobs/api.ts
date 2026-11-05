@@ -1,4 +1,4 @@
-// 作业查询面（从 jobs.ts 拆出，行为冻结）
+// 作业查询面
 import path from 'node:path'
 import { winToWsl } from '../../config.js'
 import type { JobsDeps, JobRecord } from './types.js'

@@ -1,4 +1,4 @@
-// 运行台账（内存 runs + 磁盘 JSONL + 可写性自证）：从 ledger.ts 拆出
+// 运行台账（内存 runs + 磁盘 JSONL + 可写性自证）
 import path from 'node:path'
 import { winToWsl } from '../../config.js'
 import { WIN_TMP, WSL_TMP } from '../../paths.js'

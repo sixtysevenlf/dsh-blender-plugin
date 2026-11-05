@@ -1,4 +1,4 @@
-// addon command 目录表（从 catalog.ts 拆出）
+// addon command 目录表
 export const COMMAND_CATALOG: Record<string, { d: string; gate: string | null }> = {
   ping: { d: '存活探测（不碰 bpy 数据）', gate: null },
   get_scene_info: { d: '场景概览（无参）', gate: null },

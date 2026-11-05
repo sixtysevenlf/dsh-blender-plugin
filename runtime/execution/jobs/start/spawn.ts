@@ -1,4 +1,4 @@
-// 作业子进程 spawn 与输出接线（从 jobs/start.ts 拆出，行为冻结）
+// 作业子进程 spawn 与输出接线
 import fs from 'node:fs'
 import { spawn } from 'node:child_process'
 import type { ChildProcess, SpawnOptions } from 'node:child_process'

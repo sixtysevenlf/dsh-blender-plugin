@@ -1,5 +1,5 @@
 /**
- * blender.exe 探测 —— 从 config.ts 拆出来的独立模块（纯探测，不 import config.ts，无环）。
+ * blender.exe 探测 —— 独立模块（纯探测，不 import config.ts，无环）。
  *
  * 为什么单独一个文件：scripts/check-function-budget.mjs 给 TS 文件定的预算是 600 行，config.ts
  * 本身就排到了 550+；Windows Steam 探测（多盘符根 + libraryfolders.vdf 容错解析 + 依赖注入面）

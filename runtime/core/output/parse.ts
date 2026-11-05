@@ -1,4 +1,4 @@
-// stdout 标记解析 / 路径改写（从 output.ts 拆出，行为冻结）
+// stdout 标记解析 / 路径改写
 import fs from 'node:fs'
 import { winToWsl } from '../../config.js'
 

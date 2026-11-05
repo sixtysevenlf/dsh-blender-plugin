@@ -1,4 +1,4 @@
-// engine API：指标（从 server-compat.ts 拆出）
+// engine API：指标
 import type { EngineApiDeps, EngineApiMetrics } from './index.js'
 
 export function metricsView(E: EngineApiDeps): Record<string, unknown> {

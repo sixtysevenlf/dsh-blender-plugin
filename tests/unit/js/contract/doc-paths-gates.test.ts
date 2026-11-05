@@ -28,6 +28,7 @@ type Report = {
   baseline: {
     path: string
     present: boolean
+    review: null | { owner: string; reviewBy: string; reason: string }
     acceptedOrphans: number
     acceptedMissingRefs: number
     matches: boolean
@@ -73,6 +74,10 @@ describe('check-doc-paths', () => {
     expect(report!.findings.orphanDocs).toHaveLength(0)
     expect(report!.findings.missingRefs).toHaveLength(7)
     expect(report!.baseline.present).toBe(true)
+    expect(report!.baseline.review).not.toBeNull()
+    expect(report!.baseline.review!.owner).toBeTruthy()
+    expect(report!.baseline.review!.reason).toBeTruthy()
+    expect(report!.baseline.review!.reviewBy).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(report!.baseline.acceptedOrphans).toBe(0)
     expect(report!.baseline.acceptedMissingRefs).toBe(7)
     expect(report!.baseline.matches).toBe(true)
@@ -164,10 +169,39 @@ describe('check-doc-paths', () => {
     writePackageJson(root)
     write(root, 'docs/refs.md', '# refs\nSee `runtime/missing.ts`\n')
     expect(run(root, ['--write-baseline']).status).toBe(0)
+    const baselinePath = path.join(root, 'config', 'doc-links-baseline.json')
+    const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8')) as Record<string, unknown>
+    baseline.review = { owner: 'docs-owner', reviewBy: '2099-01-01', reason: 'frozen legacy ref' }
+    fs.writeFileSync(baselinePath, JSON.stringify(baseline, null, 2) + '\n')
     write(root, 'docs/refs.md', '# refs\n\nSee `runtime/missing.ts`\n')
     const shifted = run(root, ['--enforce'])
     expect(shifted.status).toBe(0)
     expect(shifted.report!.baseline.matches).toBe(true)
+  })
+
+  it('requires a live owner/reason/reviewBy when the baseline accepts missing refs', () => {
+    const root = tmpDir()
+    writePackageJson(root)
+    write(root, 'docs/refs.md', '# refs\nSee `runtime/missing.ts`\n')
+    expect(run(root, ['--write-baseline']).status).toBe(0)
+    const baselinePath = path.join(root, 'config', 'doc-links-baseline.json')
+    const missingReview = run(root, ['--enforce'])
+    expect(missingReview.status).toBe(1)
+    expect(missingReview.report!.legacy.failures.join('\n')).toContain('必须提供 review')
+
+    const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8')) as Record<string, unknown>
+    baseline.review = { owner: '', reviewBy: '2000-01-01', reason: '   ' }
+    fs.writeFileSync(baselinePath, JSON.stringify(baseline, null, 2) + '\n')
+    const invalid = run(root, ['--enforce'])
+    expect(invalid.status).toBe(1)
+    const invalidText = invalid.report!.legacy.failures.join('\n')
+    expect(invalidText).toContain('review.owner 不能为空')
+    expect(invalidText).toContain('review.reason 不能为空')
+    expect(invalidText).toContain('review 已过期')
+
+    baseline.review = { owner: 'docs-owner', reviewBy: '2099-01-01', reason: 'frozen legacy ref' }
+    fs.writeFileSync(baselinePath, JSON.stringify(baseline, null, 2) + '\n')
+    expect(run(root, ['--enforce']).status).toBe(0)
   })
 
   it('fails closed on a malformed baseline', () => {
