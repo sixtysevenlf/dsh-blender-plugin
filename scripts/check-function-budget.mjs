@@ -191,15 +191,25 @@ function tsFunctions(file) {
   return out
 }
 
+/** A bare command name goes through PATH; every path is resolved against this checkout. */
+function pythonCandidate(value) {
+  if (!value) return null
+  const hasSeparator = value.includes('/') || value.includes('\\')
+  if (!hasSeparator) return value
+  // The scan runs with cwd=ROOT (a fixture --root in tests), so a relative
+  // PYTHON such as ".venv/bin/python" must be anchored here, not to ROOT.
+  return path.isAbsolute(value) ? value : path.resolve(DEFAULT_ROOT, value)
+}
+
 function pythonFunctions() {
   // The interpreter belongs to this checkout, not to a fixture --root.
   const candidates = [
-    process.env.PYTHON,
+    pythonCandidate(process.env.PYTHON),
     path.join(DEFAULT_ROOT, '.venv', 'Scripts', 'python.exe'),
     path.join(DEFAULT_ROOT, '.venv', 'bin', 'python'),
     process.platform === 'win32' ? 'python' : 'python3',
   ].filter(Boolean)
-  const py = candidates.find((p) => (p.includes(path.sep) ? fs.existsSync(p) : true))
+  const py = candidates.find((p) => (p.includes('/') || p.includes('\\') ? fs.existsSync(p) : true))
   const r = spawnSync(py, [path.join(HERE, 'python_function_budget.py'), ROOT], {
     cwd: ROOT,
     encoding: 'utf8',
