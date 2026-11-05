@@ -25,6 +25,7 @@
       "__pycache__",
       ".dsh",
       ".dsh-ops",
+      ".review-tmp",
       "openspec",
       "runtime/ext"
     ],

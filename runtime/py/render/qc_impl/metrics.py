@@ -203,6 +203,8 @@ def qc_help():
                 "iou": "iou(a_mask, b_mask) → {iou,inter,union,a_px,b_px}",
                 "profile": "profile(mask, bins=24) → 逐层宽度", "profile_diff": "profile_diff(pa,pb)",
                 "compare": "compare(ref_path, ref_box, render_path, label) → iou+剖面差+两张对照图",
+                "compare_auto": "compare_auto(ref_path, ref_box=None, render_path=None, label) → 自适应掩膜 + 对齐搜索的比对（推荐默认）",
+                "align_iou": "align_iou(ref_path, ref_box=None, render_path=None) → 掩膜 bbox 紧裁后算 IoU（返回 JSON 标量）",
                 "resize_mask": "resize_mask(mask,h,w)", "write_png": "write_png(path,w,h,rgb_bytes)"},
         "measures": {"aabb_err": "aabb_err(obj_name, target_size) → 包围盒尺寸误差（内环 score 用）",
                      "silhouette_iou": "silhouette_iou(view_spec, ref_path, ref_box) → 1-IoU（越小越好；会出图再比对）",

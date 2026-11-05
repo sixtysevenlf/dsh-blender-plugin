@@ -16,7 +16,7 @@ See [proposal.md](proposal.md) for motivation, evidence F1–F4 and scope. This 
 
 - F1 用最小行为改动让 `qc_compare_auto` / `qc_align_iou` 真正可分派，并让"advertised-but-undispatchable"这类漂移在门禁层不可能再出现。
 - F2 把三类未入册例外变成带 owner/reviewBy 且被门禁消费的登记，而不是 prose。
-- F3 把 63 个文件里的"从 X 拆出 / 行为冻结"叙事改成职责描述，addon 悬空注释一并修掉。
+- F3 把 47 个文件里的"从 X 拆出 / 行为冻结"叙事改成职责描述，addon 悬空注释一并修掉。
 - F4 完成上一 change 的归档、旧 worktree/本地 checkout 清理、仓库外 evidence 索引收口。
 - 全程保持 228 ops 等计数不变；F1 之外零行为变化。
 
@@ -59,7 +59,7 @@ See [proposal.md](proposal.md) for motivation, evidence F1–F4 and scope. This 
 
 ### D5 — F3 注释去历史化
 
-- 规则：文件/模块头第一行写"现在负责什么"；确需历史的，最多一短句 `History: split from <file> (<version>)`；删除 `T*/F*/B*/C*` 步骤叙事与"行为冻结"字样。覆盖 audit 统计的 40 个"从 X 拆出"、23 个"行为冻结"文件（含重叠）以及 `addon/dsh_blender_bridge/protocol.py` 顶部对 `addon_manager.py`/`trajectory` 的引用。
+- 规则：文件/模块头第一行写"现在负责什么"；确需历史的，最多一短句 `History: split from <file> (<version>)`；删除 `T*/F*/B*/C*` 步骤叙事与"行为冻结"字样。覆盖 audit 统计的 41 个"从 X 拆出"、25 个"行为冻结"文件（并集 47）以及 `addon/dsh_blender_bridge/protocol.py` 顶部对 `addon_manager.py`/`trajectory` 的引用。
 - 不新增机械门禁：自然语言误报成本高，且 800+ 计划 ID 已由 `check-plan-ids` 管住；约定写入 `docs/architecture.md`（不新增规则文件）。
 - 保护：改动仅限注释；diff 审核用"非注释行零变化"自检，然后跑 typecheck/lint/format。
 

@@ -194,13 +194,15 @@ These are the rules that protect the architecture:
 
 ### Comment conventions
 
-File and module headers describe what the file is responsible for now, not the refactor step that
-created it. Source comments never cite T*/F*/B*/C* step IDs or "split from"/"behavior frozen"
-narratives; when the split history is genuinely useful it is at most one
-`History: split from <file> (<version>)` line. Behavior history belongs in
-[tests/BEHAVIOR_MATRIX.md](../tests/BEHAVIOR_MATRIX.md) and [CHANGELOG.md](../CHANGELOG.md), not in the
-implementation comments. Plan IDs are still allowed where they identify an accepted item in the
-plan-ID baseline, but they are identifiers, not file history.
+New and changed file and module headers describe what the file is responsible for now, not the
+refactor step that created it. Source comments never cite T*/F*/B*/C* step IDs or "split
+from"/"behavior frozen" narratives; when the split history is genuinely useful it is at most one
+`History: split from <file> (<version>)` line. Pre-existing headers outside the files a change
+touches are cleaned opportunistically when those files are next edited, not in a dedicated sweep.
+Behavior history belongs in [tests/BEHAVIOR_MATRIX.md](../tests/BEHAVIOR_MATRIX.md) and
+[CHANGELOG.md](../CHANGELOG.md), not in the implementation comments. Plan IDs are still allowed
+where they identify an accepted item in the plan-ID baseline, but they are identifiers, not file
+history.
 
 ### Contract and routing sources
 
@@ -236,15 +238,17 @@ a reason shorter than 16 characters, and an expired `reviewBy`. Kinds: `file-bud
 `src/host/runtime-bridge.ts`, and `src/headless/receipts/index.ts` (the documented src-to-lib
 bridge and two barrels); and eight `python-private-import` entries for the addon command modules
 that reuse private `_polyhaven_*` / `_polypizza_*` helpers from `integrations/*_client.py`.
-`tests/unit/python/test_private_import_contract.py` scans the addon with `ast` and fails on an
-unregistered pair or a stale entry, so the registry and the source tree cannot drift apart.
+`tests/unit/python/test_private_import_contract.py` scans the addon with `ast` for every
+`_`-prefixed name imported from `integrations/*_client.py`, derives the expected count from
+`config/exceptions.json`, and fails on an unregistered pair or a stale entry, so the registry and
+the source tree cannot drift apart.
 `facade-export` is reserved for the facade registry; `python-static` exists for future owned
 static-check waivers but currently has no entries because the static gate has no checked-in baseline.
 No `function-budget` entries are used: function-level debt is registered at the second level instead.
 
 `config/doc-links-baseline.json` is the document-side exception list: it freezes seven historical
 missing path refs (v2.3 host-contract and MIGRATIONS targets). While it accepts missing refs it must
-carry `review: {owner, reviewBy, reason}`; `npm run check:doc-paths --enforce` fails on a missing,
+carry `review: {owner, reviewBy, reason}`; `npm run check:doc-paths -- --enforce` fails on a missing,
 empty, or expired review, so the frozen links stay owned instead of becoming a silent allowlist.
 
 `config/function-budget-allowlist.json` is the function-level registry for the 80-120 line soft band.

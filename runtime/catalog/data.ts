@@ -94,7 +94,7 @@ export const PLAN_CATALOG: PlanFamily[] = [
     prefix: 'qc_',
     when: '与参考图比对（IoU / 剖面差 / 鲁棒性）或做合成自检',
     not: '能数值判定的装配问题（audit_* 更硬）；**别拿"看起来像"当验收** —— 用 qc_render_views(ref_path=…) 算 IoU / 剖面差',
-    sk: 'blender_rt_plan(op="qc_compare", args={ref:"ref.png", render:"out.png"})',
+    sk: 'blender_rt_plan(op="qc_compare", args={ref_path:"ref.png", render_path:"out.png"})',
     ops: [
       'compare',
       'compare_basic',

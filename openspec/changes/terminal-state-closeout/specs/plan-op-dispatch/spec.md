@@ -12,7 +12,7 @@ plan catalog 是 plan op 的对外契约。本 capability 让该契约可被机�
 
 #### Scenario: qc 漂移 op 可执行
 
-- **WHEN** 调用 `blender_rt_plan(op="qc_compare_auto", args={ref:"a.png", render:"b.png"})` 或 `blender_rt_plan(op="qc_align_iou", args={ref:"a.png", render:"b.png"})`
+- **WHEN** 调用 `blender_rt_plan(op="qc_compare_auto", args={ref_path:"a.png", render_path:"b.png"})` 或 `blender_rt_plan(op="qc_align_iou", args={ref_path:"a.png", render_path:"b.png"})`
 - **THEN** 请求经 qc 路由进入 `dsh_qc_api["dispatch"]`，分派键命中真实的 `compare_auto` / `align_iou` 实现并返回结果（成功结果或明确的参数错误），回执不含 `unknown qc op`
 
 #### Scenario: 全家族 parity 无缺口

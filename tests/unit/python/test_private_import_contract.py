@@ -1,11 +1,13 @@
-"""Contract test for the addon cross-module private imports.
+"""Contract test for addon cross-package private imports.
 
-The addon's polyhaven/polypizza command modules import private helpers from
+Command modules import private (`_`-prefixed) helpers from
 integrations/*_client.py. That reuse is registered per file in
 config/exceptions.json (kind: python-private-import) instead of being renamed
 in this change. This pure-ast test keeps the registry honest: every actual
-private import must be declared with its real target module, and every
-declaration must still exist in the source tree (no stale allowance).
+private import from an integrations client must be declared with its real
+target module, and every declaration must still exist in the source tree (no
+stale allowance). Counts are derived from the registry, not pinned to today's
+tree, so a new private import fails until it is registered.
 
 No Blender/bpy import is needed here: the scan never imports the addon.
 """
@@ -19,16 +21,23 @@ import pathlib
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 ADDON = ROOT / "addon" / "dsh_blender_bridge"
 EXCEPTIONS = ROOT / "config" / "exceptions.json"
-PRIVATE_PREFIXES = ("_polyhaven_", "_polypizza_")
 KIND = "python-private-import"
+
+
+def _is_client_module(module: str) -> bool:
+    parts = module.split(".")
+    return "integrations" in parts and parts[-1].endswith("_client")
 
 
 def _parse_detail(detail: str) -> tuple[str, set[str]]:
     assert detail.startswith("from "), "detail must start with 'from ': " + detail
     module_part, names_part = detail[len("from ") :].split(" import ", 1)
+    module = module_part.strip()
     names = {name.strip() for name in names_part.split(",") if name.strip()}
     assert names, "detail lists no private names: " + detail
-    return module_part.strip(), names
+    assert _is_client_module(module), "detail must target integrations/*_client.py: " + detail
+    assert all(name.startswith("_") for name in names), "detail must list only private names: " + detail
+    return module, names
 
 
 def _registered() -> dict[str, dict[str, str]]:
@@ -55,19 +64,20 @@ def _actual() -> tuple[dict[str, dict[str, str]], int]:
         for node in ast.walk(tree):
             if not isinstance(node, ast.ImportFrom):
                 continue
-            names = [alias.name for alias in node.names if alias.name.startswith(PRIVATE_PREFIXES)]
-            if not names:
-                continue
             module = "." * (node.level or 0) + (node.module or "")
-            for name in names:
-                actual.setdefault(rel, {})[name] = module
+            if not _is_client_module(module):
+                continue
+            for alias in node.names:
+                if not alias.name.startswith("_"):
+                    continue
+                actual.setdefault(rel, {})[alias.name] = module
                 pairs += 1
     return actual, pairs
 
 
 def test_every_private_import_is_registered_with_its_real_module():
     registered = _registered()
-    actual, pairs = _actual()
+    actual, _pairs = _actual()
     missing = []
     for file, names in actual.items():
         for name, module in sorted(names.items()):
@@ -85,5 +95,17 @@ def test_every_private_import_is_registered_with_its_real_module():
                 stale.append("%s: registry lists %s but the file no longer imports it" % (file, name))
     assert not missing, "unregistered private imports:\n" + "\n".join(missing)
     assert not stale, "stale private-import exceptions:\n" + "\n".join(stale)
-    assert pairs == 41, "expected 41 private-import name pairs, found %d" % pairs
-    assert len({name for names in registered.values() for name in names}) == 22
+
+
+def test_registry_counts_are_derived_from_the_registry():
+    registered = _registered()
+    actual, pairs = _actual()
+    expected_pairs = sum(len(names) for names in registered.values())
+    assert pairs == expected_pairs, "expected %d private-import pairs from registry, found %d" % (
+        expected_pairs,
+        pairs,
+    )
+    registered_names = {name for names in registered.values() for name in names}
+    actual_names = {name for names in actual.values() for name in names}
+    assert registered_names == actual_names
+    assert all(name.startswith("_") for name in registered_names)

@@ -12,7 +12,6 @@ MAX_SNAPSHOT_OBJECTS = 4000
 
 # Selected-name cap for get_world_state_snapshot: select-all in a large scene
 # would otherwise make `selected` the dominant field of both step snapshots.
-
 MAX_SNAPSHOT_SELECTED = 1000
 
 

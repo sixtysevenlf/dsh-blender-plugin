@@ -24,7 +24,7 @@
 
 ## 4. F3 注释去历史化
 
-- [x] 4.1 枚举并改写叙事头：`grep -rn "从 .* 拆出\|行为冻结" src runtime addon tests scripts` 命中的 40 + 23 个文件（去重后逐文件）以及 `addon/dsh_blender_bridge/protocol.py` 顶部悬空引用，统一为"现在负责什么"，历史最多一句 `History:`；验证同一条 grep 只剩 0 处（`tests/MIGRATION.md` 等明确历史文档除外则列入 allowlist 并在任务记录说明）。
+- [x] 4.1 枚举并改写叙事头：`grep -rn "从 .* 拆出\|行为冻结" src runtime addon tests scripts` 命中的 41 + 25 个文件（去重后 47 个逐文件）以及 `addon/dsh_blender_bridge/protocol.py` 顶部悬空引用，统一为"现在负责什么"，历史最多一句 `History:`；验证同一条 grep 只剩 0 处（`tests/MIGRATION.md` 等明确历史文档除外则列入 allowlist 并在任务记录说明）。
 - [x] 4.2 在 `docs/architecture.md` 记录注释约定（职责优先、历史单行、不写步骤 ID）；验证 `npm run check:doc-paths` 通过。
 - [x] 4.3 验证 4.1 未改代码：`git diff` 仅注释行变化（逐文件 review），并跑 `npm run typecheck`、`npm run lint`、`npm run format:check` 全绿。
 

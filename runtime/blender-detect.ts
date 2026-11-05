@@ -1,9 +1,8 @@
 /**
  * blender.exe 探测 —— 独立模块（纯探测，不 import config.ts，无环）。
  *
- * 为什么单独一个文件：scripts/check-function-budget.mjs 给 TS 文件定的预算是 600 行，config.ts
- * 本身就排到了 550+；Windows Steam 探测（多盘符根 + libraryfolders.vdf 容错解析 + 依赖注入面）
- * 必须另找地方，否则只能靠加债务白名单过关。
+ * 解析逻辑全部落在注入的依赖面（listDir / readFile / env / platform / homedir）上，
+ * 便于在非 Windows 平台与测试中替换探测面。
  *
  * 优先级（高 → 低，与 docs/配置参考.md §4 一致）：
  *   1) DSH_BLENDER_EXE 环境变量    → from='config'
@@ -226,7 +225,7 @@ function winCandidates(d: BlenderDetectDeps): Candidate[] {
   return out
 }
 
-/** macOS 候选：.app bundle，可执行文件在 Contents/MacOS 下（行为与拆分前一致） */
+/** macOS 候选：.app bundle，可执行文件在 Contents/MacOS 下 */
 function macCandidates(d: BlenderDetectDeps): Candidate[] {
   const out: Candidate[] = []
   const homes = ['/Applications', path.join(d.homedir(), 'Applications')]
@@ -248,7 +247,7 @@ function macCandidates(d: BlenderDetectDeps): Candidate[] {
   return out
 }
 
-/** Linux/WSL 候选：/mnt/<盘>/… 下的官方安装与 Steam 库（行为与拆分前一致，from 也保持 auto:install） */
+/** Linux/WSL 候选：/mnt/<盘>/… 下的官方安装与 Steam 库（from 保持 auto:install） */
 function linuxCandidates(d: BlenderDetectDeps): Candidate[] {
   const out: Candidate[] = []
   for (const drive of ['c', 'd', 'e', 'f']) {

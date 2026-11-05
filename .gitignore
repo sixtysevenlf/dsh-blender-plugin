@@ -35,4 +35,5 @@ coverage/
 /docs/refactor/
 /.dsh/
 /.dsh-ops/
+/.review-tmp/
 .vscode/

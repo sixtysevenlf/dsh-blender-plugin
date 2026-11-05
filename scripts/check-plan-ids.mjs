@@ -68,6 +68,7 @@ const DEFAULT_SCAN = {
     '__pycache__',
     '.dsh',
     '.dsh-ops',
+    '.review-tmp',
     'openspec',
     'runtime/ext',
   ],

@@ -1,4 +1,4 @@
-// runtime/engine.ts —— 公开门面（finalization §1.1.2 允许的两个公共 facade 之一）。
+// runtime/engine.ts —— 公开门面：后端入口与 lib/runtime/engine.js 的稳定导出面。
 // 本文件只做 re-export；实现位于 core/、execution/、transport/。
 //
 // 收敛原则：只保留仓库内**经构建产物路径 lib/runtime/engine.js** 消费的名字 ——

@@ -8,7 +8,7 @@
 
 - **F1 行为：catalog 有两个 op 实际不可用。** `runtime/catalog/data.ts:101-102` 声明 `qc_compare_auto`、`qc_align_iou`；`config/routing.json` 的 qc 行（prefix `qc_`、strip 3、api `dsh_qc_api`）把它们切成 `compare_auto` / `align_iou`；但 `runtime/py/render/qc_impl/api.py:110-119` 的 `qc_ops()` 只有 `compare` / `align_search` / `align_rotate`，`runtime/core/kit.py:250-265` 的 `wrap_dispatch` 不做别名归一 → 实际返回 `unknown qc op`。`config/contracts.json:210-213` 把它声明为 "known pre-existing drift"，但无 owner、无 reviewBy、无 GitHub issue；`tests/BEHAVIOR_MATRIX.md` 对应两行标 covered，实际只覆盖 catalog 契约与写租约，不覆盖 dispatch 成功。**这正是"结构门禁全绿 ≠ 行为完整"的残留实例。**
 - **F2 例外无主。** (a) 上述 catalogExtras 在 prose 中声明，未进 `config/exceptions.json`；(b) `config/doc-links-baseline.json` 有 7 条历史缺失引用（frozen v2.3 契约 5 条 + MIGRATIONS 2 条），由 `tests/unit/js/contract/doc-paths-gates.test.ts:74-85` 逐条断言，但 baseline 无 owner/review 日期；(c) 仓库外 debt ledger 的 D1：41 处私有名跨模块导入 / 8 文件 / 22 名字（全部 `_polyhaven_*` / `_polypizza_*`），台账自己写明 "No owner/expiry assigned yet"。三项都违反"例外必须有主"的原则，只是不在 §1.1.4 的枚举类型内。
-- **F3 叙事残留。** 40 个 TS 文件仍以"从 X 拆出"开头（如 `runtime/catalog/logic.ts:1`、`runtime/core/dispatcher/plan-call.ts:1`），23 个文件含"行为冻结"；`addon/dsh_blender_bridge/protocol.py` 顶部注释仍引用不存在的 `addon_manager.py` / `trajectory`。`check-plan-ids` 只清 ID，清不到这类叙事。
+- **F3 叙事残留。** 41 个文件仍以"从 X 拆出"开头（如 `runtime/catalog/logic.ts:1`、`runtime/core/dispatcher/plan-call.ts:1`），25 个文件含"行为冻结"；`addon/dsh_blender_bridge/protocol.py` 顶部注释仍引用不存在的 `addon_manager.py` / `trajectory`。`check-plan-ids` 只清 ID，清不到这类叙事。
 - **F4 流程/工作区未收尾。** `converge-3-0-terminal-state` 已 Complete（41/41）但未 archive；本地注册 22 个旧 refactor worktree（含 1 个 prunable）；本地 checkout 落后 main 3 个提交；仓库外证据库 48 个目录中 17 个按 §1.3 四件套启发式缺项，且 `evidence/README.md` 只索引 11 个任务。
 
 为什么现在：结构终态刚达成、3.0.6 刚发布，遗留项上下文最新，一次收口成本最低；F1 若不修，则"catalog 有 228 个 op"的对外声明在 2/228 的 op 上不成立，会持续误导用户与后续 agent；F2/F3/F4 不修则下一次审计仍只能判 PARTIAL。上一 change 已完成但未归档，正好在本 change 收尾时归档。
@@ -29,7 +29,7 @@
 
 ### F3 叙事去历史化（无行为变更）
 
-- 改写 40 个"从 X 拆出"与 23 个"行为冻结"头注释为职责描述（例：`runtime/catalog/logic.ts:1`、`runtime/core/dispatcher/plan-call.ts:1`）；确需历史时用一句 History 说明，不再用拆出叙事代替职责。
+- 改写 41 个"从 X 拆出"与 25 个"行为冻结"头注释为职责描述（例：`runtime/catalog/logic.ts:1`、`runtime/core/dispatcher/plan-call.ts:1`）；确需历史时用一句 History 说明，不再用拆出叙事代替职责。
 - 修 `addon/dsh_blender_bridge/protocol.py` 顶部对不存在模块的引用。
 - 在 `docs/architecture.md` 记录注释约定（职责优先）；不新增机械门禁，避免对"拆出"类词汇误报。
 
@@ -58,7 +58,7 @@
 
 ## Impact
 
-- **代码/契约**：`runtime/catalog/data.ts`、`config/routing.json`、`runtime/py/render/qc_impl/api.py`（或 `runtime/core/kit.py` 的分派归一）、`config/contracts.json`、`config/exceptions.json`、`config/doc-links-baseline.json`；新增/修改 `tests/unit/js/contract/*` 与 `tests/BEHAVIOR_MATRIX.md`；注释清理 63 个 TS 文件 + `addon/dsh_blender_bridge/protocol.py`。
+- **代码/契约**：`runtime/catalog/data.ts`、`config/routing.json`、`runtime/py/render/qc_impl/api.py`（或 `runtime/core/kit.py` 的分派归一）、`config/contracts.json`、`config/exceptions.json`、`config/doc-links-baseline.json`；新增/修改 `tests/unit/js/contract/*` 与 `tests/BEHAVIOR_MATRIX.md`；注释清理 47 个文件 + `addon/dsh_blender_bridge/protocol.py`。
 - **文档**：`docs/architecture.md`（注释约定 + 例外摘要）、`CHANGELOG.md`（若发布）、必要时 `tests/MIGRATION.md`；中英双语入口保持同步。
 - **流程**：归档上一 change；本地 worktree 与 checkout 清理；仓库外 evidence README 刷新（不进 CI）。
 - **风险**：F1 涉及 Python qc 分派与 routing 两处，需用失败测试锁定；F2 扩大 `exceptions.json` 语义时需同步 `check-exceptions` 与文档；F4 的证据库不在 CI 覆盖内，只能人工核对。

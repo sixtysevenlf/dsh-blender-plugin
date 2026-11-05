@@ -8,6 +8,6 @@ export function loopResultText(op: string, result: unknown): string {
 }
 
 export function loopSessionError(_op: string, _nm: string, detail: string): string {
-  // 失败文案只保留 'LOOP session 失败 · '，不带 op/session（与 v2.6.2 一致）。
+  // 失败文案只保留 'LOOP session 失败 · '，不带 op/session。
   return 'LOOP session 失败 · ' + detail
 }

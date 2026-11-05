@@ -204,6 +204,17 @@ describe('check-doc-paths', () => {
     expect(run(root, ['--enforce']).status).toBe(0)
   })
 
+  it('fails on a missing baseline review even without --enforce', () => {
+    const root = tmpDir()
+    writePackageJson(root)
+    write(root, 'docs/refs.md', '# refs\nSee `runtime/missing.ts`\n')
+    expect(run(root, ['--write-baseline']).status).toBe(0)
+    const warn = run(root)
+    expect(warn.status).toBe(1)
+    expect(warn.report!.mode).toBe('warn')
+    expect(warn.report!.legacy.failures.join('\n')).toContain('必须提供 review')
+  })
+
   it('fails closed on a malformed baseline', () => {
     const root = tmpDir()
     writePackageJson(root)

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Split from qc.py; behavior preserved by the facade."""
+"""QC API entry: qc_dispatch, qc_render bridges, and the path-level align_iou wrapper."""
 from .common import *  # noqa: F401,F403
 from .pnggif import _gif_first_frame, gif_to_png
 from .load import qc_compare, qc_crop, qc_iou, qc_load, qc_mask, qc_profile, qc_profile_diff, qc_resize_mask
@@ -113,6 +113,10 @@ def qc_align_iou_op(ref_path, ref_box=None, render_path=None, render_box=None, p
     catalog 的 qc_align_iou 只声明名字；这里补上路径级入口（qc_align_iou 本身吃
     numpy 数组，工具侧无法直接传）。返回 JSON 安全的标量，mask/canvas 数组不进入回执。
     """
+    if not ref_path:
+        return _j({"ok": False, "error": "align_iou：缺少 ref_path", "op": "align_iou"})
+    if not render_path:
+        return _j({"ok": False, "error": "align_iou：缺少 render_path", "op": "align_iou"})
     ref_srgb, ref_alpha = qc_load(ref_path)
     if ref_box:
         ref_srgb = qc_crop(ref_srgb, ref_box)
