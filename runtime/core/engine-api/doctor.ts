@@ -1,4 +1,4 @@
-// engine API：通道诊断（从 server-compat.ts 拆出）
+// engine API：通道诊断
 import { diagnose, freshPing, protocolInfo, tcpProbe } from '../../transport/probes.js'
 import type { Diagnosis } from '../../transport/probes.js'
 import { FLAGS_CODE, REGION_CODE } from '../flags.js'

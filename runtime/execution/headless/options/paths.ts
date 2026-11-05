@@ -1,4 +1,4 @@
-// headless 选项：路径/脚本/输入文件解析（从 options.ts 拆出）
+// headless 选项：路径/脚本/输入文件解析
 import fs from 'node:fs'
 import { winToWsl, wslToWin } from '../../../config.js'
 import { WIN_TMP } from '../../../paths.js'

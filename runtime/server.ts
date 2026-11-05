@@ -1,5 +1,5 @@
 // Blender 实时交互后端 —— 进程入口。
-// 行为冻结：29 条路由、写租约、CORS、生命周期与拆分前一致；实现位于 http/。
+// 29 条路由、写租约、CORS、生命周期装配；实现位于 http/。
 import http from 'node:http'
 import { createEngine, engineProvenance } from './engine.js'
 import { createSelectionStore } from './selectionstore.js'

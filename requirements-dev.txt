@@ -3,3 +3,6 @@ pytest>=8.3,<9
 pytest-cov>=6,<8
 diff-cover>=9,<10
 ruff==0.17.3
+# Blender supplies NumPy at runtime; the pure-Python dispatch tests (run without
+# Blender) exercise NumPy code paths, so the unit test stack needs it too.
+numpy>=2.0,<3

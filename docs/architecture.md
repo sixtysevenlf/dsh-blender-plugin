@@ -192,6 +192,20 @@ These are the rules that protect the architecture:
 - Coverage floors are enforced by check:coverage; E2E scenario coverage is separate from line coverage.
 - Every behavioral change needs a failing test first and evidence in the pull request.
 
+### Comment conventions
+
+New and changed file and module headers describe what the file is responsible for now, not the
+refactor step that created it. New and changed source comments never cite T*/F*/B*/C* step IDs or
+"split from"/"behavior frozen" narratives; when the split history is genuinely useful it is at most
+one `History: split from <file> (<version>)` line. Pre-existing headers outside the files a change
+touches are cleaned opportunistically when those files are next edited; a one-off baseline sweep is
+allowed only when a change declares it explicitly (the terminal-state closeout did, in a
+comment-only diff).
+Behavior history belongs in [tests/BEHAVIOR_MATRIX.md](../tests/BEHAVIOR_MATRIX.md) and
+[CHANGELOG.md](../CHANGELOG.md), not in the implementation comments. Plan IDs are still allowed
+where they identify an accepted item in the plan-ID baseline, but they are identifiers, not file
+history.
+
 ### Contract and routing sources
 
 The op surface has two derived data sources; neither is hand-maintained inside the dispatch code:
@@ -207,8 +221,10 @@ The op surface has two derived data sources; neither is hand-maintained inside t
   extraction of the literal dispatch table. `scripts/catalog_dispatch_keys.py` parses those tables
   with the Python ast module (no import, no bpy), and
   `tests/unit/js/contract/catalog-dispatch-parity.test.ts` fails when a catalog op has no python
-  dispatch key. Host-side families, aliases, and python-only keys are declared explicitly in that
-  file, so undeclared drift fails instead of being skipped.
+  dispatch key. Host-side families (`host`), host-side ops inside a Python family (`hostOps`, each
+  with a reason, for example `shape_search` before the dispatcher), aliases, and python-only keys
+  (`pythonExtras`) are declared explicitly; the retired `catalogExtras` field fails the parity test,
+  so an advertised-but-undispatchable op cannot pass as known drift.
 
 ### Exceptions
 
@@ -219,12 +235,23 @@ Each entry has `id`, `kind`, `path`, `reason`, `owner`, and `reviewBy`; `npm run
 check:exceptions` (part of `npm run lint`) rejects an unknown kind, a missing path, a duplicate id,
 a reason shorter than 16 characters, and an expired `reviewBy`. Kinds: `file-budget`,
 `function-budget`, `python-static`, `single-line-reexport`, `facade-export`, `doc-path`,
-`matrix-row`. Four entries exist today: the `file-budget` one for `runtime/catalog/data.ts`, and
-`single-line-reexport` for `runtime/catalog/index.ts`, `src/host/runtime-bridge.ts`, and
-`src/headless/receipts/index.ts` (the documented src-to-lib bridge and two barrels). `facade-export`
-is reserved for the facade registry; `python-static` exists for future owned static-check waivers but
-currently has no entries because the static gate has no checked-in baseline. No `function-budget`
-entries are used: function-level debt is registered at the second level instead.
+`matrix-row`, `python-private-import`. Twelve entries exist today: the `file-budget` one for
+`runtime/catalog/data.ts`; `single-line-reexport` for `runtime/catalog/index.ts`,
+`src/host/runtime-bridge.ts`, and `src/headless/receipts/index.ts` (the documented src-to-lib
+bridge and two barrels); and eight `python-private-import` entries for the addon command modules
+that reuse private `_polyhaven_*` / `_polypizza_*` helpers from `integrations/*_client.py`.
+`tests/unit/python/test_private_import_contract.py` scans the addon with `ast` for every
+`_`-prefixed name imported from `integrations/*_client.py`, derives the expected count from
+`config/exceptions.json`, and fails on an unregistered pair or a stale entry, so the registry and
+the source tree cannot drift apart.
+`facade-export` is reserved for the facade registry; `python-static` exists for future owned
+static-check waivers but currently has no entries because the static gate has no checked-in baseline.
+No `function-budget` entries are used: function-level debt is registered at the second level instead.
+
+`config/doc-links-baseline.json` is the document-side exception list: it freezes seven historical
+missing path refs (v2.3 host-contract and MIGRATIONS targets). While it accepts missing refs it must
+carry `review: {owner, reviewBy, reason}`; `npm run check:doc-paths -- --enforce` fails on a missing,
+empty, or expired review, so the frozen links stay owned instead of becoming a silent allowlist.
 
 `config/function-budget-allowlist.json` is the function-level registry for the 80-120 line soft band.
 Every band function has one entry keyed `file::name` with a `classification`, `reason`, class

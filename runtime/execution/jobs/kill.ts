@@ -1,4 +1,4 @@
-// 作业 kill（从 jobs.ts 拆出，行为冻结）
+// 作业 kill
 import type { JobRecord } from './types.js'
 import type { JobsCtx } from './api.js'
 import { jobSnapshot } from './snapshot.js'

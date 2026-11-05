@@ -1,4 +1,4 @@
-// engine API：宿主集成数据源 / start / stop（从 server-compat.ts 拆出）
+// engine API：宿主集成数据源 / start / stop
 import { extractTag } from '../output/index.js'
 import { KERNEL_BOOTSTRAP } from '../kernel/index.js'
 import type { EngineApiDeps } from './index.js'

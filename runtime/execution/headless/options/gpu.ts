@@ -1,4 +1,4 @@
-// headless 选项：preload 与 GPU/引擎前导（从 options.ts 拆出）
+// headless 选项：preload 与 GPU/引擎前导
 import fs from 'node:fs'
 import { GPU_PRELUDE, pyModuleFile } from '../../../paths.js'
 import type { HeadlessDeps, HeadlessOpts } from '../types.js'

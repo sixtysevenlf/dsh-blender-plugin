@@ -1,4 +1,4 @@
-// plan/command 目录逻辑（从 catalog.ts 拆出，行为冻结）
+// catalog 辅助逻辑：plan op 匹配/建议、命令目录指纹、磁盘 catalog 对拍与家族文本渲染。
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'

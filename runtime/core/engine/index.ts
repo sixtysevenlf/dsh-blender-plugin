@@ -1,6 +1,6 @@
-// engine 装配入口（拆分）：类型 + createEngine 薄装配
-// createEngine 只做装配与分发 —— 各能力在 core/*、execution/*、transport/* 中实现。
-// 行为冻结：公开 surface（工具/路由/指标/租约相关回执）与拆分前完全一致。
+// engine 装配入口：类型定义 + createEngine 薄装配。
+// createEngine 只把各工厂接到同一个 deps 对象上；业务实现位于 core/*、execution/*、transport/*。
+// 对外 surface 覆盖工具 / 路由 / 指标 / 租约相关回执。
 import type { AddonClient as AddonClientType } from '../../transport/probes.js'
 import type { createJobsApi } from '../../execution/jobs/index.js'
 import type { createWorkersApi } from '../../execution/workers/index.js'
@@ -99,9 +99,9 @@ export interface EngineSurface {
 import { assembleEngine, createEngineContext } from './assemble.js'
 
 /**
- * 装配引擎。参数只有 opts.address（addon 地址覆盖），与拆分前一致。
- * 注意：这里不实现任何业务；只负责把各个工厂接到同一个 deps 对象上，
- * 保证闭包共享同一份 addon / metrics / ledger / jobs（与拆分前单闭包语义一致）。
+ * 装配引擎。参数只有 opts.address（addon 地址覆盖）。
+ * 这里不实现任何业务；只负责把各个工厂接到同一个 deps 对象上，
+ * 保证闭包共享同一份 addon / metrics / ledger / jobs。
  */
 
 export function createEngine(opts: EngineOptions = {}): EngineSurface {

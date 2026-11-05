@@ -1,4 +1,4 @@
-// 启动解析：Windows 代理 / addon 名字提示 / 注入脚本（从 launch.ts 拆出）
+// 启动解析：Windows 代理 / addon 名字提示 / 注入脚本
 import { CFG } from '../config.js'
 import { errorMessage } from '../core/json.js'
 

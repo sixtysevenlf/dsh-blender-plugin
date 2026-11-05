@@ -1,4 +1,4 @@
-// engine API：Python 执行/命令透传（从 server-compat.ts 拆出）
+// engine API：Python 执行/命令透传
 import { ACT_WRAPPER } from '../../paths.js'
 import { KERNEL_BOOTSTRAP } from '../kernel/index.js'
 import { enrichError } from '../errors.js'

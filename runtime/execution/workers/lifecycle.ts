@@ -1,4 +1,4 @@
-// worker 生命周期：stop/restart/空闲回收（从 workers.ts 拆出，行为冻结）
+// worker 生命周期：stop/restart/空闲回收
 import type { WorkersCtx } from './api.js'
 import { workerAlive, workerCall, workerState } from './api.js'
 import { workerStart } from './worker-start.js'

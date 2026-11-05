@@ -1,4 +1,4 @@
-// 轨迹记录器（从 trajectory.ts 拆出，行为冻结）
+// 轨迹记录器
 import path from 'node:path'
 import fs from 'node:fs'
 

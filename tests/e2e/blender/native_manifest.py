@@ -165,6 +165,12 @@ HEADLESS_MODULES = (
         "timeout": 300,
     },
     {
+        "id": "qc_dispatch",
+        "path": "tests/e2e/blender/native/qc_dispatch.py",
+        "preloads": ("qc", "imgtools"),
+        "timeout": 300,
+    },
+    {
         "id": "upstream_sculpt",
         "path": "tests/e2e/blender/native/upstream/upstream_sculpt.py",
         "preloads": ("audit", "sculpt", "mesh_fix", "uv_tools", "printcheck", "sweep", "material", "render_guard", "gate", "human", "vehicle", "clearance", "shapegen", "faceeval", "imgtools", "pipeline"),

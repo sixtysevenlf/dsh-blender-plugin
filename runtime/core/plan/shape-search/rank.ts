@@ -1,4 +1,4 @@
-// shape-search 结果判定/恢复/建议（从 shape-search.ts 拆出，行为冻结）
+// shape-search 结果判定/恢复/建议
 import { KERNEL_BOOTSTRAP } from '../../kernel/index.js'
 import { errorMessage } from '../../json.js'
 import { pyIndent, pyLit } from './axes.js'

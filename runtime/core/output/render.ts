@@ -1,4 +1,4 @@
-// catalog 页渲染（从 output.ts 拆出，行为冻结）
+// catalog 页渲染
 import type { Provenance } from '../evidence.js'
 import { engineProvenance } from '../evidence.js'
 import {

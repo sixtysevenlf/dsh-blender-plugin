@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Split from qc.py; behavior preserved by the facade."""
+"""QC 度量与帮助：qc_compare_auto、自检/鲁棒性/掩膜扫描与 qc_help 文案。"""
 from .common import *  # noqa: F401,F403
 from .load import _hstack, _overlay_bytes, _to_u8, qc_crop, qc_load, qc_mask, qc_profile, qc_profile_diff
 from .align import _align_search, _iou_pair, _scale_bool, _scale_rgb, qc_align_rotate, qc_mask_auto, qc_metrics
@@ -203,6 +203,8 @@ def qc_help():
                 "iou": "iou(a_mask, b_mask) → {iou,inter,union,a_px,b_px}",
                 "profile": "profile(mask, bins=24) → 逐层宽度", "profile_diff": "profile_diff(pa,pb)",
                 "compare": "compare(ref_path, ref_box, render_path, label) → iou+剖面差+两张对照图",
+                "compare_auto": "compare_auto(ref_path, ref_box=None, render_path=None, label) → 自适应掩膜 + 对齐搜索的比对（推荐默认）",
+                "align_iou": "align_iou(ref_path, ref_box=None, render_path=None) → 掩膜 bbox 紧裁后算 IoU（返回 JSON 标量）",
                 "resize_mask": "resize_mask(mask,h,w)", "write_png": "write_png(path,w,h,rgb_bytes)"},
         "measures": {"aabb_err": "aabb_err(obj_name, target_size) → 包围盒尺寸误差（内环 score 用）",
                      "silhouette_iou": "silhouette_iou(view_spec, ref_path, ref_box) → 1-IoU（越小越好；会出图再比对）",

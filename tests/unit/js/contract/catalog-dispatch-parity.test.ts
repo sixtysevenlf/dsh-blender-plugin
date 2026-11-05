@@ -101,6 +101,79 @@ afterAll(() => {
   for (const root of tmpRoots) fs.rmSync(root, { recursive: true, force: true })
 })
 
+interface FamilyContract {
+  api?: string
+  table?: string
+  host?: string[]
+  hostReason?: string
+  hostOps?: Record<string, string>
+  catalogExtras?: Record<string, string>
+  aliases?: Record<string, string>
+  pythonExtras?: string[]
+  mode?: string
+}
+
+// One place decides whether a family's catalog ops really reach Python. Host-side
+// ops are legitimate only through hostOps with a reason; the retired catalogExtras
+// key is a hard failure so a missing dispatch key cannot hide as "known drift".
+function validateFamily(
+  familyName: string,
+  ops: string[],
+  family: FamilyContract,
+  pythonKeys: Set<string>,
+): string[] {
+  const errors: string[] = []
+  const table = family.table ?? '(no table)'
+  if (family.catalogExtras !== undefined) {
+    errors.push(
+      familyName + ': catalogExtras is retired; declare host-side ops in hostOps with a reason',
+    )
+  }
+  const hostOps = family.hostOps ?? {}
+  const aliases = family.aliases ?? {}
+  const pythonExtras = new Set<string>(family.pythonExtras ?? [])
+  for (const [op, reason] of Object.entries(hostOps)) {
+    if (!ops.includes(op)) errors.push(familyName + ': hostOps op is not in the catalog: ' + op)
+    if (!reason || reason.trim() === '')
+      errors.push(familyName + ': hostOps reason is empty: ' + op)
+    if (pythonKeys.has(op))
+      errors.push(familyName + ': hostOps op must not exist in ' + table + ': ' + op)
+  }
+  for (const [op, target] of Object.entries(aliases)) {
+    if (!ops.includes(op)) errors.push(familyName + ': alias source is not a catalog op: ' + op)
+    if (Object.hasOwn(hostOps, op))
+      errors.push(familyName + ': host-side op must not carry an alias: ' + op)
+    if (!pythonKeys.has(target))
+      errors.push(
+        familyName + ': alias target is missing from ' + table + ': ' + op + ' -> ' + target,
+      )
+  }
+  const required = ops.filter((op) => !Object.hasOwn(hostOps, op)).map((op) => aliases[op] ?? op)
+  for (const key of required) {
+    if (!pythonKeys.has(key))
+      errors.push(familyName + ': missing python dispatch key in ' + table + ': ' + key)
+  }
+  for (const extra of pythonExtras) {
+    if (!pythonKeys.has(extra))
+      errors.push(familyName + ': pythonExtras key is missing from ' + table + ': ' + extra)
+    if (required.includes(extra))
+      errors.push(familyName + ': pythonExtra must not be a mapped catalog op: ' + extra)
+    if (Object.hasOwn(hostOps, extra))
+      errors.push(familyName + ': pythonExtra must not also be a hostOp: ' + extra)
+  }
+  if (family.mode !== 'subset') {
+    const unexpected = [...pythonKeys].filter(
+      (key) => !required.includes(key) && !pythonExtras.has(key),
+    )
+    for (const key of unexpected) {
+      errors.push(familyName + ': undeclared python dispatch key in ' + table + ': ' + key)
+    }
+  } else if (Object.keys(aliases).length === 0) {
+    errors.push(familyName + ': subset mode needs explicit aliases')
+  }
+  return errors
+}
+
 describe('catalog <-> Python dispatch parity', () => {
   it('parses every declared Python dispatch table (ast, no import)', () => {
     expect(extracted.errors).toEqual([])
@@ -129,11 +202,13 @@ describe('catalog <-> Python dispatch parity', () => {
       expect(family.table, name).toBeUndefined()
     }
 
-    for (const [name, family] of Object.entries(CONTRACTS.families) as [string, any][]) {
+    for (const [name, family] of Object.entries(CONTRACTS.families) as [string, FamilyContract][]) {
+      expect(family.catalogExtras, name + ' catalogExtras').toBeUndefined()
       if (family.host) continue
       expect(typeof family.api, name).toBe('string')
       expect(family.api, name).toMatch(/^dsh_[a-z0-9_]+_api$/)
-      expect(CONTRACTS.pythonTables[family.table], name + ' -> ' + family.table).toBeTruthy()
+      expect(family.table, name + ' table').toBeTruthy()
+      expect(CONTRACTS.pythonTables[family.table!], name + ' -> ' + family.table).toBeTruthy()
     }
   })
 
@@ -154,53 +229,62 @@ describe('catalog <-> Python dispatch parity', () => {
   })
 
   for (const [familyName, ops] of catalogOps) {
-    const family = CONTRACTS.families[familyName] as any
+    const family = CONTRACTS.families[familyName] as FamilyContract
     if (family.host) continue
-    const table = tables.get(family.table)!
+    const table = tables.get(family.table!)!
     const pythonKeys = new Set(table.keys!)
-    const catalogExtras = Object.keys(family.catalogExtras ?? {})
-    const aliases: Record<string, string> = family.aliases ?? {}
-    const pythonExtras = new Set<string>(family.pythonExtras ?? [])
 
     it('maps every ' + familyName + ' catalog op to a declared python dispatch key', () => {
-      for (const extra of catalogExtras) expect(ops, familyName + ' catalogExtras').toContain(extra)
-      for (const [op, target] of Object.entries(aliases)) {
-        expect(ops, familyName + ' alias source').toContain(op)
-        expect(pythonKeys.has(target), familyName + ' alias ' + op + ' -> ' + target).toBe(true)
-      }
-
-      const required = ops
-        .filter((op) => !catalogExtras.includes(op))
-        .map((op) => aliases[op] ?? op)
-      expect(required.length, familyName).toBe(ops.length - catalogExtras.length)
-
-      const missing = required.filter((key) => !pythonKeys.has(key))
-      expect(missing, familyName + ': catalog ops missing from ' + family.table).toEqual([])
-
-      for (const extra of pythonExtras) {
-        expect(pythonKeys.has(extra), familyName + ' pythonExtras ' + extra).toBe(true)
-        expect(
-          required,
-          familyName + ' pythonExtra must not be a mapped catalog op: ' + extra,
-        ).not.toContain(extra)
-      }
-
-      if (family.mode !== 'subset') {
-        const unexpected = [...pythonKeys].filter(
-          (key) => !required.includes(key) && !pythonExtras.has(key),
-        )
-        expect(
-          unexpected,
-          familyName + ': undeclared python dispatch keys in ' + family.table,
-        ).toEqual([])
-      } else {
-        expect(
-          Object.keys(aliases).length,
-          familyName + ' subset mode needs explicit aliases',
-        ).toBeGreaterThan(0)
-      }
+      expect(
+        validateFamily(familyName, ops, family, pythonKeys),
+        familyName + ': catalog <-> dispatch mismatches',
+      ).toEqual([])
     })
   }
+
+  it('rejects a catalog op without a python dispatch key', () => {
+    const errors = validateFamily(
+      'demo',
+      ['compare_auto', 'align_iou'],
+      { api: 'dsh_demo_api', table: 'demo' },
+      new Set(['compare_auto']),
+    )
+    expect(errors.join('\n')).toContain('demo: missing python dispatch key in demo: align_iou')
+  })
+
+  it('accepts a host-side op declared in hostOps', () => {
+    const errors = validateFamily(
+      'shape',
+      ['search', 'loft'],
+      {
+        api: 'dsh_shape_api',
+        table: 'shape',
+        hostOps: { search: 'handled before the dispatcher' },
+      },
+      new Set(['loft']),
+    )
+    expect(errors).toEqual([])
+  })
+
+  it('rejects the retired catalogExtras field', () => {
+    const errors = validateFamily(
+      'demo',
+      ['compare'],
+      { table: 'demo', catalogExtras: { compare: 'old drift note' } },
+      new Set(['compare']),
+    )
+    expect(errors.join('\n')).toContain('catalogExtras is retired')
+  })
+
+  it('rejects a hostOps entry that also exists in the python table', () => {
+    const errors = validateFamily(
+      'demo',
+      ['search', 'gen'],
+      { table: 'demo', hostOps: { search: 'handled by host' } },
+      new Set(['search', 'gen']),
+    )
+    expect(errors.join('\n')).toContain('hostOps op must not exist in demo: search')
+  })
 
   it('rejects a contracts entry whose python file does not exist', () => {
     const root = fixtureContracts({

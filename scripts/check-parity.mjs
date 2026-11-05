@@ -36,6 +36,14 @@ const TMP_ROOT = process.env.DSH_TMP || os.tmpdir()
 // Premium/Tripo channel; nothing else may disappear without adding it here.
 const DECLARED_CATALOG_REMOVALS = ['get_tripo_status']
 
+// Declared user-visible catalog text patches: exact base -> current replacements
+// for reviewed help-text fixes. The parity gate compares user-visible text
+// strictly, so a prose fix is an explicit, reviewed contract change too — each
+// pair must occur exactly once in the base catalog source.
+const DECLARED_CATALOG_TEXT_PATCHES = [
+  ['args={ref:"ref.png", render:"out.png"}', 'args={ref_path:"ref.png", render_path:"out.png"}'],
+]
+
 // Declared public-surface removals: /4.2 shrinks runtime/engine.ts from the
 // 87 re-exports of the TS migration to the ~20 names actually consumed through
 // the built lib/runtime/engine.js path (config/facades.json is the registry).
@@ -208,8 +216,23 @@ try {
     .readFileSync(baseCatalogPath, 'utf8')
     .split(/\r?\n/)
     .filter((line) => !DECLARED_CATALOG_REMOVALS.some((name) => line.startsWith('  ' + name + ':')))
-  fs.writeFileSync(baseCatalogPath, baseCatalogLines.join('\n'))
+  let baseCatalogText = baseCatalogLines.join('\n')
+  for (const [from, to] of DECLARED_CATALOG_TEXT_PATCHES) {
+    const seen = baseCatalogText.split(from).length - 1
+    if (seen !== 1) {
+      throw new Error(
+        'declared catalog text patch must occur once in base, found ' + seen + ': ' + from,
+      )
+    }
+    baseCatalogText = baseCatalogText.replace(from, to)
+  }
+  fs.writeFileSync(baseCatalogPath, baseCatalogText)
   ok('declared-removals', 'declared catalog removals applied to base', DECLARED_CATALOG_REMOVALS)
+  ok(
+    'declared-text-patches',
+    'declared catalog text patches applied to base',
+    DECLARED_CATALOG_TEXT_PATCHES.length,
+  )
 
   const pkgShown = spawnSync('git', ['show', BASE + ':package.json'], {
     cwd: ROOT,

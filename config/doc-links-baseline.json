@@ -2,6 +2,11 @@
   "version": 1,
   "tool": "check-doc-paths",
   "generatedAt": "2026-11-04T19:23:51.184Z",
+  "review": {
+    "owner": "docs-owner",
+    "reviewBy": "2027-06-30",
+    "reason": "The seven missing refs are frozen v2.3 host-contract and MIGRATIONS history targets; the docs keep their original text and no replacement files are planned."
+  },
   "docs": [
     "AGENTS.md",
     "CONTRIBUTING.md",

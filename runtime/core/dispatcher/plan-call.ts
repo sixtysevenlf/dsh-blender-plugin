@@ -1,4 +1,4 @@
-// plan/qc/audit 前缀路由（从 dispatch.ts 拆出；由 config/routing.json 生成表驱动）
+// plan/qc/audit 前缀路由（由 config/routing.json 生成表驱动）
 import { WIN_TMP, blenderJoin } from '../../paths.js'
 import { extractLoop } from '../output/index.js'
 import { KERNEL_BOOTSTRAP } from '../kernel/index.js'
@@ -144,7 +144,7 @@ async function handleMontage(E: PlanCallDeps, route: GuiRoute, payload: unknown)
   )
 }
 
-/** motion_/deliver_ 的模块 API 不是统一 dispatch，需要按函数名直调（行为冻结）。 */
+/** motion_/deliver_ 的模块 API 不是统一 dispatch，需要按函数名直调。 */
 async function handleModuleAlias(
   E: PlanCallDeps,
   route: GuiRoute,

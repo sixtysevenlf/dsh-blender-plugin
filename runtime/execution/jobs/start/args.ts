@@ -1,4 +1,4 @@
-// 作业记录/产物/落盘（从 jobs/start.ts 拆出，行为冻结）
+// 作业记录/产物/落盘
 import path from 'node:path'
 import fs from 'node:fs'
 import { winToWsl } from '../../../config.js'

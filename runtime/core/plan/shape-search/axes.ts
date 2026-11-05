@@ -1,4 +1,4 @@
-// shape-search 参数轴（从 shape-search.ts 拆出）
+// shape-search 参数轴
 export interface AxisSpec {
   kind: 'enum' | 'range'
   values?: unknown[]

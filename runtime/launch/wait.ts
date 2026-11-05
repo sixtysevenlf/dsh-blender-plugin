@@ -1,4 +1,4 @@
-// 启动等待：addon 端口轮询（从 launch.ts 拆出）
+// 启动等待：addon 端口轮询
 import { probeTcp } from '../backend_probe.js'
 
 /** 等 addon 端口监听；started 为起始时间（ms） */

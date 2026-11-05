@@ -1,4 +1,4 @@
-// 作业脚本前导/正文拼装（从 jobs/script.ts 拆出）
+// 作业脚本前导/正文拼装
 import fs from 'node:fs'
 import { GPU_PRELUDE, pyModuleFile, pyModuleNames } from '../../../paths.js'
 import { slipFixPath } from '../../../core/output/index.js'
