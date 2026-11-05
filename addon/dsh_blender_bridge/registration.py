@@ -1,4 +1,4 @@
-""" Registration entry point for the add-on (F3.2 split from __init__). """
+""" Registration entry point for the add-on (split from __init__). """
 
 import bpy
 from bpy.props import IntProperty
@@ -39,7 +39,7 @@ def _register_connection_properties():
 
     bpy.types.Scene.dshbb_auto_start_server = bpy.props.BoolProperty(
         name="Auto-Start Server",
-        description="Automatically start the MCP server when Blender loads",
+        description="Automatically start the DSH Blender Bridge server when Blender loads",
         default=True
     )
 
@@ -115,12 +115,6 @@ def _register_polyhaven_hyper3d_properties():
         default="MAIN_SITE"
     )
 
-    bpy.types.Scene.dshbb_hyper3d_api_key = bpy.props.StringProperty(
-        name="Hyper3D API Key",
-        subtype="PASSWORD",
-        description="API Key provided by Hyper3D",
-        default=""
-    )
 
 
 def _register_hunyuan_properties():
@@ -146,25 +140,6 @@ def _register_hunyuan_properties():
                     "(hunyuan API, region ap-singapore, PBR enabled). Enable this when your SecretId/"
                     "SecretKey come from tencentcloud.com; leave it off for mainland AI3D 3.0 accounts",
         default=False
-    )
-
-    bpy.types.Scene.dshbb_hunyuan3d_secret_id = bpy.props.StringProperty(
-        name="Hunyuan 3D SecretId",
-        description="SecretId provided by Hunyuan 3D",
-        default=""
-    )
-
-    bpy.types.Scene.dshbb_hunyuan3d_secret_key = bpy.props.StringProperty(
-        name="Hunyuan 3D SecretKey",
-        subtype="PASSWORD",
-        description="SecretKey provided by Hunyuan 3D",
-        default=""
-    )
-
-    bpy.types.Scene.dshbb_hunyuan3d_api_url = bpy.props.StringProperty(
-        name="API URL",
-        description="URL of the Hunyuan 3D API service",
-        default="http://localhost:8081"
     )
 
     bpy.types.Scene.dshbb_hunyuan3d_octree_resolution = bpy.props.IntProperty(
@@ -205,24 +180,10 @@ def _register_sketchfab_polypizza_properties():
         default=False
     )
 
-    bpy.types.Scene.dshbb_sketchfab_api_key = bpy.props.StringProperty(
-        name="Sketchfab API Key",
-        subtype="PASSWORD",
-        description="API Key provided by Sketchfab",
-        default=""
-    )
-
     bpy.types.Scene.dshbb_use_polypizza = bpy.props.BoolProperty(
         name="Use Poly Pizza",
         description="Enable Poly Pizza asset integration",
         default=False
-    )
-
-    bpy.types.Scene.dshbb_polypizza_api_key = bpy.props.StringProperty(
-        name="Poly Pizza API Key",
-        subtype="PASSWORD",
-        description="API Key provided by Poly Pizza",
-        default=""
     )
 
 
@@ -317,17 +278,11 @@ def unregister():
     del bpy.types.Scene.dshbb_use_polyhaven
     del bpy.types.Scene.dshbb_use_hyper3d
     del bpy.types.Scene.dshbb_hyper3d_mode
-    del bpy.types.Scene.dshbb_hyper3d_api_key
     del bpy.types.Scene.dshbb_use_sketchfab
-    del bpy.types.Scene.dshbb_sketchfab_api_key
     del bpy.types.Scene.dshbb_use_polypizza
-    del bpy.types.Scene.dshbb_polypizza_api_key
     del bpy.types.Scene.dshbb_use_hunyuan3d
     del bpy.types.Scene.dshbb_hunyuan3d_mode
     del bpy.types.Scene.dshbb_hunyuan3d_intl_pro
-    del bpy.types.Scene.dshbb_hunyuan3d_secret_id
-    del bpy.types.Scene.dshbb_hunyuan3d_secret_key
-    del bpy.types.Scene.dshbb_hunyuan3d_api_url
     del bpy.types.Scene.dshbb_hunyuan3d_octree_resolution
     del bpy.types.Scene.dshbb_hunyuan3d_num_inference_steps
     del bpy.types.Scene.dshbb_hunyuan3d_guidance_scale

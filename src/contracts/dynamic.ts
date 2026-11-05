@@ -22,11 +22,6 @@ export function get(value: unknown, key: string): unknown {
   return asRecord(value)[key]
 }
 
-/** A nested record; missing/non-object values become an empty record. */
-export function getRecord(value: unknown, key: string): UnknownRecord {
-  return asRecord(asRecord(value)[key])
-}
-
 /** An array view of a dynamic value; non-arrays become an empty array. */
 export function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : []
@@ -40,11 +35,6 @@ export function text(value: unknown): string {
 /** String coercion with a null result for missing values (for lossless envelopes). */
 export function optionalText(value: unknown): string | null {
   return value === undefined || value === null ? null : String(value)
-}
-
-/** A finite number or undefined. */
-export function numberOrUndefined(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
 
 /** The message of an Error-like value, without assuming the thrown value is an Error. */

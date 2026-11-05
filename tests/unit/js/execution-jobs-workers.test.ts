@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-// T5b: deterministic P0 behaviour tests for runtime/execution/jobs.ts and
+// deterministic behaviour tests for runtime/execution/jobs.ts and
 // runtime/execution/workers.ts.
 //
 // No real Blender process, no real listening socket and no real sleep:

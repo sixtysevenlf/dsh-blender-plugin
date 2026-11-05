@@ -9,7 +9,8 @@
  *   base:    git worktree at DSH_PARITY_BASE (default b8778c8) -> runtime/engine.mjs
  *   current: lib/runtime/engine.js (built by `npm run build:runtime`)
  *
- * and compares the stable, observable surface: export set, catalog fingerprint,
+ * and compares the stable, observable surface: export set (minus the declared
+ * engine removals below), catalog fingerprint,
  * catalog payloads (all output forms), catalog / plan / command / tool tables,
  * route contract and a few pure helpers. Absolute provenance hashes are
  * normalised (they change when source files change) but structure and user
@@ -34,6 +35,80 @@ const TMP_ROOT = process.env.DSH_TMP || os.tmpdir()
 // explicit instead of silently weakening the comparison. v3.0.0 removes the
 // Premium/Tripo channel; nothing else may disappear without adding it here.
 const DECLARED_CATALOG_REMOVALS = ['get_tripo_status']
+
+// Declared public-surface removals: /4.2 shrinks runtime/engine.ts from the
+// 87 re-exports of the TS migration to the ~20 names actually consumed through
+// the built lib/runtime/engine.js path (config/facades.json is the registry).
+// Filters the base export NAME SET (not the file): a name listed here must
+// exist in the base engine and must be gone from the current one — so this
+// cannot be used to hide an accidental deletion or a half-finished shrink.
+const DECLARED_ENGINE_REMOVALS = [
+  'launchBlender',
+  'sceneHygieneAudit',
+  'winToWsl',
+  'wslToWin',
+  'describeConfig',
+  'PKG_ROOT',
+  'blenderJoin',
+  'PIPELINE_PATH',
+  'ADDRESS',
+  'WIN_TMP',
+  'WSL_TMP',
+  'LIVE_PNG_WIN',
+  'LIVE_PNG_WSL',
+  'KIT_PATH',
+  'RUNNER_PATH',
+  'PERF_PATH',
+  'VIEW_PATH',
+  'CONTRACT_PATH',
+  'PLANNER_PATH',
+  'WORKER_PATH',
+  'TXN_PATH',
+  'QC_PATH',
+  'QC_RENDER_PATH',
+  'PRESET_PATH',
+  'AUDIT_PATH',
+  'MONTAGE_PATH',
+  'MOTION_PATH',
+  'DELIVER_PATH',
+  'GENERATOR_PATH',
+  'SCULPT_PATH',
+  'FIX_PATH',
+  'UV_PATH',
+  'PRINT_PATH',
+  'SWEEP_PATH',
+  'MATERIAL_PATH',
+  'RENDER_GUARD_PATH',
+  'GATE_PATH',
+  'IMG_PATH',
+  'CALIB_PATH',
+  'FACE_PATH',
+  'HUMAN_PATH',
+  'CLEARANCE_PATH',
+  'VEHICLE_PATH',
+  'SHAPE_PATH',
+  'USER_CONFIG_WIN',
+  'USER_SCRIPTS_WIN',
+  'GPU_PRELUDE',
+  'VIEW_PNG_WIN',
+  'VIEW_PNG_WSL',
+  'BLENDER_EXE',
+  'PATH_HELPERS',
+  'ACT_WRAPPER',
+  'ASSEMBLY_PATH',
+  'BLOCKOUT_PATH',
+  'VISUALREPORT_PATH',
+  'SHAPESOLVE_PATH',
+  'EVALHARNESS_PATH',
+  'SURFACE_PATH',
+  'KERNEL_BOOTSTRAP',
+  'writeHeadlessScript',
+  'tcpProbe',
+  'freshPing',
+  'diagnose',
+  'protocolInfo',
+  'AddonClient',
+]
 
 function arg(name) {
   const i = process.argv.indexOf(name)
@@ -153,10 +228,18 @@ try {
     pathToFileURL(path.join(ROOT, 'lib', 'runtime', 'http', 'routes', 'index.js')).href
   )
 
-  // 1. Public export set must be identical.
-  const bKeys = Object.keys(baseEngine).sort()
+  // 1. Public export set must be identical after the declared engine removals.
+  const bKeysRaw = Object.keys(baseEngine).sort()
   const cKeys = Object.keys(curEngine).sort()
+  const notInBase = DECLARED_ENGINE_REMOVALS.filter((n) => !bKeysRaw.includes(n))
+  if (notInBase.length)
+    throw new Error('declared engine removals missing from base: ' + notInBase.join(', '))
+  const stillExported = DECLARED_ENGINE_REMOVALS.filter((n) => cKeys.includes(n))
+  if (stillExported.length)
+    throw new Error('declared engine removals still exported: ' + stillExported.join(', '))
+  const bKeys = bKeysRaw.filter((n) => !DECLARED_ENGINE_REMOVALS.includes(n))
   eq('exports', 'engine export set', bKeys, cKeys)
+  ok('declared-engine-removals', 'declared engine exports removed', DECLARED_ENGINE_REMOVALS.length)
   ok('exports-count', 'engine exports', bKeys.length)
 
   // 2. Catalog fingerprint (34 families / 228 ops / 38 commands / 7 tool details).

@@ -1,4 +1,4 @@
-// 运行台账入口（F1.1）：内存 store + 磁盘对账组合
+// 运行台账入口：内存 store + 磁盘对账组合
 import { createLedgerStore } from './state.js'
 import { createLedgerRecover } from './recover.js'
 

@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-"""DSH 网格体检（v0.9.1 / C1·C2）+ 同名资源审计（D7）—— 把"脚本能判的对错"变成一等公民。
+"""DSH 网格体检（v0.9.1）+ 同名资源审计—— 把"脚本能判的对错"变成一等公民。
 
 为什么有它（外部反馈 00-G-1 / 93 §4）：airframe-smith 自己写了 af_geom.validate()，**抓到翼盒 13 处自交、
-前缘襟翼 39 处零面积面、P03 非流形 56 边、雷达罩环点数 60 vs 78 不一致**；没有它会带进权威场景、P4 才返工。
+前缘襟翼 39 处零面积面、P03 非流形 56 边、雷达罩环点数 60 vs 78 不一致**；没有它会把这些带进权威场景，返工更晚。
 sys-smith / qc-smith 各自也造了一遍。这里收敛成通用能力。
 
-v0.9.1 补 C1/C2（rifle-build《93 反馈》，定级 P2）：**文件级算子** —— 不再"什么都得先在会话里注册"。
+v0.9.1（rifle-build《93 反馈》）：**文件级算子** —— 不再"什么都得先在会话里注册"。
     audit_overlap       跨件/跨文件 面-对重叠（pairs / pair_count / intersection_bbox / per_object）
     audit_interference  跨件/跨文件 交集体体积 mm³（Monte-Carlo 射线奇偶，不用 bpy boolean）
     audit_connectivity / audit_gate / audit_measure 全部新增 file=<.blend>（临时加载 → 跑 → finally 删净）
@@ -41,7 +41,7 @@ if _KIT is None:
     raise RuntimeError("audit 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
-_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_j = _KIT.j  # 共享内核（原自带实现已删）
 def _kernel():
     import sys
     return sys.modules.get("dsh_rt_kernel")

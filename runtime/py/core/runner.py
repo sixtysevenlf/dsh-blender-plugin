@@ -8,7 +8,7 @@ spec 字段：
     iterations / budget_ms      硬上限（必须给）
     interval                    每 tick 间隔秒（0 = 事件循环允许的最快速度）
     measure_every / minimize    测量频率 / 最小化还是最大化
-    patience                    平台期早停（v0.9.4 · P0-3）：连续这么多次 measure 没有刷新 best 就收工
+    patience                    平台期早停（v0.9.4）：连续这么多次 measure 没有刷新 best 就收工
                                 （0 = 关，默认关；stop_reason 记 "plateau"）。只影响"什么时候停"，
                                 不改每次迭代的行为 —— 实测 timer 地板 ≈5.7 ms/tick（176 tps），
                                 不做"动态调频率"（那个旋钮本来就是 measure_every）
@@ -34,7 +34,7 @@ if _KIT is None:
     raise RuntimeError("runner 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
-_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_j = _KIT.j  # 共享内核（原自带实现已删）
 def _clean(v):
     """把 ns 里的值转成可 JSON 化的形态（numpy 标量/数组、Vector 等）"""
     try:
@@ -161,7 +161,7 @@ def _track(st, spec, entry):
     prev = st["best"]
     if prev is None or (entry["score"] < prev["score"] if minimize else entry["score"] > prev["score"]):
         st["best"] = entry
-        st["last_improve_i"] = st["i"]      # v0.9.4（P0-3）：平台期判据只看"最后一次刷新 best 的迭代"
+        st["last_improve_i"] = st["i"]      # v0.9.4：平台期判据只看"最后一次刷新 best 的迭代"
     hist = st["history"]
     hist.append(entry["score"])
     if len(hist) > spec["history_max"]:
@@ -226,7 +226,7 @@ def _tick():
                          "t_ms": round((now - st["t0"]) * 1000.0, 1)}
                 st["last"] = entry["score"]
                 _track(st, spec, entry)
-                # v0.9.4（P0-3）：平台期早停 —— 只在"已经有 best"时判，避免 measure 一直没给 score 的循环被误杀
+                # v0.9.4：平台期早停 —— 只在"已经有 best"时判，避免 measure 一直没给 score 的循环被误杀
                 if (spec["patience"] > 0 and st["best"] is not None
                         and (st["i"] - int(st.get("last_improve_i") or 0)) >= spec["patience"]):
                     _finish(st, "plateau")
@@ -289,7 +289,7 @@ def dsh_loop_start(spec=None, **kw):
         "budget_ms": float(raw.get("budget_ms") or 10000),
         "interval": float(raw.get("interval") or 0.0),
         "measure_every": max(1, int(raw.get("measure_every") or 1)),
-        # v0.9.4（P0-3）平台期早停：连续 patience 次 measure 没刷新 best 就停（0 = 关，保持旧行为）
+        # v0.9.4平台期早停：连续 patience 次 measure 没刷新 best 就停（0 = 关，保持旧行为）
         "patience": max(0, int(raw.get("patience") or 0)),
         "minimize": bool(raw.get("minimize", True)),
         "top_k": int(raw.get("top_k") or 0),

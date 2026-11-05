@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-// F4.1 item 4: win-spawn.test.ts could only grep spawn.ts source. Here the real
+// item 4: win-spawn.test.ts could only grep spawn.ts source. Here the real
 // spawnChild()/childAlive()/killStaleChild()/killChildHandle() run against a
 // mocked node:child_process, so issue #51's spawn options and listener order are
 // proven behaviorally on every platform (including Windows).
@@ -63,7 +63,7 @@ afterEach(() => {
   h.child.signalCode = null
 })
 
-describe('spawnChild spawn options (issue #51 / F0.0)', () => {
+describe('spawnChild spawn options (issue #51)', () => {
   it('spawns process.execPath with the built server path and the port', () => {
     const out = spawnChild(9877)
     expect(out).toBe('spawned pid=4321')

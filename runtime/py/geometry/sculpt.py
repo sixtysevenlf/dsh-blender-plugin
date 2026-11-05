@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DSH 程序化雕刻（v0.9.6 · 上游整合 A1）—— 把"雕刻"从手势输入变成可复算的几何操作。
+"""DSH 程序化雕刻（v0.9.6 · 上游整合）—— 把"雕刻"从手势输入变成可复算的几何操作。
 
 为什么有它：本插件 runtime 全库检索 sculpt/remesh/multires/dyntopo/voxel/brush = 0 命中，
 而上游两家都做不到程序化雕刻（blend-ai README 自述 "Sculpt strokes cannot be simulated"，
@@ -55,7 +55,7 @@ if _KIT is None:
     raise RuntimeError("sculpt 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
-_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_j = _KIT.j  # 共享内核（原自带实现已删）
 def _num(v, name, lo=None, hi=None, default=None):
     """参数纪律：非有限数一律拒绝（NaN/Infinity 写进 Blender 属性会持久化进 .blend）。"""
     if v is None:

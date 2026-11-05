@@ -1,4 +1,4 @@
-// 作业脚本构建入口（F1.1 拆分）：参数 / 前导 / 写盘
+// 作业脚本构建入口（拆分）：参数 / 前导 / 写盘
 import { prepareJobArgs } from './args.js'
 import type { JobBuildArgs } from './args.js'
 import type { writeHeadlessScript } from '../../../staging.js'

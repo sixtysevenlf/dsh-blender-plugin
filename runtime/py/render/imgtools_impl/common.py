@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DSH 参考图量具（v0.9.6 · 整合方案 P0）—— 把"看不清"变成"不用看"。
+"""DSH 参考图量具（v0.9.6 · 整合方案）—— 把"看不清"变成"不用看"。
 
 现场问题（flash 层级）：参考图细节看不见 —— 视觉编码器先降采样，小于某个像素尺度的特征在编码阶段就丢了，
 计数与小目标识别也是 VLM 的已知弱项。**提高分辨率没用**；有效的是：把参考图**量成数字**、把要判的区域
@@ -37,7 +37,7 @@ if _KIT is None:
     raise RuntimeError("imgtools 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
-_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_j = _KIT.j  # 共享内核（原自带实现已删）
 def _win(p):
     s = str(p)
     if s.startswith("/") and ":" not in s[:3]:

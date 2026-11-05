@@ -9,7 +9,7 @@
  *      名称集合与 tests/fixtures/capability.lock.json 一致；
  *   ③ 架构文件全部存在；
  *   ④ src 内部相对 import 图无环（.js 说明符映射回 .ts）；
- *   ⑤ 生产源码单文件 ≤600 行（B9，runtime/catalog.ts 白名单）。
+ *   ⑤ 生产源码单文件 ≤600 行（例外登记在 config/exceptions.json 的 file-budget 条目）。
  *
  * 用法：
  *   node scripts/check-structure.mjs                 # 人读摘要，失败退出 1
@@ -80,7 +80,7 @@ function scanToolFile(file) {
     if (!list.includes(rel(file))) list.push(rel(file))
   }
 }
-// ② 起 tool handler 允许下沉到 src/tools/<tool>/*.ts（F1.2 拆分），扫描递归且记相对路径。
+// ② 起 tool handler 允许下沉到 src/tools/<tool>/*.ts（拆分），扫描递归且记相对路径。
 function walkToolFiles(dir) {
   const out = []
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -136,7 +136,6 @@ const TARGET_FILES = [
   'src/host/backend/index.ts',
   'src/host/backend/spawn.ts',
   'src/host/backend/process-scan.ts',
-  'src/host/backend/port-holders.ts',
   'src/host/runtime-bridge.ts',
   'src/host/http.ts',
   'src/utils/frame-cache.ts',
@@ -264,13 +263,28 @@ const edges = [...graph].reduce((n, [, set]) => n + set.size, 0)
 for (const c of cycles) failures.push('import 环: ' + c.join(' -> '))
 
 // ---------- ⑤ 生产源码单文件行预算 ----------
-// B9：src 与 runtime 的 TypeScript、addon 的 Python 单文件 ≤600 行；
-// 唯一例外是 runtime/catalog.ts（纯数据表，不是逻辑）。runtime/ext 是第三方
-// 生成代码，不在本预算范围。B10：runtime/py 的 Blender 侧脚本库
+// src 与 runtime 的 TypeScript、addon 的 Python 单文件 ≤600 行；
+// 例外只来自 config/exceptions.json 的 kind=file-budget 条目（reason/owner/reviewBy
+// 由 check:exceptions 校验），脚本内不再维护内联白名单。runtime/ext 是第三方
+// 生成代码，不在本预算范围。runtime/py 的 Blender 侧脚本库
 // 使用 1000 行预算（单体函数本身较宽），同样禁止继续膨胀。
 const LINE_BUDGET = 600
 const PY_LINE_BUDGET = 1000
-const BUDGET_EXEMPT = new Set(['runtime/catalog.ts'])
+const EXCEPTIONS_FILE = path.join(ROOT, 'config', 'exceptions.json')
+const BUDGET_EXEMPT = new Set()
+try {
+  const registry = JSON.parse(fs.readFileSync(EXCEPTIONS_FILE, 'utf8'))
+  const entries = Array.isArray(registry.entries) ? registry.entries : []
+  for (const entry of entries) {
+    if (entry && entry.kind === 'file-budget' && typeof entry.path === 'string') {
+      BUDGET_EXEMPT.add(entry.path)
+    }
+  }
+} catch (error) {
+  failures.push(
+    'config/exceptions.json 不可读: ' + (error instanceof Error ? error.message : String(error)),
+  )
+}
 function walkSource(dir, out, exts) {
   if (!fs.existsSync(dir)) return
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -284,10 +298,23 @@ function walkSource(dir, out, exts) {
     }
   }
 }
-const budgetFiles = []
-walkSource(path.join(ROOT, 'src'), budgetFiles, ['.ts'])
-walkSource(path.join(ROOT, 'runtime'), budgetFiles, ['.ts'])
-walkSource(path.join(ROOT, 'addon'), budgetFiles, ['.py'])
+const rawBudgetFiles = []
+walkSource(path.join(ROOT, 'src'), rawBudgetFiles, ['.ts'])
+walkSource(path.join(ROOT, 'runtime'), rawBudgetFiles, ['.ts'])
+walkSource(path.join(ROOT, 'addon'), rawBudgetFiles, ['.py'])
+// 生成文件（头行声明 AUTO-GENERATED）是 config/routing.json 的派生产物，由
+// check:routes 校验新鲜度；它们不是手工生产源码，不参与行预算，否则每次扩表
+// 都要改一次脚本白名单。
+const GENERATED_HEADER = '// AUTO-GENERATED FILE'
+const isGeneratedSource = (file) => {
+  try {
+    return fs.readFileSync(file, 'utf8').startsWith(GENERATED_HEADER)
+  } catch {
+    return false
+  }
+}
+const budgetFiles = rawBudgetFiles.filter((file) => !isGeneratedSource(file))
+const generatedSkipped = rawBudgetFiles.filter(isGeneratedSource).map((file) => rel(file))
 const budgetViolations = []
 for (const file of budgetFiles) {
   const key = rel(file)
@@ -300,6 +327,7 @@ for (const file of budgetFiles) {
 const budgetReport = {
   budget: LINE_BUDGET,
   files: budgetFiles.length,
+  generatedSkipped,
   exempt: [...BUDGET_EXEMPT],
   violations: budgetViolations,
 }

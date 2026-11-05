@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DSH 人脸比例门（v0.9.6 · P1 精简版）：把「脸像不像」变成可优化的数字。
+"""DSH 人脸比例门（v0.9.6 精简版）：把「脸像不像」变成可优化的数字。
 
 landmarks（像素坐标，上原点）由调用方给 —— 模型自己标，或 MediaPipe/EMOCA 出：
   top chin face_l face_r eye_l eye_r nose_base mouth_l mouth_r
@@ -22,7 +22,7 @@ if _KIT is None:
     raise RuntimeError("faceeval 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
-_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_j = _KIT.j  # 共享内核（原自带实现已删）
 def _pt(lm, k):
     v = lm.get(k)
     if not isinstance(v, (list, tuple)) or len(v) < 2:

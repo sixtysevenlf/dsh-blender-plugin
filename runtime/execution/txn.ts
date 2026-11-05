@@ -1,4 +1,4 @@
-// 事务 API 调用（T6）
+// 事务 API 调用
 // @imports
 import { extractLoop } from '../core/output/index.js'
 import { KERNEL_BOOTSTRAP } from '../core/kernel/index.js'

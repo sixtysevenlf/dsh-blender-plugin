@@ -11,7 +11,7 @@ Migrated from tests/generator_dispatch_selftest.py. Field bugs pinned here:
 
 The module needs the shared kernel (dsh_rt_kernel.dsh_kit); this file boots the
 real runtime/py/core/kit.py into a stub kernel exactly like the legacy test did,
-then imports runtime/py/geometry/generator.py (F2.3 moved it into geometry).
+then imports runtime/py/geometry/generator.py (moved it into geometry).
 """
 import importlib.util
 import json

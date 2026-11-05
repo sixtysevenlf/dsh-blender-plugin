@@ -34,7 +34,7 @@ describe('surface fit honesty contract', () => {
     expect(surfacePy).toContain('M3_NOT_IMPLEMENTED')
   })
 
-  it('documents fit as an honest M3 limitation', () => {
+  it('documents fit as an honest limitation', () => {
     expect(surfacePy).toContain('"fit": {')
     expect(surfacePy).toContain('M3 fit 未实现')
   })

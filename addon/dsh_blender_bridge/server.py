@@ -19,7 +19,7 @@ from .command_registry import (
     stop_runtime_handlers,
     tick_activity,
 )
-from .config import RODIN_FREE_TRIAL_KEY, get_dshbb_addon_preferences, read_env_var
+from .config import get_credential
 from .protocol import ai_paused, is_pause_safe_command
 
 
@@ -40,70 +40,28 @@ class DSHBlenderBridgeServer(*command_mixins()):
         self._clients = set()
         self._clients_lock = threading.Lock()
 
-    def _get_config_value(self, scene_attr, pref_attr=None, env_var=None):
-        """Read config in order: addon preferences -> scene -> env var."""
-        prefs = get_dshbb_addon_preferences()
-        if prefs and pref_attr:
-            pref_value = getattr(prefs, pref_attr, "")
-            if pref_value:
-                return pref_value
-
-        scene_value = getattr(bpy.context.scene, scene_attr, "")
-        if scene_value:
-            return scene_value
-
-        if env_var:
-            env_value = read_env_var(env_var) or ""
-            if env_value:
-                return env_value
-        return ""
-
+    # Credentials live in exactly one place: add-on preferences, with the
+    # DSHBB_*/BLENDERMCP_* environment variables as fallback
+    # (config.get_credential). Session overrides serve the Hyper3D free-trial
+    # button. The old Scene-property mirror was removed in 4.5, so a saved
+    # .blend can no longer silently override the stored key.
     def _get_hyper3d_api_key(self):
-        # Let the free-trial button temporarily override persistent keys
-        # without overwriting user-saved private keys.
-        scene_value = getattr(bpy.context.scene, "dshbb_hyper3d_api_key", "")
-        if scene_value == RODIN_FREE_TRIAL_KEY:
-            return scene_value
-        return self._get_config_value(
-            "dshbb_hyper3d_api_key",
-            "hyper3d_api_key",
-            "DSHBB_HYPER3D_API_KEY",
-        )
+        return get_credential("hyper3d_api_key", "DSHBB_HYPER3D_API_KEY")
 
     def _get_sketchfab_api_key(self):
-        return self._get_config_value(
-            "dshbb_sketchfab_api_key",
-            "sketchfab_api_key",
-            "DSHBB_SKETCHFAB_API_KEY",
-        )
+        return get_credential("sketchfab_api_key", "DSHBB_SKETCHFAB_API_KEY")
 
     def _get_polypizza_api_key(self):
-        return self._get_config_value(
-            "dshbb_polypizza_api_key",
-            "polypizza_api_key",
-            "DSHBB_POLYPIZZA_API_KEY",
-        )
+        return get_credential("polypizza_api_key", "DSHBB_POLYPIZZA_API_KEY")
 
     def _get_hunyuan3d_secret_id(self):
-        return self._get_config_value(
-            "dshbb_hunyuan3d_secret_id",
-            "hunyuan3d_secret_id",
-            "DSHBB_HUNYUAN3D_SECRET_ID",
-        )
+        return get_credential("hunyuan3d_secret_id", "DSHBB_HUNYUAN3D_SECRET_ID")
 
     def _get_hunyuan3d_secret_key(self):
-        return self._get_config_value(
-            "dshbb_hunyuan3d_secret_key",
-            "hunyuan3d_secret_key",
-            "DSHBB_HUNYUAN3D_SECRET_KEY",
-        )
+        return get_credential("hunyuan3d_secret_key", "DSHBB_HUNYUAN3D_SECRET_KEY")
 
     def _get_hunyuan3d_api_url(self):
-        return self._get_config_value(
-            "dshbb_hunyuan3d_api_url",
-            "hunyuan3d_api_url",
-            "DSHBB_HUNYUAN3D_API_URL",
-        ) or "http://localhost:8081"
+        return get_credential("hunyuan3d_api_url", "DSHBB_HUNYUAN3D_API_URL") or "http://localhost:8081"
 
     def start(self):
         if bpy.app.background:

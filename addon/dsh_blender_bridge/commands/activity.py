@@ -19,7 +19,7 @@ class ActivityCommands:
     def drain_human_activity(self):
         """Return human-originated events buffered since the last drain.
 
-        Consent is enforced MCP-side (the server only drains and uploads when
+        Consent is enforced DSH-side (the plugin only drains and uploads when
         the user has opted in), but we also refuse here so a buffer does not
         accumulate for a user who has said no.
         """

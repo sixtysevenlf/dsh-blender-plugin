@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""F2.0/F2.3: runtime/py/modules.json is the single Python module registry.
+"""runtime/py/modules.json is the single Python module registry.
 
 Consumed by runtime/paths.ts (injection), runtime/py/core/offline_bootstrap.py
 (offline escape hatch) and the layout contract tests. No second hard-coded
 table may survive; every entry must point at a real file under
-runtime/py/<domain>/. F2.3 removed the flat runtime/*.py fallback.
+runtime/py/<domain>/. The flat runtime/*.py fallback is gone.
 """
 import json
 import os

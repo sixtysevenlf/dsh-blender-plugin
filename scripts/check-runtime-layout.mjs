@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// F6.1: modules.json is the only Python module map; every module resolves on disk.
+// modules.json is the only Python module map; every module resolves on disk.
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'

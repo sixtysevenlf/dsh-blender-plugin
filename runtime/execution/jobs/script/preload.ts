@@ -1,4 +1,4 @@
-// 作业脚本前导/正文拼装（F1.1 从 jobs/script.ts 拆出）
+// 作业脚本前导/正文拼装（从 jobs/script.ts 拆出）
 import fs from 'node:fs'
 import { GPU_PRELUDE, pyModuleFile, pyModuleNames } from '../../../paths.js'
 import { slipFixPath } from '../../../core/output/index.js'
@@ -51,7 +51,7 @@ export function buildJobParts(
     : opts.preload
       ? String(opts.preload).split(',')
       : []
-  // v0.9.3（F1）：作业层同样支持 shots（as_job=true 时 headless 就是转到这里跑的）
+  // v0.9.3：作业层同样支持 shots（as_job=true 时 headless 就是转到这里跑的）
   const jobShotsSpec: Record<string, unknown> | null = Array.isArray(opts.shots)
     ? { views: opts.shots }
     : opts.shots && typeof opts.shots === 'object'
@@ -76,7 +76,7 @@ export function buildJobParts(
       f = null
     }
     if (!f || !fs.existsSync(f)) {
-      // S9（④）：报错直接给可用模块名 —— 现场「要 preload=vehicle」只能靠试。
+      // 报错直接给可用模块名 —— 现场「要 preload=vehicle」只能靠试。
       throw new Error(
         'preload 找不到模块：' +
           name +

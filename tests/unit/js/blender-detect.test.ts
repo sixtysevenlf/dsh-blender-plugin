@@ -2,10 +2,10 @@ import { afterEach, describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { detectBlenderExe } from '../../../runtime/config.js'
-import type { BlenderDetectDeps } from '../../../runtime/config.js'
+import { detectBlenderExe } from '../../../runtime/blender-detect.js'
+import type { BlenderDetectDeps } from '../../../runtime/blender-detect.js'
 
-// P0-2（报告 §3.1 / 验收 A2）：Windows 上 Blender 只装在 Steam 里时，detectBlenderExe
+// （报告 §3.1）：Windows 上 Blender 只装在 Steam 里时，detectBlenderExe
 // 必须能找到它；本机故障现场就是 D:\Program Files\Steam\steamapps\common\Blender\blender.exe，
 // 既没有 Blender Foundation 目录、也没有 DSH_BLENDER_EXE / 配置文件、where blender 也找不到。
 //

@@ -82,7 +82,7 @@ class PolypizzaClientMixin:
                             2. In the 3D Viewport, find the DSH Blender Bridge panel in the sidebar (press N if hidden)
                             3. Keep the 'Use Poly Pizza' checkbox checked
                             4. Enter your Poly Pizza API Key
-                            5. Restart the connection to Claude"""
+                            5. Restart the DSH Blender Bridge connection"""
             }
         else:
             return {
@@ -92,7 +92,7 @@ class PolypizzaClientMixin:
                             2. In the 3D Viewport, find the DSH Blender Bridge panel in the sidebar (press N if hidden)
                             3. Check the 'Use assets from Poly Pizza' checkbox
                             4. Enter your Poly Pizza API Key
-                            5. Restart the connection to Claude"""
+                            5. Restart the DSH Blender Bridge connection"""
             }
 
     def search_polypizza_models(self, query=None, category=None, licence=None,
@@ -102,8 +102,8 @@ class PolypizzaClientMixin:
         Parameters:
         - query: Keyword to search for. When omitted, at least one filter is
                  required: the bare /search endpoint answers 400 without one.
-        - category: Numeric category id (0-11); the MCP server resolves names
-        - licence: Numeric licence id (0 = CC-BY, 1 = CC0); the MCP server resolves names
+        - category: Numeric category id (0-11); the DSH plugin resolves names
+        - licence: Numeric licence id (0 = CC-BY, 1 = CC0); the DSH plugin resolves names
         - animated: When True, return only animated models
         - limit: Maximum number of results to return (the API caps a page at 32)
         - page: Optional 0-based page number

@@ -1,4 +1,4 @@
-// worker 生命周期：stop/restart/空闲回收（F1.1 从 workers.ts 拆出，行为冻结）
+// worker 生命周期：stop/restart/空闲回收（从 workers.ts 拆出，行为冻结）
 import type { WorkersCtx } from './api.js'
 import { workerAlive, workerCall, workerState } from './api.js'
 import { workerStart } from './worker-start.js'
@@ -36,7 +36,7 @@ export async function workerRestart(
   return workerStart(ctx, opts || {}, nameArg)
 }
 
-// P0 会话池：空闲回收（默认 15 min；DSH_WORKER_TTL_MS 可调；0=关闭）。只回收 ready 且无请求在飞的热进程。
+// 会话池：空闲回收（默认 15 min；DSH_WORKER_TTL_MS 可调；0=关闭）。只回收 ready 且无请求在飞的热进程。
 export function createWorkerReaper(ctx: WorkersCtx): {
   clearWorkerReaper: () => void
   killWorkers: () => void

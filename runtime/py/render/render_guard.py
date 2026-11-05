@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DSH 渲染状态跟踪（v0.9.6 · 上游整合 A7）—— 把"渲染中撞满主线程"从超时变成秒回的 busy。
+"""DSH 渲染状态跟踪（v0.9.6 · 上游整合）—— 把"渲染中撞满主线程"从超时变成秒回的 busy。
 
 实测动机：本机 8,116 次调用里 **76/111 条失败是超时**，而渲染占满 Blender 主线程是主因之一；
 工作区脚本里 bpy.ops.render.render 出现 **362 次 / 334 个文件**。现在的情况是：渲染期间任何
@@ -38,7 +38,7 @@ if _KIT is None:
     raise RuntimeError("render_guard 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
-_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_j = _KIT.j  # 共享内核（原自带实现已删）
 def _flag_path():
     """标记文件路径由插件注入（DSH_RENDER_FLAG_WIN，Windows 形式；Blender 就在 Windows 上跑）。
     没注入时（无头/自检）退回 DSH_RENDER_FLAG 环境变量 → 临时目录，保证模块自洽可测。"""

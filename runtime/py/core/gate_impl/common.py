@@ -23,20 +23,20 @@ spec 形态（JSON 或 .py 模块，二选一）：
 总 verdict = 任一 fail/error → fail；否则任一 degraded **或 skipped** → degraded；否则 pass。
 @@ok@@ **只在 verdict==pass 时为 true** —— 现场教训："降级长得太像绿"，所以顶层永远读 @@verdict@@，别读 @@ok@@。
 
-**v3 收紧（F8 · Lead 否决"pass + skipped = pass"）**：`skipped`（未配置来源 / 该门不适用）**不再是透明的** ——
+**v3 收紧（Lead 否决"pass + skipped = pass"）**：`skipped`（未配置来源 / 该门不适用）**不再是透明的** ——
 只要包里有一门 skipped，顶层就是 `degraded`、`ok=false`。理由：assembly preset 的 `no_clash` 默认 skipped，
 旧口径会让"没量过干涉"的健康场景拿绿；**跳过 ≠ 通过，也不许为"健康默认 preset"把标准降下来**。
 要拿 pass 只有一条路：**每一门都真跑过且都过**（给 preset 补 `overrides={门id:{args…}}`，或写自己的 spec）。
 "默认未配干涉来源 ⇒ 顶层 degraded" 是**正确行为**，不是 bug。
 
-**三态不总在顶层（v0.9.6 复审修复 · F2）**：`audit_connectivity` 的顶层 `ok` 只表示"分析跑完了"，
+**三态不总在顶层（v0.9.6 复审修复）**：`audit_connectivity` 的顶层 `ok` 只表示"分析跑完了"，
 门结论在**嵌套 `gate`** 里（`gate.state` / `gate.verdict`）—— 顶层没有 `state` 可读，旧写法
 `pass_if="state == 'pass'"` 会让该门直接 `error`。正确写法是 `pass_if="gate['verdict'] == 'pass'"`
 （回执自己给的已验证三态）。`_status_of` 也认嵌套三态，于是"未分析/未确认 ⇒ degraded"既不会被
 pass_if 压成 fail、也不会被抬成 pass（`degraded ≠ 通过`）。域内名 `unresolved`（干涉"证据不足"）
 同样读作 degraded。
 
-**skipped 是第四种"结果"（v0.9.6 · F2；v3 收紧汇总口径 · F8）**：门可以声明 `skip_if_missing`（一组组"候选键名或"）——
+**skipped 是第四种"结果"（v0.9.6；v3 收紧汇总口径）**：门可以声明 `skip_if_missing`（一组组"候选键名或"）——
 每组一个都没给时，该门记 `state=skipped`（**未配置 / 不适用 ⇒ 没跑**）。它**不进** fail/degraded 的逐门点名，
 但**会把整包压成 degraded**（`_aggregate`：任一 skipped 或 degraded ⇒ degraded，fail 优先），并且一定显式出现在
 回执的 `skipped[]` 与 `coverage` 里（`skipped ≠ 通过`：没跑过的门不许被读成绿）。典型例子：
@@ -45,7 +45,7 @@ pass_if 压成 fail、也不会被抬成 pass（`degraded ≠ 通过`）。域�
 `objects_a`/`objects_b`，或 `gate_run(preset="assembly", overrides={"no_clash":{...}})` ——
 **三门都真跑过且都过时才 pass**。
 
-**degrade_if（v3 · F8）**：门的判据为真、但**证据本身不可信**时用 `degrade_if`（同样是受限表达式）把该门降级 ——
+**degrade_if**：门的判据为真、但**证据本身不可信**时用 `degrade_if`（同样是受限表达式）把该门降级 ——
 典型是 print preset：`walls_ok=true` 只说明"没量到薄壁"，而 `min_mm` 低于本网格的测量分辨率时这句"没量到"
 **没有意义**（`print_walls` 只把它写进 per-object 的 `detail.walls.objects[].warning`/`resolution_mm`，顶层没有这些字段）。
 print preset 现在用 `degrade_if = params['min_mm'] < detail['walls']['objects'][0]['resolution_mm']` 读**真实字段** ⇒
@@ -76,9 +76,9 @@ def _kernel():
     """模块命名空间里没有 K（K 在 dsh_rt_kernel 模块上）—— 与 sculpt.py / uv_tools.py 同一套取法。"""
     return sys.modules.get("dsh_rt_kernel")
 
-GATE_VERSION = 3   # 3（v0.9.6 最终集成 · F8）：**任一 skipped/degraded ⇒ 顶层 degraded**（旧口径 pass+skipped=pass
+GATE_VERSION = 3   # 3（v0.9.6 最终集成）：**任一 skipped/degraded ⇒ 顶层 degraded**（旧口径 pass+skipped=pass
                    #   被 Lead 否决）+ gate.degrade_if / gate.echo（不可信分辨率 ⇒ degraded，不许假通过）；
-                   #   2（v0.9.6 复审修复 · F2）：skipped 状态 + gate.skip_if_missing + gate_run(overrides=) +
+                   #   2（v0.9.6 复审修复）：skipped 状态 + gate.skip_if_missing + gate_run(overrides=) +
                    #   回执 coverage / 嵌套三态（audit_connectivity 的 gate.verdict）
 
 # plan 级 op → (内核里的模块 API 属性, 该模块的子 op)
@@ -118,14 +118,14 @@ PRESETS = {
     "assembly": {
         "name": "assembly", "units": "mm", "tolerance_mm": 3.0,
         "gates": [
-            # F2-a（v0.9.6 复审修复）：**必须显式 self_intersect=true** —— audit_scene 默认跳过自交检查，
+            # （v0.9.6 复审修复）：**必须显式 self_intersect=true** —— audit_scene 默认跳过自交检查，
             # 而新口径把"跳过检查"如实读成 degraded/clean=false（"没查"不许读成"没问题"）。不写这一条，
             # 再健康的场景也拿不到 pass。
             {"id": "mesh_health", "op": "audit_scene",
              "args": {"summary_only": True, "top_k": 5, "self_intersect": True},
              "pass_if": "clean == True",
              "note": "全场景网格体检。self_intersect=true 是**门的前提**：默认(false)会如实给 degraded（clean=false）"},
-            # F2-b（v0.9.6 复审修复）：读回执**嵌套 gate 的已验证三态** —— audit_connectivity 顶层没有
+            # （v0.9.6 复审修复）：读回执**嵌套 gate 的已验证三态** —— audit_connectivity 顶层没有
             # state/verdict（顶层 ok 只表示"分析跑完了"），写 state == 'pass' 必 error。
             {"id": "no_floaters", "op": "audit_connectivity", "args": {},
              "pass_if": "gate['verdict'] == 'pass'",
@@ -133,7 +133,7 @@ PRESETS = {
                      "单件/单连通分量场景这条判据**无从成立**（回执 components[].evidence=single-body）——"
                      "单件内部壳的贴合/互穿请用 audit_mesh(island_split=true)，别拿装配门当单件门。"
                      "未分析/未确认 ⇒ degraded（pass_if 不会把它抬成 pass）"},
-            # F2-c（v0.9.6 复审修复；v3 收紧汇总口径 · F8）：audit_interference 是**两两**算子
+            # （v0.9.6 复审修复；v3 收紧汇总口径）：audit_interference 是**两两**算子
             # （a/b 或 objects_a/objects_b 或 file_a/file_b），preset 无从知道零件对 ⇒ 空参必 error。
             # 这里声明 skip_if_missing：未配置来源 ⇒ state=skipped（显式列在回执 skipped[]/coverage 里）。
             # v3：skipped **会把整包压成 degraded** —— 所以**默认 assembly preset 的顶层是 degraded、ok=false**
@@ -151,10 +151,10 @@ PRESETS = {
     "print": {
         "name": "print", "units": "mm", "tolerance_mm": 1.0,
         "gates": [
-            # F2 同一条缺陷类别（v0.9.6 复审修复）：旧 pass_if 引用了回执里不存在的 thin_samples /
+            # 同一条缺陷类别（v0.9.6 复审修复）：旧 pass_if 引用了回执里不存在的 thin_samples /
             # resolution_mm / min_mm ⇒ 该门必 error。改成 print_report 真实顶层字段：
             #   thin_samples_total=所有对象低于 min_mm 的采样数；walls_ok=逐对象 ok（含"射线没命中"）。
-            # F8（v3 · 最终集成）：**只判 walls_ok 会假通过** —— 粗网格（体素/低模）的测量分辨率可能
+            # （v3 · 最终集成）：**只判 walls_ok 会假通过** —— 粗网格（体素/低模）的测量分辨率可能
             # 比 min_mm 大好几个数量级，此时"没量到薄壁"毫无意义：print_walls 只把这件事写进 per-object
             # 的 warning/resolution_mm，顶层 pass_if 看不见它。⇒ 加 degrade_if 读**真实字段**
             # （params.min_mm vs detail.walls.objects[0].resolution_mm）：分辨率不可信 ⇒ 该门 degraded
@@ -177,7 +177,7 @@ PRESETS = {
     "delivery": {
         "name": "delivery", "units": "mm", "tolerance_mm": 1.0,
         "gates": [
-            # F2 同一条缺陷类别：旧 pass_if "zero_area_faces == 0" 的字段不存在（uv_stats 顶层只有
+            # 同一条缺陷类别：旧 pass_if "zero_area_faces == 0" 的字段不存在（uv_stats 顶层只有
             # ok/objects/note；零面积 UV 面在 objects[].degenerate_uv_faces）⇒ 该门必 error。
             {"id": "uv", "op": "uv_stats", "args": {}, "pass_if": "ok == True",
              "note": "uv_stats 顶层 ok = 逐对象「有 UV 层 且 零面积 UV 面=0」（明细在 objects[].degenerate_uv_faces）。"
@@ -191,7 +191,7 @@ PRESETS = {
 
 
 
-_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_j = _KIT.j  # 共享内核（原自带实现已删）
 def _md5_text(t):
     return hashlib.md5(t.encode("utf-8")).hexdigest()
 

@@ -1,4 +1,4 @@
-// /host 状态视图 + @ 提及数据源（F1.1 从 http/host.ts 拆出）
+// /host 状态视图 + @ 提及数据源（从 http/host.ts 拆出）
 import { stats } from '../config.js'
 import { leaseView } from '../lease.js'
 import { clampItemsLimit } from '../response.js'

@@ -48,34 +48,20 @@ def m_profile_err(view_spec, ref_path, ref_box, bins=24, sat=0.13, v=0.74):
     return float(res["profile"]["diff"]["mean_diff_px"])
 
 
-# ---------------------------------------------------------------- 渲染 harness 转接（v0.8.8 / P2-1）
+# ---------------------------------------------------------------- 渲染 harness 转接（v0.8.8）
 
 def _load_qc_render():
-    """拿 qc_render 模块的 API：优先 K.dsh_qc_render_api，其次现场加载 qc_render.py。
+    """拿 qc_render 模块注册到内核的 API —— 只认 K.dsh_qc_render_api。
 
-    T8 起 qc_render.py 在 runtime/py/render/；K.runtime_dir 是 runtime 根，
-    用共享内核 find_runtime_file 同时兼容领域包与旧扁平布局。
-    这样即使进程里只注入了 qc.py（例如 headless 只 preload 了 qc），也能用渲染 harness。
+    qc_render 模块由 preload 注入（config/routing.json 的 qc_render 路由固定
+    preload="qc,qc_render"；手写 headless 脚本也要把它带上），注册时把 API
+    挂到内核上。旧的"现场找 qc_render.py 再 exec(compile(...))"已删除
+    二次加载兜底：领域包布局下那条路径只会加载到 facade 的副本，绕过内核注入，
+    可能给出与 preload 版本不一致的结果（静默的错值比明确失败更糟）。缺失时
+    由 qc_render_views / qc_render_help 返回带 hint 的明确错误。
     """
     K = _kernel()
-    api = getattr(K, "dsh_qc_render_api", None) if K is not None else None
-    if api:
-        return api
-    p = None
-    try:
-        p = _KIT.find_runtime_file("qc_render.py")
-    except Exception:
-        p = None
-    if not p:
-        d = getattr(K, "runtime_dir", None) if K is not None else None
-        if d:
-            p = os.path.join(str(d), "qc_render.py")
-    if p and os.path.isfile(p):
-        with open(p, encoding="utf-8") as fh:
-            src = fh.read()
-        exec(compile(src, p, "exec"), {"__name__": "dsh_qc_render", "__file__": p})
-        api = getattr(K, "dsh_qc_render_api", None)
-    return api
+    return getattr(K, "dsh_qc_render_api", None) if K is not None else None
 
 
 def qc_render_views(**kw):
@@ -85,7 +71,7 @@ def qc_render_views(**kw):
     """
     api = _load_qc_render()
     if api is None:
-        return _j({"ok": False, "error": "qc_render 模块不可用：K.dsh_qc_render_api 缺失且 runtime 下没有 qc_render.py（含 py/render 领域包）",
+        return _j({"ok": False, "error": "qc_render 模块不可用：K.dsh_qc_render_api 缺失（qc_render 未注入内核）",
                    "hint": "headless 用 preload='qc,qc_render'；GUI 走 blender_rt_plan(op='qc_render_views')"})
     return api["render_views"](kw)
 
@@ -93,7 +79,8 @@ def qc_render_views(**kw):
 def qc_render_help():
     api = _load_qc_render()
     if api is None:
-        return _j({"ok": False, "error": "qc_render 模块不可用"})
+        return _j({"ok": False, "error": "qc_render 模块不可用：K.dsh_qc_render_api 缺失（qc_render 未注入内核）",
+                   "hint": "headless 用 preload='qc,qc_render'；GUI 走 blender_rt_plan(op='qc_render_views')"})
     return api["help"]()
 
 

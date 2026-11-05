@@ -1,4 +1,4 @@
-"""Host-side launcher for GUI native E2E modules (T11b.7).
+"""Host-side launcher for GUI native E2E modules.
 
 The modules under tests/e2e/gui/native/ run inside a real (non-background)
 Blender window because OpenGL capture and evidence rendering need a window.

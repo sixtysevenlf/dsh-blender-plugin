@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// F2.2 tail: extCheckOp was split into candidates/result stages. These tests pin
+// extCheckOp is split into candidates/result stages; these tests pin
 // the two-platform routing decisions and the public result contract directly
 // (the old tests only checked resolveExtPaths).
 

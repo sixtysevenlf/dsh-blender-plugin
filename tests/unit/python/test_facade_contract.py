@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""F0.1: public facades share one portable helper; no per-facade path markers.
+"""Public facades share one portable helper; no per-facade path markers.
 
 These checks are static and need no bpy / Blender. The marker historically used a
 literal backslash ("runtime\\py\\...") in 10 of 13 facades, which is a valid path
@@ -47,7 +47,7 @@ def test_helper_finds_the_plugin_root():
     assert facade.find_root("core", "no_such_module_xyz") is None
 
 
-# F4.1: the checks above are static/source-based. The two tests below execute the
+# the checks above are static/source-based. The two tests below execute the
 # helper instead: POSIX path semantics are simulated with posixpath.join so a
 # hard-coded "runtime\py" marker would fail on Windows too.
 

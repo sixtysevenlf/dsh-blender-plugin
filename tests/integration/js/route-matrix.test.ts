@@ -1,5 +1,5 @@
 /**
- * A5 · 29 条 HTTP 路由 × 5 个方面的可执行矩阵（逐路由真实发 HTTP 请求）。
+ * 29 条 HTTP 路由 × 5 个方面的可执行矩阵（逐路由真实发 HTTP 请求）。
  *
  * 为什么用 in-process 真实路由 + fake engine：
  *   - 被测对象是 runtime/http 的**路由契约层**：真实 createRouter / createRoutes /
@@ -10,7 +10,7 @@
  *     tests/integration/js/backend-routes.test.ts 覆盖（本次也一并跑，见 evidence/a5-routes.log）。
  *
  * 输出：设置 A5_MATRIX_OUT=<path> 时写 JSON。
- * 依据：refactor-plan §8.1 A5（每个路由：正常/非法参数/错误码 content-type/lease 写保护/CORS，
+ * 依据：行为矩阵（每个路由：正常/非法参数/错误码 content-type/lease 写保护/CORS，
  *       非法输入不得产生 500）。
  */
 import fs from 'node:fs'
@@ -108,7 +108,7 @@ const engine: any = {
   status: async () =>
     ok('status', {
       region: { window: null, views: [] },
-      plugin: { version: '3.0.5' },
+      plugin: { version: '3.0.6' },
       runs: [],
       jobs: [],
       ledger: { writable: true },
@@ -322,7 +322,7 @@ afterAll(async () => {
     }
   }
   expect(rows.length).toBe(ROUTE_PATHS.length * ASPECTS.length)
-  // A5 硬约束：非法输入不得产生 500（29 条各一个记录）
+  // 硬约束：非法输入不得产生 500（29 条各一个记录）
   expect(invalidStatuses.length).toBe(29)
   expect(invalidStatuses.filter((s) => s === 500)).toEqual([])
   for (const r of rows.filter((x) => x.status === 'N/A'))
@@ -659,7 +659,7 @@ const NORMAL: Array<[string, () => Promise<string>]> = [
   ],
 ]
 
-describe('A5 normal：29 条路由的正常请求', () => {
+describe('normal：29 条路由的正常请求', () => {
   it('contract route table has exactly the 29 advertised routes', () => {
     expect(CONTRACT_ROUTES).toHaveLength(29)
     expect(new Set(CONTRACT_ROUTES).size).toBe(29)
@@ -921,7 +921,7 @@ const INVALID: Array<[string, () => Promise<string>]> = [
   ],
 ]
 
-describe('A5 invalidInput：非法输入与方法不匹配不得产生 500', () => {
+describe('invalidInput：非法输入与方法不匹配不得产生 500', () => {
   it.each(INVALID)('%s rejects invalid input without 500', async (path, fn) => {
     const evidence = await fn()
     // 额外全局约束：本路由在本用例内至少发过一次请求，且没有任何一次是 500
@@ -1146,7 +1146,7 @@ const ERROR_NA: Array<[string, string]> = [
   ['/host/selection/consume', '纯内存 selectionStore.consume，无 engine 依赖'],
 ]
 
-describe('A5 errorMapping：下游失败的错误码与 content-type', () => {
+describe('errorMapping：下游失败的错误码与 content-type', () => {
   it.each(ERROR_CASES)('%s maps engine failure', async (path, fn) => {
     const evidence = await fn()
     record(path, 'errorMapping', 'PASS', evidence)
@@ -1205,7 +1205,7 @@ async function acquire(holder: string): Promise<void> {
 
 const LEASE_ROUTES: Array<[string, LeaseSpec]> = ROUTE_PATHS.map((p) => [p, LEASE_SPECS[p]])
 
-describe('A5 lease：他人持租约时的写保护/只读放行', () => {
+describe('lease：他人持租约时的写保护/只读放行', () => {
   it.each(LEASE_ROUTES)('%s lease semantics', async (path, spec) => {
     const holderA = 'matrix-A'
     try {
@@ -1313,7 +1313,7 @@ const HOST_ROUTES = [
 ]
 const NON_HOST_ROUTES = ROUTE_PATHS.filter((p) => !p.startsWith('/host/'))
 
-describe('A5 cors：/host Origin 白名单与预检', () => {
+describe('cors：/host Origin 白名单与预检', () => {
   it.each(HOST_ROUTES)('%s host CORS', async (path) => {
     const allowed = 'dsh-app://app'
     const preflight = await call(path, { method: 'OPTIONS', origin: allowed })
@@ -1344,7 +1344,7 @@ describe('A5 cors：/host Origin 白名单与预检', () => {
       'cors',
       'N/A',
       '已断言响应无 access-control-allow-origin（非 500：' + String(r.status) + '）',
-      'CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS',
+      'CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS',
     )
   })
 })

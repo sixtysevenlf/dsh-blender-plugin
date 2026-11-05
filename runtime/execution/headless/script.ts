@@ -30,7 +30,7 @@ export function buildHeadlessScript(p: PreparedHeadless): BuiltHeadlessScript {
   headParts.push(envPrelude(p.envPairs))
   if (opts.bootstrap !== false) headParts.push(KERNEL_BOOTSTRAP)
   headParts.push('_dsh_stage_emit("engine-prelude")')
-  // D4.3 基线：记下进入脚本前的 render.filepath（--factory-startup 的默认值本身就是 '/tmp\\' 这类
+  // 基线：记下进入脚本前的 render.filepath（--factory-startup 的默认值本身就是 '/tmp\\' 这类
   // POSIX 串）—— 只有**脚本把它改成了 POSIX 绝对路径**才值得报警，否则全是假阳性。
   headParts.push(
     [
@@ -41,7 +41,7 @@ export function buildHeadlessScript(p: PreparedHeadless): BuiltHeadlessScript {
     ].join(String.fromCharCode(10)),
   )
   if (p.gpuPre) headParts.push(p.gpuPre)
-  // v0.8.10（D2）：workdir → 脚本内 chdir + sys.path 首位（Blender 是 Windows 进程，必须过 K.win_path）
+  // v0.8.10：workdir → 脚本内 chdir + sys.path 首位（Blender 是 Windows 进程，必须过 K.win_path）
   if (opts.workdir) headParts.push(workdirBlock(slipFixPath(String(opts.workdir), null)))
   if (p.scriptFileInfo) headParts.push(scriptFileBlock(p.scriptFileInfo.resolved))
   const expectPre = p.exp
@@ -62,7 +62,7 @@ export function buildHeadlessScript(p: PreparedHeadless): BuiltHeadlessScript {
       ].join(String.fromCharCode(10))
     : ''
   const NL = String.fromCharCode(10)
-  // v0.9.3（F1）：shots 走 qc_render_views —— outdir 用 Windows 形态（Blender 侧），其余键由调用方定
+  // v0.9.3：shots 走 qc_render_views —— outdir 用 Windows 形态（Blender 侧），其余键由调用方定
   const shotsPre = p.shotsWanted
     ? shotsBlock(
         Object.assign({ engine: 'keep', lock: true, warmup: true, tag: 'shot' }, p.shotsSpec, {

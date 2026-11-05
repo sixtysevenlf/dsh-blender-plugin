@@ -1,4 +1,4 @@
-// 长任务可观测性：DSH_STAGE / DSH_PROGRESS 扫描与心跳文件（T6）
+// 长任务可观测性：DSH_STAGE / DSH_PROGRESS 扫描与心跳文件
 // @imports
 import fs from 'node:fs'
 import path from 'node:path'

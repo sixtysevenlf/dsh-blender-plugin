@@ -1,4 +1,4 @@
-// plan/command 目录数据表（F1.1 从 catalog.ts 拆出；纯数据，无副作用）
+// plan/command 目录数据表（从 catalog.ts 拆出；纯数据，无副作用）
 export interface PlanFamily {
   f: string
   prefix: string

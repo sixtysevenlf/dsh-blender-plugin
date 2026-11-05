@@ -2,7 +2,11 @@ import { afterAll, describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { logEvidence, reconcileLedger, recoverFromDisk } from '../../../runtime/recover.js'
+import {
+  logEvidence,
+  reconcileLedger,
+  recoverFromDisk,
+} from '../../../runtime/execution/ledger/recover.js'
 
 // Feedback #1 ("台账以文件为准"): after a backend restart a ledger row can say
 // running while the child already finished. Completion is decided by on-disk
@@ -63,7 +67,7 @@ describe('ledger recovery', () => {
   })
 
   it('keeps a failed summary failed instead of calling it done', () => {
-    const d = mk('A2')
+    const d = mk('failed')
     write(
       path.join(d, 'summary.json'),
       JSON.stringify({ id: 'job-x', status: 'failed', exitCode: 1, finishedAt: 124 }),

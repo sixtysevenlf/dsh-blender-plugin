@@ -14,7 +14,7 @@ def _missing_skip_groups(args, groups):
 
 
 def _norm_overrides(overrides):
-    """overrides={门id: {args键: 值}}（v0.9.6 · F2）：给 preset 里"现场才知道"的 args 补来源。
+    """overrides={门id: {args键: 值}}（v0.9.6）：给 preset 里"现场才知道"的 args 补来源。
     例：gate_run(preset="assembly", overrides={"no_clash":{"objects_a":[…],"objects_b":[…]}})。"""
     if not overrides:
         return {}
@@ -48,7 +48,7 @@ def _gate_missing_row(g, api):
     if api is None:
         rec.update({"state": "error", "error": "该门需要模块 %s（preload 里没注入）" % attr})
         return rec
-    # v0.9.6（F2）：未配置来源 ⇒ 该门 skipped（未跑）。一定显式列出，且（v3 · F8）会把顶层压成 degraded。
+    # v0.9.6：未配置来源 ⇒ 该门 skipped（未跑）。一定显式列出，且会把顶层压成 degraded。
     _miss = _missing_skip_groups(g["args"], g.get("skip_if_missing"))
     if _miss:
         rec.update({"state": "skipped", "ms": 0,
@@ -91,14 +91,14 @@ def _gate_apply_judgement(g, rec, sub_receipt):
         except Exception as e:
             rec.update({"state": "error", "error": "pass_if 求值失败：%s" % str(e)[:200]})
             return False
-        # v0.9.6（P0 标定）：**写了 pass_if 就以它为准** —— 子 op 的 ok=false 可能只是"某一件没过"
+        # v0.9.6（标定）：**写了 pass_if 就以它为准** —— 子 op 的 ok=false 可能只是"某一件没过"
         # （如 print_report 的 overhang），不能压过显式判据；只有 degraded 例外：
         # 底层没跑完（ok=null）时不许读成通过。
         if rec["state"] != "degraded":
             rec["state"] = "pass" if got else "fail"
         rec["pass_if"] = g["pass_if"]
         rec["pass_if_value"] = bool(got)
-    # v3（F8）：**判据为真 ≠ 结论可信**。degrade_if 命中（如 min_mm 低于测量分辨率）⇒ 该门 degraded，
+    # v3：**判据为真 ≠ 结论可信**。degrade_if 命中（如 min_mm 低于测量分辨率）⇒ 该门 degraded，
     # 绝不许假通过；fail/degraded 已经是更强的结论，不被 degrade_if 覆盖（fail 优先）。
     if g.get("degrade_if") and rec["state"] == "pass":
         try:
@@ -139,7 +139,7 @@ def _gate_row(g, detail):
         return rec, "always"
     rec["ms"] = ms
     rec["state"] = _status_of(sub_receipt)
-    # v3（F8）：echo —— 把声明的**真实字段**（分辨率 / min_mm / warning…）带进回执做证据（可审计）
+    # v3：echo —— 把声明的**真实字段**（分辨率 / min_mm / warning…）带进回执做证据（可审计）
     if g.get("echo") and isinstance(sub_receipt, dict):
         rec["echo"] = _collect_echo(sub_receipt, g["echo"])
     if _gate_envelope_error(rec, sub_receipt):
@@ -162,7 +162,7 @@ def _gate_payload(sp, rows, src, md5, ov, t0):
                "gates": rows, "ran": len(rows), "total": len(sp["gates"]),
                "failed": [r["id"] for r in rows if r.get("state") in ("fail", "error")],
                "degraded": [r["id"] for r in rows if r.get("state") == "degraded"],
-               # v0.9.6（F2）+ v3（F8）：跳过的门必须看得见，而且**会把顶层压成 degraded**
+               # v0.9.6+ v3：跳过的门必须看得见，而且**会把顶层压成 degraded**
                # （skipped ≠ 通过；只有每门都真跑过且都过才 pass）
                "skipped": _skipped,
                "coverage": {"gates": len(sp["gates"]), "checked": len(_checked), "skipped": len(_skipped),
@@ -200,11 +200,11 @@ def gate_run(spec=None, spec_path=None, preset=None, detail=False, out_json=None
              overrides=None):
     """跑完整包：逐门执行 → 三态汇总。回执默认只带**判据用到的字段**（自带瘦身）。
 
-    overrides（v0.9.6 · F2）：{门id: {args键: 值}} —— 只并进那一门的 args，不改判据。preset 里
+    overrides（v0.9.6）：{门id: {args键: 值}} —— 只并进那一门的 args，不改判据。preset 里
     "现场才知道"的参数（如跨件干涉的两侧对象）就靠它补；没补时声明了 skip_if_missing 的门记 skipped，
-    而 **skipped 会把顶层压成 degraded**（v3 · F8：跳过 ≠ 通过，不许为"健康默认 preset"变绿）。
+    而 **skipped 会把顶层压成 degraded**（v3：跳过 ≠ 通过，不许为"健康默认 preset"变绿）。
 
-    degrade_if（v3 · F8）：判据为真但证据不可信（如 min_mm 低于测量分辨率）⇒ 该门 degraded，echo 提供真实读数。
+    degrade_if：判据为真但证据不可信（如 min_mm 低于测量分辨率）⇒ 该门 degraded，echo 提供真实读数。
     """
     sp, src, md5, _ov = _gate_prepare(spec, spec_path, preset, overrides)
     t0 = time.time()

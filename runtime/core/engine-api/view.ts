@@ -1,4 +1,4 @@
-// engine API：自定义视角捕获（F1.1 从 server-compat.ts 拆出）
+// engine API：自定义视角捕获（从 server-compat.ts 拆出）
 import fs from 'node:fs'
 import { winToWsl } from '../../config.js'
 import { VIEW_PNG_WIN } from '../../paths.js'

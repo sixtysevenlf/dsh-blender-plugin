@@ -1,4 +1,4 @@
-// 热无头 worker 会话池入口（T6 / F1.1 拆分）
+// 热无头 worker 会话池入口（拆分）
 import { CFG } from '../../config.js'
 import { errorMessage } from '../../core/json.js'
 import type { WorkerRecord } from './api.js'

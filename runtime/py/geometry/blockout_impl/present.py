@@ -154,7 +154,7 @@ def _present_setup(sc, res, background, neutral=0.62):
 
     Workbench 的 F12 渲染在 background_type=VIEWPORT 时仍会读 scene.world 的颜色；
     scene.world 为空时 PNG 的 alpha 还会是 0。因此这里临时补一个纯色 World，并由
-    _present_state_save/_restore 负责恢复/删除（见 D3 refsheet B7 回归）。
+    _present_state_save/_restore 负责恢复/删除（见 refsheet 回归）。
     """
     bg_val, bg_name, transparent = _bg_rgb(background)
     _configure_workbench(sc, res, film_transparent=transparent)

@@ -1,4 +1,4 @@
-// 作业 kill（F1.1 从 jobs.ts 拆出，行为冻结）
+// 作业 kill（从 jobs.ts 拆出，行为冻结）
 import type { JobRecord } from './types.js'
 import type { JobsCtx } from './api.js'
 import { jobSnapshot } from './snapshot.js'
@@ -39,7 +39,7 @@ export function jobKill(ctx: JobsCtx, id: unknown): Record<string, unknown> {
   }
   const led = ctx.ledger.ledgerList(200).find((x) => x.id === key)
   const rec = led ? ctx.ledger.reconcileLedger(led) : null
-  // v0.9.3（D6.4）：未知 id **不抛错** —— 旧版回 unknown 让调用方流程中断
+  // v0.9.3：未知 id **不抛错** —— 旧版回 unknown 让调用方流程中断
   return {
     id: key,
     ok: true,

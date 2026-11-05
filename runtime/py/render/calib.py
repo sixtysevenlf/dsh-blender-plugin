@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DSH 门标定套件（v0.9.6 · 整合方案 P0）—— 回答一个问题：**你的门到底抓得住什么？**
+"""DSH 门标定套件（v0.9.6 · 整合方案）—— 回答一个问题：**你的门到底抓得住什么？**
 
 "插件的价值上限由你自己的门决定"——那门的上限又由什么决定？由**它抓不住的缺陷**决定。
 所以：故意注入若干类已知缺陷，看每类有没有被某条门抓住；同时跑一次**健康基线**（必须全过），
@@ -33,7 +33,7 @@ if _KIT is None:
     raise RuntimeError("calib 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
-_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_j = _KIT.j  # 共享内核（原自带实现已删）
 _api = _KIT.api  # 共享内核
 def _purge():
     for o in [x for x in bpy.data.objects if x.name.startswith(PFX)]:

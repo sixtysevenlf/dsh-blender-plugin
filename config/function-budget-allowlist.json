@@ -1,8 +1,961 @@
 {
-  "generatedAt": "2026-11-01T02:42:47.793Z",
-  "reason": "Baseline debt captured by F1.0; burn down in F1/F2/F3.",
-  "owner": "lead",
-  "expires": "2026-12-31",
-  "functions": [],
-  "files": []
+  "version": 1,
+  "description": "Function-level budget registry (two-level exception model): every 80-120 line function is registered with a real classification, reason, class owner and future reviewBy; unregistered, unclassified, expired and stale entries fail. Functions over 120 lines always fail. Path-level file-budget exceptions live in config/exceptions.json.",
+  "generatedAt": "2026-11-04T18:53:21.007Z",
+  "functions": [
+    {
+      "file": "addon/dsh_blender_bridge/commands/core/bpy_lookup.py",
+      "name": "bpy_api_lookup",
+      "lines": 115,
+      "classification": "integration-io",
+      "reason": "Reflective bpy API lookup: the length is the attribute/method surface probed, not nested branching.",
+      "owner": "addon",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "addon/dsh_blender_bridge/commands/core/describe.py",
+      "name": "describe_node_type",
+      "lines": 119,
+      "classification": "integration-io",
+      "reason": "bpy node-type introspection adapter: serializes every socket and property field for the host.",
+      "owner": "addon",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "addon/dsh_blender_bridge/commands/core/screenshot.py",
+      "name": "get_viewport_screenshot",
+      "lines": 92,
+      "classification": "integration-io",
+      "reason": "Viewport screenshot adapter: context/area juggling plus image encoding for the host.",
+      "owner": "addon",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "addon/dsh_blender_bridge/commands/material.py",
+      "name": "set_texture",
+      "lines": 86,
+      "classification": "integration-io",
+      "reason": "Blender material texture adapter: a fixed sequence of node and UV wiring steps.",
+      "owner": "addon",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "addon/dsh_blender_bridge/commands/polyhaven/hdri.py",
+      "name": "_polyhaven_import_hdri",
+      "lines": 88,
+      "classification": "integration-io",
+      "reason": "PolyHaven HDRI adapter: download, file staging and world-node setup.",
+      "owner": "addon",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "addon/dsh_blender_bridge/commands/polyhaven/material.py",
+      "name": "_polyhaven_build_material",
+      "lines": 84,
+      "classification": "integration-io",
+      "reason": "PolyHaven material adapter: builds the node graph from downloaded texture maps.",
+      "owner": "addon",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "addon/dsh_blender_bridge/commands/polyhaven/model.py",
+      "name": "_polyhaven_import_model",
+      "lines": 107,
+      "classification": "integration-io",
+      "reason": "PolyHaven model adapter: download, archive handling and collection placement.",
+      "owner": "addon",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "addon/dsh_blender_bridge/commands/sketchfab/client.py",
+      "name": "get_sketchfab_model_preview",
+      "lines": 82,
+      "classification": "integration-io",
+      "reason": "Sketchfab HTTP client adapter: request, pagination and preview selection.",
+      "owner": "addon",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/core/engine-api/doctor.ts",
+      "name": "createDoctorApi",
+      "lines": 107,
+      "classification": "dispatch-table",
+      "reason": "Engine API factory: one handler per doctor/protocol/install/diagnose endpoint; length tracks endpoint count.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/core/engine-api/loop.ts",
+      "name": "createLoopApi",
+      "lines": 83,
+      "classification": "dispatch-table",
+      "reason": "Engine API factory: one handler per loop start/status/board/export op.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/core/evidence.ts",
+      "name": "engineProvenance",
+      "lines": 99,
+      "classification": "orchestration",
+      "reason": "Provenance assembly across engine self, catalog fingerprint, plugin metadata and override options.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/core/plan-dispatch.ts",
+      "name": "createPlanDispatch",
+      "lines": 113,
+      "classification": "dispatch-table",
+      "reason": "Op dispatch table: one branch per planning op; length tracks the planning surface.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/core/plan/render-guard.ts",
+      "name": "createRenderGuardOp",
+      "lines": 104,
+      "classification": "dispatch-table",
+      "reason": "Render-guard op dispatcher (render_state/wait/reset plus install/selftest).",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/core/plan/shape-search/parse.ts",
+      "name": "validatePayload",
+      "lines": 81,
+      "classification": "validation",
+      "reason": "Shape-search payload validation: one rule block per optional field and range.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/execution/headless/process.ts",
+      "name": "<anonymous>",
+      "lines": 90,
+      "classification": "orchestration",
+      "reason": "Promise executor owning the child-process lifecycle state; splitting would leak mutable state across closures.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/execution/headless/process.ts",
+      "name": "spawnHeadless",
+      "lines": 98,
+      "classification": "orchestration",
+      "reason": "Headless child-process lifecycle: spawn, stream capture, timeout and exit bookkeeping.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/execution/headless/script.ts",
+      "name": "buildHeadlessScript",
+      "lines": 83,
+      "classification": "formatting",
+      "reason": "Python script assembly: ordered prelude/body/completion sections where order is the contract.",
+      "owner": "host",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/execution/jobs/script/preload.ts",
+      "name": "buildJobParts",
+      "lines": 86,
+      "classification": "formatting",
+      "reason": "Job script assembly: ordered prelude/body/completion sections where order is the contract.",
+      "owner": "host",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/execution/ledger/state.ts",
+      "name": "createLedgerStore",
+      "lines": 87,
+      "classification": "orchestration",
+      "reason": "Ledger store factory: JSONL IO, writable-workdir probing and metrics state in one closure.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/execution/workers/index.ts",
+      "name": "createWorkersApi",
+      "lines": 96,
+      "classification": "dispatch-table",
+      "reason": "Worker API factory: one handler per worker start/exec/status/stop/restart op.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/http/routes/health.ts",
+      "name": "createHealthRoutes",
+      "lines": 96,
+      "classification": "dispatch-table",
+      "reason": "HTTP route table: one handler per health/status endpoint.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/http/routes/worker.ts",
+      "name": "<anonymous>",
+      "lines": 86,
+      "classification": "dispatch-table",
+      "reason": "Streamed worker op dispatcher: one branch per worker op.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/http/routes/worker.ts",
+      "name": "createWorkerRoutes",
+      "lines": 111,
+      "classification": "dispatch-table",
+      "reason": "HTTP route table for the worker endpoint.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/http/routes/worker.ts",
+      "name": "worker",
+      "lines": 106,
+      "classification": "dispatch-table",
+      "reason": "Worker route handler: payload parse, lease gate and op dispatch; length tracks the wire protocol surface.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/common.py",
+      "name": "_load_file_objects",
+      "lines": 98,
+      "classification": "integration-io",
+      "reason": "Blender .blend append adapter with temporary-object cleanup bookkeeping.",
+      "owner": "addon",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/gate.py",
+      "name": "_asm_gate_p3",
+      "lines": 97,
+      "classification": "validation",
+      "reason": "Assembly gate phase 3: evaluates every enabled gate and aggregates the evidence.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/gate.py",
+      "name": "_measure_gate",
+      "lines": 91,
+      "classification": "validation",
+      "reason": "Assembly measure gate: contract clearance vs measured gaps across every interface.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/manifest.py",
+      "name": "_asm_manifest_p1",
+      "lines": 82,
+      "classification": "linear-pipeline",
+      "reason": "Assembly manifest build phase 1 (input loading and checks); ordered stages.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/manifest.py",
+      "name": "_asm_manifest_p2",
+      "lines": 93,
+      "classification": "linear-pipeline",
+      "reason": "Assembly manifest build phase 2 (hashing and interfaces); ordered stages.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/manifest.py",
+      "name": "_manifest_validate_p3",
+      "lines": 91,
+      "classification": "validation",
+      "reason": "Manifest validation phase 3: per-part frames, interfaces and md5 checks.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/merge.py",
+      "name": "_asm_merge_p1",
+      "lines": 90,
+      "classification": "linear-pipeline",
+      "reason": "Assembly merge phase 1 (input validation and collection preparation).",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/merge.py",
+      "name": "_asm_merge_p3",
+      "lines": 106,
+      "classification": "linear-pipeline",
+      "reason": "Assembly merge phase 3 (transform application, gate and cleanup).",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/repair.py",
+      "name": "_apply_repair_action",
+      "lines": 97,
+      "classification": "linear-pipeline",
+      "reason": "Repair action executor: per-action branch with bpy mutation and per-action record.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/repair.py",
+      "name": "_repair_plan_all",
+      "lines": 110,
+      "classification": "linear-pipeline",
+      "reason": "Repair planning pipeline: classify clash/contained/float then choose translate/snap/boolean.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/scan.py",
+      "name": "_manifest_float",
+      "lines": 89,
+      "classification": "validation",
+      "reason": "Manifest float check: connection-graph reachability plus per-interface contact verification.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/scan.py",
+      "name": "_scan_core_p2",
+      "lines": 101,
+      "classification": "linear-pipeline",
+      "reason": "Assembly scan phase 2: candidate checks within the time budget.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/scan.py",
+      "name": "_scan_core_p3",
+      "lines": 90,
+      "classification": "linear-pipeline",
+      "reason": "Assembly scan phase 3: budget and result aggregation.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/assembly/assembly_impl/selftest.py",
+      "name": "asm_help",
+      "lines": 87,
+      "classification": "formatting",
+      "reason": "Help payload table for the assembly module: one row per op.",
+      "owner": "host",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/assembly/human.py",
+      "name": "head_base",
+      "lines": 107,
+      "classification": "linear-pipeline",
+      "reason": "Parametric head primitive: ordered ellipsoid/jaw/marker construction in one bpy session.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/assembly/vehicle_impl/loft.py",
+      "name": "_vehicle_loft_p2",
+      "lines": 85,
+      "classification": "linear-pipeline",
+      "reason": "Vehicle loft phase 2: ordered ring and inset geometry stages.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/audit_impl/api.py",
+      "name": "audit_gate_selftest",
+      "lines": 96,
+      "classification": "validation",
+      "reason": "Synthetic self-test for assembly judgement predicates (float/gap/attribution/drift).",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/audit_impl/conn_helpers.py",
+      "name": "__load_file_objects_p2",
+      "lines": 90,
+      "classification": "integration-io",
+      "reason": "Temporary .blend load adapter phase 2 with object accounting.",
+      "owner": "addon",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/audit_impl/conn_helpers.py",
+      "name": "cleanup",
+      "lines": 82,
+      "classification": "integration-io",
+      "reason": "Idempotent cleanup of temporarily loaded objects (bpy lifecycle).",
+      "owner": "addon",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/audit_impl/connectivity.py",
+      "name": "audit_connectivity",
+      "lines": 103,
+      "classification": "validation",
+      "reason": "Connectivity audit: contact graph, interface verification and micro-gap report.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/audit_impl/measure.py",
+      "name": "audit_measure",
+      "lines": 102,
+      "classification": "validation",
+      "reason": "Measurement audit payload: bbox, per-axis gaps and neighbours across object scopes.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/audit_impl/measure.py",
+      "name": "audit_snap_floaters",
+      "lines": 106,
+      "classification": "validation",
+      "reason": "Floater snap audit: detects visible floaters, validates candidates and applies only wholly-owned moves (dry-run default).",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/audit_impl/overlap.py",
+      "name": "_audit_body_p1",
+      "lines": 94,
+      "classification": "linear-pipeline",
+      "reason": "Overlap audit phase 1: bbox/floor/limit preparation before pair evaluation.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/audit_impl/overlap.py",
+      "name": "audit_overlap",
+      "lines": 115,
+      "classification": "validation",
+      "reason": "Face-pair overlap audit: BVH pair evaluation and structured intersection report.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/contract_impl/fit.py",
+      "name": "_c_interference_report_p2",
+      "lines": 102,
+      "classification": "validation",
+      "reason": "Interference report phase 2: declared vs measured pair checks with drift flags.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/contract_impl/mate.py",
+      "name": "_c_mate_check_p1",
+      "lines": 82,
+      "classification": "validation",
+      "reason": "Mate check phase 1: nominal interface comparison.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/contract_impl/mate.py",
+      "name": "_c_mate_check_p2",
+      "lines": 91,
+      "classification": "validation",
+      "reason": "Mate check phase 2: mesh measurement against the allowed tolerance.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/contract_impl/mate.py",
+      "name": "_mate_measure",
+      "lines": 81,
+      "classification": "validation",
+      "reason": "Mate measurement: contact points, gap distribution, penetration and overlap estimate.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/evalharness.py",
+      "name": "evalharness_run",
+      "lines": 91,
+      "classification": "orchestration",
+      "reason": "Evaluation harness orchestration: runs suites, captures evidence and writes the JSON report.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/gate_impl/selftest.py",
+      "name": "_gate_selftest_p2b",
+      "lines": 95,
+      "classification": "validation",
+      "reason": "Gate self-test phase 2b: exception-path checks for the gate contract.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/motion_impl/infer.py",
+      "name": "_motion_infer_axis_p1",
+      "lines": 88,
+      "classification": "linear-pipeline",
+      "reason": "Joint-axis inference phase 1: candidate evidence collection.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/motion_impl/infer.py",
+      "name": "_motion_infer_axis_p3",
+      "lines": 106,
+      "classification": "linear-pipeline",
+      "reason": "Joint-axis inference phase 3: conflict and evidence resolution.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/motion_impl/infer.py",
+      "name": "motion_joint",
+      "lines": 117,
+      "classification": "orchestration",
+      "reason": "Joint registration: validates inputs, infers missing axis/anchor and records evidence plus unresolved verdict.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/motion_impl/measure.py",
+      "name": "__measure_one_p2",
+      "lines": 81,
+      "classification": "linear-pipeline",
+      "reason": "Motion measure phase 2: per-joint transform delta measurement.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/motion_impl/transforms.py",
+      "name": "_restore_transforms",
+      "lines": 85,
+      "classification": "integration-io",
+      "reason": "bpy transform restore adapter writing only the objects that were touched.",
+      "owner": "addon",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/motion_impl/urdf.py",
+      "name": "_build_tree",
+      "lines": 84,
+      "classification": "parsing",
+      "reason": "URDF tree construction from joint records (links, edges, degradation and fixed joints).",
+      "owner": "host",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/motion_impl/urdf.py",
+      "name": "_motion_export_urdf_p1",
+      "lines": 93,
+      "classification": "linear-pipeline",
+      "reason": "URDF export phase 1: links, masses and mesh staging.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/motion_impl/urdf.py",
+      "name": "_motion_export_urdf_p2",
+      "lines": 96,
+      "classification": "linear-pipeline",
+      "reason": "URDF export phase 2: joint and file emission.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/motion_impl/usda.py",
+      "name": "_motion_export_usda_p2",
+      "lines": 94,
+      "classification": "linear-pipeline",
+      "reason": "USDA export phase 2: joint and mesh emission.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/planner.py",
+      "name": "p_build",
+      "lines": 99,
+      "classification": "orchestration",
+      "reason": "Plan builder: assembles draft plan stages from planner state.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/presets.py",
+      "name": "preset_glass",
+      "lines": 94,
+      "classification": "integration-io",
+      "reason": "Blender material/scene preset adapter (Principled 4.x/5.x input mapping plus engine flags).",
+      "owner": "addon",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/txn.py",
+      "name": "t_restore",
+      "lines": 90,
+      "classification": "orchestration",
+      "reason": "Transaction restore: resolves the snapshot, backs up and loads the scene into the target file.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/worker.py",
+      "name": "_see",
+      "lines": 111,
+      "classification": "linear-pipeline",
+      "reason": "Headless see op: ordered camera/render/restore stages.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/core/worker.py",
+      "name": "_watch",
+      "lines": 94,
+      "classification": "linear-pipeline",
+      "reason": "Headless frame-watch op: ordered frame sampling/render/restore stages.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/export/deliver_impl/verify.py",
+      "name": "_deliver_verify_p1",
+      "lines": 91,
+      "classification": "validation",
+      "reason": "Delivery verify phase 1: resolves manifest and target candidates.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/export/deliver_impl/verify.py",
+      "name": "_deliver_verify_p2",
+      "lines": 101,
+      "classification": "validation",
+      "reason": "Delivery verify phase 2: observation checks and per-file verdict rows.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/export/printcheck.py",
+      "name": "print_walls",
+      "lines": 95,
+      "classification": "validation",
+      "reason": "Wall-thickness check: raycast sampling per face plus payload assembly.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/geometry/blockout_impl/api.py",
+      "name": "blockout_selftest",
+      "lines": 93,
+      "classification": "validation",
+      "reason": "Blockout module self-test covering the blockout render pipeline.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/geometry/blockout_impl/geometry.py",
+      "name": "_render_views",
+      "lines": 111,
+      "classification": "linear-pipeline",
+      "reason": "Blockout multi-view rendering: ordered camera/render/restore stages.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/geometry/generator.py",
+      "name": "generator_run",
+      "lines": 99,
+      "classification": "orchestration",
+      "reason": "Generator compile gate: launches a fresh headless Blender, runs the generator and compares it with expectations.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/geometry/shapegen.py",
+      "name": "shape_draft_check",
+      "lines": 94,
+      "classification": "validation",
+      "reason": "draft-table validation: required fields plus mm/face-count rule violations.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/geometry/shapesolve.py",
+      "name": "shapesolve_selftest",
+      "lines": 93,
+      "classification": "validation",
+      "reason": "Shapesolve module self-test: synthetic reference inversion plus bad-parameter checks.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/geometry/surface_impl/api.py",
+      "name": "_surface_selftest_p1",
+      "lines": 90,
+      "classification": "validation",
+      "reason": "Surface self-test phase 1: builds fixture surfaces and collects evidence.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/geometry/surface_impl/api.py",
+      "name": "_surface_selftest_p2",
+      "lines": 85,
+      "classification": "validation",
+      "reason": "Surface self-test phase 2: continuity and validation assertions.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/geometry/surface_impl/common.py",
+      "name": "surface_spec_normalize",
+      "lines": 84,
+      "classification": "parsing",
+      "reason": "SurfaceSpec validation/normalization into (norm, errors) including the spec hash.",
+      "owner": "host",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/geometry/surface_impl/validate.py",
+      "name": "_surface_validate_p2",
+      "lines": 98,
+      "classification": "validation",
+      "reason": "Surface validation phase 2: continuity and topology checks.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/imgtools_impl/api.py",
+      "name": "_img_calib_p1",
+      "lines": 91,
+      "classification": "linear-pipeline",
+      "reason": "Image calibration phase 1: per-view measurement.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/imgtools_impl/api.py",
+      "name": "_img_calib_p2",
+      "lines": 93,
+      "classification": "linear-pipeline",
+      "reason": "Image calibration phase 2: consistency and scale assertions.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/material.py",
+      "name": "material_bake",
+      "lines": 116,
+      "classification": "linear-pipeline",
+      "reason": "Cycles bake pipeline: scene/material setup, bake, save and restore.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/montage.py",
+      "name": "montage",
+      "lines": 88,
+      "classification": "formatting",
+      "reason": "Montage image composition: grid, tile and label formatting.",
+      "owner": "host",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/qc_impl/metrics.py",
+      "name": "qc_compare_auto",
+      "lines": 117,
+      "classification": "linear-pipeline",
+      "reason": "QC comparison pipeline: mask/alignment search then metric computation.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/qc_render_impl/selftest.py",
+      "name": "_st_batch_parts_color",
+      "lines": 102,
+      "classification": "validation",
+      "reason": "QC render self-test batch: parts_color render plus legend assertion.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/qc_render_impl/selftest.py",
+      "name": "_st_phase_lock",
+      "lines": 93,
+      "classification": "validation",
+      "reason": "QC render self-test phase-lock checks.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/qc_render_impl/selftest.py",
+      "name": "_st_report",
+      "lines": 82,
+      "classification": "formatting",
+      "reason": "QC render self-test report assembly: assertion and artifact rows.",
+      "owner": "host",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/qc_render_impl/selftest.py",
+      "name": "qc_render_selftest",
+      "lines": 91,
+      "classification": "validation",
+      "reason": "QC render harness self-test: projection comparison, Procedura fusion and feedback assertions.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/qc_render_impl/views_render.py",
+      "name": "_qv_finish_out",
+      "lines": 82,
+      "classification": "linear-pipeline",
+      "reason": "QC view render output finalization: aliases, resolution and payload.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/qc_render_impl/views_render.py",
+      "name": "_qv_post",
+      "lines": 84,
+      "classification": "linear-pipeline",
+      "reason": "QC view render post phase: entries and engine restoration prep.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/qc_render_impl/views_render.py",
+      "name": "_qv_restore",
+      "lines": 108,
+      "classification": "linear-pipeline",
+      "reason": "QC view render restore phase: hidden lights, lock and scene cleanup.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/qc_render_impl/views_render.py",
+      "name": "_qv_scene",
+      "lines": 85,
+      "classification": "linear-pipeline",
+      "reason": "QC view render phase: scene and light preparation.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/qc_render_impl/views.py",
+      "name": "_qv_setup",
+      "lines": 120,
+      "classification": "linear-pipeline",
+      "reason": "QC view setup phase: parts, engine and scene configuration (band edge at 120 lines).",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/qc_render_impl/views.py",
+      "name": "_qv_vlist",
+      "lines": 89,
+      "classification": "parsing",
+      "reason": "QC view list normalization: dedupe, canonical order and ortho resolution.",
+      "owner": "host",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/view.py",
+      "name": "host_pick",
+      "lines": 86,
+      "classification": "integration-io",
+      "reason": "bpy ray-cast pick adapter: screen-to-world ray plus hit resolution.",
+      "owner": "addon",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/visualreport_impl/api.py",
+      "name": "_visualreport_report_p1",
+      "lines": 94,
+      "classification": "formatting",
+      "reason": "Visual report phase 1: image/defect comparison payload assembly.",
+      "owner": "host",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/visualreport_impl/api.py",
+      "name": "_visualreport_report_p2",
+      "lines": 92,
+      "classification": "formatting",
+      "reason": "Visual report phase 2: defect rows and verdict formatting.",
+      "owner": "host",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/execution/ledger/recover.ts",
+      "name": "recoverFromDisk",
+      "lines": 103,
+      "classification": "orchestration",
+      "reason": "Recovery orchestration across ledger, logs, artifacts and evidence.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "src/contracts/lossless.ts",
+      "name": "losslessSanitize",
+      "lines": 87,
+      "classification": "parsing",
+      "reason": "Lossless sanitizer walk: one transform rule per value shape, ordered by the sanitizer contract.",
+      "owner": "host",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "src/contracts/lossless.ts",
+      "name": "walk",
+      "lines": 81,
+      "classification": "parsing",
+      "reason": "Recursive walk shared by the lossless sanitizer; rule order mirrors the JSON shape contract.",
+      "owner": "host",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "src/plan/tool.ts",
+      "name": "<anonymous>",
+      "lines": 101,
+      "classification": "dispatch-table",
+      "reason": "Plan dispatcher closure: one branch per planning op.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "src/plan/tool.ts",
+      "name": "registerPlan",
+      "lines": 106,
+      "classification": "dispatch-table",
+      "reason": "Plan tool registration: one entry per planning facade method.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "src/tools/headless/register.ts",
+      "name": "buildHeadlessTool",
+      "lines": 87,
+      "classification": "dispatch-table",
+      "reason": "Headless tool facade: one handler per headless mode (worker/headless/job).",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "src/tui/commands.ts",
+      "name": "blenderCommand",
+      "lines": 83,
+      "classification": "formatting",
+      "reason": "TUI command-string formatter: one branch per command shape and argument.",
+      "owner": "host",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "src/tui/selection.ts",
+      "name": "subSelectionText",
+      "lines": 81,
+      "classification": "formatting",
+      "reason": "TUI selection label formatter covering every selection kind.",
+      "owner": "host",
+      "reviewBy": "2027-06-30"
+    }
+  ]
 }

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""runtime.py.geometry — T8 领域包（Phase E）：几何生成 / 修复 / 雕刻 / 白模 / 轮廓拟合 / 面评估 / 曲面算法
+"""runtime.py.geometry — 领域包（Phase E）：几何生成 / 修复 / 雕刻 / 白模 / 轮廓拟合 / 面评估 / 曲面算法
 
 模块列表见 __all__。**本包自身 import 安全**：不 eager import 子模块（子模块需要
 bpy/numpy 与共享内核 K.dsh_kit，只在 Blender 注入路径或显式访问时才加载）。

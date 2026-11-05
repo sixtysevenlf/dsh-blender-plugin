@@ -9,7 +9,7 @@ export function registerTuiSurface(
   port: number,
   cfgIn: Record<string, unknown>,
 ): void {
-  // v2.6.1：dsh-TUI 宿主半边（契约 v2.3 增补 §S6）。各块按接缝是否存在启用；Web / headless 上什么都不做。
+  // v2.6.1：dsh-TUI 宿主半边（契约 v2.3 增补）。各块按接缝是否存在启用；Web / headless 上什么都不做。
   if (cfgIn.tui !== false) registerTuiHost(ctx, { port: port, holder: HOLDER })
 }
 

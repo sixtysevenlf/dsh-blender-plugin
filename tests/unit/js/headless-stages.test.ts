@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// F2.2 tail: createHeadlessRun().headless() was split into stages. These tests
+// createHeadlessRun().headless() is split into stages; these tests
 // exercise the stage seams directly (setup/job branch/ledger completion/warnings);
 // headless-execution.test.ts keeps the end-to-end createHeadlessRun behavior.
 

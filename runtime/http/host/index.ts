@@ -1,4 +1,4 @@
-// 宿主集成路由入口（T7 / F1.1 拆分）
+// 宿主集成路由入口（拆分）
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { EngineSurface } from '../../core/engine/index.js'
 import { handleHost } from './routes.js'

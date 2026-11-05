@@ -1,4 +1,4 @@
-// engine API：通道诊断（F1.1 从 server-compat.ts 拆出）
+// engine API：通道诊断（从 server-compat.ts 拆出）
 import { diagnose, freshPing, protocolInfo, tcpProbe } from '../../transport/probes.js'
 import type { Diagnosis } from '../../transport/probes.js'
 import { FLAGS_CODE, REGION_CODE } from '../flags.js'
@@ -11,16 +11,17 @@ import type { EngineApiDeps } from './index.js'
 import { metricsView } from './metrics.js'
 
 /**
- * P0-3：addon 侧阶段预算。宿主 backendJson 默认 20s、T.commands 静态截止 60s；
+ * addon 侧阶段预算。宿主 backendJson 默认 20s、T.commands 静态截止 60s；
  * 这里的预算必须落在宿主之前，否则模型只拿到 aborted，看不到任何结构化诊断。
  */
 /**
- * /status 的 bpy 往返（REGION_CODE）预算。注意 installAddonSend 在 transport 错误后还会
- * 串一次 diagnose()（半开 addon 约 2.5s），所以这里不能贴着 host 的 20s，留足余量。
+ * /status 的 bpy 往返（REGION_CODE）预算：5s —— 修复后的诚实值（启动探测不再占串行队列头，
+ * 修复前只能收到 3.5s）。注意 installAddonSend 在 transport 错误后还会串一次 diagnose()
+ * （半开 addon 约 2.5s），所以这里不能贴着 host 的 20s，留足余量（半开稳态 ≈5s + 2.5s）。
  */
-export const ADDON_STATUS_TIMEOUT_MS = 3500
-/** /doctor 的 status 阶段预算：更短，给 diagnose() 的 ping 探针留时间（A3 半开场景总目标 <10s）。 */
-export const ADDON_DOCTOR_STATUS_TIMEOUT_MS = 3000
+export const ADDON_STATUS_TIMEOUT_MS = 5000
+/** /doctor 的 status 阶段预算：4s（修复后回调；半开场景 ≈4s + 复用诊断 ≈2.5s，仍 <10s 目标）。 */
+export const ADDON_DOCTOR_STATUS_TIMEOUT_MS = 4000
 /** /commands 的 FLAGS + 5 个集成必须整段落在客户端预算内：15s + 5×(3s+~2.5s 诊断)≈42.5s < 45s 客户端 < 60s 宿主。 */
 export const ADDON_FLAGS_TIMEOUT_MS = 15000
 /** /commands 单个集成 status 预算（5 个串行；失败还会各串一次 ~2.5s 诊断，故取 3s）。 */
@@ -102,7 +103,7 @@ export async function statusView(
 }
 
 /**
- * P2（PR review）：addon 明确回了错误（非超时）时的归因。
+ * （PR review）：addon 明确回了错误（非超时）时的归因。
  * 这类失败说明通道在（TCP 通、addon 有响应），不要归成 main-thread-busy / blender-unreachable。
  */
 export function addonErrorDiagnosis(error: string): Record<string, unknown> {
@@ -131,7 +132,7 @@ export function addonErrorDiagnosis(error: string): Record<string, unknown> {
 }
 
 /**
- * P0-3：doctor 失败分支。TCP 已通时把「addon 不回包」与「后端没起」分开 ——
+ * doctor 失败分支。TCP 已通时把「addon 不回包」与「后端没起」分开 ——
  * 超时不再落成 blender-unreachable（现场 seq 52-56 的 start/doctor 自相矛盾即源于此）。
  */
 async function failedDoctor(
@@ -144,7 +145,7 @@ async function failedDoctor(
   // 并挂在 err.diagnosis 上 —— 复用它，避免 doctor 失败路径再串一个 ~2.5s 的探针。
   const timeout = isAddonTimeout(e)
   const err = errorMessage(e)
-  // P2（PR review）：非超时错误（如「AI 操作已暂停」/脚本报错）不是 main-thread-busy。
+  // （PR review）：非超时错误（如「AI 操作已暂停」/脚本报错）不是 main-thread-busy。
   // diagnose() 在 ping 通时会固定归成 main-thread-busy，这里直接按 addonError 归因，不再串诊探针。
   if (!timeout)
     return { ok: false, addon: addonErrorDiagnosis(err), metrics: metricsView(E), error: err }

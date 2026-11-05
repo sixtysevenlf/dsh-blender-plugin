@@ -58,7 +58,7 @@ def _gate_selftest_p2a(st):
         ev["tri_state_ok"] = (u["degraded"] == "degraded" and u["fail"] == "fail" and u["pass"] == "pass"
                               and u["error"] == "error" and u["agg_degraded"] == "degraded"
                               and u["agg_fail_beats_degraded"] == "fail" and u["agg_all_pass"] == "pass")
-        # v0.9.6（F2）单元级：**嵌套三态**（audit_connectivity 的门结论在 gate 里）+ **skipped 汇总（v3 收紧）**
+        # v0.9.6单元级：**嵌套三态**（audit_connectivity 的门结论在 gate 里）+ **skipped 汇总（v3 收紧）**
     finally:
         st.update((k, v) for k, v in locals().items() if k != "st")
 
@@ -72,7 +72,7 @@ def _gate_selftest_p2b(st):
                                            "gate": {"ok": None, "state": "degraded", "verdict": "degraded"}}),
             "inter_unresolved": _status_of({"ok": True, "analyzed": True, "verdict": "unresolved"}),
             "inter_refuted_is_pass": _status_of({"ok": True, "analyzed": True, "verdict": "refuted"}),
-            # v3（F8 · Lead 否决 pass+skipped=pass）：任一 skipped ⇒ 顶层 degraded
+            # v3（Lead 否决 pass+skipped=pass）：任一 skipped ⇒ 顶层 degraded
             "agg_pass_skipped": _aggregate(["pass", "skipped"]),
             "agg_only_skipped": _aggregate(["skipped"]),
             "agg_degraded_skipped": _aggregate(["degraded", "skipped"]),
@@ -87,7 +87,7 @@ def _gate_selftest_p2b(st):
                                and n["agg_pass_skipped"] == "degraded" and n["agg_only_skipped"] == "degraded"
                                and n["agg_degraded_skipped"] == "degraded" and n["agg_fail_skipped"] == "fail"
                                and n["agg_fail_skipped_degraded"] == "fail" and n["agg_empty"] == "degraded")
-        # v3（F8）单元级：degrade_if —— 判据为真但证据不可信 ⇒ degraded（不许假通过）。
+        # v3单元级：degrade_if —— 判据为真但证据不可信 ⇒ degraded（不许假通过）。
         # 直接用 **print preset 的真实表达式** 跑合成回执：分辨率 1000mm vs min_mm 2mm ⇒ 命中；
         # 分辨率 0.1mm ⇒ 不命中（"只有当分辨率不可信时才降级"）。echo 走点路径取真实字段。
         _preset_print = PRESETS["print"]["gates"][0]
@@ -117,7 +117,7 @@ def _gate_selftest_p2b(st):
                                    and ev["degrade_if_unit"]["echo"].get("params.min_mm") == 2.0
                                    and "warnings" in (ev["degrade_if_unit"]["plan_echo"] or [])
                                    and ev["degrade_if_unit"]["plan_echo"])
-        # preset 静态契约（F2-a/b/c + v3 的跳过/降级字段）：门还在、各自读的字段是真的、没来源的门会 skipped
+        # preset 静态契约（v3 的跳过/降级字段）：门还在、各自读的字段是真的、没来源的门会 skipped
         pp = json.loads(gate_plan(preset="assembly"))
         _by = {x["id"]: x for x in (pp.get("gates") or [])}
         ev["preset_assembly"] = {
@@ -131,7 +131,7 @@ def _gate_selftest_p2b(st):
         ev["preset_ok"] = (pa["gate_count"] == 3 and pa["mesh_self_intersect"] is True
                            and pa["no_floaters_reads"] == ["gate"] and pa["no_clash_reads"] == ["verdict"]
                            and pa["no_clash_skip_groups"] == 2)
-        # v3（F8）：print preset 的分辨率降级必须在**真实回执**上成立（不是合成回执）
+        # v3：print preset 的分辨率降级必须在**真实回执**上成立（不是合成回执）
         # 探针立方体 1 单位 = 1000mm：面尺寸 1 单位 ⇒ resolution_mm=1000 ≫ min_mm=2 ⇒ 该门 degraded；
         # 判据本身为真（thin_samples_total==0 且 walls_ok）—— 这正是旧口径会假通过的地方。
         r5 = json.loads(gate_run(preset="print", overrides={"walls": {"mm_per_unit": 1000.0}}, detail=True))
@@ -233,7 +233,7 @@ def _gate_selftest_p2c(st):
 def gate_selftest():
     """自检：造一个"该过"的场景 + 一个"该挂"的门，断言三态判定与 pass_if/degrade_if/skipped 语义都对。
 
-    v3（F8）新增断言：① 任一 skipped/degraded ⇒ 顶层 degraded（pass+skipped 不再算 pass）；
+    v3 新增断言：① 任一 skipped/degraded ⇒ 顶层 degraded（pass+skipped 不再算 pass）；
     ② print preset 的 degrade_if（真实字段：min_mm vs resolution_mm）在真机回执上把"判据为真但分辨率
     不可信"的门判成 degraded，且 echo 与 receipt 里的真实值一致。
     """

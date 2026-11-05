@@ -1,0 +1,465 @@
+{
+  "version": 1,
+  "tool": "check-plan-ids",
+  "generatedAt": "2026-11-04T23:24:07.182Z",
+  "mode": "warn",
+  "totals": {
+    "all": 1433,
+    "exempt": 1433,
+    "residual": 0
+  },
+  "byPrefix": {},
+  "byKind": {},
+  "files": {
+    "CHANGELOG.md": {
+      "count": 214,
+      "exempt": 214,
+      "residual": 0
+    },
+    "MIGRATIONS.md": {
+      "count": 5,
+      "exempt": 5,
+      "residual": 0
+    },
+    "docs/AI-安装提示词.md": {
+      "count": 8,
+      "exempt": 8,
+      "residual": 0
+    },
+    "docs/Procedura-融合分析.md": {
+      "count": 3,
+      "exempt": 3,
+      "residual": 0
+    },
+    "docs/architecture.md": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "docs/archive/headless优先-路线决定.md": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "docs/archive/v2.6.0-更新说明.md": {
+      "count": 3,
+      "exempt": 3,
+      "residual": 0
+    },
+    "docs/archive/插件与技能优化验收.md": {
+      "count": 78,
+      "exempt": 78,
+      "residual": 0
+    },
+    "docs/假设驱动建模-cookbook.md": {
+      "count": 8,
+      "exempt": 8,
+      "residual": 0
+    },
+    "docs/宿主集成-接口契约-v2.3增补.md": {
+      "count": 52,
+      "exempt": 52,
+      "residual": 0
+    },
+    "docs/操作教程.md": {
+      "count": 17,
+      "exempt": 17,
+      "residual": 0
+    },
+    "docs/证据分级与读图纪律.md": {
+      "count": 5,
+      "exempt": 5,
+      "residual": 0
+    },
+    "runtime/catalog/data.ts": {
+      "count": 7,
+      "exempt": 7,
+      "residual": 0
+    },
+    "runtime/classes.ts": {
+      "count": 7,
+      "exempt": 7,
+      "residual": 0
+    },
+    "runtime/py/assembly/assembly_features.json": {
+      "count": 16,
+      "exempt": 16,
+      "residual": 0
+    },
+    "runtime/py/core/evalharness.py": {
+      "count": 25,
+      "exempt": 25,
+      "residual": 0
+    },
+    "runtime/py/core/motion_impl/measure.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "runtime/py/geometry/blockout_impl/present.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "runtime/py/geometry/shapegen.py": {
+      "count": 45,
+      "exempt": 45,
+      "residual": 0
+    },
+    "runtime/py/geometry/surface_impl/api.py": {
+      "count": 14,
+      "exempt": 14,
+      "residual": 0
+    },
+    "runtime/py/geometry/surface_impl/build.py": {
+      "count": 2,
+      "exempt": 2,
+      "residual": 0
+    },
+    "runtime/py/geometry/surface_impl/common.py": {
+      "count": 9,
+      "exempt": 9,
+      "residual": 0
+    },
+    "runtime/py/geometry/surface_impl/objects.py": {
+      "count": 19,
+      "exempt": 19,
+      "residual": 0
+    },
+    "runtime/py/geometry/surface_impl/validate.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "runtime/py/render/qc_render_impl/common.py": {
+      "count": 27,
+      "exempt": 27,
+      "residual": 0
+    },
+    "runtime/py/render/qc_render_impl/dispatch.py": {
+      "count": 3,
+      "exempt": 3,
+      "residual": 0
+    },
+    "runtime/py/render/qc_render_impl/geom.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "runtime/py/render/qc_render_impl/lock.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "runtime/py/render/qc_render_impl/rig.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "runtime/py/render/qc_render_impl/selftest.py": {
+      "count": 110,
+      "exempt": 110,
+      "residual": 0
+    },
+    "runtime/py/render/qc_render_impl/views.py": {
+      "count": 12,
+      "exempt": 12,
+      "residual": 0
+    },
+    "runtime/py/render/qc_render_impl/views_render.py": {
+      "count": 18,
+      "exempt": 18,
+      "residual": 0
+    },
+    "skills/blender-modeling/README.md": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "skills/blender-modeling/SKILL.md": {
+      "count": 29,
+      "exempt": 29,
+      "residual": 0
+    },
+    "skills/blender-modeling/references/参考图通用还原SOP.md": {
+      "count": 20,
+      "exempt": 20,
+      "residual": 0
+    },
+    "skills/blender-modeling/references/曲面算法.md": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "skills/blender-modeling/references/验收清单.md": {
+      "count": 2,
+      "exempt": 2,
+      "residual": 0
+    },
+    "tests/BEHAVIOR_MATRIX.json": {
+      "count": 22,
+      "exempt": 22,
+      "residual": 0
+    },
+    "tests/BEHAVIOR_MATRIX.md": {
+      "count": 336,
+      "exempt": 336,
+      "residual": 0
+    },
+    "tests/MIGRATION.md": {
+      "count": 12,
+      "exempt": 12,
+      "residual": 0
+    },
+    "tests/e2e/blender/harness.py": {
+      "count": 2,
+      "exempt": 2,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/assembly.py": {
+      "count": 19,
+      "exempt": 19,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/assembly_export.py": {
+      "count": 9,
+      "exempt": 9,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/assembly_repair.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/audit_file.py": {
+      "count": 3,
+      "exempt": 3,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/audit_review.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/blockout.py": {
+      "count": 36,
+      "exempt": 36,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/blockout_refsheet.py": {
+      "count": 25,
+      "exempt": 25,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/contract.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/deliver.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/evalharness.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/gate_review.py": {
+      "count": 30,
+      "exempt": 30,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/geo.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/imgtools.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/mate.py": {
+      "count": 6,
+      "exempt": 6,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/motion.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/p0_real_modeling.py": {
+      "count": 3,
+      "exempt": 3,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/plan.py": {
+      "count": 2,
+      "exempt": 2,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/qc_render_api.py": {
+      "count": 9,
+      "exempt": 9,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/shapesolve.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/support_gate_review.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/surface.py": {
+      "count": 7,
+      "exempt": 7,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/txn.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/txn_restore.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/support.py": {
+      "count": 3,
+      "exempt": 3,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_assembly_vehicle.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_audit_smoke.py": {
+      "count": 5,
+      "exempt": 5,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_gate.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_material_render.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_mesh_fix.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_pipeline.py": {
+      "count": 6,
+      "exempt": 6,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_print.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_sculpt.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_shape.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_sweep.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/upstream/upstream_uv.py": {
+      "count": 4,
+      "exempt": 4,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/view_diag.py": {
+      "count": 2,
+      "exempt": 2,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/visualreport.py": {
+      "count": 29,
+      "exempt": 29,
+      "residual": 0
+    },
+    "tests/e2e/blender/native_manifest.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native_runner.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/native_support.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/package_check.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/runner.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/e2e/blender/test_addon_e2e.py": {
+      "count": 2,
+      "exempt": 2,
+      "residual": 0
+    },
+    "tests/e2e/blender/test_native_e2e.py": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/fixtures/README.md": {
+      "count": 2,
+      "exempt": 2,
+      "residual": 0
+    },
+    "tests/unit/js/contract/catalog.test.ts": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/unit/js/contract/plan-ids-gates.test.ts": {
+      "count": 16,
+      "exempt": 16,
+      "residual": 0
+    },
+    "tests/unit/js/contract/surface-fit.test.ts": {
+      "count": 1,
+      "exempt": 1,
+      "residual": 0
+    },
+    "tests/unit/python/test_surface_fit_contract.py": {
+      "count": 2,
+      "exempt": 2,
+      "residual": 0
+    }
+  }
+}

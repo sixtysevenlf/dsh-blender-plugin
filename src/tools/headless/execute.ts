@@ -30,7 +30,7 @@ export async function executeHeadless(
   const body = buildHeadlessBody(args, runId)
   const serverBudget = 60000 + Number(body.timeoutMs || 180000)
   const autoJobMs = Number(process.env.DSH_HEADLESS_AUTO_JOB_MS) || 0
-  // ---- v0.9.3（D1/F3）：路线决策
+  // ---- v0.9.3：路线决策
   //   as_job=true                → 直接后台化（可选 wait_s 再等一会儿）
   //   serverBudget >= autoJobMs  → 同上（DSH_HEADLESS_AUTO_JOB_MS 显式打开时）
   //   否则                        → 先同步等，窗口到点就回 promoted 回执（结果永不丢）
@@ -84,7 +84,7 @@ function buildHeadlessBody(args: Record<string, unknown>, runId: string): Record
     outJson: args.out_json || undefined,
     shots: args.shots || undefined,
     hardExit: args && typeof args.hard_exit === 'boolean' ? args.hard_exit : undefined,
-    runId: runId, // v0.9.3（D1）：客户端生成 → 窗口到点时立刻有可用句柄
+    runId: runId, // v0.9.3：客户端生成 → 窗口到点时立刻有可用句柄
   }
   if (args.args) body.args = splitArgs(args.args)
   return body
@@ -108,7 +108,7 @@ async function runSync(
       Math.min(serverBudget, HEADLESS_WAIT_MS + 2000),
     )
   } catch (e: unknown) {
-    // v0.9.3（D1）：客户端窗口到点 / 宿主 exec.signal 取消 —— 服务端子进程仍在跑
+    // v0.9.3：客户端窗口到点 / 宿主 exec.signal 取消 —— 服务端子进程仍在跑
     return await promotedFromTimeout(port, runId, e)
   }
   const lt = leasedText(res)
@@ -118,7 +118,7 @@ async function runSync(
       String((res && (res.error || res.raw)) || 'unknown') +
       (res && res.hint ? '\n' + String(res.hint) : '')
     const code = res ? text(res.code) : ''
-    // P2：runtime /headless 从 v3.0.6 起会回 code=blender_exe_missing；工具层此前一律吞成
+    // runtime /headless 从 v3.0.6 起会回 code=blender_exe_missing；工具层此前一律吞成
     // backend_error，导致 docs 承诺的「headless 报 blender_exe_missing」是假的。
     if (code === 'blender_exe_missing' || code === 'blender-exe-missing')
       return toolError(
@@ -134,7 +134,7 @@ async function runSync(
   }
   // 后端 /headless 的信封是 {ok, ms, result:<引擎回执>} —— 结构化字段在 result 里
   const bodyRes = res && res.result && typeof res.result === 'object' ? asRecord(res.result) : null
-  // 注意：**不能**拿 "resultJson 为空" 当缺字段 —— 脚本末行不是 JSON 时 resultJson 本来就该是 null（D3）。
+  // 注意：**不能**拿 "resultJson 为空" 当缺字段 —— 脚本末行不是 JSON 时 resultJson 本来就该是 null。
   if (
     !bodyRes ||
     (!bodyRes.status &&

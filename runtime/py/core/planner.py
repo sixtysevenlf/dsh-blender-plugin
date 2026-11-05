@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DSH 规划器（S3）—— 对象图（Component / Connection / Feature）+ 编译到 bpy + 依赖诊断。
+"""DSH 规划器—— 对象图（Component / Connection / Feature）+ 编译到 bpy + 依赖诊断。
 
 API 挂在持久内核上：K.dsh_plan_api。设计口径（对应 issue #3 的"规划器"）：
     * Planner 只操作**通用对象**：Component（组件）/ Connection（连接）/ Feature（特征）；
@@ -42,7 +42,7 @@ if _KIT is None:
     raise RuntimeError("planner 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
-_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_j = _KIT.j  # 共享内核（原自带实现已删）
 def _kernel():
     import sys
     return sys.modules.get("dsh_rt_kernel")
@@ -378,7 +378,7 @@ def p_help():
                "feature_kinds": ["array", "grid", "mirror"],
                "diagnostic_codes": ["MissingComponent", "MissingObject", "UnresolvedConnection",
                                     "UnsupportedDestructiveMerge", "Cycle", "ParamOutOfRange", "UnknownKind", "PlanInvalid"],
-               "docs": "docs/假设驱动建模-cookbook.md（S3 与契约层/内环的分工）"})
+               "docs": "docs/假设驱动建模-cookbook.md（与契约层/内环的分工）"})
 
 
 def p_dispatch(op, args=None):
@@ -439,7 +439,7 @@ if _K is not None:
                        "load": p_load, "diag": p_diag, "order": p_order,
                        "build": p_build, "graph": p_graph, "status": p_status, "help": p_help,
         "selftest": p_selftest})
-    # 给契约层补一个"规划器诊断"入口（S1 与 S3 联动）
+    # 给契约层补一个"规划器诊断"入口（与 联动）
     if hasattr(_K, "dsh_contract_api"):
         _K.dsh_contract_api["plan_diag"] = p_diag
 

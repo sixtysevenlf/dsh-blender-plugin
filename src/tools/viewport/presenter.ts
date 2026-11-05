@@ -6,7 +6,7 @@ import { base, childAlive, getChild, isPaused } from '../../host/backend/index.j
 import { tuiHostSummary } from '../../tui/index.js'
 
 const NL = String.fromCharCode(10)
-// P0-3：把「超时/被 abort」与「连接被拒」分开 —— 前者是 addon/bpy 往返没回，后者才是后端没起。
+// 把「超时/被 abort」与「连接被拒」分开 —— 前者是 addon/bpy 往返没回，后者才是后端没起。
 const TIMEOUT_RE = /timeout|timed out|aborted|abort/i
 // 连接级失败：TCP connect 超时（ETIMEDOUT / connect timeout）说明**连不上**，
 // 不是「后端在、往返慢」→ 必须先于 timeout 判定（formatStatusError 的顺序就是契约）。
@@ -142,7 +142,7 @@ export function formatDoctor(raw: unknown): string {
   const addon = d.addon ? asRecord(d.addon) : null
   const diag = d.diagnosis ? asRecord(d.diagnosis) : asRecord(metrics.lastDiagnosis)
   const lines: string[] = []
-  // P2：doctor 失败时权威结论在 d.addon（kind/summary/fix）；metrics.lastDiagnosis 只是历史探针缓存，
+  // doctor 失败时权威结论在 d.addon（kind/summary/fix）；metrics.lastDiagnosis 只是历史探针缓存，
   // 旧写法先读它会让「AI 操作已暂停」显示成 main-thread-busy。
   lines.push(
     '诊断：' + text((addon && addon.kind) || d.kind || diag.kind || (d.ok ? 'ok' : 'unknown')),
@@ -222,18 +222,18 @@ export function formatStatus(port: number, raw: unknown): string {
     stats: s.stats,
     diagnosis: s.diagnosis || null,
     addonError: s.addonError || null, // v0.9.3：addon 没连上也要能看到本地信息（台账/工作目录）
-    plugin: s.plugin || null, // v0.8.10（A0）：进程内 lib 的版本 + runtime 指纹
+    plugin: s.plugin || null, // v0.8.10：进程内 lib 的版本 + runtime 指纹
     pluginVersion: plugin ? plugin.version : null,
     hostApi: HOST_API, // v0.9.2（R2）：插件侧解析到的宿主 dsh-tools
     toolVersion: PLUGIN_VERSION,
-    // v1.0.1+S11（issue #10）：包名形态解析走哪条通道 / 为什么失败 —— 这类静默整体消失必须留现场
+    // v1.0.1（issue #10）：包名形态解析走哪条通道 / 为什么失败 —— 这类静默整体消失必须留现场
     schemaResolve: {
       via: schemaResolve.via || null,
       error: schemaResolve.error || null,
       tried: schemaResolve.tried,
     },
     recentRuns: runs.map((r) => formatRun(r)),
-    ledger: s.ledger || null, // v0.8.10（D4）：磁盘台账（后端重启后仍可查）
+    ledger: s.ledger || null, // v0.8.10：磁盘台账（后端重启后仍可查）
     // v0.9.3：workDir 可写性自证（只读挂载上写台账/日志会静默失败 —— 这里必须说出来）
     workDir: ledger ? ledger.workDir || null : null,
     workDirWritable: !!(ledger && ledger.writable),
@@ -242,7 +242,7 @@ export function formatStatus(port: number, raw: unknown): string {
   return appendAddonVerdict(payload, s)
 }
 
-/** P0-3：addon 出问题时如实标注，next_action 指向 Blender addon（不是 op=start）。 */
+/** addon 出问题时如实标注，next_action 指向 Blender addon（不是 op=start）。 */
 function appendAddonVerdict(payload: Record<string, unknown>, s: Record<string, unknown>): string {
   if (!s.addonError) return JSON.stringify(payload)
   const addonError = text(s.addonError)
@@ -272,7 +272,7 @@ function formatRun(raw: unknown): Record<string, unknown> {
   }
 }
 
-/** P0-3：超时/被 abort ≠ 连接被拒 —— 判定两套 verdict 的共用判据。 */
+/** 超时/被 abort ≠ 连接被拒 —— 判定两套 verdict 的共用判据。 */
 export function isTimeoutError(e: unknown): boolean {
   const name = e && typeof e === 'object' ? String((e as { name?: unknown }).name || '') : ''
   return name === 'TimeoutError' || name === 'AbortError' || TIMEOUT_RE.test(errorText(e))

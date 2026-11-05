@@ -5,6 +5,33 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { PKG_ROOT, pkgPath } from '../../../helpers/pkg'
 
+interface GateFailure {
+  status?: number
+  stderr?: string | Buffer
+}
+
+function runGateOnCorruptedMatrix(before: string, after: string): GateFailure | null {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'dsh-behavior-matrix-ref-'))
+  const matrix = path.join(dir, 'BEHAVIOR_MATRIX.md')
+  try {
+    const text = readFileSync(pkgPath('tests/BEHAVIOR_MATRIX.md'), 'utf8').replace(/\r\n/g, '\n')
+    expect(text).toContain(before)
+    writeFileSync(matrix, text.replace(before, after))
+    try {
+      execFileSync(
+        process.execPath,
+        [pkgPath('scripts/check-behavior-matrix.mjs'), '--release', '--matrix', matrix],
+        { cwd: PKG_ROOT, encoding: 'utf8', timeout: 20000, stdio: ['ignore', 'pipe', 'pipe'] },
+      )
+    } catch (error) {
+      return error as GateFailure
+    }
+    return null
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
 // The matrix is the release gate: a new tool/command/op/route without a row must
 // fail CI, and a "covered" row without a real test reference must fail too.
 describe('behavior matrix release gate', () => {
@@ -46,5 +73,21 @@ describe('behavior matrix release gate', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
+  })
+
+  it('exits nonzero when a contract source symbol is missing', () => {
+    const failure = runGateOnCorruptedMatrix('runtime/config.ts:CFG', 'runtime/config.ts:CFG_TYPO')
+    expect(failure).not.toBeNull()
+    expect(failure?.status).toBe(1)
+    expect(String(failure?.stderr)).toContain('contract source symbol is missing')
+    expect(String(failure?.stderr)).toContain('runtime/config.ts:CFG_TYPO')
+  })
+
+  it('rejects drifting contract source line numbers', () => {
+    const failure = runGateOnCorruptedMatrix('runtime/config.ts:CFG', 'runtime/config.ts:379')
+    expect(failure).not.toBeNull()
+    expect(failure?.status).toBe(1)
+    expect(String(failure?.stderr)).toContain('contract source uses a drifting line number')
+    expect(String(failure?.stderr)).toContain('runtime/config.ts:379')
   })
 })

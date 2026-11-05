@@ -1,5 +1,5 @@
 /**
- * v0.9.4（P0-2）帧去重：**同一画面不重复附图**。
+ * v0.9.4帧去重：**同一画面不重复附图**。
  *
  * 为什么：hash 已经是 PNG 字节的 md5 前 8 位（fetchFrame / fetchView 都算好了），
  * 而重复附图只烧**模型侧视觉 token** —— 实测同一画面连发 5 次 hash 全等
@@ -44,5 +44,3 @@ export function dedupeNote(repeats: number): string {
     ' · **与上一张完全相同**（第 ' + String(repeats + 1) + ' 次）⇒ 未重复附图；要重发传 force:true'
   )
 }
-
-/** PNG → durable attachment（v0.9.2 起失败**不再静默**：返回 {ref} 或 {why}，由调用方写进工具文本） */

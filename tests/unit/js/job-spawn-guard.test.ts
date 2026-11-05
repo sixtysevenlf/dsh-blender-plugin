@@ -1,5 +1,5 @@
 /**
- * P2-3 回归（PR #75 review）：job spawn 前的 blender.exe 预检。
+ * 回归（PR #75 review）：job spawn 前的 blender.exe 预检。
  * 为空时必须在 spawn 之前抛出结构化 blender_exe_missing（附 blender_rt_job 的重试指引），
  * 而不是让 Node 抛出 "The \"file\" argument must be of type string"。
  */

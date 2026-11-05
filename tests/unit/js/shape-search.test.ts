@@ -7,7 +7,7 @@ import {
 } from '../../../runtime/engine.js'
 import { createPlanDispatch } from '../../../runtime/core/plan-dispatch.js'
 
-// P2 declarative search (plan op shape_search): the only plan op orchestrated
+// declarative search (plan op shape_search): the only plan op orchestrated
 // locally in JS. Route/catalog drift and a broken spec generator both surface
 // as an unusable inner loop for the model, so the generated Python is also
 // compiled (string assertions alone missed an IndentationError regression).

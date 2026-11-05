@@ -1,4 +1,4 @@
-// 路由注册表（T7）—— 也是 29 条对外路由契约的唯一真源（onListening 日志与契约测试都读它）。
+// 路由注册表—— 也是 29 条对外路由契约的唯一真源（onListening 日志与契约测试都读它）。
 // 顺序 = 拆分前 server.mjs if 链顺序（/host 前缀最先，其次 health/gone，再按原顺序）。
 import { createHealthRoutes } from './health.js'
 import { createSessionRoutes } from './session/index.js'

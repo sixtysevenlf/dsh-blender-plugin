@@ -4,17 +4,10 @@ import { backendJson, backendPost, leasedText } from '../../host/http.js'
 import { clipText, safeStringify } from '../../ui/cards.js'
 import { toolError } from '../../tools/errors.js'
 import { asRecord, isRecord, text } from '../../contracts/dynamic.js'
-
-export interface ReceiptContext {
-  mode?: 'sync' | 'job' | 'promoted'
-  runId?: string | null
-  jobId?: string | null
-  notes?: string[]
-  hint?: string | null
-}
+import { headlessHumanText, type ReceiptContext } from './human-text.js'
 
 /**
- * v0.9.3（D1/F3）：客户端单次等待上限。超过它就**不干等**，转作业层并回 jobId（对齐 bash 的 promoted 语义）。
+ * v0.9.3：客户端单次等待上限。超过它就**不干等**，转作业层并回 jobId（对齐 bash 的 promoted 语义）。
  * 默认 100 s：外层 run_code 的默认 deadline 是 120 s，留 20 s 余量给回执与状态查询。
  */
 export const HEADLESS_WAIT_MS = (() => {
@@ -28,7 +21,7 @@ export function newRunId(): string {
   return 'run-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
 }
 
-/** 后台化 + 可选等待（F3）：POST /headless asJob:true 拿 jobId，再 op=wait 等一小会儿 */
+/** 后台化 + 可选等待：POST /headless asJob:true 拿 jobId，再 op=wait 等一小会儿 */
 export async function startJobThenMaybeWait(
   port: number,
   body: unknown,
@@ -145,7 +138,7 @@ export function receiptEnvelope(res: unknown, ctx: ReceiptContext): Record<strin
     runId: r.runId || ctx.runId || null,
     jobId: ctx.jobId || (typeof r.id === 'string' && r.id.indexOf('job-') === 0 ? r.id : null),
     id: r.id || null,
-    // v0.9.4（P0 返回通道）：宿主 dsh-util-values 的 lossless-JSON 门拒收 undefined 值。
+    // v0.9.4（返回通道）：宿主 dsh-util-values 的 lossless-JSON 门拒收 undefined 值。
     ...(ctx.mode === 'promoted' ? { promoted: true } : {}),
     ms: typeof r.ms === 'number' ? r.ms : null,
     timeoutMs: r.timeoutMs || null,
@@ -206,7 +199,7 @@ export function headlessReceipt(res: unknown, ctx: ReceiptContext): ToolReceipt 
 }
 
 /**
- * v0.9.3（D1）：**promoted 回执** —— 任务还在跑（或已结束但我们没等到），句柄已经有效。
+ * v0.9.3：**promoted 回执** —— 任务还在跑（或已结束但我们没等到），句柄已经有效。
  */
 export function promotedReceipt(job: unknown, jobId: string, why: string): ToolReceipt {
   const NLx = String.fromCharCode(10)
@@ -276,7 +269,7 @@ export function promotedReceipt(job: unknown, jobId: string, why: string): ToolR
 }
 
 /**
- * v0.9.3（D1）：客户端等待窗口到点 / 宿主取消时的兜底 —— 先问一句服务端状态：
+ * v0.9.3：客户端等待窗口到点 / 宿主取消时的兜底 —— 先问一句服务端状态：
  *   已结束 → 直接 collect 把结果拿回来；还在跑 → 回 promoted 回执（runId 客户端生成，句柄一定有效）。
  */
 export async function promotedFromTimeout(
@@ -327,4 +320,3 @@ export async function fetchJobStatus(port: number, id: string): Promise<unknown>
     return null
   }
 }
-import { headlessHumanText } from './human-text.js'

@@ -24,7 +24,7 @@ describe('ext external-validator paths', () => {
     expect(p.open3dRunnerExists).toBe(true)
   })
 
-  it('prefers the built .js runner on the production layout (F0.2)', () => {
+  it('prefers the built .js runner on the production layout', () => {
     // Source checkout: only the .ts runner exists, so it is selected.
     expect(resolveExtPaths().gltfRunner.endsWith('gltf_validate_runner.ts')).toBe(true)
     // Build layout: when the compiled .js runner exists, it must win.
@@ -37,7 +37,7 @@ describe('ext external-validator paths', () => {
     spy.mockRestore()
   })
 
-  it('selects the built .js runner from the real compiled lib layout (F0.2)', async () => {
+  it('selects the built .js runner from the real compiled lib layout', async () => {
     // The source test above imports runtime/*.ts; the production layout resolves
     // paths relative to lib/runtime. Exercise the compiled resolver against the
     // real build output (npm run build produces lib/runtime/ext/*.js).

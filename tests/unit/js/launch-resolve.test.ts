@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-// F4.1: F1.1 split launch.ts into launch/resolve.ts. These tests exercise the
+// split launch.ts into launch/resolve.ts. These tests exercise the
 // Windows launch-agent handshake directly (CFG and fetch are controlled here)
 // instead of only asserting that the source mentions the right strings.
 

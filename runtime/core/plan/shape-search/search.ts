@@ -1,4 +1,4 @@
-// shape-search Python 脚本生成与内环驱动（F1.1 从 shape-search.ts 拆出，行为冻结）
+// shape-search Python 脚本生成与内环驱动（从 shape-search.ts 拆出，行为冻结）
 import { errorMessage } from '../../json.js'
 import { pyIndent, pyLit } from './axes.js'
 import type { AxisSpec } from './axes.js'

@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url'
 import { decideStart, probeHttp, probeTcp, waitHttp } from '../../../runtime/backend_probe.js'
 import { pkgPath } from '../../helpers/pkg'
 
-// S7 regression: op=start used to trust the child handle only. A live handle on
+// regression: op=start used to trust the child handle only. A live handle on
 // a dead port made the backend answer "already running" while the port was not
 // listening. TCP and HTTP are probed separately, and the decision table has to
 // call that state a stale handle, not "already running".

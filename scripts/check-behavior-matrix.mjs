@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 // @ts-check
 /**
- * Behavior coverage matrix checker (F4.2).
+ * Behavior coverage matrix checker.
  *
  * Two matrices, one source of truth:
  *   tests/BEHAVIOR_MATRIX.md   human-readable behavior rows (346 rows: model tools,
  *                              model-facing addon commands, plan ops, HTTP routes and
  *                              fixed protocol/lifecycle/config/install/security/env rows).
  *   tests/BEHAVIOR_MATRIX.json machine-readable aspect matrices generated from the
- *                              executable gates: A1 tool matrix (15 tools x 7 aspects),
- *                              A5 route matrix (29 routes x 5 aspects) and the addon
+ *                              executable gates: tool matrix (15 tools x 7 aspects),
+ *                              route matrix (29 routes x 5 aspects) and the addon
  *                              command matrix (38 registered commands + ping = 39 wire).
  *
  * Live source of truth compared against both matrices:
@@ -26,7 +26,7 @@
  * Usage:
  *   node scripts/check-behavior-matrix.mjs                 # validate (same as --release)
  *   node scripts/check-behavior-matrix.mjs --release       # require planned=0
- *   node scripts/check-behavior-matrix.mjs --generate      # run A1/A5/command matrices,
+ *   node scripts/check-behavior-matrix.mjs --generate      # run the tool/route/command matrices,
  *                                                          # rewrite tests/BEHAVIOR_MATRIX.json,
  *                                                          # then validate everything
  *   node scripts/check-behavior-matrix.mjs --report <path> # write a deterministic JSON report
@@ -237,10 +237,15 @@ async function loadCatalogs() {
     addonSource.indexOf('def get_addon_info'),
     addonSource.indexOf('def get_scene_info'),
   )
+  // capabilities derive from command_registry.COMMAND_NAMES; a hardcoded
+  // name list in the handshake is a regression, not an acceptable alternative.
+  const capabilitiesDerived = /"capabilities":\s*sorted\(COMMAND_NAMES\)/.test(handshake)
   const capabilityMatch = handshake.match(/"capabilities":\s*sorted\(\[([\s\S]*?)\]\)/)
-  const capabilityCount = capabilityMatch ? (capabilityMatch[1].match(/"[^"]+"/g) || []).length : 0
+  const literalCapabilityCount = capabilityMatch
+    ? (capabilityMatch[1].match(/"[^"]+"/g) || []).length
+    : 0
 
-  // F3.1: one command registry owns the wire table. Counts are explicit constants;
+  // One command registry owns the wire table. Counts are explicit constants;
   // the matrix must agree with the registry, not with a hand-maintained list.
   const registeredMatch = addonSource.match(/REGISTERED_COMMAND_COUNT\s*=\s*(\d+)/)
   const wireMatch = addonSource.match(/WIRE_COMMAND_COUNT\s*=\s*(\d+)/)
@@ -249,6 +254,7 @@ async function loadCatalogs() {
   )
   const wireCommands = [...new Set(rawCommandNames)].sort()
   const registeredCommands = wireCommands.filter((name) => name !== 'ping')
+  const capabilityCount = capabilitiesDerived ? registeredCommands.length : literalCapabilityCount
 
   return {
     toolNames,
@@ -259,6 +265,7 @@ async function loadCatalogs() {
     routes,
     addonSource,
     protocol,
+    capabilitiesDerived,
     capabilityCount,
     addonRegistry: {
       registeredCount: registeredMatch ? Number(registeredMatch[1]) : null,
@@ -358,7 +365,7 @@ function checkExemption(row) {
 }
 
 function checkAddonCommands(catalogs) {
-  // F3: the single command_registry.py owns the command table; match its
+  // The single command_registry.py owns the command table; match its
   // _command("name" entries instead of the old server-side dict literals.
   for (const name of Object.keys(catalogs.commandCatalog)) {
     if (!catalogs.addonSource.includes('_command("' + name + '"')) {
@@ -371,10 +378,6 @@ function checkAddonCommands(catalogs) {
   if (catalogs.protocol !== 11) {
     fail('addon protocol version is ' + String(catalogs.protocol) + ', expected 11')
   }
-  if (catalogs.capabilityCount !== 16) {
-    fail('addon handshake advertises ' + catalogs.capabilityCount + ' capabilities, expected 16')
-  }
-
   const registry = catalogs.addonRegistry
   if (registry.registeredCount === null) {
     fail('addon command_registry.py has no REGISTERED_COMMAND_COUNT')
@@ -413,6 +416,18 @@ function checkAddonCommands(catalogs) {
     if (!wireSet.has(name)) {
       fail('COMMAND_CATALOG command ' + name + ' is absent from the addon wire registry')
     }
+  }
+  if (!catalogs.capabilitiesDerived) {
+    fail('addon handshake capabilities must derive from command_registry.COMMAND_NAMES')
+  }
+  if (catalogs.capabilityCount !== registry.registeredCommands.length) {
+    fail(
+      'addon handshake advertises ' +
+        catalogs.capabilityCount +
+        ' capabilities, expected ' +
+        registry.registeredCommands.length +
+        ' registered commands',
+    )
   }
 }
 
@@ -509,24 +524,16 @@ function checkDeclaredCounts(matrixText, catalogs) {
   }
 }
 
-const BS = String.fromCharCode(92)
+const REF_SUFFIX = '(?::(?:\\d+(?:-\\d+)?|[A-Za-z_$][A-Za-z0-9_$]*))?'
 const SOURCE_PATH = new RegExp(
-  '(?:[A-Za-z0-9_.@*/-]+' +
-    BS +
-    '/)+[A-Za-z0-9_.@*/-]+(?::' +
-    BS +
-    'd+(?:-' +
-    BS +
-    'd+)?)?' +
-    '|[A-Za-z0-9_.-]+' +
-    BS +
-    '.(?:ts|mjs|py|md|json|toml|yml|yaml)(?::' +
-    BS +
-    'd+(?:-' +
-    BS +
-    'd+)?)?',
+  '(?:[A-Za-z0-9_.@*/-]+/)+[A-Za-z0-9_.@*/-]+' +
+    REF_SUFFIX +
+    '|[A-Za-z0-9_.-]+\\.(?:ts|mjs|py|md|json|toml|yml|yaml)' +
+    REF_SUFFIX,
   'g',
 )
+const LINE_SUFFIX = /^\d+(?:-\d+)?$/
+const SYMBOL_SUFFIX = /^[A-Za-z_$][A-Za-z0-9_$]*$/
 const ROOT_PATH =
   /^(src|runtime|addon|tests|scripts|docs|config|package.json|AGENTS.md|MIGRATIONS.md|CHANGELOG.md|README.md|pyproject.toml)/
 
@@ -538,9 +545,9 @@ function checkSourceText(label, text) {
     token = token.replace(/[),.;]+$/, '')
     if (seen.has(token) || token.includes('*') || token.includes('$')) continue
     seen.add(token)
-    const spec = token.match(new RegExp('^(.*?)(?::(' + BS + 'd+)(?:-(' + BS + 'd+))?)?$'))
-    const file = spec[1]
-    const line = spec[2] ? Number(spec[2]) : null
+    const colon = token.lastIndexOf(':')
+    const file = colon >= 0 ? token.slice(0, colon) : token
+    const suffix = colon >= 0 ? token.slice(colon + 1) : ''
     if (!ROOT_PATH.test(file)) {
       if (file.includes('/') && /\.(?:ts|mjs|py|md|json|toml|yml|yaml)$/.test(file)) {
         fail(label + ': contract source is not a repo path: ' + file)
@@ -557,18 +564,21 @@ function checkSourceText(label, text) {
       fail(label + ': contract source path does not exist: ' + file)
       continue
     }
-    if (line !== null && fsIsFile(absolute)) {
-      const lineCount = readFileSync(absolute, 'utf8').split('\n').length
-      if (line < 1 || line > lineCount) {
-        fail(
-          label +
-            ': contract source line is stale: ' +
-            token +
-            ' (file has ' +
-            lineCount +
-            ' lines)',
-        )
-      }
+    if (LINE_SUFFIX.test(suffix)) {
+      fail(label + ': contract source uses a drifting line number: ' + token + ' (use path:symbol)')
+      continue
+    }
+    if (suffix && !SYMBOL_SUFFIX.test(suffix)) {
+      fail(label + ': contract source has an invalid symbol ref: ' + token)
+      continue
+    }
+    if (!suffix) continue
+    if (!fsIsFile(absolute)) {
+      fail(label + ': contract source symbol ref must target a file: ' + token)
+      continue
+    }
+    if (!symbolOccurs(absolute, suffix)) {
+      fail(label + ': contract source symbol is missing: ' + token)
     }
   }
   if (rootTokens === 0) fail(label + ': contract source has no repo path token')
@@ -580,6 +590,15 @@ function fsIsFile(target) {
   } catch {
     return false
   }
+}
+
+function escapeSymbol(symbol) {
+  return symbol.split('$').join(String.fromCharCode(92) + '$')
+}
+
+function symbolOccurs(target, symbol) {
+  const word = new RegExp('(^|[^A-Za-z0-9_$])' + escapeSymbol(symbol) + '(?![A-Za-z0-9_$])')
+  return word.test(readFileSync(target, 'utf8'))
 }
 
 function readMatrixHeaderText(matrixPath) {
@@ -907,7 +926,7 @@ async function generateMatrix(catalogs, rows, counts, python) {
         process.execPath,
         [vitest, 'run', '--configLoader', 'runner', 'tests/unit/js/contract/tool-matrix.test.ts'],
         { A1_MATRIX_OUT: a1 },
-        'A1 tool matrix',
+        'tool matrix',
       )
     )
       return null
@@ -916,7 +935,7 @@ async function generateMatrix(catalogs, rows, counts, python) {
         process.execPath,
         [vitest, 'run', '--configLoader', 'runner', 'tests/integration/js/route-matrix.test.ts'],
         { A5_MATRIX_OUT: a5 },
-        'A5 route matrix',
+        'route matrix',
       )
     )
       return null

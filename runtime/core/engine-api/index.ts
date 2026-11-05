@@ -1,4 +1,4 @@
-// engine API 入口（F1.1：server-compat 更名并拆分）
+// engine API 入口（server-compat 更名并拆分）
 import type { AddonClient } from '../../transport/probes.js'
 import type { JobRecord } from '../../execution/jobs/index.js'
 import { createMetricsApi } from './metrics.js'

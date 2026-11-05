@@ -1,4 +1,4 @@
-"""Unit checks for the registration split (F3.2/F3.4).
+"""Unit checks for the registration split.
 
 register()/unregister() moved out of __init__.py into registration.py; these
 tests keep the entry point thin and prove a full round-trip leaves no residue

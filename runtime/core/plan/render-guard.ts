@@ -30,7 +30,7 @@ export function createRenderGuardOp(
     ensureRenderGuard,
     readRenderFlag,
   } = E
-  /** v0.9.6（A7）：渲染 guard 的本地 op（读/等/清标记；install/selftest 走 Blender 一次） */
+  /** v0.9.6：渲染 guard 的本地 op（读/等/清标记；install/selftest 走 Blender 一次） */
   async function renderGuardCall(modOp: unknown, payload?: unknown): Promise<unknown> {
     await ensureRenderGuard()
     const body =

@@ -33,8 +33,8 @@ def _dv_precheck(dir, fmt, target_half_extent, name):
 
 
 def _dv_export_gate(require_gate, force_gate, gate_reason, gate_spec, gate_preset, gate_overrides, warn):
-    """P0 交付强制门（默认 false 兼容旧流程）；返回 (gate_rec, err)。"""
-    # P0：交付强制门（默认 false 兼容旧流程；model_deliver / gate_deliver 会传 true）。
+    """交付强制门（默认 false 兼容旧流程）；返回 (gate_rec, err)。"""
+    # 交付强制门（默认 false 兼容旧流程；model_deliver / gate_deliver 会传 true）。
     # 下一个 minor 计划默认开启；现在不通过时回执明确写 gate_warning，不静默。
     if not require_gate:
         warn.append("gate_warning：require_gate=false —— 本次导出前未强制过门；流程化交付请用 gate_deliver 或 require_gate=true")

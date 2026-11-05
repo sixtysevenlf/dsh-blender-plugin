@@ -45,7 +45,7 @@ async function opStart(port: number): Promise<string> {
   const url = base(port) + '/health'
   if (await probeHttp(url, 800)) return formatBackendUp(port)
   const how = await startBackend(port)
-  // S7：等待改成「轮询到真能服务」（15 s），不再「睡固定窗口后探测一次」。
+  // 等待改成「轮询到真能服务」（15 s），不再「睡固定窗口后探测一次」。
   if (await waitHttp(url, 15000, 300)) return formatBackendUp(port, how)
   return (
     '启动失败：' +
@@ -57,7 +57,7 @@ async function opStart(port: number): Promise<string> {
 }
 
 /**
- * P0-3：/health 通只证明 9877 后端活着，**不证明** Blender/addon/bpy 可用。
+ * /health 通只证明 9877 后端活着，**不证明** Blender/addon/bpy 可用。
  * 再用有界 /status 看 bpy 往返，把「后端在 + addon/bpy 可用」与「后端在、addon 没响应」分开说。
  */
 async function formatBackendUp(port: number, how?: string): Promise<string> {
@@ -154,7 +154,7 @@ async function opDoctor(port: number): Promise<string> {
     return formatDoctor(await backendJson(port, '/doctor'))
   } catch (e: unknown) {
     const err = errorMessage(e)
-    // P0-3：只有 /health 也不通才能说「后端没起」；后端在就是 addon/bpy 往返的问题。
+    // 只有 /health 也不通才能说「后端没起」；后端在就是 addon/bpy 往返的问题。
     const backendUp = await probeHttp(base(port) + '/health', VIEWPORT_DOCTOR_HEALTH_TIMEOUT_MS)
     if (backendUp)
       return (

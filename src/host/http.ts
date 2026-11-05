@@ -90,10 +90,10 @@ export function parseBackendBody(body: unknown): Record<string, unknown> {
 /**
  * 写操作统一走它：自动带 holder（租约门禁用），并保留 HTTP 状态码便于识别 409。
  *
- * v0.9.3（D1，关键）：**计时器必须活到 body 读完**。
+ * v0.9.3（关键）：**计时器必须活到 body 读完**。
  * 旧版是 withTimeout(fetch) → fetch 在**收到响应头**时就 resolve（流式路由 /headless 立刻发头 + 每 15 s 心跳），
  * 于是超时预算只覆盖「等响应头」，随后的 r.text() 无限期等下去 —— 客户端等待窗口形同虚设，
- * 外层 run_code 的 deadline 一到就整段丢结果（正是 D1 报的现象）。
+ * 外层 run_code 的 deadline 一到就整段丢结果（正是 报的现象）。
  * 现在把 text() 也放进同一个 AbortController：到点 abort → fetch / body 读取一起抛 AbortError。
  */
 export async function backendPost(

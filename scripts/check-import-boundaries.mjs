@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// F6.1: layer boundaries for TS host -> lib/runtime, Python domains, and addon layers.
+// layer boundaries for TS host -> lib/runtime, Python domains, and addon layers.
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'

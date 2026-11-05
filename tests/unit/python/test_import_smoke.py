@@ -8,7 +8,7 @@ per-module unit tests. What remains valuable on every PR is cheaper and stricter
 
   1. every Python file in the repo compiles (syntax gate, no bpy import);
   2. no top-level runtime/*.py module exists: every public name lives in a
-     domain package (F2.3), so a flat file cannot silently grow a second copy;
+      domain package, so a flat file cannot silently grow a second copy;
   3. the modules that only need bpy + the kernel import cleanly against the
      maintained bpy stub, and expose their documented entry points;
   4. modules that genuinely need bmesh / numpy keep failing with that exact
@@ -85,7 +85,7 @@ def test_every_python_file_compiles():
 
 def test_runtime_has_no_flat_modules():
     flat = sorted(path.name for path in RUNTIME.glob("*.py"))
-    assert flat == [], f"flat runtime modules must be gone after F2.3: {flat}"
+    assert flat == [], f"flat runtime modules must be gone after the domain split: {flat}"
 
 
 def test_importable_modules_expose_documented_entry_points(booted_runtime):

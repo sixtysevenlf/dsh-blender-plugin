@@ -1,5 +1,5 @@
 /**
- * P1-1 集成回归（PR #75 review）：op=start 探 /status 的 host 预算必须大于 backend /status 的实际耗时。
+ * 集成回归（PR #75 review）：op=start 探 /status 的 host 预算必须大于 backend /status 的实际耗时。
  *
  * 修前 VIEWPORT_START_STATUS_TIMEOUT_MS=6000，而半开 addon 下 /status 稳态 ~6.0s、
  * 后端刚起首调 8.98–9.43s → execute.ts 走 catch，只输出「addon/bpy 未响应：This operation was aborted」，

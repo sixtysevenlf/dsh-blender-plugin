@@ -1,5 +1,5 @@
 /**
- * S3-b · 路径与常量（从 engine.mjs 外移）
+ * 路径与常量（从 engine.mjs 外移）
  *
  * 绝对/跨 OS 路径、临时目录、addon 侧命令目录、以及 KERNEL_BOOTSTRAP 用的 PATH_HELPERS。
  * engine.mjs 具名导入并原样重导出 ⇒ 对外面逐字节不变（tmp/snap.mjs / snap_norm.mjs 对拍）。
@@ -108,15 +108,15 @@ export const GEO_PATH = pyModuleFile('geo')
 export const RUNNER_PATH = pyModuleFile('runner')
 export const PERF_PATH = pyModuleFile('perf')
 export const VIEW_PATH = pyModuleFile('view')
-/** 契约层（S1+S2）：组件/连接注册、包络/干涉/接口校验、破坏性门控、证据账本、三态判定 */
+/** 契约层：组件/连接注册、包络/干涉/接口校验、破坏性门控、证据账本、三态判定 */
 export const CONTRACT_PATH = pyModuleFile('contract')
-/** 规划器（S3）：对象图 → 诊断 → 编译到 bpy → 图导出 */
+/** 规划器：对象图 → 诊断 → 编译到 bpy → 图导出 */
 export const PLANNER_PATH = pyModuleFile('planner')
 export const WORKER_PATH = pyModuleFile('worker')
 export const TXN_PATH = pyModuleFile('txn')
 /** 内置 QC（v0.7.0）：掩膜 / IoU / 剖面 / 对照图 + 内环 measure 预置 */
 export const QC_PATH = pyModuleFile('qc')
-/** 渲染 harness（v0.8.8 / P2-1）：自动取景 + 固定三点光 + 逐张 jsonl 计时 + 预算判定 */
+/** 渲染 harness（v0.8.8）：自动取景 + 固定三点光 + 逐张 jsonl 计时 + 预算判定 */
 export const QC_RENDER_PATH = pyModuleFile('qc_render')
 /** 配方库（v0.8.2）：参数组合的保存 / 套用 / 导出 */
 export const PRESET_PATH = pyModuleFile('presets')
@@ -131,51 +131,51 @@ export const MOTION_PATH = pyModuleFile('motion')
 export const DELIVER_PATH = pyModuleFile('deliver')
 /** 生成器注册表（v0.9.0 · #18 代码化建模通道的 Blender 原生轻量版）：已归入 geometry 领域包。 */
 export const GENERATOR_PATH = pyModuleFile('generator')
-/** 程序化雕刻（v0.9.6 · 上游整合 A1）：sculpt_* 前缀 op 走这里。
+/** 程序化雕刻（v0.9.6 · 上游整合）：sculpt_* 前缀 op 走这里。
  *  上游两家都做不到程序化雕刻（blend-ai 自述不能模拟笔触；mcp-for-blender 没有雕刻），
  *  本模块用 numpy 位移笔刷 + 拓扑准备 + 遮罩把"雕刻"变成可复算的几何操作。 */
 export const SCULPT_PATH = pyModuleFile('sculpt')
-/** 网格修复闭环（v0.9.6 · 上游整合 A2）：fix_* 前缀 op —— audit 只诊断，这里负责治。 */
+/** 网格修复闭环（v0.9.6 · 上游整合）：fix_* 前缀 op —— audit 只诊断，这里负责治。 */
 export const FIX_PATH = pyModuleFile('mesh_fix')
-/** UV 四件套（v0.9.6 · 上游整合 A3）：已归入 geometry 领域包。 */
+/** UV 四件套（v0.9.6 · 上游整合）：已归入 geometry 领域包。 */
 export const UV_PATH = pyModuleFile('uv_tools')
-/** 制造检查（v0.9.6 · 上游整合 A4）：print_* 前缀 op（薄壁 / 悬垂 / 壳体 / 汇总）。 */
+/** 制造检查（v0.9.6 · 上游整合）：print_* 前缀 op（薄壁 / 悬垂 / 壳体 / 汇总）。 */
 export const PRINT_PATH = pyModuleFile('printcheck')
-/** 沿路径扫掠（v0.9.6 · 上游整合 A5）：sweep_* 前缀 op（管路/线缆/轨道 + 弯折半径先算后建）。 */
+/** 沿路径扫掠（v0.9.6 · 上游整合）：sweep_* 前缀 op（管路/线缆/轨道 + 弯折半径先算后建）。 */
 export const SWEEP_PATH = pyModuleFile('sweep')
-/** 材质节点图（v0.9.6 · A6）：material_* 前缀 op —— 实测 2,732 次节点连线 / 204 个脚本在重复造轮子 */
+/** 材质节点图（v0.9.6）：material_* 前缀 op —— 实测 2,732 次节点连线 / 204 个脚本在重复造轮子 */
 export const MATERIAL_PATH = pyModuleFile('material')
-/** 渲染状态跟踪（v0.9.6 · A7）：渲染开始写磁盘标记、结束删；后端读文件秒判 busy */
+/** 渲染状态跟踪（v0.9.6）：渲染开始写磁盘标记、结束删；后端读文件秒判 busy */
 export const RENDER_GUARD_PATH = pyModuleFile('render_guard')
 /** 规格驱动门包（v0.9.6 · 现场反馈 #3）：一份 spec 跑完所有门（三态判定） */
 export const GATE_PATH = pyModuleFile('gate')
-/** 参考图量具（P0 整合方案）：量成数字 / 裁出来放大 / 画回去 / 差分 */
+/** 参考图量具（整合方案）：量成数字 / 裁出来放大 / 画回去 / 差分 */
 export const IMG_PATH = pyModuleFile('imgtools')
-/** 门标定套件（P0）：注入 8 类缺陷量门抓得住几类 + 健康基线对照 */
+/** 门标定套件：注入 8 类缺陷量门抓得住几类 + 健康基线对照 */
 export const CALIB_PATH = pyModuleFile('calib')
-/** 人脸比例门（P1）：landmarks → 6 个无量纲比例 → 与经典/参考比差 */
+/** 人脸比例门：landmarks → 6 个无量纲比例 → 与经典/参考比差 */
 export const FACE_PATH = pyModuleFile('faceeval')
-/** 人形素体（P2 零素材）：关节坐标+半径 → Skin+Subsurf → 比例正确的假人 */
+/** 人形素体（零素材）：关节坐标+半径 → Skin+Subsurf → 比例正确的假人 */
 export const HUMAN_PATH = pyModuleFile('human')
-/** 成对间隙门（P3）：规则表驱动的最近距离 + 互穿判定 */
+/** 成对间隙门：规则表驱动的最近距离 + 互穿判定 */
 export const CLEARANCE_PATH = pyModuleFile('clearance')
-/** 车辆外壳（P3）：纵向剖面 → 放样成壳（解析轮眉）+ 比例门 */
+/** 车辆外壳：纵向剖面 → 放样成壳（解析轮眉）+ 比例门 */
 export const VEHICLE_PATH = pyModuleFile('vehicle')
-/** 参考图通用还原方法层（P4）：类别协议 + 通用量具/放样/拟合/分件/旋转体 */
+/** 参考图通用还原方法层：类别协议 + 通用量具/放样/拟合/分件/旋转体 */
 export const SHAPE_PATH = pyModuleFile('shapegen')
-/** S5 流水线：工件注册表 + 步骤编排 */
+/** 流水线：工件注册表 + 步骤编排 */
 export const PIPELINE_PATH = pyModuleFile('pipeline')
-/** P0 装配：manifest / 全对全分类扫描 / 合并 / 装配门 */
+/** 装配：manifest / 全对全分类扫描 / 合并 / 装配门 */
 export const ASSEMBLY_PATH = pyModuleFile('assembly')
-/** P0 白模：声明式 blockout + 3 视图 + GLB 导出 */
+/** 白模：声明式 blockout + 3 视图 + GLB 导出 */
 export const BLOCKOUT_PATH = pyModuleFile('blockout')
-/** P1 同机位 QC 视觉报告（verdict-first） */
+/** 同机位 QC 视觉报告（verdict-first） */
 export const VISUALREPORT_PATH = pyModuleFile('visualreport')
-/** P1 无头多视轮廓拟合（解析投影，不渲染） */
+/** 无头多视轮廓拟合（解析投影，不渲染） */
 export const SHAPESOLVE_PATH = pyModuleFile('shapesolve')
-/** P2 缺陷注入/基线回放评估（evalharness） */
+/** 缺陷注入/基线回放评估（evalharness） */
 export const EVALHARNESS_PATH = pyModuleFile('evalharness')
-/** 曲面算法包：loft/sweep/patch/validate（M0-M2/M4） */
+/** 曲面算法包：loft/sweep/patch/validate */
 export const SURFACE_PATH = pyModuleFile('surface')
 /**
  * 用户 Blender 配置目录（GPU 偏好所在）—— 无头进程默认读不到它，Cycles 会静默回落 CPU。
@@ -405,7 +405,7 @@ const PATH_HELPERS_TEMPLATE = [
   '            _sys.modules.pop(_n, None); purged.append(_n)',
   '    return {"purged": purged, "count": len(purged), "prefixes": pre, "root": root_abs}',
   'def _dsh_stage_emit(name, **extra):',
-  '    """v0.9.3（D5）：阶段心跳 —— print("DSH_STAGE {单行 JSON}") 且 flush=True。',
+  '    """v0.9.3：阶段心跳 —— print("DSH_STAGE {单行 JSON}") 且 flush=True。',
   '    插件侧在 blender_rt_job(op="status").stage / stdout 日志里读最后一条。',
   '    用法：dsh_stage("building") / K.progress("render", i=3, total=12)。"""',
   '    import json as _stj, time as _stt, os as _sto',

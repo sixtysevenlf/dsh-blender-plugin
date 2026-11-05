@@ -1,5 +1,5 @@
 /**
- * P0-3 集成回归（验收 A3/A6）：9876 有监听但 addon 不回包（半开）时，
+ * 集成回归（验收）：9876 有监听但 addon 不回包（半开）时，
  * 真实 lib 后端的 /status 与 /doctor 必须在 10s 内返回结构化诊断，且指向 addon，
  * 而不是 host 先 20s abort / 统一报 backend_unreachable。
  *
@@ -10,8 +10,11 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { freePort, startBackend } from '../../helpers/backend'
 import { startFakeAddon } from '../../helpers/fake-addon.mjs'
 
-// 稳态 /status ~6.0s、/doctor ~8.5–8.7s；冷启动首调还要 +~3s（启动队列 + 首次 diagnose）。
-// 这里先预热一次再计时，并留 2s 余量：判据是「远小于旧的 20s+ 且给出 addon 归因」，不是卡死某个毫秒数。
+// 改造前（未 await 的启动探测占串行队列头，budgets 3.5s/3s）：冷/热 /status 8983/6026ms、
+// /doctor 8495/5526ms —— 冷启多付 ~3s 串行税。改造后（去掉启动探测，budgets 恢复 5s/4s）：
+// /status 7533/7527ms、/doctor 6531/6518ms，冷热差 <20ms。
+// 这里先预热一次再计时，并留 2s 余量：判据是「远小于旧的 20s+ 且给出 addon 归因」，不是卡死某个毫秒数；
+// 另断言冷热差 <2s，防止启动串行税回归。
 const BUDGET_MS = 12_000
 const closers: Array<() => Promise<void>> = []
 
@@ -41,6 +44,13 @@ describe('half-open addon: bounded status/doctor with honest diagnosis', () => {
     const health = await backend.get('/health')
     expect(health.json.ok).toBe(true)
 
+    // 冷启动首调：改造前这里是启动队列 + 未 await 的启动探测（~3s 串行税），单独记录用于前后对比。
+    const tCold = Date.now()
+    const cold = await backend.get('/status')
+    const coldMs = Date.now() - tCold
+    console.log('[doctor-bounded] cold GET /status = ' + String(coldMs) + 'ms')
+    expect(cold.status).toBe(200)
+
     // 预热：首调含启动队列/首次 diagnose，计时只量稳态。
     await backend.get('/status')
 
@@ -51,6 +61,8 @@ describe('half-open addon: bounded status/doctor with honest diagnosis', () => {
 
     expect(status.status).toBe(200)
     expect(statusMs).toBeLessThan(BUDGET_MS)
+    // 启动探测不再占串行队列头：改造前冷热差 ~3s，现在应接近 0。
+    expect(coldMs - statusMs).toBeLessThan(2_000)
     expect(status.json.ok).toBe(true)
     expect(status.json.plugin.version).toMatch(/^\d+\.\d+\.\d+$/)
     expect(typeof status.json.addonError).toBe('string')
@@ -64,6 +76,13 @@ describe('half-open addon: bounded status/doctor with honest diagnosis', () => {
     const backend = await startBackend({ addonPort: addon.port })
     closers.push(() => backend.stop())
 
+    // 冷启动首调：改造前启动探测让 doctor 首调多付 ~3s，这里记录冷热差防回归。
+    const tCold = Date.now()
+    const cold = await backend.get('/doctor')
+    const coldMs = Date.now() - tCold
+    console.log('[doctor-bounded] cold GET /doctor = ' + String(coldMs) + 'ms')
+    expect(cold.status).toBe(200)
+
     // 预热：首调含启动队列/首次 diagnose，计时只量稳态。
     await backend.get('/doctor')
 
@@ -74,6 +93,8 @@ describe('half-open addon: bounded status/doctor with honest diagnosis', () => {
 
     expect(doctor.status).toBe(200)
     expect(doctorMs).toBeLessThan(BUDGET_MS)
+    // 启动探测不再占串行队列头：改造前冷热差 ~3s，现在应接近 0。
+    expect(coldMs - doctorMs).toBeLessThan(2_000)
     expect(doctor.json.ok).toBe(false)
     const addonDiagnosis = doctor.json.addon as Record<string, unknown>
     expect(addonDiagnosis.tcp).toBe(true)

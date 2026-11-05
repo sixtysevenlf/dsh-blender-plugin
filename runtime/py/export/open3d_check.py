@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Open3D 外部通路（T8 起在 runtime/py/export/）：被引擎当脚本调用，也可 import 复用 main()。"""
+"""Open3D 外部通路（位于 runtime/py/export/）：被引擎当脚本调用，也可 import 复用 main()。"""
 import json
 import sys
 

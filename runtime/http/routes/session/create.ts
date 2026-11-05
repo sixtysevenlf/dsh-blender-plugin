@@ -1,4 +1,4 @@
-// /session 路由：launch（F1.1 拆分）
+// /session 路由：launch（拆分）
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { objArg } from '../deps.js'
 import type { HttpRouteDeps } from '../deps.js'

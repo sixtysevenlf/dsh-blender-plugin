@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-// P2（PR review）：runtime /headless 已经会回 code=blender_exe_missing，
+// （PR review）：runtime /headless 已经会回 code=blender_exe_missing，
 // 工具层此前无条件压成 backend_error，导致 docs 承诺的「headless 报 blender_exe_missing」是假的。
 
 const h = vi.hoisted(() => ({

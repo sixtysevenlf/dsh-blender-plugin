@@ -1,4 +1,4 @@
-"""Launcher/add-on install contract (T10, plan 8.2 B4).
+"""Launcher/add-on install contract.
 
 The DSH launcher injects LAUNCH_BOOT_PY into Blender and refuses anything that
 is not the dsh_blender_bridge package with protocol 11 / add-on version >= 1.10.

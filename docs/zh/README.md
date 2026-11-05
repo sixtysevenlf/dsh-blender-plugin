@@ -50,11 +50,11 @@ DSH × Blender 把 DeepSeek Harness 接到 Blender，让 AI 能在真实 Blender
 
    - **DSH Web / DSH TUI：** 使用你实际运行的 profile：
 
-         dsh plugin --profile <profile> add dsh-blender-plugin@3.0.5
+         dsh plugin --profile <profile> add dsh-blender-plugin@3.0.6
 
      装完后按第 3 步重启 DSH。
 
-   - **DSH Desktop：** 打开 Plugins 页面，安装 bundle `dsh-blender-plugin@3.0.5`。DSH Desktop 通过 Plugins 页面安装后不需要重启 DSH。
+   - **DSH Desktop：** 打开 Plugins 页面，安装 bundle `dsh-blender-plugin@3.0.6`。DSH Desktop 通过 Plugins 页面安装后不需要重启 DSH。
 
 3. **重启 DSH（仅 DSH Web / DSH TUI）。** 从 DSH Desktop 的 Plugins 页面安装的用户跳过这一步。
 
@@ -76,7 +76,7 @@ addon 仍然是唯一支持的 Blender 侧 agent 桥。其他占用 9876 端口�
     如果已有桥接类 addon（MCP for Blender / blender_mcp，或任何在 9876 端口
     提供服务的 addon），先停用它；不要卸载用户的其他 addon，也不要要求用户这么做。
     然后从 npm 安装 DSH × Blender 插件到我的 DSH profile：
-    dsh plugin --profile <profile> add dsh-blender-plugin@3.0.5
+    dsh plugin --profile <profile> add dsh-blender-plugin@3.0.6
     先读 docs/AI-安装提示词.md 并严格照做；
     最后必须验收：GUI 路线 doctor 返回 kind=ok，
     纯无头路线用 worker start + see 能返回一帧图。
@@ -98,11 +98,11 @@ addon 仍然是唯一支持的 Blender 侧 agent 桥。其他占用 9876 端口�
 
    只能用这个 addon 作为 agent 桥。若已启用 `MCP for Blender` / `blender_mcp`（或其他自带 9876 服务的 addon），停用它即可，不必卸载；其他 addon 可以留着。如果后面的安装用不了，先回来检查这一步。
 
-2. **开发者路径：** 克隆仓库并构建。lib/ 是构建产物，不再入库，所以新 clone 必须先构建一次；除非你在开发这个插件，否则请使用上面的 npm 安装。
+2. **开发者路径：** 克隆仓库并构建。lib/ 是构建产物，不再入库，所以新 clone 必须先构建一次。`npm run setup:dev` 会装好 npm 与 Python 开发依赖（并创建 `.venv`）；除非你在开发这个插件，否则请使用上面的 npm 安装。
 
         git clone https://github.com/sixtysevenlf/dsh-blender-plugin.git
         cd dsh-blender-plugin
-        npm ci --legacy-peer-deps
+        npm run setup:dev
         npm run build
 
 3. 把插件加入 DSH profile。先把 checkout 软链到 profile，再在 profile 的 package.json 里加依赖和 bundle 条目。
@@ -190,15 +190,16 @@ addon 仍然是唯一支持的 Blender 侧 agent 桥。其他占用 9876 端口�
 
 ## 文档
 
-- 曲面算法：docs/曲面算法.md
-- 操作教程：docs/操作教程.md
-- 配置参考：docs/配置参考.md
-- AI 安装提示词：docs/AI-安装提示词.md
-- 部署 SOP：docs/部署SOP.md
-- 第三方安装清单：docs/给第三方的安装清单.md
-- 架构说明：docs/architecture.md
-- 建模 skill：skills/blender-modeling/
-- 版本说明：GitHub Releases 与 CHANGELOG.md
+- 曲面算法：[skills/blender-modeling/references/曲面算法.md](../../skills/blender-modeling/references/曲面算法.md)
+- 操作教程：[docs/操作教程.md](../操作教程.md)
+- 配置参考：[docs/配置参考.md](../配置参考.md)
+- AI 安装提示词：[docs/AI-安装提示词.md](../AI-安装提示词.md)
+- 部署 SOP：[docs/部署SOP.md](../部署SOP.md)
+- 第三方安装清单：[docs/给第三方的安装清单.md](../给第三方的安装清单.md)
+- DSH 升级适配：[docs/DSH-更新适配.md](../DSH-更新适配.md)
+- 架构说明：[docs/architecture.md](../architecture.md)
+- 建模 skill：[skills/blender-modeling/](../../skills/blender-modeling/)
+- 版本说明：[GitHub Releases](https://github.com/sixtysevenlf/dsh-blender-plugin/releases) 与 [CHANGELOG.md](../../CHANGELOG.md)
 
 ## 常见问题
 
@@ -214,9 +215,14 @@ addon 仍然是唯一支持的 Blender 侧 agent 桥。其他占用 9876 端口�
 ## 开发
 
 - Node.js **24.9** 是最低支持版本；CI 使用 Node 24。
-- Python 测试需要装有 `pytest` 的虚拟环境（virtualenv），用 `PYTHON` 指向该解释器（Windows 另设
-  `PYTHONIOENCODING=utf-8`、`PYTHONUTF8=1`）；测试直接导入 TypeScript 源码。
-- 命令的唯一事实源（安装、构建、typecheck、测试、lint、打包）见
+- 开发环境：克隆后运行 `npm run setup:dev`，它会探测 Python 3.11+、创建或复用 `.venv`，安装
+  `requirements-dev.txt`、`requirements-typecheck.txt` 与 npm 依赖（仅当 `node_modules` 缺失时才跑
+  `npm ci --legacy-peer-deps`）。`npm run setup:dev -- --check` 只验证不写入；
+  `npm run setup:dev -- --force` 重建 `.venv`。`.venv` 与 `node_modules` 都不入库。
+- Python 测试需要装有 `pytest` 的虚拟环境（virtualenv，由 `npm run setup:dev` 创建）。测试会自动探测
+  `.venv`；需要换解释器时用 `PYTHON` 指向别处（Windows 另设 `PYTHONIOENCODING=utf-8`、
+  `PYTHONUTF8=1`）；测试直接导入 TypeScript 源码。
+- 命令的唯一事实源（构建、typecheck、测试、lint、打包）见
   [`AGENTS.md` §1](../../AGENTS.md#1-commands-single-source)；`lib/` 由 `src/` 重新构建，不要手改。
 - 测试分层、fixture 与各层命令：[`tests/README.md`](../../tests/README.md)。
 - 贡献流程：[English CONTRIBUTING](../../CONTRIBUTING.md) · [中文 CONTRIBUTING](./CONTRIBUTING.md)。

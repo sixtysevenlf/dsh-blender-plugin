@@ -107,7 +107,7 @@ export function noInputFileWarning(fileLooksPython: boolean): { code: string; hi
 }
 
 /**
- * stdout/stderr log 文件名去同毫秒撞名（与 staging 脚本撞名同根，issue A2）：
+ * stdout/stderr log 文件名去同毫秒撞名（与 staging 脚本撞名同根，issue）：
  * 旧档名只精确到毫秒，同毫秒两个 run 的 createWriteStream 追加写同一文件、stdout 互脏。
  * runId 每 run 唯一（客户端生成或引擎生成），拼进档名后同毫秒也不再相撞。
  */

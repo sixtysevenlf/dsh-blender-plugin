@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { HttpRouteDeps } from './deps.js'
 import { errorMessage, errorCode, errorField } from '../../core/json.js'
-// HTTP 路由 /headless：同步无头（T7）
+// HTTP 路由 /headless：同步无头
 export function createHeadlessRoutes(E: HttpRouteDeps) {
   const { engine, json, leaseGate, pushRtt, readBody, stats, streamJson } = E
   return {

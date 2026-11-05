@@ -49,7 +49,7 @@ def _is_path_property(identifier):
 
 
 class UserEditRecorder:
-    """Buffers human-originated operator and undo events for the MCP server.
+    """Buffers human-originated operator and undo events for the DSH plugin.
 
     Anything that happens while an agent command is running is attributed to
     the agent, not the human; `agent_command()` brackets that window.
@@ -183,7 +183,7 @@ class UserEditRecorder:
         self._seen_baseline = True
 
     def drain(self):
-        """Hand buffered events to the MCP server and clear them."""
+        """Hand buffered events to the DSH plugin and clear them."""
         events = list(self._events)
         self._events.clear()
         return events

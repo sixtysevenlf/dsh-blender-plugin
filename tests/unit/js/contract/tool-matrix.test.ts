@@ -1,5 +1,5 @@
 /**
- * A1 · 15 个模型工具 × 7 个方面的可执行矩阵（逐工具、逐方面真实调用）。
+ * 15 个模型工具 × 7 个方面的可执行矩阵（逐工具、逐方面真实调用）。
  *
  * 与既有 contract 测试的分工：
  *   - tool-execution / tool-failure-matrix / tool-presenter / lossless 各自覆盖一个切面；
@@ -7,7 +7,7 @@
  *     "不适用" 的原因显式记录（没有任何静默跳过）。
  *
  * 输出：设置 A1_MATRIX_OUT=<path> 时写 JSON；否则只断言不落盘。
- * 依据：refactor-plan §8.1 A1（15 个 tool：成功/参数错误/backend 不可达/超时 abort/
+ * 依据：行为矩阵（15 个 tool：成功/参数错误/backend 不可达/超时 abort/
  * presenter/lossless/session 与无头降级）。
  */
 import fs from 'node:fs'
@@ -290,7 +290,7 @@ afterAll(async () => {
   }
 })
 
-describe('A1 success：15 个工具的成功执行', () => {
+describe('success：15 个工具的成功执行', () => {
   it('covers exactly the 15 registered model tools', () => {
     expect(tools.map((t) => t.name).sort()).toEqual([...TOOLS].sort())
   })
@@ -344,7 +344,7 @@ const PARAM_CASES: Array<[string, ParamCheck[]]> = [
   ['blender_viewport', [{ args: {}, throws: /missing required property "op"/ }]],
 ]
 
-describe('A1 paramError：参数校验与工具级非法参数', () => {
+describe('paramError：参数校验与工具级非法参数', () => {
   it.each(PARAM_CASES)('%s param error', async (name, checks) => {
     const evidence: string[] = []
     for (const check of checks) {
@@ -378,7 +378,7 @@ const UNREACHABLE_ARGS: Record<string, Record<string, unknown>> = Object.fromEnt
   SUCCESS_CASES.map(([name, args]) => [name, args]),
 )
 
-describe('A1 backendUnreachable：连接被拒时 5s 内可读失败', () => {
+describe('backendUnreachable：连接被拒时 5s 内可读失败', () => {
   it.each(TOOLS)('%s settles without hanging', async (name) => {
     const port = await closedPort()
     const f = createFakeContext()
@@ -429,7 +429,7 @@ const ABORT_CASES: Array<[string, Record<string, unknown>, string]> = [
   ['blender_viewport', { op: 'status' }, 'GET /status'],
 ]
 
-describe('A1 timeoutAbort：exec.signal abort 后快速结束', () => {
+describe('timeoutAbort：exec.signal abort 后快速结束', () => {
   it.each(ABORT_CASES)('%s aborts within budget', async (name, args, hangKey) => {
     backend.hangOn(hangKey)
     const ac = new AbortController()
@@ -461,7 +461,7 @@ describe('A1 timeoutAbort：exec.signal abort 后快速结束', () => {
 })
 
 // ───────────────────────────── presenter ─────────────────────────────
-describe('A1 presenter：presentCall / presentResult 卡片契约', () => {
+describe('presenter：presentCall / presentResult 卡片契约', () => {
   it.each(SUCCESS_CASES)('%s presenter', async (name, args) => {
     const out = await run(name, args)
     const t = tool(name)
@@ -499,7 +499,7 @@ describe('A1 presenter：presentCall / presentResult 卡片契约', () => {
 })
 
 // ───────────────────────────── lossless ─────────────────────────────
-describe('A1 lossless：成功回执无损', () => {
+describe('lossless：成功回执无损', () => {
   it.each(SUCCESS_CASES)('%s lossless', async (name, args) => {
     const out = await run(name, args)
     lossless(out)
@@ -597,7 +597,7 @@ const SESSION_N_A: Array<[string, string]> = [
   ],
 ]
 
-describe('A1 sessionFallback：显式 session / 无头通道', () => {
+describe('sessionFallback：显式 session / 无头通道', () => {
   it.each(SESSION_CASES)(
     '%s routes through headless channel',
     async (name, args, contains, check) => {

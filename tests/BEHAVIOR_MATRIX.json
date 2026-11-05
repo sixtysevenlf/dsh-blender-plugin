@@ -2,7 +2,7 @@
   "schema": "dsh-behavior-matrix/1",
   "generatedAt": "2026-11-04T13:01:03.829Z",
   "node": "v24.18.0",
-  "pluginVersion": "3.0.5",
+  "pluginVersion": "3.0.6",
   "generatedBy": "node scripts/check-behavior-matrix.mjs --generate",
   "generators": {
     "tools": "tests/unit/js/contract/tool-matrix.test.ts (A1_MATRIX_OUT)",
@@ -775,7 +775,7 @@
         "route": "/status",
         "aspect": "normal",
         "status": "PASS",
-        "evidence": "200 application/json · ok=true plugin.version=3.0.5"
+        "evidence": "200 application/json · ok=true plugin.version=3.0.6"
       },
       {
         "route": "/doctor",

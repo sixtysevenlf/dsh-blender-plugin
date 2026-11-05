@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "tool": "check-doc-paths",
+  "generatedAt": "2026-11-04T19:23:51.184Z",
+  "docs": [
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "MIGRATIONS.md",
+    "README.md",
+    "SECURITY.md",
+    "docs/AI-安装提示词.md",
+    "docs/DSH-更新适配.md",
+    "docs/EEVEE-工作要点.md",
+    "docs/Procedura-融合分析.md",
+    "docs/architecture.md",
+    "docs/examples/chair-backrest/results.md",
+    "docs/flash建模上限-整合方案.md",
+    "docs/zh/CONTRIBUTING.md",
+    "docs/zh/README.md",
+    "docs/zh/SECURITY.md",
+    "docs/假设驱动建模-cookbook.md",
+    "docs/宿主集成-接口契约-v2.3增补.md",
+    "docs/操作教程.md",
+    "docs/给第三方的安装清单.md",
+    "docs/证据分级与读图纪律.md",
+    "docs/部署SOP.md",
+    "docs/配置参考.md"
+  ],
+  "inbound": {
+    "AGENTS.md": 5,
+    "CONTRIBUTING.md": 4,
+    "MIGRATIONS.md": 7,
+    "README.md": 6,
+    "SECURITY.md": 2,
+    "docs/AI-安装提示词.md": 3,
+    "docs/DSH-更新适配.md": 2,
+    "docs/EEVEE-工作要点.md": 2,
+    "docs/Procedura-融合分析.md": 1,
+    "docs/architecture.md": 6,
+    "docs/examples/chair-backrest/results.md": 1,
+    "docs/flash建模上限-整合方案.md": 1,
+    "docs/zh/CONTRIBUTING.md": 4,
+    "docs/zh/README.md": 4,
+    "docs/zh/SECURITY.md": 2,
+    "docs/假设驱动建模-cookbook.md": 1,
+    "docs/宿主集成-接口契约-v2.3增补.md": 3,
+    "docs/操作教程.md": 5,
+    "docs/给第三方的安装清单.md": 2,
+    "docs/证据分级与读图纪律.md": 1,
+    "docs/部署SOP.md": 2,
+    "docs/配置参考.md": 5
+  },
+  "orphanDocs": [],
+  "missingRefs": [
+    {
+      "doc": "docs/宿主集成-接口契约-v2.3增补.md",
+      "target": "tests/selection_store_selftest.mjs"
+    },
+    {
+      "doc": "docs/宿主集成-接口契约-v2.3增补.md",
+      "target": "tests/host_routes_selftest.mjs"
+    },
+    {
+      "doc": "docs/宿主集成-接口契约-v2.3增补.md",
+      "target": "tests/client_bundle_selftest.mjs"
+    },
+    {
+      "doc": "docs/宿主集成-接口契约-v2.3增补.md",
+      "target": "tests/tui_host_selftest.mjs"
+    },
+    {
+      "doc": "docs/宿主集成-接口契约-v2.3增补.md",
+      "target": "runtime/selectionstore.mjs"
+    },
+    {
+      "doc": "MIGRATIONS.md",
+      "target": "docs/宿主集成-接口契约.md"
+    },
+    {
+      "doc": "MIGRATIONS.md",
+      "target": "scripts/addons/dsh_blender_bridge/"
+    }
+  ]
+}

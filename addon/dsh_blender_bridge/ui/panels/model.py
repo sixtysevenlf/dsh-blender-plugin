@@ -26,7 +26,7 @@ class DSHBB_PT_ModelGen(bpy.types.Panel):
             if prefs:
                 col.prop(prefs, "hyper3d_api_key", text="API Key")
             else:
-                col.prop(scene, "dshbb_hyper3d_api_key", text="API Key")
+                col.label(text="API keys live in the add-on preferences", icon="INFO")
             sub.operator("dshbb.set_hyper3d_free_trial_api_key", text="Set Free Trial API Key")
 
         sub = draw_api_toggle(layout, scene, "dshbb_use_hunyuan3d", "Tencent Hunyuan 3D")
@@ -38,14 +38,13 @@ class DSHBB_PT_ModelGen(bpy.types.Panel):
                     col.prop(prefs, "hunyuan3d_secret_id", text="SecretId")
                     col.prop(prefs, "hunyuan3d_secret_key", text="SecretKey")
                 else:
-                    col.prop(scene, "dshbb_hunyuan3d_secret_id", text="SecretId")
-                    col.prop(scene, "dshbb_hunyuan3d_secret_key", text="SecretKey")
+                    col.label(text="Credentials live in the add-on preferences", icon="INFO")
                 col.prop(scene, "dshbb_hunyuan3d_intl_pro", text="International (Pro) account")
             if scene.dshbb_hunyuan3d_mode == "LOCAL_API":
                 if prefs:
                     col.prop(prefs, "hunyuan3d_api_url", text="API URL")
                 else:
-                    col.prop(scene, "dshbb_hunyuan3d_api_url", text="API URL")
+                    col.label(text="API URL lives in the add-on preferences", icon="INFO")
                 col.separator()
                 col.prop(scene, "dshbb_hunyuan3d_octree_resolution", text="Octree Resolution")
                 col.prop(scene, "dshbb_hunyuan3d_num_inference_steps", text="Inference Steps")

@@ -96,7 +96,7 @@ class DescribeCommands:
         for tree_type in tree_type_candidates:
             tmp_tree = None
             try:
-                tmp_tree = bpy.data.node_groups.new(name="__mcp_introspect_tmp__", type=tree_type)  # pyright: ignore[reportArgumentType]
+                tmp_tree = bpy.data.node_groups.new(name="__bridge_introspect_tmp__", type=tree_type)  # pyright: ignore[reportArgumentType]
                 node = tmp_tree.nodes.new(type=bl_idname)
                 tree = tmp_tree
                 used_tree_type = tree_type

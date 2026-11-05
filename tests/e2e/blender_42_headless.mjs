@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * T14 E2E: real Blender 4.2 LTS headless round-trip.
+ * E2E: real Blender 4.2 LTS headless round-trip.
  *
  * Not part of unit/integration: this starts a real Blender process. It is the
  * evidence for ENV-BLENDER-42 and for the engine.headless path that the

@@ -1,4 +1,4 @@
-// engine 装配：deps 上下文 + 各能力接线（F1.1 从 engine.ts 拆出，行为冻结）
+// engine 装配：deps 上下文 + 各能力接线（从 engine.ts 拆出，行为冻结）
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { AddonClient } from '../../transport/probes.js'
@@ -82,6 +82,7 @@ export function assembleEngine(ctx: EngineContext): {
   E.planCallInner = dispatchApi.planCallInner
   const planDispatch = createPlanDispatch(E as unknown as Parameters<typeof createPlanDispatch>[0])
   E.perfCall = planDispatch.perfCall
+  const perfCall = E.perfCall as (op: string, payload?: unknown) => Promise<unknown>
   const headlessApi = createHeadlessRun(E as unknown as Parameters<typeof createHeadlessRun>[0])
   const surface: EngineSurface = {
     addon: addon,
@@ -113,6 +114,10 @@ export function assembleEngine(ctx: EngineContext): {
     sceneEpoch: kernel.sceneEpoch,
     renderFlag: () => readRenderFlag(),
     ...engineApi,
+    // perf / opt 是 perfCall 在 HTTP 路由（/perf、/opt）与脚本里的别名；原 engine-api/frame.ts
+    // 的两层纯转发已收口到装配处（4.4）。行为不变：都直接走 plan-dispatch 的 perfCall。
+    perf: (op: string, payload?: unknown) => perfCall(op, payload),
+    opt: (op: string, payload?: unknown) => perfCall(op, payload),
     headless: headlessApi.headless,
     start: engineApi.start,
     stop: engineApi.stop,

@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { objArg } from './deps.js'
 import type { HttpRouteDeps } from './deps.js'
 import { errorMessage, errorField } from '../../core/json.js'
-// HTTP 路由 /health：健康/状态/医生 + 已移除面板 410（T7）
+// HTTP 路由 /health：健康/状态/医生 + 已移除面板 410
 export function createHealthRoutes(E: HttpRouteDeps) {
   const {
     PORT,
@@ -22,10 +22,10 @@ export function createHealthRoutes(E: HttpRouteDeps) {
         stats: stats,
         lease: leaseView(),
         requests: Object.fromEntries(reqCounts),
-        // v0.9.4（P2-1）：分布 + 后端自身内存。⚠ 不含 blender.exe 的 RSS ——
+        // v0.9.4：分布 + 后端自身内存。⚠ 不含 blender.exe 的 RSS ——
         // 它在 Windows 侧，取一次要起 tasklist（~百 ms 级），不该塞进健康探针的热路径。
         rtt: rttView(),
-        // v0.9.6（D3）：加载版本自证（内容哈希，不是 mtime）——"要不要重启后端"在这里一眼可见。
+        // v0.9.6：加载版本自证（内容哈希，不是 mtime）——"要不要重启后端"在这里一眼可见。
         // 只做本地读+哈希（~0.5 ms），不 spawn 干净进程；强对拍走 /plan op=catalog args={verify:true}。
         provenance: (() => {
           try {
@@ -59,7 +59,7 @@ export function createHealthRoutes(E: HttpRouteDeps) {
         json(res, 200, {
           ok: true,
           region: s.region,
-          // P0-3：statusView 已经把 addon 失败收进 addonError；路由必须透出，否则
+          // statusView 已经把 addon 失败收进 addonError；路由必须透出，否则
           // presenter 的 addonError / addon_unresponsive 判定在生产里是死代码。
           addonError: s.addonError || null,
           plugin: s.plugin || null,

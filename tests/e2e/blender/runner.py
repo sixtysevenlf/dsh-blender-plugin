@@ -48,13 +48,14 @@ def main():
         module = addon_utils.enable(PACKAGE_NAME, default_set=True)
         enabled = addon_utils.check(PACKAGE_NAME)
         import dsh_blender_bridge as addon
+        from dsh_blender_bridge import command_registry
         return {
             "module_file": addon.__file__,
             "enabled_pair": list(enabled),
             "bl_info_version": list(addon.bl_info["version"]),
             "addon_version": list(addon.ADDON_VERSION),
             "protocol": addon.ADDON_PROTOCOL_VERSION,
-            "commands": len(addon.protocol.COMMAND_NAMES),
+            "commands": len(command_registry.COMMAND_NAMES),
             "scene_prop": hasattr(bpy.types.Scene, "dshbb_port"),
         }
 

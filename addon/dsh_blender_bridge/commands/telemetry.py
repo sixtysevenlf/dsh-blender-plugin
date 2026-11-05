@@ -27,7 +27,7 @@ class TelemetryCommands:
     def set_telemetry_consent(self, consent=False):
         """Write the telemetry consent preference.
 
-        Only reached when the user answered an elicitation prompt in their MCP
+        Only reached when the user answered an elicitation prompt in their DSH
         client, or asked to opt out. Assigning the property in code skips the
         BoolProperty update= callback, so the manual-edit handlers are
         re-synced explicitly.

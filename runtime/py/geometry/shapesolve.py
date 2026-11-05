@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DSH 无头多视轮廓拟合（shapesolve）v1 —— P1。
+"""DSH 无头多视轮廓拟合（shapesolve）v1。
 
 要解决的问题：参数化形体（盒体/支架/车壳基础体）"看轮廓反推尺寸"目前只能靠渲染出图 + 肉眼，
 GUI/timers/bpy.render 在 headless 里都不可靠。本模块给一条**纯计算**通路：

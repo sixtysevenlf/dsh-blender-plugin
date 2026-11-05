@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""runtime.py.assembly — T8 领域包（Phase E）：装配 / 间隙 / 载具 / 人体 / 装配特征数据
+"""runtime.py.assembly — 领域包（Phase E）：装配 / 间隙 / 载具 / 人体 / 装配特征数据
 
 模块列表见 __all__。**本包自身 import 安全**：不 eager import 子模块（子模块需要
 bpy/numpy 与共享内核 K.dsh_kit，只在 Blender 注入路径或显式访问时才加载）。

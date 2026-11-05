@@ -1,4 +1,4 @@
-// /host 路由处理器（F1.1 从 http/host.ts 拆出）
+// /host 路由处理器（从 http/host.ts 拆出）
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { stats } from '../config.js'
 import { hostCorsHeaders, readBody } from '../response.js'

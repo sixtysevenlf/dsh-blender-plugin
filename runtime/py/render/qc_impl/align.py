@@ -170,7 +170,7 @@ def _down(mask, work):
 
 
 def _iou_pair(a, b):
-    # S2：度量收敛到共享内核（唯一实现）；空并集时 kit 给 None，这里按旧契约返回 0.0
+    # 度量收敛到共享内核（唯一实现）；空并集时 kit 给 None，这里按旧契约返回 0.0
     iou, inter, uni = _KIT.iou(a, b)
     return (0.0 if iou is None else iou), inter, uni
 
@@ -240,7 +240,7 @@ def _align_search(ref_mask, ren_mask, work=384, coarse=True):
 
 
 def _rotate_mask(m, deg):
-    """布尔掩膜绕中心旋转（最近邻）。v0.8.10（C3）：外部反馈里"同一轮廓被取向差压到 0.62 假低分"。"""
+    """布尔掩膜绕中心旋转（最近邻）。v0.8.10：外部反馈里"同一轮廓被取向差压到 0.62 假低分"。"""
     if abs(float(deg)) < 1e-6:
         return m
     h, w = m.shape

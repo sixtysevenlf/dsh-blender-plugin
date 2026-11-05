@@ -1,4 +1,4 @@
-""" Geometry helpers shared by commands and asset importers (F3.3). """
+""" Geometry helpers shared by commands and asset importers. """
 
 import mathutils
 

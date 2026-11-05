@@ -1,12 +1,12 @@
 import { afterAll, describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
-import { COMMAND_CATALOG } from '../../../../runtime/catalog/index.js'
-import { AddonClient } from '../../../../runtime/engine.js'
+import { COMMAND_CATALOG, COMMAND_CATALOG_OMISSIONS } from '../../../../runtime/catalog/index.js'
+import { AddonClient } from '../../../../runtime/transport/probes.js'
 import { startFakeAddon } from '../../../helpers/fake-addon.mjs'
 import { pkgPath } from '../../../helpers/pkg'
 
-// F3: the addon now has one command_registry.py; server/protocol derive from it.
+// the addon now has one command_registry.py; server/protocol derive from it.
 // This contract test reads the tree rather than a fixed file list so the split
 // into commands/<domain>/ does not make the source scan silently empty.
 
@@ -35,14 +35,6 @@ function registryCommands(): string[] {
   return [...registrySource.matchAll(/_command\("([^"]+)"/g)].map((m) => m[1]!)
 }
 
-function quotedCapabilities(): string[] {
-  const block = coreInfo.slice(
-    coreInfo.indexOf('"capabilities"'),
-    coreInfo.indexOf('"blender_version"'),
-  )
-  return [...block.matchAll(/^\s+"([a-z0-9_]+)",?$/gm)].map((m) => m[1]!)
-}
-
 describe('addon command surface', () => {
   const registered = registryCommands()
 
@@ -54,6 +46,17 @@ describe('addon command surface', () => {
     expect(new Set(registered).size).toBe(39)
     expect(registered).toContain('ping')
     expect(registered.filter((n) => n !== 'ping')).toHaveLength(38)
+  })
+
+  it('keeps the host catalog and the addon registry aligned in both directions', () => {
+    const host = new Set(Object.keys(COMMAND_CATALOG))
+    const registryNames = registered.filter((name) => name !== 'ping')
+    const registrySet = new Set(registryNames)
+    // Every model-facing catalog entry must exist on the addon wire registry.
+    expect([...host].filter((name) => name !== 'ping' && !registrySet.has(name))).toEqual([])
+    // Every registered command must be model-facing or explicitly declared omitted.
+    const omitted = new Set(COMMAND_CATALOG_OMISSIONS)
+    expect(registryNames.filter((name) => !host.has(name))).toEqual([...omitted])
   })
 
   it('keeps every catalog command in the registry with a real handler', () => {
@@ -110,10 +113,13 @@ describe('addon command surface', () => {
     expect(serverSource).toContain('is_pause_safe_command')
   })
 
-  it('advertises protocol 11 with a 16-name capability handshake', () => {
+  it('advertises protocol 11 with capabilities derived from the command registry', () => {
     expect(protocolSource).toMatch(/ADDON_PROTOCOL_VERSION\s*=\s*11/)
     expect(coreInfo).toContain('"protocol_version": ADDON_PROTOCOL_VERSION')
-    expect(quotedCapabilities()).toHaveLength(16)
+    // the handshake must not drift back to a hardcoded capability list.
+    expect(coreInfo).toMatch(/"capabilities":\s*sorted\(COMMAND_NAMES\)/)
+    expect(coreInfo).not.toMatch(/"capabilities":\s*sorted\(\[/)
+    expect(coreInfo).toMatch(/from \.\.\.command_registry import COMMAND_NAMES/)
   })
 })
 

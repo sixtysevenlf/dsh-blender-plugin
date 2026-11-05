@@ -1,4 +1,4 @@
-"""Host-side backend integration (T11b.7 B layer): qc self-check.
+"""Host-side backend integration (B layer): qc self-check.
 
 No Blender is started here.  The test talks HTTP to an already running plugin
 backend (the same one the GUI uses) and verifies that the host-side qc math
@@ -56,7 +56,7 @@ def test_backend_health_is_honest():
     health = _require_backend()
     assert health["ok"] is True
     provenance = health.get("provenance") or {}
-    assert provenance.get("pluginVersion") == "3.0.5", provenance
+    assert provenance.get("pluginVersion") == "3.0.6", provenance
     assert isinstance(health.get("backend"), dict) and health["backend"].get("pid"), health
 
 

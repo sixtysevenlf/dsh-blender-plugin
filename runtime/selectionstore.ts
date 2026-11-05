@@ -6,7 +6,7 @@
  * → Web/TUI 的客户端半边轮询 `/host/selection/latest` → 把对象名插入**当前会话草稿**
  * （不自动发送）→ `POST /host/selection/consume` 标记已消费。
  *
- * 唯一真源：`docs/宿主集成-接口契约-v2.3增补.md` §S1–§S3。
+ * 唯一真源：`docs/宿主集成-接口契约-v2.3增补.md`。
  *
  * 纪律：
  *   · 纯内存、零 I/O、零 Blender 往返（addon 自己 POST 过来；轮询方绝不碰 Blender）。

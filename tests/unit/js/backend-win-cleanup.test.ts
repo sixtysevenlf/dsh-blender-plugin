@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-// F4.1 item 4 / issue #51: process-scan.ts used to be verified by grepping its
+// item 4 / issue #51: process-scan.ts used to be verified by grepping its
 // source for "IS_WIN". This test forces the win32 branch (IS_WIN=true) and
 // proves that the Windows cleanup path is taken, the POSIX /proc path is NOT,
 // and that a probe failure degrades to [] instead of throwing.
@@ -16,10 +16,8 @@ vi.mock('../../../src/constants.js', () => ({
 }))
 vi.mock('../../../src/host/runtime-bridge.js', () => ({
   winKillPids: h.winKillPids,
-  serverPidsFromProcRows: h.serverPidsFromProcRows,
-}))
-vi.mock('../../../src/host/backend/port-holders.js', () => ({
   winSamePortHolders: h.winSamePortHolders,
+  serverPidsFromProcRows: h.serverPidsFromProcRows,
 }))
 
 import { killBackendByCmd } from '../../../src/host/backend/process-scan.js'

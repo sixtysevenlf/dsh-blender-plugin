@@ -1,4 +1,4 @@
-// shape-search 请求解析/归一化（F1.1 从 shape-search.ts 拆出，行为冻结）
+// shape-search 请求解析/归一化（从 shape-search.ts 拆出，行为冻结）
 import { searchAxisValues } from './axes.js'
 import type { AxisSpec } from './axes.js'
 

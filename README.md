@@ -50,11 +50,11 @@ This is the supported installation path. It does not require `git clone`, `npm c
 
    - **DSH Web or DSH TUI:** install into the profile you actually run:
 
-         dsh plugin --profile <profile> add dsh-blender-plugin@3.0.5
+         dsh plugin --profile <profile> add dsh-blender-plugin@3.0.6
 
      Then restart DSH in step 3.
 
-   - **DSH Desktop:** open the Plugins page and install the bundle `dsh-blender-plugin@3.0.5`. DSH Desktop applies the bundle from the Plugins page and does not need a DSH restart.
+   - **DSH Desktop:** open the Plugins page and install the bundle `dsh-blender-plugin@3.0.6`. DSH Desktop applies the bundle from the Plugins page and does not need a DSH restart.
 
 3. **Restart DSH (DSH Web and DSH TUI only).** If you installed from the DSH Desktop Plugins page, skip this step.
 
@@ -78,7 +78,7 @@ Copy this prompt into an agent that can run commands:
     port 9876), disable it; do not uninstall the user's other addons and
     do not ask them to.
     Then install the DSH × Blender plugin from npm for my DSH profile:
-    dsh plugin --profile <profile> add dsh-blender-plugin@3.0.5
+    dsh plugin --profile <profile> add dsh-blender-plugin@3.0.6
     Read docs/AI-安装提示词.md first, follow it exactly,
     and finish with the acceptance check: doctor must return kind=ok for the
     GUI route, or worker start + see must return a frame for the headless-only route.
@@ -100,11 +100,11 @@ Install the standalone modeling skill (only needed for hosts that do not load th
 
    Keep this addon as your only agent bridge. If `MCP for Blender` / `blender_mcp` (or another addon that opens its own server on 9876) is enabled, turn it off — uninstalling is not required. Your other addons can stay. If the rest of the installation does not work, check this step first.
 
-2. **Developer path:** clone the repository and build it. `lib/` is a build artifact and is not committed, so a fresh clone must build once before use. Unless you are developing the plugin, use the npm install above.
+2. **Developer path:** clone the repository and build it. `lib/` is a build artifact and is not committed, so a fresh clone must build once before use. `npm run setup:dev` installs the npm and Python development dependencies (creating `.venv`); unless you are developing the plugin, use the npm install above.
 
         git clone https://github.com/sixtysevenlf/dsh-blender-plugin.git
         cd dsh-blender-plugin
-        npm ci --legacy-peer-deps
+        npm run setup:dev
         npm run build
         # Optional: DSH_CHECKOUT=/path/to/dsh-harness npm run build links DSH host packages
 
@@ -193,15 +193,16 @@ The plugin exposes 15 tools. All planning, audit, assembly, export, and evaluati
 
 ## Documentation
 
-- Surface algorithm: docs/曲面算法.md
-- Step-by-step guide: docs/操作教程.md
-- Configuration: docs/配置参考.md
-- AI install prompt: docs/AI-安装提示词.md
-- Deployment SOP: docs/部署SOP.md
-- Third-party checklist: docs/给第三方的安装清单.md
-- Architecture: docs/architecture.md
-- Modeling skill: skills/blender-modeling/
-- Release notes: GitHub Releases and CHANGELOG.md
+- Surface algorithm: [skills/blender-modeling/references/曲面算法.md](skills/blender-modeling/references/曲面算法.md)
+- Step-by-step guide: [docs/操作教程.md](docs/操作教程.md)
+- Configuration: [docs/配置参考.md](docs/配置参考.md)
+- AI install prompt: [docs/AI-安装提示词.md](docs/AI-安装提示词.md)
+- Deployment SOP: [docs/部署SOP.md](docs/部署SOP.md)
+- Third-party checklist: [docs/给第三方的安装清单.md](docs/给第三方的安装清单.md)
+- DSH upgrade compatibility: [docs/DSH-更新适配.md](docs/DSH-更新适配.md)
+- Architecture: [docs/architecture.md](docs/architecture.md)
+- Modeling skill: [skills/blender-modeling/](skills/blender-modeling/)
+- Release notes: [GitHub Releases](https://github.com/sixtysevenlf/dsh-blender-plugin/releases) and [CHANGELOG.md](CHANGELOG.md)
 
 ## Troubleshooting
 
@@ -217,9 +218,15 @@ The plugin exposes 15 tools. All planning, audit, assembly, export, and evaluati
 ## Development
 
 - Node.js **24.9** is the minimum supported version; CI runs on Node 24.
-- Python tests need a virtualenv with `pytest`. Point `PYTHON` at its interpreter
-  (`PYTHONIOENCODING=utf-8` and `PYTHONUTF8=1` on Windows); tests import the TypeScript sources directly.
-- The canonical command table — install, build, typecheck, test, lint, pack — is
+- Development environment: `npm run setup:dev` after cloning discovers Python 3.11+, creates or reuses
+  `.venv`, installs `requirements-dev.txt`, `requirements-typecheck.txt`, and npm dependencies
+  (`npm ci --legacy-peer-deps` only when `node_modules` is missing). `npm run setup:dev -- --check`
+  verifies without writing; `npm run setup:dev -- --force` recreates `.venv`. `.venv` and
+  `node_modules` are never committed.
+- Python tests need a virtualenv with `pytest` (created by `npm run setup:dev`). Tests auto-detect
+  `.venv`; point `PYTHON` at another interpreter when needed (`PYTHONIOENCODING=utf-8` and
+  `PYTHONUTF8=1` on Windows); tests import the TypeScript sources directly.
+- The canonical command table — build, typecheck, test, lint, pack — is
   [`AGENTS.md` §1](AGENTS.md#1-commands-single-source). `lib/` is rebuilt from `runtime/` and `src/`; never hand-edit it.
 - Test layers, fixtures, and per-layer commands: [`tests/README.md`](tests/README.md).
 - Contribution workflow: [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`docs/zh/CONTRIBUTING.md`](docs/zh/CONTRIBUTING.md).

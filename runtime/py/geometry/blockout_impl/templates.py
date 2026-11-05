@@ -293,7 +293,7 @@ def _parse_render_opt(render, root, tag):
                          % (unknown, ",".join(sorted(_RENDER_KEYS))))
     eng = str(opt.get("engine") or "workbench").strip().lower()
     if eng not in ("workbench", "wb"):
-        raise ValueError("render.engine 只支持 workbench（P0；收到 %r）—— 白模要快、要稳，不接 EEVEE/Cycles" % (opt.get("engine"),))
+        raise ValueError("render.engine 只支持 workbench（收到 %r）—— 白模要快、要稳，不接 EEVEE/Cycles" % (opt.get("engine")))
     res = _parse_res(opt.get("res"))
     views = _resolve_views(opt.get("views"))
     outdir = _norm_path(opt.get("outdir"), root) if opt.get("outdir") else _norm_path(root)

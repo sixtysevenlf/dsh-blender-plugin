@@ -6,7 +6,7 @@ import path from 'node:path'
 import { describeConfig, wslPathShared } from '../../../runtime/config.js'
 import { pkgPath } from '../../helpers/pkg'
 
-// v0.9.6 (D3): the isolated workDir used to be os.tmpdir() (WSL /tmp is its own
+// v0.9.6: the isolated workDir used to be os.tmpdir() (WSL /tmp is its own
 // tmpfs). Node can write there but Windows blender.exe cannot read it, so the
 // receipt came back empty and looked like a broken lease. The workDir must be
 // judged (and substituted loudly) by mount-table visibility.
@@ -15,7 +15,7 @@ type Staged = { staging?: any; win?: string; wsl?: string; exists?: boolean; err
 
 function stageWith(workdirPath: string): Staged {
   const code = [
-    "import { writeHeadlessScript } from './lib/runtime/engine.js';",
+    "import { writeHeadlessScript } from './lib/runtime/staging.js';",
     "import fs from 'node:fs';",
     'const r = writeHeadlessScript(\'print("probe")\');',
     'console.log(JSON.stringify({ staging: r.staging, win: r.win, wsl: r.wsl, exists: fs.existsSync(r.wsl) }));',

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""DSH 契约层（S1+S2）—— 把「假设 / 区间 / 校验 / 证据 / 门控」变成机器可查的 API。
+"""DSH 契约层—— 把「假设 / 区间 / 校验 / 证据 / 门控」变成机器可查的 API。
 
 API 挂在持久内核上：K.dsh_contract_api（与 K.dsh_view_api / K.dsh_perf_api 同一个约定）。
 
-S1 能力：
+基础能力：
   help()                     契约速查
   reset()                    清空契约（不动场景）
   register_component(id, objects, tags, note)      组件 = 一组对象的语义名
@@ -19,13 +19,13 @@ S1 能力：
   ledger() / status()                              证据账本 / 全局概览
   report(path)                                     生成 Markdown 报告（含判定与复现命令）
 
-S2 能力（假设生命周期，三态）：
+假设生命周期（三态）：
   verify(conn_id, err, tolerance, identifiable, probe_err, probe_tolerance)
       外部证据 + 探针证据 → supported / refuted / unresolved（规则见 docs/假设驱动建模-cookbook.md §5）
   flip(conn_id, to, why)      假设翻转（记历史，不删旧判定）
   advance(conn_id, status, why)  手动推进状态（proposed → testing → supported/refuted）
 
-S3 能力（v0.9.0 · 装配级判据，全部在**真实网格**上量，不再用 bbox）：
+装配级判据（v0.9.0，全部在**真实网格**上量，不再用 bbox）：
   mate_check(conn_id, fit, nominal, tol_mm, samples, contact_max_mm, depth_eps_mm)
       配合门：面积加权采样 + BVH 最近点 → 接触面积占比 / 接触锚点 / 接触法向 / 单边间隙(mm)
       / 穿透深度(mm) → supported / refuted / unresolved（三态纪律：证据不足不许二选一）
@@ -48,7 +48,7 @@ DESTRUCTIVE_OPS = ("boolean_union", "weld", "merge", "join", "apply_transform")
 DRIFT_CENTER_FRACTION = 0.10
 DRIFT_SIZE_FRACTION = 0.20
 
-# --- v0.9.0 S3：装配级阈值（来源见文件下方 S3 段的说明块；改数值必须同时改那里的理由） ---
+# --- v0.9.0：装配级阈值（来源见文件下方 段的说明块；改数值必须同时改那里的理由） ---
 CONTACT_SAMPLE_CAP = 4000              # 采样硬上限（上游 CONTACT_SAMPLE_CAP=4000，同口径）
 CONTACT_MIN_POINTS = 8                 # 证据下限：接触点 < 8 一律 unresolved（上游 CONTACT_MIN_POINTS）
 DEFAULT_CONTACT_DISTANCE_FRAC = 0.015  # 接触距离 = 1.5% × 合并 bbox 对角线（上游 DEFAULT_CONTACT_DISTANCE_FRAC）
@@ -78,7 +78,7 @@ if _KIT is None:
     raise RuntimeError("contract 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
-_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_j = _KIT.j  # 共享内核（原自带实现已删）
 def _kernel():
     import sys
     return sys.modules.get("dsh_rt_kernel")

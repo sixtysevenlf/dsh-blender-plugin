@@ -1,4 +1,4 @@
-// 作业记录/产物/落盘（F1.1 从 jobs/start.ts 拆出，行为冻结）
+// 作业记录/产物/落盘（从 jobs/start.ts 拆出，行为冻结）
 import path from 'node:path'
 import fs from 'node:fs'
 import { winToWsl } from '../../../config.js'
@@ -58,7 +58,7 @@ export function buildJobRecord(p: PreparedJob): JobRecord {
 export function collectJobOutputs(j: JobRecord, p: PreparedJob): void {
   try {
     const txt = fs.readFileSync(p.outPath, 'utf8')
-    // v0.9.3（D3）：解析失败不再覆盖 raw —— 单独记 resultParseError，stdoutTail 保留原文
+    // v0.9.3：解析失败不再覆盖 raw —— 单独记 resultParseError，stdoutTail 保留原文
     const lines = txt.split('\n').filter((l) => l.indexOf('HEADLESS ') === 0)
     if (lines.length) {
       const lastHead = lines[lines.length - 1].slice('HEADLESS '.length).trim()
@@ -94,7 +94,7 @@ export function collectJobOutputs(j: JobRecord, p: PreparedJob): void {
   } catch (e) {
     /* ignore */
   }
-  // v0.9.6（D3）：pathAudit 会整体覆盖 —— 把"workDir 不共享、脚本改落别处"这条找回来（追加在末尾）
+  // v0.9.6：pathAudit 会整体覆盖 —— 把"workDir 不共享、脚本改落别处"这条找回来（追加在末尾）
   if (
     j.scriptStaging &&
     j.scriptStaging.substituted &&
@@ -113,7 +113,7 @@ export function persistJobResult(
   opts: Record<string, unknown>,
 ): void {
   const E = d.E
-  // v0.9.3（D2）：作业结果也走 out_json 落盘（>4KB 自动落），与 headless 同一套
+  // v0.9.3：作业结果也走 out_json 落盘（>4KB 自动落），与 headless 同一套
   try {
     if (j.parsed !== null && j.parsed !== undefined) {
       const s = JSON.stringify(j.parsed)
@@ -134,7 +134,7 @@ export function persistJobResult(
   } catch (e) {
     /* ignore */
   }
-  // v0.8.10（D4）：终态摘要落盘 + 台账追加（后端重启后仍可查）
+  // v0.8.10：终态摘要落盘 + 台账追加（后端重启后仍可查）
   try {
     const arts = jobArtifacts(j).slice(0, 20)
     const summary = {
@@ -151,7 +151,7 @@ export function persistJobResult(
       engine: p.engineMode,
       runId: p.runId,
       file: p.fileOpt === undefined ? null : String(p.fileOpt),
-      inputFile: j.inputFile, // F-09（A3）
+      inputFile: j.inputFile, // F-09
       stage: j.stageName || null,
       artifacts: arts.map((a) => a.name + '(' + a.bytes + 'B)'),
       resultSummary: j.parsed ? JSON.stringify(j.parsed).slice(0, 400) : null,

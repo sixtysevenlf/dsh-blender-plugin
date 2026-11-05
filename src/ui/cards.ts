@@ -2,13 +2,6 @@ import { asArray, asRecord, text } from '../contracts/dynamic.js'
 
 export type CardBlock = { type: 'text'; text: string } | { type: 'image'; attachment: unknown }
 
-export interface CardValue {
-  text?: unknown
-  envelope?: unknown
-  image?: unknown
-  images?: unknown
-}
-
 export function renderOne(_args: unknown, value: unknown): CardBlock[] {
   const v = asRecord(value)
   const blocks: CardBlock[] = [{ type: 'text', text: String(v.text || '') }]
@@ -18,7 +11,7 @@ export function renderOne(_args: unknown, value: unknown): CardBlock[] {
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
- * v0.9.3（D2）：结构化回执 —— **两个 text block**
+ * v0.9.3：结构化回执 —— **两个 text block**
  *   block 0 = 单行 JSON 信封（可直接 JSON.parse，字段稳定；不必再手写正则从
  *             "中文前言 + stdout 尾 + result: {...}" 里抠）
  *   block 1 = 人读摘要（原样保留旧版的叙述性文本）
@@ -288,7 +281,7 @@ export function cardPresenters(spec: unknown): Record<string, unknown> {
   return out
 }
 /**
- * v0.9.3（D1/F3）：客户端单次等待上限。超过它就**不干等**，转作业层并回 jobId（对齐 bash 的 promoted 语义）。
+ * v0.9.3：客户端单次等待上限。超过它就**不干等**，转作业层并回 jobId（对齐 bash 的 promoted 语义）。
  * 默认 100 s：外层 run_code 的默认 deadline 是 120 s，留 20 s 余量给回执与状态查询（promoted 路径只是一次很快的 /job 查询）。
  * 调大它 = 允许单次同步等更久（代价：外层 deadline 到点时更容易"结果在服务端、客户端拿不到"）。
  */

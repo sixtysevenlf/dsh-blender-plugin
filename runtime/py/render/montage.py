@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DSH 图像拼图（v0.8.10 / C4）—— N 张图 → 1 张接触表 + 每格指标表。
+"""DSH 图像拼图（v0.8.10）—— N 张图 → 1 张接触表 + 每格指标表。
 
 为什么有它（外部反馈 92/93）：ref-scout 自己写了 montage.py，**6 次调用覆盖 66 张图，省下约 51 次单图调用**；
 但拼图**不省 token**（像素总量不变），省的是调用次数与注意力 —— 且超过 ~1700 px 宽会被 harness 二次缩放，
@@ -58,7 +58,7 @@ if _KIT is None:
     raise RuntimeError("montage 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
-_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_j = _KIT.j  # 共享内核（原自带实现已删）
 def _kernel():
     import sys
     return sys.modules.get("dsh_rt_kernel")

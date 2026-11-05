@@ -1,4 +1,4 @@
-// /session 路由：who（F1.1 拆分）
+// /session 路由：who（拆分）
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { HttpRouteDeps } from '../deps.js'
 

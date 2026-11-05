@@ -1,5 +1,5 @@
 /**
- * P2 回归（PR #75 review）：doctor 的非超时 addon 错误归因。
+ * 回归（PR #75 review）：doctor 的非超时 addon 错误归因。
  *
  * 现场：addon 回了明确错误（如「AI 操作已暂停」），旧逻辑仍把 addonError 当失败后跑 diagnose()；
  * diagnose 在 ping 通时固定返回 kind='main-thread-busy'，把「操作已暂停」写成了「主线程忙」。

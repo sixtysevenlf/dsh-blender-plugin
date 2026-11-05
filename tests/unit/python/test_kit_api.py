@@ -2,7 +2,7 @@
 """Unit tests for kit.Api call forms.
 
 These tests use a fake dispatch and do not import bpy. They pin the contract
-that made qc_render_selftest F8 fail: api({...}) must use the module's default
+that made qc_render_selftest fail: api({...}) must use the module's default
 op, while api() stays help and api["dispatch"] stays a raw str call.
 """
 from __future__ import annotations

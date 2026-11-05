@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * S4 · 计数同步器：**catalog 是唯一真源**，本脚本把数字刷进各处展示文案。
+ * 计数同步器：**catalog 是唯一真源**，本脚本把数字刷进各处展示文案。
  *
  * 用法：node scripts/sync_counts.mjs          # 写入（把过时数字刷新）
  *       node scripts/sync_counts.mjs --dry    # 只报告差异，不写
@@ -19,7 +19,7 @@ const ops = cat.ops_count
 const dry = process.argv.includes('--dry')
 
 const targets = [
-  // T4 之后 plan 工具的描述在 src/plan/tool.ts（入口 src/index.ts 只做 re-export）。
+  // 之后 plan 工具的描述在 src/plan/tool.ts（入口 src/index.ts 只做 re-export）。
   {
     file: path.join(ROOT, 'src', 'plan', 'tool.ts'),
     pairs: [

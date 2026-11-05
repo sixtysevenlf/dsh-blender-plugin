@@ -9,6 +9,7 @@ import bpy_stub
 bpy = bpy_stub.install()
 
 protocol = importlib.import_module("addon.dsh_blender_bridge.protocol")
+registry = importlib.import_module("addon.dsh_blender_bridge.command_registry")
 compat = importlib.import_module("addon.dsh_blender_bridge.compat")
 
 BASE_COMMANDS = [
@@ -40,17 +41,17 @@ GATED_GROUPS = {
 
 
 def test_registry_has_exactly_38_ordered_unique_commands():
-    assert len(protocol.COMMAND_NAMES) == 38
-    assert len(set(protocol.COMMAND_NAMES)) == 38
-    assert list(protocol.COMMAND_NAMES) == ALL_COMMANDS
-    assert "ping" not in protocol.COMMAND_NAMES
-    assert sum(len(names) for _group, names in protocol.COMMAND_GROUPS) == 38
+    assert len(registry.COMMAND_NAMES) == 38
+    assert len(set(registry.COMMAND_NAMES)) == 38
+    assert list(registry.COMMAND_NAMES) == ALL_COMMANDS
+    assert "ping" not in registry.COMMAND_NAMES
+    assert sum(len(names) for _group, names in registry.COMMAND_GROUPS) == 38
 
 
 def test_command_groups_are_base_plus_five_gates():
-    groups = dict(protocol.COMMAND_GROUPS)
+    groups = dict(registry.COMMAND_GROUPS)
     assert list(groups) == ["base", "polyhaven", "hyper3d", "sketchfab", "polypizza", "hunyuan"]
-    assert set(protocol.GATED_COMMAND_GROUPS) == set(groups) - {"base"}
+    assert set(registry.GATED_COMMAND_GROUPS) == set(groups) - {"base"}
     assert list(groups["base"]) == BASE_COMMANDS
     for group, expected in GATED_GROUPS.items():
         assert set(groups[group]) == expected
@@ -100,10 +101,6 @@ def test_redraw_panels_tolerates_headless_context():
         bpy.context.window_manager = previous
 
 
-def test_compat_module_identity_and_version_helpers():
+def test_compat_module_identity():
     assert compat.ADDON_MODULE == compat.__package__
     assert compat.ADDON_MODULE.endswith("dsh_blender_bridge")
-    assert compat.bpy_version() == (4, 2, 10)
-    assert compat.is_bpy_at_least(3, 0, 0) is True
-    assert compat.is_bpy_at_least(4, 2, 10) is True
-    assert compat.is_bpy_at_least(4, 3, 0) is False

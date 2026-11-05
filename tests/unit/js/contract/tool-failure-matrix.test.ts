@@ -3,7 +3,7 @@ import * as plugin from '../../../../src/index'
 import { createFakeContext, type CapturedTool } from '../../../helpers/fake-context'
 import { closedPort } from '../../../helpers/fake-backend.mjs'
 
-// A1 requires every one of the 15 model-facing tools to fail cleanly when the
+// requires every one of the 15 model-facing tools to fail cleanly when the
 // backend is unreachable. Success/parameter/presenter/lossless cases live in
 // tool-execution, tool-presenter and lossless; this file owns the transport
 // failure matrix so a single tool cannot silently hang forever.

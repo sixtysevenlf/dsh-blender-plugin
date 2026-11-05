@@ -23,7 +23,7 @@ import bpy, json, time, os, struct, zlib, tempfile
 
 VIEW_VERSION = 3
 
-# 近空帧的 PNG 字节阈值（v0.9.4 · P0-1）：**低于它才自动**跑一次诊断三项。
+# 近空帧的 PNG 字节阈值（v0.9.4）：**低于它才自动**跑一次诊断三项。
 # 为什么要这个阈值：诊断（coverage / scene_bbox / objects_in_frame）实测 403 物体 560px 要 63 ms、
 # 1120px 137 ms、2240px 488 ms，而真正的绘制 + 显存读回只有 ~22 ms ⇒ 正常帧不该每次白付。
 # 但"瞄空"的告警不能丢：近空帧的 PNG 会压得极小（实测本机带网格线的一帧 560×315 = 37,908 B），
@@ -41,7 +41,7 @@ if _KIT is None:
     raise RuntimeError("view 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
-_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_j = _KIT.j  # 共享内核（原自带实现已删）
 def _kernel():
     import sys
     return sys.modules.get("dsh_rt_kernel")
@@ -169,7 +169,7 @@ def _spec(spec):
         "path": str(s.get("path") or WIN_DEFAULT),
         "area": None if s.get("area") is None else int(s.get("area")),
         "clear": s.get("clear", [0.05, 0.05, 0.05, 1.0]),
-        # v0.9.4（P0-1）：默认**不跑**诊断三项（省 45–490 ms/次）；true = 强制每次跑
+        # v0.9.4：默认**不跑**诊断三项（省 45–490 ms/次）；true = 强制每次跑
         "diagnostics": bool(s.get("diagnostics", False)),
     }
 
@@ -744,7 +744,7 @@ def capture(spec_json):
         if not os.path.isfile(path):
             return _j({"ok": False, "error": err or "出图失败（viewport 与 render 两条路都没产出）", "mode": mode})
         size = os.path.getsize(path)
-        # v0.9.4（P0-1）：原实现这里**连着调了两次** _scene_bbox()（每次 O(物体数)，403 物体 ~18 ms×2）；
+        # v0.9.4：原实现这里**连着调了两次** _scene_bbox()（每次 O(物体数)，403 物体 ~18 ms×2）；
         #   现在只算一次，且同样只在"显式要诊断"或"近空帧"时才算。
         need_diag_r = bool(s.get("diagnostics")) or int(size) < EMPTY_PNG_BYTES
         bbox_r = _scene_bbox() if need_diag_r else None
@@ -759,7 +759,7 @@ def capture(spec_json):
                                   s["sensor_fit"], s["ortho"], s["ortho_scale"], s["shift_x"], s["shift_y"])]},
                    "meta": meta, "ms": int((time.perf_counter() - t0) * 1000), "spec": s})
     n = write_png(path, s["width"], s["height"], rgba)
-    # ── 诊断三项：默认不跑，近空帧自动补跑（v0.9.4 · P0-1）────────────────────────
+    # ── 诊断三项：默认不跑，近空帧自动补跑（v0.9.4）────────────────────────
     # v0.9.1（93-D2）的自诊断（coverage_estimate / scene_bbox / objects_in_frame + frame_looks_empty）
     # 语义**不变**，只是不再每次都付：正常帧省 45–490 ms，近空帧（PNG < EMPTY_PNG_BYTES）
     # 或调用方显式 diagnostics=true 时照旧跑全。缓冲区已经在手里，补跑不需要重新绘制。
@@ -890,6 +890,6 @@ if _K is not None:
                        "diagnostics": {"scene_bbox": _scene_bbox, "coverage": _coverage,
                                        "objects_in_frame": _objects_in_frame,
                                        "empty_frame_note": _empty_frame_note,
-                                       # v0.9.4（P0-1）：把"什么时候会自动跑诊断"的阈值一并暴露，
+                                       # v0.9.4：把"什么时候会自动跑诊断"的阈值一并暴露，
                                        # 自检才能对"diagnostics 标志 == (显式要求 or 字节数 < 阈值)"做机械断言
                                        "empty_png_bytes": EMPTY_PNG_BYTES}})

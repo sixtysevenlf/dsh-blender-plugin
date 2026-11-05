@@ -2,7 +2,7 @@
   "version": 2,
   "baselineCommit": "8299acfd9e40d9c497e118782b3110f2f263cceb",
   "baselineDate": "2026-11-01",
-  "policy": "C5 v3 (2026-11-01): @vitest/coverage-v8 5 switched the JS provider to AST-aware remapping, which changed the measurement scale on the same tree (branch points 3934 -> 6567, executable lines 17819 -> 6294). Re-baselined from canonical CI run 41315467806 at commit 8299acf: JS 71.91 lines / 55.99 branches / 69.5 functions, changed lines 67.698 against v2.6.2 (7724 changed / 2495 missing). Applying the unchanged rule (round down to 0.1pp, subtract 1.5pp) gives floors lines 70.4 / branches 54.4 / functions 68.0 and changed lines 66.1. This is a documented policy change required by the measurement-tool upgrade (explicit exception to the \"a floor must not be lowered\" rule); no tests or modules were removed. Critical contract modules stay >=90/75; execution-lifecycle modules keep their ratchet floors except runtime/execution/headless/process.ts branches 60 -> 55.6 (re-measured 57.14). Python pure logic stays 82.5/74.36 with floors 80/70. E2E 100%. The +2/PR ratchet remains a manual release-window policy. See docs/architecture.md coverage policy.",
+  "policy": "v3 (2026-11-01): @vitest/coverage-v8 5 switched the JS provider to AST-aware remapping, which changed the measurement scale on the same tree (branch points 3934 -> 6567, executable lines 17819 -> 6294). Re-baselined from canonical CI run 41315467806 at commit 8299acf: JS 71.91 lines / 55.99 branches / 69.5 functions, changed lines 67.698 against v2.6.2 (7724 changed / 2495 missing). Applying the unchanged rule (round down to 0.1pp, subtract 1.5pp) gives floors lines 70.4 / branches 54.4 / functions 68.0 and changed lines 66.1. This is a documented policy change required by the measurement-tool upgrade (explicit exception to the \"a floor must not be lowered\" rule); no tests or modules were removed. Critical contract modules stay >=90/75; execution-lifecycle modules keep their ratchet floors except runtime/execution/headless/process.ts branches 60 -> 55.6 (re-measured 57.14). Python pure logic stays 82.5/74.36 with floors 80/70. E2E 100%. The +2/PR ratchet remains a manual release-window policy. See docs/architecture.md coverage policy.",
   "javascript": {
     "globalFloor": {
       "lines": 70.4,
@@ -112,7 +112,7 @@
       "lines": 82.5,
       "branches": 74.36
     },
-    "omitReason": "UI 绘制/注册样板（registration.py、ui/**）、真 bpy 编辑模式上下文（selection/payload.py）与 bpy/网络命令实现（commands/** 除 selection/activity）由 C6 E2E 覆盖，不并入行覆盖率。F3.4 把纯逻辑命令表 command_registry.py 与 selection/caps.py 纳入 scope，并按最终代码重新基线（coverage policy notes）。"
+    "omitReason": "UI 绘制/注册样板（registration.py、ui/**）、真 bpy 编辑模式上下文（selection/payload.py）与 bpy/网络命令实现（commands/** 除 selection/activity）由 E2E 覆盖，不并入行覆盖率。纯逻辑命令表 command_registry.py 与 selection/caps.py 已纳入 scope，并按最终代码重新基线（coverage policy notes）。"
   },
   "e2e": {
     "behaviorMatrixRelease": true,

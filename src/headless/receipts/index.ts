@@ -1,4 +1,4 @@
-/** headless 回执入口（F1.2 拆分）：对外导出保持 v2.6.2 的公共集合。 */
+/** headless 回执入口（拆分）：对外导出保持 v2.6.2 的公共集合。 */
 export {
   HEADLESS_WAIT_MS,
   newRunId,
@@ -11,7 +11,6 @@ export {
   receiptEnvelope,
   headlessReceipt,
   promotedReceipt,
-  type ReceiptContext,
   type ToolReceipt,
 } from './envelope.js'
-export { headlessHumanText } from './human-text.js'
+export { headlessHumanText, type ReceiptContext } from './human-text.js'

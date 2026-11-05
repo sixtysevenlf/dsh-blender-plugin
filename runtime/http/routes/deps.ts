@@ -1,4 +1,4 @@
-// 路由公共依赖类型（T15 迁移）：类型声明集中于此，运行时行为零变化。
+// 路由公共依赖类型（迁移）：类型声明集中于此，运行时行为零变化。
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { EngineSurface } from '../../core/engine/index.js'
 import type { HttpStats } from '../config.js'

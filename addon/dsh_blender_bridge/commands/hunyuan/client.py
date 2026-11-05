@@ -40,7 +40,7 @@ class HunyuanClientMixin:
                                 1. In the 3D Viewport, find the DSH Blender Bridge panel in the sidebar (press N if hidden)
                                 2. Keep the 'Use Tencent Hunyuan 3D model generation' checkbox checked
                                 3. Choose the right platform and fill in the SecretId and SecretKey
-                                4. Restart the connection to Claude"""
+                                4. Restart the DSH Blender Bridge connection"""
                         }
                 case "LOCAL_API":
                     if not api_url:
@@ -51,7 +51,7 @@ class HunyuanClientMixin:
                                 1. In the 3D Viewport, find the DSH Blender Bridge panel in the sidebar (press N if hidden)
                                 2. Keep the 'Use Tencent Hunyuan 3D model generation' checkbox checked
                                 3. Choose the right platform and fill in the API URL
-                                4. Restart the connection to Claude"""
+                                4. Restart the DSH Blender Bridge connection"""
                         }
                 case _:
                     return {
@@ -68,5 +68,5 @@ class HunyuanClientMixin:
             "message": """Hunyuan3D integration is currently disabled. To enable it:
                         1. In the 3D Viewport, find the DSH Blender Bridge panel in the sidebar (press N if hidden)
                         2. Check the 'Use Tencent Hunyuan 3D model generation' checkbox
-                        3. Restart the connection to Claude"""
+                        3. Restart the DSH Blender Bridge connection"""
         }

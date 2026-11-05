@@ -81,7 +81,7 @@ class DSHBB_PT_Panel(bpy.types.Panel):
 
     @staticmethod
     def _draw_connection(layout, scene):
-        # Local bridge server (NOT an MCP/DSH connection): the panel must not claim
+        # Local bridge server (NOT the DSH plugin connection): the panel must not claim
         # that starting this socket server means the agent is connected.
         box = layout.box()
         col = box.column()

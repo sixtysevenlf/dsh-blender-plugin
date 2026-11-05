@@ -1,4 +1,4 @@
-// 输出/目录入口（F1.1 拆分）：catalog 页 / 标记解析 / 结果落盘
+// 输出/目录入口（拆分）：catalog 页 / 标记解析 / 结果落盘
 import fs from 'node:fs'
 import path from 'node:path'
 import { wslToWin } from '../../config.js'

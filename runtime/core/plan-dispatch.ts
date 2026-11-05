@@ -63,7 +63,7 @@ export function createPlanDispatch(E: PlanDispatchDeps) {
       await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\n' + body }, 300000),
     )
   }
-  /** v0.9.6（D1）：把模块返回里的 unknown op 变成"一步改对"——补 did_you_mean + 最小骨架 */
+  /** v0.9.6：把模块返回里的 unknown op 变成"一步改对"——补 did_you_mean + 最小骨架 */
   function enhancePlanResult(out: unknown, o: string): unknown {
     let obj: unknown = out
     let asString = false
@@ -95,14 +95,14 @@ export function createPlanDispatch(E: PlanDispatchDeps) {
    * 或 plan_<op>（load/validate/order/build/graph/status/help）。
    * 两个 python 模块都提供 dispatch(op, args)，因此这里只发 {op, args}。
    *
-   * v0.9.6（D1 · 可发现性）：op="catalog" 在**本地**直接返回目录（不占 Blender 往返），
+   * v0.9.6（可发现性）：op="catalog" 在**本地**直接返回目录（不占 Blender 往返），
    * 其余结果统一过 enhancePlanResult（未知 op → 最近邻 + 骨架）。
    */
   async function planCall(op: unknown, payload?: unknown): Promise<unknown> {
     const o = String(op || 'status')
     if (o === 'catalog' || o === 'catalog_help' || o === 'help_all') return catalogPayload(payload)
-    // v0.9.6（A7）：渲染状态跟踪的 op 在**本地**处理（读磁盘标记，不占 Blender 往返）
-    // P1-③：外部通路（资产门 glTF-Validator / 第二交通路 open3d）—— 本地 spawn，不占 Blender
+    // v0.9.6：渲染状态跟踪的 op 在**本地**处理（读磁盘标记，不占 Blender 往返）
+    // -③：外部通路（资产门 glTF-Validator / 第二交通路 open3d）—— 本地 spawn，不占 Blender
     if (o === 'gltf_validate' || o === 'ext_mesh_check') return await extCheckOp(o, payload)
     if (
       o === 'render_state' ||
@@ -113,7 +113,7 @@ export function createPlanDispatch(E: PlanDispatchDeps) {
     ) {
       return await renderGuardOp(o, payload)
     }
-    // P2 · 声明式搜索：目标 + 参数区间 → 内环全流程（spec 由 shape_search 生成；本地编排，不占额外往返）
+    // 声明式搜索：目标 + 参数区间 → 内环全流程（spec 由 shape_search 生成；本地编排，不占额外往返）
     if (o === 'shape_search') return await shapeSearchOp(payload)
     const out = await planCallInner(o, payload)
     try {

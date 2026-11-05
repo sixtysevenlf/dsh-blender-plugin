@@ -31,7 +31,7 @@ export function createHeadlessLogStreams(
   let seStream: fs.WriteStream | null = null
   try {
     fs.mkdirSync(logDirWsl, { recursive: true })
-    const logNames = headlessLogNames(stamp, runId) // F-09（A2）：同毫秒两个 run 不再互写同一个 log
+    const logNames = headlessLogNames(stamp, runId) // F-09：同毫秒两个 run 不再互写同一个 log
     const soPath = path.join(logDirWsl, logNames.stdout)
     const sePath = path.join(logDirWsl, logNames.stderr)
     soStream = fs.createWriteStream(soPath)
@@ -87,7 +87,7 @@ export async function spawnHeadless(
         timedOut: false,
       })
     }
-    // v0.9.3（D5）：stage 心跳扫描 + 增量落盘（run 运行期间 op=status.stage / 日志就有内容）
+    // v0.9.3：stage 心跳扫描 + 增量落盘（run 运行期间 op=status.stage / 日志就有内容）
     const scanOut = makeStageScanner(runRec),
       scanErr = makeStageScanner(runRec)
     const push = (buf: Buffer, which: string): void => {

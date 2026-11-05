@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { HttpRouteDeps } from './deps.js'
 import { errorMessage, errorField } from '../../core/json.js'
-// HTTP 路由 /opt：优化（T7）
+// HTTP 路由 /opt：优化
 export function createOptRoutes(E: HttpRouteDeps) {
   const { engine, isReadOnly, json, leaseGate, readBody, stats } = E
   return {

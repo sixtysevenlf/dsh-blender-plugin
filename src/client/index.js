@@ -36,8 +36,8 @@ window.__ModuleLoader__.load({
     var DEFAULT_BACKEND = 'http://127.0.0.1:9877'
     /** localStorage 覆盖键（最高优先级的用户侧覆盖）。 */
     var LS_BACKEND_KEY = 'dsh-blender-plugin:backend'
-    /** v2.3 §S2：Blender 原生选中轮询间隔（会话可见时才轮询）。 */
-    var SELECTION_POLL_MS = 100 // v2.6.1 性能实测：1200→100ms，端到端 p50 993→156ms（本机回环，见契约 §S3.2）
+    /** v2.3：Blender 原生选中轮询间隔（会话可见时才轮询）。 */
+    var SELECTION_POLL_MS = 100 // v2.6.1 性能实测：1200→100ms，端到端 p50 993→156ms（本机回环，见契约「选中轮询」）
     /** v2.3：草稿文本里最多列多少个对象名（几百个零件时收敛成摘要，别刷屏）。 */
     var SELECTION_DRAFT_NAME_LIMIT = 24
     /** v2.4：子元素（顶点/边/面/骨骼）草稿里最多列多少个索引/名字。 */
@@ -227,7 +227,7 @@ window.__ModuleLoader__.load({
 
     //#endregion
 
-    //#region v2.3 · Blender 原生选中 → DSH 草稿（契约 v2.3 增补 §S2/§S3）
+    //#region v2.3 · Blender 原生选中 → DSH 草稿（契约 v2.3 增补）
     /**
      * 把 addon 推来的 selection payload 折成一条草稿文本。
      * 空选中（names 为空）返回 null —— 调用方据此跳过插入。

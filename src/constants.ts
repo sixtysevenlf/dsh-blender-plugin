@@ -6,11 +6,11 @@ import { asRecord, errorMessage } from './contracts/dynamic.js'
 export const IS_WIN = process.platform === 'win32'
 
 /**
- * v0.8.10（A0 版本自证）：工具描述统一带版本前缀。
+ * v0.8.10（版本自证）：工具描述统一带版本前缀。
  * description 由**已加载的那份 lib** 生成 → 会话里一眼能看出自己跑的是哪一代，
  * 不会再出现「读的是新源码、跑的是旧 lib」那种排查事故（外部反馈 j20-build 的元教训）。
  */
-export const PLUGIN_VERSION = '3.0.5'
+export const PLUGIN_VERSION = '3.0.6'
 
 // 后端与 Blender 侧模块都放在插件包的 runtime/ 下 → 整个包可搬到任意目录（WSL 或 Windows）
 export const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -61,28 +61,29 @@ export const T = {
   loop: 360000, // /loop 内部 300s（内环预算在 spec.budget_ms 里另算）
   perf: 660000, // /perf 内部 600s
   opt: 660000, // /opt 内部 600s
-  // v0.9.3（D1）：headless 不再"陪跑到超时" —— 客户端等待窗口（DSH_HEADLESS_WAIT_MS，默认 100 s）到点就回
+  // v0.9.3：headless 不再"陪跑到超时" —— 客户端等待窗口（DSH_HEADLESS_WAIT_MS，默认 100 s）到点就回
   // promoted 回执（jobId），服务端子进程继续跑。静态截止留大余量即可（自定义大窗口的用户也不会被判超时）。
   headless: 1200000,
   plan: 360000, // /plan 内部 300s
   worker: 1920000, // exec timeout_ms 由调用方给；静态上限取 32min
   txn: 360000, // /txn 内部 300s
   preset: 360000, // /preset 内部 300s
-  // v0.9.3（D6.2）：job 新增 op=wait（服务端单次上限 600 s）→ 静态截止要盖住它
+  // v0.9.3：job 新增 op=wait（服务端单次上限 600 s）→ 静态截止要盖住它
   job: 660000,
   viewport: 60000, // status/doctor/lease + start/restart 的重试窗口
   // v1.2：等用户点选 —— 后端 TTL 默认 120 s（夹 [5,600]），静态截止留余量盖住最长 600 s + 收尾
 }
 
 /**
- * P0-3（status/doctor 说真话）：host 侧有界探测预算。
+ * （status/doctor 说真话）：host 侧有界探测预算。
  * 外层的超时必须**大于** backend 内部预算，否则模型先拿到 host 的 aborted，看不到 addonError 诊断；
  * 同时要明显小于 T.viewport（60s），保证工具自身仍有界。
  */
 /**
  * op=start：/health 通后再探 /status，判定 addon/bpy 是否可用。
- * backend 侧 /status 的 addon 预算 3.5s；transport 超时后 lifecycle 还会串一次 diagnose()（~2.5s），
- * 真机实测稳态 ~6.0s、后端刚起（启动队列）首调 8.98–9.43s。预算取 12s 覆盖首调，仍远小于 T.viewport 60s。
+ * 修复后 backend 侧 /status 的 addon 预算 5s；transport 超时后 lifecycle 还会串一次 diagnose()（~2.5s），
+ * 半开 addon 稳态 ≈7.5s；启动探测不再占串行队列，首调只多一次冷启动开销。预算取 12s 覆盖首调，
+ * 仍远小于 T.viewport 60s。
  */
 export const VIEWPORT_START_STATUS_TIMEOUT_MS = 12000
 /** op=doctor catch：先探 /health 区分「后端在」与「后端没起」。 */

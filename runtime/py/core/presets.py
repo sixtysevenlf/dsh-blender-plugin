@@ -27,7 +27,7 @@ if _KIT is None:
     raise RuntimeError("presets 需要共享内核 K.dsh_kit（由 KERNEL_BOOTSTRAP 注入）")
 
 
-_j = _KIT.j  # 共享内核（原自带实现已删，见 S1）
+_j = _KIT.j  # 共享内核（原自带实现已删）
 def _kernel():
     import sys
     return sys.modules.get("dsh_rt_kernel")
@@ -231,7 +231,7 @@ def p_import(path, overwrite=False):
     return _j({"ok": True, "added": added, "skipped": skipped, "dir": _dir()})
 
 
-# ---------------------------------------------------------------- v0.8.10（D3）：玻璃 / 光学配方
+# ---------------------------------------------------------------- v0.8.10：玻璃 / 光学配方
 # 外部反馈：EEVEE 默认不把玻璃渲透明 —— 要自己开 use_ssr_refraction / use_raytracing_refraction
 # + 材质侧标志 + Principled 的 Transmission/Alpha，而且 **4.x/5.x 输入名不一样**（白渲一轮磨砂塑料才发现）。
 
@@ -362,7 +362,7 @@ def p_help():
                        "export": "export(names=None, path=None) → 单个 bundle 文件（可分发）",
                        "import": "import(path, overwrite=false)",
                        "glass": "glass(targets='MAT:x,OBJ:y', ior, transmission, roughness, alpha, use_alpha) "
-                                "→ 一条调用配好 EEVEE 真透明玻璃（v0.8.10 D3）"},
+                                "→ 一条调用配好 EEVEE 真透明玻璃（v0.8.10）"},
                "data_format": "点路径 dict：{\"inputs.Base Color\": [1,0,0,1]} 或 {\"nodes.Principled BSDF.inputs.Roughness\": 0.4} 或 {\"location\": [0,0,1]}",
                "why": "把风格/参数配方变成资产：可保存、可套用、可导出分享；与领域无关（材质/对象/场景/自定义都行）"})
 

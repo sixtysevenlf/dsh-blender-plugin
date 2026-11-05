@@ -1,4 +1,4 @@
-// 轨迹 JSONL（T6 / F1.1 拆分入口）
+// 轨迹 JSONL（拆分入口）
 import path from 'node:path'
 import { winToWsl } from '../../config.js'
 import { WIN_TMP } from '../../paths.js'

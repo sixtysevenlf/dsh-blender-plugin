@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { objArg } from './deps.js'
 import type { HttpRouteDeps } from './deps.js'
 import { errorMessage, errorField } from '../../core/json.js'
-// HTTP 路由 /frame：单帧 PNG（T7）
+// HTTP 路由 /frame：单帧 PNG
 export function createFrameRoutes(E: HttpRouteDeps) {
   const { engine, json, pushRtt, stats } = E
   return {

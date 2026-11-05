@@ -1,0 +1,207 @@
+{
+  "version": 1,
+  "scan": {
+    "extensions": [
+      ".ts",
+      ".tsx",
+      ".mts",
+      ".cts",
+      ".js",
+      ".mjs",
+      ".cjs",
+      ".py",
+      ".json",
+      ".md",
+      ".yml",
+      ".yaml"
+    ],
+    "skipDirs": [
+      ".git",
+      "node_modules",
+      "lib",
+      "coverage",
+      ".venv",
+      "dist",
+      "__pycache__",
+      ".dsh",
+      ".dsh-ops",
+      "openspec",
+      "runtime/ext"
+    ],
+    "skipFiles": ["package-lock.json", "package.json"]
+  },
+  "prefixes": [
+    {
+      "prefix": "A",
+      "kind": "acceptance"
+    },
+    {
+      "prefix": "B",
+      "kind": "bug"
+    },
+    {
+      "prefix": "C",
+      "kind": "contract"
+    },
+    {
+      "prefix": "D",
+      "kind": "decision"
+    },
+    {
+      "prefix": "E",
+      "kind": "evaluation"
+    },
+    {
+      "prefix": "F",
+      "kind": "feature"
+    },
+    {
+      "prefix": "M",
+      "kind": "milestone"
+    },
+    {
+      "prefix": "P",
+      "kind": "priority"
+    },
+    {
+      "prefix": "S",
+      "kind": "slice"
+    },
+    {
+      "prefix": "T",
+      "kind": "task"
+    }
+  ],
+  "exemptions": [
+    {
+      "path": "CHANGELOG.md",
+      "reason": "历史变更记录：版本条目保留当时的计划/变更 ID，属于发布历史。"
+    },
+    {
+      "path": "docs/archive/",
+      "reason": "归档文档：按 D10 只读保留历史 ID，不再维护。"
+    },
+    {
+      "path": "MIGRATIONS.md",
+      "reason": "迁移历史台账：记录旧文件去向与当时的迁移任务 ID。"
+    },
+    {
+      "path": "docs/architecture.md",
+      "reason": "架构指南历史注记：D10 允许该文档保留少量历史决策引用。"
+    },
+    {
+      "path": "docs/宿主集成-接口契约-v2.3增补.md",
+      "reason": "冻结的 v2.3 历史契约增补：S 编号是当时的章节/步骤，不随计划重命名。"
+    },
+    {
+      "path": "tests/MIGRATION.md",
+      "reason": "测试迁移历史台账：T11 系列是旧测试迁移任务 ID。"
+    },
+    {
+      "path": "tests/fixtures/README.md",
+      "reason": "fixture 历史说明：T1/T11 指当时的测试骨架与迁移任务。"
+    },
+    {
+      "path": "tests/BEHAVIOR_MATRIX.md",
+      "prefixes": ["C"],
+      "reason": "行为矩阵：C 编号是机器校验的 aspect 代码；T14/F4.2 仍计入残留。"
+    },
+    {
+      "path": "tests/BEHAVIOR_MATRIX.json",
+      "prefixes": ["S"],
+      "reason": "行为矩阵生成数据：S 编号是宿主集成契约的章节引用（§S1）。"
+    },
+    {
+      "path": "runtime/py/assembly/assembly_features.json",
+      "reason": "装配特征数据：M3/M4/M5/M6/M8 是 ISO 螺纹规格，不是里程碑 ID。"
+    },
+    {
+      "path": "skills/",
+      "reason": "技能包领域词汇：S0-S8 建模阶段、T1-T4 草稿表、M 里程碑与 P 优先级均为面向用户的方法层术语。"
+    },
+    {
+      "path": "runtime/py/render/qc_render_impl/",
+      "reason": "QC 渲染自检：A/B/C/E 是自检断言编号与 v0.9.x 反馈条目，不是重构计划 ID。"
+    },
+    {
+      "path": "tests/e2e/blender/",
+      "reason": "真机 E2E 脚本：A/B/C/E 是 check() 断言标签，属于测试可读输出而非重构计划。"
+    },
+    {
+      "path": "runtime/py/core/evalharness.py",
+      "reason": "评测基座：D1/D3/D4/D5/D7/D8 是装配缺陷类型编码（浅穿模/完全包含等），是产品词汇。"
+    },
+    {
+      "path": "runtime/py/geometry/shapegen.py",
+      "reason": "参考图还原方法层：S0-S5 建模阶段、T1-T4 制作表格、P4 方法编号是产品方法词汇。"
+    },
+    {
+      "path": "runtime/py/geometry/surface_impl/",
+      "reason": "曲面实现：stage=M0/M1 是建模阶段标签，其它 M 是里程碑措辞。"
+    },
+    {
+      "path": "docs/操作教程.md",
+      "prefixes": ["D", "P", "M", "S"],
+      "reason": "操作教程面向用户：D/P/M/S 是缺陷类型、优先级、里程碑与契约层词汇；F/E 残留。"
+    },
+    {
+      "path": "docs/AI-安装提示词.md",
+      "prefixes": ["M", "P"],
+      "reason": "安装提示词面向用户：M0-M5 是曲面建模阶段，P0-P2 是能力优先级。"
+    },
+    {
+      "path": "docs/假设驱动建模-cookbook.md",
+      "prefixes": ["S"],
+      "reason": "Cookbook 方法层：S0-S3 表示假设生命周期/契约层阶段，是领域词汇。"
+    },
+    {
+      "path": "docs/Procedura-融合分析.md",
+      "prefixes": ["P"],
+      "reason": "历史融合分析：P0-P2 是优先级分组，不是计划任务。"
+    },
+    {
+      "path": "docs/证据分级与读图纪律.md",
+      "prefixes": ["E"],
+      "reason": "证据分级文档：E1/E2 是文中定义的读图规则编号。"
+    },
+    {
+      "path": "runtime/catalog/data.ts",
+      "prefixes": ["S", "D", "M", "P"],
+      "reason": "catalog 数据表：S/D/M/P 是建模阶段、缺陷类型、里程碑与优先级等用户可见词汇；F1.1 来源注记仍计入残留。"
+    },
+    {
+      "path": "runtime/classes.ts",
+      "prefixes": ["S"],
+      "reason": "建模类型指引：S0/S3/S6 是建模阶段/步骤标签，属于用户方法词汇。"
+    },
+    {
+      "path": "tests/unit/js/contract/plan-ids-gates.test.ts",
+      "reason": "闸门自测：fixture 故意构造 D3/F4.2/T14 等 ID 形状的输入来验证扫描器文法。"
+    },
+    {
+      "path": "runtime/py/core/motion_impl/measure.py",
+      "prefixes": ["F"],
+      "reason": "运动测量实现：F0 是面索引数组（faces）的局部变量名，不是功能 ID。"
+    },
+    {
+      "path": "runtime/py/geometry/blockout_impl/present.py",
+      "prefixes": ["F"],
+      "reason": "present 实现：F12 是 Blender 渲染快捷键，不是功能 ID。"
+    },
+    {
+      "path": "tests/unit/python/test_surface_fit_contract.py",
+      "prefixes": ["M"],
+      "reason": "曲面拟合合同：M3 是建模里程碑/拟合阶段名（reported stage 值），断言必须保留该领域值。"
+    },
+    {
+      "path": "tests/unit/js/contract/surface-fit.test.ts",
+      "prefixes": ["M"],
+      "reason": "曲面拟合合同：M3 是建模里程碑/拟合阶段名，断言必须保留该领域值。"
+    },
+    {
+      "path": "tests/unit/js/contract/catalog.test.ts",
+      "prefixes": ["M"],
+      "reason": "catalog 详情断言：surface 族的 M3 是拟合阶段领域词（与 runtime/catalog/data.ts 一致）。"
+    }
+  ]
+}

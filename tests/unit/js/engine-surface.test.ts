@@ -4,7 +4,7 @@ import { createEngine } from '../../../runtime/engine.js'
 const engine = createEngine() as any
 afterAll(() => engine.stop())
 
-describe('engine assembly (T6)', () => {
+describe('engine assembly', () => {
   it('exposes the frozen public surface', () => {
     expect(Object.keys(engine)).toHaveLength(32)
     expect(engine.addon).toBeTruthy()

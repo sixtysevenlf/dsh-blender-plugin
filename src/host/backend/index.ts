@@ -76,7 +76,7 @@ export async function ensureBackend(port: number): Promise<boolean> {
 }
 
 /**
- * S7 修复：**探端口优先**，不再信陈旧句柄/pidfile。
+ * 修复：**探端口优先**，不再信陈旧句柄/pidfile。
  * 现场 bug：句柄还在（childAlive）但端口根本没监听时，旧实现回 'already-spawned'，
  * 用户拿到一个打不通的后端；反过来，真起来了却因为等待窗口太短回 '启动失败'。
  * 现在：端口能服务 ⇒ already-running；端口不通但句柄在 ⇒ 判为陈旧句柄，SIGTERM 后重拉。

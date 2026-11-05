@@ -323,7 +323,7 @@ def _polyhaven_preview_url(thumbnail_url, size=POLYHAVEN_PREVIEW_SIZE):
 
 
 def _polyhaven_summarize_asset(slug, record):
-    """Trim an /assets record down to what is worth sending back over MCP.
+    """Trim an /assets record down to what is worth sending back over the bridge.
 
     The full record is around a kilobyte of JSON per asset and the whole page of
     results crosses the socket in one message, so twenty untrimmed records is

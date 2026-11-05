@@ -1,5 +1,5 @@
 /** blender_rt_do 的回执装配：ACT / 无头会话 exec / see 的文本（逐字保持 v2.6.2 文案）。 */
-import { asRecord, text } from '../../contracts/dynamic.js'
+import { text } from '../../contracts/dynamic.js'
 import { redactSecrets } from '../errors.js'
 
 const LF = String.fromCharCode(10)
@@ -46,5 +46,3 @@ export function formatActText(r: Record<string, unknown>): string[] {
   if (r.stdout) parts.push('stdout: ' + redactSecrets(r.stdout).slice(0, 3000))
   return parts
 }
-
-export const __unusedAsRecord = asRecord

@@ -33,11 +33,26 @@ Requirements:
 
 - Node.js **24.9** or newer for development and tests; CI runs on Node 24.
 - Blender **4.2 LTS** (tested); Blender 5.x is not yet validated. GUI mode needs the bundled addon; headless mode only needs the executable.
-- Python **3.11+** in a virtualenv with `pytest`; select it with `PYTHON`
+- Python **3.11+**; `npm run setup:dev` creates `.venv` and installs the Python test stack.
+  Tests auto-detect `.venv`; point `PYTHON` at another interpreter only when needed
   (`PYTHONIOENCODING=utf-8` and `PYTHONUTF8=1` on Windows).
 - Optional: a DSH source checkout, only if you need to rebuild `lib/`.
 
-The install, build, typecheck, test, lint, and package commands are defined once in
+Clone and set up the development environment with one command:
+
+    git clone https://github.com/sixtysevenlf/dsh-blender-plugin.git
+    cd dsh-blender-plugin
+    npm run setup:dev
+
+`npm run setup:dev` discovers a Python 3.11+ interpreter (`PYTHON` → `python` → `python3` →
+Windows `py -3`), creates or reuses `.venv`, and installs `requirements-dev.txt`,
+`requirements-typecheck.txt` and the npm dependencies (running `npm ci --legacy-peer-deps` only
+when `node_modules` is missing). It is idempotent: `npm run setup:dev -- --check` verifies an
+existing environment without writing, and `npm run setup:dev -- --force` recreates `.venv`. The
+script prints the `PYTHON` value for the venv when it finishes. `.venv` and `node_modules` are
+never committed.
+
+The build, typecheck, test, lint, and package commands are defined once in
 [AGENTS.md §1](AGENTS.md#1-commands-single-source). Use those commands; do not copy variants from older
 documents. A normal clone no longer ships `lib/`: build it before running the backend locally.
 

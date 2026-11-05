@@ -66,7 +66,7 @@ export function createRunState(input: {
     outdirWsl: p.outdirWsl,
     timeoutMs: p.timeoutMs,
     stage: null,
-    file: p.fileOpt === undefined ? null : String(p.fileOpt), // F-09（A3）：台账记 file，事后可区分"没给档"与"给了没开"
+    file: p.fileOpt === undefined ? null : String(p.fileOpt), // F-09：台账记 file，事后可区分"没给档"与"给了没开"
     stdoutLog: logs ? logs.stdout : null,
     stderrLog: logs ? logs.stderr : null,
   })

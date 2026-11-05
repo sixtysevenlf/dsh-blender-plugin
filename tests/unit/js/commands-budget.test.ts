@@ -1,5 +1,5 @@
 /**
- * P1 回归（Lead 追加第 6 条根因）：/commands 的 addon 预算必须小于宿主静态截止。
+ * 回归（Lead 追加第 6 条根因）：/commands 的 addon 预算必须小于宿主静态截止。
  *
  * 现场：宿主 T.commands = 60000ms，但 commands() 的 FLAGS_CODE addon.send 不传 timeout
  * （默认 120000），再串行 5 个集成 status 各 15000 → 最坏 195s。addon 半开/慢时宿主先到 60s，

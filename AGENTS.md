@@ -4,7 +4,7 @@
 > Humans: [README.md](README.md) (English) · [docs/zh/README.md](docs/zh/README.md) (Chinese).
 > Contribution entry: [CONTRIBUTING.md](CONTRIBUTING.md) · [docs/zh/CONTRIBUTING.md](docs/zh/CONTRIBUTING.md).
 
-This repository is the **DSH × Blender plugin** (v3.0.5): a DeepSeek Harness plugin that drives a live
+This repository is the **DSH × Blender plugin** (v3.0.6): a DeepSeek Harness plugin that drives a live
 Blender session over a loopback TCP bridge. Model surface: **15 tools**; planning surface:
 **34 families / 228 ops**; Blender addon **v1.11 / protocol 11** (package + zip install); backend `127.0.0.1:9877`, addon `127.0.0.1:9876`.
 Ports, config keys, and paths are facts of [docs/配置参考.md](docs/配置参考.md) — never invent them.
@@ -15,7 +15,7 @@ Every other document links here instead of repeating commands.
 
 | Task | Command |
 |---|---|
-| Install dependencies | `npm ci --legacy-peer-deps` |
+| Install dependencies | `npm run setup:dev` (npm ci + fake-bpy stubs + venv; bare `npm ci --legacy-peer-deps` is the CI minimal path) |
 | Build `runtime/` + `src/` → `lib/` | `npm run build` (optional `DSH_CHECKOUT` links DSH host packages) |
 | Build / verify the addon zip | `npm run build:addon` / `npm run check:addon` |
 | Typecheck | `npm run typecheck`; addon typed-core `npm run typecheck:addon` |
@@ -47,7 +47,7 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
 | Backend HTTP | `runtime/http/*` — routes, lease, host views |
 | Backend engine | `runtime/core/*` (dispatch, kernel, scripts), `runtime/execution/*` (headless, jobs, workers), `runtime/transport/*` |
 | Backend language | `runtime/**/*.ts` compiled to `lib/runtime/**/*.js`; `lib/` is never committed |
-| Python domains | `runtime/py/{core,geometry,assembly,render,export}` (registry `runtime/py/modules.json`; no flat `runtime/*.py` since F2.3) |
+| Python domains | `runtime/py/{core,geometry,assembly,render,export}` (registry `runtime/py/modules.json`; no flat `runtime/*.py` after the v3 domain split) |
 | Blender addon | `addon/dsh_blender_bridge/` package and the committed `addon/dsh_blender_bridge.zip` |
 | Built output | `lib/` built by `prepack`; source maps carry inline sources |
 
@@ -87,6 +87,8 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
 
 - Typecheck and the tests for the touched layer pass; contract counts stay 15 tools / 34 families /
   228 ops / 38 addon commands / 29 routes / protocol 11 unless the change declares a new count.
+  The addon count is 38 **registered** commands; the transport-only `ping` makes 39 wire commands.
+  The single truth is `addon/dsh_blender_bridge/command_registry.py` (see architecture §5).
 - New behavior has a failing test first. No `skip`, no retry, and no relaxed assertion to hide a failure.
 - Docs are updated in the same change, and both language versions stay in sync.
 - No secrets, no build artifacts, no `node_modules` or venv; `lib/` is regenerated, never hand-edited.
