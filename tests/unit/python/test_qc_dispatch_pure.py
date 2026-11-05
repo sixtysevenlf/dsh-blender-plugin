@@ -7,8 +7,9 @@ empty-mask, missing-argument and wrong-argument behaviour plus the
 dispatch-table registrations, using synthetic NumPy images and a stubbed
 `qc_load` so no bpy/Blender is needed.
 
-The shared kernel is replaced by a stub that provides only `dsh_kit.j`;
-qc_impl/common.py requires that object at import time.
+The shared kernel module is bootstrapped by executing the real
+runtime/py/core/kit.py; qc_impl/common.py requires its `dsh_kit` object at
+import time, so this exercises the production kernel without Blender.
 """
 
 from __future__ import annotations
@@ -110,6 +111,12 @@ def test_align_iou_rejects_missing_render_path(qc_api):
     out = _dispatch(qc_api, "align_iou", {"ref_path": "ref"})
     assert out["ok"] is False, out
     assert "render_path" in out["error"]
+
+
+def test_align_iou_rejects_empty_ref_path(qc_api):
+    out = _dispatch(qc_api, "align_iou", {"ref_path": "", "render_path": "render"})
+    assert out["ok"] is False, out
+    assert "ref_path" in out["error"]
 
 
 def test_align_iou_wrong_kwargs_surfaces_help(qc_api):

@@ -195,10 +195,12 @@ These are the rules that protect the architecture:
 ### Comment conventions
 
 New and changed file and module headers describe what the file is responsible for now, not the
-refactor step that created it. Source comments never cite T*/F*/B*/C* step IDs or "split
-from"/"behavior frozen" narratives; when the split history is genuinely useful it is at most one
-`History: split from <file> (<version>)` line. Pre-existing headers outside the files a change
-touches are cleaned opportunistically when those files are next edited, not in a dedicated sweep.
+refactor step that created it. New and changed source comments never cite T*/F*/B*/C* step IDs or
+"split from"/"behavior frozen" narratives; when the split history is genuinely useful it is at most
+one `History: split from <file> (<version>)` line. Pre-existing headers outside the files a change
+touches are cleaned opportunistically when those files are next edited; a one-off baseline sweep is
+allowed only when a change declares it explicitly (the terminal-state closeout did, in a
+comment-only diff).
 Behavior history belongs in [tests/BEHAVIOR_MATRIX.md](../tests/BEHAVIOR_MATRIX.md) and
 [CHANGELOG.md](../CHANGELOG.md), not in the implementation comments. Plan IDs are still allowed
 where they identify an accepted item in the plan-ID baseline, but they are identifiers, not file

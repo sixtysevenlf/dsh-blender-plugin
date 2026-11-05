@@ -2,7 +2,7 @@
 
 ## Context
 
-See [proposal.md](proposal.md) for motivation, evidence F1–F4 and scope. This design covers the *how*.
+See [proposal.md](proposal.md) for motivation, evidence F1–F4 and scope. This design covers the _how_.
 
 审计基线（2026-11-05，基于已合并 main `7ed9ff1` / 已发布 v3.0.6）：
 
@@ -54,7 +54,7 @@ See [proposal.md](proposal.md) for motivation, evidence F1–F4 and scope. This 
 
 - **(a) catalogExtras**：由 D1/D2 消除；shape 的 host-side op 走 `hostOps`，不占"例外"。
 - **(b) doc-links baseline**：`config/doc-links-baseline.json` 增加顶层 `review: {owner, reviewBy, reason}`；`scripts/check-doc-paths.mjs` 在 `missingRefs` 非空时要求 review 存在、reason 非空、reviewBy 未过期，否则失败；`tests/unit/js/contract/doc-paths-gates.test.ts` 同步断言。7 条历史引用继续冻结（都是 v2.3 契约/MIGRATIONS 指向的历史路径），不删文档内容。
-- **(c) D1 私有导入**：`config/exceptions.json` 新增 kind `python-private-import`；涉及 8 个 addon 文件（`commands/assets_polyhaven.py`、`commands/material.py`、`commands/polyhaven/{download,hdri,material,model}.py`、`commands/polypizza/{client,download}.py`），每个文件一条，`path` 为该文件，`detail` 列出该文件导入的 `_polyhaven_*` / `_polypizza_*` 名字及目标 `integrations/*_client` 模块（合计 41 对导入 / 22 个唯一名），owner `addon-integrations`，reviewBy 2027-06-30。新增 `tests/unit/python/test_private_import_contract.py`（纯 ast，不 import bpy）：扫描 `addon/dsh_blender_bridge/**` 中所有导入 `_polyhaven_*` / `_polypizza_*` 的 `ImportFrom`，要求每一对 (file, name) 都被登记覆盖，且登记不得有 stale 项。`scripts/check-exceptions.mjs` 的 KINDS 增加该 kind；`docs/architecture.md` 的例外摘要表更新。
+- **(c) D1 私有导入**：`config/exceptions.json` 新增 kind `python-private-import`；涉及 8 个 addon 文件（`commands/assets_polyhaven.py`、`commands/material.py`、`commands/polyhaven/{download,hdri,material,model}.py`、`commands/polypizza/{client,download}.py`），每个文件一条，`path` 为该文件，`detail` 列出该文件导入的 `_polyhaven_*` / `_polypizza_*` 名字及目标 `integrations/*_client` 模块（合计 41 对导入 / 22 个唯一名），owner `addon-integrations`，reviewBy 2027-06-30。新增 `tests/unit/python/test_private_import_contract.py`（纯 ast，不 import bpy）：扫描 `addon/dsh_blender_bridge/**` 中所有从 `integrations/*_client.py` 导入的 `_` 私有名的 `ImportFrom`，要求每一对 (file, name) 都被登记覆盖，且登记不得有 stale 项；期望计数从 `config/exceptions.json` 推导。`scripts/check-exceptions.mjs` 的 KINDS 增加该 kind；`docs/architecture.md` 的例外摘要表更新。
 - 理由：AGENTS.md 规定 `config/exceptions.json` 是唯一 gate 例外数据源，不能为 D1 另开 registry；把"消费"放进 pytest 保证 kind 不是死数据。
 
 ### D5 — F3 注释去历史化

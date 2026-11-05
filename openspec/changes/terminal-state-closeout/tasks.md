@@ -19,7 +19,7 @@
 - [x] 3.1 修改 `config/contracts.json`：qc 不再有 `catalogExtras`；shape 的 `"search"` 从 `catalogExtras` 改为 `hostOps`（带 reason）；同步改 `tests/unit/js/contract/catalog-dispatch-parity.test.ts`，拒绝任何 `catalogExtras` 残留、校验 `hostOps` 与 Python 表互斥；新增两条 fixture 用例（缺键必红、host-side 合法）；验证 `npm run test:contract` 全绿。
 - [x] 3.2 给 `config/doc-links-baseline.json` 增加 `review: {owner, reviewBy, reason}`；改 `scripts/check-doc-paths.mjs`：`missingRefs` 非空时缺 review / reason 为空 / reviewBy 过期即失败；同步 `tests/unit/js/contract/doc-paths-gates.test.ts` 的正反用例；验证 `npm run check:doc-paths` 通过、fixture 缺 review 时为红。
 - [x] 3.3 在 `config/exceptions.json` 增加 8 条 `python-private-import` 登记（addon `commands/assets_polyhaven.py`、`commands/material.py`、`commands/polyhaven/{download,hdri,material,model}.py`、`commands/polypizza/{client,download}.py`，每文件一条，`detail` 列出该文件的 `_polyhaven_*` / `_polypizza_*` 名字及目标 `integrations/*_client` 模块，owner `addon-integrations`，reviewBy 2027-06-30），并在 `scripts/check-exceptions.mjs` 的 KINDS 增加该 kind；验证 `npm run check:exceptions` OK（12 entries）且没有过期项。
-- [x] 3.4 新增 `tests/unit/python/test_private_import_contract.py`（纯 ast）：扫描 `addon/dsh_blender_bridge/**` 中导入 `_polyhaven_*` / `_polypizza_*` 的 `ImportFrom`，要求每对 (file, name) 被 3.3 的登记覆盖、且无 stale 项；验证 `npm run test:python` 通过；临时把一条登记改错名时应失败并回滚。
+- [x] 3.4 新增 `tests/unit/python/test_private_import_contract.py`（纯 ast）：扫描 `addon/dsh_blender_bridge/**` 中所有从 `integrations/*_client.py` 导入的 `_` 私有名的 `ImportFrom`，要求每对 (file, name) 被 3.3 的登记覆盖、且无 stale 项，期望计数从登记推导；验证 `npm run test:python` 通过；临时把一条登记改错名时应失败并回滚。
 - [x] 3.5 更新 `docs/architecture.md` 的例外/函数预算摘要表（新增 `python-private-import`、doc baseline review、hostOps 说明）；验证 `npm run check:doc-paths` 通过且摘要与 `config/exceptions.json` 条目数一致。
 
 ## 4. F3 注释去历史化

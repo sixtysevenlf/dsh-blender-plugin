@@ -35,5 +35,6 @@ coverage/
 /docs/refactor/
 /.dsh/
 /.dsh-ops/
+# Local PR-review workspace (never committed or shipped)
 /.review-tmp/
 .vscode/

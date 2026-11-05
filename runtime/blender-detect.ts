@@ -1,7 +1,8 @@
 /**
  * blender.exe 探测 —— 独立模块（纯探测，不 import config.ts，无环）。
  *
- * 解析逻辑全部落在注入的依赖面（listDir / readFile / env / platform / homedir）上，
+ * 解析逻辑全部落在注入的依赖面（BlenderDetectDeps：env / isWin / isMac / homedir / exists /
+ * listDir / readText / exec / fileCfg）上，
  * 便于在非 Windows 平台与测试中替换探测面。
  *
  * 优先级（高 → 低，与 docs/配置参考.md §4 一致）：

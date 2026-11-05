@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Split from qc.py; behavior preserved by the facade."""
+"""QC 度量与帮助：qc_compare_auto、自检/鲁棒性/掩膜扫描与 qc_help 文案。"""
 from .common import *  # noqa: F401,F403
 from .load import _hstack, _overlay_bytes, _to_u8, qc_crop, qc_load, qc_mask, qc_profile, qc_profile_diff
 from .align import _align_search, _iou_pair, _scale_bool, _scale_rgb, qc_align_rotate, qc_mask_auto, qc_metrics

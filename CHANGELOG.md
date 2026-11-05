@@ -8,8 +8,8 @@
 ### 治理
 
 - 例外有主化：addon 8 个命令模块对 `integrations/*_client.py` 私有 helper 的 41 处跨包导入登记为 `python-private-import`（`config/exceptions.json`，owner `addon-integrations`，reviewBy 2027-06-30），并由纯 ast 契约测试逐对校验；`config/doc-links-baseline.json` 的 7 条冻结失效引用补 `review {owner, reviewBy, reason}`，`check:doc-paths -- --enforce` 拒绝无主/过期的 baseline。
-- 注释去叙事：47 个重构期文件的“从 X 拆出 / 行为冻结”头注释改为职责描述；`addon/dsh_blender_bridge/protocol.py` 删除指向不存在的 `addon_manager` / `trajectory` 的同步注释；注释约定写入 `docs/architecture.md`。
-- 流程收尾：`converge-3-0-terminal-state` 归档到 `openspec/changes/archive/`；清理 19 个干净的历史 worktree（保留 3 个有未提交改动的），`.dsh/`、`.dsh-ops/`、`.review-tmp/` 加入 `.gitignore`（后两者同步加入 ESLint 与 plan-ID 门禁的本地忽略列表）。
+- 注释去叙事：47 个重构期文件的注释（45 个文件头 + 2 个非头部）去掉“从 X 拆出 / 行为冻结”叙事、改为职责描述；`addon/dsh_blender_bridge/protocol.py` 删除指向不存在的 `addon_manager` / `trajectory` 的同步注释；注释约定写入 `docs/architecture.md`。
+- 流程收尾：`converge-3-0-terminal-state` 归档到 `openspec/changes/archive/`；清理 19 个干净的历史 worktree（保留 3 个有未提交改动的），`.dsh/`、`.dsh-ops/`、`.review-tmp/` 加入 `.gitignore`；`.review-tmp/` 同时加入 plan-ID 扫描的跳过目录，三项一并加入 ESLint 忽略配置。
 
 ## v3.0.6（2026-11-05）—— 首调失败修复与重构终态收口（治理 + 开发环境）
 
