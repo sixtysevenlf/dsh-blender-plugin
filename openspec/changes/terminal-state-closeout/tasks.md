@@ -42,7 +42,7 @@
 - [x] 6.2 契约校验：`npx openspec validate terminal-state-closeout --strict` valid（无 warning），`npx openspec status --change terminal-state-closeout --json` 显示 proposal/specs/design/tasks 全 done。
 - [x] 6.3 真机验证：在带 Blender 的发布机器跑 `DSH_BLENDER_EXE=<path> npm run test:e2e`，确认 `qc_dispatch` case 通过并记录日志路径；无 Blender 环境不得用 skip 冒充通过。
 - [x] 6.4 打包与安装冒烟：`npm pack --dry-run` 检查 files 清单（无 openspec/、无 .dsh、无运行时产物）；按 `docs/操作教程.md` 的安装步骤做一次本地 addon 安装冒烟（若本机有 Blender）。
-- [ ] 6.5 开 PR：用 `.github/PULL_REQUEST_TEMPLATE/refactor.md`，写清 F1 行为修复与 F2–F4 治理、测试证据与 AI 披露；验证 PR checks 全绿、`mergeStateStatus` CLEAN。
+- [x] 6.5 开 PR：用 `.github/PULL_REQUEST_TEMPLATE/refactor.md`，写清 F1 行为修复与 F2–F4 治理、测试证据与 AI 披露；验证 PR checks 全绿、`mergeStateStatus` CLEAN。
 
 ## Workflow follow-up
 
