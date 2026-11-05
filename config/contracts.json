@@ -207,10 +207,6 @@
     "qc": {
       "api": "dsh_qc_api",
       "table": "qc",
-      "catalogExtras": {
-        "compare_auto": "Known pre-existing drift (parity audit): qc_compare_auto routes dispatch sub \"compare_auto\", but dsh_qc_api dispatch keys use \"compare\". No host-side handler exists; reported as a follow-up bug instead of hiding it with an alias.",
-        "align_iou": "Known pre-existing drift (parity audit): qc_align_iou routes dispatch sub \"align_iou\", which dsh_qc_api does not expose (closest keys: align_search / iou). Reported as a follow-up bug."
-      },
       "pythonExtras": [
         "iou",
         "align_search",
@@ -253,7 +249,7 @@
     "shape": {
       "api": "dsh_shape_api",
       "table": "shape",
-      "catalogExtras": {
+      "hostOps": {
         "search": "Host-side op: runtime/core/plan-dispatch.ts shapeSearchOp handles shape_search before the dispatcher, so it is intentionally absent from shapegen dispatch."
       }
     },
