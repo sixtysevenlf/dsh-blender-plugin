@@ -64,10 +64,10 @@ On Linux, the default provider SHALL use Xvfb plus VirtualGL so Blender gets a G
 
 ### Requirement: V0 proves the provider before release
 
-3.1 SHALL NOT ship virtual-gui until the V0 bake-off proves on Windows and Linux: real GUI (`bpy.app.background == False`), hardware GL, viewport capture through the GUI path, two concurrent instances, clean stop with no orphan, and parity with a user-gui viewport. If no Windows provider passes, the release MUST be blocked rather than shipping a headless substitute.
+3.1 SHALL NOT ship virtual-gui until the V0 bake-off proves on Windows and Linux: real GUI (`bpy.app.background == False`), hardware GL, viewport capture through the GUI path, two concurrent instances, clean stop with no orphan, and parity with a user-gui viewport. If either Windows or Linux has no passing provider, the release MUST be blocked rather than shipping a headless substitute.
 
 #### Scenario: V0 acceptance blocks release
-- **WHEN** the Windows V0 acceptance has no passing provider
+- **WHEN** either the Windows or the Linux V0 acceptance has no passing provider
 - **THEN** the 3.1 release gate is blocked and the report names the failing measurements
 
 #### Scenario: Headless is not a substitute

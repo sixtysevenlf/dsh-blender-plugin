@@ -65,10 +65,10 @@
 - [ ] 5.5 跑 W1 V0 验收：GL renderer 非软件、GPUOffScreen 截图成功、2 个并发实例隔离、stop 无孤儿、锁屏/RDP/无管理员场景记录；把原始日志和截图存入证据目录。
 - [ ] 5.6 若 W1 失败，评估 Windows IDD fallback：只在失败测量项上启用；验证不静默安装驱动、报告 UAC/签名/许可证前提、用户拒绝时不启动。
 - [ ] 5.7 实现 Linux L1 provider：Xvfb + VirtualGL，每个实例独立 display；验证 `bpy.app.background == False`、GL renderer 为真实 GPU、stop 清理 Blender/vglrun/Xvfb。
-- [ ] 5.8 跑 Linux V0 验收：与 Windows 同一组测量（GUI、GPU、see parity、2 实例、清理、prerequisites）；验证软件 GL 只标 preview-only 且不通过 gate。
+- [ ] 5.8 跑 Linux V0 验收：与 Windows 同一组测量（GUI、GPU、see parity、2 实例、清理、prerequisites）；验证软件 GL 只标 preview-only 且不通过 gate；若 Linux 无 provider 通过，按 5.11 阻止 3.1 整体发布。
 - [ ] 5.9 实现 provider capabilities/readiness 查询：列出平台、prerequisites、安装状态、是否需用户批准；验证未就绪 provider 立即失败并给 fix。
 - [ ] 5.10 汇总 V0 报告：每个 provider 的通过/失败测量、默认/fallback 顺序、virtual-gui 默认实例上限、低资源阈值；把报告作为 3.1 发布门禁附件。
-- [ ] 5.11 如果 Windows 无 provider 通过：阻止 3.1 整体发布（不是只挡住 virtual-gui），记录失败测量项；验证没有“headless 冒充 virtual-gui”的路径。
+- [ ] 5.11 如果 Windows 或 Linux 任一平台无 provider 通过：阻止 3.1 整体发布（不是只挡住 virtual-gui），记录失败测量项；验证没有“headless 冒充 virtual-gui”的路径。
 - [ ] 5.12 更新 virtual-display 文档：Windows helper/IDD 前提、Linux Xvfb/VirtualGL/GPU 驱动命令与发行版矩阵、一键安装入口与 sudo/polkit 前提、锁屏/RDP 限制、preview-only 语义；验证中英版本同步。
 - [ ] 5.13 依赖描述表：把每个 provider 的 prerequisites（包名、检测命令、安装命令、是否需要 root、装后复检）收敛成一张表，capabilities 与 doctor 共用；验证缺依赖时 3s 内返回 `stage=config` 与可执行命令。
 - [ ] 5.14 引导式安装：host `doctor --fix` 与 addon 偏好设置按钮共用同一入口；Ubuntu 22.04/24.04、Debian 12 用 `pkexec` 执行 apt 安装 `xvfb`/`virtualgl`，Fedora/Arch/无 polkit 只给命令；GPU 驱动只检测不安装；装后复检 capabilities，失败保留 stderr。
