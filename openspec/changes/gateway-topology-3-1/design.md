@@ -4,7 +4,7 @@
 
 3.1 是一次拓扑升级，不是 3.0.x 的增量补丁。3.0.6、terminal-state-closeout 和 PR #82 已合并，当前 `origin/main` 为 `82a44bc`（本地 main 可能落后，实施前先 fetch）；仓库已有可复用的契约机器（routing.json、contracts.json、exceptions.json、BEHAVIOR_MATRIX、extension 之外的结构门禁），本设计在这些机器上扩展，不另起一套规则文件。
 
-基线：15 个模型工具 / 34 families / 228 ops / 38 registered commands（+ping=39 wire）/ 29 HTTP routes / protocol 11 / addon 1.11。3.1 目标：6 个模型工具 / 7 个 capability / protocol 12 / addon 2.0.0 / extension manifest 2.0.0 / 插件 3.1.0。
+基线：15 个模型工具 / 34 families / 228 ops / 38 registered commands（+ping=39 wire）/ 29 HTTP routes / protocol 11 / addon 1.11。3.1 目标：6 个模型工具 / 7 个 capability / 35 registered commands（+ping=36 wire）/ protocol 12 / addon 2.0.0 / extension manifest 2.0.0 / 插件 3.1.0。
 
 已验收的 A2 PoC v2.1 证据：P1 反向连接与重连 10/10（重连 102.44ms）；P2 多实例路由 6/6；P4 队列模拟 7/7；P5 see 延迟 P50 60.402ms / P95 64.193ms，但 crop / pixel probe / dedupe / Cycles 未验证；P3 虚拟显示 BLOCKED；P6 六工具收益 BLOCKED；P7 CLI 只有 stub，CLI 已从 3.1 范围删除。虚拟显示和六工具行为都必须在本 change 内重新验收，不能拿 PoC 结论代替。
 
@@ -123,10 +123,22 @@
   - `inspect` ← commands / cmd：commands/metrics/queue/provider 健康等只读查询；`cmd` 的可写执行必须显式 `mode=execute`，只允许仓库维护的 allowlist，返回 write receipt。默认只读，不把写能力藏在只读语义里。
 - `worker` 不作为 session kind 或 tool；内部执行器只服务 op/loop/CI，模型不可见。
 - 行为先等价、工具面后替换：先把旧 15 工具的行为契约与测试用例映射到 6 个新工具（fail-first），切片 7 用新工具整体替换模型面；旧工具的定义、注册、catalog 条目与路由在同一次变更删除。通用实现可以下沉为内部模块，但禁止保留旧工具后加一层新→旧转发壳（facade），也禁止新旧工具并存。`inspect` 的写模式单独测试边界，不让 `cmd` 变成隐式写入口。
-- 计数：6 tools；7 capabilities；34 families / 228 ops 保持（除非 catalog 显式变更）；38 commands + ping = 39 wire；HTTP routes 以 Gateway 实际路由更新并跑 matrix；protocol 12。
+- 计数：6 tools；7 capabilities；34 families / 228 ops 保持（除非 catalog 显式变更）；35 commands + ping = 36 wire（删除 telemetry consent 与 `drain_human_activity`）；HTTP routes 以 Gateway 实际路由更新并跑 matrix；protocol 12。
 - 旧工具名到新工具名的迁移表写入 CHANGELOG 和操作教程；JSON schema 参数名尽量保持可迁移，但 tool 名不保留别名。
 
-### D8 — 版本、兼容与迁移顺序
+### D8 — addon 零遥测、零数据采集与无推广入口
+
+- 删除 `addon/dsh_blender_bridge/commands/telemetry.py`，以及 `commands/activity.py:19-33` 的 `drain_human_activity`；`commands/activity.py` 只保留 `get_activity_state`。旧 host 调用这三个命令时返回 unknown-command/upgrade-required，不做 shim。
+- 删除 `ui/preferences.py:12-23` 的 `telemetry_consent` 与 `_on_telemetry_consent_changed`、`:62-83` 的 Telemetry & Privacy 区块与 `dshbb.open_terms` 调用；删除 `ui/operators.py:226-240` 的 `DSHBB_OT_OpenTerms` 及 `registration.py` 的注册/反注册。Hyper3D/fal.ai/Tencent Cloud 等凭据帮助链接保留。
+- 删除 `recorders/edit_capture.py` 整条 consent-gated 采集路径；`command_registry.start_runtime_handlers/stop_runtime_handlers` 不再注册/反注册它，`server.py` 不再 import/调用 `drain_edit_recorder`，`pyrightconfig.addon.json:20` 删除该文件。
+- 将 `recorders/user_edit.py` 的 `UserEditRecorder` 收敛为只维护 agent command depth/suppression 的 scope（`begin_agent_command`/`end_agent_command`/`ActivityTracker._suppressed` 所依赖的最小接口）；删除事件 deque、`record_undo`、`poll_operators`、`drain`。`recorders/activity.py` 的 modal/selection/undo/redo 本地判定保留，`get_activity_state` 继续工作且不写盘、不发网络。
+- 删除 `config.py:70` 的 `DISCORD_URL`、`ui/panels/index.py:9` 的 import、`:46` 的 `_draw_community` 调用和 `:252-267` 的函数；N 面板不再出现 “Stay updated”/“Join Discord”。若 `textwrap` 因此无其他用途一并删除。
+- `command_registry.py`：删除三个命令和 `TelemetryCommands` mixin；`REGISTERED_COMMAND_COUNT` 38→35，`WIRE_COMMAND_COUNT` 39→36，`PAUSE_SAFE_EXTRA` 删除 `drain_human_activity`；`get_activity_state` 仍为 pause-safe。`runtime/catalog/commands.ts`、`src/tools/cmd.ts`、`runtime/_probe_tools.ts` 同步。
+- 测试：删除 telemetry/consent/drain 用例，新增负向用例（三个命令 unknown、preferences 无 telemetry 属性、N 面板无 Discord、代码无 `discord.gg`/`Allow Telemetry`）；更新 `BEHAVIOR_MATRIX`、`test_addon_protocol.py`、`test_addon_command_registry.py`、`test_addon_config.py`、`test_addon_manifest.py`、`test_addon_activity_commands.py`、integration dispatch/matrix。
+- 文档：`SECURITY.md`/`docs/zh/SECURITY.md` 不再声明 consent 采集或 drain，改为“addon 无遥测；activity 仅本地内存”；`docs/宿主集成-接口契约-v2.3增补.md:89`、`docs/操作教程.md:1305`、README/CHANGELOG/llms.txt 同步。
+- 迁移：3.1 是 breaking；旧 host 调用已删命令得到结构化 unknown + 升级指引；不提供旧命令别名。
+
+### D9 — 版本、兼容与迁移顺序
 
 - 3.1.0 是 breaking minor：插件与 addon 必须同步升级。建议顺序：先停旧 Gateway/Blender，升级插件，再通过 Extensions 升级 addon；旧 addon 连接会被拒绝并给出步骤。
 - Gateway/HTTP API 不保留 3.0.x 兼容；addon protocol 11 拒绝；不做双栈。

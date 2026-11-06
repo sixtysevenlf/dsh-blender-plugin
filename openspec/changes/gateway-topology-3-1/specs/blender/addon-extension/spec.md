@@ -2,7 +2,7 @@
 
 ## Purpose
 
-定义 addon 从 legacy zip 转为 Blender Extension 之后的打包、许可、命名空间、安装更新与官方市场发布契约，保证用户可以按 Blender 的标准方式安装和升级，同时不牺牲协议兼容性和仓库许可边界。
+定义 addon 从 legacy zip 转为 Blender Extension 之后的打包、许可、命名空间、安装更新、零遥测与官方市场发布契约，保证用户可以按 Blender 的标准方式安装和升级，同时不牺牲协议兼容性、仓库许可边界与用户隐私。
 
 ## ADDED Requirements
 
@@ -89,3 +89,43 @@ The 3.1 addon SHALL report addon version 2.0.0, extension manifest version 2.0.0
 #### Scenario: Old addon is rejected
 - **WHEN** a 3.0.x addon sends protocol 11
 - **THEN** it receives an upgrade-required error and no request is routed
+
+### Requirement: The addon collects no telemetry or usage data
+
+The addon SHALL NOT collect, buffer, persist, or transmit telemetry, analytics, prompts, code, screenshots, manual-edit events, or usage records. It MUST NOT expose a telemetry consent preference or telemetry commands, and MUST NOT install consent-gated edit-capture handlers. Local activity detection MAY remain in memory for lease and pause coordination, but it MUST NOT be persisted or sent off the machine.
+
+#### Scenario: Telemetry surface is absent
+- **WHEN** the addon preferences and command registry are inspected
+- **THEN** there is no `telemetry_consent` preference, no telemetry/consent command, and no edit-capture handler registered
+
+#### Scenario: Local activity is not telemetry
+- **WHEN** `get_activity_state` reports human/agent/idle/both for lease or pause coordination
+- **THEN** the response is computed from local in-memory state, and no event history is persisted or transmitted
+
+#### Scenario: Removed command is rejected
+- **WHEN** an older host sends `get_telemetry_consent`, `set_telemetry_consent`, or `drain_human_activity`
+- **THEN** the addon returns an unknown-command/upgrade-required error and does not fall back to a compatibility shim
+
+### Requirement: The addon ships no promotional community links
+
+The addon UI SHALL NOT include Discord/community promotion, "Stay updated" calls to action, or telemetry terms links. Credential and documentation links required to configure supported asset providers MAY remain.
+
+#### Scenario: N-panel has no community promotion
+- **WHEN** the addon N-panel is drawn
+- **THEN** it contains no Discord link or "Stay updated with the latest developments" call to action
+
+#### Scenario: Preferences have no telemetry terms entry
+- **WHEN** the addon preferences are drawn
+- **THEN** there is no Telemetry & Privacy section and no "View Terms and Conditions" link
+
+### Requirement: Command counts reflect telemetry removal
+
+The addon SHALL register 35 commands (36 wire commands including `ping`) after telemetry removal. Catalog, behavior matrix, contract tests, and documentation SHALL use those counts and MUST NOT list `get_telemetry_consent`, `set_telemetry_consent`, or `drain_human_activity`.
+
+#### Scenario: Counts match the removal
+- **WHEN** the addon command registry and contract tests run
+- **THEN** registered commands are 35, wire commands are 36, and the three removed commands appear in no catalog
+
+#### Scenario: Removed commands are absent
+- **WHEN** the behavior matrix and catalog are inspected
+- **THEN** no row or entry lists a telemetry/consent command or `drain_human_activity`

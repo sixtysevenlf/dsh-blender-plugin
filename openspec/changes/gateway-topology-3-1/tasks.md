@@ -105,7 +105,7 @@
 - [ ] 7.4 实现 inspect 只读与 execute 写边界：默认只读；`mode=execute` 仅 allowlist 命令可写，返回 write receipt；验证默认模式不能改 scene/addon。
 - [ ] 7.5 实现 run 与 py/session 的边界：run 不执行任意 GUI Python；py 无会话拒绝；see 不服务 headless；验证三条负向用例。
 - [ ] 7.6 移除 worker 模型面：不注册 tool、不作为 session kind；内部执行器只在 op/loop/CI 使用；验证行为矩阵和 catalog 无 worker。
-- [ ] 7.7 更新契约计数与矩阵：6 tools、7 capabilities、34 families/228 ops（除非显式变更）、38 commands（+ping=39）、协议 12；验证 `test:matrix` 行数与计数一致。
+- [ ] 7.7 更新契约计数与矩阵：6 tools、7 capabilities、34 families/228 ops（除非显式变更）；addon 命令计数在 8.18 统一改为 35（+ping=36）；协议 12；验证 `test:matrix` 行数与计数一致。
 - [ ] 7.8 更新 catalog/param schema/工具文档：6 个工具的 op/handler 映射、旧名迁移表、错误码；验证 `check-doc-paths` 与 catalog 契约测试通过。
 - [ ] 7.9 六工具 A/B 只做验证记录，不作为发布门槛：记录 PoC P6 的 BLOCKED 事实；验证没有因命名实验阻塞行为迁移。
 
@@ -125,11 +125,16 @@
 - [ ] 8.12 实现官方 API 上传：multipart version_file + release_notes、Authorization bearer secret；验证 dry-run/失败路径不伪造版本，成功记录版本号。
 - [ ] 8.13 更新版本：插件 3.1.0、addon 2.0.0、manifest 2.0.0、protocol 12；验证 package.json、manifest、protocol、docs 一致。
 - [ ] 8.14 删除 legacy zip 产物/安装文档/测试入口；验证 `npm pack --dry-run` 与 release 资产只有一个 extension 产物，`check:addon` 改为校验 extension。
+- [ ] 8.15 删除 addon 遥测 consent 与采集：删除 `commands/telemetry.py`、`ui/preferences.py` 的 `telemetry_consent`/`_on_telemetry_consent_changed`/Telemetry & Privacy 区块、`recorders/edit_capture.py`，以及 `server.py`/`command_registry.py` 的注册与清理路径；删除 `dshbb.open_terms` operator 及注册。验证 addon 无 telemetry 偏好、无 consent-gated handler、无事件缓冲。
+- [ ] 8.16 删除 `drain_human_activity` 并收敛 recorder：`commands/activity.py` 只保留 `get_activity_state`；`recorders/user_edit.py` 去掉事件队列/记录/drain，仅保留 agent command depth/suppression；更新 `activity.py`/`command_registry.py` 引用。验证 `get_activity_state` 的 human/agent/idle/both 与 selection 行为不变，且不写盘、不发网络。
+- [ ] 8.17 删除社区/条款入口：删除 `config.py` 的 `DISCORD_URL`、`ui/panels/index.py` 的 `_draw_community` 与调用、`ui/preferences.py` 的 Terms 按钮；验证 N 面板无 “Stay updated”/“Join Discord”，Preferences 无 Telemetry & Privacy，凭据帮助链接保留。
+- [ ] 8.18 同步命令计数与契约：`REGISTERED_COMMAND_COUNT` 38→35、`WIRE_COMMAND_COUNT` 39→36，更新 `PAUSE_SAFE_EXTRA`、`runtime/catalog/commands.ts`、`runtime/_probe_tools.ts`、`src/tools/cmd.ts`、`BEHAVIOR_MATRIX`、`test_addon_protocol.py`、`test_addon_command_registry.py`、`test_addon_config.py`、`test_addon_manifest.py`、`test_addon_activity_commands.py`、integration dispatch/matrix；新增三个旧命令 unknown 的负向用例与“addon 无 telemetry/Discord”静态断言。
+- [ ] 8.19 更新隐私/迁移文档：`SECURITY.md`/`docs/zh/SECURITY.md`、`docs/宿主集成-接口契约-v2.3增补.md`、`docs/操作教程.md`、README、CHANGELOG、`llms.txt`；说明 3.1 addon 不采集/不缓存/不发送遥测，activity 仅本地内存；旧命令返回升级提示，不提供别名。
 
 ## 9. 集成、文档与发布
 
 - [ ] 9.1 全量门禁：`npm run check:finalization`、`check:structure`、`check:exceptions`、`check-plan-ids --enforce`、`test:matrix`、`check:python-static`、`typecheck`、`lint`、`format:check`、`test:unit`、`test:contract`、`test:python`、`check:addon`、`check:build`、`test:parity` 全部 exit 0。
-- [ ] 9.2 计数验收：6 tools、7 capabilities、34 families/228 ops（或显式更新）、38 commands（+ping=39）、protocol 12、addon 2.0.0；验证所有契约源和文档一致。
+- [ ] 9.2 计数验收：6 tools、7 capabilities、34 families/228 ops（或显式更新）、35 commands（+ping=36）、protocol 12、addon 2.0.0；验证所有契约源和文档一致。
 - [ ] 9.3 真机验收：Windows W1/IDD（若用）、Linux L1、user-gui、virtual-gui、queue render/headless、extension 安装/升级；用真实 Blender 4.2，记录日志/截图/耗时。
 - [ ] 9.4 打包与安装冒烟：干净构建后 `npm pack --dry-run` 不含 openspec/、.dsh、lib 旧文件；`npm run smoke:install` 或等价脚本验证 6 tools/extension/doctor。
 - [ ] 9.5 更新文档：README、docs/操作教程、docs/配置参考、docs/architecture、skills/blender-modeling、MIGRATIONS、CHANGELOG；中英同步，链接检查通过。
