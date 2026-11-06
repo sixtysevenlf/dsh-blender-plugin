@@ -94,7 +94,7 @@
 
 - [ ] 7.1 新增 6 工具 facade：session/op/py/see/run/inspect；旧 15 工具的实现保留为内部模块，不直接注册；验证 `src/tools/index.ts` 只注册 6 个。
 - [ ] 7.2 迁移旧工具参数/响应：尽量保持字段可迁移，但 tool 名不保留别名；验证旧名调用返回迁移提示和对应新名。
-- [ ] 7.3 行为等价测试：把 15 工具的关键用例分别映射到 6 工具族，先红后绿；覆盖 viewport/txn、plan/loop/opt/preset、do、see/watch、headless/job/perf、commands/cmd。
+- [ ] 7.3 行为等价测试：把 15 工具的关键用例分别映射到 6 工具族（括号内是旧工具来源，不是新能力），先红后绿；覆盖 viewport/txn、plan/loop/opt/preset、do（→py，含执行脚本/短 Python 与无会话拒绝）、see/watch、headless/job/perf、commands/cmd。
 - [ ] 7.4 实现 inspect 只读与 execute 写边界：默认只读；`mode=execute` 仅 allowlist 命令可写，返回 write receipt；验证默认模式不能改 scene/addon。
 - [ ] 7.5 实现 run 与 py/session 的边界：run 不执行任意 GUI Python；py 无会话拒绝；see 不服务 headless；验证三条负向用例。
 - [ ] 7.6 移除 worker 模型面：不注册 tool、不作为 session kind；内部执行器只在 op/loop/CI 使用；验证行为矩阵和 catalog 无 worker。

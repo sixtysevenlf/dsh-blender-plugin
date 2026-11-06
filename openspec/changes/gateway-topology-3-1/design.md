@@ -110,13 +110,13 @@
 ### D7 — 六工具面
 
 - 模型面固定 `session`、`op`、`py`、`see`、`run`、`inspect`，不注册第七个工具。旧工具名不出现在 catalog；调用旧名返回迁移提示。
-- 映射与职责：
-  - `session`：list/attach/status/doctor/start/stop/lease/pause/resume，以及 txn snapshot/restore/mark/revert/list/prune/drop。只服务 user-gui/virtual-gui。
-  - `op`：plan/loop/opt/preset，执行 catalog 契约算子。
-  - `py`：do，在 GUI 会话内执行 Python；没有会话时拒绝，不启动 headless。
-  - `see`：see/watch，只捕获 GUI viewport；不服务 headless。
-  - `run`：submit/status/wait/collect/cancel/list/perf，唯一作业入口；render/headless 由 kind 区分。
-  - `inspect`：commands/metrics/queue/provider 健康等只读查询；`cmd` 的可写执行必须显式 `mode=execute`，只允许仓库维护的 allowlist，返回 write receipt。默认只读，不把写能力藏在只读语义里。
+- 映射与职责（每条是「新工具 ← 旧工具」的等价迁移，不是新增能力；`py` 就是 `do` 的改名：执行 agent 写的脚本与短 Python，是执行通道而非建模引擎；早期叙事把第六个工具叫 `render`，本设计统一为 `run`，它同时承载 `kind=render` 与 `kind=headless`）：
+  - `session` ← viewport / txn：list/attach/status/doctor/start/stop/lease/pause/resume，以及 txn snapshot/restore/mark/revert/list/prune/drop。只服务 user-gui/virtual-gui。
+  - `op` ← plan / loop / opt / preset：执行 catalog 契约算子。
+  - `py` ← do：在 GUI 会话内执行 agent 写的 Python 脚本或短指令；没有会话时拒绝，不启动 headless。
+  - `see` ← see / watch：只捕获 GUI viewport；不服务 headless。
+  - `run` ← headless / job / perf：submit/status/wait/collect/cancel/list/perf，唯一作业入口；render/headless 由 kind 区分。
+  - `inspect` ← commands / cmd：commands/metrics/queue/provider 健康等只读查询；`cmd` 的可写执行必须显式 `mode=execute`，只允许仓库维护的 allowlist，返回 write receipt。默认只读，不把写能力藏在只读语义里。
 - `worker` 不作为 session kind 或 tool；内部执行器只服务 op/loop/CI，模型不可见。
 - 行为等价先迁移：旧 15 工具的测试先迁到 6 工具族（fail-first 的调用面），再按 PoC 结果验收命名。`inspect` 的写模式单独测试边界，不让 `cmd` 变成隐式写入口。
 - 计数：6 tools；7 capabilities；34 families / 228 ops 保持（除非 catalog 显式变更）；38 commands + ping = 39 wire；HTTP routes 以 Gateway 实际路由更新并跑 matrix；protocol 12。

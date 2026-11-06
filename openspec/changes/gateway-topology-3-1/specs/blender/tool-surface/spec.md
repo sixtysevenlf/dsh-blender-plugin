@@ -2,7 +2,7 @@
 
 ## Purpose
 
-定义 3.1 的模型工具面为六个稳定的产品能力：session、op、py、see、run、inspect。工具名表达用户任务，而不是内部执行方式；内部 worker、队列、显示提供者不暴露为额外工具。
+定义 3.1 的模型工具面为六个稳定的产品能力：session、op、py、see、run、inspect。六个名字是对 3.0.x 旧工具的等价迁移与重命名，不是新的建模或渲染能力；工具名表达用户任务，而不是内部执行方式；内部 worker、队列、显示提供者不暴露为额外工具。早期叙事中的 `render` 工具在本 change 定名为 `run`，因为它同时承载 render 与 headless 两类作业。`py` 是 `do` 的改名：在 GUI 会话内执行 agent 写的脚本与短 Python，是执行通道，不是建模或渲染引擎；没有会话时拒绝，不启动 headless。
 
 ## ADDED Requirements
 
