@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 行为修复（Web 客户端）：Blender 选中写入草稿成功后不再弹提示，失败提示改用自动消失的 error Toast（约 4 秒）。此前成功后调用 `notify("info", …)` 显示"已接收 Blender 选中（已加入草稿，未发送）"，而 DSH 把 `info` 渲染成输入栏里的常驻 banner（无清除接口，发送消息后仍不消失），于是横幅一旦出现就一直在（后续选中只替换文案，不会清掉）。现成功静默（草稿出现文本即是反馈），桥轮询失败首帧改用 `notify("error", …)`。回归：`tests/integration/js/client-selection-notice.test.ts`；客户端契约文档中该步骤同步改写。
 - 行为修复：`qc_compare_auto` / `qc_align_iou` 现在能真正分派。此前 catalog 声明了这两个 op，但 Python 侧 `qc_ops()` 没有对应键，调用返回 `unknown qc op`；现补 `compare_auto` 分派与 `qc_align_iou` 的路径级封装（掩膜 bbox 紧裁后算 IoU，只返回 JSON 标量）。`config/contracts.json` 的 qc `catalogExtras` 随之删除，parity 测试与 native E2E 覆盖分派成功。`qc_help` 补 `compare_auto` / `align_iou` 的签名说明，`qc_align_iou` 缺路径参数时返回明确错误，不再在 `qc_load(None)` 上失败。
 - 无 API / 协议 / 工具计数变化（15 tools / 34 family / 228 op / addon 1.11 / protocol 11）。
 
