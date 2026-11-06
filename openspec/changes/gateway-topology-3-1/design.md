@@ -39,7 +39,7 @@
 ### D1 — Gateway 单端点与 addon 反向连接
 
 - Gateway 取代当前 runtime 的 `server.ts`，是唯一 server。默认物理进程为 host、Gateway、Blender 三个；host 嵌入 Gateway 的可选模式不在 3.1 交付范围，避免两套生命周期。
-- Gateway 只监听一个 loopback HTTP 端口（默认 9877）。host/tools 走 HTTP；addon 在同一端口通过 WebSocket upgrade 路径 `/addon` 建立控制通道。不新增第二个 listener，9876 不再存在。
+- Gateway 只监听一个 loopback HTTP 端口（默认 39877；9877 仅作为显式配置保留）。host/tools 走 HTTP；addon 在同一端口通过 WebSocket upgrade 路径 `/addon` 建立控制通道。不新增第二个 listener，9876 不再存在。
 - WebSocket 端点使用仓库内最小 RFC6455 实现（`runtime/transport/addon-ws.ts` 与 addon 侧 `transport.py`），不新增 npm/pip 依赖。P1 已证明该方向可行；如果实现阶段发现同端口 WS 需要超出预算的复杂度，回到 design 修改契约，不能静默加一个控制端口。
 - addon 删除入站 server：`addon/dsh_blender_bridge/server.py` 的 accept/listen 路径删除，改为 client 连接、心跳、重连。`bpy.app.background` 仍拒绝加载 addon。
 - 握手字段：`instanceId`、`kind`（user-gui/virtual-gui）、`version`、`protocol`、`project`、`capabilities`。`instanceId` 在 Blender 进程生命周期内稳定；重连携带同一 ID。
@@ -47,6 +47,7 @@
 - 多实例路由：tool/session 显式 `instanceId`；只有一个实例时可省略；多个实例省略时返回 ambiguity 错误并列出 ID。`instanceId` 相同的重连在握手校验后替换旧连接，旧请求失败，不执行两次。
 - 协议不匹配（含旧 addon 的 protocol 11）直接拒绝并给出升级指引；不做 legacy 回退。
 - 端口占用、Gateway 未启动、addon 未连接都走 availability envelope；不允许把 Gateway 不可达写成 Blender 未安装。
+- 端口归属与冲突：bind 失败时禁止静默共享（不接受 SO_REUSEADDR 与既有 listener 共存），必须返回 `stage=config` 的 envelope 并给出 port 与占用者（Windows `GetExtendedTcpTable` / `netstat -ano`，Linux `/proc/net/tcp` + `/proc/<pid>/cmdline`）。默认端口迁出 98xx 段的直接依据是 2026-11-06 现场：Blender 5.2.3 上 Blender Lab MCP 扩展与 3.0 addon 同绑 9876，插件 8 次调用 8 次超时（doctor 6.5–8.1s），面板仍显示监听。
 
 ### D2 — 可用性统一契约
 

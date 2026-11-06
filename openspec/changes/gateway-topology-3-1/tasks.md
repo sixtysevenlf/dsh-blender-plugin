@@ -22,6 +22,10 @@
 - [ ] 2.10 更新 addon 连接错误文案：addon 未启动、Gateway 未启动、版本不匹配分别给出 stage 和 fix；验证三类错误不会互相冒充。
 - [ ] 2.11 删除 3.0.x server 相关死代码/测试/文档入口；验证 `check-no-shims`、`check-structure` 不因删除产生未入册例外。
 - [ ] 2.12 记录 Gateway 的单端点测试：`curl /health`、WS `/addon` 握手、非法 upgrade、端口占用、进程退出；作为 PR CI 的 integration 层。
+- [ ] 2.13 默认端口迁移：Gateway 默认 9877 → 39877；同步 `config/*`、`docs/配置参考`、操作教程、测试 fixture 与升级说明（写明 addon 升级/替换后必须重启 Blender：无热重载，旧 listener 不会自动释放）；验证默认配置只监听 39877，9877 仅显式配置时生效。
+- [ ] 2.14 端口占用 fail closed 与归因：bind 失败时解析占用者（Windows `GetExtendedTcpTable` / `netstat -ano`，Linux `/proc/net/tcp` + `/proc/<pid>/cmdline`），返回 `stage=config` envelope（port、pid、process）；验证 3s 内失败且不留第二个 listener。
+- [ ] 2.15 禁止 SO_REUSEADDR 静默共享：Gateway 与 addon 都不以 REUSEADDR 与既有 listener 共存，启动前显式检测端口归属；验证同址双绑无法复现（对照 2026-11-06 的 9876 现场）。
+- [ ] 2.16 端口冲突回归用例：模拟外部 listener 占用默认端口（含 Blender Lab MCP 扩展真机场景），验证插件 3s 内报 `port_conflict`（含占用者），而不是 `addon timeout`；接入 PR CI。
 
 ## 3. 可用性统一契约
 

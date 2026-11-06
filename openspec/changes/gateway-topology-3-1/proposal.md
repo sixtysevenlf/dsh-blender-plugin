@@ -6,6 +6,8 @@
 
 2026-11-04 的场景建模会话暴露了代价：模型可见的插件调用 5 次、任务级成功 0 次；`op=start` 说“后端已在运行”，`doctor` 随后说“后端可能没起”；agent 在 90 秒内放弃插件，之后 67.6 分钟没有重试，改用 108 次 `blender -b` 和 104 次 `read_image` 完成交付。随包的独立评审把权重判为：配置/环境约 60–70%，错误契约/诊断约 20–30%，工具命名/数量约 0–10%；同时确认 `see` 的 crop/zoom/像素采样有证据，但“亚秒级”只是推断，`op` 尚无调用证据。
 
+2026-11-06 又出现同一类故障的另一面：Blender 5.2.3 上 Blender Lab 的 MCP 扩展与 DSH addon 都以 SO_REUSEADDR 监听 127.0.0.1:9876，Windows 把新连接交给 MCP 扩展，插件 8/8 次调用全部超时（doctor 6.5–8.1s），而 addon 面板仍显示“已在监听”。固定默认端口 + 静默共存的代价是：TCP 连得上、通道不可用，模型只能反复超时。
+
 v3.0.6（PR #75）已经修复了这组 P0：Windows Steam 探测、`blender_exe_missing` 预检、status/doctor 有界超时与诚实归因、`commands` 的 next_action。但修复仍是 3.0.x 拓扑内的补丁：addon 仍然监听入站端口，没有队列、没有 Gateway 管理的虚拟显示，15 个工具中仍有 `plan`/`do` 这类内部实现名泄漏。如果直接把队列和 virtual-gui 叠在 3.0.x 假设上，就会产生第二套连接路径和新的中间层。
 
 现在 3.0.6 已发布、main 干净、重构终态治理已完成，是把这些能力收口成 3.1 契约的窗口：先把可用性、连接、会话、队列变成可验证的一等公民，再开放工具面。CLI 不再作为 3.1 的交付物；agent 的提效由 tool 的 batch/transaction 承担，而不是让模型多走一层进程。addon 目前以 legacy zip 随 GitHub Release 分发，用户更新靠手动下载；3.1 同时把它收口为 Blender 4.2 extension，进入官方 Extensions Platform 的审核与更新通道。
@@ -13,6 +15,7 @@ v3.0.6（PR #75）已经修复了这组 P0：Windows Steam 探测、`blender_exe
 ## What Changes
 
 - **BREAKING** **Gateway 单端点拓扑**：删除 runtime 作为“连 addon 的客户端”和 addon 的 9876 入站监听；Gateway 成为唯一 server，addon 作为 client 主动连接。host 与 tools 只连 Gateway；端口被占用时 fail closed；不做双栈兼容。
+- **默认端口迁移与端口冲突 fail closed**：Gateway 默认端口从 9877 改为 39877（避开 Blender MCP 生态常用的 98xx 段与 Windows 动态端口段）；端口被占用时 fail closed 并报告占用者（port / pid / process），禁止与既有 listener 静默共存（不用 SO_REUSEADDR 共享）；doctor/status 必须区分“端口被他人占用”与“addon 未启动或卡住”。
 - **BREAKING** **addon 反向连接与握手**：addon 注册 `instanceId / kind / version / project / capabilities`；Gateway 按 instanceId 管理多实例、路由与断线重连；协议版本不匹配直接拒绝（负向测试覆盖旧 addon）。
 - **可用性契约**：首调失败返回统一四问 `stage / root_cause / fix / fallback`（附 `evidence`）；`start` 与 `doctor` 不得互相矛盾；`/health` 通不等于 bpy 可用。3.0.6 已实测 `/status` 约 7.5s、`/doctor` 约 6.5s，作为 3.1 的预算基线；目标是在不牺牲诚实性的前提下收紧到评审建议的 P95 ≤3s；不把“无响应”写成“后端没起”。
 - **会话与资源**：`user-gui`（用户拉起、agent 附着、单写者/lease/pause、无上限）、`virtual-gui`（agent 专用、用户不可察，本 change 的发布门槛，不是可选增强）。`headless` 不属于 session：它是一次性 `blender -b` 无头任务，只通过 `job-queue` 提交。`virtual-gui` 必须启动真正的 GUI Blender（`bpy.app.background == False`），具备可用 GPU/GL、可截图/see、可多实例、可清理；交互式视觉只属于 user-gui/virtual-gui。`worker` 的 Workbench see 从模型工具面移除：worker 只保留为内部执行器/CI 诊断，不暴露为模型工具。平台显示做成 `DisplayProvider` 抽象；V0 先做 provider bake-off：Windows 首选自写的隐藏 desktop helper（Win32，无第三方依赖，不需要驱动/管理员），签名 IDD 仅作为 fallback（需要用户安装驱动/UAC，不能静默）；Linux 首选 Xvfb+VirtualGL，Xvfb 软件渲染只能 `preview-only`。WSL/WSLg 路线不再考虑。V0 通过前不写死“Windows 原生 IDD 默认”，也不写死“默认 4 个 virtual-gui”；通过后才定 default/fallback、实例上限和安装前提。**如果 Windows 没有 provider 通过，3.1 不发布，不能退回 headless 冒充 virtual-gui。**

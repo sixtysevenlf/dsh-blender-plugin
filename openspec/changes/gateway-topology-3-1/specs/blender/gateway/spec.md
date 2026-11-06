@@ -18,6 +18,18 @@ Gateway SHALL be the only server in the 3.1 topology. Host, tools, and CLI SHALL
 - **WHEN** Gateway is running
 - **THEN** no process is listening on the retired addon port 9876
 
+### Requirement: Gateway fails closed on port conflict
+
+Gateway SHALL bind only its configured loopback port. If that port is already in use, Gateway MUST refuse to start, MUST NOT share the socket with the existing listener, and MUST report the port and the occupying process identity when it can be determined.
+
+#### Scenario: Occupied port blocks startup
+- **WHEN** another process already listens on the configured Gateway port
+- **THEN** Gateway exits with a structured error naming the port and the occupying process and starts no listener
+
+#### Scenario: Conflict is not reported as an addon failure
+- **WHEN** Gateway cannot bind its port
+- **THEN** the failure reports `stage=config` with the port and owner, and does not claim the addon is missing or unresponsive
+
 ### Requirement: Addon handshake identifies an instance
 
 On connect, the addon SHALL send a handshake containing `instanceId`, `kind`, `version`, `protocol`, `project`, and `capabilities`. Gateway SHALL reject a handshake with a missing field or an unsupported protocol version.

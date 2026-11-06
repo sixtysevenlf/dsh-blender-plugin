@@ -30,6 +30,10 @@ Every failed tool, route, and job response SHALL include `stage`, `root_cause`, 
 - **WHEN** the Blender executable path is null
 - **THEN** the failure reports `stage=config` even if a later spawn would also fail
 
+#### Scenario: Occupied Gateway port is a config failure
+- **WHEN** the Gateway port is already held by another process
+- **THEN** the failure reports `stage=config` with the port and the occupying process, not `stage=addon` or a Blender-unreachable message
+
 ### Requirement: Start and doctor agree
 
 For the same instance and moment, a successful start SHALL imply that doctor reports the same instance and a usable bpy session. If doctor reports an unavailable addon or bpy, start MUST NOT report ready. The two surfaces MUST share the same readiness source.
