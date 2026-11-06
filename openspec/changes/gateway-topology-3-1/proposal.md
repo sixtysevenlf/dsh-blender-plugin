@@ -14,7 +14,7 @@ v3.0.6（PR #75）已经修复了这组 P0：Windows Steam 探测、`blender_exe
 
 ## What Changes
 
-- **BREAKING** **Gateway 单端点拓扑**：删除 runtime 作为“连 addon 的客户端”和 addon 的 9876 入站监听；Gateway 成为唯一 server，addon 作为 client 主动连接。host 与 tools 只连 Gateway；端口被占用时 fail closed；不做双栈兼容。
+- **BREAKING** **Gateway 单端点拓扑**：删除 runtime 作为“连 addon 的客户端”和 addon 的 9876 入站监听；Gateway 成为唯一 server，addon 作为 client 主动连接。host 与 tools 只连 Gateway；端口被占用时 fail closed；不做双栈兼容。Gateway 由 DSH host/plugin 拥有并管理生命周期（随插件启停，不 detached），不是 Blender 任务，也不由 job-queue 调度。
 - **默认端口迁移与端口冲突 fail closed**：Gateway 默认端口从 9877 改为 39877（避开 Blender MCP 生态常用的 98xx 段与 Windows 动态端口段）；端口被占用时 fail closed 并报告占用者（port / pid / process），禁止与既有 listener 静默共存（不用 SO_REUSEADDR 共享）；doctor/status 必须区分“端口被他人占用”与“addon 未启动或卡住”。
 - **BREAKING** **addon 反向连接与握手**：addon 注册 `instanceId / kind / version / project / capabilities`；Gateway 按 instanceId 管理多实例、路由与断线重连；协议版本不匹配直接拒绝（负向测试覆盖旧 addon）。
 - **可用性契约**：首调失败返回统一四问 `stage / root_cause / fix / fallback`（附 `evidence`）；`start` 与 `doctor` 不得互相矛盾；`/health` 通不等于 bpy 可用。3.0.6 已实测 `/status` 约 7.5s、`/doctor` 约 6.5s，作为 3.1 的预算基线；目标是在不牺牲诚实性的前提下收紧到评审建议的 P95 ≤3s；不把“无响应”写成“后端没起”。

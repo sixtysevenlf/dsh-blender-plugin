@@ -18,7 +18,7 @@
 - [ ] 2.6 实现重连替换：相同 instanceId 的新连接在握手后替换旧 epoch；旧请求返回 disconnect，不重放；验证 P1 的 10/10 与重连延迟记录。
 - [ ] 2.7 实现协议/版本拒绝：protocol 11、缺少字段、未知 kind 全部拒绝并给升级/修复提示；验证旧 addon 负向用例通过且不会回退 9876。
 - [ ] 2.8 收口 Gateway 生命周期：唯一 HTTP 端口，端口占用 fail closed；host/tools 只连 Gateway；删除 runtime 直连 addon 的分支；验证 `netstat` 只有 Gateway 一个 loopback 监听，9876 无监听。
-- [ ] 2.9 定义默认进程模型：host + Gateway + Blender 三个进程；host 启动/停止 Gateway 的顺序、日志、退出清理可测；验证 Gateway 崩溃后 host 不在旧端口重试到无限。
+- [ ] 2.9 定义默认进程模型：host + Gateway + Blender 三个进程；Gateway 生命周期归 DSH host/plugin（插件启用/首次后端调用时拉起，host 退出或插件卸载时停止，不 detached、不交给 Blender/job-queue）；改造 `src/host/backend/spawn.ts`：去掉 3.0.x 的 `detached`/`unref` 存活语义，stdio 接日志文件；host 启动/停止顺序、日志、退出清理可测；Gateway 崩溃由 host 有界重启（退避 + 上限）；验证 host 退出后无 Gateway 残留、崩溃不会在旧端口无限重试。
 - [ ] 2.10 更新 addon 连接错误文案：addon 未启动、Gateway 未启动、版本不匹配分别给出 stage 和 fix；验证三类错误不会互相冒充。
 - [ ] 2.11 删除 3.0.x server 相关死代码/测试/文档入口；验证 `check-no-shims`、`check-structure` 不因删除产生未入册例外。
 - [ ] 2.12 记录 Gateway 的单端点测试：`curl /health`、WS `/addon` 握手、非法 upgrade、端口占用、进程退出；作为 PR CI 的 integration 层。

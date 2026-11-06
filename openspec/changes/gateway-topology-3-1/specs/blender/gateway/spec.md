@@ -8,7 +8,7 @@
 
 ### Requirement: Gateway is the only server
 
-Gateway SHALL be the only server in the 3.1 topology. Host, tools, and CLI SHALL connect only to Gateway, and the addon SHALL initiate its control connection to Gateway. The addon MUST NOT listen on 9876 or any other inbound port.
+Gateway SHALL be the only server in the 3.1 topology. Host and tools SHALL connect only to Gateway, and the addon SHALL initiate its control connection to Gateway. The addon MUST NOT listen on 9876 or any other inbound port.
 
 #### Scenario: Addon starts without an inbound listener
 - **WHEN** a Blender addon instance starts

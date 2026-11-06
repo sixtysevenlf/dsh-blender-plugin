@@ -39,6 +39,7 @@
 ### D1 — Gateway 单端点与 addon 反向连接
 
 - Gateway 取代当前 runtime 的 `server.ts`，是唯一 server。默认物理进程为 host、Gateway、Blender 三个；host 嵌入 Gateway 的可选模式不在 3.1 交付范围，避免两套生命周期。
+- Gateway 的生命周期归 DSH host/plugin，不归 Blender、CLI 或 job-queue：插件启用时注册 owner，首次后端调用时拉起；插件停用或 DSH host 退出时停止并清理；不 `detached`，也不以 `unref` 让子进程脱离 host 生命周期。Gateway 崩溃由 host 有界重启（退避 + 次数上限），超限返回 `stage=spawn`，不得在旧端口无限重试；Gateway 本身不是 job，job-queue 只承载 `render`/`headless` 两类 Blender 作业。
 - Gateway 只监听一个 loopback HTTP 端口（默认 39877；9877 仅作为显式配置保留）。host/tools 走 HTTP；addon 在同一端口通过 WebSocket upgrade 路径 `/addon` 建立控制通道。不新增第二个 listener，9876 不再存在。
 - WebSocket 端点使用仓库内最小 RFC6455 实现（`runtime/transport/addon-ws.ts` 与 addon 侧 `transport.py`），不新增 npm/pip 依赖。P1 已证明该方向可行；如果实现阶段发现同端口 WS 需要超出预算的复杂度，回到 design 修改契约，不能静默加一个控制端口。
 - addon 删除入站 server：`addon/dsh_blender_bridge/server.py` 的 accept/listen 路径删除，改为 client 连接、心跳、重连。`bpy.app.background` 仍拒绝加载 addon。
