@@ -101,3 +101,19 @@ Prerequisite installation SHALL be an explicit user action, never part of plugin
 #### Scenario: Unsupported distribution degrades to a command
 - **WHEN** the host has no supported one-click path (no polkit, AUR-only package, or unknown package manager)
 - **THEN** the response returns the exact command, reports the provider as unavailable, and does not attempt an unattended install
+
+### Requirement: Missing prerequisites are a code-level hard gate
+
+A provider whose prerequisites are absent SHALL refuse to start inside the provider's own start path, before any process is spawned. The refusal MUST NOT depend on the caller's intent, and no force flag, environment override, or agent decision MAY bypass it. Capabilities SHALL report the provider as unavailable and name the missing prerequisites.
+
+#### Scenario: Explicit start is still refused
+- **WHEN** a caller explicitly starts virtual-gui on a Linux host without Xvfb or VirtualGL
+- **THEN** the provider start path returns a prerequisite failure and spawns no Xvfb, VirtualGL, or Blender process
+
+#### Scenario: No bypass exists
+- **WHEN** the configuration or call arguments are inspected for an override
+- **THEN** no force/unsafe/skip-check option can make an unready provider start
+
+#### Scenario: Re-check after installation
+- **WHEN** the missing packages are installed while the process is running
+- **THEN** the next capabilities query reports the provider as available without requiring a restart

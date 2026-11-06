@@ -80,6 +80,7 @@
 - 不采用 WSL/WSLg/WSL+Xvfb、Xdummy、Weston headless 作为 3.1 provider；未来版本再评估。
 - V0 bake-off 是本 change 的发布门槛：Windows W1、Windows W2（仅 W1 失败时）、Linux L1 各跑同一组验收；通过后才在文档和配置里写默认 provider、fallback 顺序、virtual-gui 默认上限和安装前提。
 - V0 验收（每个通过的 provider 必须具备）：`bpy.app.background == False`；GL renderer 非 llvmpipe；`see` 走 GUI capture 且与 user-gui 的 viewport 结果 parity；2 个并发实例互不串场景；stop 后无 Blender/Xvfb/helper 孤儿；安装前提可查询；锁屏/RDP/无显示环境行为已记录。
+- 缺依赖是代码级硬门：provider 的 start 路径在 spawn 任何进程之前检查 prerequisites，缺失即拒绝；不存在 force/unsafe/skip-check 开关，agent 的意图不能绕过。UI 与 agent 都只能看到“不可用 + 缺什么 + 怎么装”，不能“先试一下”。
 - 依赖引导不是静默安装：provider `capabilities()` 报告 prerequisites 与安装状态；host 的 `doctor --fix` 与 addon 偏好设置按钮共用同一张 prerequisites 描述表；Ubuntu 22.04/24.04 与 Debian 12（apt）用 `pkexec` 真一键安装 `xvfb`/`virtualgl`，Fedora/Arch/无 polkit 环境只给准确命令；GPU 驱动只检测不安装；安装后必须复检 capabilities，失败保留原始 stderr 且不得把 provider 标为 ready。
 - 若 Windows 没有 provider 通过 V0：3.1 不发布 virtual-gui，也不允许把 render/headless 当作替代；发布报告必须写明失败的测量项。
 

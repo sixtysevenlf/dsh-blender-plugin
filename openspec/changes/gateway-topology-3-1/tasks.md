@@ -72,6 +72,7 @@
 - [ ] 5.13 依赖描述表：把每个 provider 的 prerequisites（包名、检测命令、安装命令、是否需要 root、装后复检）收敛成一张表，capabilities 与 doctor 共用；验证缺依赖时 3s 内返回 `stage=config` 与可执行命令。
 - [ ] 5.14 引导式安装：host `doctor --fix` 与 addon 偏好设置按钮共用同一入口；Ubuntu 22.04/24.04、Debian 12 用 `pkexec` 执行 apt 安装 `xvfb`/`virtualgl`，Fedora/Arch/无 polkit 只给命令；GPU 驱动只检测不安装；装后复检 capabilities，失败保留 stderr。
 - [ ] 5.15 无依赖环境回归：没有 xvfb/virtualgl 的容器里 virtual-gui 不得 ready、不得启动 Xvfb、不得回落 headless；验证按钮/命令输出与真实包管理器错误一致，测试不需要 root。
+- [ ] 5.16 缺依赖代码级硬门：provider start 在 spawn 前检查 prerequisites，缺失直接返回 prerequisite 失败；确认不存在 force/unsafe/skip-check 覆盖路径；验证显式 start 也不产生 Xvfb/VirtualGL/Blender 进程，装好依赖后 capabilities 下一次查询即变为可用。
 
 ## 6. 作业队列
 
