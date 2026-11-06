@@ -212,14 +212,16 @@ window.__ModuleLoader__.load({
       return { readable: false, draft: '' }
     }
 
-    /** 可用则 notify，不可用静默（契约 §2.4 第 5 步）。 */
-    function notifyInfo(deps, text) {
+    /**
+     * 失败提示：用 error 级，DSH 会渲染成自动消失的 Toast（约 4 秒，无关闭按钮）；不可用则静默。
+     * **不要用 info**：DSH 把 info 渲染成输入栏里的常驻 banner，没有清除接口，
+     * 发送消息后也不会消失（v2.3 的“已接收 Blender 选中”因此变成永久横幅）。
+     * 成功路径也不提示：草稿里出现文本本身就是反馈。
+     */
+    function notifyError(deps, text) {
       try {
         var f = deps && deps.fallbackInput
-        if (f && typeof f.notify === 'function') {
-          f.notify('info', text)
-          return
-        }
+        if (f && typeof f.notify === 'function') f.notify('error', text)
       } catch (e) {
         /* 静默 */
       }
@@ -387,6 +389,7 @@ window.__ModuleLoader__.load({
     /**
      * 把选中写进当前会话草稿（**不自动发送**）。
      * 优先 inputActions.insertText（可追加），否则退回 SessionInput.setDraft（仅当草稿为空）。
+     * 成功不弹提示（草稿文本可见）；失败由调用方用 notifyError 报 error 级 Toast。
      * @returns {Promise<{ok:boolean, how?:string, reason?:string, text?:string}>}
      */
     async function applySelectionToDraft(deps, payload) {
@@ -408,7 +411,6 @@ window.__ModuleLoader__.load({
           }
         }
         if (!wrote) return { ok: false, reason: '文本插入被拒（草稿正在变或已锁定）', text: text }
-        notifyInfo(deps, '已接收 Blender 选中（已加入草稿，未发送）')
         return { ok: true, how: 'actions', text: text }
       }
       // 备用通道只有 setDraft（整体替换）→ 只在"读得到且为空"时才写，绝不覆盖用户内容
@@ -421,7 +423,6 @@ window.__ModuleLoader__.load({
       } catch (e) {
         return { ok: false, reason: '文本写入失败：' + errText(e), text: text }
       }
-      notifyInfo(deps, '已接收 Blender 选中（已加入草稿，未发送）')
       return { ok: true, how: 'fallback', text: text }
     }
 
@@ -500,7 +501,7 @@ window.__ModuleLoader__.load({
                     // 连续失败 3 次才消费掉并在回执里记下原因，避免无限重试。
                     failCountRef.current += 1
                     if (failCountRef.current === 1) {
-                      notifyInfo(
+                      notifyError(
                         { fallbackInput: fallbackRef.current },
                         'Blender 选中未写入草稿：' + String(out.reason || 'unknown'),
                       )
@@ -736,6 +737,7 @@ window.__ModuleLoader__.load({
       selectionMessageText: selectionMessageText,
       subSelectionText: subSelectionText,
       applySelectionToDraft: applySelectionToDraft,
+      notifyError: notifyError,
       makeSelectionBridge: makeSelectionBridge,
     }
     return module.exports
