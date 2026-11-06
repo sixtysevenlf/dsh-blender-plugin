@@ -126,53 +126,72 @@ The see capability SHALL capture from a `user-gui` or `virtual-gui` session only
 - **WHEN** see is called for a headless job
 - **THEN** it returns a structured boundary error and does not start a background Blender for a frame
 
-### Requirement: see preview size is bounded
+### Requirement: see preview size is a fixed enum
 
-The see capability SHALL default `max_size` to 1024 pixels and SHALL NOT return an image whose longest edge exceeds 1024 pixels. The effective range SHALL be 120–1024; a larger requested value MUST be clamped to 1024. An explicit `view_size` or a `full=true` screenshot MUST also be resized so its longest edge is at most 1024 pixels. The receipt SHALL report the final width and height.
+See SHALL accept `max_size` only from a fixed set per aspect: `1:1` = `544|768|1024|1280`; `4:3` = `640|960|1280`; `16:9` = `1024|1152|1280`. A value outside that aspect's set MUST return `invalid_params` naming the allowed values and MUST NOT be clamped. The model-facing see surface MUST NOT accept an arbitrary `view_size`; supplying it MUST return `invalid_params`.
 
-#### Scenario: Defaults are bounded
+#### Scenario: Valid values are accepted
 
-- **WHEN** see is called for a 3D viewport without `max_size`
-- **THEN** it returns an image whose longest edge is at most 1024 pixels and the receipt reports the applied width and height
+- **WHEN** see is called with a valid `(aspect, max_size)` pair from the fixed sets
+- **THEN** it returns the exact pixel dimensions for that pair and reports them in the receipt
 
-#### Scenario: Oversize input is capped
+#### Scenario: 1:1 fixed sizes
 
-- **WHEN** `max_size` or `view_size` requests a longest edge above 1024 pixels
-- **THEN** the output is clamped to 1024 pixels and the receipt reports the applied size instead of the requested size
+- **WHEN** see is called with `aspect=1:1`
+- **THEN** `max_size` is one of `544`, `768`, `1024`, `1280`, producing `544×544`, `768×768`, `1024×1024`, or `1280×1280`
 
-#### Scenario: Full screenshots stay bounded
+#### Scenario: 4:3 fixed sizes
+
+- **WHEN** see is called with `aspect=4:3`
+- **THEN** `max_size` is one of `640`, `960`, `1280`, producing `640×480`, `960×720`, or `1280×960`
+
+#### Scenario: 16:9 fixed sizes
+
+- **WHEN** see is called with `aspect=16:9`
+- **THEN** `max_size` is one of `1024`, `1152`, `1280`, producing `1024×576`, `1152×648`, or `1280×720`
+
+#### Scenario: Invalid value is rejected
+
+- **WHEN** `max_size` is outside the selected aspect's set, or `view_size` is supplied
+- **THEN** see returns `invalid_params` with the allowed values and does not clamp or capture
+
+### Requirement: see preview options respect the model pixel bounds
+
+Every option SHALL have at least `544×544` total pixels and at most `1300×1300` total pixels. The smallest option per aspect SHALL be `544×544`, `640×480`, and `1024×576`; the largest SHALL be `1280×1280`, `1280×960`, and `1280×720`. A `full=true` screenshot SHALL preserve its captured ratio and use a fixed 1024-pixel longest edge; `aspect` and `max_size` do not apply to it.
+
+#### Scenario: Smallest options meet the lower bound
+
+- **WHEN** the minimum option is selected for any aspect
+- **THEN** its total pixels are at least 544×544 and the image is not below the model's small-image threshold
+
+#### Scenario: Largest options stay under the upper bound
+
+- **WHEN** the maximum option is selected for any aspect
+- **THEN** its total pixels are at most 1300×1300
+
+#### Scenario: Full screenshots use a fixed bound
 
 - **WHEN** see is called with `full=true`
-- **THEN** the returned window or area screenshot keeps its captured ratio and is resized so its longest edge is at most 1024 pixels
-
-#### Scenario: Size changes do not mutate the session
-
-- **WHEN** see changes its output size
-- **THEN** scene data, selection, and the user's viewport are unchanged
+- **THEN** the screenshot keeps its captured ratio and its longest edge is 1024 pixels
 
 ### Requirement: see supports three aspect presets
 
-See SHALL accept an `aspect` selector with exactly `1:1`, `4:3`, and `16:9`. 3D viewport and custom-view captures SHALL default to `16:9` when `aspect` is omitted. The selected aspect SHALL determine the output image ratio without stretching the scene. An explicit `view_size` MAY override the aspect while remaining within the size bound.
+See SHALL accept `aspect` with exactly `1:1`, `4:3`, and `16:9`. 3D viewport and custom-view captures SHALL default to `16:9`. When `aspect` is omitted, `max_size` SHALL default to 1024; when `aspect` is supplied without `max_size`, `max_size` SHALL default to that aspect's smallest option (`544`, `640`, or `1024`). The selected aspect SHALL determine the output ratio without stretching the scene.
 
-#### Scenario: Aspect presets select the canvas
+#### Scenario: Default is 16:9 at 1024
 
-- **WHEN** see is called with `aspect` set to `1:1`, `4:3`, or `16:9`
-- **THEN** the returned image has that ratio and the scene is not stretched
+- **WHEN** see is called without `aspect` and `max_size`
+- **THEN** it returns a `1024×576` image
 
-#### Scenario: Default aspect is 16:9
+#### Scenario: Aspect-only call uses the minimum
 
-- **WHEN** see is called for a 3D viewport without `aspect`
-- **THEN** the returned image has a 16:9 ratio
+- **WHEN** see is called with `aspect=1:1` or `aspect=4:3` and no `max_size`
+- **THEN** it returns `544×544` or `640×480` respectively
 
-#### Scenario: view_size overrides aspect
+#### Scenario: Aspect does not stretch the scene
 
-- **WHEN** see is called with both `aspect` and an explicit `view_size`
-- **THEN** the output follows `view_size` and its longest edge still does not exceed 1024 pixels
-
-#### Scenario: Aspect changes do not mutate the session
-
-- **WHEN** see changes its output aspect
-- **THEN** scene data, selection, and the user's viewport are unchanged
+- **WHEN** see selects any aspect preset
+- **THEN** the scene is not stretched and the user's viewport and selection are unchanged
 
 ### Requirement: Sessions are isolated
 
