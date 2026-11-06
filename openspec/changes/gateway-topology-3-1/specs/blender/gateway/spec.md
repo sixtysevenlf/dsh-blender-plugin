@@ -30,6 +30,18 @@ Gateway SHALL bind only its configured loopback port. If that port is already in
 - **WHEN** Gateway cannot bind its port
 - **THEN** the failure reports `stage=config` with the port and owner, and does not claim the addon is missing or unresponsive
 
+### Requirement: One Gateway belongs to one DSH host
+
+Gateway SHALL be owned by exactly one DSH host process. A second DSH host MUST NOT attach to, reuse, or share an existing Gateway; it MUST fail closed with `GATEWAY_IN_USE` (stage=config), naming the owning host, port, and process when known. A plugin reload within the same host SHALL reuse the host-owned Gateway handle instead of starting a second instance.
+
+#### Scenario: Second host is rejected
+- **WHEN** a DSH host starts while another DSH host already owns the configured Gateway
+- **THEN** the new host fails with `GATEWAY_IN_USE` and does not route any call through the existing Gateway
+
+#### Scenario: Same-host reload reuses the instance
+- **WHEN** the plugin reloads inside the host that owns the Gateway
+- **THEN** it reuses the existing handle and no second Gateway process is started
+
 ### Requirement: Addon handshake identifies an instance
 
 On connect, the addon SHALL send a handshake containing `instanceId`, `kind`, `version`, `protocol`, `project`, and `capabilities`. Gateway SHALL reject a handshake with a missing field or an unsupported protocol version.

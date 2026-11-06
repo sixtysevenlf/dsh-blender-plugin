@@ -27,6 +27,7 @@
 - [ ] 2.15 端口占用 fail closed 与归因：bind 失败时解析占用者（Windows `GetExtendedTcpTable` / `netstat -ano`，Linux `/proc/net/tcp` + `/proc/<pid>/cmdline`），返回 `stage=config` envelope（port、pid、process）；验证 3s 内失败且不留第二个 listener。
 - [ ] 2.16 禁止 SO_REUSEADDR 静默共享：Gateway 与 addon 都不以 REUSEADDR 与既有 listener 共存，启动前显式检测端口归属；验证同址双绑无法复现（对照 2026-11-06 的 9876 现场）。
 - [ ] 2.17 端口冲突回归用例：模拟外部 listener 占用默认端口（含 Blender Lab MCP 扩展真机场景），验证插件 3s 内报 `port_conflict`（含占用者），而不是 `addon timeout`；接入 PR CI。
+- [ ] 2.18 实现 Gateway 单 host 归属：启动写 `gateway-<port>.json`（gatewayId/hostId/pid/endpoint/startedAt）；`/health` 暴露 owner；第二个 DSH host 请求时返回 `GATEWAY_IN_USE`（stage=config，含 hostId/pid/port），不 attach、不复用；同 host 插件重载复用 host 句柄。验证两个 host 并发启动只有一个 Gateway、第二个 3s 内失败且没有请求被路由到既有 Gateway；加入 integration 回归。
 
 ## 3. 可用性统一契约
 
@@ -55,6 +56,11 @@
 - [ ] 4.11 首调会话门：`session`、执行型 `op`、`py`、`see` 在解析不到 ready user-gui 且未显式请求 virtual-gui 时返回 `stage=session` 决策请求；`op` 的 catalog/dry-run 等本地只读调用不要求会话，直接返回目录/校验结果；验证不 spawn Blender、不启 provider、P95 ≤3s、错误含两个显式选项。
 - [ ] 4.12 显式授权启动 virtual-gui：只有用户确认后才 start，start 前复检仍无 user-gui；验证拒绝后不创建会话，后续调用继续要求决策而不自动降级。
 - [ ] 4.13 删除自动降级路径：移除 3.0.x 的 GUI→worker/headless 兜底与嵌套重试；验证无 Blender 时首调不产生任何 Blender 进程，错误含可执行 fix。
+- [ ] 4.14 调用身份透传：在 `src/contracts/tool.ts:32-36` 捕获 `exec.agent`，host 侧 `src/host/http.ts` 为每次调用带 `hostId / dshSessionId / agentId / parentAgentId / callId / turnId`；不再用 `src/constants.ts:135` 的 plugin-pid 代表调用者。验证两个 DSH session 的调用在 Gateway 侧可区分，subagent 的 parentAgentId 正确。
+- [ ] 4.15 改造 lease 为 caller tuple：`runtime/http/lease.ts:88-99` 的 holder 从 plugin-pid 改为 `(hostId,dshSessionId,agentId)`，TTL 30s、heartbeat 10s，断线/结束立即释放；冲突默认 409，`wait_ms` 上限 5s，`force` 仅人类/Team Lead 且写审计。移除 `src/plugin-lifecycle.ts:33-37` 的全局 `/lease renewOnly` 和 `:66-71` 的卸载 killChildHandle 语义，改为按 caller 释放。验证同 host 两个 agent 读并发、写串行，stale lease 自动过期。
+- [ ] 4.16 委派与 job owner：主 agent 委派前 release，subagent 自己 acquire，默认不继承；job 记录 owner，collect/cancel 允许 owner、父 agent、Team Lead。验证父 agent 释放后子 agent 才能写、父 agent 不能在子 agent 持有时强写、job 权限矩阵通过。
+- [ ] 4.17 实现 agent presence：Gateway 保存每个 caller 的 display name/color/view pose/selected UUIDs/activity/lease；addon 用 `SpaceView3D.draw_handler_add` 的 POST_VIEW/POST_PIXEL 绘制视锥、标签、选中包围盒；`session` 的 `presence` 只读查询复用同一数据。验证两个 agent 颜色/视锥独立、绘制不移动用户视口、不改场景、不新增工具。
+- [ ] 4.18 多 agent 同 user-gui 集成测试：两个 DSH session attach 同一 user-gui，并发 `see`/presence 成功，写操作按 lease 串行；一个 agent 断线后另一个可接管过期 lease；用户视口能看到两个 agent 的视锥。验证无重复 scene/Python namespace，presence 不泄漏到 loopback 之外。
 
 ## 5. virtual-gui 与 DisplayProvider V0
 

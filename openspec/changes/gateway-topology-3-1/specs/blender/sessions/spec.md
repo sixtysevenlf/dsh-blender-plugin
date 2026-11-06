@@ -50,17 +50,53 @@ When a session-bound capability (`session`, an executing `op`, `py`, `see`) has 
 - **WHEN** the user declines virtual-gui
 - **THEN** subsequent session-bound calls keep failing with the same decision-required response and never spawn a headless Blender
 
-### Requirement: A session has one writer lease
+### Requirement: A session has one caller-aware writer lease
 
-Each GUI session SHALL have a single write lease. Mutating operations MUST require the lease, and a lease holder SHALL be able to pause writes so another agent or the user can inspect without interleaving edits. A read-only operation MUST remain available while writes are paused.
+Each GUI session SHALL have a single write lease whose holder is a caller identity tuple `(hostId, dshSessionId, agentId)`, not a process ID. Multiple callers MAY read, `see`, and query presence concurrently; only one caller MAY hold the write lease. Mutating operations MUST require the lease, and the holder SHALL be able to pause writes so another agent or the user can inspect without interleaving edits. A read-only operation MUST remain available while writes are paused.
 
 #### Scenario: Second writer is denied
 - **WHEN** one agent holds the write lease and another attempts a mutating operation
-- **THEN** the second operation fails with a lease conflict that names the holder
+- **THEN** the second operation fails with a lease conflict that names the holder and its expiry
+
+#### Scenario: Two DSH sessions share one user-gui
+- **WHEN** two DSH sessions attach to the same user-gui
+- **THEN** both can read and see the scene, but only the lease holder can mutate it
 
 #### Scenario: Pause blocks writes but not reads
 - **WHEN** the lease holder pauses the session
 - **THEN** mutating operations are rejected and read-only inspection still works
+
+### Requirement: Lease lifecycle and conflict handling
+
+A lease SHALL have a bounded TTL and heartbeat. It MUST be released when the caller disconnects, the host exits, or the call finishes, and an expired lease MAY be acquired by another caller. A conflict MUST fail fast with `409` and name the holder and expiry by default; an optional `wait_ms` MAY be bounded to at most 5 seconds. `force` takeover MUST be restricted to a human or Team Lead and MUST write an audit event.
+
+#### Scenario: Delegation does not inherit the lease
+- **WHEN** a parent agent delegates work to a subagent
+- **THEN** the parent releases the write lease before the subagent acquires it; the subagent does not inherit write access implicitly
+
+#### Scenario: Stale lease is reclaimed
+- **WHEN** a lease holder disconnects without releasing
+- **THEN** the lease expires after its TTL and another caller can acquire it without `force`
+
+#### Scenario: Force requires privilege
+- **WHEN** an ordinary agent attempts a `force` takeover
+- **THEN** it is rejected; a human or Team Lead takeover succeeds and writes an audit event
+
+### Requirement: Agent presence is visible in the user viewport
+
+For a user-gui session, Gateway SHALL track each attached caller's display name, color, observation pose, selected object UUIDs, activity, and lease state. The addon SHALL draw that presence as a frustum, label, and selection outlines in the user's viewport without moving the user's view or mutating the scene. The same read-only presence data SHALL be queryable through `session` without adding a model tool.
+
+#### Scenario: User sees where an agent is looking
+- **WHEN** an agent attaches to a user-gui and reports an observation pose
+- **THEN** the addon draws the agent's frustum and label in the user's viewport, and the user's own view is unchanged
+
+#### Scenario: Multiple agents are distinguishable
+- **WHEN** two agents attach to the same user-gui
+- **THEN** each gets a stable color and label, and their viewports and selections are drawn independently
+
+#### Scenario: Presence is read-only
+- **WHEN** presence is queried or drawn
+- **THEN** no scene data, selection, or user view is modified
 
 ### Requirement: virtual-gui is Gateway-managed and user-invisible
 

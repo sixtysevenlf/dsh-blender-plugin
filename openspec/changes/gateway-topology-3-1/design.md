@@ -40,6 +40,7 @@
 
 - Gateway 取代当前 runtime 的 `server.ts`，是唯一 server。默认物理进程为 host、Gateway、Blender 三个；host 嵌入 Gateway 的可选模式不在 3.1 交付范围，避免两套生命周期。
 - Gateway 的生命周期归 DSH host/plugin，不归 Blender、CLI 或 job-queue：插件启用时注册 owner，首次后端调用时拉起；插件停用或 DSH host 退出时停止并清理；不 `detached`，也不以 `unref` 让子进程脱离 host 生命周期。Gateway 崩溃由 host 有界重启（退避 + 次数上限），超限返回 `stage=spawn`，不得在旧端口无限重试；Gateway 本身不是 job，job-queue 只承载 `render`/`headless` 两类 Blender 作业。
+- Gateway 是每 DSH host 的单例：启动时在状态目录原子写 `gateway-<port>.json`（gatewayId、hostId、pid、endpoint、startedAt）。端口已有 listener 时先请求 `/health`：属于另一个 DSH host 就返回 `stage=config` 的 `GATEWAY_IN_USE`（含 hostId、pid、port），绝不 attach、复用或共享；属于本 host 的插件重载由 host 传递已有句柄，不新建第二个 Gateway。端口被非 Gateway 进程占用仍按 `port_conflict` 处理；两种情况都必须 fail closed。
 - Gateway 只监听一个 loopback HTTP 端口（默认 39877；9877 仅作为显式配置保留）。host/tools 走 HTTP；addon 在同一端口通过 WebSocket upgrade 路径 `/addon` 建立控制通道。不新增第二个 listener，9876 不再存在。
 - WebSocket 端点使用仓库内最小 RFC6455 实现（`runtime/transport/addon-ws.ts` 与 addon 侧 `transport.py`），不新增 npm/pip 依赖。P1 已证明该方向可行；如果实现阶段发现同端口 WS 需要超出预算的复杂度，回到 design 修改契约，不能静默加一个控制端口。
 - addon 删除入站 server：`addon/dsh_blender_bridge/server.py` 的 accept/listen 路径删除，改为 client 连接、心跳、重连。`bpy.app.background` 仍拒绝加载 addon。
@@ -65,7 +66,9 @@
 - 会话只有两种 kind：`user-gui` 与 `virtual-gui`。`headless` 是一次性 job，不是 session；`session(kind="headless")` 必须返回校验错误。
 - `user-gui` 只 attach 用户已启动的实例，不由 agent 再拉一个可见 GUI。attach 在单实例时可省略 ID，多实例必须显式，否则 ambiguity。
 - 首调会话门：会话级能力（`session`、**执行型** `op`、`py`、`see`）解析不到 ready `user-gui` 时，不得自动启动 `virtual-gui`，也不得把调用转给 headless/worker；必须返回 `stage=session` 的决策请求，明确告知“Blender 没起来”，并给出两个显式选项：拉起 Blender 后 attach，或用户同意后启动 virtual-gui。`op` 的 `catalog`/dry-run 等本地只读操作不要求会话，直接返回目录/校验结果；只有真正执行 op 才进入这道门。3.0.x 的 GUI→worker/headless 自动降级链在 3.1 删除，降级只能是用户确认后的显式动作。
-- 每个会话有单写者 lease：`acquire`、`release`、`heartbeat`、`pause`、`resume`。写操作要求 lease；pause 阻止写、允许读；lease 冲突返回 holder 信息。用户手动操作与 agent 写入的冲突通过 pause/lease 显式化，不靠重试掩盖。
+- 每个会话有单写者 lease：`acquire`、`release`、`heartbeat`、`pause`、`resume`。lease holder 是调用者身份元组 `(hostId, dshSessionId, agentId)`，不是 PID；同一 DSH host 可同时挂多个 DSH session/agent 到同一 user-gui，读、`see`、presence 并发，写操作由 lease 串行化。lease 冲突返回 holder 的 session/agent 与过期时间；用户手动操作与 agent 写入的冲突通过 pause/lease 显式化，不靠重试掩盖。
+- lease 默认 TTL 30s、heartbeat 10s；调用结束、agent 断线或 host 退出立即释放，过期 lease 可被新调用者接管。默认 fail-fast 409，可选有界 `wait_ms`（≤5s）；`force` 只允许人类或 Team Lead，且必须记录审计事件。主 agent 委派前释放 lease，subagent 自己 acquire，默认不继承；job 记录 owner，collect/cancel 允许 owner、父 agent 或 Team Lead。
+- 同一 user-gui 的多个 agent 必须有 presence：Gateway 保存每个 caller 的 display name、颜色、观察位（from/look_at/lens 或 view matrix）、选中对象 UUID、活动与 lease 状态；addon 通过 `SpaceView3D.draw_handler_add` 的 POST_VIEW/POST_PIXEL 绘制视锥、标签和选中包围盒，不修改用户视口、不写场景。人可以在自己的视口里看见 agent 正在看哪里；`session` 的 `presence` 只读查询返回同一份数据。presence 仅限 loopback，不把 Blender 数据发到网络。
 - `virtual-gui` 由 Gateway 通过 DisplayProvider 启动/停止，agent 专用、用户不可察；只有 addon handshake 成功后会话才算 ready。实例上限可配，默认值由 V0 决定；低资源时降级策略也由 V0 决定，不在本设计写死。
 - 会话隔离：每个实例独立 scene/Python namespace/lease；一个实例断线不改变其他实例 readiness。跨实例执行返回错误，不能落到默认实例。
 - `see` 只属于 GUI 会话，走 `GPUOffScreen` viewport capture；`worker` 的 Workbench see 从模型面移除，worker 只保留内部执行/CI 诊断，不作为 session kind 或 tool。`see` 失败不得回退 headless Workbench。
@@ -112,7 +115,7 @@
 
 - 模型面固定 `session`、`op`、`py`、`see`、`run`、`inspect`，不注册第七个工具。旧工具名不出现在 catalog；调用旧名返回迁移提示。
 - 映射与职责（每条是「新工具 ← 旧工具」的等价迁移，不是新增能力；`py` 就是 `do` 的改名：执行 agent 写的脚本与短 Python，是执行通道而非建模引擎；早期叙事把第六个工具叫 `render`，本设计统一为 `run`，它同时承载 `kind=render` 与 `kind=headless`）：
-  - `session` ← viewport / txn：list/attach/status/doctor/start/stop/lease/pause/resume，以及 txn snapshot/restore/mark/revert/list/prune/drop。只服务 user-gui/virtual-gui；`start`/`stop` 只作用于 virtual-gui；user-gui 用 attach/detach，不控制 Gateway——Gateway 生命周期归 host（D1）。
+  - `session` ← viewport / txn：list/attach/status/doctor/start/stop/lease/pause/resume/presence，以及 txn snapshot/restore/mark/revert/list/prune/drop。只服务 user-gui/virtual-gui；`start`/`stop` 只作用于 virtual-gui；user-gui 用 attach/detach，不控制 Gateway——Gateway 生命周期归 host（D1）；`presence` 是只读查询，用户视口里的 agent 视锥由 addon 绘制，不是新工具。
   - `op` ← plan / loop / opt / preset：执行 catalog 契约算子。catalog 条目带 `requires_session` 元数据：`catalog`/dry-run 为 false（本地只读），执行型 op 为 true；会话门检查的是元数据，不是工具名或 schema 分支，op 的入参与回执形状保持统一。
   - `py` ← do：在 GUI 会话内执行 agent 写的 Python 脚本或短指令；没有会话时拒绝，不启动 headless。
   - `see` ← see / watch：只捕获 GUI viewport；不服务 headless。

@@ -16,6 +16,8 @@ v3.0.6（PR #75）已经修复了这组 P0：Windows Steam 探测、`blender_exe
 
 - **BREAKING** **Gateway 单端点拓扑**：删除 runtime 作为“连 addon 的客户端”和 addon 的 9876 入站监听；Gateway 成为唯一 server，addon 作为 client 主动连接。host 与 tools 只连 Gateway；端口被占用时 fail closed；不做双栈兼容。Gateway 由 DSH host/plugin 拥有并管理生命周期（随插件启停，不 detached），不是 Blender 任务，也不由 job-queue 调度。
 - **默认端口迁移与端口冲突 fail closed**：Gateway 默认端口从 9877 改为 39877（避开 Blender MCP 生态常用的 98xx 段与 Windows 动态端口段）；端口被占用时 fail closed 并报告占用者（port / pid / process），禁止与既有 listener 静默共存（不用 SO_REUSEADDR 共享）；doctor/status 必须区分“端口被他人占用”与“addon 未启动或卡住”。
+- **单 host 单 Gateway，第二个 DSH host fail closed**：一个 DSH host 进程最多拥有一个 Gateway；Gateway 启动时记录 gatewayId / hostId / pid / endpoint。第二个 DSH host 发现该 Gateway 已存在时不得 attach、复用或共享，必须以 `GATEWAY_IN_USE`（stage=config）报出占用 host 与端口；同一 host 的插件重载由 host 传递句柄，不新建 Gateway。
+- **多 agent 调用身份、lease 与 presence**：同一 user-gui 可同时被多个 DSH session/agent 观察和读取，但写操作由 Gateway 的 caller-aware 单写 lease 串行化。lease holder 是 `(hostId, dshSessionId, agentId)` 而不是 PID；默认 fail-fast 409，可选有界 wait，force 仅限人类/Team Lead 且写审计。Gateway 记录每个 agent 的观察位、选中对象、活动与 lease 状态，addon 在用户视口绘制带颜色的 agent 视锥/标签/选中框，让用户看得见 agent 正在看哪里；主 agent 委派前释放 lease，subagent 自行 acquire，默认不继承。
 - **BREAKING** **addon 反向连接与握手**：addon 注册 `instanceId / kind / version / project / capabilities`；Gateway 按 instanceId 管理多实例、路由与断线重连；协议版本不匹配直接拒绝（负向测试覆盖旧 addon）。
 - **可用性契约**：所有失败返回统一四问 `stage / root_cause / fix / fallback`（附 `evidence`，首调尤其）；`start` 与 `doctor` 不得互相矛盾；`/health` 通不等于 bpy 可用。3.0.6 已实测 `/status` 约 7.5s、`/doctor` 约 6.5s，作为 3.1 的预算基线；目标是在不牺牲诚实性的前提下收紧到评审建议的 P95 ≤3s；不把“无响应”写成“后端没起”。
 - **会话与资源**：`user-gui`（用户拉起、agent 附着、单写者/lease/pause、无上限）、`virtual-gui`（agent 专用、用户不可察，本 change 的发布门槛，不是可选增强）。`headless` 不属于 session：它是一次性 `blender -b` 无头任务，只通过 `job-queue` 提交。`virtual-gui` 必须启动真正的 GUI Blender（`bpy.app.background == False`），具备可用 GPU/GL、可截图/see、可多实例、可清理；交互式视觉只属于 user-gui/virtual-gui。`worker` 的 Workbench see 从模型工具面移除：worker 只保留为内部执行器/CI 诊断，不暴露为模型工具。平台显示做成 `DisplayProvider` 抽象；V0 先做 provider bake-off：Windows 首选自写的隐藏 desktop helper（Win32，无第三方依赖，不需要驱动/管理员），签名 IDD 仅作为 fallback（需要用户安装驱动/UAC，不能静默）；Linux 首选 Xvfb+VirtualGL，Xvfb 软件渲染只能 `preview-only`。WSL/WSLg 路线不再考虑。V0 通过前不写死“Windows 原生 IDD 默认”，也不写死“默认 4 个 virtual-gui”；通过后才定 default/fallback、实例上限和安装前提。**如果 Windows 或 Linux 任一平台没有 provider 通过，3.1 不发布，不能退回 headless 冒充 virtual-gui。**
@@ -30,9 +32,9 @@ v3.0.6（PR #75）已经修复了这组 P0：Windows Steam 探测、`blender_exe
 
 ### New Capabilities
 
-- `blender/gateway`: Gateway 单端点、addon 反向连接、握手身份、多实例路由、断线重连、版本匹配 fail-closed、无 9876 监听。
+- `blender/gateway`: Gateway 单端点、单 host 归属与第二 host fail-closed、addon 反向连接、握手身份、多实例路由、断线重连、版本匹配 fail-closed、无 9876 监听。
 - `blender/availability`: 首调四问 envelope、分层探测、`start`/`doctor` 一致性、阶段预算、fallback 与 evidence。
-- `blender/sessions`: user-gui / virtual-gui 的会话边界与生命周期、lease 与单写者、实例上限与低资源降级；headless task 不属于 session，由 `blender/job-queue` 管理；交互式 see 只属于 user-gui/virtual-gui；worker 仅作为内部执行器，不作为模型工具。
+- `blender/sessions`: user-gui / virtual-gui 的会话边界与生命周期、caller identity、lease 与单写者、agent presence/用户可见视锥、实例上限与低资源降级；headless task 不属于 session，由 `blender/job-queue` 管理；交互式 see 只属于 user-gui/virtual-gui；worker 仅作为内部执行器，不作为模型工具。
 - `blender/virtual-display`: virtual-gui 的 DisplayProvider 契约；Windows 自写隐藏 desktop helper、签名 IDD fallback，Linux Xvfb+VirtualGL；安装前提（隐藏桌面零驱动/零管理员，IDD 需驱动/UAC，Linux 需 Xvfb/VirtualGL/GPU 驱动）、GUI Blender/GPU/GL、截图 parity、多实例与清理；V0 选定的 default/fallback 与支持矩阵。
 - `blender/job-queue`: `render` 与 `headless` 两类无头作业的 jobId 提交、状态机、有界队列与 `QUEUE_FULL`、优先级/配额、持久化、取消与 collect；render 是声明式渲染子类，headless 是通用服务器侧 `blender -b` 任务。
 - `blender/addon-extension`: Blender 4.2+ extension 包格式（manifest、无 `bl_info`、extension 根布局）、`bl_ext.*` namespace 与 `__package__` 偏好、host 侧探测/自动启用、GPL-3.0-or-later、`network`/`files` 权限与 `bpy.app.online_access`、`extension validate` 门禁；官方 Extensions Platform 首次人工上架 + 后续 CD 版本上传，不保留 legacy zip。

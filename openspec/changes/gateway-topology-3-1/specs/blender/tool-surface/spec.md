@@ -20,7 +20,7 @@ The model-visible tool surface SHALL contain exactly `session`, `op`, `py`, `see
 
 ### Requirement: Each tool has one product boundary
 
-`session` SHALL manage user-gui and virtual-gui sessions. `op` SHALL execute catalog plan operations. `py` SHALL execute Python in a GUI session. `see` SHALL capture a GUI viewport. `run` SHALL submit and control job-queue jobs. `inspect` SHALL provide read-only inspection, with any write-capable command requiring an explicit execute mode and returning a write receipt.
+`session` SHALL manage user-gui and virtual-gui sessions, their caller-aware leases, and read-only presence. `op` SHALL execute catalog plan operations. `py` SHALL execute Python in a GUI session. `see` SHALL capture a GUI viewport. `run` SHALL submit and control job-queue jobs. `inspect` SHALL provide read-only inspection, with any write-capable command requiring an explicit execute mode and returning a write receipt. Presence MUST NOT add a seventh tool.
 
 #### Scenario: py does not run headless
 - **WHEN** py is called without a GUI session
