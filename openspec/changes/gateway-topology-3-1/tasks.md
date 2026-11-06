@@ -41,7 +41,7 @@
 
 ## 4. 会话边界与 lease
 
-- [ ] 4.1 新增 `session` facade：list/attach/status/doctor/start/stop/lease/pause/resume；旧 viewport/worker/txn 测试先迁移到 session 调用面，验证旧入口不再模型可见。
+- [ ] 4.1 实现会话生命周期与 lease：list/attach/status/doctor/start/stop/lease/pause/resume；本切片只改内部 handler 与 Gateway API，不注册新模型工具；旧 viewport/worker/txn 的测试先迁移到内部调用面，验证切片 7 可整体替换，不出现新旧工具并存。
 - [ ] 4.2 实现 user-gui attach：只附着已连实例；单实例可省略 ID、多实例必须指定；验证两个实例时省略 ID 返回 ambiguity。
 - [ ] 4.3 实现 lease/pause：acquire/release/heartbeat/pause/resume；写操作要求 lease；验证第二写者被拒、pause 阻止写但允许读。
 - [ ] 4.4 实现 virtual-gui 生命周期：通过 DisplayProvider start/stop，只在 addon handshake 后 ready；验证 start 失败不留下半实例，stop 清理进程与显示资源。
@@ -86,13 +86,13 @@
 - [ ] 6.8 实现重启恢复：queued 保留、running 标 failed/gateway_restart、终态/产物保留；验证重启后同 jobId 可 status/collect。
 - [ ] 6.9 实现 cancel：幂等、终止进程树、清理临时目录；验证 Windows job object 与 Unix process group 都不留 Blender。
 - [ ] 6.10 实现 wait/collect/list/perf：wait 有界且超时不取消、collect 返回日志/产物、list 支持过滤、perf 返回队列指标；验证大日志不阻塞。
-- [ ] 6.11 接入 `run` tool：submit/status/wait/collect/cancel/list/perf，唯一 job 入口；验证不存在 headless/job/render 工具。
+- [ ] 6.11 实现 `run` 的内部提交面：submit/status/wait/collect/cancel/list/perf，唯一 job 入口；本切片不注册模型工具，切片 7 统一暴露为 `run`；验证内部 handler 覆盖 render/headless 两种 kind。
 - [ ] 6.12 统一 job 失败 envelope：spawn/queue/render/runtime 失败可归因，进程退出后仍可读；验证四问字段完整。
 - [ ] 6.13 新增队列 integration：P4 的 7/7 场景 + 重启恢复 + 取消 + 容量 + 两种 kind 混跑；验证真机 `blender -b` 至少一例成功。
 
 ## 7. 六工具面
 
-- [ ] 7.1 新增 6 工具 facade：session/op/py/see/run/inspect；旧 15 工具的实现保留为内部模块，不直接注册；验证 `src/tools/index.ts` 只注册 6 个。
+- [ ] 7.1 重写 6 工具面（不是 facade）：按 session/op/py/see/run/inspect 实现 schema、handler 与错误契约；删除旧 15 工具的定义、注册、catalog 条目与路由，通用实现下沉为内部模块；验证 `src/tools/index.ts` 只注册 6 个，仓库内无旧工具定义残留。
 - [ ] 7.2 迁移旧工具参数/响应：尽量保持字段可迁移，但 tool 名不保留别名；验证旧名调用返回迁移提示和对应新名。
 - [ ] 7.3 行为等价测试：把 15 工具的关键用例分别映射到 6 工具族（括号内是旧工具来源，不是新能力），先红后绿；覆盖 viewport/txn、plan/loop/opt/preset、do（→py，含执行脚本/短 Python 与无会话拒绝）、see/watch、headless/job/perf、commands/cmd。
 - [ ] 7.4 实现 inspect 只读与 execute 写边界：默认只读；`mode=execute` 仅 allowlist 命令可写，返回 write receipt；验证默认模式不能改 scene/addon。

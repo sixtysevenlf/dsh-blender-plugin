@@ -118,7 +118,7 @@
   - `run` ← headless / job / perf：submit/status/wait/collect/cancel/list/perf，唯一作业入口；render/headless 由 kind 区分。
   - `inspect` ← commands / cmd：commands/metrics/queue/provider 健康等只读查询；`cmd` 的可写执行必须显式 `mode=execute`，只允许仓库维护的 allowlist，返回 write receipt。默认只读，不把写能力藏在只读语义里。
 - `worker` 不作为 session kind 或 tool；内部执行器只服务 op/loop/CI，模型不可见。
-- 行为等价先迁移：旧 15 工具的测试先迁到 6 工具族（fail-first 的调用面），再按 PoC 结果验收命名。`inspect` 的写模式单独测试边界，不让 `cmd` 变成隐式写入口。
+- 行为先等价、工具面后替换：先把旧 15 工具的行为契约与测试用例映射到 6 个新工具（fail-first），切片 7 用新工具整体替换模型面；旧工具的定义、注册、catalog 条目与路由在同一次变更删除。通用实现可以下沉为内部模块，但禁止保留旧工具后加一层新→旧转发壳（facade），也禁止新旧工具并存。`inspect` 的写模式单独测试边界，不让 `cmd` 变成隐式写入口。
 - 计数：6 tools；7 capabilities；34 families / 228 ops 保持（除非 catalog 显式变更）；38 commands + ping = 39 wire；HTTP routes 以 Gateway 实际路由更新并跑 matrix；protocol 12。
 - 旧工具名到新工具名的迁移表写入 CHANGELOG 和操作教程；JSON schema 参数名尽量保持可迁移，但 tool 名不保留别名。
 
@@ -147,8 +147,8 @@
 3. Availability：共享 envelope、stage 分类、status/doctor 同源、预算收紧；A1–A6 回归。
 4. Sessions：user-gui attach/lease/pause、virtual-gui lifecycle、see 边界；worker 退出模型面。
 5. Virtual-gui V0：Windows W1 helper、Linux Xvfb+VirtualGL、IDD fallback 评估；V0 报告作为发布门禁。
-6. Job queue：render/headless、状态机、持久化、取消/collect、GPU/CPU slot；`run` 接入。
-7. Tool surface：6 工具 facade、旧名迁移错误、inspect 写边界、契约计数更新。
+6. Job queue：render/headless、状态机、持久化、取消/collect、GPU/CPU slot；实现 `run` 的内部提交面（切片 7 暴露为模型工具）。
+7. Tool surface：6 工具面重写（删除旧工具定义与注册，不做 facade）、旧名迁移错误、inspect 写边界、契约计数更新。
 8. Extension：manifest/无 bl_info、namespace、构建/validate、GPL/权限、CD 上传。
 9. 文档/CI：README、操作教程、配置参考、架构、SKILL、CHANGELOG、中英同步；PR 门禁和 release workflow。
 10. 真机验收与发布：V0、A1–A6、6 工具、队列、extension 安装升级、pack/install smoke；通过后发 3.1.0，归档本 change。
