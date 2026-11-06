@@ -2,7 +2,7 @@
 
 ## Context
 
-3.1 是一次拓扑升级，不是 3.0.x 的增量补丁。3.0.6 和 terminal-state-closeout 已合并，当前 main 为 `8061e7a`；仓库已有可复用的契约机器（routing.json、contracts.json、exceptions.json、BEHAVIOR_MATRIX、extension 之外的结构门禁），本设计在这些机器上扩展，不另起一套规则文件。
+3.1 是一次拓扑升级，不是 3.0.x 的增量补丁。3.0.6、terminal-state-closeout 和 PR #82 已合并，当前 `origin/main` 为 `82a44bc`（本地 main 可能落后，实施前先 fetch）；仓库已有可复用的契约机器（routing.json、contracts.json、exceptions.json、BEHAVIOR_MATRIX、extension 之外的结构门禁），本设计在这些机器上扩展，不另起一套规则文件。
 
 基线：15 个模型工具 / 34 families / 228 ops / 38 registered commands（+ping=39 wire）/ 29 HTTP routes / protocol 11 / addon 1.11。3.1 目标：6 个模型工具 / 7 个 capability / protocol 12 / addon 2.0.0 / extension manifest 2.0.0 / 插件 3.1.0。
 
@@ -64,7 +64,7 @@
 
 - 会话只有两种 kind：`user-gui` 与 `virtual-gui`。`headless` 是一次性 job，不是 session；`session(kind="headless")` 必须返回校验错误。
 - `user-gui` 只 attach 用户已启动的实例，不由 agent 再拉一个可见 GUI。attach 在单实例时可省略 ID，多实例必须显式，否则 ambiguity。
-- 首调会话门：会话级能力（`session`/`op`/`py`/`see`）解析不到 ready `user-gui` 时，不得自动启动 `virtual-gui`，也不得把调用转给 headless/worker；必须返回 `stage=session` 的决策请求，明确告知“Blender 没起来”，并给出两个显式选项：拉起 Blender 后 attach，或用户同意后启动 virtual-gui。3.0.x 的 GUI→worker/headless 自动降级链在 3.1 删除，降级只能是用户确认后的显式动作。
+- 首调会话门：会话级能力（`session`、**执行型** `op`、`py`、`see`）解析不到 ready `user-gui` 时，不得自动启动 `virtual-gui`，也不得把调用转给 headless/worker；必须返回 `stage=session` 的决策请求，明确告知“Blender 没起来”，并给出两个显式选项：拉起 Blender 后 attach，或用户同意后启动 virtual-gui。`op` 的 `catalog`/dry-run 等本地只读操作不要求会话，直接返回目录/校验结果；只有真正执行 op 才进入这道门。3.0.x 的 GUI→worker/headless 自动降级链在 3.1 删除，降级只能是用户确认后的显式动作。
 - 每个会话有单写者 lease：`acquire`、`release`、`heartbeat`、`pause`、`resume`。写操作要求 lease；pause 阻止写、允许读；lease 冲突返回 holder 信息。用户手动操作与 agent 写入的冲突通过 pause/lease 显式化，不靠重试掩盖。
 - `virtual-gui` 由 Gateway 通过 DisplayProvider 启动/停止，agent 专用、用户不可察；只有 addon handshake 成功后会话才算 ready。实例上限可配，默认值由 V0 决定；低资源时降级策略也由 V0 决定，不在本设计写死。
 - 会话隔离：每个实例独立 scene/Python namespace/lease；一个实例断线不改变其他实例 readiness。跨实例执行返回错误，不能落到默认实例。
@@ -83,7 +83,7 @@
 - V0 验收（每个通过的 provider 必须具备）：`bpy.app.background == False`；GL renderer 非 llvmpipe；`see` 走 GUI capture 且与 user-gui 的 viewport 结果 parity；2 个并发实例互不串场景；stop 后无 Blender/Xvfb/helper 孤儿；安装前提可查询；锁屏/RDP/无显示环境行为已记录。
 - 缺依赖是代码级硬门：provider 的 start 路径在 spawn 任何进程之前检查 prerequisites，缺失即拒绝；不存在 force/unsafe/skip-check 开关，agent 的意图不能绕过。UI 与 agent 都只能看到“不可用 + 缺什么 + 怎么装”，不能“先试一下”。
 - 依赖引导不是静默安装：provider `capabilities()` 报告 prerequisites 与安装状态；host 的 `doctor --fix` 与 addon 偏好设置按钮共用同一张 prerequisites 描述表；Ubuntu 22.04/24.04 与 Debian 12（apt）用 `pkexec` 真一键安装 `xvfb`/`virtualgl`，Fedora/Arch/无 polkit 环境只给准确命令；GPU 驱动只检测不安装；安装后必须复检 capabilities，失败保留原始 stderr 且不得把 provider 标为 ready。
-- 若 Windows 没有 provider 通过 V0：3.1 不发布 virtual-gui，也不允许把 render/headless 当作替代；发布报告必须写明失败的测量项。
+- 若 Windows 没有 provider 通过 V0：3.1 不发布，也不允许把 render/headless 当作替代；发布报告必须写明失败的测量项。
 
 ### D5 — 作业队列
 
@@ -91,7 +91,7 @@
 - `render` 只接受声明式参数（file/frames/camera/engine/resolution/samples/output/format/priority），由内部固定入口执行，不执行任意 Python；`headless` 接受 script/script_file/file/outdir/preload/timeout_ms/out_json/args，在 fresh `blender -b` 中执行，保留 `HEADLESS {json}` 结果契约。
 - 状态机：`queued -> assigned -> running -> completed | failed | canceled`；终态不可变。每次状态变化写事件（时间、slot、pid、原因），status 可查。
 - 容量：pending 上限 64；默认 GPU slot 1、CPU slot 2；render 用 GPU，headless 默认 CPU，显式声明 GPU 时占 GPU slot。满队列返回 `QUEUE_FULL`，不无限等待；FIFO + 优先级 + 配额。
-- 持久化：`runtime/state/queue.json`（或仓库既有数据目录下的等价 JSON），原子写；Gateway 重启后 queued 保留、running 标记 `failed/gateway_restart`、终态和产物引用保留；不重放 running。
+- 持久化：`runtime/state/queue.json`（或仓库既有数据目录下的等价 JSON），原子写；pending 上限只有 64，JSON 足够，不引入 SQLite；Gateway 重启后 queued 保留、running 标记 `failed/gateway_restart`、终态和产物引用保留；不重放 running。
 - 取消：幂等，终止目标进程树（Windows job object / Unix process group），清理临时目录，不留下 Blender；cancel 终态后 status/collect 仍可读。
 - 等待：`wait` 有界（默认 120s，上限 600s），超时只返回 timeout，不 cancel；collect 返回退出结果、日志、产物清单。
 - 失败 envelope 与 D2 相同；job 失败在进程退出后仍可读。virtual-gui 占用 GPU 时 render 排队，headless CPU 不受影响；队列调度器是唯一分配 GPU 的地方。
@@ -112,8 +112,8 @@
 
 - 模型面固定 `session`、`op`、`py`、`see`、`run`、`inspect`，不注册第七个工具。旧工具名不出现在 catalog；调用旧名返回迁移提示。
 - 映射与职责（每条是「新工具 ← 旧工具」的等价迁移，不是新增能力；`py` 就是 `do` 的改名：执行 agent 写的脚本与短 Python，是执行通道而非建模引擎；早期叙事把第六个工具叫 `render`，本设计统一为 `run`，它同时承载 `kind=render` 与 `kind=headless`）：
-  - `session` ← viewport / txn：list/attach/status/doctor/start/stop/lease/pause/resume，以及 txn snapshot/restore/mark/revert/list/prune/drop。只服务 user-gui/virtual-gui。
-  - `op` ← plan / loop / opt / preset：执行 catalog 契约算子。
+  - `session` ← viewport / txn：list/attach/status/doctor/start/stop/lease/pause/resume，以及 txn snapshot/restore/mark/revert/list/prune/drop。只服务 user-gui/virtual-gui；`start`/`stop` 只作用于 virtual-gui；user-gui 用 attach/detach，不控制 Gateway——Gateway 生命周期归 host（D1）。
+  - `op` ← plan / loop / opt / preset：执行 catalog 契约算子。catalog 条目带 `requires_session` 元数据：`catalog`/dry-run 为 false（本地只读），执行型 op 为 true；会话门检查的是元数据，不是工具名或 schema 分支，op 的入参与回执形状保持统一。
   - `py` ← do：在 GUI 会话内执行 agent 写的 Python 脚本或短指令；没有会话时拒绝，不启动 headless。
   - `see` ← see / watch：只捕获 GUI viewport；不服务 headless。
   - `run` ← headless / job / perf：submit/status/wait/collect/cancel/list/perf，唯一作业入口；render/headless 由 kind 区分。
@@ -143,7 +143,7 @@
 
 ## Migration Plan
 
-1. 前置：确认 `main=8061e7a`、3.0.6 已发布；从 main 开 `feat/gateway-topology-3-1`；记录基线门禁和计数。
+1. 前置：确认 `origin/main=82a44bc`、3.0.6 已发布；从 `chore/gateway-topology-3-1-plan` 切 `feat/gateway-topology-3-1`（或先把 plan 合入 main）；记录基线门禁和计数。
 2. Gateway/transport：新 Gateway 入口、addon WS client、握手/registry/重连；负向旧 addon、无 9876 监听测试。
 3. Availability：共享 envelope、stage 分类、status/doctor 同源、预算收紧；A1–A6 回归。
 4. Sessions：user-gui attach/lease/pause、virtual-gui lifecycle、see 边界；worker 退出模型面。
@@ -157,4 +157,4 @@
 ## Open Questions
 
 - V0 通过后确定的 Windows provider 默认/fallback 顺序、virtual-gui 默认实例上限、低资源降级阈值（由 V0 报告决定，不在实现前写死）。
-- 若 W1 失败且 IDD 许可证/签名不可接受，3.1 是否延期 virtual-gui 或缩小发布范围（发布决策，需用户确认；本 change 的默认立场是不发 fake headless）。
+- W1 失败且 IDD 许可证/签名不可接受时，按 proposal 的硬门整体延期 3.1；V0 报告记录失败测量项，不采用“只发 virtual-gui 以外能力”的缩范围口径。

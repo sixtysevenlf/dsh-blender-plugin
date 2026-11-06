@@ -32,11 +32,15 @@ A `user-gui` session SHALL attach to a Blender process that the user already lau
 
 ### Requirement: Session resolution never silently starts a virtual-gui
 
-When a session-bound capability (`session`, `op`, `py`, `see`) has no ready `user-gui`, Gateway SHALL stop with a decision-required response and MUST NOT start a `virtual-gui`, spawn a headless Blender, or dispatch the call elsewhere. The stop MUST name the requested capability, state that Blender is not attached, and offer two explicit choices: launch Blender and attach, or start `virtual-gui` after the user's consent. An existing virtual-gui does not ask again.
+When a session-bound capability (`session`, an executing `op`, `py`, `see`) has no ready `user-gui`, Gateway SHALL stop with a decision-required response and MUST NOT start a `virtual-gui`, spawn a headless Blender, or dispatch the call elsewhere. The stop MUST name the requested capability, state that Blender is not attached, and offer two explicit choices: launch Blender and attach, or start `virtual-gui` after the user's consent. An existing virtual-gui does not ask again.
 
 #### Scenario: First call without a visible Blender stops
 - **WHEN** the first session-bound call in a session finds no ready user-gui
 - **THEN** it returns `stage=session` stating that Blender is not attached, starts no process and no provider, and lists the two explicit choices
+
+#### Scenario: Catalog lookup works without Blender
+- **WHEN** `op` is called with a catalog or dry-run only
+- **THEN** it returns the catalog or validation result without requiring a session, starting Blender, or returning `stage=session`
 
 #### Scenario: virtual-gui starts only after consent
 - **WHEN** the user chooses virtual-gui in response to that stop
