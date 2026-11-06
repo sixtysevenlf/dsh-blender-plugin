@@ -72,6 +72,7 @@
 - `virtual-gui` 由 Gateway 通过 DisplayProvider 启动/停止，agent 专用、用户不可察；只有 addon handshake 成功后会话才算 ready。实例上限可配，默认值由 V0 决定；低资源时降级策略也由 V0 决定，不在本设计写死。
 - 会话隔离：每个实例独立 scene/Python namespace/lease；一个实例断线不改变其他实例 readiness。跨实例执行返回错误，不能落到默认实例。
 - `see` 只属于 GUI 会话，走 `GPUOffScreen` viewport capture；`worker` 的 Workbench see 从模型面移除，worker 只保留内部执行/CI 诊断，不作为 session kind 或 tool。`see` 失败不得回退 headless Workbench。
+- `see` 预览有硬预算：`max_size` 默认值与上限都是 1024，有效范围 120–1024，超出按 1024 夹取；`aspect` 只有 `1:1`、`4:3`、`16:9`，3D 视口与自定义视角默认 `16:9`；显式 `view_size` 可覆盖比例，但最终长边仍受 1024 限制；`full=true` 的窗口/区域截图保留原始比例，只做缩放。比例变化不得拉伸场景，也不得改场景、选择或用户视口；回执必须报告实际宽高。子代理交接块与工具描述同步这些默认值，不再把 560/1600 当默认/上限。
 - 资源协调：virtual-gui 占用 GPU 时，render 作业排队；会话与队列由 Gateway 的同一个资源账本管理，不超卖 GPU。
 
 ### D4 — DisplayProvider 与 virtual-gui V0
@@ -118,7 +119,7 @@
   - `session` ← viewport / txn：list/attach/status/doctor/start/stop/lease/pause/resume/presence，以及 txn snapshot/restore/mark/revert/list/prune/drop。只服务 user-gui/virtual-gui；`start`/`stop` 只作用于 virtual-gui；user-gui 用 attach/detach，不控制 Gateway——Gateway 生命周期归 host（D1）；`presence` 是只读查询，用户视口里的 agent 视锥由 addon 绘制，不是新工具。
   - `op` ← plan / loop / opt / preset：执行 catalog 契约算子。catalog 条目带 `requires_session` 元数据：`catalog`/dry-run 为 false（本地只读），执行型 op 为 true；会话门检查的是元数据，不是工具名或 schema 分支，op 的入参与回执形状保持统一。
   - `py` ← do：在 GUI 会话内执行 agent 写的 Python 脚本或短指令；没有会话时拒绝，不启动 headless。
-  - `see` ← see / watch：只捕获 GUI viewport；不服务 headless。
+  - `see` ← see / watch：只捕获 GUI viewport；不服务 headless。预览默认最长边 1024、上限 1024，比例默认 16:9（可选 1:1/4:3/16:9）；`view_size` 可覆盖比例但仍受 1024 限制；子代理交接块与工具描述同步。
   - `run` ← headless / job / perf：submit/status/wait/collect/cancel/list/perf，唯一作业入口；render/headless 由 kind 区分。
   - `inspect` ← commands / cmd：commands/metrics/queue/provider 健康等只读查询；`cmd` 的可写执行必须显式 `mode=execute`，只允许仓库维护的 allowlist，返回 write receipt。默认只读，不把写能力藏在只读语义里。
 - `worker` 不作为 session kind 或 tool；内部执行器只服务 op/loop/CI，模型不可见。

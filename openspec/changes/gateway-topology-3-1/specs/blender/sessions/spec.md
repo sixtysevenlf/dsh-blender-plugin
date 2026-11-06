@@ -126,6 +126,54 @@ The see capability SHALL capture from a `user-gui` or `virtual-gui` session only
 - **WHEN** see is called for a headless job
 - **THEN** it returns a structured boundary error and does not start a background Blender for a frame
 
+### Requirement: see preview size is bounded
+
+The see capability SHALL default `max_size` to 1024 pixels and SHALL NOT return an image whose longest edge exceeds 1024 pixels. The effective range SHALL be 120–1024; a larger requested value MUST be clamped to 1024. An explicit `view_size` or a `full=true` screenshot MUST also be resized so its longest edge is at most 1024 pixels. The receipt SHALL report the final width and height.
+
+#### Scenario: Defaults are bounded
+
+- **WHEN** see is called for a 3D viewport without `max_size`
+- **THEN** it returns an image whose longest edge is at most 1024 pixels and the receipt reports the applied width and height
+
+#### Scenario: Oversize input is capped
+
+- **WHEN** `max_size` or `view_size` requests a longest edge above 1024 pixels
+- **THEN** the output is clamped to 1024 pixels and the receipt reports the applied size instead of the requested size
+
+#### Scenario: Full screenshots stay bounded
+
+- **WHEN** see is called with `full=true`
+- **THEN** the returned window or area screenshot keeps its captured ratio and is resized so its longest edge is at most 1024 pixels
+
+#### Scenario: Size changes do not mutate the session
+
+- **WHEN** see changes its output size
+- **THEN** scene data, selection, and the user's viewport are unchanged
+
+### Requirement: see supports three aspect presets
+
+See SHALL accept an `aspect` selector with exactly `1:1`, `4:3`, and `16:9`. 3D viewport and custom-view captures SHALL default to `16:9` when `aspect` is omitted. The selected aspect SHALL determine the output image ratio without stretching the scene. An explicit `view_size` MAY override the aspect while remaining within the size bound.
+
+#### Scenario: Aspect presets select the canvas
+
+- **WHEN** see is called with `aspect` set to `1:1`, `4:3`, or `16:9`
+- **THEN** the returned image has that ratio and the scene is not stretched
+
+#### Scenario: Default aspect is 16:9
+
+- **WHEN** see is called for a 3D viewport without `aspect`
+- **THEN** the returned image has a 16:9 ratio
+
+#### Scenario: view_size overrides aspect
+
+- **WHEN** see is called with both `aspect` and an explicit `view_size`
+- **THEN** the output follows `view_size` and its longest edge still does not exceed 1024 pixels
+
+#### Scenario: Aspect changes do not mutate the session
+
+- **WHEN** see changes its output aspect
+- **THEN** scene data, selection, and the user's viewport are unchanged
+
 ### Requirement: Sessions are isolated
 
 Instances SHALL NOT share Python state, scene files, or leases. A failure or disconnect of one instance MUST NOT mark another instance unavailable, and a job assigned to one session MUST NOT execute in another.

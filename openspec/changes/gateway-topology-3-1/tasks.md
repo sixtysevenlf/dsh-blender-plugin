@@ -48,11 +48,11 @@
 - [ ] 4.3 实现 lease/pause：acquire/release/heartbeat/pause/resume；写操作要求 lease；验证第二写者被拒、pause 阻止写但允许读。
 - [ ] 4.4 实现 virtual-gui 生命周期：通过 DisplayProvider start/stop，只在 addon handshake 后 ready；验证 start 失败不留下半实例，stop 清理进程与显示资源。
 - [ ] 4.5 实现会话实例隔离：scene/Python namespace/lease 不共享；验证一个实例断线不影响另一个，跨实例执行被拒。
-- [ ] 4.6 收口 see：只接受 session 目标，走 GUI viewport capture；验证 headless job 不能 see，GUI capture 失败不回落 Workbench。
+- [ ] 4.6 收口 see：只接受 session 目标，走 GUI viewport capture；验证 headless job 不能 see，GUI capture 失败不回落 Workbench。实现预览预算：`max_size` 默认/上限 1024（有效范围 120–1024，超出夹取），`aspect` 仅 `1:1|4:3|16:9`、3D 视口/自定义视角默认 16:9，`view_size` 可覆盖比例但最终长边仍 ≤1024，`full=true` 保留区域原比例并只缩放；回执报告实际宽高；比例变化不拉伸、不改场景/选择/用户视口。验证默认、三种比例、超限、`view_size` 覆盖、full 截图、headless 拒绝。
 - [ ] 4.7 把 worker 降为内部执行器：移除模型 tool/session kind 与 Workbench see 的对外路径；op/loop/CI 仍可内部使用；验证 6 工具计数中没有 worker。
 - [ ] 4.8 把 txn 迁移到 `session` 子操作：snapshot/restore/mark/revert/list/prune/drop；验证文件级与对象级回滚行为不变，旧 txn tool 不再注册。
 - [ ] 4.9 实现 virtual-gui 上限与低资源策略：上限可配，默认值留待 V0；超限返回 capacity 错误；验证不因等待而启动额外进程。
-- [ ] 4.10 新增会话 integration 测试：多实例选择、lease 冲突、pause、virtual-gui 停止、断线隔离、see 边界；验证 P2 的 6/6 场景继续成立。
+- [ ] 4.10 新增会话 integration 测试：多实例选择、lease 冲突、pause、virtual-gui 停止、断线隔离、see 边界/尺寸/比例；验证 P2 的 6/6 场景继续成立。
 - [ ] 4.11 首调会话门：`session`、执行型 `op`、`py`、`see` 在解析不到 ready user-gui 且未显式请求 virtual-gui 时返回 `stage=session` 决策请求；`op` 的 catalog/dry-run 等本地只读调用不要求会话，直接返回目录/校验结果；验证不 spawn Blender、不启 provider、P95 ≤3s、错误含两个显式选项。
 - [ ] 4.12 显式授权启动 virtual-gui：只有用户确认后才 start，start 前复检仍无 user-gui；验证拒绝后不创建会话，后续调用继续要求决策而不自动降级。
 - [ ] 4.13 删除自动降级路径：移除 3.0.x 的 GUI→worker/headless 兜底与嵌套重试；验证无 Blender 时首调不产生任何 Blender 进程，错误含可执行 fix。
@@ -61,6 +61,7 @@
 - [ ] 4.16 委派与 job owner：主 agent 委派前 release，subagent 自己 acquire，默认不继承；job 记录 owner，collect/cancel 允许 owner、父 agent、Team Lead。验证父 agent 释放后子 agent 才能写、父 agent 不能在子 agent 持有时强写、job 权限矩阵通过。
 - [ ] 4.17 实现 agent presence：Gateway 保存每个 caller 的 display name/color/view pose/selected UUIDs/activity/lease；addon 用 `SpaceView3D.draw_handler_add` 的 POST_VIEW/POST_PIXEL 绘制视锥、标签、选中包围盒；`session` 的 `presence` 只读查询复用同一数据。验证两个 agent 颜色/视锥独立、绘制不移动用户视口、不改场景、不新增工具。
 - [ ] 4.18 多 agent 同 user-gui 集成测试：两个 DSH session attach 同一 user-gui，并发 `see`/presence 成功，写操作按 lease 串行；一个 agent 断线后另一个可接管过期 lease；用户视口能看到两个 agent 的视锥。验证无重复 scene/Python namespace，presence 不泄漏到 loopback 之外。
+- [ ] 4.19 同步 see 的模型契约、子代理交接块与文档：更新 `src/tools/see/register.ts:18-21`/`:42-45` 的 schema 与描述、`runtime/catalog/tools.ts:12` 的说明、`runtime/classes.ts:220` 的交接块（加入 `max_size=1024` 与 `aspect` 三选项，先压掉旧文案保持 ≤3500 字符，当前 3503）、`docs/操作教程.md:158-162`、`llms.txt:36`、`docs/AI-安装提示词.md:25`、`skills/blender-modeling/SKILL.md:380/384/902`；把 `tests/unit/js/contract/guidance.test.ts:93-104` 的 `it.fails` 改为正常断言。验证 guidance selftest 的长度门与内容断言、catalog 文本、文档示例均不再把 560/1600 当作 see 默认/上限。
 
 ## 5. virtual-gui 与 DisplayProvider V0
 
