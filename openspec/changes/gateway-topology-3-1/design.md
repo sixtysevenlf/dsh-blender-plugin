@@ -52,7 +52,7 @@
 ### D2 — 可用性统一契约
 
 - 新增共享 schema `config/availability.json`（stage 枚举、字段约束、fallback 类型）和 TS/Python 各自的 `availability` helper；所有 tool、route、job 失败从同一构造器出 envelope：`stage / root_cause / fix / fallback / evidence`。
-- `stage` 固定枚举：`config`、`spawn`、`transport`、`handshake`、`addon`、`bpy`、`queue`、`render`。每个失败只归一个 stage；缺字段视为契约缺陷，测试直接红。
+- `stage` 固定枚举：`config`、`session`、`spawn`、`transport`、`handshake`、`addon`、`bpy`、`queue`、`render`。每个失败只归一个 stage；缺字段视为契约缺陷，测试直接红。
 - status/doctor 使用同一 readiness 快照：Gateway liveness、addon control、addon bpy probe、instance identity。`/health` 只返回进程存活，不参与 readiness。start 成功必须能在同一快照里被 doctor 复现；start/doctor 矛盾由 contract test 拦截。
 - 诊断预算：`config` 失败立即返回；`spawn` 使用显式 executable 检查；`transport`/`handshake`/`addon`/`bpy` 各自有硬超时。首调失败 P95 ≤3s；当前 3.0.6 实测 status 约 7.5s、doctor 约 6.5s，是待收紧的基线，不是目标。
 - 移除 3.0.x 的嵌套重试链：诊断只做有界的单层探测，超时返回结构化 timeout，不把多个失败合并成 backend unreachable。
@@ -63,6 +63,7 @@
 
 - 会话只有两种 kind：`user-gui` 与 `virtual-gui`。`headless` 是一次性 job，不是 session；`session(kind="headless")` 必须返回校验错误。
 - `user-gui` 只 attach 用户已启动的实例，不由 agent 再拉一个可见 GUI。attach 在单实例时可省略 ID，多实例必须显式，否则 ambiguity。
+- 首调会话门：会话级能力（`session`/`op`/`py`/`see`）解析不到 ready `user-gui` 时，不得自动启动 `virtual-gui`，也不得把调用转给 headless/worker；必须返回 `stage=session` 的决策请求，明确告知“Blender 没起来”，并给出两个显式选项：拉起 Blender 后 attach，或用户同意后启动 virtual-gui。3.0.x 的 GUI→worker/headless 自动降级链在 3.1 删除，降级只能是用户确认后的显式动作。
 - 每个会话有单写者 lease：`acquire`、`release`、`heartbeat`、`pause`、`resume`。写操作要求 lease；pause 阻止写、允许读；lease 冲突返回 holder 信息。用户手动操作与 agent 写入的冲突通过 pause/lease 显式化，不靠重试掩盖。
 - `virtual-gui` 由 Gateway 通过 DisplayProvider 启动/停止，agent 专用、用户不可察；只有 addon handshake 成功后会话才算 ready。实例上限可配，默认值由 V0 决定；低资源时降级策略也由 V0 决定，不在本设计写死。
 - 会话隔离：每个实例独立 scene/Python namespace/lease；一个实例断线不改变其他实例 readiness。跨实例执行返回错误，不能落到默认实例。
@@ -79,6 +80,7 @@
 - 不采用 WSL/WSLg/WSL+Xvfb、Xdummy、Weston headless 作为 3.1 provider；未来版本再评估。
 - V0 bake-off 是本 change 的发布门槛：Windows W1、Windows W2（仅 W1 失败时）、Linux L1 各跑同一组验收；通过后才在文档和配置里写默认 provider、fallback 顺序、virtual-gui 默认上限和安装前提。
 - V0 验收（每个通过的 provider 必须具备）：`bpy.app.background == False`；GL renderer 非 llvmpipe；`see` 走 GUI capture 且与 user-gui 的 viewport 结果 parity；2 个并发实例互不串场景；stop 后无 Blender/Xvfb/helper 孤儿；安装前提可查询；锁屏/RDP/无显示环境行为已记录。
+- 依赖引导不是静默安装：provider `capabilities()` 报告 prerequisites 与安装状态；host 的 `doctor --fix` 与 addon 偏好设置按钮共用同一张 prerequisites 描述表；Ubuntu 22.04/24.04 与 Debian 12（apt）用 `pkexec` 真一键安装 `xvfb`/`virtualgl`，Fedora/Arch/无 polkit 环境只给准确命令；GPU 驱动只检测不安装；安装后必须复检 capabilities，失败保留原始 stderr 且不得把 provider 标为 ready。
 - 若 Windows 没有 provider 通过 V0：3.1 不发布 virtual-gui，也不允许把 render/headless 当作替代；发布报告必须写明失败的测量项。
 
 ### D5 — 作业队列

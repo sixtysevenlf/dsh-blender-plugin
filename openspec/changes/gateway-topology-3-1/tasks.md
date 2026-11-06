@@ -51,6 +51,9 @@
 - [ ] 4.8 把 txn 迁移到 `session` 子操作：snapshot/restore/mark/revert/list/prune/drop；验证文件级与对象级回滚行为不变，旧 txn tool 不再注册。
 - [ ] 4.9 实现 virtual-gui 上限与低资源策略：上限可配，默认值留待 V0；超限返回 capacity 错误；验证不因等待而启动额外进程。
 - [ ] 4.10 新增会话 integration 测试：多实例选择、lease 冲突、pause、virtual-gui 停止、断线隔离、see 边界；验证 P2 的 6/6 场景继续成立。
+- [ ] 4.11 首调会话门：`session`/`op`/`py`/`see` 在解析不到 ready user-gui 且未显式请求 virtual-gui 时返回 `stage=session` 决策请求；验证不 spawn Blender、不启 provider、P95 ≤3s、错误含两个显式选项。
+- [ ] 4.12 显式授权启动 virtual-gui：只有用户确认后才 start，start 前复检仍无 user-gui；验证拒绝后不创建会话，后续调用继续要求决策而不自动降级。
+- [ ] 4.13 删除自动降级路径：移除 3.0.x 的 GUI→worker/headless 兜底与嵌套重试；验证无 Blender 时首调不产生任何 Blender 进程，错误含可执行 fix。
 
 ## 5. virtual-gui 与 DisplayProvider V0
 
@@ -65,7 +68,10 @@
 - [ ] 5.9 实现 provider capabilities/readiness 查询：列出平台、prerequisites、安装状态、是否需用户批准；验证未就绪 provider 立即失败并给 fix。
 - [ ] 5.10 汇总 V0 报告：每个 provider 的通过/失败测量、默认/fallback 顺序、virtual-gui 默认实例上限、低资源阈值；把报告作为 3.1 发布门禁附件。
 - [ ] 5.11 如果 Windows 无 provider 通过：阻止 3.1 发布 virtual-gui，记录原因；验证没有“headless 冒充 virtual-gui”的路径。
-- [ ] 5.12 更新 virtual-display 文档：Windows helper/IDD 前提、Linux Xvfb/VirtualGL/GPU 驱动命令、锁屏/RDP 限制、preview-only 语义；验证中英版本同步。
+- [ ] 5.12 更新 virtual-display 文档：Windows helper/IDD 前提、Linux Xvfb/VirtualGL/GPU 驱动命令与发行版矩阵、一键安装入口与 sudo/polkit 前提、锁屏/RDP 限制、preview-only 语义；验证中英版本同步。
+- [ ] 5.13 依赖描述表：把每个 provider 的 prerequisites（包名、检测命令、安装命令、是否需要 root、装后复检）收敛成一张表，capabilities 与 doctor 共用；验证缺依赖时 3s 内返回 `stage=config` 与可执行命令。
+- [ ] 5.14 引导式安装：host `doctor --fix` 与 addon 偏好设置按钮共用同一入口；Ubuntu 22.04/24.04、Debian 12 用 `pkexec` 执行 apt 安装 `xvfb`/`virtualgl`，Fedora/Arch/无 polkit 只给命令；GPU 驱动只检测不安装；装后复检 capabilities，失败保留 stderr。
+- [ ] 5.15 无依赖环境回归：没有 xvfb/virtualgl 的容器里 virtual-gui 不得 ready、不得启动 Xvfb、不得回落 headless；验证按钮/命令输出与真实包管理器错误一致，测试不需要 root。
 
 ## 6. 作业队列
 

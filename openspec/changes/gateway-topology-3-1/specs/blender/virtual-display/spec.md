@@ -85,3 +85,19 @@ Provider capabilities SHALL report required host prerequisites, installation sta
 #### Scenario: Unready provider is not selected
 - **WHEN** the selected provider reports missing prerequisites
 - **THEN** start fails immediately with the prerequisite and fix, not after a display timeout
+
+### Requirement: Prerequisite bootstrap is explicit and verified
+
+Prerequisite installation SHALL be an explicit user action, never part of plugin or extension installation. Capabilities SHALL report each prerequisite's detection result, exact install command, elevation requirement, and post-install re-check. A one-click path MUST run the displayed command with system authentication (`pkexec` or equivalent) and re-query capabilities afterwards. Without a supported one-click path, the response MUST give the exact command and MUST NOT claim installation.
+
+#### Scenario: One-click install is authenticated and verified
+- **WHEN** the user triggers the one-click prerequisite install on a supported distribution
+- **THEN** the elevated command is the one that was displayed, and the provider is reported ready only after the post-install capabilities re-check passes
+
+#### Scenario: Missing prerequisites are never silently installed
+- **WHEN** a plugin or extension is installed on a host without Xvfb or VirtualGL
+- **THEN** no package manager runs, and the failure names the missing packages with their install command
+
+#### Scenario: Unsupported distribution degrades to a command
+- **WHEN** the host has no supported one-click path (no polkit, AUR-only package, or unknown package manager)
+- **THEN** the response returns the exact command, reports the provider as unavailable, and does not attempt an unattended install

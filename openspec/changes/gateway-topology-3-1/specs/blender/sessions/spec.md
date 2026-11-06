@@ -30,6 +30,22 @@ A `user-gui` session SHALL attach to a Blender process that the user already lau
 - **WHEN** two user instances are connected and no instanceId is supplied
 - **THEN** attach fails with the ambiguity error and lists both instanceIds
 
+### Requirement: Session resolution never silently starts a virtual-gui
+
+When a session-bound capability (`session`, `op`, `py`, `see`) has no ready `user-gui`, Gateway SHALL stop with a decision-required response and MUST NOT start a `virtual-gui`, spawn a headless Blender, or dispatch the call elsewhere. The stop MUST name the requested capability, state that Blender is not attached, and offer two explicit choices: launch Blender and attach, or start `virtual-gui` after the user's consent. An existing virtual-gui does not ask again.
+
+#### Scenario: First call without a visible Blender stops
+- **WHEN** the first session-bound call in a session finds no ready user-gui
+- **THEN** it returns `stage=session` stating that Blender is not attached, starts no process and no provider, and lists the two explicit choices
+
+#### Scenario: virtual-gui starts only after consent
+- **WHEN** the user chooses virtual-gui in response to that stop
+- **THEN** the next explicit start creates the virtual-gui session, and no call starts one on its own
+
+#### Scenario: Refusal is not a fallback
+- **WHEN** the user declines virtual-gui
+- **THEN** subsequent session-bound calls keep failing with the same decision-required response and never spawn a headless Blender
+
 ### Requirement: A session has one writer lease
 
 Each GUI session SHALL have a single write lease. Mutating operations MUST require the lease, and a lease holder SHALL be able to pause writes so another agent or the user can inspect without interleaving edits. A read-only operation MUST remain available while writes are paused.

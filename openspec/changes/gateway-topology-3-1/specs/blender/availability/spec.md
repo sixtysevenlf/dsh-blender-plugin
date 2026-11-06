@@ -20,7 +20,7 @@ Every failed tool, route, and job response SHALL include `stage`, `root_cause`, 
 
 ### Requirement: Stage identifies the failing layer
 
-`stage` SHALL be one of the documented layers, at minimum `config`, `spawn`, `transport`, `handshake`, `addon`, `bpy`, `queue`, and `render`. A failure MUST report exactly one stage and MUST NOT collapse distinct layers into a generic unknown state.
+`stage` SHALL be one of the documented layers, at minimum `config`, `session`, `spawn`, `transport`, `handshake`, `addon`, `bpy`, `queue`, and `render`. A failure MUST report exactly one stage and MUST NOT collapse distinct layers into a generic unknown state.
 
 #### Scenario: Addon is connected but bpy is busy
 - **WHEN** the control connection is healthy but the Blender main thread does not answer
@@ -29,6 +29,10 @@ Every failed tool, route, and job response SHALL include `stage`, `root_cause`, 
 #### Scenario: Missing executable is a config failure
 - **WHEN** the Blender executable path is null
 - **THEN** the failure reports `stage=config` even if a later spawn would also fail
+
+#### Scenario: No attached session is a session failure
+- **WHEN** a session-bound tool is called with no ready user-gui and no explicit virtual-gui request
+- **THEN** the failure reports `stage=session` with the two explicit choices, not `stage=addon` or a transport error
 
 #### Scenario: Occupied Gateway port is a config failure
 - **WHEN** the Gateway port is already held by another process
