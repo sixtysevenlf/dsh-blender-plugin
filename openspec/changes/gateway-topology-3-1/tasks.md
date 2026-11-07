@@ -2,7 +2,7 @@
 
 ## 1. 前置与基线
 
-- [ ] 1.1 同步并开分支：`git fetch origin --tags`；先提交并推送当前 planning artifacts（proposal/design/tasks/7 spec），确保 worktree 干净；`git fetch origin --tags`，以 `origin/main` 为准（当前审计时为 `82a44bc`，不要把这个哈希写死为永久基线）；从 `chore/gateway-topology-3-1-plan` rebase/merge 到最新 main 后切 `feat/gateway-topology-3-1`；验证基线 = 最新 `origin/main` + plan 提交，工作树只有明确保留的未跟踪证据（`diagnosis/`、`.dsh-ops/` 等），不把 active change 混进实现 PR。
+- [ ] 1.1 同步并开分支：`git fetch origin --tags`；先提交并推送当前 planning artifacts（proposal/design/tasks/7 spec），确保 worktree 干净；`git fetch origin --tags`，以 `origin/main` 为准（当前审计时为 `82a44bc`，不要把这个哈希写死为永久基线）；从 `chore/gateway-topology-3-1-plan` rebase/merge 到最新 main 后切 `feat/gateway-topology-3-1`；验证基线 = 最新 `origin/main` + plan 提交，工作树只有明确保留的未跟踪证据（`local-workspace/` 等），不把 active change 混进实现 PR。
 - [ ] 1.2 记录基线：在分支上记录 `git rev-parse HEAD`，跑 `npm run build`、`check:finalization`、`check:structure`、`check:exceptions`、`check-plan-ids --enforce`、`test:matrix`、`check:python-static`、`typecheck`、`lint`、`format:check`、`test:unit`、`test:contract`、`test:python`、`check:addon`、`check:build`、`check:git-hygiene`；验证全部 exit 0，并记录 15 tools / 34 families / 228 ops / 38 commands / 29 routes / protocol 11。
 - [ ] 1.3 先红（Gateway）：新增“addon 进程无监听 socket、旧 addon 被拒”的 contract/integration 测试，在未实现前应失败；把失败输出贴到 PR 草稿。
 - [ ] 1.4 冻结 PoC 输入：把 A2 PoC v2.1 的 P1/P2/P4/P5 证据路径、已知 BLOCKED 项写进 PR 草稿；确认 P3 virtual-display 仍为 BLOCKED，不能作为验收依据。

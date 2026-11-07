@@ -108,7 +108,7 @@
 - 显示服务器差异（关键）：WSL 默认设置 `WAYLAND_DISPLAY=wayland-0`，即使设置 `DISPLAY=:110`，Blender 4.2.10 仍选择 Wayland；`bpy.ops.wm.quit_blender()` 在这种情况下 exit 139，日志先出现 `GHOST/Wayland: xdg_wm_base@... protocol error 4`。这不是“无 DE”导致，也不是 Mesa teardown 的必然结果。
 - 强制 X11 后：`WAYLAND_DISPLAY=` + `XDG_SESSION_TYPE=x11` + `GDK_BACKEND=x11`，Xvfb :110 + openbox 下 API 退出 exit 0；WSLg 的 XWayland `:0` 下 API 退出 exit 0；alt+F4 关窗 exit 0；SIGTERM exit 143 且无孤儿；`blender -b` exit 0。
 - VirtualGL：`vglrun -d :110` + 强制 X11 + Xvfb D3D12 下，Blender GUI 的 `DSH_RENDERER=D3D12 (NVIDIA GeForce RTX 4070 SUPER)`，`render.opengl` 与 `screen.screenshot` 成功，`wm.quit_blender` exit 0；两个 `vglrun` Blender 实例并发均 exit 0，截图成功。`glxspheres64` 也报告 D3D12 renderer。注意 `vglrun glxinfo` 在 Xvfb 上会 exit 139（VirtualGL 的 glxinfo 问题），不能作为 VirtualGL 通过/失败的唯一判据。
-- 结论：WSL 不是 3.1 目标平台；WSLg 的 Wayland 退出崩溃可通过强制 X11 规避，VirtualGL 在 WSL + 强制 X11 下能跑 Blender GUI，但这些仍不能作为 Linux L1/V0 通过证据：未在真实 Linux 验证，未做 user-gui parity，WSLg Wayland 路径不可用，VirtualGL 回读性能低。Linux V0 仍需真实 Linux（Xorg/Wayland）+ Xvfb/VirtualGL + 用户 GUI parity。证据存本机 `.dsh-ops/wsl-poc/`（不入库）。
+- 结论：WSL 不是 3.1 目标平台；WSLg 的 Wayland 退出崩溃可通过强制 X11 规避，VirtualGL 在 WSL + 强制 X11 下能跑 Blender GUI，但这些仍不能作为 Linux L1/V0 通过证据：未在真实 Linux 验证，未做 user-gui parity，WSLg Wayland 路径不可用，VirtualGL 回读性能低。Linux V0 仍需真实 Linux（Xorg/Wayland）+ Xvfb/VirtualGL + 用户 GUI parity。证据存本机 `local-workspace/wsl-poc/`（不入库）。
 
 ### D5 — 作业队列
 
