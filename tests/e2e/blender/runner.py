@@ -52,7 +52,6 @@ def main():
         return {
             "module_file": addon.__file__,
             "enabled_pair": list(enabled),
-            "bl_info_version": list(addon.bl_info["version"]),
             "addon_version": list(addon.ADDON_VERSION),
             "protocol": addon.ADDON_PROTOCOL_VERSION,
             "commands": len(command_registry.COMMAND_NAMES),

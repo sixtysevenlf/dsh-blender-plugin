@@ -2,7 +2,8 @@
 
 配套 [`dsh-blender-plugin`](../docs/zh/README.md) 的 Blender 内 addon。
 
-> **v3.0 起 addon 以包 + zip 安装，单文件 `dsh_blender_bridge.py` 不再是安装入口，且已从本仓删除。**
+> **3.1 起 addon 是 Blender 4.2 Extension 包：zip 只有一个顶层 `dsh_blender_bridge/`，内含
+> `blender_manifest.toml`；单文件 `dsh_blender_bridge.py` 不再是安装入口，且已从本仓删除。**
 > 旧单文件安装过的用户请先在 Blender 里停用并移除它，再安装 `dsh_blender_bridge.zip`（见
 > [`../MIGRATIONS.md`](../MIGRATIONS.md)）。上游 `MCP for Blender`（模块 `blender_mcp`）与
 > harveyxiacn `blender_mcp_addon` 同样不再支持。
@@ -11,12 +12,12 @@
 
 | 项 | 值 |
 |---|---|
-| 安装包 / 模块名 | `dsh_blender_bridge.zip`（包根 `dsh_blender_bridge/`） / `dsh_blender_bridge` |
+| 安装包 / 模块名 | `dsh_blender_bridge.zip`（包根 `dsh_blender_bridge/`，含 `blender_manifest.toml`） / `dsh_blender_bridge` |
 | 源码目录 | `addon/dsh_blender_bridge/`（`__init__.py` 为入口，子包 `commands/`、`recorders/`、`assets/`、`integrations/`、`ui/`） |
 | 显示名（Blender 插件列表里） | **DSH Blender Bridge** |
-| 版本 / 协议 | addon **v1.11 / protocol 11** |
+| 版本 / 协议 | addon **v2.0.0 / protocol 12**；extension manifest v2.0.0 |
 | 标识前缀 | `dshbb_`（注册类 `bpy.types.dshbb_server`、5 个集成开关 `dshbb_use_*`） |
-| TCP 端口 | `127.0.0.1:9876`（只监听本机） |
+| TCP 端口 | Gateway `127.0.0.1:39877`；addon 主动连接，不监听入站端口 |
 | 命令面 | 38 条（22 条常驻 + 16 条集成门控；命令名、参数、返回结构与 pause 语义与 v1.10 一致） |
 
 ## 来源与许可（MIT）
@@ -40,7 +41,9 @@ node scripts/build-addon.mjs          # 写 addon/dsh_blender_bridge.zip
 node scripts/build-addon.mjs --check  # 只校验现有 zip 清单与版本
 ```
 
-zip 内只有一个包根 `dsh_blender_bridge/`，不含 `__pycache__` / `.pyc`，并使用固定时间戳保证可复现。
+zip 内只有一个包根 `dsh_blender_bridge/`，含 `blender_manifest.toml` 与全部 `.py` 模块，不含
+`__pycache__` / `.pyc`，并使用固定时间戳保证可复现。构建脚本同时校验 manifest、`gateway_schema.py`
+与 `config/gateway.json` 的版本一致，并用 Blender 4.2 的 `--command extension validate` 验证产物。
 
 ## 装法
 
@@ -49,15 +52,15 @@ zip 内只有一个包根 `dsh_blender_bridge/`，不含 `__pycache__` / `.pyc`�
      `blender_mcp` / `blender_mcp_addon`：**先取消勾选并卸载/移除**（同一模块名不能同时装两份，两个 addon 也会抢 9876）。
    - `Install...` → 选本目录的 `dsh_blender_bridge.zip`（不是目录、不是单个 `.py`）。
 2. 勾选启用 **DSH Blender Bridge**。
-3. 3D 视图按 `N` → 找到「DSH Blender Bridge」面板 → 点 **Connect**（端口 9876）。
+3. 3D 视图按 `N` → 找到「DSH Blender Bridge」面板 → 连接到本地 Gateway（`127.0.0.1:39877`）。
 
 > 也可以让插件**一键拉起**：`blender_viewport(op="launch")` —— 拉起 GUI Blender 并**自动扫到并启用**
-> 本 addon（目录或 zip 形式的 `dsh_blender_bridge` / `dshbb_*`），并校验 addon v1.11+ / protocol 11。
+> 本 addon（目录或 zip 形式的 `dsh_blender_bridge` / `dshbb_*`），并校验 addon v2.0+ / protocol 12。
 
 ## 验证
 
 ```bash
-blender_rt_cmd get_addon_info     # addon_version 应为 [1, 11]，protocol_version 应为 11
+blender_rt_cmd get_addon_info     # addon_version 应为 [2, 0, 0]，protocol_version 应为 12
 blender_rt_cmd get_activity_state # state 可能为 idle / human / agent / both
 ```
 

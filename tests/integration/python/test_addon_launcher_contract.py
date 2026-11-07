@@ -26,8 +26,11 @@ LAUNCH_SOURCE = (REPO_ROOT / "runtime" / "launch" / "resolve.ts").read_text(enco
 
 def test_launcher_requires_the_package_install_not_the_old_single_file():
     assert 'importlib.import_module("dsh_blender_bridge")' in LAUNCH_SOURCE
-    assert "is not a package (single-file installs are unsupported)" in LAUNCH_SOURCE
-    assert '"addon_version": None, "addon_protocol": None, "addon_ok": False' in LAUNCH_SOURCE
+    assert "single-file installs are unsupported" in LAUNCH_SOURCE
+    assert (
+        '"addon_module": None, "addon_version": None, "addon_protocol": None, "addon_ok": False'
+        in LAUNCH_SOURCE
+    )
 
 
 def test_launcher_requires_protocol_12_and_version_at_least_2_0():

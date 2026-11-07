@@ -135,13 +135,13 @@
 
 ## 8. Blender Extension
 
-- [ ] 8.1 新增 `addon/dsh_blender_bridge/blender_manifest.toml`：quoted schema_version 1.0.0、id dsh_blender_bridge、version 2.0.0、name/tagline/maintainer、type add-on、blender_version_min 4.2.0、GPL-3.0-or-later、network/files 权限带 reason；验证字段符合 Blender 4.2 manifest 规范。
-- [ ] 8.2 删除 `bl_info` 与相关注册路径：`__init__.py` 不再依赖 bl_info；验证 addon 注册/偏好/版本读取不经过 bl_info。
-- [ ] 8.3 改造 `scripts/build-addon.mjs`：zip 只含一个顶层 `dsh_blender_bridge/` 文件夹，manifest、`__init__.py` 与模块都在其中，无 wrapper 或根级散文件；确定性时间戳/顺序；验证 zip 可重复构建、sha 稳定且单文件夹布局通过 validate。
+- [x] 8.1 新增 `addon/dsh_blender_bridge/blender_manifest.toml`：quoted schema_version 1.0.0、id dsh_blender_bridge、version 2.0.0、name/tagline/maintainer、type add-on、blender_version_min 4.2.0、GPL-3.0-or-later、network/files 权限带 reason；验证字段符合 Blender 4.2 manifest 规范。证据：Blender 4.2.10 `--command extension validate addon/dsh_blender_bridge.zip` exit 0；build-addon 同步校验 manifest/gateway_schema/config 版本。
+- [x] 8.2 删除 `bl_info` 与相关注册路径：`__init__.py` 不再依赖 bl_info；验证 addon 注册/偏好/版本读取不经过 bl_info。证据：register/unregister 与 ADDON_VERSION 仍可用；e2e 82 passed；源码 grep 无 bl_info。
+- [x] 8.3 改造 `scripts/build-addon.mjs`：zip 只含一个顶层 `dsh_blender_bridge/` 文件夹，manifest、`__init__.py` 与模块都在其中，无 wrapper 或根级散文件；确定性时间戳/顺序；验证 zip 可重复构建、sha 稳定且单文件夹布局通过 validate。证据：74 entries、`--check` 校验排序/根/manifest，Blender validate exit 0。
 - [ ] 8.4 接入 `blender --command extension validate`：CI 下载固定 4.2 LTS、缓存、校验产物；验证 validate 失败会红，通过后记录版本。
-- [ ] 8.5 改造 `runtime/launch/resolve.ts`：扫描 `bpy.context.preferences.addons` 与 `sys.modules`，接受 `dsh_blender_bridge` 和 `bl_ext.*.dsh_blender_bridge`；删除固定模块名与 bl_info 读取。
+- [x] 8.5 改造 `runtime/launch/resolve.ts`：扫描 `bpy.context.preferences.addons` 与 `sys.modules`，接受 `dsh_blender_bridge` 和 `bl_ext.*.dsh_blender_bridge`；删除固定模块名与 bl_info 读取。证据：boot 脚本 `_find_addon_module()` 按名字提示扫描，版本读 ADDON_VERSION/ADDON_PROTOCOL_VERSION；launch-resolve 单测断言。
 - [ ] 8.6 实现 extension 检测/启用错误：未安装、未启用、版本不匹配分别给 install/enable/upgrade 步骤；验证 virtual-gui 启动前检测，不导入 legacy shim。
-- [ ] 8.7 迁移测试：`tests/e2e/blender/package_check.py` 从 legacy 不适用改为 extension 必须通过；`test_addon_manifest.py` 改断言 manifest/namespace；验证旧 bl_info 测试删除。
+- [x] 8.7 迁移测试：`tests/e2e/blender/package_check.py` 从 legacy 不适用改为 extension 必须通过；`test_addon_manifest.py` 改断言 manifest/namespace；验证旧 bl_info 测试删除。证据：package_check extension validate exit 0 + bl_info_absent；manifest/packaging/launcher pytest 全绿。
 - [ ] 8.8 处理许可与 attribution：addon GPL-3.0-or-later、插件 BSD-3-Clause、上游 MIT 声明保留；验证 artifact 和文档都含对应声明。
 - [ ] 8.9 权限与 online_access：manifest 声明 network/files；asset 网络调用检查 `bpy.app.online_access`；验证关闭网络时本地 bridge 可用、网络能力返回 policy error。
 - [ ] 8.10 实现 extension 安装/升级冒烟：从 zip 安装到 Blender 4.2、启用、握手、升级到 2.0.0；验证 namespace 为 bl_ext.*，旧 zip 安装入口不存在。

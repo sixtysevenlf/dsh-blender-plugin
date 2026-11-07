@@ -25,6 +25,14 @@ def _package_python_files():
     )
 
 
+def _package_entries():
+    """Every file the deterministic builder ships, including the manifest."""
+    return sorted(
+        [PACKAGE_ROOT + "/" + relative for relative in _package_python_files()]
+        + [PACKAGE_ROOT + "/blender_manifest.toml"]
+    )
+
+
 def test_zip_manifest_has_package_root_and_all_python_files():
     assert ZIP_PATH.is_file(), "run scripts/build-addon.mjs first"
     with zipfile.ZipFile(ZIP_PATH) as archive:
@@ -35,10 +43,15 @@ def test_zip_manifest_has_package_root_and_all_python_files():
         assert not any("__pycache__" in name or name.endswith(".pyc") for name in names)
         assert not any(name.lower() == PACKAGE_ROOT + ".py" for name in names)
         assert names == sorted(names)
-        expected = [PACKAGE_ROOT + "/" + relative for relative in _package_python_files()]
-        assert names == expected
-        assert archive.read(PACKAGE_ROOT + "/__init__.py").decode("utf-8").find('"version": (2, 0, 0)') != -1
+        assert names == _package_entries()
+        init_source = archive.read(PACKAGE_ROOT + "/__init__.py").decode("utf-8")
+        assert "bl_info" not in init_source
         assert archive.read(PACKAGE_ROOT + "/gateway_schema.py").decode("utf-8").find("ADDON_PROTOCOL_VERSION = 12") != -1
+        manifest = archive.read(PACKAGE_ROOT + "/blender_manifest.toml").decode("utf-8")
+        assert 'schema_version = "1.0.0"' in manifest
+        assert 'id = "dsh_blender_bridge"' in manifest
+        assert 'version = "2.0.0"' in manifest
+        assert 'license = ["SPDX:GPL-3.0-or-later"]' in manifest
 
 
 def test_zip_installs_as_package_and_registers_from_any_cwd(tmp_path, monkeypatch):
@@ -56,7 +69,8 @@ def test_zip_installs_as_package_and_registers_from_any_cwd(tmp_path, monkeypatc
     package = importlib.import_module(PACKAGE_ROOT)
     try:
         assert Path(package.__file__).resolve() == package_init.resolve()
-        assert package.bl_info["version"] == (2, 0, 0)
+        assert package.ADDON_VERSION == (2, 0, 0)
+        assert not hasattr(package, "bl_info")
         assert package.ADDON_PROTOCOL_VERSION == 12
 
         package.register()
@@ -89,11 +103,11 @@ def test_zip_installs_as_package_and_registers_from_any_cwd(tmp_path, monkeypatc
 def test_zip_contains_the_whole_module_package_without_the_old_single_file():
     with zipfile.ZipFile(ZIP_PATH) as archive:
         names = archive.namelist()
-    expected = [PACKAGE_ROOT + "/" + relative for relative in _package_python_files()]
-    assert len(expected) == 73
+    expected = _package_entries()
+    assert len(expected) == 74
     assert names == expected
     assert PACKAGE_ROOT + ".py" not in names
-    assert not any(name.endswith("blender_manifest.toml") for name in names)
+    assert PACKAGE_ROOT + "/blender_manifest.toml" in names
     assert not any(name.endswith(".pyc") for name in names)
 
 

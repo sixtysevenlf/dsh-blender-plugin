@@ -2,10 +2,11 @@
 /**
  * Build addon/dsh_blender_bridge.zip from the add-on package.
  *
- * The zip has a single package root (dsh_blender_bridge/) so Blender's
- * "Install from Disk" treats it as one add-on. Entries are stored (no
- * compression) and use a fixed DOS timestamp so identical trees produce
- * identical bytes. No __pycache__ / .pyc files are included.
+ * The zip has a single package root (dsh_blender_bridge/) containing
+ * blender_manifest.toml and every .py module, so Blender treats it as one
+ * add-on or extension. Entries are stored (no compression) and use a fixed
+ * DOS timestamp so identical trees produce identical bytes. No __pycache__ /
+ * .pyc files are included.
  *
  * Usage:
  *   node scripts/build-addon.mjs [--check]
@@ -37,7 +38,7 @@ function walk(dir) {
     if (stat.isDirectory()) {
       if (name === '__pycache__') continue
       out.push(...walk(path))
-    } else if (stat.isFile() && name.endsWith('.py')) {
+    } else if (stat.isFile() && (name.endsWith('.py') || name === 'blender_manifest.toml')) {
       out.push(path)
     }
   }
@@ -50,23 +51,40 @@ function zipName(path) {
 
 function readVersions() {
   const init = readFileSync(join(PACKAGE_DIR, '__init__.py'), 'utf8')
+  const manifest = readFileSync(join(PACKAGE_DIR, 'blender_manifest.toml'), 'utf8')
   const schema = readFileSync(join(PACKAGE_DIR, 'gateway_schema.py'), 'utf8')
   const config = JSON.parse(readFileSync(join(ROOT, 'config', 'gateway.json'), 'utf8'))
+  const manifestVersion = manifest.match(/^version\s*=\s*"([^"]+)"/m)
+  const manifestId = manifest.match(/^id\s*=\s*"([^"]+)"/m)
+  const manifestSchema = manifest.match(/^schema_version\s*=\s*"([^"]+)"/m)
+  // bl_info is optional: the extension manifest is the install metadata now.
+  // Keep the check while a release still carries the legacy registration path.
   const blInfoVersion = init.match(/["']version["']\s*:\s*\((\d+),\s*(\d+),\s*(\d+)\)/)
   const addonVersion = schema.match(/^ADDON_VERSION\s*=\s*"([^"]+)"/m)
   const protocolVersion = schema.match(/^ADDON_PROTOCOL_VERSION\s*=\s*(\d+)/m)
-  if (!blInfoVersion || !addonVersion || !protocolVersion) {
-    fail('could not read bl_info/gateway_schema versions from the package')
+  if (!manifestVersion || !manifestId || !manifestSchema || !addonVersion || !protocolVersion) {
+    fail('could not read manifest/gateway_schema versions from the package')
+  }
+  if (manifestId[1] !== 'dsh_blender_bridge' || manifestSchema[1] !== '1.0.0') {
+    fail('blender_manifest id/schema_version is not dsh_blender_bridge/1.0.0')
   }
   const schemaVersion = addonVersion[1].split('.').map(Number)
+  const manifestParts = manifestVersion[1].split('.').map(Number)
   const expectedVersion = String(config.addon.version).split('.').map(Number)
+  const blInfoParts = blInfoVersion
+    ? [Number(blInfoVersion[1]), Number(blInfoVersion[2]), Number(blInfoVersion[3])]
+    : null
   const result = {
-    bl_info_version: [Number(blInfoVersion[1]), Number(blInfoVersion[2]), Number(blInfoVersion[3])],
+    bl_info_version: blInfoParts,
+    manifest_version: manifestParts,
     addon_version: schemaVersion,
     protocol_version: Number(protocolVersion[1]),
   }
-  if (JSON.stringify(result.bl_info_version) !== JSON.stringify(schemaVersion)) {
+  if (blInfoParts && JSON.stringify(blInfoParts) !== JSON.stringify(schemaVersion)) {
     fail('bl_info.version and gateway_schema.ADDON_VERSION disagree')
+  }
+  if (JSON.stringify(manifestParts) !== JSON.stringify(schemaVersion)) {
+    fail('blender_manifest.version and gateway_schema.ADDON_VERSION disagree')
   }
   if (JSON.stringify(schemaVersion) !== JSON.stringify(expectedVersion)) {
     fail('gateway_schema.ADDON_VERSION and config/gateway.json addon.version disagree')
@@ -178,6 +196,8 @@ function readZipManifest(buffer) {
 
 function main() {
   if (!existsSync(join(PACKAGE_DIR, '__init__.py'))) fail('package __init__.py is missing')
+  if (!existsSync(join(PACKAGE_DIR, 'blender_manifest.toml')))
+    fail('blender_manifest.toml is missing')
   const versions = readVersions()
   if (CHECK_ONLY) {
     if (!existsSync(ZIP_PATH)) fail('zip does not exist')
@@ -186,12 +206,19 @@ function main() {
     if (!entries.some((entry) => entry.name === PACKAGE_ROOT + '/__init__.py')) {
       fail('zip does not contain the package __init__.py at its root')
     }
+    if (!entries.some((entry) => entry.name === PACKAGE_ROOT + '/blender_manifest.toml')) {
+      fail('zip does not contain blender_manifest.toml at its root')
+    }
     for (const entry of entries) {
       if (!entry.name.startsWith(PACKAGE_ROOT + '/'))
         fail('zip entry outside package root: ' + entry.name)
       if (entry.name.includes('__pycache__') || entry.name.endsWith('.pyc')) {
         fail('zip contains a generated cache file: ' + entry.name)
       }
+    }
+    const names = entries.map((entry) => entry.name)
+    if (JSON.stringify(names) !== JSON.stringify([...names].sort())) {
+      fail('zip entries are not in deterministic sorted order')
     }
     console.log(
       JSON.stringify(
@@ -215,6 +242,9 @@ function main() {
   if (files.length === 0) fail('package contains no Python files')
   if (!files.some((path) => zipName(path) === PACKAGE_ROOT + '/__init__.py')) {
     fail('package root __init__.py is missing')
+  }
+  if (!files.some((path) => zipName(path) === PACKAGE_ROOT + '/blender_manifest.toml')) {
+    fail('package root blender_manifest.toml is missing')
   }
   // Normalize line endings so the committed zip is reproducible across checkouts
   // (Git may materialize the Python sources with CRLF on Windows).

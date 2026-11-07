@@ -102,14 +102,14 @@ def main():
         from dsh_blender_bridge import command_registry
 
         report["raw"]["module_file"] = addon.__file__
-        report["raw"]["version"] = list(addon.bl_info["version"])
+        report["raw"]["version"] = list(addon.ADDON_VERSION)
         scene = bpy.context.scene
         scene.dshbb_port = port
         scene.dshbb_auto_start_server = False
         report["raw"]["has_window"] = bpy.context.window is not None
         record("install_enable", True, {
             "module_file": addon.__file__,
-            "version": list(addon.bl_info["version"]),
+            "version": list(addon.ADDON_VERSION),
             "protocol": addon.ADDON_PROTOCOL_VERSION,
             "commands": len(command_registry.COMMAND_NAMES),
         })

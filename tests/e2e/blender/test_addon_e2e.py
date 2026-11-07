@@ -63,7 +63,6 @@ def test_zip_installs_and_enables_the_package(blender_run):
     assert detail["operator_result"] == ["FINISHED"]
 
     enabled = harness.check(blender_run, "enable_addon")["detail"]
-    assert enabled["bl_info_version"] == [2, 0, 0]
     assert enabled["addon_version"] == [2, 0, 0]
     assert enabled["protocol"] == 12
     assert enabled["commands"] == 38

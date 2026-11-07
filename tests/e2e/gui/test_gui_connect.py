@@ -67,7 +67,7 @@ def test_socket_roundtrip_served_by_the_blender_main_thread(gui_run):
     info = harness.check(gui_run, "get_addon_info")["detail"]
     assert info["status"] == "success"
     assert info["result"]["protocol_version"] == 11
-    assert info["result"]["addon_version"] == [1, 11]
+    assert info["result"]["addon_version"] == [2, 0, 0]
     assert harness.check(gui_run, "ping")["detail"] == {
         "status": "success", "result": {"pong": True},
     }

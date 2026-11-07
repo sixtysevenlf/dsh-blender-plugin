@@ -25,7 +25,8 @@ def test_init_is_a_thin_entry_point():
     functions = [node.name for node in tree.body if isinstance(node, ast.FunctionDef)]
     assert functions == []
     assert "from .registration import register, unregister" in source
-    assert '"version": (2, 0, 0)' in source
+    assert "bl_info" not in source
+    assert (Path(pkg.__file__).resolve().parent / "blender_manifest.toml").is_file()
     assert 'if __name__ == "__main__":' in source
     assert pkg.register is registration.register
     assert pkg.unregister is registration.unregister

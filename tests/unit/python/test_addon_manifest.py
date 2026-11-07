@@ -45,23 +45,34 @@ EXPECTED_PACKAGE_FILES = [
 ]
 
 
-def test_bl_info_and_protocol_versions_are_frozen():
-    assert pkg.bl_info == {
-        "name": "DSH Blender Bridge",
-        "author": "Siddharth Ahuja",
-        "version": (2, 0, 0),
-        "blender": (4, 2, 0),
-        "location": "View3D > Sidebar > DSH Blender Bridge",
-        "description": "Connect Blender to DSH through the local DSH Gateway",
-        "doc_url": "https://github.com/sixtysevenlf/dsh-blender-plugin",
-        "category": "Interface",
-    }
-    assert pkg.ADDON_VERSION == (2, 0, 0) == pkg.bl_info["version"]
+def test_versions_and_names_are_frozen():
+    assert not hasattr(pkg, "bl_info"), "the extension manifest replaced bl_info"
+    assert pkg.ADDON_VERSION == (2, 0, 0)
     assert pkg.ADDON_PROTOCOL_VERSION == 12
     assert protocol.ADDON_NAME == "DSH Blender Bridge"
     assert protocol.ADDON_VERSION == pkg.ADDON_VERSION
     assert protocol.ADDON_PROTOCOL_VERSION == pkg.ADDON_PROTOCOL_VERSION
-    assert pkg.bl_info["name"] == protocol.ADDON_NAME
+
+
+def test_extension_manifest_matches_gateway_schema():
+    import tomllib
+
+    root = Path(pkg.__file__).resolve().parent
+    manifest = tomllib.loads((root / "blender_manifest.toml").read_text(encoding="utf-8"))
+    assert manifest["schema_version"] == "1.0.0"
+    assert manifest["id"] == "dsh_blender_bridge"
+    assert manifest["version"] == "2.0.0"
+    assert tuple(int(part) for part in manifest["version"].split(".")) == pkg.ADDON_VERSION
+    assert manifest["type"] == "add-on"
+    assert manifest["blender_version_min"] == "4.2.0"
+    assert manifest["license"] == ["SPDX:GPL-3.0-or-later"]
+    assert manifest["permissions"]["network"]
+    assert manifest["permissions"]["files"]
+    assert len(manifest["permissions"]["network"]) <= 64
+    assert len(manifest["permissions"]["files"]) <= 64
+    assert 'ADDON_PROTOCOL_VERSION = 12' in (
+        root / "gateway_schema.py"
+    ).read_text(encoding="utf-8")
 
 
 def test_package_layout_is_exactly_the_two_level_split():
