@@ -10,17 +10,18 @@ The plugin is a DeepSeek Harness host plugin, not a standalone Blender add-on.
 
     DSH host
       -> src/ tools
-      -> backend HTTP (127.0.0.1:9877)
+      -> Gateway HTTP (127.0.0.1:39877)
       -> engine dispatch
-      -> Blender addon (127.0.0.1:9876)
+      ^ WebSocket /addon (the addon dials out)
+      -> Blender addon
       -> bpy
 
-There are two processes and one TCP bridge:
+There are three logical processes and one inbound endpoint:
 
-- the DSH host and backend run in Node;
-- the Blender addon runs inside Blender;
+- the DSH host and the Gateway run in Node (the Gateway may be embedded in the host);
+- the Blender addon runs inside Blender and dials the Gateway; it has no inbound listener;
 - the addon is the only process that calls bpy;
-- the backend owns jobs, leases, sessions, receipts, and routing;
+- the Gateway owns jobs, leases, sessions, receipts, and routing;
 - the host owns the model-facing tools and the headless/fallback policy.
 
 The public model surface is 15 tools, 34 planning families, 228 operations, 38 addon commands

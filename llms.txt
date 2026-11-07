@@ -32,7 +32,7 @@
 
 ## 验收判据（没到就是没装好）
 
-- `curl -sS http://127.0.0.1:9877/doctor` → `kind=ok`
+- `curl -sS http://127.0.0.1:39877/doctor` → `kind=ok`
 - `blender_viewport(op="doctor")` → `kind=ok`；`blender_rt_see(max_size=560)` → 能回一帧图
 
 ## 文档

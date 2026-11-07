@@ -4,7 +4,7 @@
 > 原则：**先探测，别猜**；每一步都要有可验证的判据；失败给出明确的下一步而不是笼统报错。
 
 > **当前版本口径（2026-11-05）**：插件 **v3.0.6** · **15 个模型工具** · plan catalog **34 family / 228 op** ·
-> addon **v1.11**（protocol **11**）· 后端 `127.0.0.1:9877` / addon `127.0.0.1:9876`。
+> addon **v2.0.0**（protocol **12**）· Gateway `127.0.0.1:39877` · addon 主动连接（无入站端口）。
 > 验收判据：**GUI 路线 = `doctor` 回 `kind=ok`**；**纯无头路线**（不装 addon）= `rt_worker(start)` + `see` 出图自证
 > （doctor 的 bpy 往返不可达属预期）。**默认先开 GUI**；无 GUI 时交互式无头（持久 worker + see/watch/reset）也能独立建模，但它是备用路径。
 
@@ -27,7 +27,7 @@ plan catalog 应能列出 **34 family / 228 op**。
 | 探测项 | 命令 | 期望 |
 |---|---|---|
 | Blender 进程 | 任务管理器 / `tasklist` 里有 `blender.exe` | 有 GUI 最方便；**没有也可以**（headless worker 独立跑） |
-| addon socket | `blender_viewport(op="status")` | `9876` 通（addon v1.11 / protocol 11） |
+| addon 实例 | `blender_viewport(op="status")` | Gateway 列出 ready 实例（addon 主动连接） |
 | 插件后端 | `blender_viewport(op="doctor")` | `kind=ok`；若 `blender-unreachable` 先启动 Blender 或改用无头 |
 | 写通道租约 | `blender_viewport(op="who")` | 别的会话持有时写操作会 409（只读 op 豁免，`force=true` 可抢） |
 | 引擎 | `blender_rt_perf(op="status")` | 默认 `engine=BLENDER_EEVEE`；QC/白模用 Workbench |
@@ -47,7 +47,7 @@ dsh --profile <profile> --dump-config | grep -A3 dsh-blender-plugin
 ## 3. 连接 Blender addon（人工一步）
 
 1. Blender 里安装并启用本仓 **DSH Blender Bridge** addon（`addon/dsh_blender_bridge.zip`，**v1.11+** / protocol 11）。旧单文件 `dsh_blender_bridge.py` 与旧 `MCP for Blender` 均不再支持，如已安装请先停用并移除（见 [../MIGRATIONS.md](../MIGRATIONS.md)）；
-2. 3D 视口按 `N` → **DSH Blender Bridge** 面板 → **Connect**（socket 默认 `127.0.0.1:9876`）；
+2. 3D 视口按 `N` → **DSH Blender Bridge** 面板 → **Connect**（addon 主动连接 Gateway，默认 39877）；
 3. 回到 DSH 跑 `blender_viewport(op="doctor")` 复核；
 4. 或者直接 `blender_viewport(op="launch")` 一键拉起 GUI Blender 并自动 Connect（幂等）。
 
@@ -74,7 +74,7 @@ blender_rt_worker(op="see", from="4,-4,3", look_at="0,0,1")  # 无头出图
 
 | 症状 | 先看 | 常见原因 |
 |---|---|---|
-| 工具报"后端不可用" | 是否 `blender.exe` 在跑 / 后端 9877 是否在 | Blender 没启动；或 addon 没 Connect；或后端没起来（`blender_viewport(op="start")`） |
+| 工具报"后端不可用" | 是否 `blender.exe` 在跑 / Gateway 39877 是否在 | Blender 没启动；或 addon 没 Connect；或 Gateway 没起来（`blender_viewport(op="start")`） |
 | `doctor` 报 `main-thread-busy` | 是不是刚跑过重活 | 主线程被占；重活改走 `blender_rt_headless` / `blender_rt_worker` |
 | 工具数不是 15、catalog 不是 34/228 | 插件版本 / 是否重启 | 安装 v3.0.6 后**重启 DSH**；`--dump-config` 确认 profile bundle 已加载 |
 | `rt_do`/`rt_see` 连不上但无头可用 | 是否有 GUI | GUI 不可用时的备用：用 `session="auto"` / `rt_worker` 走交互式无头 |

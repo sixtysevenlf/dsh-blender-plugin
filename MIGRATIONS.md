@@ -1,15 +1,22 @@
 # MIGRATIONS —— 从旧版本迁到 v3.0
 
 > **当前版本（2026-11-01）**：插件 **v3.0.0** · **15 个模型工具** · plan catalog **34 family / 228 op** ·
-> addon command **38** · addon **v1.11**（protocol **11**）· 后端 `127.0.0.1:9877` / addon `127.0.0.1:9876`。
+> addon command **38** · addon **v1.11**（protocol **11**）· Gateway `127.0.0.1:39877` · addon 主动连接 Gateway（无入站监听）。
 > **旧 `MCP for Blender` 自 v2.3 起不再支持**；v3.0 是工程重构 + addon 安装方式 breaking，按下文 §0/§1 迁。
 
-## 0. 最短路径（任何旧版 → v3.0.0）
+## 0. 3.1 连接模型与端口迁移
+
+> 3.1 起唯一入站端口是 Gateway `127.0.0.1:39877`；addon 改为主动连接 Gateway，**不再监听 9876**。
+> 升级/替换 addon 后必须重启 Blender：addon 没有热重载，旧 3.0.x addon 的 9876 listener 不会自动释放。
+> 3.0.x 的后端 9877 → 3.1 的 Gateway 39877；`9877` 只在显式配置时生效。
+> 旧 `MCP for Blender` 仍不受支持；它可能继续监听 9876，但不要与本 addon 同时启用。
+
+## 0.1 最短路径（任何旧版 → v3.0.0）
 
 1. 更新 DSH 插件包到 **v3.0.0**：`dsh plugin --profile <profile> add dsh-blender-plugin@3.0.0` → **重启 DSH**；旧「Blender 视口」tab / 点击进消息在 v2.3 已删除，这是预期。
 2. Blender 里停用并移除旧 addon（含旧的单文件 `dsh_blender_bridge.py`）→ 安装本仓 `addon/dsh_blender_bridge.zip`（**v1.11**）→ 启用 → N → Connect。
 3. `blender_rt_cmd get_addon_info` → `addon_version=[1,11]`、`protocol=11`；
-   GUI 路线 `curl http://127.0.0.1:9877/doctor` → `kind=ok`（纯无头路线用 `rt_worker(start)` + `see` 出图自证）；
+   GUI 路线 `curl http://127.0.0.1:39877/doctor` → `kind=ok`（纯无头路线用 `rt_worker(start)` + `see` 出图自证）；
    `blender_rt_plan(op="catalog")` → **34 family / 228 op**。
 4. 选中入口：Blender 原生选中 → `N` →「Selection → DSH」→ 发送（多选 / 集合）；编辑模式选点/面、姿态选骨骼也会一起发。
 5. 新能力（交互式无头、`img_*`、`asm_*`、`blockout`、`visualreport`、`shapesolve`、`eval_run`、强制门等）用
@@ -26,11 +33,11 @@
 ## 1. Blender 侧 addon：必须换成 `DSH Blender Bridge` v1.11（zip 包）
 
 v2.3 的原生选中 / 集合 / activity 依赖本仓 addon 的 5 条命令与 N 面板入口，旧 addon 没有。
-两个 addon 都默认监听 `127.0.0.1:9876`，**不能同时启用**。
+3.1 addon 主动连接 Gateway，不再监听 `127.0.0.1:9876`；旧 `MCP for Blender` 仍可能占用该端口，两者不要同时启用。
 
 1. `Edit ▸ Preferences ▸ Add-ons` → 停用旧条目（`MCP for Blender` / `blender_mcp` / `blender_mcp_addon`）。
 2. `Install...` → 选本仓 [`addon/dsh_blender_bridge.zip`](addon/dsh_blender_bridge.zip) → 勾选启用 **DSH Blender Bridge**（v1.11 / protocol 11）。v3.0 起不再支持单文件安装。
-3. 3D 视图按 `N` →「DSH Blender Bridge」→ **Connect**（端口 9876）；或直接 `blender_viewport(op="launch")`。
+3. 3D 视图按 `N` →「DSH Blender Bridge」→ **Connect**（addon 主动连接 Gateway，默认 `39877`）；或直接 `blender_viewport(op="launch")`。
 4. `blender_rt_cmd get_addon_info` → `addon_version` 应为 `[1,11]`、`protocol=11`，capabilities 含
    `get_activity_state` / `get_selection` / `get_collections` / `send_*_to_dsh`。
 

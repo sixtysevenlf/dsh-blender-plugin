@@ -67,7 +67,7 @@ class DSHBlenderBridgeServer(*command_mixins()):
         self._connection = None
         self._connection_lock = threading.Lock()
         self._project = ""
-        self._reported_pause = None
+        self._reported_pause = False
 
     # Credentials live in exactly one place: add-on preferences, with the
     # DSHBB_*/BLENDERMCP_* environment variables as fallback
@@ -108,7 +108,7 @@ class DSHBlenderBridgeServer(*command_mixins()):
         self.running = True
         self.handshake_error = ""
         self._project = self._current_project()
-        self._reported_pause = None
+        self._reported_pause = False
 
         try:
             start_runtime_handlers()

@@ -12,7 +12,7 @@
 #
 # 用法：bash tests/engine_probe.sh [port]
 set -u
-PORT="${1:-9877}"
+PORT="${1:-39877}"
 B="http://127.0.0.1:${PORT}"
 HOLD="probe-$$"
 RELEASE_HOLD=1

@@ -39,7 +39,7 @@ export function registerCommands(ctx: HostContext, port: number): void {
                 return toolError(
                   'addon_unreachable',
                   'COMMANDS 失败 · ' + errText,
-                  '先切回 Blender，在 N 面板点 Connect（addon 监听 127.0.0.1:9876）；再跑 blender_viewport op=doctor 做有界体检，通过后重试本命令',
+                  '先切回 Blender，在 N 面板点 Connect（addon 主动连接 Gateway，默认 127.0.0.1:39877）；再跑 blender_viewport op=doctor 做有界体检，通过后重试本命令',
                 )
               return toolError(
                 'backend_error',

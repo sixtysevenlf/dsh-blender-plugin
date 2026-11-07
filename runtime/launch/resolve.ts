@@ -3,7 +3,6 @@ import { CFG } from '../config.js'
 import { errorMessage } from '../core/json.js'
 
 export interface LaunchOpts {
-  addonPort?: unknown
   waitMs?: unknown
   exe?: unknown
   file?: unknown
@@ -17,7 +16,6 @@ export interface LaunchOpts {
 
 export async function tryLaunchAgent(
   opts: LaunchOpts,
-  addonPort: number,
   steps: string[],
   base: Record<string, unknown>,
 ): Promise<Record<string, unknown> | null> {
@@ -41,7 +39,6 @@ export async function tryLaunchAgent(
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        addonPort: addonPort,
         file: opts.file ? String(opts.file) : null,
         force: !!opts.force,
         blenderExe: opts.exe ? String(opts.exe) : null,
@@ -61,7 +58,6 @@ export async function tryLaunchAgent(
       dispatched: true,
       launched: true,
       listening: false,
-      addonPort: addonPort,
       via: 'windows-agent',
     })
   } finally {

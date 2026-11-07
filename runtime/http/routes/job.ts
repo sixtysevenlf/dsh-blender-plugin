@@ -22,7 +22,7 @@ async function handleQueueSurface(
 
 // HTTP 路由 /job：作业层
 export function createJobRoutes(E: HttpRouteDeps) {
-  const { engine, isReadOnly, json, leaseGate, pushRtt, readBody, stats, streamJson, jobQueue } = E
+  const { engine, isReadOnly, json, leaseGate, pushRtt, readBody, stats, streamJson } = E
   return {
     async job(req: IncomingMessage, res: ServerResponse, _url: URL, _p: string): Promise<void> {
       // 作业层：start / status / collect / kill / list（长任务后台化，渲染一整晚）

@@ -4,7 +4,7 @@
 下面这段提示词把「**先读 → 再装 → 按判据验收**」写成硬要求，复制粘贴即可。
 
 > **当前版本口径（2026-11-05）**：插件 **v3.0.6** · **15 个模型工具** · plan catalog **34 family / 228 op** ·
-> Blender 侧 addon **v1.11**（protocol **11**）· 后端 `127.0.0.1:9877` / addon `127.0.0.1:9876`。
+> Blender 侧 addon **v2.0.0**（protocol **12**）· Gateway `127.0.0.1:39877` · addon 主动连接 Gateway（无入站端口）。
 > **验收判据**：GUI 路线 = `doctor` 回 `kind=ok`；纯无头路线（不装 addon）= `rt_worker(start)` + `see` 出图自证
 > （doctor 的 bpy 往返不可达属预期）。**GUI 不再必需**：交互式无头（持久 worker + see/watch/reset）可独立建模。
 
@@ -22,7 +22,7 @@
    注意：普通安装不需要 clone 或构建；npm 包自带 lib/。只有从源码开发才需要 npm ci --legacy-peer-deps && npm run build。
 3. 严格按 §3 的 5 步执行；配置项只从 docs/配置参考.md 里取，不要自己编路径 / 端口 / 配置名。
 4. 验收判据（按路线二选一，另一条不适用时说明原因）：
-   · GUI 路线：curl -sS http://127.0.0.1:9877/doctor → kind=ok，且 blender_rt_see(max_size=560) 回一帧图；
+   · GUI 路线：curl -sS http://127.0.0.1:39877/doctor → kind=ok，且 blender_rt_see(max_size=560) 回一帧图；
    · 纯无头路线（不装 addon）：blender_rt_worker(op="start") + op="see" 回一帧图
      （doctor 的 bpy 往返不可达属预期，不是没装好）；
    两条路线都要：blender_rt_plan(op="catalog") 能列出 34 family / 228 op。
@@ -106,7 +106,7 @@ blender_rt_do(code="print(K.out_dir)", session="auto")       # 同步 exec，不
 | 回执 | 含义 | 处置 |
 |---|---|---|
 | `blender-unreachable` | Blender 没跑，或 addon 没 Connect | `blender_viewport(op="launch")`；或人工在 Blender 里按 `N` → Connect；纯无头可改用 `blender_rt_worker` |
-| `addon-unresponsive`（`/doctor` 的 `addon.kind`） | `9876` 端口通，但 addon 在预算内（3s）没回 `execute_code` 的 bpy 往返（超时） | 确认 Blender 在运行且「DSH Blender Bridge」已 Connect；等长命令/渲染结束，必要时重启 Blender；`op=start` 只管 9877 后端，不修这条通道 |
+| `addon-unresponsive`（`/doctor` 的 `addon.kind`） | Gateway 有 addon 实例，但 addon 在预算内（3s）没回 `execute_code` 的 bpy 往返（超时） | 确认 Blender 在运行且「DSH Blender Bridge」已 Connect；等长命令/渲染结束，必要时重启 Blender；`op=start` 只管 39877 Gateway，不修这条通道 |
 | `addon-error`（`/doctor` 的 `addon.kind`） | addon 明确回了错误（非超时，如「AI 操作已暂停」/ 脚本报错 / `BUSY_RENDER`） | 按报错修；渲染中则等渲染结束或用 `render_wait`；不是主线程忙，不用反复重试 |
 | `main-thread-busy` | 主线程被渲染 / 模态操作占住 | 等它空下来，或改走无头（`blender_rt_headless` / `blender_rt_worker`） |
 | 后端不可用 | 后端进程没起来 | `blender_viewport(op="start")` |

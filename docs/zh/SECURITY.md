@@ -24,7 +24,7 @@
 |---|---|
 | Blender 侧 Python | `blender_rt_do` / `blender_rt_headless` / `blender_rt_worker` / `blender_rt_plan` 等会把调用方给的 Python 交给 Blender 的 `bpy` 执行；`K` 是跨调用保留的持久内核 |
 | 本地进程 | 会 spawn 后端 `node lib/runtime/gateway.js`（先 `npm run build`）、无头 `blender -b`、以及 `runtime/ext/` 下的外部校验器（glTF-Validator / open3d）；必要时用 `SIGTERM` -> `SIGKILL` 清残留后端 |
-| 本地网络 | 后端只监听 `127.0.0.1`（默认 9877）；与 Blender addon 走 `127.0.0.1:9876` 的 TCP。插件本身**没有**外呼遥测 |
+| 本地网络 | Gateway 只监听 `127.0.0.1`（默认 39877）；Blender addon 主动连接 Gateway 的 WebSocket，不开放入站端口。除这条本地控制通道外，插件**没有**遥测 |
 | 文件读写 | 默认工作目录 `~/.dsh-blender-rt`（可用 `DSH_BLENDER_*` 环境变量或包根 `dsh-blender.config.json` 覆盖）：渲染产物、日志、作业台账 |
 | gate 表达式 | `gate_run` 的 `pass_if` / `degrade_if` 是**受限表达式**：先过 `runtime/py/core/gate.py` 的 `_check_ast` 语法白名单，再由 `_eval_node` 逐节点求值（**不调用 `eval` / `exec`**）；禁用下划线属性，函数仅限 `min` / `max` / `len` / `abs` / `round` / `all` / `any` / `sum` / `float` / `int` / `str` |
 | 凭据 | 宿主插件**不读取、不存储、不传输**任何 API key / token / 凭据文件。随包 addon 提供可选的资产集成凭据（Hyper3D、Sketchfab、Poly Pizza、Hunyuan3D），以密码字段形式保存在 Blender 的 add-on preferences 中；也可通过 `DSHBB_*` 环境变量提供（旧的 `BLENDERMCP_*` 名称仍兼容），且只发送给你主动调用的对应第三方 API |

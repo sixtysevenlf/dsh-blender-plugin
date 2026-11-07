@@ -81,10 +81,14 @@ export function formatLaunch(r: unknown): string {
   const lines: string[] = []
   lines.push(
     (x.ok ? 'LAUNCH ok' : 'LAUNCH 未成功') +
-      (x.already ? ' · 已经在监听（幂等，未重复启动）' : x.dryRun ? ' · dryRun（没启动）' : '') +
+      (x.already
+        ? ' · Gateway 已有 addon 实例（幂等，未重复启动）'
+        : x.dryRun
+          ? ' · dryRun（没启动）'
+          : '') +
       (x.launched ? ' · 已 spawn pid=' + text(x.pid) : '') +
-      ' · addon 端口 ' +
-      text(x.addonPort || '-') +
+      ' · Gateway 实例 ' +
+      text(x.instances ?? '-') +
       ' · 等待 ' +
       text(x.waitedMs || 0) +
       'ms',

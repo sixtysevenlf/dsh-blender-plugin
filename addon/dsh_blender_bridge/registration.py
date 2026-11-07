@@ -36,7 +36,7 @@ def _register_connection_properties():
 
     bpy.types.Scene.dshbb_backend_url = bpy.props.StringProperty(
         name="DSH Backend URL",
-        description="DSH 插件后端地址（默认 http://127.0.0.1:9877；留空用默认 / 环境变量 DSH_BLENDER_BACKEND_URL）",
+        description="Gateway 地址（默认 http://127.0.0.1:39877；留空用默认 / 环境变量 DSH_BLENDER_BACKEND_URL）",
         default=""
     )
 

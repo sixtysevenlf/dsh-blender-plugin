@@ -45,6 +45,7 @@ npm package. npm scripts in package.json call these files; tests live under test
 | check-doc-paths.mjs         | Check doc links, commands, inbound links and nonexistent path refs; --enforce ratchets against config/doc-links-baseline.json (orphan list intentionally empty) | npm run check:doc-paths / check:finalization | stdout only |
 | check-exceptions.mjs        | Validate config/exceptions.json: kind enum, path exists, owned and unexpired | npm run lint / check:exceptions              | stdout only                              |
 | check-plan-ids.mjs          | Inventory plan-ID-shaped tokens; warn by default, --enforce ratchets against config/plan-id-baseline.json | npm run check:plan-ids | stdout only |
+| check-ports.mjs             | Reject the legacy 9877 Gateway default in current docs/config; tests, archives and migration history are exempt | npm run lint | stdout only |
 | check-routes.mjs            | Assert the generated route tables match config/routing.json byte for byte    | npm run check:routes                         | stdout only                              |
 | check-function-budget.mjs   | File and function line budgets; 80-120 line functions register in config/function-budget-allowlist.json | check:function-budget / check:finalization | stdout only |
 | check-git-hygiene.mjs       | Ensure lib/ is untracked; requires a git checkout                            | npm run check:git-hygiene / CI               | stdout only                              |

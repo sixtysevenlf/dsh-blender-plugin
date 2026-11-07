@@ -425,7 +425,7 @@ export const CFG = {
     readString(process.env.BLENDER_USER_SCRIPTS) ||
     readString(FILE.cfg.blenderUserScripts) ||
     null,
-  /** 热无头 worker 的本地端口（与 addon 9876 / 后端 9877 区分开） */
+  /** 热无头 worker 的本地端口（与 Gateway 39877 区分开） */
   workerPort: num(process.env.DSH_BLENDER_WORKER_PORT || readString(FILE.cfg.workerPort), 9879),
   // 溯源（doctor/日志/教程排查用）
   source: { configFile: FILE.from, workDir: WORK.from, blenderExe: BLENDER.from },

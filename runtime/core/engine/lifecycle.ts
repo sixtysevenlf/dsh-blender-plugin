@@ -1,5 +1,4 @@
 // engine 生命周期：指标 / addon.send 包装
-import { diagnose } from '../../transport/probes.js'
 import { gatewayInstances } from '../../transport/addon-ws.js'
 import { errorMessage } from '../json.js'
 import type { EngineMetrics } from './index.js'
@@ -160,7 +159,7 @@ export function installAddonSend(
       }
       if (transport) {
         try {
-          err.diagnosis = gatewayTransportDiagnosis(addon, e) || (await diagnose())
+          err.diagnosis = gatewayTransportDiagnosis(addon, e)
           metrics.lastDiagnosis = err.diagnosis
         } catch (x) {
           /* 诊断自身失败不影响原错误 */

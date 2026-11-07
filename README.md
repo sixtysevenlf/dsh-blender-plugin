@@ -30,14 +30,14 @@ DSH × Blender connects DeepSeek Harness to Blender so an agent can build, inspe
 
 ## Quick start
 
-**Before anything else: install the bundled addon first.** Use the addon shipped in this repository: **addon/dsh_blender_bridge.zip**. It must be your only Blender-side *agent bridge*: do not install or run `MCP for Blender`, `blender_mcp`, or any other addon that serves Blender over its own socket, since they compete for 127.0.0.1:9876. Unrelated addons (modeling, materials, rendering, asset libraries) are fine and are neither checked nor blocked. Install and enable this addon in Blender before the other steps. If the installation below does not work, first check that this exact addon is installed, enabled, and connected.
+**Before anything else: install the bundled addon first.** Use the addon shipped in this repository: **addon/dsh_blender_bridge.zip**. It must be your only Blender-side *agent bridge*: do not install or run `MCP for Blender`, `blender_mcp`, or any other addon that serves Blender over its own socket. The 3.1 addon dials the Gateway and opens no inbound port, but a legacy MCP bridge still listens on 127.0.0.1:9876; two Blender-side agent bridges confuse the host. Unrelated addons (modeling, materials, rendering, asset libraries) are fine and are neither checked nor blocked. Install and enable this addon in Blender before the other steps. If the installation below does not work, first check that this exact addon is installed, enabled, and connected.
 
 ### Requirements
 
 - DSH (DeepSeek Harness) installed and working.
 - Node.js 24.9 or newer is needed only for source builds; installing from npm uses the runtime bundled with DSH. Node.js 24.9 is the minimum supported version; CI runs on Node 24.
 - Blender 4.2 LTS is the tested version. Blender 4.x may work; Blender 5.x is not yet validated. GUI mode requires the bundled addon (install it first); headless mode only needs the Blender executable.
-- Addon compatibility: the bundled addon is the only required addon and the only supported agent bridge. Other addons do not conflict; an old `MCP for Blender` / `blender_mcp` does (same 127.0.0.1:9876 port) — disable it, no need to uninstall.
+- Addon compatibility: the bundled addon is the only required addon and the only supported agent bridge. Other addons do not conflict; an old `MCP for Blender` / `blender_mcp` is unsupported (it still listens on 127.0.0.1:9876) — disable it, no need to uninstall.
 - Optional: a DSH source checkout when rebuilding the host side; otherwise the build links against this repository's installed dependencies.
 
 ### Option A: install from npm
@@ -60,13 +60,13 @@ This is the supported installation path. It does not require `git clone`, `npm c
 
 4. **Verify the installation.** The only acceptance criterion for the GUI route is `doctor` returning `kind` equal to `ok`:
 
-        curl -sS http://127.0.0.1:9877/doctor
+        curl -sS http://127.0.0.1:39877/doctor
 
-   GUI route: `curl -sS http://127.0.0.1:9877/health` and `/doctor`; `doctor.kind` must be `ok`.
+   GUI route: `curl -sS http://127.0.0.1:39877/health` and `/doctor`; `doctor.kind` must be `ok`.
 
    Headless-only route (no addon): `blender_rt_worker(op="start")` followed by `op="see"` must return a frame.
 
-The addon remains the only supported Blender-side agent bridge. Disable any other bridge addon that serves port 9876; ordinary modeling, material, rendering, and asset addons are unaffected.
+The addon remains the only supported Blender-side agent bridge. Disable any other Blender-side agent bridge (a legacy MCP bridge still serves port 9876); ordinary modeling, material, rendering, and asset addons are unaffected.
 
 ### Option B: ask an AI agent
 
@@ -75,7 +75,7 @@ Copy this prompt into an agent that can run commands:
     First install and enable the bundled addon dsh_blender_bridge.zip
     from the latest GitHub Release. If a bridge addon is already enabled
     (MCP for Blender / blender_mcp, or anything else serving Blender on
-    port 9876), disable it; do not uninstall the user's other addons and
+    ), disable it; do not uninstall the user's other addons and
     do not ask them to.
     Then install the DSH × Blender plugin from npm for my DSH profile:
     dsh plugin --profile <profile> add dsh-blender-plugin@3.0.6
@@ -96,9 +96,9 @@ Install the standalone modeling skill (only needed for hosts that do not load th
 
 1. **Install the bundled addon first.**
 
-   Download **addon/dsh_blender_bridge.zip** from the addon/ folder of this repository. In Blender, open Edit > Preferences > Add-ons > Install, select that zip, enable DSH Blender Bridge, open the N panel in the 3D view, and click Connect. The addon listens on 127.0.0.1:9876. If you previously installed the single-file `dsh_blender_bridge.py`, disable and remove it first: v3.0 installs only the package zip.
+   Download **addon/dsh_blender_bridge.zip** from the addon/ folder of this repository. In Blender, open Edit > Preferences > Add-ons > Install, select that zip, enable DSH Blender Bridge, open the N panel in the 3D view, and click Connect. The addon dials the DSH Gateway at 127.0.0.1:39877 after Connect; it does not listen on a port. Replacing or upgrading the addon requires a Blender restart: there is no hot reload, and a 3.0.x addon keeps its old 9876 listener until Blender exits. If you previously installed the single-file `dsh_blender_bridge.py`, disable and remove it first: v3.0 installs only the package zip.
 
-   Keep this addon as your only agent bridge. If `MCP for Blender` / `blender_mcp` (or another addon that opens its own server on 9876) is enabled, turn it off — uninstalling is not required. Your other addons can stay. If the rest of the installation does not work, check this step first.
+   Keep this addon as your only agent bridge. If `MCP for Blender` / `blender_mcp` (or any other Blender-side agent bridge) is enabled, turn it off — uninstalling is not required. Your other addons can stay. If the rest of the installation does not work, check this step first.
 
 2. **Developer path:** clone the repository and build it. `lib/` is a build artifact and is not committed, so a fresh clone must build once before use. `npm run setup:dev` installs the npm and Python development dependencies (creating `.venv`); unless you are developing the plugin, use the npm install above.
 
@@ -133,8 +133,8 @@ Install the standalone modeling skill (only needed for hosts that do not load th
 
     GUI route:
 
-        curl -sS http://127.0.0.1:9877/health
-        curl -sS http://127.0.0.1:9877/doctor
+        curl -sS http://127.0.0.1:39877/health
+        curl -sS http://127.0.0.1:39877/doctor
 
     The only acceptance criterion for the GUI route is doctor returning kind equal to ok. If it does not, the plugin is not installed correctly.
 
@@ -211,7 +211,7 @@ The plugin exposes 15 tools. All planning, audit, assembly, export, and evaluati
 | doctor does not return kind equal to ok | Check that Blender is running and the addon is connected. For the GUI route this is the only valid acceptance check. |
 | No GUI is available | Use the persistent worker fallback: start a worker, then run code and request a frame. |
 | Another session is writing to the same scene | Take the write lease with blender_viewport, or use separate headless workers for parallel work. |
-| An old MCP for Blender / blender_mcp addon is still enabled | Disable it (uninstalling is not required) and use the bundled DSH Blender Bridge addon; both compete for 127.0.0.1:9876. |
+| An old MCP for Blender / blender_mcp addon is still enabled | Disable it (uninstalling is not required) and use the bundled DSH Blender Bridge addon; the 3.1 bridge dials the Gateway, but two Blender-side agent bridges still confuse the host; the legacy MCP bridge listens on 127.0.0.1:9876. |
 | Images are generated but not attached | Update to the latest build; the Windows path fix is included. If it persists, open the returned path directly. |
 | Followed the steps and it still does not work | Check the bundled addon first: only addon/dsh_blender_bridge.zip is supported, and it must be enabled and connected. |
 

@@ -37,8 +37,8 @@ def test_backend_url_defaults_and_strips_trailing_slash():
     previous = bpy.context.scene.dshbb_backend_url
     try:
         bpy.context.scene.dshbb_backend_url = ""
-        assert config.DEFAULT_DSH_BACKEND == "http://127.0.0.1:9877"
-        assert config.dshbb_backend_url() == "http://127.0.0.1:9877"
+        assert config.DEFAULT_DSH_BACKEND == "http://127.0.0.1:39877"
+        assert config.dshbb_backend_url() == "http://127.0.0.1:39877"
         bpy.context.scene.dshbb_backend_url = "http://127.0.0.1:9999/"
         assert config.dshbb_backend_url() == "http://127.0.0.1:9999"
         bpy.context.scene.dshbb_backend_url = "http://127.0.0.1:9999///"

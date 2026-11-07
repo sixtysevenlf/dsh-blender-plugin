@@ -68,12 +68,37 @@ describe('configuration contract', () => {
     expect(CFG.addonHost).toBe('127.0.0.1')
     expect(CFG.addonPort).toBe(9876)
     expect(CFG.httpPort).toBe(39877)
+    expect(CFG.gatewayPort).toBe(39877)
     expect(CFG.leaseTtlMs).toBe(600000)
     expect(CFG.workerPort).toBe(9879)
     expect(d.addon).toBe('127.0.0.1:9876')
     expect(d.http).toBe('127.0.0.1:39877')
+    expect(d.gateway).toBe('127.0.0.1:39877')
     expect(d.leaseTtlMs).toBe(600000)
     expect(d.workerPort).toBe(9879)
+  })
+
+  it('uses 9877 only when the Gateway port is explicitly configured', () => {
+    const code =
+      'import(' +
+      JSON.stringify(pathToFileURL(pkgPath('lib', 'runtime', 'config.js')).href) +
+      ').then(m => console.log(JSON.stringify({ gateway: m.CFG.gatewayPort })))'
+    const run = (extra: Record<string, string>) =>
+      JSON.parse(
+        execFileSync(process.execPath, ['--input-type=module', '-e', code], {
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            DSH_BLENDER_CONFIG: pkgPath('tmp', 'does-not-exist.json'),
+            ...extra,
+          },
+        })
+          .trim()
+          .split('\n')
+          .pop()!,
+      )
+    expect(run({}).gateway).toBe(39877)
+    expect(run({ DSH_BLENDER_GATEWAY_PORT: '9877' }).gateway).toBe(9877)
   })
 
   it('lets the command-line port override the summary only', () => {

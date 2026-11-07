@@ -190,7 +190,7 @@ def get_dshbb_addon_preferences(context=None):
     return addon.preferences if addon else None
 
 
-DEFAULT_DSH_BACKEND = "http://127.0.0.1:9877"
+DEFAULT_DSH_BACKEND = "http://127.0.0.1:39877"
 
 
 def dshbb_backend_url():

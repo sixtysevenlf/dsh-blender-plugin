@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest'
 import { PROTOCOLS, detectProtocol, resolveProtocol } from '../../../../runtime/addon-protocol.js'
-import { AddonClient } from '../../../../runtime/transport/probes.js'
+import { AddonClient } from '../../../helpers/legacy-flat-addon-client.js'
 import { startFakeAddon } from '../../../helpers/fake-addon.mjs'
 import { closedPort } from '../../../helpers/fake-backend.mjs'
 

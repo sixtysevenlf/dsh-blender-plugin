@@ -214,11 +214,7 @@ function killTree(child: ChildProcess): void {
   }
 }
 
-function spawnBlender(
-  opts: SpawnExecutorOptions,
-  prepared: Prepared,
-  jobId: string,
-): ChildProcess {
+function spawnBlender(opts: SpawnExecutorOptions, prepared: Prepared, jobId: string): ChildProcess {
   return (opts.spawnImpl || spawn)(opts.blenderExe || (BLENDER_EXE as string), prepared.args, {
     env: { ...process.env, DSH_JOB_ID: jobId },
     stdio: ['ignore', 'pipe', 'pipe'],

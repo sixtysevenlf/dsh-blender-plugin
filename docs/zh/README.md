@@ -30,14 +30,14 @@ DSH × Blender 把 DeepSeek Harness 接到 Blender，让 AI 能在真实 Blender
 
 ## 快速开始
 
-**先做这一步：安装随包 addon。** 用本仓库提供的 **addon/dsh_blender_bridge.zip**，它必须是你唯一的 Blender 侧 agent 桥：不要安装或启用 `MCP for Blender`、`blender_mcp` 或任何自带 socket 服务的同类 addon（会和本仓 addon 抢 127.0.0.1:9876）。无关的普通 addon（建模、材质、渲染、资产库）不受影响。请先在 Blender 里安装并启用它，再做后面的步骤。如果按下面安装后仍然用不了，先回来检查是不是这个 addon、有没有启用、有没有 Connect。
+**先做这一步：安装随包 addon。** 用本仓库提供的 **addon/dsh_blender_bridge.zip**，它必须是你唯一的 Blender 侧 agent 桥：不要安装或启用 `MCP for Blender`、`blender_mcp` 或任何自带 socket 服务的同类 addon（旧 MCP 桥仍监听 127.0.0.1:9876；3.1 本仓 addon 只主动外连，不占入站端口，但两个 Blender 侧 agent 桥会互相干扰）。无关的普通 addon（建模、材质、渲染、资产库）不受影响。请先在 Blender 里安装并启用它，再做后面的步骤。如果按下面安装后仍然用不了，先回来检查是不是这个 addon、有没有启用、有没有 Connect。
 
 ### 前置条件
 
 - 已安装并可用的 DSH（DeepSeek Harness）。
 - 从 npm 安装时不需要单独安装 Node.js；只有从源码构建才需要 Node.js **24.9** 或更高版本。Node.js **24.9** 是最低支持版本，CI 使用 Node 24。
 - Blender **4.2 LTS** 是已验证版本；4.x 可能可用，5.x 尚未验证。GUI 模式必须先安装随包 addon；无头模式只需要能找到 Blender 可执行文件。
-- addon 兼容性：随包 addon 是唯一需要、也是唯一支持的 agent 桥。其他 addon 与之不冲突；旧的 `MCP for Blender` / `blender_mcp` 冲突（同占 127.0.0.1:9876），停用即可，不必卸载。
+- addon 兼容性：随包 addon 是唯一需要、也是唯一支持的 agent 桥。其他 addon 与之不冲突；旧的 `MCP for Blender` / `blender_mcp` 不受支持（仍可能占用 127.0.0.1:9876），停用即可，不必卸载。
 - 可选：如果你想重新构建插件，需要 DSH 源码 checkout。
 
 ### 方案 A：从 npm 安装
@@ -60,20 +60,20 @@ DSH × Blender 把 DeepSeek Harness 接到 Blender，让 AI 能在真实 Blender
 
 4. **验证安装。** GUI 路线的唯一验收判据是 `doctor` 返回 `kind` 等于 `ok`：
 
-        curl -sS http://127.0.0.1:9877/doctor
+        curl -sS http://127.0.0.1:39877/doctor
 
-   GUI 路线：`curl -sS http://127.0.0.1:9877/health` 和 `/doctor`，`doctor.kind` 必须是 `ok`。
+   GUI 路线：`curl -sS http://127.0.0.1:39877/health` 和 `/doctor`，`doctor.kind` 必须是 `ok`。
 
    纯无头路线（不装 addon）：`blender_rt_worker(op="start")` 后接 `op="see"`，必须返回一帧图。
 
-addon 仍然是唯一支持的 Blender 侧 agent 桥。其他占用 9876 端口的桥接 addon 要停用；普通建模、材质、渲染、资产类 addon 不受影响。
+addon 仍然是唯一支持的 Blender 侧 agent 桥。其他 Blender 侧 agent 桥要停用（旧 MCP 桥仍占 9876；3.1 addon 不占入站端口）；普通建模、材质、渲染、资产类 addon 不受影响。
 
 ### 方案 B：让 AI 帮你装
 
 把下面这段提示词交给能执行命令的 AI：
 
     请先安装并启用最新 GitHub Release 提供的 addon：dsh_blender_bridge.zip。
-    如果已有桥接类 addon（MCP for Blender / blender_mcp，或任何在 9876 端口
+    如果已有桥接类 addon（MCP for Blender / blender_mcp，或任何 Blender 侧桥接服务
     提供服务的 addon），先停用它；不要卸载用户的其他 addon，也不要要求用户这么做。
     然后从 npm 安装 DSH × Blender 插件到我的 DSH profile：
     dsh plugin --profile <profile> add dsh-blender-plugin@3.0.6
@@ -94,9 +94,9 @@ addon 仍然是唯一支持的 Blender 侧 agent 桥。其他占用 9876 端口�
 
 1. **先安装随包 addon。**
 
-   从本仓库的 addon/ 目录下载 **addon/dsh_blender_bridge.zip**。打开 Blender，进入 Edit > Preferences > Add-ons > Install，选择该 zip，启用 DSH Blender Bridge；在 3D 视图按 N 打开面板，点 Connect。addon 监听 127.0.0.1:9876。如果之前装过单文件 `dsh_blender_bridge.py`，请先停用并移除：v3.0 只安装包形式的 zip。
+   从本仓库的 addon/ 目录下载 **addon/dsh_blender_bridge.zip**。打开 Blender，进入 Edit > Preferences > Add-ons > Install，选择该 zip，启用 DSH Blender Bridge；在 3D 视图按 N 打开面板，点 Connect。addon 会在 Connect 后主动连接 DSH Gateway（默认 127.0.0.1:39877），不监听端口；升级/替换 addon 后必须重启 Blender（无热重载，旧 3.0.x addon 的 9876 listener 不会自动释放）。如果之前装过单文件 `dsh_blender_bridge.py`，请先停用并移除：v3.0 只安装包形式的 zip。
 
-   只能用这个 addon 作为 agent 桥。若已启用 `MCP for Blender` / `blender_mcp`（或其他自带 9876 服务的 addon），停用它即可，不必卸载；其他 addon 可以留着。如果后面的安装用不了，先回来检查这一步。
+   只能用这个 addon 作为 agent 桥。若已启用 `MCP for Blender` / `blender_mcp`（或其他 Blender 侧 agent 桥），停用它即可，不必卸载；其他 addon 可以留着。如果后面的安装用不了，先回来检查这一步。
 
 2. **开发者路径：** 克隆仓库并构建。lib/ 是构建产物，不再入库，所以新 clone 必须先构建一次。`npm run setup:dev` 会装好 npm 与 Python 开发依赖（并创建 `.venv`）；除非你在开发这个插件，否则请使用上面的 npm 安装。
 
@@ -130,8 +130,8 @@ addon 仍然是唯一支持的 Blender 侧 agent 桥。其他占用 9876 端口�
 
     GUI 路线：
 
-        curl -sS http://127.0.0.1:9877/health
-        curl -sS http://127.0.0.1:9877/doctor
+        curl -sS http://127.0.0.1:39877/health
+        curl -sS http://127.0.0.1:39877/doctor
 
     GUI 路线唯一验收判据：doctor 返回 kind=ok。没到就是没装好。
 
@@ -208,7 +208,7 @@ addon 仍然是唯一支持的 Blender 侧 agent 桥。其他占用 9876 端口�
 | doctor 没回 kind=ok | 检查 Blender 是否在跑、addon 是否 Connect。GUI 路线只认这一条。 |
 | 没有 GUI | 用持久 worker 备用通路：启动 worker，再执行代码并要一帧图。 |
 | 另一个会话正在写同一个场景 | 用 blender_viewport 拿写租约；并行建模用独立无头 worker。 |
-| 还在启用旧 MCP for Blender / blender_mcp | 停用它（不必卸载），改用随包的 DSH Blender Bridge addon；两者会抢 127.0.0.1:9876。 |
+| 还在启用旧 MCP for Blender / blender_mcp | 停用它（不必卸载），改用随包的 DSH Blender Bridge addon；3.1 桥主动外连不占端口，但两个 agent 桥会互相干扰；旧 MCP 桥仍监听 127.0.0.1:9876。 |
 | 图生成了但没附上 | 升级到最新构建（已包含 Windows 路径修复）；仍不行就直接打开返回的路径。 |
 | 按下面步骤装完还是用不了 | 先检查 addon：只支持 addon/dsh_blender_bridge.zip，并且必须启用、必须 Connect。 |
 
