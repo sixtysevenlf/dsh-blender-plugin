@@ -120,7 +120,7 @@ describe('plan op catalog contract', () => {
     const fp = catalogFingerprint()
     expect(fp.families).toBe(34)
     expect(fp.opsCount).toBe(228)
-    expect(fp.commandCatalogKeys).toBe(38)
+    expect(fp.commandCatalogKeys).toBe(25)
     expect(fp.catalogHash).toMatch(/^[0-9a-f]{12}$/)
   })
 })

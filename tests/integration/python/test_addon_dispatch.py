@@ -1,7 +1,7 @@
 """Dispatch-level integration tests for the split add-on package.
 
 Uses a bpy stub and calls the server's command executor directly. This checks
-the 38-name dispatch table and pause gate without a Gateway connection.
+the 25-name dispatch table and pause gate without a Gateway connection.
 """
 
 from __future__ import annotations
@@ -20,18 +20,17 @@ command_registry = importlib.import_module("addon.dsh_blender_bridge.command_reg
 BASE_COMMANDS = [
     "get_scene_info", "get_world_state_snapshot", "get_addon_info", "get_object_info",
     "get_viewport_screenshot", "execute_code", "describe_node_type", "bpy_api_lookup",
-    "drain_human_activity", "get_activity_state", "get_selection", "send_selection_to_dsh",
-    "get_collections", "send_collection_to_dsh", "get_telemetry_consent", "set_telemetry_consent",
+    "get_activity_state", "get_selection", "send_selection_to_dsh",
+    "get_collections", "send_collection_to_dsh",
     "get_polyhaven_status", "get_hyper3d_status", "get_sketchfab_status", "get_polypizza_status",
-    "get_hunyuan3d_status", "export_scene",
+    "get_hunyuan3d_status",
 ]
 GATED_COMMANDS = [
-    "get_polyhaven_categories", "search_polyhaven_assets", "download_polyhaven_asset",
-    "get_polyhaven_asset_preview", "set_texture",
-    "create_rodin_job", "poll_rodin_job_status", "import_generated_asset",
-    "search_sketchfab_models", "get_sketchfab_model_preview", "download_sketchfab_model",
-    "search_polypizza_models", "download_polypizza_model",
-    "create_hunyuan_job", "poll_hunyuan_job_status", "import_generated_asset_hunyuan",
+    "get_polyhaven_categories", "search_polyhaven_assets",
+    "poll_rodin_job_status",
+    "search_sketchfab_models", "get_sketchfab_model_preview",
+    "search_polypizza_models",
+    "poll_hunyuan_job_status",
 ]
 ALL_COMMANDS = BASE_COMMANDS + GATED_COMMANDS
 
@@ -53,12 +52,12 @@ def test_real_get_addon_info_contract():
     assert info["protocol_version"] == 12
     assert info["blender_version"] == "4.2.10"
     # the handshake derives capabilities from the registry, so it is the full
-    # registered command set (38) instead of the old hardcoded 16-name subset.
+    # registered command set (25) instead of the old hardcoded 16-name subset.
     assert info["capabilities"] == sorted(command_registry.COMMAND_NAMES)
-    assert len(info["capabilities"]) == 38
+    assert len(info["capabilities"]) == 25
 
 
-def test_all_38_contract_commands_dispatch(monkeypatch):
+def test_all_25_contract_commands_dispatch(monkeypatch):
     server = _server(monkeypatch)
     _patch_dispatch_targets(server)
     for name in ("dshbb_use_polyhaven", "dshbb_use_hyper3d", "dshbb_use_sketchfab",
@@ -73,7 +72,7 @@ def test_all_38_contract_commands_dispatch(monkeypatch):
         else:
             assert response["result"] == {"handled": name}, name
 
-    assert len(ALL_COMMANDS) == len(command_registry.COMMAND_NAMES) == 38
+    assert len(ALL_COMMANDS) == len(command_registry.COMMAND_NAMES) == 25
 
 
 def test_unknown_command_and_handler_exception_shapes(monkeypatch):
@@ -109,7 +108,7 @@ def test_pause_gate_blocks_writes_but_allows_reads_and_ping(monkeypatch):
             "handled": "get_scene_info",
         }
         assert server.execute_command({"type": "get_polyhaven_status", "params": {}})["status"] == "success"
-        assert server.execute_command({"type": "set_texture", "params": {}})["error"] == "AI_PAUSED"
+        assert server.execute_command({"type": "send_selection_to_dsh", "params": {}})["error"] == "AI_PAUSED"
     finally:
         bpy.context.scene.dshbb_ai_paused = False
 

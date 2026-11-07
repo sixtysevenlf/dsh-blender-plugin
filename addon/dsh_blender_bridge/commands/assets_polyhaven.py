@@ -1,28 +1,18 @@
 """ Poly Haven asset commands. """
 
-import base64
-import traceback
-
 import bpy
-import requests
 
 from .polyhaven import PolyHavenImportMixin
 from ..integrations.polyhaven_client import (
-    POLYHAVEN_API_TIMEOUT,
-    POLYHAVEN_HEADERS,
     POLYHAVEN_SEARCH_LIMIT,
     POLYHAVEN_SEARCH_MAX_LIMIT,
     POLYHAVEN_TAXONOMY_DEPTH_ALL,
     PolyHavenAPIError,
     _polyhaven_api_get,
-    _polyhaven_asset_record,
-    _polyhaven_asset_url,
     _polyhaven_keyword_match,
-    _polyhaven_preview_url,
     _polyhaven_search,
     _polyhaven_summarize_asset,
     _polyhaven_taxonomy,
-    _polyhaven_valid_slug,
 )
 
 
@@ -220,43 +210,3 @@ class PolyHavenCommands(PolyHavenImportMixin):
         except Exception as e:
             return {"error": str(e)}
 
-    def get_polyhaven_asset_preview(self, asset_id):
-        """Fetch an asset's thumbnail, so it can be looked at before downloading.
-
-        A thumbnail is a few hundred kilobytes against a 4k texture's 24MB, so
-        checking one first is cheaper for everybody than importing the wrong rock.
-        """
-        try:
-            if not _polyhaven_valid_slug(asset_id):
-                return {"error": f"Invalid asset id: {asset_id!r}. Poly Haven slugs are "
-                                 "letters, digits, underscores and hyphens."}
-
-            record = _polyhaven_asset_record(asset_id)
-            thumbnail_url = record.get("thumbnail_url")
-            if not thumbnail_url:
-                return {"error": f"No thumbnail is published for '{asset_id}'"}
-
-            response = requests.get(
-                _polyhaven_preview_url(thumbnail_url),
-                headers=POLYHAVEN_HEADERS,
-                timeout=POLYHAVEN_API_TIMEOUT,
-            )
-            if response.status_code >= 400:
-                return {"error": f"Failed to fetch the thumbnail: HTTP {response.status_code}"}
-
-            content_type = getattr(response, "headers", {}).get("Content-Type", "")
-            image_format = "png" if "png" in content_type or ".png" in thumbnail_url else "jpeg"
-
-            authors = record.get("authors") or {}
-            return {
-                "success": True,
-                "image_data": base64.b64encode(response.content).decode("ascii"),
-                "format": image_format,
-                "asset_id": asset_id,
-                "name": record.get("name") or asset_id,
-                "authors": sorted(authors) if isinstance(authors, dict) else authors,
-                "url": _polyhaven_asset_url(asset_id),
-            }
-        except Exception as e:
-            traceback.print_exc()
-            return {"error": f"Failed to get asset preview: {str(e)}"}

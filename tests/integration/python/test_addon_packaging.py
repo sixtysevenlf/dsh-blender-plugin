@@ -112,7 +112,7 @@ def test_zip_contains_the_whole_module_package_without_the_old_single_file():
     with zipfile.ZipFile(ZIP_PATH) as archive:
         names = archive.namelist()
     expected = _package_entries()
-    assert len(expected) == 76
+    assert len(expected) == 74
     assert names == expected
     assert PACKAGE_ROOT + ".py" not in names
     assert PACKAGE_ROOT + "/blender_manifest.toml" in names

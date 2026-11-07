@@ -198,7 +198,7 @@ def _dshbb_activity_depsgraph_post(scene, depsgraph=None):
 
 
 def register_activity_handlers():
-    """Always-on (independent of telemetry consent): local-only activity detection."""
+    """Always-on, local-only activity detection (no persistence, no network)."""
     handlers = [
         (bpy.app.handlers.undo_post, _dshbb_activity_undo_post),
         (bpy.app.handlers.redo_post, _dshbb_activity_redo_post),

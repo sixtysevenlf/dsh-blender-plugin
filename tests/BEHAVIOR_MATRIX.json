@@ -1,6 +1,6 @@
 {
   "schema": "dsh-behavior-matrix/1",
-  "generatedAt": "2026-11-04T13:01:03.829Z",
+  "generatedAt": "2026-11-07T23:05:46.845Z",
   "node": "v24.18.0",
   "pluginVersion": "3.1.0",
   "generatedBy": "node scripts/check-behavior-matrix.mjs --generate",
@@ -143,7 +143,7 @@
         "tool": "blender_viewport",
         "aspect": "success",
         "status": "PASS",
-        "evidence": "{\"running\":true,\"paused\":false,\"child\":\"none\",\"watchdog\":\"15s\",\"endpoint\":\"http://127.0.0.1:7002\",\"viewportRegion\":null,\"shading\":null,\"window\":null,\"stats\":{},"
+        "evidence": "{\"running\":true,\"paused\":false,\"child\":\"none\",\"watchdog\":\"15s\",\"endpoint\":\"http://127.0.0.1:10042\",\"viewportRegion\":null,\"shading\":null,\"window\":null,\"stats\":{}"
       },
       {
         "tool": "blender_rt_see",
@@ -240,97 +240,97 @@
         "tool": "blender_rt_see",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:6438）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:10045）"
       },
       {
         "tool": "blender_rt_do",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:6440）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:10047）"
       },
       {
         "tool": "blender_rt_watch",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:6442）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:10049）"
       },
       {
         "tool": "blender_rt_cmd",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:6444）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:10051）"
       },
       {
         "tool": "blender_rt_commands",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:6446）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:10053）"
       },
       {
         "tool": "blender_rt_loop",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:6448）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:10055）"
       },
       {
         "tool": "blender_rt_perf",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:6450）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:10057）"
       },
       {
         "tool": "blender_rt_opt",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:6452）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:10059）"
       },
       {
         "tool": "blender_rt_headless",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:6454）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:10061）"
       },
       {
         "tool": "blender_rt_plan",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:6456）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:10063）"
       },
       {
         "tool": "blender_rt_worker",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:6458）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:10065）"
       },
       {
         "tool": "blender_rt_txn",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:6460）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:10067）"
       },
       {
         "tool": "blender_rt_preset",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:6462）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:10069）"
       },
       {
         "tool": "blender_rt_job",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:6465）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:10071）"
       },
       {
         "tool": "blender_viewport",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: {\"running\":false,\"url\":\"http://127.0.0.1:6467/\",\"error\":\"fetch failed\",\"code\":\"backend_unreachable\",\"next_action\":\"用 blender_viewport op=sta"
+        "evidence": "resolve: {\"running\":false,\"url\":\"http://127.0.0.1:10073/\",\"error\":\"fetch failed: connect ECONNREFUSED 127.0.0.1:10073\",\"code\":\"backend_unreachable\",\""
       },
       {
         "tool": "blender_rt_see",
         "aspect": "timeoutAbort",
         "status": "PASS",
-        "evidence": "resolve: 取帧失败 · 127.0.0.1:7002 · Error: 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job 并按 runId 回收；本插件的内部超时通常先于宿"
+        "evidence": "resolve: 取帧失败 · 127.0.0.1:10042 · Error: 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job 并按 runId 回收；本插件的内部超时通常先于"
       },
       {
         "tool": "blender_rt_do",
@@ -414,7 +414,7 @@
         "tool": "blender_viewport",
         "aspect": "timeoutAbort",
         "status": "PASS",
-        "evidence": "resolve: {\"running\":false,\"url\":\"http://127.0.0.1:7002/\",\"error\":\"宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job"
+        "evidence": "resolve: {\"running\":false,\"url\":\"http://127.0.0.1:10042/\",\"error\":\"宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_jo"
       },
       {
         "tool": "blender_rt_see",
@@ -594,7 +594,7 @@
         "tool": "blender_viewport",
         "aspect": "lossless",
         "status": "PASS",
-        "evidence": "snapshotJsonValue 通过；JSON round-trip 等价；string(634 chars)"
+        "evidence": "snapshotJsonValue 通过；JSON round-trip 等价；string(635 chars)"
       },
       {
         "tool": "blender_rt_see",
@@ -769,7 +769,7 @@
         "route": "/health",
         "aspect": "normal",
         "status": "PASS",
-        "evidence": "200 application/json · ok=true lease.active=false backend.pid=43828"
+        "evidence": "200 application/json · ok=true lease.active=false backend.pid=6240"
       },
       {
         "route": "/status",
@@ -781,7 +781,7 @@
         "route": "/doctor",
         "aspect": "normal",
         "status": "PASS",
-        "evidence": "200 application/json · ok=true config.http=127.0.0.1:2724"
+        "evidence": "200 application/json · ok=true config.http=127.0.0.1:10097"
       },
       {
         "route": "/launch",
@@ -829,7 +829,7 @@
         "route": "/commands",
         "aspect": "normal",
         "status": "PASS",
-        "evidence": "200 application/json · ok=true total=38"
+        "evidence": "200 application/json · ok=true total=25"
       },
       {
         "route": "/cmd",
@@ -1515,179 +1515,171 @@
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：200）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/status",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：200）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/doctor",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：200）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/launch",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/who",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：200）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/lease",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/release",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/frame",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：410）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/frame.png",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：200）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/act",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/commands",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：200）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/cmd",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/loop",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/perf",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/opt",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/view",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/headless",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/plan",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/worker",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/txn",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/preset",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       },
       {
         "route": "/job",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
       }
     ]
   },
   "commands": {
-    "registered": 38,
-    "wire": 39,
-    "catalog": 38,
+    "registered": 25,
+    "wire": 26,
+    "catalog": 25,
     "wireCommands": [
       "bpy_api_lookup",
-      "create_hunyuan_job",
-      "create_rodin_job",
       "describe_node_type",
-      "download_polyhaven_asset",
-      "download_polypizza_model",
-      "download_sketchfab_model",
-      "drain_human_activity",
       "execute_code",
-      "export_scene",
       "get_activity_state",
       "get_addon_info",
       "get_collections",
       "get_hunyuan3d_status",
       "get_hyper3d_status",
       "get_object_info",
-      "get_polyhaven_asset_preview",
       "get_polyhaven_categories",
       "get_polyhaven_status",
       "get_polypizza_status",
@@ -1695,11 +1687,8 @@
       "get_selection",
       "get_sketchfab_model_preview",
       "get_sketchfab_status",
-      "get_telemetry_consent",
       "get_viewport_screenshot",
       "get_world_state_snapshot",
-      "import_generated_asset",
-      "import_generated_asset_hunyuan",
       "ping",
       "poll_hunyuan_job_status",
       "poll_rodin_job_status",
@@ -1707,12 +1696,10 @@
       "search_polypizza_models",
       "search_sketchfab_models",
       "send_collection_to_dsh",
-      "send_selection_to_dsh",
-      "set_telemetry_consent",
-      "set_texture"
+      "send_selection_to_dsh"
     ],
-    "catalogOnly": ["ping"],
-    "registryOnly": ["get_polyhaven_asset_preview"],
+    "catalogOnly": [],
+    "registryOnly": [],
     "rows": [
       {
         "index": 1,
@@ -1807,16 +1794,6 @@
       },
       {
         "index": 9,
-        "command": "drain_human_activity",
-        "params": {},
-        "gate": null,
-        "pause_safe": true,
-        "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.activity.ActivityCommands.drain_human_activity",
-        "envelope": "flat success {status:success,result} / error {status:error,message}"
-      },
-      {
-        "index": 10,
         "command": "get_activity_state",
         "params": {},
         "gate": null,
@@ -1826,7 +1803,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 11,
+        "index": 10,
         "command": "get_selection",
         "params": {},
         "gate": null,
@@ -1836,7 +1813,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 12,
+        "index": 11,
         "command": "send_selection_to_dsh",
         "params": {
           "timeout": 1
@@ -1848,7 +1825,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 13,
+        "index": 12,
         "command": "get_collections",
         "params": {
           "limit": 5
@@ -1860,7 +1837,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 14,
+        "index": 13,
         "command": "send_collection_to_dsh",
         "params": {
           "collection": "SetA",
@@ -1873,29 +1850,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 15,
-        "command": "get_telemetry_consent",
-        "params": {},
-        "gate": null,
-        "pause_safe": true,
-        "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.telemetry.TelemetryCommands.get_telemetry_consent",
-        "envelope": "flat success {status:success,result} / error {status:error,message}"
-      },
-      {
-        "index": 16,
-        "command": "set_telemetry_consent",
-        "params": {
-          "consent": true
-        },
-        "gate": null,
-        "pause_safe": false,
-        "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.telemetry.TelemetryCommands.set_telemetry_consent",
-        "envelope": "flat success {status:success,result} / error {status:error,message}"
-      },
-      {
-        "index": 17,
+        "index": 14,
         "command": "get_polyhaven_status",
         "params": {},
         "gate": null,
@@ -1905,7 +1860,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 18,
+        "index": 15,
         "command": "get_hyper3d_status",
         "params": {},
         "gate": null,
@@ -1915,7 +1870,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 19,
+        "index": 16,
         "command": "get_sketchfab_status",
         "params": {},
         "gate": null,
@@ -1925,7 +1880,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 20,
+        "index": 17,
         "command": "get_polypizza_status",
         "params": {},
         "gate": null,
@@ -1935,7 +1890,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 21,
+        "index": 18,
         "command": "get_hunyuan3d_status",
         "params": {},
         "gate": null,
@@ -1945,20 +1900,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 22,
-        "command": "export_scene",
-        "params": {
-          "filepath": "/tmp/out.glb",
-          "format": "glb"
-        },
-        "gate": null,
-        "pause_safe": false,
-        "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.scene.export.SceneExportMixin.export_scene",
-        "envelope": "flat success {status:success,result} / error {status:error,message}"
-      },
-      {
-        "index": 23,
+        "index": 19,
         "command": "get_polyhaven_categories",
         "params": {
           "asset_type": "models"
@@ -1970,7 +1912,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 24,
+        "index": 20,
         "command": "search_polyhaven_assets",
         "params": {
           "asset_type": "models"
@@ -1982,57 +1924,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 25,
-        "command": "download_polyhaven_asset",
-        "params": {
-          "asset_id": "asset-1",
-          "asset_type": "models"
-        },
-        "gate": "dshbb_use_polyhaven",
-        "pause_safe": false,
-        "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.polyhaven.download.PolyHavenDownloadMixin.download_polyhaven_asset",
-        "envelope": "flat success {status:success,result} / error {status:error,message}"
-      },
-      {
-        "index": 26,
-        "command": "get_polyhaven_asset_preview",
-        "params": {
-          "asset_id": "asset-1"
-        },
-        "gate": "dshbb_use_polyhaven",
-        "pause_safe": true,
-        "catalog": "off-catalog",
-        "handler": "addon.dsh_blender_bridge.commands.assets_polyhaven.PolyHavenCommands.get_polyhaven_asset_preview",
-        "envelope": "flat success {status:success,result} / error {status:error,message}"
-      },
-      {
-        "index": 27,
-        "command": "set_texture",
-        "params": {
-          "object_name": "Cube",
-          "texture_id": "tex-1"
-        },
-        "gate": "dshbb_use_polyhaven",
-        "pause_safe": false,
-        "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.material.MaterialCommands.set_texture",
-        "envelope": "flat success {status:success,result} / error {status:error,message}"
-      },
-      {
-        "index": 28,
-        "command": "create_rodin_job",
-        "params": {
-          "text_prompt": "a cube"
-        },
-        "gate": "dshbb_use_hyper3d",
-        "pause_safe": false,
-        "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.hyper3d.submit.Hyper3DSubmitCommands.create_rodin_job",
-        "envelope": "flat success {status:success,result} / error {status:error,message}"
-      },
-      {
-        "index": 29,
+        "index": 21,
         "command": "poll_rodin_job_status",
         "params": {
           "subscription_key": "sub-1"
@@ -2044,17 +1936,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 30,
-        "command": "import_generated_asset",
-        "params": {},
-        "gate": "dshbb_use_hyper3d",
-        "pause_safe": false,
-        "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.hyper3d.importing.Hyper3DImportCommands.import_generated_asset",
-        "envelope": "flat success {status:success,result} / error {status:error,message}"
-      },
-      {
-        "index": 31,
+        "index": 22,
         "command": "search_sketchfab_models",
         "params": {
           "query": "chair"
@@ -2066,7 +1948,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 32,
+        "index": 23,
         "command": "get_sketchfab_model_preview",
         "params": {
           "uid": "uid-1"
@@ -2078,19 +1960,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 33,
-        "command": "download_sketchfab_model",
-        "params": {
-          "uid": "uid-1"
-        },
-        "gate": "dshbb_use_sketchfab",
-        "pause_safe": false,
-        "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.sketchfab.download.SketchfabCommands.download_sketchfab_model",
-        "envelope": "flat success {status:success,result} / error {status:error,message}"
-      },
-      {
-        "index": 34,
+        "index": 24,
         "command": "search_polypizza_models",
         "params": {
           "query": "chair"
@@ -2102,31 +1972,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 35,
-        "command": "download_polypizza_model",
-        "params": {
-          "model_id": "model-1"
-        },
-        "gate": "dshbb_use_polypizza",
-        "pause_safe": false,
-        "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.polypizza.download.PolypizzaCommands.download_polypizza_model",
-        "envelope": "flat success {status:success,result} / error {status:error,message}"
-      },
-      {
-        "index": 36,
-        "command": "create_hunyuan_job",
-        "params": {
-          "text_prompt": "a cube"
-        },
-        "gate": "dshbb_use_hunyuan3d",
-        "pause_safe": false,
-        "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.hunyuan.submit.HunyuanSubmitCommands.create_hunyuan_job",
-        "envelope": "flat success {status:success,result} / error {status:error,message}"
-      },
-      {
-        "index": 37,
+        "index": 25,
         "command": "poll_hunyuan_job_status",
         "params": {
           "job_id": "job-1"
@@ -2136,22 +1982,12 @@
         "catalog": "catalog",
         "handler": "addon.dsh_blender_bridge.commands.hunyuan.poll.HunyuanPollCommands.poll_hunyuan_job_status",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
-      },
-      {
-        "index": 38,
-        "command": "import_generated_asset_hunyuan",
-        "params": {},
-        "gate": "dshbb_use_hunyuan3d",
-        "pause_safe": false,
-        "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.hunyuan.importing.HunyuanImportCommands.import_generated_asset_hunyuan",
-        "envelope": "flat success {status:success,result} / error {status:error,message}"
       }
     ]
   },
   "behaviorMatrix": {
-    "total": 346,
-    "covered": 344,
+    "total": 333,
+    "covered": 331,
     "planned": 0,
     "exempt": 2
   }

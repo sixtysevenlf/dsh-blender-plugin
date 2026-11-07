@@ -7,8 +7,8 @@ const read = (relative: string): string => fs.readFileSync(repoPath(relative), '
 describe('final-state addon pack invariants', () => {
   it('keeps the single command registry counts in source and package metadata', () => {
     const registry = read('addon/dsh_blender_bridge/command_registry.py')
-    expect(registry).toContain('REGISTERED_COMMAND_COUNT = 38')
-    expect(registry).toContain('WIRE_COMMAND_COUNT = 39')
+    expect(registry).toContain('REGISTERED_COMMAND_COUNT = 25')
+    expect(registry).toContain('WIRE_COMMAND_COUNT = 26')
     const pkg = JSON.parse(read('package.json')) as { version: string; engines?: { node?: string } }
     expect(pkg.version).toBe('3.1.0')
     expect(pkg.engines?.node).toBe('>=24.9.0')

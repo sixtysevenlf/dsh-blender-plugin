@@ -71,7 +71,7 @@ def test_extension_installs_and_enables_the_package(blender_run):
     assert enabled["module"] == "bl_ext.user_default.dsh_blender_bridge"
     assert enabled["addon_version"] == [2, 0, 0]
     assert enabled["protocol"] == 12
-    assert enabled["commands"] == 38
+    assert enabled["commands"] == 25
     # The inbound listener port property is gone: the add-on dials the Gateway.
     assert enabled["scene_prop"] is False
     assert enabled["enabled_pair"] == [True, True], enabled
@@ -86,9 +86,9 @@ def test_get_addon_info_contract(blender_run):
     assert info["name"] == "DSH Blender Bridge"
     assert info["addon_version"] == [2, 0, 0]
     assert info["protocol_version"] == 12
-    # 38 registered commands: the handshake capabilities derive from
+    # 25 registered commands: the handshake capabilities derive from
     # command_registry.COMMAND_NAMES (D6) rather than a hardcoded 16-name list.
-    assert len(info["capabilities"]) == 38
+    assert len(info["capabilities"]) == 25
     assert info["blender_version"].startswith("4.2.")
 
 

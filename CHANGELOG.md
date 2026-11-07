@@ -4,7 +4,7 @@
 
 - 行为修复（Web 客户端）：Blender 选中写入草稿成功后不再弹提示，失败提示改用自动消失的 error Toast（约 4 秒）。此前成功后调用 `notify("info", …)` 显示"已接收 Blender 选中（已加入草稿，未发送）"，而 DSH 把 `info` 渲染成输入栏里的常驻 banner（无清除接口，发送消息后仍不消失），于是横幅一旦出现就一直在（后续选中只替换文案，不会清掉）。现成功静默（草稿出现文本即是反馈），桥轮询失败首帧改用 `notify("error", …)`。回归：`tests/integration/js/client-selection-notice.test.ts`；客户端契约文档中该步骤同步改写。
 - 行为修复：`qc_compare_auto` / `qc_align_iou` 现在能真正分派。此前 catalog 声明了这两个 op，但 Python 侧 `qc_ops()` 没有对应键，调用返回 `unknown qc op`；现补 `compare_auto` 分派与 `qc_align_iou` 的路径级封装（掩膜 bbox 紧裁后算 IoU，只返回 JSON 标量）。`config/contracts.json` 的 qc `catalogExtras` 随之删除，parity 测试与 native E2E 覆盖分派成功。`qc_help` 补 `compare_auto` / `align_iou` 的签名说明，`qc_align_iou` 缺路径参数时返回明确错误，不再在 `qc_load(None)` 上失败。
-- 无 API / 协议 / 工具计数变化（15 tools / 34 family / 228 op / addon 1.11 / protocol 11）。
+- 本条修复本身不改变 API / 协议 / 工具计数；3.1 的协议与计数变化见下方「3.1 addon 命令面收缩与零遥测（breaking）」。
 
 ### 治理
 
@@ -38,6 +38,12 @@
 - public facade 收口：`runtime/engine.ts` 88 → 22 个导出（删除 38 个 py `*_PATH` 与其余 facade-dead），`config/facades.json` 登记两个公共 facade 及其消费者，`check:no-shims` 拒绝未登记导出；删除 `src/host/backend/port-holders.ts`、`engine-api/frame.ts` 纯转发、`qc_impl/api.py` 的 `exec(compile(...))` 二次加载，`runtime/recover.ts` 并入 `execution/ledger/recover.ts`；addon 凭据改为单一所有者（add-on preferences + session override + `DSHBB_*`/`BLENDERMCP_*` env 后备），删除 Scene 镜像属性；删除 `detectBlenderExe` 再导出。
 - 死代码与打包：删除 5 个未使用导出、重复的 `ReceiptContext`、addon `import_model_files` 死链、未使用的 compat 函数、永不存在的 `runtime/ext/pkg.tgz` 打包条目，并清理工作区 400+ 个陈旧 `.pyc`。
 - 文档终态：3 篇被取代文档归档到 `docs/archive/`；SKILL 标题重编号；曲面算法收敛为单一来源；addon 用户文案 MCP/Claude → Bridge（保留上游署名与 `BLENDERMCP_*` 兼容）；新增 `check:plan-ids` 与 `check:doc-paths` 的 warn→enforce 门禁，清理重构计划编号并修复文档链接/入链；`BEHAVIOR_MATRIX` 行号改为文件 + 符号并由门禁校验；SECURITY 的凭据说明改为准确描述。
+
+### 3.1 addon 命令面收缩与零遥测（breaking）
+
+- addon 命令面从 38 registered / 39 wire 收缩到 25 registered / 26 wire（18 常驻 + 7 集成门控；21 条只读 + 4 条内部传输；wire 另含 ping）。删除 9 条写命令（`export_scene`、`set_texture`、资产下载/生成导入）、3 条采集/同意命令（`get_telemetry_consent`、`set_telemetry_consent`、`drain_human_activity`）与 1 条未进 catalog 的预览命令（`get_polyhaven_asset_preview`）；旧名不再注册，调用返回 unknown command 或 `command_removed` 升级提示，不提供别名。
+- addon 零遥测：删除 telemetry consent 偏好与 Telemetry & Privacy 区块、编辑事件采集/缓冲与 `drain_human_activity`，删除 Discord / “Stay updated” / Terms 推广入口；`get_activity_state` 只保留本地内存判定，不落盘、不外发。
+- 契约同步：`command_registry.py` 的 counts、handshake capabilities、catalog（`runtime/catalog/commands.ts` 增 `access: read|internal`）、PAUSE_SAFE 列表、BEHAVIOR_MATRIX（333 rows）、JS/Python 契约测试与安装文档全部改为 25/26 口径；addon extension zip 74 entries（sha256 `db59b7fc…`）。
 
 ### 开发环境
 

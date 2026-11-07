@@ -1,7 +1,7 @@
 # MIGRATIONS —— 从旧版本迁到 v3.1
 
 > **当前版本（2026-11-08）**：插件 **v3.1.0** · **15 个模型工具** · plan catalog **34 family / 228 op** ·
-> addon command **38** · addon **v2.0.0**（protocol **12**）· Gateway `127.0.0.1:39877` · addon 主动连接 Gateway（无入站监听）。
+> addon command **25**（+ping = 26 wire）· addon **v2.0.0**（protocol **12**）· Gateway `127.0.0.1:39877` · addon 主动连接 Gateway（无入站监听）。
 > **旧 `MCP for Blender` 自 v2.3 起不再支持**；v3.0 是工程重构 + addon 安装方式 breaking，按下文 §0/§1 迁。
 
 ## 0. 3.1 连接模型与端口迁移
@@ -29,6 +29,16 @@
 - **扁平 Python 模块路径移除**：runtime/*.py 的 38 个 re-export shim 删除，generator.py / uv_tools.py 移入 runtime/py/geometry/；preload / module 的公开模块名不变，但旧式 `import runtime.<name>`、或按 `runtime/<name>.py` 直接加载不再可用——改用 `runtime.py.<domain>.<name>` 或按 `runtime/py/modules.json` 定位。
 - **替代路径**：Hyper3D 与 Hunyuan3D 继续支持自有 API key；需要 Tripo 时请在外部服务完成生成后把资产导入 Blender。
 - 除上述声明移除项外，原有 op/参数/返回结构保持兼容；不要因为本版重构而改写既有调用。
+
+## 0.2 3.1 addon 命令面收缩与零遥测（breaking）
+
+3.1 只保留 25 条注册命令：18 条常驻 + 7 条集成门控，其中 21 条只读 + 4 条内部传输（execute_code、get_viewport_screenshot、send_selection_to_dsh、send_collection_to_dsh）；wire 另含 ping，共 26 条。以下 13 个旧命令已从命令面删除，**不提供别名**：
+
+- 写场景/资产：`export_scene`、`set_texture`、`download_polyhaven_asset`、`create_rodin_job`、`import_generated_asset`、`download_sketchfab_model`、`download_polypizza_model`、`create_hunyuan_job`、`import_generated_asset_hunyuan`
+- 采集/同意：`get_telemetry_consent`、`set_telemetry_consent`、`drain_human_activity`
+- 预览：`get_polyhaven_asset_preview`
+
+旧调用会得到 unknown command 或 `command_removed` 提示。当前命令面用 `blender_rt_commands` 查看；3.1 后续模型面收口为 `blender_inspect`。addon 不再采集人工编辑事件、没有 telemetry 偏好、没有 Discord/Terms 推广入口；`get_activity_state` 的 human/agent/idle/both 判定只在内存中计算，不落盘、不外发。
 
 ## 1. Blender 侧 addon：必须换成 `DSH Blender Bridge` v2.0.0（Blender 4.2 extension）
 

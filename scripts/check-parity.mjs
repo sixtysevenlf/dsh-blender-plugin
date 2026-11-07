@@ -34,7 +34,23 @@ const TMP_ROOT = process.env.DSH_TMP || os.tmpdir()
 // every other byte while making an intentional, reviewed contract change
 // explicit instead of silently weakening the comparison. v3.0.0 removes the
 // Premium/Tripo channel; nothing else may disappear without adding it here.
-const DECLARED_CATALOG_REMOVALS = ['get_tripo_status']
+const DECLARED_CATALOG_REMOVALS = [
+  'get_tripo_status',
+  'export_scene',
+  'set_texture',
+  'download_polyhaven_asset',
+  'create_rodin_job',
+  'import_generated_asset',
+  'download_sketchfab_model',
+  'download_polypizza_model',
+  'create_hunyuan_job',
+  'import_generated_asset_hunyuan',
+  'get_telemetry_consent',
+  'set_telemetry_consent',
+  'drain_human_activity',
+  'get_polyhaven_asset_preview',
+  'ping',
+]
 
 // Declared user-visible catalog text patches: exact base -> current replacements
 // for reviewed help-text fixes. The parity gate compares user-visible text
@@ -42,6 +58,10 @@ const DECLARED_CATALOG_REMOVALS = ['get_tripo_status']
 // pair must occur exactly once in the base catalog source.
 const DECLARED_CATALOG_TEXT_PATCHES = [
   ['args={ref:"ref.png", render:"out.png"}', 'args={ref_path:"ref.png", render_path:"out.png"}'],
+  [
+    '透传 addon 命令（get_scene_info / export_scene / describe_node_type / bpy_api_lookup …）',
+    '执行 addon 只读命令（get_scene_info / get_selection / describe_node_type / bpy_api_lookup …）',
+  ],
 ]
 
 // Declared public-surface removals: /4.2 shrinks runtime/engine.ts from the

@@ -48,7 +48,7 @@ def test_backend_url_defaults_and_strips_trailing_slash():
 
 
 def test_addon_preferences_are_read_from_the_module_entry():
-    preferences = SimpleNamespace(telemetry_consent=True)
+    preferences = SimpleNamespace(gateway_port=39877)
     context = SimpleNamespace(
         preferences=SimpleNamespace(
             addons={config.ADDON_MODULE: SimpleNamespace(preferences=preferences)},

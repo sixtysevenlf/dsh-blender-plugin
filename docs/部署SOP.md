@@ -15,7 +15,7 @@ plan catalog 应能列出 **34 family / 228 op**。
 
 完成标准（**通用项 + 你选的路线**全部满足才算装好）：
 - **通用**：`blender_rt_plan(op="catalog")` 能列出 **34 family / 228 op**；
-- **通用**：`blender_rt_commands` 能列出 addon **38 条命令**（22 常驻 + 16 集成门控）；
+- **通用**：`blender_rt_commands` 能列出 addon **25 条命令**（18 常驻 + 7 集成门控；21 只读 + 4 内部）；
 - **通用**：`blender_rt_perf(op="status")` 能返回 `engine` 字段（默认 `BLENDER_EEVEE`；QC/白模渲染用 Workbench）；
 - **通用**：`blender_rt_plan(op="qc_self_check")` 返回 `iou_self = 1.0`；任一渲染类调用产出的 PNG **不是黑图**（可看 `qc_compare` 对照图）；
 - **GUI 路线**：`blender_viewport(op="doctor")` 返回 `kind=ok`（TCP + ping + bpy 往返三级都通）；
@@ -56,7 +56,7 @@ dsh --profile <profile> --dump-config | grep -A3 dsh-blender-plugin
 ~~~text
 blender_viewport(op="doctor")                     # 通道三级体检（kind=ok）
 blender_rt_plan(op="catalog")                     # 34 family / 228 op
-blender_rt_commands()                             # 38 条命令 + 5 个集成状态
+blender_rt_commands()                             # 25 条命令 + 5 个集成状态
 blender_rt_perf(op="status")                      # 引擎/采样/光追状态
 blender_rt_plan(op="qc_self_check")               # QC 算法自检（自比 IoU 应为 1.0）
 blender_rt_see()                                  # 回一帧视口（有 GUI 时）

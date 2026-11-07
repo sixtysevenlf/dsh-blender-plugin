@@ -1,11 +1,11 @@
 {
   "version": 1,
   "tool": "check-plan-ids",
-  "generatedAt": "2026-11-04T23:24:07.182Z",
+  "generatedAt": "2026-11-07T23:10:42.025Z",
   "mode": "warn",
   "totals": {
-    "all": 1433,
-    "exempt": 1433,
+    "all": 1398,
+    "exempt": 1398,
     "residual": 0
   },
   "byPrefix": {},
@@ -196,14 +196,9 @@
       "exempt": 2,
       "residual": 0
     },
-    "tests/BEHAVIOR_MATRIX.json": {
-      "count": 22,
-      "exempt": 22,
-      "residual": 0
-    },
     "tests/BEHAVIOR_MATRIX.md": {
-      "count": 336,
-      "exempt": 336,
+      "count": 323,
+      "exempt": 323,
       "residual": 0
     },
     "tests/MIGRATION.md": {

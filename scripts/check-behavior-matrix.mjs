@@ -10,13 +10,13 @@
  *   tests/BEHAVIOR_MATRIX.json machine-readable aspect matrices generated from the
  *                              executable gates: tool matrix (15 tools x 7 aspects),
  *                              route matrix (29 routes x 5 aspects) and the addon
- *                              command matrix (38 registered commands + ping = 39 wire).
+ *                              command matrix (25 registered commands + ping = 26 wire).
  *
  * Live source of truth compared against both matrices:
  *   - model tools: every vTool registration under src (the schema-diagnostic duplicate
  *     is not a model-facing tool and is skipped)
- *   - addon commands: addon/dsh_blender_bridge/command_registry.py (38 registered + ping
- *     = 39 wire) and lib/runtime/catalog/index.js COMMAND_CATALOG (38 model-facing entries)
+ *   - addon commands: addon/dsh_blender_bridge/command_registry.py (25 registered + ping
+ *     = 26 wire) and lib/runtime/catalog/index.js COMMAND_CATALOG (25 model-facing entries)
  *   - plan ops: lib/runtime/catalog/index.js PLAN_CATALOG (one row per op entry)
  *   - HTTP routes: CONTRACT_ROUTES from lib/runtime/http/routes/index.js
  *

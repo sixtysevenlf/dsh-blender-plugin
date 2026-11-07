@@ -86,8 +86,8 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
 ## 5. Definition of done
 
 - Typecheck and the tests for the touched layer pass; contract counts stay 15 tools / 34 families /
-  228 ops / 38 addon commands / 29 routes / protocol 12 unless the change declares a new count.
-  The addon count is 38 **registered** commands; the transport-only `ping` makes 39 wire commands.
+  228 ops / 25 addon commands / 29 routes / protocol 12 unless the change declares a new count.
+  The addon count is 25 **registered** commands; the transport-only `ping` makes 26 wire commands.
   The single truth is `addon/dsh_blender_bridge/command_registry.py` (see architecture §5).
 - New behavior has a failing test first. No `skip`, no retry, and no relaxed assertion to hide a failure.
 - Docs are updated in the same change, and both language versions stay in sync.

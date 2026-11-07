@@ -154,7 +154,7 @@ describe('architecture guide', () => {
       '15 tools',
       '34 planning families',
       '228 operations',
-      '38 addon commands',
+      '25 addon commands',
       '29 HTTP routes',
       'protocol 12',
     ]) {

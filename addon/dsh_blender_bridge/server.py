@@ -25,7 +25,6 @@ from .command_registry import (
     begin_agent_command,
     command_requires_network,
     command_mixins,
-    drain_edit_recorder,
     end_agent_command,
     gate_property,
     start_runtime_handlers,
@@ -165,7 +164,6 @@ class DSHBlenderBridgeServer(*command_mixins()):
             pass
 
         stop_runtime_handlers()
-        drain_edit_recorder()
 
         # Drop any requests that will never be serviced now.
         while True:

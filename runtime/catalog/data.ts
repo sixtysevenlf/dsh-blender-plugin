@@ -489,7 +489,7 @@ export const PLAN_TOOL_MAP: Array<{ t: string; use: string }> = [
   },
   {
     t: 'blender_rt_cmd / rt_commands',
-    use: '透传 addon 命令（get_scene_info / export_scene / describe_node_type / bpy_api_lookup …）',
+    use: '执行 addon 只读命令（get_scene_info / get_selection / describe_node_type / bpy_api_lookup …）',
   },
 ]
 

@@ -24,8 +24,8 @@ There are three logical processes and one inbound endpoint:
 - the Gateway owns jobs, leases, sessions, receipts, and routing;
 - the host owns the model-facing tools and the headless/fallback policy.
 
-The public model surface is 15 tools, 34 planning families, 228 operations, 38 addon commands
-(38 registered commands; the transport-only ping makes 39 wire commands), 29 HTTP routes, and
+The public model surface is 15 tools, 34 planning families, 228 operations, 25 addon commands
+(25 registered commands; the transport-only ping makes 26 wire commands), 29 HTTP routes, and
 protocol 12. These counts are facts, not goals; changing one requires updating the catalog, lock,
 tests, and migration notes in the same change.
 
@@ -121,9 +121,10 @@ The addon is a package, not a single file. Its modules cover protocol, command r
 recorders, assets, integrations, and UI. The release artifact is a deterministic zip built from that
 package.
 
-The addon version is 1.11 and protocol is 11. A register/unregister round trip is part of the tests.
-`addon/dsh_blender_bridge/command_registry.py` is the only command truth: 38 registered commands
-plus the transport-only `ping` (39 wire commands). `get_addon_info` derives its handshake
+The addon version is 2.0.0 and protocol is 12; it installs only as a Blender extension. A
+register/unregister round trip is part of the tests.
+`addon/dsh_blender_bridge/command_registry.py` is the only command truth: 25 registered commands
+plus the transport-only `ping` (26 wire commands). `get_addon_info` derives its handshake
 capabilities from `command_registry.COMMAND_NAMES`, and the host catalog
 (`runtime/catalog/commands.ts`) is parity-checked in both directions against it.
 The launcher and plugin refuse an incompatible protocol and name the expected addon version. Existing
@@ -170,9 +171,9 @@ gate.
 
 These are the rules that protect the architecture:
 
-- 15 tools / 34 families / 228 ops / 38 addon commands / 29 routes / protocol 12 stay stable unless a
-  declared migration changes them. The 38 addon commands are the registered dispatch surface; the
-  transport-only ping is the 39th wire command.
+- 15 tools / 34 families / 228 ops / 25 addon commands / 29 routes / protocol 12 stay stable unless a
+  declared migration changes them. The 25 addon commands are the registered dispatch surface; the
+  transport-only ping is the 26th wire command.
 - src/index.ts stays entry-only; production files stay under the line budgets enforced by
   check:structure.
 - The public surface is two registered facades (`src/index.ts`, `runtime/engine.ts`) whose exports and

@@ -15,7 +15,7 @@ export function registerCommands(ctx: HostContext, port: number): void {
         vTool({
           name: 'blender_rt_commands',
           description:
-            '列出直连通道当前可用的 addon 命令（19 常驻 + 15 集成门控）与 5 个集成的真实状态（开关是否打开、是否缺 API key）。调 blender_rt_cmd 之前先用它。',
+            '列出直连通道当前可用的 addon 命令（18 常驻 + 7 集成门控，共 25 条）与 5 个集成的真实状态（开关是否打开、是否缺 API key）。调 blender_rt_cmd 之前先用它。',
           parameters: {},
           output: { schema: ANY_SCHEMA, render: renderOne },
           isConcurrencySafe: () => true,

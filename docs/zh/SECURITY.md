@@ -28,7 +28,7 @@
 | 文件读写 | 默认工作目录 `~/.dsh-blender-rt`（可用 `DSH_BLENDER_*` 环境变量或包根 `dsh-blender.config.json` 覆盖）：渲染产物、日志、作业台账 |
 | gate 表达式 | `gate_run` 的 `pass_if` / `degrade_if` 是**受限表达式**：先过 `runtime/py/core/gate.py` 的 `_check_ast` 语法白名单，再由 `_eval_node` 逐节点求值（**不调用 `eval` / `exec`**）；禁用下划线属性，函数仅限 `min` / `max` / `len` / `abs` / `round` / `all` / `any` / `sum` / `float` / `int` / `str` |
 | 凭据 | 宿主插件**不读取、不存储、不传输**任何 API key / token / 凭据文件。随包 addon 提供可选的资产集成凭据（Hyper3D、Sketchfab、Poly Pizza、Hunyuan3D），以密码字段形式保存在 Blender 的 add-on preferences 中；也可通过 `DSHBB_*` 环境变量提供（旧的 `BLENDERMCP_*` 名称仍兼容），且只发送给你主动调用的对应第三方 API |
-| 遥测 | 默认关闭。只有勾选 addon 的 telemetry consent 后，addon 才会采集人工编辑事件并通过 `drain_human_activity` 交给 DSH 宿主；插件本身不向机器外发送遥测 |
+| 遥测 | 没有。随包 addon 不含遥测、统计、同意偏好或人工编辑事件缓冲；活动状态只在内存中计算，不落盘也不外发 |
 
 ## 第三方依赖 / Blender 侧 addon
 

@@ -30,7 +30,7 @@ This plugin **by design** executes code and starts processes; it is not a read-o
 | File I/O | Default work directory is `~/.dsh-blender-rt` (override with `DSH_BLENDER_*` environment variables or a root `dsh-blender.config.json`): renders, logs, and the job ledger |
 | Gate expressions | `gate_run`'s `pass_if` / `degrade_if` are **restricted expressions**: first checked against the syntax whitelist in `runtime/py/core/gate.py` (`_check_ast`), then evaluated node by node (`_eval_node`); **no `eval` / `exec`**; underscore attributes are denied; functions are limited to `min` / `max` / `len` / `abs` / `round` / `all` / `any` / `sum` / `float` / `int` / `str` |
 | Credentials | The host plugin does **not** read, store, or transmit any API key, token, or credential file. The bundled addon offers optional asset-integration credentials (Hyper3D, Sketchfab, Poly Pizza, Hunyuan3D) and keeps them in Blender add-on preferences as password fields; they can also come from `DSHBB_*` environment variables (legacy `BLENDERMCP_*` names are still read) and are sent only to the partner API you invoke |
-| Telemetry | Off by default. Only after you enable the telemetry consent preference does the bundled addon capture manual-edit events and expose them to the DSH host through `drain_human_activity`; the plugin itself sends no telemetry off the machine |
+| Telemetry | None. The bundled add-on has no telemetry, analytics, consent preference, or manual-edit event buffer; activity state is computed in memory and never persisted or sent off the machine |
 
 ## Third-party dependencies / Blender addon
 

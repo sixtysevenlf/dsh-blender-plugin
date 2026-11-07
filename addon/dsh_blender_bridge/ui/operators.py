@@ -225,20 +225,3 @@ class DSHBB_OT_StopServer(bpy.types.Operator):
 
         return {'FINISHED'}
 
-# Operator to open Terms and Conditions
-class DSHBB_OT_OpenTerms(bpy.types.Operator):
-    bl_idname = "dshbb.open_terms"
-    bl_label = "View Terms and Conditions"
-    bl_description = "Open the Terms and Conditions document"
-
-    def execute(self, context):
-        # Open the Terms and Conditions on GitHub
-        terms_url = "https://github.com/ahujasid/blender-mcp/blob/main/TERMS_AND_CONDITIONS.md"
-        try:
-            import webbrowser
-            webbrowser.open(terms_url)
-            self.report({'INFO'}, "Terms and Conditions opened in browser")
-        except Exception as e:
-            self.report({'ERROR'}, f"Could not open Terms and Conditions: {str(e)}")
-
-        return {'FINISHED'}

@@ -67,7 +67,6 @@ def get_credential(pref_attr, env_var):
 
 
 RODIN_FREE_TRIAL_KEY = "vibecoding"
-DISCORD_URL = "https://discord.gg/SNqPn4TcKQ"
 # Public site link shown by the N-panel; kept here so UI code does not import
 # the integration clients.
 POLYHAVEN_SITE = "https://polyhaven.com"

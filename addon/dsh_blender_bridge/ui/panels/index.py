@@ -1,12 +1,10 @@
 """ Main N-panel: activity state, connection, selection and community links. """
 
-import textwrap
-
 import bpy
 
 from ...commands import selection as selection_commands
 from ...commands.selection import selection_collection_summary
-from ...config import DISCORD_URL, dshbb_backend_url, gateway_url, get_dshbb_addon_preferences, get_gateway_port
+from ...config import dshbb_backend_url, gateway_url, get_dshbb_addon_preferences, get_gateway_port
 from ...protocol import ai_paused
 from ...recorders.activity import get_activity_tracker
 from ...ui.lists import LIST_UI_CAP, log_panel_error, sub_mode_label
@@ -43,7 +41,6 @@ class DSHBB_PT_Panel(bpy.types.Panel):
         self._draw_activity(layout, activity)
         self._draw_connection(layout, scene, context)
         self._draw_selection(layout, scene, activity)
-        self._draw_community(layout, context)
 
     @staticmethod
     def _activity_snapshot():
@@ -261,19 +258,3 @@ class DSHBB_PT_Panel(bpy.types.Panel):
             sel_box.label(text="DSH 后端：" + dshbb_backend_url(), icon="URL")
             sel_box.prop(scene, "dshbb_backend_url", text="覆盖后端地址（可留空）")
 
-    @staticmethod
-    def _draw_community(layout, context):
-        # Community section
-        layout.separator()
-        community_box = layout.box()
-        col = community_box.column(align=True)
-        # Wrap by panel width so Blender doesn't elide the phrase mid-line.
-        ui_scale = context.preferences.system.ui_scale
-        region_width = context.region.width if context.region else 300
-        chars = max(12, int((region_width - 30) / (7 * ui_scale)))
-        for line in textwrap.wrap("Stay updated with the latest developments", chars):
-            col.label(text=line)
-        col.separator()
-        row = col.row()
-        row.scale_y = 1.3
-        row.operator("wm.url_open", text="Join Discord", icon="URL").url = DISCORD_URL

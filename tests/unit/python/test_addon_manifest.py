@@ -32,11 +32,11 @@ EXPECTED_PACKAGE_FILES = [
     "commands/polypizza/download.py", "commands/polypizza/importer.py", "commands/scene/__init__.py",
     "commands/scene/export.py", "commands/scene/world.py", "commands/selection.py",
     "commands/sketchfab/__init__.py", "commands/sketchfab/client.py", "commands/sketchfab/download.py",
-    "commands/sketchfab/importer.py", "commands/telemetry.py", "compat.py",
+    "commands/sketchfab/importer.py", "compat.py",
     "config.py", "gateway_schema.py", "integrations/__init__.py", "integrations/hunyuan_client.py",
     "integrations/hyper3d_client.py", "integrations/polyhaven_client.py", "integrations/polyhaven_spec.py",
     "integrations/polypizza_client.py", "integrations/sketchfab_client.py", "protocol.py",
-    "recorders/__init__.py", "recorders/activity.py", "recorders/edit_capture.py",
+    "recorders/__init__.py", "recorders/activity.py",
     "recorders/user_edit.py", "registration.py", "selection/__init__.py",
     "selection/caps.py", "selection/payload.py", "server.py",
     "transport.py", "ui/__init__.py", "ui/lists.py", "ui/operators.py",
@@ -79,7 +79,7 @@ def test_package_layout_is_exactly_the_two_level_split():
     root = Path(pkg.__file__).resolve().parent
     actual = sorted(path.relative_to(root).as_posix() for path in root.rglob("*.py"))
     assert actual == sorted(EXPECTED_PACKAGE_FILES)
-    assert len(actual) == 73
+    assert len(actual) == 71
     assert not (root.parent / "dsh_blender_bridge.py").exists(), "single-file install entry must be gone"
     assert not (root / "__pycache__").exists() or (root / "__pycache__").is_dir()
 

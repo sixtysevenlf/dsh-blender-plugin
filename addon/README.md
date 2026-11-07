@@ -18,7 +18,7 @@
 | 版本 / 协议 | addon **v2.0.0 / protocol 12**；extension manifest v2.0.0 |
 | 标识前缀 | `dshbb_`（注册类 `bpy.types.dshbb_server`、5 个集成开关 `dshbb_use_*`） |
 | TCP 端口 | Gateway `127.0.0.1:39877`；addon 主动连接，不监听入站端口 |
-| 命令面 | 38 条（22 条常驻 + 16 条集成门控；命令名、参数、返回结构与 pause 语义与 v1.10 一致） |
+| 命令面 | 25 条（18 条常驻 + 7 条集成门控；其中 21 条只读、4 条内部传输；命令名、参数与返回结构向后不兼容，见 MIGRATIONS） |
 
 ## 来源与许可（GPL-3.0-or-later，上游 MIT）
 
