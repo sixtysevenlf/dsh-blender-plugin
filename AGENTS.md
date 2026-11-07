@@ -6,7 +6,7 @@
 
 This repository is the **DSH × Blender plugin** (v3.1.0): a DeepSeek Harness plugin that drives a live
 Blender session over a loopback TCP bridge. Model surface: **15 tools**; planning surface:
-**34 families / 228 ops**; Blender addon **v2.0.0 / protocol 12** (package + zip install); Gateway `127.0.0.1:39877`, addon dials the Gateway (no inbound port).
+**34 families / 228 ops**; Blender addon **v2.0.0 / protocol 12** (Blender extension install); Gateway `127.0.0.1:39877`, addon dials the Gateway (no inbound port).
 Ports, config keys, and paths are facts of [docs/配置参考.md](docs/配置参考.md) — never invent them.
 
 ## 1. Commands (single source)
@@ -17,7 +17,7 @@ Every other document links here instead of repeating commands.
 |---|---|
 | Install dependencies | `npm run setup:dev` (npm ci + fake-bpy stubs + venv; bare `npm ci --legacy-peer-deps` is the CI minimal path) |
 | Build `runtime/` + `src/` → `lib/` | `npm run build` (optional `DSH_CHECKOUT` links DSH host packages) |
-| Build / verify the addon zip | `npm run build:addon` / `npm run check:addon` |
+| Build / verify the addon extension | `npm run build:addon` / `npm run check:addon` |
 | Typecheck | `npm run typecheck`; addon typed-core `npm run typecheck:addon` |
 | Unit tests | `npm run test:unit`; addon unit `npm run test:addon-unit` |
 | Integration tests | `npm run test:integration` |

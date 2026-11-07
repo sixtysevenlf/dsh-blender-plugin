@@ -1,6 +1,5 @@
 # Blender 4.2 extension manifest.
-# The package is also importable as a legacy add-on; this manifest is the
-# install metadata for Blender's Extensions platform.
+# This manifest is the install metadata for Blender's Extensions platform.
 schema_version = "1.0.0"
 id = "dsh_blender_bridge"
 version = "2.0.0"

@@ -2,10 +2,11 @@
 /**
  * E2E: the add-on dials the Gateway and owns no inbound listener (2.2/2.9).
  *
- * Starts a real Gateway, installs the committed add-on zip into a throw-away
- * Blender user-scripts directory, opens GUI Blender, presses the real Connect
- * operator through Python, then checks by PID that the Blender process has no
- * LISTENING TCP socket (and does have an outbound connection to the Gateway).
+ * Starts a real Gateway, installs the committed add-on zip as a Blender
+ * extension in a throw-away user extension repository, opens GUI Blender,
+ * presses the real Connect operator through Python, then checks by PID that the
+ * Blender process has no LISTENING TCP socket (and does have an outbound
+ * connection to the Gateway).
  *
  * Run with DSH_BLENDER_EXE pointing at Blender 4.2.x. Without Blender the
  * script prints SKIP and exits 0.
@@ -23,11 +24,15 @@ const workDir =
   path.join(os.tmpdir(), 'dsh-reverse-connect-e2e-' + String(process.pid))
 const zip = path.join(root, 'addon', 'dsh_blender_bridge.zip')
 const userScripts = path.join(workDir, 'user_scripts')
-const addonsDir = path.join(userScripts, 'addons')
+const userExtensions = path.join(workDir, 'user_extensions')
+const userConfig = path.join(workDir, 'user_config')
+const tempDir = path.join(workDir, 'tmp')
 const probePath = path.join(workDir, 'probe.py')
 const probeResultPath = path.join(workDir, 'probe-result.json')
 rmSync(workDir, { recursive: true, force: true })
-mkdirSync(addonsDir, { recursive: true })
+for (const dir of [userScripts, userExtensions, userConfig, tempDir]) {
+  mkdirSync(dir, { recursive: true })
+}
 
 ensureBuild()
 const { CFG } = await import('../../lib/runtime/config.js')
@@ -99,11 +104,27 @@ function establishedTo(pid, gatewayPort) {
   )
 }
 
-// Extract the committed zip as Blender would see it in a user scripts dir.
-execFileSync('tar', ['-xf', zip, '-C', addonsDir], { stdio: 'ignore' })
+const blenderEnv = {
+  ...process.env,
+  BLENDER_USER_SCRIPTS: userScripts,
+  BLENDER_USER_EXTENSIONS: userExtensions,
+  BLENDER_USER_CONFIG: userConfig,
+  TEMP: tempDir,
+  TMP: tempDir,
+  PYTHONIOENCODING: 'utf-8',
+  PYTHONUTF8: '1',
+}
+
+// Install the committed zip through Blender's extension command, exactly as a
+// user does with Extensions -> Install from Disk.
+execFileSync(exe, ['--command', 'extension', 'install-file', '-r', 'user_default', '-e', zip], {
+  cwd: root,
+  env: blenderEnv,
+  stdio: 'ignore',
+})
 check(
-  'installed committed addon zip',
-  existsSync(path.join(addonsDir, 'dsh_blender_bridge', '__init__.py')),
+  'installed committed addon as a Blender extension',
+  existsSync(path.join(userExtensions, 'user_default', 'dsh_blender_bridge', '__init__.py')),
 )
 
 writeFileSync(
@@ -116,7 +137,7 @@ writeFileSync(
     'out_path = args[0]',
     'result = {"background": bool(bpy.app.background), "enabled": False, "running": False}',
     'try:',
-    '    addon_utils.enable("dsh_blender_bridge", default_set=True, persistent=True)',
+    '    addon_utils.enable("bl_ext.user_default.dsh_blender_bridge", default_set=True, persistent=True)',
     '    result["enabled"] = True',
     '    bpy.ops.dshbb.start_server()',
     '    server = getattr(bpy.types, "dshbb_server", None)',
@@ -162,13 +183,8 @@ const blender = spawn(
   {
     cwd: root,
     env: {
-      ...process.env,
-      BLENDER_USER_SCRIPTS: userScripts,
+      ...blenderEnv,
       DSHBB_GATEWAY_PORT: String(gatewayPort),
-      TEMP: path.join(workDir, 'tmp'),
-      TMP: path.join(workDir, 'tmp'),
-      PYTHONIOENCODING: 'utf-8',
-      PYTHONUTF8: '1',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   },

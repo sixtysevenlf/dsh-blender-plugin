@@ -28,6 +28,48 @@ describe('final-state addon pack invariants', () => {
     expect(fs.existsSync(repoPath('addon', 'dsh_blender_bridge.py'))).toBe(false)
   })
 
+  it('ships exactly one Blender extension package and no legacy single-file entry', () => {
+    const zips = fs
+      .readdirSync(repoPath('addon'))
+      .filter((name) => name.endsWith('.zip'))
+      .sort()
+    expect(zips).toEqual(['dsh_blender_bridge.zip'])
+    expect(fs.existsSync(repoPath('addon', 'dsh_blender_bridge.py'))).toBe(false)
+    const manifest = read('addon/dsh_blender_bridge/blender_manifest.toml')
+    expect(manifest).toContain('type = "add-on"')
+    expect(manifest).toContain('blender_version_min = "4.2.0"')
+  })
+
+  it('installs the add-on as a Blender extension, never through the legacy Add-ons installer', () => {
+    const installDocs = [
+      'README.md',
+      'docs/zh/README.md',
+      'addon/README.md',
+      'docs/操作教程.md',
+      'docs/给第三方的安装清单.md',
+      'docs/部署SOP.md',
+      'docs/AI-安装提示词.md',
+    ]
+    for (const path of installDocs) {
+      const text = read(path)
+      expect(text, path + ' must use Extensions ▸ Install from Disk').toMatch(
+        /Preferences\s*(?:>|▸)\s*Extensions\s*(?:>|▸)\s*Install from Disk/,
+      )
+      expect(text, path + ' must not document Add-ons ▸ Install').not.toMatch(
+        /Preferences\s*(?:>|▸)\s*Add-ons\s*(?:>|▸)\s*Install/,
+      )
+    }
+    for (const path of ['tests/e2e/blender/runner.py', 'tests/e2e/addon_reverse_connect.mjs']) {
+      const text = read(path)
+      expect(text, path + ' must not use the legacy add-on installer').not.toContain(
+        'preferences.addon_install',
+      )
+      expect(text, path + ' must not enable the legacy module name').not.toContain(
+        'addon_utils.enable("dsh_blender_bridge"',
+      )
+    }
+  })
+
   it('has no runtime flat shims and no retired host entry files', () => {
     const flat = fs.readdirSync(repoPath('runtime')).filter((f) => f.endsWith('.py'))
     expect(flat).toEqual([])

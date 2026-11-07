@@ -44,7 +44,7 @@ DSH × Blender connects DeepSeek Harness to Blender so an agent can build, inspe
 
 This is the supported installation path. It does not require `git clone`, `npm ci`, or `npm run build`.
 
-1. **Install the bundled addon first.** Download `dsh_blender_bridge.zip` from the [latest GitHub Release](https://github.com/sixtysevenlf/dsh-blender-plugin/releases/latest), then in Blender open `Edit > Preferences > Add-ons > Install`, select the zip, enable **DSH Blender Bridge**, open the `N` panel in the 3D view, and click **Connect**.
+1. **Install the bundled addon first.** Download `dsh_blender_bridge.zip` from the [latest GitHub Release](https://github.com/sixtysevenlf/dsh-blender-plugin/releases/latest), then in Blender open `Edit > Preferences > Extensions > Install from Disk...`, select the zip, enable **DSH Blender Bridge**, open the `N` panel in the 3D view, and click **Connect**.
 
 2. **Install the DSH plugin from npm.** Choose the path for your DSH host:
 
@@ -96,7 +96,7 @@ Install the standalone modeling skill (only needed for hosts that do not load th
 
 1. **Install the bundled addon first.**
 
-   Download **addon/dsh_blender_bridge.zip** from the addon/ folder of this repository. In Blender, open Edit > Preferences > Add-ons > Install, select that zip, enable DSH Blender Bridge, open the N panel in the 3D view, and click Connect. The addon dials the DSH Gateway at 127.0.0.1:39877 after Connect; it does not listen on a port. Replacing or upgrading the addon requires a Blender restart: there is no hot reload, and a 3.0.x addon keeps its old 9876 listener until Blender exits. If you previously installed the single-file `dsh_blender_bridge.py`, disable and remove it first: v3.0 installs only the package zip.
+   Download **addon/dsh_blender_bridge.zip** from the addon/ folder of this repository. In Blender, open Edit > Preferences > Extensions > Install from Disk..., select that zip, enable DSH Blender Bridge, open the N panel in the 3D view, and click Connect. The addon dials the DSH Gateway at 127.0.0.1:39877 after Connect; it does not listen on a port. Replacing or upgrading the addon requires a Blender restart: there is no hot reload, and a 3.0.x addon keeps its old 9876 listener until Blender exits. If you previously installed the single-file `dsh_blender_bridge.py`, disable and remove it first: 3.1 installs only this Blender extension.
 
    Keep this addon as your only agent bridge. If `MCP for Blender` / `blender_mcp` (or any other Blender-side agent bridge) is enabled, turn it off — uninstalling is not required. Your other addons can stay. If the rest of the installation does not work, check this step first.
 

@@ -72,6 +72,12 @@ describe('CI workflow hygiene', () => {
     expect(pr).toContain('Reject an invalid extension package')
   })
 
+  it('copies exactly one extension artifact into the release assets', () => {
+    const copied = [...release.matchAll(/\bcp\s+(\S+\.zip)\s+release-assets\//g)].map((m) => m[1])
+    expect(copied).toEqual(['addon/dsh_blender_bridge.zip'])
+    expect(release).not.toMatch(/cp\s+\S*legacy\S*\.zip/)
+  })
+
   it('keeps manual CD inputs typed and gated', () => {
     expect(release).toContain('if: ${{ !inputs.dry_run }}')
     expect(release).toContain('if: ${{ !inputs.dry_run && inputs.publish_npm }}')

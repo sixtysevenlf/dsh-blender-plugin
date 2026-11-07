@@ -44,7 +44,7 @@ DSH × Blender 把 DeepSeek Harness 接到 Blender，让 AI 能在真实 Blender
 
 这是支持的安装方式，不需要 `git clone`、`npm ci` 或 `npm run build`。
 
-1. **先安装随包 addon。** 从 [最新 GitHub Release](https://github.com/sixtysevenlf/dsh-blender-plugin/releases/latest) 下载 `dsh_blender_bridge.zip`；在 Blender 中打开 `Edit > Preferences > Add-ons > Install`，选择 zip，启用 **DSH Blender Bridge**，在 3D 视图按 `N` 打开面板，点 **Connect**。
+1. **先安装随包 addon。** 从 [最新 GitHub Release](https://github.com/sixtysevenlf/dsh-blender-plugin/releases/latest) 下载 `dsh_blender_bridge.zip`；在 Blender 中打开 `Edit > Preferences > Extensions > Install from Disk...`，选择 zip，启用 **DSH Blender Bridge**，在 3D 视图按 `N` 打开面板，点 **Connect**。
 
 2. **从 npm 安装 DSH 插件。** 按你使用的 DSH 宿主选择：
 
@@ -94,7 +94,7 @@ addon 仍然是唯一支持的 Blender 侧 agent 桥。其他 Blender 侧 agent 
 
 1. **先安装随包 addon。**
 
-   从本仓库的 addon/ 目录下载 **addon/dsh_blender_bridge.zip**。打开 Blender，进入 Edit > Preferences > Add-ons > Install，选择该 zip，启用 DSH Blender Bridge；在 3D 视图按 N 打开面板，点 Connect。addon 会在 Connect 后主动连接 DSH Gateway（默认 127.0.0.1:39877），不监听端口；升级/替换 addon 后必须重启 Blender（无热重载，旧 3.0.x addon 的 9876 listener 不会自动释放）。如果之前装过单文件 `dsh_blender_bridge.py`，请先停用并移除：v3.0 只安装包形式的 zip。
+   从本仓库的 addon/ 目录下载 **addon/dsh_blender_bridge.zip**。打开 Blender，进入 Edit > Preferences > Extensions > Install from Disk...，选择该 zip，启用 DSH Blender Bridge；在 3D 视图按 N 打开面板，点 Connect。addon 会在 Connect 后主动连接 DSH Gateway（默认 127.0.0.1:39877），不监听端口；升级/替换 addon 后必须重启 Blender（无热重载，旧 3.0.x addon 的 9876 listener 不会自动释放）。如果之前装过单文件 `dsh_blender_bridge.py`，请先停用并移除：3.1 只通过 Blender Extensions 安装这个扩展包。
 
    只能用这个 addon 作为 agent 桥。若已启用 `MCP for Blender` / `blender_mcp`（或其他 Blender 侧 agent 桥），停用它即可，不必卸载；其他 addon 可以留着。如果后面的安装用不了，先回来检查这一步。
 

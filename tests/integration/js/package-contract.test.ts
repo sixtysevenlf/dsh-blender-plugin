@@ -72,6 +72,9 @@ describe('npm package install contract', () => {
     expect(files).toContain('lib/runtime/gateway.js')
     expect(files).toContain('lib/runtime/catalog/index.js')
     expect(files).toContain('addon/dsh_blender_bridge.zip')
+    expect(files.filter((f: string) => f.endsWith('.zip'))).toEqual([
+      'addon/dsh_blender_bridge.zip',
+    ])
     expect(files).toContain('addon/dsh_blender_bridge/__init__.py')
     expect(files).toContain('package.json')
     expect(files.some((f: string) => f.startsWith('skills/'))).toBe(true)

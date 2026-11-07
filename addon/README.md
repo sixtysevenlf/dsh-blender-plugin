@@ -47,10 +47,9 @@ zip 内只有一个包根 `dsh_blender_bridge/`，含 `blender_manifest.toml`、
 
 ## 装法
 
-1. Blender → `Edit ▸ Preferences ▸ Add-ons`：
+1. Blender → `Edit ▸ Preferences ▸ Extensions ▸ Install from Disk...` → 选本目录的 `dsh_blender_bridge.zip`（Blender 扩展包，不是目录、不是单个 `.py`）。
    - 如果列表里有旧单文件 addon（模块 `dsh_blender_bridge` 的 `.py` 版本）、旧 `MCP for Blender` /
      `blender_mcp` / `blender_mcp_addon`：**先取消勾选并卸载/移除**（同一模块名不能同时装两份，两个 addon 也会抢 9876）。
-   - `Install...` → 选本目录的 `dsh_blender_bridge.zip`（不是目录、不是单个 `.py`）。
 2. 勾选启用 **DSH Blender Bridge**。
 3. 3D 视图按 `N` → 找到「DSH Blender Bridge」面板 → 连接到本地 Gateway（`127.0.0.1:39877`）。
 

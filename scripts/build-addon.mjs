@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Build addon/dsh_blender_bridge.zip from the add-on package.
+ * Build the Blender extension package addon/dsh_blender_bridge.zip.
  *
  * The zip has a single package root (dsh_blender_bridge/) containing
  * blender_manifest.toml, the license/notice files and every .py module, so
- * Blender treats it as one add-on or extension. Entries are stored (no compression) and use a fixed
+ * Blender installs it as one extension. Entries are stored (no compression) and use a fixed
  * DOS timestamp so identical trees produce identical bytes. No __pycache__ /
  * .pyc files are included.
  *
@@ -58,6 +58,9 @@ function readVersions() {
   const manifestVersion = manifest.match(/^version\s*=\s*"([^"]+)"/m)
   const manifestId = manifest.match(/^id\s*=\s*"([^"]+)"/m)
   const manifestSchema = manifest.match(/^schema_version\s*=\s*"([^"]+)"/m)
+  const manifestType = manifest.match(/^type\s*=\s*"([^"]+)"/m)
+  const blenderMin = manifest.match(/^blender_version_min\s*=\s*"([^"]+)"/m)
+  const manifestLicense = manifest.match(/^license\s*=\s*\[([^\]]+)\]/m)
   // bl_info is optional: the extension manifest is the install metadata now.
   // Keep the check while a release still carries the legacy registration path.
   const blInfoVersion = init.match(/["']version["']\s*:\s*\((\d+),\s*(\d+),\s*(\d+)\)/)
@@ -69,6 +72,15 @@ function readVersions() {
   if (manifestId[1] !== 'dsh_blender_bridge' || manifestSchema[1] !== '1.0.0') {
     fail('blender_manifest id/schema_version is not dsh_blender_bridge/1.0.0')
   }
+  if (!manifestType || manifestType[1] !== 'add-on') {
+    fail('blender_manifest type must be "add-on"')
+  }
+  if (!blenderMin || !/^\d+\.\d+\.\d+$/.test(blenderMin[1])) {
+    fail('blender_manifest blender_version_min must be a dotted version')
+  }
+  if (!manifestLicense || !manifestLicense[1].includes('SPDX:')) {
+    fail('blender_manifest license must contain an SPDX identifier')
+  }
   const schemaVersion = addonVersion[1].split('.').map(Number)
   const manifestParts = manifestVersion[1].split('.').map(Number)
   const expectedVersion = String(config.addon.version).split('.').map(Number)
@@ -78,6 +90,8 @@ function readVersions() {
   const result = {
     bl_info_version: blInfoParts,
     manifest_version: manifestParts,
+    manifest_type: manifestType[1],
+    blender_version_min: blenderMin[1],
     addon_version: schemaVersion,
     protocol_version: Number(protocolVersion[1]),
   }
@@ -231,7 +245,8 @@ function main() {
         {
           ok: true,
           check: true,
-          zip: relative(ROOT, ZIP_PATH).split(sep).join('/'),
+          kind: 'blender-extension',
+          extension: relative(ROOT, ZIP_PATH).split(sep).join('/'),
           package_root: PACKAGE_ROOT,
           entries: entries.length,
           versions,
@@ -271,7 +286,8 @@ function main() {
     JSON.stringify(
       {
         ok: true,
-        zip: relative(ROOT, ZIP_PATH).split(sep).join('/'),
+        kind: 'blender-extension',
+        extension: relative(ROOT, ZIP_PATH).split(sep).join('/'),
         package_root: PACKAGE_ROOT,
         entries: entries.length,
         bytes: zip.length,
