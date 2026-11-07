@@ -8,11 +8,11 @@
 
 ### Requirement: One extension artifact replaces the legacy zip
 
-The addon SHALL ship as exactly one Blender Extension zip containing `blender_manifest.toml` and the addon package at the archive root. The legacy `dsh_blender_bridge.zip` layout and its manual install path MUST be removed in the same release.
+The addon SHALL ship as exactly one Blender Extension zip using a single top-level `dsh_blender_bridge/` folder: `blender_manifest.toml`, `__init__.py`, and all modules are inside that folder, with no wrapper directory and no loose files at the archive root. The legacy `dsh_blender_bridge.zip` layout and its manual install path MUST be removed in the same release.
 
-#### Scenario: Extension archive has the required root
+#### Scenario: Extension archive uses one top-level folder
 - **WHEN** the addon artifact is built
-- **THEN** the archive root contains the manifest and the package, and no nested wrapper directory
+- **THEN** the archive contains exactly one top-level `dsh_blender_bridge/` folder holding the manifest and package, with no root-level loose files
 
 #### Scenario: Legacy artifact is gone
 - **WHEN** the release is packaged
@@ -20,7 +20,7 @@ The addon SHALL ship as exactly one Blender Extension zip containing `blender_ma
 
 ### Requirement: The extension manifest is valid
 
-The manifest SHALL declare `type = add-on`, `blender_version_min = 4.2.0`, a semver version, `license = [SPDX:GPL-3.0-or-later]`, and the `network` and `files` permissions. The package MUST NOT define `bl_info` and MUST pass the Blender 4.2 extension validator.
+The manifest SHALL declare quoted TOML values for `schema_version = "1.0.0"`, `id = "dsh_blender_bridge"`, `version = "2.0.0"`, `name`, `tagline`, `maintainer`, `type = "add-on"`, `blender_version_min = "4.2.0"`, and `license = ["SPDX:GPL-3.0-or-later"]`. The `[permissions]` `network` and `files` values MUST be non-empty reason strings. The package MUST NOT define `bl_info` and MUST pass the Blender 4.2 extension validator.
 
 #### Scenario: Validator passes on the built artifact
 - **WHEN** the built extension zip is validated with the Blender 4.2 CLI
@@ -56,7 +56,7 @@ The host launch and inspection code SHALL discover the addon under either `dsh_b
 
 ### Requirement: Permissions and online access are honored
 
-Network and files permissions SHALL be declared in the manifest. The addon MUST consult `bpy.app.online_access` before asset-network calls; when online access is disabled, local bridge traffic SHALL continue to work and network-backed capabilities MUST fail with an explicit policy error.
+Network and files permissions SHALL be declared in the manifest with explicit reason strings. The addon MUST consult `bpy.app.online_access` before asset-network calls; when online access is disabled, local bridge traffic SHALL continue to work and network-backed capabilities MUST fail with an explicit policy error.
 
 #### Scenario: Offline mode keeps the local bridge
 - **WHEN** online access is disabled
@@ -92,14 +92,14 @@ The 3.1 addon SHALL report addon version 2.0.0, extension manifest version 2.0.0
 
 ### Requirement: The addon collects no telemetry or usage data
 
-The addon SHALL NOT collect, buffer, persist, or transmit telemetry, analytics, prompts, code, screenshots, manual-edit events, or usage records. It MUST NOT expose a telemetry consent preference or telemetry commands, and MUST NOT install consent-gated edit-capture handlers. Local activity detection MAY remain in memory for lease and pause coordination, but it MUST NOT be persisted or sent off the machine.
+The addon SHALL NOT collect, buffer, persist, or transmit telemetry, analytics, prompts, code, screenshots, manual-edit events, or usage records. It MUST NOT expose a telemetry consent preference or telemetry commands, and MUST NOT install consent-gated edit-capture handlers. Local activity detection MAY remain in memory for scope grant and pause coordination, but it MUST NOT be persisted or sent off the machine.
 
 #### Scenario: Telemetry surface is absent
 - **WHEN** the addon preferences and command registry are inspected
 - **THEN** there is no `telemetry_consent` preference, no telemetry/consent command, and no edit-capture handler registered
 
 #### Scenario: Local activity is not telemetry
-- **WHEN** `get_activity_state` reports human/agent/idle/both for lease or pause coordination
+- **WHEN** `get_activity_state` reports human/agent/idle/both for scope grant or pause coordination
 - **THEN** the response is computed from local in-memory state, and no event history is persisted or transmitted
 
 #### Scenario: Removed command is rejected
@@ -120,11 +120,11 @@ The addon UI SHALL NOT include Discord/community promotion, "Stay updated" calls
 
 ### Requirement: Command counts reflect telemetry removal
 
-The addon SHALL register 35 commands (36 wire commands including `ping`) after telemetry removal. Catalog, behavior matrix, contract tests, and documentation SHALL use those counts and MUST NOT list `get_telemetry_consent`, `set_telemetry_consent`, or `drain_human_activity`.
+The addon SHALL register 25 commands and expose 26 wire commands (the 25 registered plus `ping`): 21 registered read-only commands inspect can execute plus 4 internal transport commands. The 9 legacy write commands, 3 telemetry commands, and `get_polyhaven_asset_preview` MUST be removed from the command surface. Catalog, behavior matrix, contract tests, and documentation SHALL use those counts and MUST NOT list `get_telemetry_consent`, `set_telemetry_consent`, or `drain_human_activity`.
 
 #### Scenario: Counts match the removal
 - **WHEN** the addon command registry and contract tests run
-- **THEN** registered commands are 35, wire commands are 36, and the three removed commands appear in no catalog
+- **THEN** registered commands are 25, wire commands are 26, and the removed write, telemetry, and preview commands appear in no catalog
 
 #### Scenario: Removed commands are absent
 - **WHEN** the behavior matrix and catalog are inspected

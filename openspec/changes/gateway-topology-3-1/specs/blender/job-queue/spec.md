@@ -30,6 +30,18 @@ The queue SHALL support exactly two job kinds: `render` for a declarative final 
 - **WHEN** a headless job is submitted
 - **THEN** it runs the supplied script or file in a fresh background Blender and returns its structured result
 
+### Requirement: Render supports camera animation preview
+
+A `render` job SHALL accept a camera and a frame range and SHALL evaluate camera keyframes, constraints, and drivers in the background render process. It MUST NOT change the user GUI current frame, and it MUST NOT be implemented by stepping frames inside `see`.
+
+#### Scenario: Keyframed camera preview renders frames
+- **WHEN** a render job is submitted with a camera and a frame range at low resolution and samples
+- **THEN** it renders the requested frames in the background and returns their artifacts without touching the GUI session
+
+#### Scenario: Camera animation does not use see
+- **WHEN** a caller requests camera animation through see's sequence mode
+- **THEN** see rejects it and points to run(kind=render)
+
 ### Requirement: Job state machine is explicit
 
 A job SHALL move through `queued`, `assigned`, `running`, and exactly one terminal state: `completed`, `failed`, or `canceled`. Terminal transitions MUST be immutable and every state change MUST be observable through status.
@@ -44,7 +56,7 @@ A job SHALL move through `queued`, `assigned`, `running`, and exactly one termin
 
 ### Requirement: Capacity is bounded and not oversold
 
-The queue SHALL hold at most 64 pending jobs. Render jobs SHALL use one GPU slot, and headless jobs SHALL use a CPU slot by default and a GPU slot only when explicitly requested. The default capacity SHALL be one GPU slot and two CPU slots, and a submit that exceeds capacity MUST fail with a `QUEUE_FULL` error rather than waiting unbounded.
+The queue SHALL hold at most 64 pending jobs. Render jobs SHALL use one GPU slot, and headless jobs SHALL use a CPU slot by default and a GPU slot only when explicitly requested. Each virtual-gui session SHALL reserve one GPU slot. The default capacity SHALL be one GPU slot and two CPU slots, and a submit that exceeds capacity MUST fail with a `QUEUE_FULL` error rather than waiting unbounded.
 
 #### Scenario: Full queue is rejected
 - **WHEN** 64 jobs are pending and another job is submitted
@@ -57,6 +69,10 @@ The queue SHALL hold at most 64 pending jobs. Render jobs SHALL use one GPU slot
 #### Scenario: Headless uses CPU by default
 - **WHEN** a headless job is submitted without a GPU request
 - **THEN** it can run on a CPU slot while a render occupies the GPU slot
+
+#### Scenario: Virtual-gui reserves a GPU slot
+- **WHEN** a virtual-gui session is running while the GPU slot is occupied
+- **THEN** the virtual-gui startup is queued or rejected by the same resource ledger, and a render job waits rather than oversubscribing the GPU
 
 ### Requirement: Queue state survives a Gateway restart
 
@@ -72,7 +88,7 @@ Queued and terminal jobs SHALL be persisted. After a Gateway restart, queued job
 
 ### Requirement: Jobs can be controlled and collected
 
-`run` SHALL support status, wait, collect, cancel, and list. Wait SHALL be bounded and return a timeout result without killing the job. Cancel SHALL be idempotent, terminate only the target process tree, and leave no orphan Blender process. Collect SHALL return logs and declared output artifacts.
+`run` SHALL support status, wait, collect, cancel, and list. Wait SHALL default to 120 seconds and MUST be capped at 600 seconds, returning a timeout result without killing the job. Cancel SHALL be idempotent, terminate only the target process tree, and leave no orphan Blender process. Collect SHALL return logs and declared output artifacts.
 
 #### Scenario: Wait times out without canceling
 - **WHEN** a bounded wait expires on a running job
@@ -85,6 +101,18 @@ Queued and terminal jobs SHALL be persisted. After a Gateway restart, queued job
 #### Scenario: Completed job can be collected
 - **WHEN** a job reaches completed
 - **THEN** collect returns its exit result, logs, and output artifacts by jobId
+
+### Requirement: Jobs have owners and a bounded scheduling policy
+
+Every job SHALL record its owner as `(hostId, dshSessionId, agentId, parentAgentId)`. `collect` and `cancel` SHALL be allowed for the owner, its parent agent, and the Team Lead. The queue SHALL schedule jobs with FIFO plus explicit priority and per-owner quota, and a quota or priority decision MUST be observable in the job status.
+
+#### Scenario: Non-owner cannot cancel
+- **WHEN** an unrelated DSH session attempts to cancel a job it does not own
+- **THEN** the call is rejected with a job-ownership error and the job continues
+
+#### Scenario: Priority does not starve FIFO
+- **WHEN** a high-priority job is queued behind a lower-priority job in the same slot
+- **THEN** the scheduler admits the high-priority job at the next slot boundary without changing the state of queued jobs
 
 ### Requirement: Job failures use the same envelope
 

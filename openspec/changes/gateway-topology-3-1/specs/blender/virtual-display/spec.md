@@ -48,7 +48,7 @@ A signed virtual display driver MAY be used only when the hidden-desktop provide
 
 ### Requirement: Linux uses Xvfb with a GPU GL transport
 
-On Linux, the default provider SHALL use Xvfb plus VirtualGL so Blender gets a GUI display and a GPU-backed GL context. A software-only Xvfb provider MUST be reported as preview-only and MUST NOT satisfy the virtual-gui release gate.
+On Linux, the preferred provider SHALL use Xvfb plus VirtualGL so Blender gets a GUI display and a GPU-backed GL context. The final default/fallback order and instance limits SHALL be set only after the V0 bake-off. A software-only Xvfb provider MUST be reported as preview-only and MUST NOT satisfy the virtual-gui release gate.
 
 #### Scenario: GPU GL is used
 - **WHEN** the Linux provider starts Blender

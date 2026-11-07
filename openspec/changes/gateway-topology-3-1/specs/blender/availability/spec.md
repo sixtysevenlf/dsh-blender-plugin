@@ -31,7 +31,7 @@ Every failed tool, route, and job response SHALL include `stage`, `root_cause`, 
 - **THEN** the failure reports `stage=config` even if a later spawn would also fail
 
 #### Scenario: No attached session is a session failure
-- **WHEN** a session-bound tool is called with no ready user-gui and no explicit virtual-gui request
+- **WHEN** a session-bound tool is called with no ready GUI session and no explicit virtual-gui request
 - **THEN** the failure reports `stage=session` with the two explicit choices, not `stage=addon` or a transport error
 
 #### Scenario: Occupied Gateway port is a config failure
@@ -73,6 +73,14 @@ On a local loopback deployment, a failed first call SHALL return a diagnostic en
 #### Scenario: Timeout remains structured
 - **WHEN** a diagnosis timeout expires
 - **THEN** the response is a structured timeout failure with the same envelope, not a transport-level connection reset
+
+### Requirement: First-call P95 population
+
+The P95 measurement population SHALL be the first session-bound call in a fresh DSH session with Gateway already ready, across the A1–A6 failure classes, at least 20 cold calls per class, timed from tool entry to envelope return; it SHALL exclude install, consent, and Gateway spawn and SHALL be aggregated over the combined samples.
+
+#### Scenario: Cold samples aggregate across classes
+- **WHEN** each A1–A6 class has at least 20 cold first-call samples
+- **THEN** the combined samples are aggregated for the P95 verdict, and no sample is discarded for being slow
 
 ### Requirement: Fallback is explicit and safe
 

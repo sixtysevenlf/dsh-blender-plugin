@@ -8,15 +8,15 @@
 
 ### Requirement: Gateway is the only server
 
-Gateway SHALL be the only server in the 3.1 topology. Host and tools SHALL connect only to Gateway, and the addon SHALL initiate its control connection to Gateway. The addon MUST NOT listen on 9876 or any other inbound port.
+Gateway SHALL be the only server in the 3.1 topology. Host and tools SHALL connect only to Gateway, and the addon SHALL initiate its control connection to Gateway. The addon MUST NOT create any inbound TCP listener; its process MUST own no listening socket.
 
 #### Scenario: Addon starts without an inbound listener
 - **WHEN** a Blender addon instance starts
 - **THEN** it opens an outbound connection to Gateway and creates no local listener
 
-#### Scenario: Retired addon listener is absent
-- **WHEN** Gateway is running
-- **THEN** no process is listening on the retired addon port 9876
+#### Scenario: Addon process owns no listener
+- **WHEN** an addon instance is connected to Gateway
+- **THEN** the addon process owns no listening TCP socket, and the retired 3.0.x listener port is not part of the 3.1 contract
 
 ### Requirement: Gateway fails closed on port conflict
 
@@ -32,15 +32,15 @@ Gateway SHALL bind only its configured loopback port. If that port is already in
 
 ### Requirement: One Gateway belongs to one DSH host
 
-Gateway SHALL be owned by exactly one DSH host process. A second DSH host MUST NOT attach to, reuse, or share an existing Gateway; it MUST fail closed with `GATEWAY_IN_USE` (stage=config), naming the owning host, port, and process when known. A plugin reload within the same host SHALL reuse the host-owned Gateway handle instead of starting a second instance.
+Gateway SHALL be owned by exactly one DSH host process. A second DSH host MUST NOT attach to, reuse, or share an existing Gateway; it MUST fail closed with `GATEWAY_IN_USE` (stage=config), naming the owning host, port, and process when known. A plugin reload within the same host SHALL stop the old Gateway before the new plugin instance starts a replacement; two Gateways MUST NOT coexist and no orphan Gateway may remain.
 
 #### Scenario: Second host is rejected
 - **WHEN** a DSH host starts while another DSH host already owns the configured Gateway
 - **THEN** the new host fails with `GATEWAY_IN_USE` and does not route any call through the existing Gateway
 
-#### Scenario: Same-host reload reuses the instance
+#### Scenario: Same-host reload replaces the instance
 - **WHEN** the plugin reloads inside the host that owns the Gateway
-- **THEN** it reuses the existing handle and no second Gateway process is started
+- **THEN** the old Gateway is stopped first, the new plugin instance starts a new Gateway, and the two never coexist
 
 ### Requirement: Addon handshake identifies an instance
 

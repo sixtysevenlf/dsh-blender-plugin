@@ -32,59 +32,155 @@ A `user-gui` session SHALL attach to a Blender process that the user already lau
 
 ### Requirement: Session resolution never silently starts a virtual-gui
 
-When a session-bound capability (`session`, an executing `op`, `py`, `see`) has no ready `user-gui`, Gateway SHALL stop with a decision-required response and MUST NOT start a `virtual-gui`, spawn a headless Blender, or dispatch the call elsewhere. The stop MUST name the requested capability, state that Blender is not attached, and offer two explicit choices: launch Blender and attach, or start `virtual-gui` after the user's consent. An existing virtual-gui does not ask again.
+Session-bound calls (`op` executing, `py`, `see`) SHALL NOT run without a ready GUI session (`user-gui`, or a `virtual-gui` owned by the same DSH session). Gateway SHALL return a decision-required response and MUST NOT start a `virtual-gui`, spawn a headless Blender, or dispatch elsewhere. The response SHALL name the capability, state Blender is not attached, and offer two choices: launch Blender and attach, or start `virtual-gui` after user consent. An existing virtual-gui does not ask again.
 
 #### Scenario: First call without a visible Blender stops
-- **WHEN** the first session-bound call in a session finds no ready user-gui
+- **WHEN** the first session-bound call in a session finds no ready GUI session
 - **THEN** it returns `stage=session` stating that Blender is not attached, starts no process and no provider, and lists the two explicit choices
 
 #### Scenario: Catalog lookup works without Blender
 - **WHEN** `op` is called with a catalog or dry-run only
 - **THEN** it returns the catalog or validation result without requiring a session, starting Blender, or returning `stage=session`
 
-#### Scenario: virtual-gui starts only after consent
-- **WHEN** the user chooses virtual-gui in response to that stop
-- **THEN** the next explicit start creates the virtual-gui session, and no call starts one on its own
+#### Scenario: virtual-gui start requires a consent token
+- **WHEN** an agent calls `session start kind=virtual-gui` without a consent token
+- **THEN** it returns `consent_required`; the DSH host obtains the user confirmation, issues a one-time short-TTL `consent_token`, and only then does start create the session
 
 #### Scenario: Refusal is not a fallback
 - **WHEN** the user declines virtual-gui
 - **THEN** subsequent session-bound calls keep failing with the same decision-required response and never spawn a headless Blender
 
-### Requirement: A session has one caller-aware writer lease
+### Requirement: Session management has pre-session exceptions
 
-Each GUI session SHALL have a single write lease whose holder is a caller identity tuple `(hostId, dshSessionId, agentId)`, not a process ID. Multiple callers MAY read, `see`, and query presence concurrently; only one caller MAY hold the write lease. Mutating operations MUST require the lease, and the holder SHALL be able to pause writes so another agent or the user can inspect without interleaving edits. A read-only operation MUST remain available while writes are paused.
+`session` SHALL allow `list`, `status`, `doctor`, `start`, and `stop` without a ready GUI session. The first three are read-only; `start`/`stop` manage virtual-gui, and the first virtual-gui start still requires a consent token.
 
-#### Scenario: Second writer is denied
-- **WHEN** one agent holds the write lease and another attempts a mutating operation
-- **THEN** the second operation fails with a lease conflict that names the holder and its expiry
+#### Scenario: Pre-session query works without Blender
+- **WHEN** an agent calls `session list`, `status`, or `doctor` before any Blender is attached
+- **THEN** the call returns its read-only result instead of a session decision request
 
-#### Scenario: Two DSH sessions share one user-gui
-- **WHEN** two DSH sessions attach to the same user-gui
-- **THEN** both can read and see the scene, but only the lease holder can mutate it
+#### Scenario: Virtual-gui start still needs consent
+- **WHEN** an agent calls `session start kind=virtual-gui` without a consent token
+- **THEN** the call returns `consent_required` and creates no session
 
-#### Scenario: Pause blocks writes but not reads
-- **WHEN** the lease holder pauses the session
-- **THEN** mutating operations are rejected and read-only inspection still works
+### Requirement: A user-gui session is owned by one DSH session
 
-### Requirement: Lease lifecycle and conflict handling
+Each `user-gui` SHALL be owned by exactly one DSH session `(hostId, dshSessionId)`. The owner's agents MAY attach and read concurrently. Another DSH session MUST NOT attach or operate until ownership is released; it SHALL receive `session_in_use` naming the owner and expiry. Ownership SHALL be released on detach, DSH session end, host exit, or TTL expiry; another DSH session MAY then claim it.
 
-A lease SHALL have a bounded TTL and heartbeat. It MUST be released when the caller disconnects, the host exits, or the call finishes, and an expired lease MAY be acquired by another caller. A conflict MUST fail fast with `409` and name the holder and expiry by default; an optional `wait_ms` MAY be bounded to at most 5 seconds. `force` takeover MUST be restricted to a human or Team Lead and MUST write an audit event.
+#### Scenario: Owner agents attach to one session
+- **WHEN** a DSH session owns a user-gui and its main agent and a subagent both attach
+- **THEN** both can read, see, and query presence without creating a second session
 
-#### Scenario: Delegation does not inherit the lease
-- **WHEN** a parent agent delegates work to a subagent
-- **THEN** the parent releases the write lease before the subagent acquires it; the subagent does not inherit write access implicitly
+#### Scenario: Second DSH session is rejected
+- **WHEN** another DSH session attempts to attach to the same user-gui
+- **THEN** it receives `session_in_use` naming the owner and expiry and executes nothing
 
-#### Scenario: Stale lease is reclaimed
-- **WHEN** a lease holder disconnects without releasing
-- **THEN** the lease expires after its TTL and another caller can acquire it without `force`
+#### Scenario: Released session can be claimed
+- **WHEN** the owner detaches or its DSH session ends
+- **THEN** ownership is released and another DSH session can claim the same user-gui
 
-#### Scenario: Force requires privilege
-- **WHEN** an ordinary agent attempts a `force` takeover
-- **THEN** it is rejected; a human or Team Lead takeover succeeds and writes an audit event
+### Requirement: Ownership has a heartbeat and a main agent
+
+Ownership SHALL heartbeat every 30 seconds and expire after 120 seconds without a heartbeat. The main agent is the `agentId` recorded at claim; only a host-injected `role=main` may grant or revoke scopes.
+
+#### Scenario: Stale ownership is reclaimed
+- **WHEN** the owner crashes and stops heartbeating for more than 120 seconds
+- **THEN** ownership expires and another DSH session may claim the user-gui
+
+### Requirement: Writes are coordinated by intra-session scope grants
+
+Within the owning DSH session, a mutating operation SHALL declare a scope: `exclusive` for global mutations, or `collection:<name>`, `prefix:<name>`, or `object:<session_uid>`. Non-overlapping grants MAY run concurrently; overlapping grants MUST fail fast with 409 `scope_conflict` naming the holder, scope, and expiry. Only the main agent MAY grant or revoke scopes; a subagent MUST NOT inherit them. Read, `see`, and presence MUST NOT require a grant.
+
+#### Scenario: Non-overlapping writes run concurrently
+- **WHEN** two agents hold grants for disjoint collections or objects
+- **THEN** both mutations execute without a session-wide writer lock
+
+#### Scenario: Object scope falls back without a session UID
+- **WHEN** an object scope has no session UID
+- **THEN** `instanceId:scene:name:type` is used as the stable identifier and the receipt includes the readable object name
+
+#### Scenario: Overlapping writes conflict
+- **WHEN** an agent requests a scope that overlaps a live grant
+- **THEN** it receives scope_conflict naming the holder, scope, and expiry and executes nothing
+
+#### Scenario: Subagent does not inherit
+- **WHEN** the main agent delegates work to a subagent
+- **THEN** the subagent must obtain its own scope grant and does not inherit the parent's grants
+
+#### Scenario: Reads do not require a grant
+- **WHEN** an agent reads, captures see, or queries presence while another agent holds a grant
+- **THEN** the read succeeds without acquiring a grant
+
+### Requirement: py execution is exclusive
+
+`py` SHALL always acquire an `exclusive` grant and MUST NOT accept a narrower scope. A second `py` call SHALL fail with `py_busy` naming the holder and retry delay, unless it requests a bounded `wait_ms` of at most 5 seconds.
+
+#### Scenario: Second py is rejected as busy
+- **WHEN** a `py` call is running and another agent calls `py` during a human pause
+- **THEN** the new call fails with `py_busy` or a human-pause error, and the running call is not interrupted
+
+### Requirement: py grant lifetime, pause, and headless separation
+
+An active `py` grant MUST NOT expire by the normal grant TTL; it is released when the call finishes, fails, times out, or the connection drops. Human pause SHALL reject new `py` calls but MUST NOT interrupt a running execution. A headless job MAY accept a script through `run`, but it is a separate job surface and MUST NOT be represented as a session or an interactive `py` call.
+
+#### Scenario: Running py is not timed out by grant TTL
+- **WHEN** a `py` call runs longer than 30 seconds
+- **THEN** its exclusive grant remains active until the call finishes or the connection drops, and a timeout receipt says `py_still_running`
+
+#### Scenario: Human pause does not interrupt running py
+- **WHEN** human pause is enabled while a `py` call is running
+- **THEN** new `py` calls are rejected and the running execution continues
+
+#### Scenario: Headless run is not a py session
+- **WHEN** a headless job accepts a script through `run`
+- **THEN** it is reported as a job, not a session or an interactive `py` call
+
+### Requirement: Session mutations require an exclusive grant
+
+Mutating `session` operations, including txn `restore`, `mark`, and `revert`, SHALL require an `exclusive` grant and SHALL be rejected during human pause. Read-only session queries, `see`, and presence SHALL remain available.
+
+#### Scenario: txn restore without a grant is rejected
+- **WHEN** an agent calls txn restore without an exclusive grant
+- **THEN** the call fails with scope_conflict and executes nothing
+
+### Requirement: Human edits take priority
+
+In the Blender UI, the human is not a DSH caller and MUST NOT be modeled as an agent or scope holder. The human SHALL always be able to edit the scene. The addon SHALL provide pause/resume; pause blocks all agent writes but not reads, `see`, or presence. When the human modifies data covered by an agent's grant, the next agent write SHALL fail with `human_modified` and require a re-read; 3.1 MUST NOT merge concurrent edits or provide per-actor undo.
+
+#### Scenario: Human can always edit
+- **WHEN** agents hold scopes over objects that the human edits in the Blender UI
+- **THEN** the human's edit is applied, and no agent grant blocks or reverts it
+
+#### Scenario: Pause blocks agent writes only
+- **WHEN** the human pauses agent writes from the addon panel
+- **THEN** agent mutations are rejected while reads, see, and presence continue
+
+#### Scenario: Agent cannot clear a human pause
+- **WHEN** an agent calls session resume while a human pause is active
+- **THEN** the call is rejected and the pause remains in effect
+
+#### Scenario: Human-modified scope requires re-read
+- **WHEN** an agent writes to an object that the human changed after the grant was acquired
+- **THEN** the write fails with human_modified and the agent must re-read before retrying
+
+### Requirement: Scope grants have bounded lifetime and conflict handling
+
+A scope grant SHALL have a bounded TTL and heartbeat. It MUST be released when its holder disconnects, the DSH session ends, or the call finishes, and an expired grant MAY be reclaimed. Default conflicts MUST fail fast with 409 and name the holder, scope, and expiry; an optional `wait_ms` MAY be bounded to at most 5 seconds. Only the owning session's main agent MAY revoke another caller's grant.
+
+#### Scenario: Stale grant is reclaimed
+- **WHEN** a grant holder disconnects without releasing
+- **THEN** the grant expires after its TTL and another caller can acquire it without force
+
+#### Scenario: Main agent revokes a subagent grant
+- **WHEN** the main agent revokes a subagent's grant
+- **THEN** the subagent's next mutation is rejected until it acquires a new grant
+
+#### Scenario: Bounded wait
+- **WHEN** a conflicting write requests wait_ms
+- **THEN** it waits at most the requested bounded time and then returns scope_conflict
 
 ### Requirement: Agent presence is visible in the user viewport
 
-For a user-gui session, Gateway SHALL track each attached caller's display name, color, observation pose, selected object UUIDs, activity, and lease state. The addon SHALL draw that presence as a frustum, label, and selection outlines in the user's viewport without moving the user's view or mutating the scene. The same read-only presence data SHALL be queryable through `session` without adding a model tool.
+For a user-gui session, Gateway SHALL track each attached caller's display name, color, observation pose, selected object `session_uid`s, activity, and held scope grants; it SHALL also track human pause state. The addon SHALL draw that presence as a frustum, label, and selection outlines in the user's viewport without moving the user's view or mutating the scene. The same read-only presence data SHALL be queryable through `session` without adding a model tool.
 
 #### Scenario: User sees where an agent is looking
 - **WHEN** an agent attaches to a user-gui and reports an observation pose
@@ -100,7 +196,7 @@ For a user-gui session, Gateway SHALL track each attached caller's display name,
 
 ### Requirement: virtual-gui is Gateway-managed and user-invisible
 
-A `virtual-gui` session SHALL be started and stopped by Gateway through a DisplayProvider. The Blender process MUST run as a real GUI process with `bpy.app.background == False` and MUST NOT create a user-visible top-level window. The session MUST have a bounded instance limit and MUST be cleaned up when stopped or when its owner disconnects.
+A `virtual-gui` session SHALL be started and stopped by Gateway through a DisplayProvider. It SHALL be owned by the DSH session that requested it, and only that session's agents MAY attach. The Blender process MUST run as a real GUI process with `bpy.app.background == False` and MUST NOT create a user-visible top-level window. The session MUST have a bounded instance limit and MUST be cleaned up when stopped or when its owner disconnects.
 
 #### Scenario: Gateway starts an invisible GUI
 - **WHEN** a virtual-gui session is requested and a provider is available
@@ -110,13 +206,17 @@ A `virtual-gui` session SHALL be started and stopped by Gateway through a Displa
 - **WHEN** a virtual-gui session is stopped
 - **THEN** its Blender process and display provider resources are released and no orphan process remains
 
+#### Scenario: Virtual-gui is owner-scoped
+- **WHEN** another DSH session attempts to attach to a virtual-gui
+- **THEN** it is rejected with session_in_use and the owner's agents remain attached
+
 #### Scenario: Limit is enforced
 - **WHEN** the configured virtual-gui limit is reached
 - **THEN** a new request fails with a structured capacity error and does not start an extra process
 
 ### Requirement: see belongs to GUI sessions
 
-The see capability SHALL capture from a `user-gui` or `virtual-gui` session only. A headless job MUST NOT provide an interactive see surface, and a failed GUI capture MUST NOT fall back to a headless Workbench render.
+The see capability SHALL capture from a `user-gui` or `virtual-gui` session only, using one of its supported viewpoints. A headless job MUST NOT provide an interactive see surface, and a failed GUI capture MUST NOT fall back to a headless Workbench render.
 
 #### Scenario: see captures a session viewport
 - **WHEN** see is called on a ready GUI session
@@ -126,9 +226,117 @@ The see capability SHALL capture from a `user-gui` or `virtual-gui` session only
 - **WHEN** see is called for a headless job
 - **THEN** it returns a structured boundary error and does not start a background Blender for a frame
 
+### Requirement: see supports viewport, camera, and custom viewpoints
+
+`see` SHALL accept `viewpoint` values `viewport` (default), `camera`, and `custom`. `viewpoint=custom` SHALL require `from` and `look_at`; `viewpoint=viewport` SHALL reject camera and custom-only fields; `viewpoint=camera` SHALL accept `camera=true` for the active scene camera or a camera object name, and SHALL reject `from`, `look_at`, `lens`, `ortho`, `ortho_scale`, `full`, `area`, and `aspect`.
+
+#### Scenario: Camera view uses the active scene camera
+- **WHEN** see is called with viewpoint=camera and no camera name
+- **THEN** it captures from the active scene camera and reports the camera name and actual dimensions
+
+#### Scenario: Named camera view
+- **WHEN** see is called with viewpoint=camera and camera="Camera.001"
+- **THEN** it captures from that camera object and rejects a non-camera object
+
+#### Scenario: Invalid viewpoint combinations are rejected
+- **WHEN** viewpoint=camera is combined with from/look_at, or viewpoint=custom lacks from/look_at
+- **THEN** it returns invalid_params naming the offending field and captures nothing
+
+#### Scenario: Custom frame rejects full and area
+- **WHEN** see is called with viewpoint=custom and full or area
+- **THEN** it returns invalid_params naming the incompatible parameter and captures nothing
+
+### Requirement: camera view is current-frame and read-only
+
+`viewpoint=camera` SHALL use the evaluated camera at the current scene frame, including object transforms, constraints, drivers, and animated camera data. It MUST NOT change `scene.frame_current`, insert or modify keyframes, change `scene.camera`, or mutate the scene, selection, or user viewport. `mode=sequence` with `viewpoint=camera` MUST return invalid_params and point to `run(kind=render)` for animation preview.
+
+#### Scenario: Keyframed camera is evaluated at the current frame
+- **WHEN** see is called with viewpoint=camera on a camera with transform or lens keyframes
+- **THEN** it captures the evaluated current-frame pose and the keyframes and current frame remain unchanged
+
+#### Scenario: Camera sequence is rejected
+- **WHEN** see is called with viewpoint=camera and mode=sequence
+- **THEN** it returns invalid_params and points to run(kind=render) for camera animation preview
+
+### Requirement: camera view uses render framing
+
+A camera-view frame SHALL use the evaluated render resolution ratio as its output aspect and report actual width and height. A panoramic camera SHALL return `unsupported`; depth of field and motion blur SHALL be marked preview-only; the fixed aspect presets and `full`/`area` do not apply. `max_size` SHALL default to 1024 and accept only 544, 768, 1024, or 1280.
+
+#### Scenario: Camera view keeps the render aspect
+- **WHEN** the render resolution is 1920x1080 and max_size is 1024
+- **THEN** the camera view reports 1024x576 and does not use a viewport/custom fixed preset
+
+#### Scenario: Panoramic camera is unsupported
+- **WHEN** viewpoint=camera selects a panoramic camera
+- **THEN** it returns unsupported and points to run(kind=render)
+
+#### Scenario: Depth of field is preview-only
+- **WHEN** viewpoint=camera selects a camera with depth of field enabled
+- **THEN** the receipt marks preview_only and dof_ignored while the capture remains current-frame only
+
+### Requirement: see exposes frame and sequence capture modes
+
+`see` SHALL expose `mode=frame` (default) and `mode=sequence`. Frame SHALL support `viewpoint=viewport|camera|custom`; sequence SHALL require an explicit `viewpoint=viewport` or `viewpoint=custom` and MUST NOT infer the viewpoint from the presence of `from`/`look_at`. Both modes SHALL use only a ready GUI session and MUST NOT fall back to a headless worker or Workbench capture. `mode=sequence` MUST NOT execute code or mutate the scene, current frame, selection, or viewport.
+
+#### Scenario: Default call is a single frame
+- **WHEN** see is called without mode
+- **THEN** it captures one viewport frame using the fixed preview presets and reports its actual width and height
+
+#### Scenario: Sequence rejects unsupported capture options
+- **WHEN** mode=sequence includes code, full, area, diagnostics, or force
+- **THEN** it returns invalid_params naming the incompatible parameter and does not mutate the scene or viewport
+
+#### Scenario: Sequence does not fall back
+- **WHEN** no ready GUI session is available or every sample fails
+- **THEN** it returns a session or transport error and does not start a headless worker or Workbench capture
+
+### Requirement: sequence viewpoint is explicit
+
+`mode=sequence` SHALL require an explicit `viewpoint=viewport` or `viewpoint=custom`. It MUST NOT infer the viewpoint from `from`/`look_at`, MUST NOT accept `viewpoint=camera`, and MUST reject `full`/`area` with `custom`.
+
+#### Scenario: Custom sequence rejects full and area
+- **WHEN** see is called with mode=sequence, viewpoint=custom, and full or area
+- **THEN** it returns invalid_params and captures nothing
+
+### Requirement: sequence capture is bounded and observational
+
+`mode=sequence` SHALL sample an explicit `viewpoint=viewport` or `viewpoint=custom` over a wall-clock window of 0.2–20 seconds at 0.5–8 fps, with `round(seconds*fps)` between 1 and 32, and MUST return `invalid_params` without clamping outside those bounds. It MUST NOT accept `viewpoint=camera` and SHALL return a timeline of timestamps and hashes with at most six attached distinct frames.
+
+#### Scenario: Sequence is bounded and observational
+- **WHEN** see is called with mode=sequence, seconds=2, and fps=4
+- **THEN** it samples eight frames or fewer over roughly two seconds, returns a timeline with timestamps and hashes, attaches at most six distinct frames, and reports static=true when every hash matches
+
+#### Scenario: Out-of-range sequence is rejected
+- **WHEN** seconds, fps, or round(seconds*fps) is outside the allowed range
+- **THEN** it returns invalid_params with the allowed range and does not clamp or capture
+
+### Requirement: see preserves the user viewport and publishes presence
+
+When `see` uses `from`/`look_at` or `viewpoint=camera`, it SHALL capture offscreen and MUST NOT move the user viewport, camera, selection, or current frame. A successful custom capture SHALL publish the caller pose; a successful camera capture SHALL publish the evaluated view matrix and camera name; a viewport capture SHALL mark the caller as following the user view. Presence publication MUST NOT require a write scope grant.
+
+#### Scenario: Custom sequence leaves the user viewport unchanged
+- **WHEN** see is called with mode=sequence and from/look_at
+- **THEN** every sample uses the same offscreen pose and the user viewport, camera, selection, and current frame are unchanged
+
+#### Scenario: Presence records the custom pose
+- **WHEN** a custom-view see succeeds
+- **THEN** the caller presence view pose is updated and the user can see the agent frustum
+
+#### Scenario: Current viewport follows the user
+- **WHEN** see is called without from/look_at
+- **THEN** presence marks the caller as following the user view and does not draw an independent frustum
+
+#### Scenario: Camera preview leaves the scene unchanged
+- **WHEN** see is called with viewpoint=camera on a keyframed camera
+- **THEN** it captures from the evaluated current-frame pose and the current frame, camera, selection, and user viewport are unchanged
+
+#### Scenario: Presence records the camera view
+- **WHEN** a camera-view see succeeds
+- **THEN** the caller presence view matrix and camera name are updated and the user can see the agent frustum
+
 ### Requirement: see preview size is a fixed enum
 
-See SHALL accept `max_size` only from a fixed set per aspect: `1:1` = `544|768|1024|1280`; `4:3` = `640|960|1280`; `16:9` = `1024|1152|1280`. A value outside that aspect's set MUST return `invalid_params` naming the allowed values and MUST NOT be clamped. The model-facing see surface MUST NOT accept an arbitrary `view_size`; supplying it MUST return `invalid_params`.
+For `viewpoint=viewport` and `viewpoint=custom`, See SHALL accept `max_size` only from a fixed set per aspect: `1:1` = `544|768|1024|1280`; `4:3` = `640|960|1280`; `16:9` = `1024|1152|1280`. A value outside that aspect's set MUST return `invalid_params` naming the allowed values and MUST NOT be clamped. The model-facing see surface MUST NOT accept an arbitrary `view_size`; supplying it MUST return `invalid_params`.
 
 #### Scenario: Valid values are accepted
 
@@ -157,7 +365,7 @@ See SHALL accept `max_size` only from a fixed set per aspect: `1:1` = `544|768|1
 
 ### Requirement: see preview options respect the model pixel bounds
 
-Every option SHALL have at least `544×544` total pixels and at most `1300×1300` total pixels. The smallest option per aspect SHALL be `544×544`, `640×480`, and `1024×576`; the largest SHALL be `1280×1280`, `1280×960`, and `1280×720`. A `full=true` screenshot SHALL preserve its captured ratio and use a fixed 1024-pixel longest edge; `aspect` and `max_size` do not apply to it.
+For `viewpoint=viewport` and `viewpoint=custom`, every option SHALL have at least `544×544` total pixels and at most `1300×1300` total pixels. The smallest option per aspect SHALL be `544×544`, `640×480`, and `1024×576`; the largest SHALL be `1280×1280`, `1280×960`, and `1280×720`. A `full=true` screenshot SHALL preserve its captured ratio and use a fixed 1024-pixel longest edge; `aspect` and `max_size` do not apply to it.
 
 #### Scenario: Smallest options meet the lower bound
 
@@ -195,7 +403,7 @@ See SHALL accept `aspect` with exactly `1:1`, `4:3`, and `16:9`. 3D viewport and
 
 ### Requirement: Sessions are isolated
 
-Instances SHALL NOT share Python state, scene files, or leases. A failure or disconnect of one instance MUST NOT mark another instance unavailable, and a job assigned to one session MUST NOT execute in another.
+Instances SHALL NOT share Python state, scene files, session ownership, or scope grants. A failure or disconnect of one instance MUST NOT mark another instance unavailable, and a job assigned to one session MUST NOT execute in another.
 
 #### Scenario: One instance fails
 - **WHEN** one session loses its addon connection
