@@ -53,7 +53,7 @@ describe('single source of truth', () => {
     expect(Number(match![1])).toBe(catalog.families.length)
     expect(Number(match![2])).toBe(catalog.ops_count)
     // The remaining contract counts in the guide must stay advertised as well.
-    expect(text).toMatch(/38 addon commands\s*\/\s*29 routes\s*\/\s*protocol 11/)
+    expect(text).toMatch(/38 addon commands\s*\/\s*29 routes\s*\/\s*protocol 12/)
   })
 
   it('keeps the count sync script runnable against the built runtime', () => {

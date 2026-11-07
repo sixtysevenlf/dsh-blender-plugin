@@ -108,7 +108,7 @@ const engine: any = {
   status: async () =>
     ok('status', {
       region: { window: null, views: [] },
-      plugin: { version: '3.0.6' },
+      plugin: { version: '3.1.0' },
       runs: [],
       jobs: [],
       ledger: { writable: true },

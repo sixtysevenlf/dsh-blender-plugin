@@ -32,7 +32,7 @@
 
 ## 第三方依赖 / Blender 侧 addon
 
-- Blender 侧需要本仓附带的 addon（`DSH Blender Bridge` v1.11 / protocol 11，以 `addon/dsh_blender_bridge.zip`
+- Blender 侧需要本仓附带的 addon（`DSH Blender Bridge` v2.0.0 / protocol 12，以 `addon/dsh_blender_bridge.zip`
   分发，源码在 `addon/dsh_blender_bridge/`）。旧 `MCP for Blender` / category-action 实现**不在本仓库**，
   自 v2.3 起不再支持；不要为它安装或授予信任。
 - 发布包由 `npm pack` 生成，只含 `package.json` 的 `files` 白名单内容；

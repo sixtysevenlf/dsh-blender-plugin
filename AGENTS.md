@@ -4,9 +4,9 @@
 > Humans: [README.md](README.md) (English) · [docs/zh/README.md](docs/zh/README.md) (Chinese).
 > Contribution entry: [CONTRIBUTING.md](CONTRIBUTING.md) · [docs/zh/CONTRIBUTING.md](docs/zh/CONTRIBUTING.md).
 
-This repository is the **DSH × Blender plugin** (v3.0.6): a DeepSeek Harness plugin that drives a live
+This repository is the **DSH × Blender plugin** (v3.1.0): a DeepSeek Harness plugin that drives a live
 Blender session over a loopback TCP bridge. Model surface: **15 tools**; planning surface:
-**34 families / 228 ops**; Blender addon **v1.11 / protocol 11** (package + zip install); Gateway `127.0.0.1:39877`, addon dials the Gateway (no inbound port).
+**34 families / 228 ops**; Blender addon **v2.0.0 / protocol 12** (package + zip install); Gateway `127.0.0.1:39877`, addon dials the Gateway (no inbound port).
 Ports, config keys, and paths are facts of [docs/配置参考.md](docs/配置参考.md) — never invent them.
 
 ## 1. Commands (single source)
@@ -57,7 +57,7 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
   `blender_rt_worker(op="start")` plus `see` returns a frame. Never report success otherwise.
 - **Install, config, and troubleshooting facts** live in [docs/操作教程.md](docs/操作教程.md) and
   [docs/配置参考.md](docs/配置参考.md). Read them before advising.
-- **Only the bundled addon is supported** (`addon/dsh_blender_bridge.zip`, v1.11 / protocol 11).
+- **Only the bundled addon is supported** (`addon/dsh_blender_bridge.zip`, v2.0.0 / protocol 12).
   MCP for Blender is unsupported since v2.3; migration is in [MIGRATIONS.md](MIGRATIONS.md).
 - **Tool and op names come from the catalog**: `blender_rt_plan(op="catalog")`; fix from `did_you_mean`.
 - **Not installed / not covered**: landmark and face (no cv2 or MediaPipe), OCR, DXF,
@@ -86,7 +86,7 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
 ## 5. Definition of done
 
 - Typecheck and the tests for the touched layer pass; contract counts stay 15 tools / 34 families /
-  228 ops / 38 addon commands / 29 routes / protocol 11 unless the change declares a new count.
+  228 ops / 38 addon commands / 29 routes / protocol 12 unless the change declares a new count.
   The addon count is 38 **registered** commands; the transport-only `ping` makes 39 wire commands.
   The single truth is `addon/dsh_blender_bridge/command_registry.py` (see architecture §5).
 - New behavior has a failing test first. No `skip`, no retry, and no relaxed assertion to hide a failure.

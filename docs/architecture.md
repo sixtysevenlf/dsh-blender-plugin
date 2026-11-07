@@ -26,7 +26,7 @@ There are three logical processes and one inbound endpoint:
 
 The public model surface is 15 tools, 34 planning families, 228 operations, 38 addon commands
 (38 registered commands; the transport-only ping makes 39 wire commands), 29 HTTP routes, and
-protocol 11. These counts are facts, not goals; changing one requires updating the catalog, lock,
+protocol 12. These counts are facts, not goals; changing one requires updating the catalog, lock,
 tests, and migration notes in the same change.
 
 ## 2. Host plugin (src/)
@@ -170,7 +170,7 @@ gate.
 
 These are the rules that protect the architecture:
 
-- 15 tools / 34 families / 228 ops / 38 addon commands / 29 routes / protocol 11 stay stable unless a
+- 15 tools / 34 families / 228 ops / 38 addon commands / 29 routes / protocol 12 stay stable unless a
   declared migration changes them. The 38 addon commands are the registered dispatch surface; the
   transport-only ping is the 39th wire command.
 - src/index.ts stays entry-only; production files stay under the line budgets enforced by

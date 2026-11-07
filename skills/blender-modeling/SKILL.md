@@ -1,12 +1,12 @@
 ---
 name: blender-modeling
-description: Blender 建模与交付教程（v3.0.6，GUI 优先，无头备用）——先按决策树选形（分面硬表面 / 光滑硬表面 / 有机 / 重复阵列 / 布尔），再走流水线（冻结规格 → 场景准备 → 白模 → 粗形精修 → 修改器栈 → 清理 → 装配/验收 → 交付）。覆盖参考图量测（img_digest/probe/measure/calib）、无头多视轮廓拟合（shapesolve）、装配扫描/清单/合并/修复/门/导出（asm_*）、白模与 Seedance 参考包（blockout_*，含 4 视图与转台 MP4）、同机位 QC（visualreport_report）、缺陷注入评估（eval_run）、交互式无头会话（worker see/watch，rt_do/rt_see session）与强制门（gate_/deliver_export require_gate）。用于做 3D 物体、按参考图还原、量比例、装配体检、修穿模/浮空、批量白模、交付导出与验收。
+description: Blender 建模与交付教程（v3.1.0，GUI 优先，无头备用）——先按决策树选形（分面硬表面 / 光滑硬表面 / 有机 / 重复阵列 / 布尔），再走流水线（冻结规格 → 场景准备 → 白模 → 粗形精修 → 修改器栈 → 清理 → 装配/验收 → 交付）。覆盖参考图量测（img_digest/probe/measure/calib）、无头多视轮廓拟合（shapesolve）、装配扫描/清单/合并/修复/门/导出（asm_*）、白模与 Seedance 参考包（blockout_*，含 4 视图与转台 MP4）、同机位 QC（visualreport_report）、缺陷注入评估（eval_run）、交互式无头会话（worker see/watch，rt_do/rt_see session）与强制门（gate_/deliver_export require_gate）。用于做 3D 物体、按参考图还原、量比例、装配体检、修穿模/浮空、批量白模、交付导出与验收。
 license: MIT（融合自 RobLe3/cc-blender-skill 与 arjun988/blender-skills，见 NOTICE.md）
 ---
 
 # Blender 建模流程
 
-> **v3.0.6 · 2026-11-05**：配套插件 dsh-blender-plugin v3.0.6，15 个模型工具，plan 通道 34 个 family / 228 个 op，addon v1.11 / protocol 11。**默认 GUI 优先**：先开 GUI Blender + Connect；无头是备用路径（GUI 不可用/批处理/长活），但无头也能 rt_see，同样能“改一步、同步看一步”。
+> **v3.1.0 · 2026-11-05**：配套插件 dsh-blender-plugin v3.1.0，15 个模型工具，plan 通道 34 个 family / 228 个 op，addon v2.0.0 / protocol 12。**默认 GUI 优先**：先开 GUI Blender + Connect；无头是备用路径（GUI 不可用/批处理/长活），但无头也能 rt_see，同样能“改一步、同步看一步”。
 > 旧版按 v2/v3/v7 记录的“哪段是哪次实测加的”不再写在正文；需要追溯看 CHANGELOG。下面只写**当前有效口径**。
 
 先定形状，再走流程，改一步看一眼。**不要一口气写完整个模型再回来看**——每一步都要有画面或数字证据。
@@ -338,7 +338,7 @@ plan 通道返回 receipt.v2 信封（contract/op/verdict/summary/top_defects/ne
 
 **判据**：能用第一选择就不用第二选择；第二选择必须在回执里写明“为什么不用插件 op”。
 
-## 4. 当前 plan 通道速查（v3.0.6 · 34 个 family / 228 个 op）
+## 4. 当前 plan 通道速查（v3.1.0 · 34 个 family / 228 个 op）
 
 先 blender_rt_plan(op="catalog") 看“什么时候用 / 别用 / 最小骨架”，再单族展开。常用家族：
 

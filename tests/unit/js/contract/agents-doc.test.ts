@@ -156,7 +156,7 @@ describe('architecture guide', () => {
       '228 operations',
       '38 addon commands',
       '29 HTTP routes',
-      'protocol 11',
+      'protocol 12',
     ]) {
       expect(text).toContain(fact)
     }

@@ -16,7 +16,7 @@ import urllib.request
 
 import pytest
 
-API = os.environ.get("DSH_BLENDER_API", "http://127.0.0.1:9877").rstrip("/")
+API = os.environ.get("DSH_BLENDER_API", "http://127.0.0.1:39877").rstrip("/")
 
 pytestmark = pytest.mark.gui
 
@@ -56,7 +56,7 @@ def test_backend_health_is_honest():
     health = _require_backend()
     assert health["ok"] is True
     provenance = health.get("provenance") or {}
-    assert provenance.get("pluginVersion") == "3.0.6", provenance
+    assert provenance.get("pluginVersion") == "3.1.0", provenance
     assert isinstance(health.get("backend"), dict) and health["backend"].get("pid"), health
 
 

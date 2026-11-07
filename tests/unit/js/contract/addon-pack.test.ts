@@ -10,7 +10,7 @@ describe('final-state addon pack invariants', () => {
     expect(registry).toContain('REGISTERED_COMMAND_COUNT = 38')
     expect(registry).toContain('WIRE_COMMAND_COUNT = 39')
     const pkg = JSON.parse(read('package.json')) as { version: string; engines?: { node?: string } }
-    expect(pkg.version).toBe('3.0.6')
+    expect(pkg.version).toBe('3.1.0')
     expect(pkg.engines?.node).toBe('>=24.9.0')
     const init = read('addon/dsh_blender_bridge/__init__.py')
     expect(init).not.toContain('bl_info')
