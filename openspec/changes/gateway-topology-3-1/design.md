@@ -92,13 +92,21 @@
 - Windows W1（首选）：自写 Win32 helper（C++，无第三方依赖）实现 `CreateDesktopW` + `CreateJobObject` + `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` + `CreateProcessW(CREATE_SUSPENDED, lpDesktop)` + `AssignProcessToJobObject` + `ResumeThread`；Blender 是隐藏 desktop 上的 normal window，不是最小化，默认任务栏/Alt-Tab 不显示。helper 代理 stdout/stderr/exit，失败必须 fail closed，不能回退到用户默认 desktop。
 - helper 源码放 `tools/win-hidden-desktop/`，Windows CI 用 MSVC 构建并作为 Gateway 资源打包；不在仓库提交编译产物，发布包必须包含与源码版本匹配的 helper。
 - Windows W2（仅 fallback）：签名 IDD 虚拟显示驱动，只有在 W1 未通过 V0 的 GPU/GL 或 viewport parity 时才启用；安装必须用户明确同意、不能静默，报告驱动/UAC 前提和许可证/分发限制。
-- Linux L1（首选）：Xvfb 提供 X display，VirtualGL 把 GLX/EGL 转发到真实 GPU；每个实例独立 `:N`，stop 时终止 Blender、vglrun、Xvfb；只读 `-ac` 仅用于 loopback provider。Xvfb + llvmpipe 只能标 `preview-only`，不能通过 gate。
+- Linux L1（首选）：Xvfb 提供 X display，VirtualGL 把 GLX/EGL 转发到真实 GPU；每个实例独立 `:N`。provider 启动 Blender 前必须强制 X11（清除 `WAYLAND_DISPLAY`、`XDG_SESSION_TYPE=x11`），不能继承 WSLg/Wayland；VirtualGL 必须显式走 EGL device（如 `vglrun -d egl`），不能依赖 `vglrun -d :N` 默认选到 GLX/llvmpipe。stop 时按进程树终止 Blender、vglrun、Xvfb，重复 stop 幂等；只读 `-ac` 仅用于 loopback provider。GL renderer 为 llvmpipe/软件实现只能标 `preview-only`，必须在 start 时 fail closed，不能通过 gate。
 - 不采用 WSL/WSLg/WSL+Xvfb、Xdummy、Weston headless 作为 3.1 provider；未来版本再评估。
-- V0 bake-off 是本 change 的发布门槛：Windows W1、Windows W2（仅 W1 失败时）、Linux L1 各跑同一组验收；通过后才在文档和配置里写默认 provider、fallback 顺序、virtual-gui 默认上限和安装前提。V0 是发布门槛，不是 apply 前代码门槛；可以先实现和合并代码，但在真实 Linux 与 user-gui parity 证据到位前不得发布 3.1，也不得宣称 virtual-gui 通过。
-- V0 验收（每个通过的 provider 必须具备）：`bpy.app.background == False`；GL renderer 非 llvmpipe；`see` 走 GUI capture 且与 user-gui 的 viewport 结果 parity；2 个并发实例互不串场景；stop 后无 Blender/Xvfb/helper 孤儿；安装前提可查询；锁屏/RDP/无显示环境行为已记录。
+- V0 bake-off 是本 change 的发布门槛：Windows W1、Windows W2（仅 W1 失败时）、Linux L1 各跑同一组验收；通过后才在文档和配置里写默认 provider、fallback 顺序、virtual-gui 默认上限和安装前提。V0 是发布门槛，不是 apply 前代码门槛；可以先实现和合并代码，但在真实 Linux（Blender 4.2.10 LTS）与 user-gui parity 证据到位前不得发布 3.1，也不得宣称 virtual-gui 通过。Linux L1 当前为 PARTIAL（见下文），不得当作已通过。
+- V0 验收（每个通过的 provider 必须具备，Blender 基线固定 4.2.10 LTS；5.x 结果只作技术探查，不计入 V0）：`bpy.app.background == False`；GL renderer 为真实 GPU，非 llvmpipe/软件实现；`see` 通过插件 addon 的 GUI capture，并与同一 GPU/驱动/Blender 版本的真实 user-gui viewport 结果 parity（独立 Blender 截图或仅按文件大小判定不算）；2 个并发实例严格互不串场景（验收窗口内不得有第三个实例）；stop 幂等（SIGTERM/timer 正常退出、重复 stop 无孤儿）；截图像素内容校验（非全黑/非单色，双实例内容可区分）；非 root + `/dev/dri` 权限场景；安装前提可查询；锁屏/RDP/无显示环境行为已记录。
+- user-gui parity 环境必须是真实 GPU 桌面：物理桌面，或同机真实 Xorg（Xvfb 之外的 Xorg + VNC/dummy display）优先；普通 VM 的 virtio-gpu/virgl/llvmpipe 桌面不算，不能拿普通 VM 截图当 parity；GPU passthrough VM 只有在完整记录硬件/驱动/Blender 版本并经评审后才能作为 parity 环境。
 - 缺依赖是代码级硬门：provider 的 start 路径在 spawn 任何进程之前检查 prerequisites，缺失即拒绝；不存在 force/unsafe/skip-check 开关，agent 的意图不能绕过。UI 与 agent 都只能看到“不可用 + 缺什么 + 怎么装”，不能“先试一下”。
 - 依赖引导不是静默安装：provider `capabilities()` 报告 prerequisites 与安装状态；host 的 `doctor --fix` 与 addon 偏好设置按钮共用同一张 prerequisites 描述表；Ubuntu 22.04/24.04 与 Debian 12 的 `xvfb` 走发行版 apt（`pkexec` 一键安装）；`virtualgl` 先探测发行版仓库，Ubuntu 24.04 无包时给官方 `.deb`/官方仓库步骤，绝不能给不可执行的 `apt install virtualgl`；Fedora/Arch/无 polkit 环境只给准确命令；GPU 驱动只检测不安装；安装后必须复检 capabilities，失败保留原始 stderr 且不得把 provider 标为 ready。
 - 若 Windows 或 Linux 任一平台没有 provider 通过 V0：3.1 不发布，也不允许把 render/headless 当作替代；发布报告必须写明失败的测量项。
+
+#### Linux L1 V0 预验证记录（2026-11-07，PARTIAL，不计入通过）
+
+- 环境：Ubuntu 24.04.5 / kernel 7.0.0-38 / AMD RX 7900 XTX / Mesa 25.2.8 / Blender 5.2.3 LTS / VirtualGL 3.1.5 / Xvfb 21.1.12；无桌面会话（`XDG_SESSION_TYPE=tty`，Xorg 未运行），未用 WSL。
+- 通过项：`bpy.app.background == False`；`vglrun -d egl` 的 renderer 为 `AMD Radeon RX 7900 XTX`、GL 4.6；单实例 GUI 截图约 358 KB；双实例红/蓝场景隔离成立；SIGTERM exit 143、0.045s，最终无孤儿。
+- 失败/不计入项：`vglrun -d :N` 回退到 llvmpipe（软件，不合格）；GLX/no-vgl 截图 12,014 B 全黑但 `screenshot_ok=true`，说明文件大小不能作为成功判据；截图后同步 `wm.quit_blender` 挂死 exit 124，timer quit exit 0 约 4.275s，故 provider stop 必须用 SIGTERM/timer 并做幂等；双实例重叠期前 9s 还有第三个 Blender（s11），不满足严格 2 实例；未用 Blender 4.2.10；未走插件 addon 的 `see`；无 user-gui parity；非 root `/dev/dri` 与 stop 幂等未验。
+- 结论：Linux L1 V0 = PARTIAL，不能勾选 5.8/5.20，也不能发布 3.1。证据在 `local-workspace/linux-v0-2026-11-07/`（不入库）；后续任务见 `tasks.md` 5.20a–5.20f。
 
 #### WSL PoC 记录（2026-11-07，补充证据，不计入 V0）
 
@@ -108,7 +116,7 @@
 - 显示服务器差异（关键）：WSL 默认设置 `WAYLAND_DISPLAY=wayland-0`，即使设置 `DISPLAY=:110`，Blender 4.2.10 仍选择 Wayland；`bpy.ops.wm.quit_blender()` 在这种情况下 exit 139，日志先出现 `GHOST/Wayland: xdg_wm_base@... protocol error 4`。这不是“无 DE”导致，也不是 Mesa teardown 的必然结果。
 - 强制 X11 后：`WAYLAND_DISPLAY=` + `XDG_SESSION_TYPE=x11` + `GDK_BACKEND=x11`，Xvfb :110 + openbox 下 API 退出 exit 0；WSLg 的 XWayland `:0` 下 API 退出 exit 0；alt+F4 关窗 exit 0；SIGTERM exit 143 且无孤儿；`blender -b` exit 0。
 - VirtualGL：`vglrun -d :110` + 强制 X11 + Xvfb D3D12 下，Blender GUI 的 `DSH_RENDERER=D3D12 (NVIDIA GeForce RTX 4070 SUPER)`，`render.opengl` 与 `screen.screenshot` 成功，`wm.quit_blender` exit 0；两个 `vglrun` Blender 实例并发均 exit 0，截图成功。`glxspheres64` 也报告 D3D12 renderer。注意 `vglrun glxinfo` 在 Xvfb 上会 exit 139（VirtualGL 的 glxinfo 问题），不能作为 VirtualGL 通过/失败的唯一判据。
-- 结论：WSL 不是 3.1 目标平台；WSLg 的 Wayland 退出崩溃可通过强制 X11 规避，VirtualGL 在 WSL + 强制 X11 下能跑 Blender GUI，但这些仍不能作为 Linux L1/V0 通过证据：未在真实 Linux 验证，未做 user-gui parity，WSLg Wayland 路径不可用，VirtualGL 回读性能低。Linux V0 仍需真实 Linux（Xorg/Wayland）+ Xvfb/VirtualGL + 用户 GUI parity。证据存本机 `local-workspace/wsl-poc/`（不入库）。
+- 结论：WSL 不是 3.1 目标平台；WSLg 的 Wayland 退出崩溃可通过强制 X11 规避，VirtualGL 在 WSL + 强制 X11 下能跑 Blender GUI，但这些仍不能作为 Linux L1/V0 通过证据：未在真实 Linux 验证，未做 user-gui parity，WSLg Wayland 路径不可用，VirtualGL 回读性能低。Linux V0 仍需真实 Linux（Xorg/Wayland）+ Blender 4.2.10 LTS + Xvfb/VirtualGL + 用户 GUI parity；普通 VM 的软件 GL 桌面不能替代。证据存本机 `local-workspace/wsl-poc/`（不入库）。
 
 ### D5 — 作业队列
 

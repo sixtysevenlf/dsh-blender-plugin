@@ -6,7 +6,7 @@
 - [ ] 1.2 记录基线：在分支上记录 `git rev-parse HEAD`，跑 `npm run build`、`check:finalization`、`check:structure`、`check:exceptions`、`check-plan-ids --enforce`、`test:matrix`、`check:python-static`、`typecheck`、`lint`、`format:check`、`test:unit`、`test:contract`、`test:python`、`check:addon`、`check:build`、`check:git-hygiene`；验证全部 exit 0，并记录 15 tools / 34 families / 228 ops / 38 commands / 29 routes / protocol 11。
 - [ ] 1.3 先红（Gateway）：新增“addon 进程无监听 socket、旧 addon 被拒”的 contract/integration 测试，在未实现前应失败；把失败输出贴到 PR 草稿。
 - [ ] 1.4 冻结 PoC 输入：把 A2 PoC v2.1 的 P1/P2/P4/P5 证据路径、已知 BLOCKED 项写进 PR 草稿；确认 P3 virtual-display 仍为 BLOCKED，不能作为验收依据。
-- [ ] 1.5 建立 V0 真机矩阵：列出 Windows 本机、Windows 无管理员、Linux 有 GPU/无 GPU、锁屏/RDP 四个环境；每个环境记录 Blender 4.2 路径、GPU、驱动、Xvfb/VirtualGL 版本。
+- [ ] 1.5 建立 V0 真机矩阵：列出 Windows 本机、Windows 无管理员、Linux 有 GPU/无 GPU、锁屏/RDP 四个环境；每个环境记录 Blender 4.2.10 LTS 路径、GPU、驱动、Xvfb/VirtualGL 版本；Linux 的 user-gui parity 环境先按“物理桌面，或同机真实 Xorg + VNC/dummy display”登记；普通 VM 的软件 GL 不算，GPU passthrough VM 需单独记录。
 - [x] 1.6 清理 active changes：`terminal-state-closeout` 已归档到 `openspec/changes/archive/2026-11-07-terminal-state-closeout`；`vision-motion-analysis` 已移到 `openspec/future/` 并记录在 `openspec/future/README.md`；确认 `openspec list` 只剩本 change。
 
 ## 2. Gateway 单端点与 addon 反向连接
@@ -77,10 +77,10 @@
 - [ ] 5.4 实现 Windows provider：通过 helper 启动 Blender，代理 stdout/stderr/exit；验证 `bpy.app.background == False`、窗口非最小化、默认任务栏/Alt-Tab 不可见。
 - [ ] 5.5 跑 W1 V0 验收：GL renderer 非软件、GPUOffScreen 截图成功、2 个并发实例隔离、stop 无孤儿、锁屏/RDP/无管理员场景记录；把原始日志和截图存入证据目录。
 - [ ] 5.6 若 W1 失败，评估 Windows IDD fallback：只在失败测量项上启用；验证不静默安装驱动、报告 UAC/签名/许可证前提、用户拒绝时不启动。
-- [ ] 5.7 实现 Linux L1 provider：Xvfb + VirtualGL，每个实例独立 display；验证 `bpy.app.background == False`、GL renderer 为真实 GPU、stop 清理 Blender/vglrun/Xvfb。
-- [ ] 5.8 跑 Linux V0 验收：与 Windows 同一组测量（GUI、GPU、see parity、2 实例、清理、prerequisites）；验证软件 GL 只标 preview-only 且不通过 gate；若 Linux 无 provider 通过，按 5.11 阻止 3.1 整体发布。
+- [ ] 5.7 实现 Linux L1 provider：Xvfb + VirtualGL，强制 X11（清除 `WAYLAND_DISPLAY`、`XDG_SESSION_TYPE=x11`），显式使用 `vglrun -d egl`，每个实例独立 display；验证 `bpy.app.background == False`、GL renderer 为真实 GPU、llvmpipe/GLX 路径 fail closed、stop 按进程树清理 Blender/vglrun/Xvfb 且重复 stop 幂等。
+- [ ] 5.8 跑 Linux V0 验收（Blender 4.2.10 LTS；5.x 证据不计入）：与 Windows 同一组测量（GUI、GPU、插件 `see` 走 GUI capture、与真实 user-gui viewport parity、严格 2 实例、清理、非 root `/dev/dri`、prerequisites、截图像素内容）；验证 `vglrun -d egl` 路径，`vglrun -d :N`/llvmpipe 只标 preview-only 且不通过 gate；按 5.20a–5.20f 补 PARTIAL 缺口；若 Linux 无 provider 通过，按 5.11 阻止 3.1 整体发布。
 - [ ] 5.9 实现 provider capabilities/readiness 查询：列出平台、prerequisites、安装状态、是否需用户批准；验证未就绪 provider 立即失败并给 fix。
-- [ ] 5.10 汇总 V0 报告：每个 provider 的通过/失败测量、默认/fallback 顺序、virtual-gui 默认实例上限、低资源阈值；把报告作为 3.1 发布门禁附件。
+- [ ] 5.10 汇总 V0 报告：每个 provider 的通过/失败/PARTIAL 测量、默认/fallback 顺序、virtual-gui 默认实例上限、低资源阈值；报告必须包含 Linux L1 PARTIAL 证据与 5.20a–5.20f 的关闭状态，作为 3.1 发布门禁附件。
 - [ ] 5.11 如果 Windows 或 Linux 任一平台无 provider 通过：阻止 3.1 整体发布（不是只挡住 virtual-gui），记录失败测量项；验证没有“headless 冒充 virtual-gui”的路径。
 - [ ] 5.12 更新 virtual-display 文档：Windows helper/IDD 前提、Linux Xvfb/VirtualGL/GPU 驱动命令与发行版矩阵、一键安装入口与 sudo/polkit 前提、锁屏/RDP 限制、preview-only 语义；验证中英版本同步。
 - [ ] 5.13 依赖描述表：把每个 provider 的 prerequisites（包名、检测命令、安装命令、是否需要 root、装后复检）收敛成一张表，capabilities 与 doctor 共用；验证缺依赖时 3s 内返回 `stage=config` 与可执行命令。
@@ -90,7 +90,13 @@
 - [ ] 5.17 核实 Ubuntu 22.04/24.04 与 Debian 12 仓库中的 `virtualgl` 包可用性；若发行版仓库没有该包，文档与 `doctor --fix` 必须给出官方仓库/包安装步骤，不能给出不可执行的 `apt install virtualgl` 命令。（WSL Ubuntu 24.04 已实测仓库无包；22.04/Debian 12 仍待核实。）
 - [x] 5.18 记录 WSL PoC 补充证据：WSL 3.0.3.0 + Ubuntu 24.04 + Blender 4.2.10 + Xvfb；默认 llvmpipe，`GALLIUM_DRIVER=d3d12` 下为 D3D12 (RTX 4070 SUPER)；单实例截图与双实例并发通过；WSLg Wayland 下 `wm.quit_blender` exit 139，但强制 X11 后 API 退出/alt+F4/SIGTERM 均正常；VirtualGL 3.1.5 安装后 `vglrun Blender` exit 0。记录到 design.md D4；结论仍是 WSL 不是目标平台、不能替代 Linux V0。
 - [x] 5.19 定位 Blender GUI 自然退出 segfault：根因是 WSL 默认 `WAYLAND_DISPLAY=wayland-0`，Blender 选择 Wayland 后触发 `xdg_wm_base protocol error 4`，随后 exit 139；强制 X11（`WAYLAND_DISPLAY=`、`XDG_SESSION_TYPE=x11`、`GDK_BACKEND=x11`）后 Xvfb/WSLg XWayland 的 API 退出与 alt+F4 均 exit 0，SIGTERM 143。结论：provider 启动必须在 Xvfb 下显式固定 X11，不能继承 WSLg Wayland；stop 仍保留 SIGTERM/kill 兜底。测试中已清理 WSL crash dump，避免 10G 级堆积。
-- [ ] 5.20 验证 VirtualGL：WSL 已从 GitHub Release 安装 3.1.5 `.deb`，`vglrun -d :110` + 强制 X11 下 Blender GUI 为 D3D12 renderer、截图成功、单实例和双实例均 exit 0；`vglrun glxinfo` 在 Xvfb 上 exit 139，不作为唯一判据。仍待在真实 Linux（Xorg/Wayland）验证并记录与 WSL 的差异；Ubuntu 24.04 仓库无 `virtualgl` 包，文档与 `doctor --fix` 必须给官方仓库/包安装步骤。该验证是 3.1 发布门槛，不是 apply 前代码门槛；WSL 证据不能替代真实 Linux；在真实 Linux 与 user-gui parity 证据到位前不得把 5.8/5.20 勾选为通过。
+- [ ] 5.20 记录 Linux L1 V0 PARTIAL（2026-11-07）：Ubuntu 24.04.5 / AMD RX 7900 XTX / Blender 5.2.3 LTS / VirtualGL 3.1.5 / Xvfb 21.1.12；`vglrun -d egl` 为 AMD GPU GL 4.6，`vglrun -d :N` 为 llvmpipe；双实例红/蓝隔离、SIGTERM 清理通过；但版本基线、严格 2 实例、插件 see/parity、非 root、stop 幂等、像素内容校验未过。证据存 `local-workspace/linux-v0-2026-11-07/`；该验证是 3.1 发布门槛，不是 apply 前代码门槛；在 5.20a–5.20f 完成前不得勾选 5.8/5.20，也不得发布 3.1。
+- [ ] 5.20a 补 Linux V0 版本基线：用 Blender 4.2.10 LTS 重跑全部验收；Blender 5.2.3 只作技术探查，不计入 V0；记录二进制路径、版本与哈希。
+- [ ] 5.20b 补 Linux GL 路径：固定 `vglrun -d egl`，验证 renderer 为真实 AMD GPU、GL 4.6；`vglrun -d :N`/GLX/llvmpipe 必须 fail closed 或只标 preview-only，不能通过 gate；`vglrun glxinfo` 在 Xvfb 上的 exit 139 只作已知限制记录，不作为唯一判据。
+- [ ] 5.20c 补严格 2 实例：验收窗口内确保只有 2 个 Blender（先杀掉预验证遗留 s11）；两实例场景、截图、退出互不串，重复运行。
+- [ ] 5.20d 补插件 see 与 user-gui parity：通过插件 addon 的 `see` GUI capture 与真实 user-gui viewport 比较同一场景；独立 Blender 截图或仅按文件大小判定不算；记录 parity 方法、阈值与截图。
+- [ ] 5.20e 补 stop/权限/内容校验：非 root + `/dev/dri`；截图后同步 `wm.quit_blender` 会挂死，provider 必须用 SIGTERM/timer 停止并幂等；截图校验非全黑/非单色、双实例内容可区分；记录 exit code、耗时与孤儿检查。
+- [ ] 5.20f 补 user-gui parity 环境：物理桌面或同机真实 Xorg + VNC/dummy display 优先；普通 VM（virtio-gpu/virgl/llvmpipe）不算；GPU passthrough VM 只在完整记录硬件/驱动/Blender 版本并评审后使用；无法提供时保持 5.20 未完成并阻止 3.1 发布。
 
 ## 6. 作业队列
 
