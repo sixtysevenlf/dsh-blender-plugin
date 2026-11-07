@@ -153,7 +153,7 @@ def _set_toggles(value):
 
 
 def _patched_server(monkeypatch):
-    server = server_module.DSHBlenderBridgeServer(port=0)
+    server = server_module.DSHBlenderBridgeServer()
 
     def handler(name):
         def call(**kwargs):

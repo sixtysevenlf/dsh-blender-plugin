@@ -1,9 +1,10 @@
 """ Add-on preferences. """
 
 import bpy
-from bpy.props import BoolProperty
+from bpy.props import BoolProperty, IntProperty
 
 from ..compat import ADDON_MODULE
+from ..gateway_schema import GATEWAY_DEFAULT_PORT
 from ..recorders.edit_capture import sync_edit_capture_handlers
 
 class DSHBB_AddonPreferences(bpy.types.AddonPreferences):
@@ -15,6 +16,15 @@ class DSHBB_AddonPreferences(bpy.types.AddonPreferences):
         except Exception as e:
             print(f"DSH Blender Bridge: could not sync manual edit handlers: {e}")
 
+    gateway_port: IntProperty(
+        name="Gateway Port",
+        description="Port of the local DSH Gateway WebSocket endpoint (default "
+                    f"{GATEWAY_DEFAULT_PORT}; the DSHBB_GATEWAY_PORT environment "
+                    "variable overrides this)",
+        default=GATEWAY_DEFAULT_PORT,
+        min=1024,
+        max=65535,
+    )
     telemetry_consent: BoolProperty(
         name="Allow Telemetry",
         description="Opt in to collection of prompts, code snippets, screenshots, and trajectory data to help improve DSH Blender Bridge. Off by default",
@@ -58,6 +68,11 @@ class DSHBB_AddonPreferences(bpy.types.AddonPreferences):
 
     def draw(self, context):
         layout = self.layout
+
+        # Connection section
+        layout.label(text="DSH Gateway:", icon='URL')
+        connection_box = layout.box()
+        connection_box.prop(self, "gateway_port", text="Gateway Port")
 
         # Telemetry section
         layout.label(text="Telemetry & Privacy:", icon='PREFERENCES')

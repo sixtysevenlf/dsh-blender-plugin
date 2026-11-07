@@ -89,7 +89,7 @@ describe('npm package install contract', () => {
     expect(files.some((f: string) => f.startsWith('runtime/') && f.endsWith('.py'))).toBe(true)
     expect(meta.size).toBeLessThan(10 * 1024 * 1024)
     expect(meta.entryCount).toBeGreaterThan(200)
-  })
+  }, 60000)
 
   it('installs the tarball offline and exposes a syntax-valid entry point', () => {
     const outDir = path.join(tmpRoot, 'install-pack')
@@ -135,12 +135,12 @@ describe('npm package install contract', () => {
       'utf8',
     )
     const addonProtocol = fs.readFileSync(
-      path.join(installed, 'addon', 'dsh_blender_bridge', 'protocol.py'),
+      path.join(installed, 'addon', 'dsh_blender_bridge', 'gateway_schema.py'),
       'utf8',
     )
-    expect(addonProtocol).toContain('ADDON_PROTOCOL_VERSION = 11')
+    expect(addonProtocol).toContain('ADDON_PROTOCOL_VERSION = 12')
     expect(addonInit).toContain('bl_info = {')
-    expect(addonInit).toContain('"version": (1, 11)')
+    expect(addonInit).toContain('"version": (2, 0, 0)')
     const addonDir = path.join(installed, 'addon')
     expect(fs.readdirSync(addonDir).filter((f) => f.endsWith('.py'))).toEqual([])
     expect(fs.statSync(path.join(addonDir, 'dsh_blender_bridge.zip')).size).toBeGreaterThan(100000)

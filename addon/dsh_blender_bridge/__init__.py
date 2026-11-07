@@ -8,10 +8,10 @@ from .registration import register, unregister as unregister
 bl_info = {
     "name": "DSH Blender Bridge",
     "author": "Siddharth Ahuja",
-    "version": (1, 11),
+    "version": (2, 0, 0),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar > DSH Blender Bridge",
-    "description": "Connect Blender to DSH via a local TCP bridge",
+    "description": "Connect Blender to DSH through the local DSH Gateway",
     "doc_url": "https://github.com/sixtysevenlf/dsh-blender-plugin",
     "category": "Interface",
 }

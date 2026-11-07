@@ -29,6 +29,7 @@ const addonSource = readTree(addonDir)
 const registrySource = readAddon('command_registry.py')
 const protocolSource = readAddon('protocol.py')
 const serverSource = readAddon('server.py')
+const schemaSource = readAddon('gateway_schema.py')
 const coreInfo = readAddon('commands', 'core', '__init__.py')
 
 function registryCommands(): string[] {
@@ -105,7 +106,7 @@ describe('addon command surface', () => {
   })
 
   it('pauses every non-read command and keeps read-only ones safe', () => {
-    expect(protocolSource).toContain('ADDON_PROTOCOL_VERSION = 11')
+    expect(schemaSource).toContain('ADDON_PROTOCOL_VERSION = 12')
     expect(protocolSource).toContain('is_pause_safe_command')
     expect(registrySource).toContain('PAUSE_SAFE_EXTRA')
     expect(registrySource).toContain('"ping"')
@@ -113,8 +114,8 @@ describe('addon command surface', () => {
     expect(serverSource).toContain('is_pause_safe_command')
   })
 
-  it('advertises protocol 11 with capabilities derived from the command registry', () => {
-    expect(protocolSource).toMatch(/ADDON_PROTOCOL_VERSION\s*=\s*11/)
+  it('advertises protocol 12 with capabilities derived from the command registry', () => {
+    expect(schemaSource).toMatch(/ADDON_PROTOCOL_VERSION\s*=\s*12/)
     expect(coreInfo).toContain('"protocol_version": ADDON_PROTOCOL_VERSION')
     // the handshake must not drift back to a hardcoded capability list.
     expect(coreInfo).toMatch(/"capabilities":\s*sorted\(COMMAND_NAMES\)/)
@@ -136,7 +137,7 @@ describe('addon client command round-trip', () => {
     addon = await startFakeAddon()
     client = new AddonClient({ host: '127.0.0.1', port: addon.port })
     const info = await client.send('get_addon_info', {}, 3000)
-    expect(info.protocol).toBe(11)
+    expect(info.protocol).toBe(12)
     const pong = await client.send('ping', {}, 3000)
     expect(pong).toMatchObject({ pong: true, server: 'fake-addon' })
   })

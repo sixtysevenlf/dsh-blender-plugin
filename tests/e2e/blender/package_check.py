@@ -37,7 +37,7 @@ def inspect_zip():
     with zipfile.ZipFile(ZIP_PATH) as archive:
         names = archive.namelist()
         init_source = archive.read(PACKAGE_ROOT + "/__init__.py").decode("utf-8")
-        protocol_source = archive.read(PACKAGE_ROOT + "/protocol.py").decode("utf-8")
+        schema_source = archive.read(PACKAGE_ROOT + "/gateway_schema.py").decode("utf-8")
     package_files = sorted(
         path.relative_to(PACKAGE_DIR).as_posix()
         for path in PACKAGE_DIR.rglob("*.py")
@@ -53,8 +53,8 @@ def inspect_zip():
         "no_cache_files": not any(
             "__pycache__" in name or name.endswith(".pyc") for name in names
         ),
-        "bl_info_version": "(1, 11)" in init_source,
-        "protocol_version": "ADDON_PROTOCOL_VERSION = 11" in protocol_source,
+        "bl_info_version": "(2, 0, 0)" in init_source,
+        "protocol_version": "ADDON_PROTOCOL_VERSION = 12" in schema_source,
     }
 
 

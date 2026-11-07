@@ -153,6 +153,23 @@ export function winPortHolderPids(port: unknown, opts: WinProcOptions = {}): num
   return out
 }
 
+/** 占端口的监听者（任意进程，不做映像名过滤）；用于失败归因，不用于 kill。 */
+export function winPortListenerPids(port: unknown, opts: WinProcOptions = {}): number[] {
+  if (!IS_WIN) return []
+  const timeoutMs = timeoutOption(opts.timeoutMs, 4000, 1000, 10000)
+  try {
+    const text = execFileSync('netstat.exe', ['-ano', '-p', 'TCP'], {
+      encoding: 'utf8',
+      timeout: timeoutMs,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    return parseNetstatListeners(text, port)
+  } catch {
+    return []
+  }
+}
+
 /** Windows 上"占着本端口的同族后端"：先按命令行归属，再按端口 + 同名映像兜底。 */
 export function winSamePortHolders(port: unknown): number[] {
   if (!IS_WIN) return []

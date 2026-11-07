@@ -32,7 +32,8 @@ export interface EngineContext {
 }
 
 export function createEngineContext(opts: EngineOptions = {}): EngineContext {
-  const addon = new AddonClient((opts.address || ADDRESS) as { host: string; port: number })
+  const addon =
+    opts.addonClient || new AddonClient((opts.address || ADDRESS) as { host: string; port: number })
   const { RENDER_FLAG_WSL, RENDER_FLAG_WIN, RENDER_STALE_MS, readRenderFlag, clearRenderFlag } =
     createRenderState({})
   // 需要 Blender 主线程的命令（ping 不在内：它走 addon 服务器线程，渲染中照样可用）

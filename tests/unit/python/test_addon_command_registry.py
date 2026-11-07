@@ -42,7 +42,7 @@ def test_ping_is_wire_only():
 
 def test_dispatch_table_is_derived_from_the_registry(monkeypatch):
     """The server resolves commands through registry.WIRE_SPECS, not its own table."""
-    server = server_module.DSHBlenderBridgeServer(port=0)
+    server = server_module.DSHBlenderBridgeServer()
     scene = bpy.context.scene
     previous = {}
     for gate in registry.GATE_PROPERTIES.values():

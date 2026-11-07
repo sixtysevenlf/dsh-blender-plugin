@@ -47,7 +47,7 @@ describe('addon name hints', () => {
     expect(LAUNCH_BOOT_PY).toContain('def _name_hit(name):')
     expect(LAUNCH_BOOT_PY).toContain('return any(k in n for k in _HINTS)')
     expect(LAUNCH_BOOT_PY).toContain('"addon_version": None')
-    expect(LAUNCH_BOOT_PY).toContain('protocol == 11')
+    expect(LAUNCH_BOOT_PY).toContain('protocol == 12')
   })
 })
 

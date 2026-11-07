@@ -1,7 +1,6 @@
 """ Registration entry point for the add-on (split from __init__). """
 
 import bpy
-from bpy.props import IntProperty
 
 from .commands.selection import on_selection_mode_update
 from .config import register_auto_start, unregister_auto_start
@@ -24,14 +23,6 @@ def _register_ui_lists():
 
 
 def _register_connection_properties():
-    bpy.types.Scene.dshbb_port = IntProperty(
-        name="Port",
-        description="Port for the DSH Blender Bridge server",
-        default=9876,
-        min=1024,
-        max=65535
-    )
-
     bpy.types.Scene.dshbb_server_running = bpy.props.BoolProperty(
         name="Server Running",
         default=False
@@ -259,7 +250,6 @@ def unregister():
     bpy.utils.unregister_class(DSHBB_OT_OpenTerms)
     bpy.utils.unregister_class(DSHBB_AddonPreferences)
 
-    del bpy.types.Scene.dshbb_port
     del bpy.types.Scene.dshbb_server_running
     del bpy.types.Scene.dshbb_auto_start_server
     del bpy.types.Scene.dshbb_backend_url

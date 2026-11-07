@@ -63,11 +63,12 @@ def test_zip_installs_and_enables_the_package(blender_run):
     assert detail["operator_result"] == ["FINISHED"]
 
     enabled = harness.check(blender_run, "enable_addon")["detail"]
-    assert enabled["bl_info_version"] == [1, 11]
-    assert enabled["addon_version"] == [1, 11]
-    assert enabled["protocol"] == 11
+    assert enabled["bl_info_version"] == [2, 0, 0]
+    assert enabled["addon_version"] == [2, 0, 0]
+    assert enabled["protocol"] == 12
     assert enabled["commands"] == 38
-    assert enabled["scene_prop"] is True
+    # The inbound listener port property is gone: the add-on dials the Gateway.
+    assert enabled["scene_prop"] is False
     assert enabled["enabled_pair"] == [True, True], enabled
     assert enabled["module_file"].replace("\\", "/").endswith("dsh_blender_bridge/__init__.py")
 
@@ -78,8 +79,8 @@ def test_get_addon_info_contract(blender_run):
     assert response["status"] == "success"
     info = response["result"]
     assert info["name"] == "DSH Blender Bridge"
-    assert info["addon_version"] == [1, 11]
-    assert info["protocol_version"] == 11
+    assert info["addon_version"] == [2, 0, 0]
+    assert info["protocol_version"] == 12
     # 38 registered commands: the handshake capabilities derive from
     # command_registry.COMMAND_NAMES (D6) rather than a hardcoded 16-name list.
     assert len(info["capabilities"]) == 38

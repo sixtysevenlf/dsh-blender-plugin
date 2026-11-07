@@ -50,23 +50,35 @@ function zipName(path) {
 
 function readVersions() {
   const init = readFileSync(join(PACKAGE_DIR, '__init__.py'), 'utf8')
-  const protocol = readFileSync(join(PACKAGE_DIR, 'protocol.py'), 'utf8')
-  const blInfoVersion = init.match(/["']version["']\s*:\s*\((\d+),\s*(\d+)\)/)
-  const addonVersion = protocol.match(/ADDON_VERSION\s*=\s*\((\d+),\s*(\d+)\)/)
-  const protocolVersion = protocol.match(/ADDON_PROTOCOL_VERSION\s*=\s*(\d+)/)
+  const schema = readFileSync(join(PACKAGE_DIR, 'gateway_schema.py'), 'utf8')
+  const config = JSON.parse(readFileSync(join(ROOT, 'config', 'gateway.json'), 'utf8'))
+  const blInfoVersion = init.match(/["']version["']\s*:\s*\((\d+),\s*(\d+),\s*(\d+)\)/)
+  const addonVersion = schema.match(/^ADDON_VERSION\s*=\s*"([^"]+)"/m)
+  const protocolVersion = schema.match(/^ADDON_PROTOCOL_VERSION\s*=\s*(\d+)/m)
   if (!blInfoVersion || !addonVersion || !protocolVersion) {
-    fail('could not read bl_info/addon/protocol versions from the package')
+    fail('could not read bl_info/gateway_schema versions from the package')
   }
+  const schemaVersion = addonVersion[1].split('.').map(Number)
+  const expectedVersion = String(config.addon.version).split('.').map(Number)
   const result = {
-    bl_info_version: [Number(blInfoVersion[1]), Number(blInfoVersion[2])],
-    addon_version: [Number(addonVersion[1]), Number(addonVersion[2])],
+    bl_info_version: [Number(blInfoVersion[1]), Number(blInfoVersion[2]), Number(blInfoVersion[3])],
+    addon_version: schemaVersion,
     protocol_version: Number(protocolVersion[1]),
   }
-  if (JSON.stringify(result.bl_info_version) !== JSON.stringify(result.addon_version)) {
-    fail('bl_info.version and protocol.ADDON_VERSION disagree')
+  if (JSON.stringify(result.bl_info_version) !== JSON.stringify(schemaVersion)) {
+    fail('bl_info.version and gateway_schema.ADDON_VERSION disagree')
   }
-  if (result.protocol_version !== 11) {
-    fail('protocol version must stay 11 (got ' + result.protocol_version + ')')
+  if (JSON.stringify(schemaVersion) !== JSON.stringify(expectedVersion)) {
+    fail('gateway_schema.ADDON_VERSION and config/gateway.json addon.version disagree')
+  }
+  if (result.protocol_version !== config.addon.protocol || result.protocol_version !== 12) {
+    fail(
+      'gateway_schema protocol ' +
+        result.protocol_version +
+        ' must equal config/gateway.json (' +
+        config.addon.protocol +
+        ') and the 12 wire protocol',
+    )
   }
   return result
 }

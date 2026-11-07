@@ -194,13 +194,15 @@ class DSHBB_OT_StartServer(bpy.types.Operator):
         config._user_stopped_server = False
         scene = context.scene
 
-        # Create a new server instance
-        if not hasattr(bpy.types, "dshbb_server") or not bpy.types.dshbb_server:
-            bpy.types.dshbb_server = DSHBlenderBridgeServer(port=scene.dshbb_port)
+        # A stopped server re-reads its Gateway endpoint on start(), so replace
+        # it instead of pinning the port captured when it was first created.
+        server = getattr(bpy.types, "dshbb_server", None)
+        if server is None or not server.running:
+            server = DSHBlenderBridgeServer()
+            bpy.types.dshbb_server = server
 
-        # Start the server
-        bpy.types.dshbb_server.start()
-        scene.dshbb_server_running = bpy.types.dshbb_server.running
+        server.start()
+        scene.dshbb_server_running = server.running
 
         return {'FINISHED'}
 

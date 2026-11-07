@@ -25,7 +25,7 @@ def test_init_is_a_thin_entry_point():
     functions = [node.name for node in tree.body if isinstance(node, ast.FunctionDef)]
     assert functions == []
     assert "from .registration import register, unregister" in source
-    assert '"version": (1, 11)' in source
+    assert '"version": (2, 0, 0)' in source
     assert 'if __name__ == "__main__":' in source
     assert pkg.register is registration.register
     assert pkg.unregister is registration.unregister
@@ -75,14 +75,13 @@ def test_register_unregister_round_trip_leaves_no_residue():
     try:
         registration.register()
         assert bpy.utils.registered, "register() did not register any classes"
-        assert bpy.types.Scene.dshbb_port is not None
         assert bpy.types.Scene.dshbb_ai_paused is not None
         assert bpy.app.timers._registered
 
         registration.unregister()
         assert bpy.utils.registered == []
         assert bpy.app.timers._registered == {}
-        for attribute in ("dshbb_port", "dshbb_server_running", "dshbb_auto_start_server",
+        for attribute in ("dshbb_server_running", "dshbb_auto_start_server",
                           "dshbb_ai_paused", "dshbb_selection_mode",
                           "dshbb_use_polyhaven", "dshbb_use_hunyuan3d"):
             assert not hasattr(bpy.types.Scene, attribute), attribute

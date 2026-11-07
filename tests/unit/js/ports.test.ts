@@ -9,16 +9,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const h = vi.hoisted(() => ({
   winKillPids: vi.fn((pids: number[]) => pids.map(String)),
   winSamePortHolders: vi.fn((_port: number) => [] as number[]),
+  winPortListenerPids: vi.fn((_port: number) => [] as number[]),
 }))
 vi.mock('../../../runtime/win_proc.js', () => ({
   winKillPids: h.winKillPids,
   winSamePortHolders: h.winSamePortHolders,
+  winPortListenerPids: h.winPortListenerPids,
 }))
 
 import {
   holderResponsive,
   killHolders,
   parsePortArg,
+  parseProcNetTcpListeners,
   readProcRows,
   samePortHolders,
   serverPidsFromProcRows,
@@ -54,6 +57,24 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
   vi.clearAllMocks()
+})
+
+describe('parseProcNetTcpListeners', () => {
+  const header =
+    '  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode'
+  it('returns LISTEN inodes for the exact HEX port', () => {
+    const text = [
+      header,
+      '   0: 0100007F:9BBD 00000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 111 1',
+      '   1: 0100007F:9BBD 0100007F:1F90 01 00000000:00000000 00:00000000 00000000     0        0 222 1',
+      '   2: 0100007F:9BBE 00000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 333 1',
+    ].join('\n')
+    expect(parseProcNetTcpListeners(text, 39869)).toEqual([{ inode: 111 }])
+  })
+  it('ignores malformed rows and invalid ports', () => {
+    expect(parseProcNetTcpListeners(header + '\nnot a row', 1234)).toEqual([])
+    expect(parseProcNetTcpListeners(header, 0)).toEqual([])
+  })
 })
 
 describe('parsePortArg legacy semantics', () => {

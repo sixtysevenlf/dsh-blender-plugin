@@ -1,14 +1,26 @@
-""" Socket server, command queue and command dispatch. """
+""" Gateway connection, command queue and command dispatch.
+
+3.1 reversed the control channel: the add-on dials the DSH Gateway over
+WebSocket (endpoint, protocol and handshake fields come from the generated
+gateway schema) and owns no inbound listener. Requests arrive as JSON text
+frames from the Gateway; they run through
+the same main-thread command queue and execute_command path as the old socket
+server, so pause gating, agent-record marking and the response envelopes are
+unchanged.
+"""
 
 import bpy
 import json
-import threading
-import socket
+import os
 import queue
+import threading
 import time
 import traceback
+import uuid
 
+from . import transport
 from .command_registry import (
+    COMMAND_NAMES,
     WIRE_SPECS,
     begin_agent_command,
     command_mixins,
@@ -19,26 +31,42 @@ from .command_registry import (
     stop_runtime_handlers,
     tick_activity,
 )
-from .config import get_credential
-from .protocol import ai_paused, is_pause_safe_command
+from .config import get_credential, get_gateway_host, get_gateway_port, gateway_url
+from .gateway_schema import ADDON_WS_PATH, ADDON_VERSION as ADDON_VERSION_TEXT
+from .protocol import ADDON_PROTOCOL_VERSION, ai_paused, is_pause_safe_command
+
+GATEWAY_PATH = ADDON_WS_PATH
+HANDSHAKE_TIMEOUT_SECONDS = 5.0
+RECV_POLL_SECONDS = 1.0
+RETRY_MIN_SECONDS = 1.0
+RETRY_MAX_SECONDS = 10.0
+HANDSHAKE_MESSAGE_TYPES = frozenset({"handshake_ok", "handshake_error"})
+
+# Stable for the whole Blender process: the Gateway routes a reconnected add-on
+# back to the same instance, and an add-on reload must not mint a new identity.
+_INSTANCE_ID = uuid.uuid5(uuid.NAMESPACE_URL, "dshbb-addon-%d" % os.getpid()).hex
 
 
 class DSHBlenderBridgeServer(*command_mixins()):
-    def __init__(self, host="localhost", port=9876):
-        self.host = host
-        self.port = port
+    def __init__(self, gateway_port=None, gateway_host=None):
+        # Explicit values are for tests; production reads config (env -> add-on
+        # preference -> generated default) every time the connection is (re)started.
+        self._configured_gateway_port = gateway_port
+        self._configured_gateway_host = gateway_host
+        self.gateway_host = gateway_host or get_gateway_host()
+        self.gateway_port = int(gateway_port) if gateway_port else get_gateway_port()
         self.running = False
-        self.socket = None
-        self.server_thread = None
-        # Commands are pushed here by client threads and drained by a single
-        # timer running on Blender's main thread. bpy.app.timers is not
-        # thread-safe, so registering a timer per command (the previous
-        # approach) could silently drop the callback - on Windows especially -
-        # leaving the client blocked in recv() until its socket timeout.
+        self.connected = False
+        self.handshake_error = ""
+        # Commands are pushed here by the Gateway connection thread and drained
+        # by a single timer running on Blender's main thread. bpy.app.timers is
+        # not thread-safe, so registering a timer per command could silently
+        # drop the callback - on Windows especially.
         self.command_queue = queue.Queue()
-        # Live client sockets, so stop() can unblock threads parked in recv().
-        self._clients = set()
-        self._clients_lock = threading.Lock()
+        self._gateway_thread = None
+        self._connection = None
+        self._connection_lock = threading.Lock()
+        self._project = ""
 
     # Credentials live in exactly one place: add-on preferences, with the
     # DSHBB_*/BLENDERMCP_* environment variables as fallback
@@ -65,7 +93,7 @@ class DSHBlenderBridgeServer(*command_mixins()):
 
     def start(self):
         if bpy.app.background:
-            print("DSH Blender Bridge: cannot start server in background mode (blender -b) - commands would never execute\n"
+            print("DSH Blender Bridge: cannot start in background mode (blender -b) - commands would never execute\n"
                   "DSH Blender Bridge: run Blender with a GUI, or use a virtual display: xvfb-run -a blender")
             return
 
@@ -73,23 +101,14 @@ class DSHBlenderBridgeServer(*command_mixins()):
             print("Server is already running")
             return
 
+        if not self._configured_gateway_port:
+            self.gateway_host = self._configured_gateway_host or get_gateway_host()
+            self.gateway_port = get_gateway_port()
         self.running = True
+        self.handshake_error = ""
+        self._project = self._current_project()
 
         try:
-            # Create socket
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.socket.bind((self.host, self.port))
-            # Backlog of 1 meant a reconnecting client could complete the TCP
-            # handshake and then never be accept()ed - a connection that looks
-            # established but is never serviced.
-            self.socket.listen(5)
-
-            # Start server thread
-            self.server_thread = threading.Thread(target=self._server_loop)
-            self.server_thread.daemon = True
-            self.server_thread.start()
-
             start_runtime_handlers()
 
             # start() is called from the operator, i.e. the main thread, so
@@ -97,16 +116,37 @@ class DSHBlenderBridgeServer(*command_mixins()):
             if not bpy.app.timers.is_registered(self._drain_command_queue):
                 bpy.app.timers.register(self._drain_command_queue, persistent=True)
 
-            print(f"DSH Blender Bridge server started on {self.host}:{self.port}")
-        except Exception as e:
-            print(f"Failed to start server: {str(e)}")
+            self._gateway_thread = threading.Thread(
+                target=self._gateway_loop, name="DSHBB-Gateway", daemon=True)
+            self._gateway_thread.start()
+
+            print("DSH Blender Bridge connecting to the DSH Gateway at " + gateway_url(self.gateway_port)
+                  + " (start the DSH plugin to finish the handshake)")
+        except Exception as exc:
+            print("Failed to start the DSH Gateway connection: %s" % str(exc))
             self.stop()
 
     def stop(self):
         self.running = False
+        self.connected = False
 
-        stop_runtime_handlers()
-        drain_edit_recorder()
+        # Closing the WebSocket first unblocks the connection thread parked in
+        # recv_text(), so the join below cannot wait for a network timeout.
+        with self._connection_lock:
+            connection, self._connection = self._connection, None
+        if connection is not None:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+        thread, self._gateway_thread = self._gateway_thread, None
+        if thread is not None:
+            try:
+                if thread.is_alive():
+                    thread.join(timeout=2.0)
+            except Exception:
+                pass
 
         try:
             if bpy.app.timers.is_registered(self._drain_command_queue):
@@ -114,81 +154,137 @@ class DSHBlenderBridgeServer(*command_mixins()):
         except Exception:
             pass
 
-        # Close socket
-        if self.socket:
-            try:
-                self.socket.close()
-            except Exception:
-                pass
-            self.socket = None
+        stop_runtime_handlers()
+        drain_edit_recorder()
 
-        # Shut down live client sockets. Without this, handler threads stay
-        # parked in a blocking recv() forever; being daemon threads they then
-        # outlive the restart and close connections the new server owns
-        # (the WinError 10054 seen after toggling the addon).
-        with self._clients_lock:
-            clients = list(self._clients)
-            self._clients.clear()
-        for client in clients:
-            try:
-                client.shutdown(socket.SHUT_RDWR)
-            except Exception:
-                pass
-            try:
-                client.close()
-            except Exception:
-                pass
-
-        # Drop any commands that will never be serviced now.
+        # Drop any requests that will never be serviced now.
         while True:
             try:
                 self.command_queue.get_nowait()
             except queue.Empty:
                 break
 
-        # Wait for thread to finish
-        if self.server_thread:
+        print("DSH Blender Bridge Gateway connection stopped")
+
+    @staticmethod
+    def _current_project():
+        try:
+            return bpy.data.filepath or ""
+        except Exception:
+            return ""
+
+    # -- Gateway connection (background thread) ------------------------------
+    def _gateway_loop(self):
+        backoff = RETRY_MIN_SECONDS
+        while self.running:
+            connection = None
             try:
-                if self.server_thread.is_alive():
-                    self.server_thread.join(timeout=1.0)
-            except Exception:
-                pass
-            self.server_thread = None
+                connection = transport.WebSocketClient(
+                    self.gateway_host, self.gateway_port, path=GATEWAY_PATH)
+                connection.connect(timeout=HANDSHAKE_TIMEOUT_SECONDS)
+                with self._connection_lock:
+                    self._connection = connection
+                self._send_handshake(connection)
+                self._await_handshake(connection)
 
-        print("DSH Blender Bridge server stopped")
+                self.connected = True
+                self.handshake_error = ""
+                backoff = RETRY_MIN_SECONDS
+                print("DSH Blender Bridge connected to the DSH Gateway (instance %s)" % _INSTANCE_ID)
+                self._serve(connection)
+            except transport.WebSocketError as exc:
+                print("DSH Blender Bridge: Gateway connection problem: %s" % str(exc))
+            except OSError as exc:
+                print("DSH Blender Bridge: Gateway connection failed: %s" % str(exc))
+            except Exception as exc:
+                traceback.print_exc()
+                print("DSH Blender Bridge: unexpected Gateway connection error: %s" % str(exc))
+            finally:
+                self.connected = False
+                with self._connection_lock:
+                    if self._connection is connection:
+                        self._connection = None
+                if connection is not None:
+                    try:
+                        connection.close()
+                    except Exception:
+                        pass
 
-    def _server_loop(self):
-        """Main server loop in a separate thread"""
-        print("Server thread started")
-        self.socket.settimeout(1.0)  # Timeout to allow for stopping
+            if not self.running:
+                break
+            time.sleep(backoff)
+            backoff = min(backoff * 2.0, RETRY_MAX_SECONDS)
 
+    def _send_handshake(self, connection):
+        handshake = {
+            "type": "handshake",
+            "instanceId": _INSTANCE_ID,
+            "kind": "user-gui",
+            "version": ADDON_VERSION_TEXT,
+            "protocol": ADDON_PROTOCOL_VERSION,
+            "project": self._project,
+            "capabilities": sorted(COMMAND_NAMES),
+        }
+        connection.send_text(json.dumps(handshake, ensure_ascii=False))
+
+    def _await_handshake(self, connection):
+        raw = connection.recv_text(timeout=HANDSHAKE_TIMEOUT_SECONDS)
+        if raw is None:
+            raise transport.WebSocketError("Gateway closed the connection before the handshake reply")
+        try:
+            message = json.loads(raw)
+        except ValueError as exc:
+            raise transport.WebSocketError(
+                "Gateway sent an unreadable handshake reply: %s" % raw[:200]) from exc
+        if not isinstance(message, dict):
+            raise transport.WebSocketError("Gateway handshake reply must be a JSON object")
+        message_type = message.get("type")
+        if message_type == "handshake_ok":
+            return
+        if message_type == "handshake_error":
+            detail = message.get("message") or message.get("code") or "unknown handshake error"
+            fix = message.get("fix") or ""
+            self.handshake_error = str(detail)
+            print("DSH Blender Bridge: Gateway rejected the handshake: %s" % str(detail))
+            if fix:
+                print("DSH Blender Bridge: fix: %s" % str(fix))
+            raise transport.WebSocketError("Gateway rejected the handshake: %s" % str(detail))
+        raise transport.WebSocketError(
+            "Gateway sent an unexpected handshake reply type: %r" % message_type)
+
+    def _serve(self, connection):
         while self.running:
             try:
-                # Accept new connection
-                try:
-                    client, address = self.socket.accept()
-                    print(f"Connected to client: {address}")
+                text = connection.recv_text(timeout=RECV_POLL_SECONDS)
+            except TimeoutError:
+                continue
+            if text is None:
+                print("DSH Blender Bridge: Gateway closed the connection")
+                return
+            self._handle_gateway_message(text, connection.send_text)
 
-                    # Handle client in a separate thread
-                    client_thread = threading.Thread(
-                        target=self._handle_client,
-                        args=(client,)
-                    )
-                    client_thread.daemon = True
-                    client_thread.start()
-                except socket.timeout:
-                    # Just check running condition
-                    continue
-                except Exception as e:
-                    print(f"Error accepting connection: {str(e)}")
-                    time.sleep(0.5)
-            except Exception as e:
-                print(f"Error in server loop: {str(e)}")
-                if not self.running:
-                    break
-                time.sleep(0.5)
+    def _handle_gateway_message(self, text, send):
+        """Parse one Gateway message and queue it for the main-thread timer.
 
-        print("Server thread stopped")
+        *send* is a callable that writes one response text frame. Exposed as a
+        method so tests can drive framing without a network connection.
+        """
+        try:
+            message = json.loads(text)
+        except (ValueError, UnicodeDecodeError) as exc:
+            # Without a parsed requestId there is nobody to answer; the Gateway
+            # owns the request timeout for a frame it cannot correlate.
+            print("DSH Blender Bridge: ignoring a malformed Gateway message: %s" % str(exc))
+            return
+        if not isinstance(message, dict):
+            print("DSH Blender Bridge: ignoring a non-object Gateway message")
+            return
+        message_type = message.get("type")
+        if message_type in HANDSHAKE_MESSAGE_TYPES:
+            print("DSH Blender Bridge: ignoring a post-handshake %r message" % message_type)
+            return
+        request_id = message.get("requestId")
+        self.command_queue.put((message, send, request_id))
 
     def _drain_command_queue(self):
         """Run queued commands on Blender's main thread.
@@ -199,86 +295,35 @@ class DSHBlenderBridgeServer(*command_mixins()):
         if not self.running:
             return None
 
-        # v1.8：活动的统一判定跑在主线程 timer 上（modal 操作符 / 原生选区变化）。
         try:
+            self._project = self._current_project()
             tick_activity()
         except Exception:
             pass
 
         while True:
             try:
-                command, client = self.command_queue.get_nowait()
+                command, send, request_id = self.command_queue.get_nowait()
             except queue.Empty:
                 break
 
             try:
                 response = self.execute_command(command)
-                response_json = json.dumps(response)
-            except Exception as e:
-                print(f"Error executing command: {str(e)}")
+            except Exception as exc:
+                print("Error executing command: %s" % str(exc))
                 traceback.print_exc()
-                response_json = json.dumps({"status": "error", "message": str(e)})
+                response = {"status": "error", "message": str(exc)}
 
+            if request_id is not None:
+                response["requestId"] = request_id
             try:
-                client.sendall(response_json.encode("utf-8"))
-            except Exception:
-                print("Failed to send response - client disconnected")
+                send(json.dumps(response, ensure_ascii=False))
+            except Exception as exc:
+                print("DSH Blender Bridge: failed to send a Gateway response: %s" % str(exc))
 
         return 0.05
 
-    def _handle_client(self, client):
-        """Handle connected client"""
-        print("Client handler started")
-        # A finite timeout keeps this loop responsive to self.running instead
-        # of parking in recv() forever.
-        client.settimeout(1.0)
-        with self._clients_lock:
-            self._clients.add(client)
-        buffer = b""
-
-        try:
-            while self.running:
-                # Receive data
-                try:
-                    data = client.recv(8192)
-                    if not data:
-                        print("Client disconnected")
-                        break
-
-                    buffer += data
-                    try:
-                        # Try to parse command
-                        command = json.loads(buffer.decode("utf-8"))
-                        buffer = b""
-
-                        # Hand off to the main thread. Never call
-                        # bpy.app.timers.register() from here - it is not
-                        # thread-safe and the callback can be silently lost.
-                        print(f"Queued command: {command.get('type')}")
-                        self.command_queue.put((command, client))
-                    except (json.JSONDecodeError, UnicodeDecodeError):
-                        # Incomplete data, wait for more. A multi-byte UTF-8
-                        # character can land split across a recv() chunk
-                        # boundary, which fails decode() before json.loads()
-                        # ever runs - that's incomplete data too, not garbage.
-                        pass
-                except socket.timeout:
-                    # Expected; loop round and re-check self.running.
-                    continue
-                except Exception as e:
-                    print(f"Error receiving data: {str(e)}")
-                    break
-        except Exception as e:
-            print(f"Error in client handler: {str(e)}")
-        finally:
-            with self._clients_lock:
-                self._clients.discard(client)
-            try:
-                client.close()
-            except Exception:
-                pass
-            print("Client handler stopped")
-
+    # -- dispatch ------------------------------------------------------------
     def execute_command(self, command):
         """Execute a command in the main Blender thread"""
         # 暂停检查放在 try/finally 之前：被拒的请求不应标记成「AI 正在操作」
@@ -289,10 +334,10 @@ class DSHBlenderBridgeServer(*command_mixins()):
             with begin_agent_command():
                 return self._execute_command_internal(command)
 
-        except Exception as e:
-            print(f"Error executing command: {str(e)}")
+        except Exception as exc:
+            print("Error executing command: %s" % str(exc))
             traceback.print_exc()
-            return {"status": "error", "message": str(e)}
+            return {"status": "error", "message": str(exc)}
         finally:
             # v1.8：标记 agent 刚操作过；并把选区指纹作废，避免把 agent 的改动误算成人的操作
             try:
@@ -325,15 +370,14 @@ class DSHBlenderBridgeServer(*command_mixins()):
 
         handler = self._resolve_handler(cmd_type)
         if not handler:
-            return {"status": "error", "message": f"Unknown command type: {cmd_type}"}
+            return {"status": "error", "message": "Unknown command type: %s" % cmd_type}
 
         try:
-            print(f"Executing handler for {cmd_type}")
+            print("Executing handler for %s" % cmd_type)
             result = handler(**params)
             print("Handler execution complete")
             return {"status": "success", "result": result}
-        except Exception as e:
-            print(f"Error in handler: {str(e)}")
+        except Exception as exc:
+            print("Error in handler: %s" % str(exc))
             traceback.print_exc()
-            return {"status": "error", "message": str(e)}
-
+            return {"status": "error", "message": str(exc)}

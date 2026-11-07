@@ -34,6 +34,7 @@ export function createHealthRoutes(E: HttpRouteDeps) {
             return { verdict: 'unknown', error: errorMessage(e) }
           }
         })(),
+        gateway: typeof E.gatewayOwner === 'function' ? (E.gatewayOwner as () => unknown)() : null,
         backend: {
           pid: process.pid,
           rssMB: Math.round(process.memoryUsage().rss / 1048576),

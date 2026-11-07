@@ -1,16 +1,13 @@
 """Dispatch-level integration tests for the split add-on package.
 
-Uses a bpy stub and calls the socket server's command executor directly. This
-checks the 38-name dispatch table and pause gate without opening a socket.
+Uses a bpy stub and calls the server's command executor directly. This checks
+the 38-name dispatch table and pause gate without a Gateway connection.
 """
 
 from __future__ import annotations
 
 import importlib
 import json
-import socket
-import threading
-import time
 
 import bpy_stub
 
@@ -40,7 +37,7 @@ ALL_COMMANDS = BASE_COMMANDS + GATED_COMMANDS
 
 
 def _server(monkeypatch):
-    return server_module.DSHBlenderBridgeServer(port=0)
+    return server_module.DSHBlenderBridgeServer()
 
 
 def _patch_dispatch_targets(server):
@@ -49,11 +46,11 @@ def _patch_dispatch_targets(server):
 
 
 def test_real_get_addon_info_contract():
-    server = server_module.DSHBlenderBridgeServer(port=0)
+    server = server_module.DSHBlenderBridgeServer()
     info = server.get_addon_info()
     assert info["name"] == "DSH Blender Bridge"
-    assert info["addon_version"] == [1, 11]
-    assert info["protocol_version"] == 11
+    assert info["addon_version"] == [2, 0, 0]
+    assert info["protocol_version"] == 12
     assert info["blender_version"] == "4.2.10"
     # the handshake derives capabilities from the registry, so it is the full
     # registered command set (38) instead of the old hardcoded 16-name subset.
@@ -117,34 +114,42 @@ def test_pause_gate_blocks_writes_but_allows_reads_and_ping(monkeypatch):
         bpy.context.scene.dshbb_ai_paused = False
 
 
-def test_socket_framing_and_dispatch(monkeypatch):
-    """The real socket handler frames JSON and the drain loop answers ping."""
+def test_gateway_message_framing_and_dispatch(monkeypatch):
+    """A Gateway JSON frame becomes one queued command and one JSON response."""
     server = _server(monkeypatch)
     server.running = True
-    client, peer = socket.socketpair()
-    thread = threading.Thread(target=server._handle_client, args=(client,), daemon=True)
-    thread.start()
+    sent = []
     try:
-        peer.sendall(json.dumps({"type": "ping"}).encode("utf-8"))
-        deadline = time.time() + 2
-        while server.command_queue.empty() and time.time() < deadline:
-            time.sleep(0.01)
-        assert not server.command_queue.empty(), "socket handler did not frame the command"
-        server._drain_command_queue()
-        raw = peer.recv(65536)
-        assert json.loads(raw.decode("utf-8")) == {
-            "status": "success",
-            "result": {"pong": True},
-        }
+        server._handle_gateway_message(json.dumps({"type": "ping"}), sent.append)
+        assert server.command_queue.qsize() == 1
+        assert server._drain_command_queue() == 0.05
+        assert [json.loads(raw) for raw in sent] == [
+            {"status": "success", "result": {"pong": True}},
+        ]
     finally:
         server.running = False
-        try:
-            peer.shutdown(socket.SHUT_RDWR)
-        except OSError:
-            pass
-        peer.close()
-        thread.join(timeout=2)
-    assert not thread.is_alive()
+
+
+def test_gateway_request_id_is_echoed_on_the_response(monkeypatch):
+    server = _server(monkeypatch)
+    server.running = True
+    sent = []
+    try:
+        server._handle_gateway_message(
+            json.dumps({"type": "ping", "requestId": "req-42"}), sent.append)
+        server._drain_command_queue()
+        assert json.loads(sent[0])["requestId"] == "req-42"
+    finally:
+        server.running = False
+
+
+def test_malformed_gateway_messages_are_ignored(monkeypatch):
+    server = _server(monkeypatch)
+    sent = []
+    server._handle_gateway_message("not json", sent.append)
+    server._handle_gateway_message("[]", sent.append)
+    assert server.command_queue.empty()
+    assert sent == []
 
 
 def test_gated_commands_are_unknown_while_their_toggle_is_off(monkeypatch):

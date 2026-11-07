@@ -13,8 +13,10 @@ describe('final-state addon pack invariants', () => {
     expect(pkg.version).toBe('3.0.6')
     expect(pkg.engines?.node).toBe('>=24.9.0')
     const init = read('addon/dsh_blender_bridge/__init__.py')
-    expect(init).toMatch(/"version": \(1, 11\)/)
-    expect(read('addon/dsh_blender_bridge/protocol.py')).toContain('ADDON_PROTOCOL_VERSION = 11')
+    expect(init).toMatch(/"version": \(2, 0, 0\)/)
+    expect(read('addon/dsh_blender_bridge/gateway_schema.py')).toContain(
+      'ADDON_PROTOCOL_VERSION = 12',
+    )
   })
 
   it('ships the zip package and no legacy single-file addon entry', () => {

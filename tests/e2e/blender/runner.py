@@ -61,7 +61,7 @@ def main():
 
     from dsh_blender_bridge.server import DSHBlenderBridgeServer
 
-    server = DSHBlenderBridgeServer(port=0)
+    server = DSHBlenderBridgeServer()
 
     # 3. get_addon_info through the real dispatch path.
     @check("get_addon_info")

@@ -56,6 +56,8 @@ export interface WorkerView {
 
 export interface EngineOptions {
   address?: { host?: string; port?: number } | null
+  /** 3.1 Gateway: inject the WebSocket-backed addon client instead of the legacy TCP client. */
+  addonClient?: AddonClientType
   [k: string]: unknown
 }
 

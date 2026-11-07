@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url'
 import { isRecord, readString } from './core/json.js'
 import { errorMessage } from './core/json.js'
 import { detectBlenderExe } from './blender-detect.js'
+import { GATEWAY_DEFAULT_PORT } from './transport/gateway-schema.generated.js'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 /**
@@ -381,6 +382,11 @@ export const CFG = {
     readString(process.env.DSH_BLENDER_ADDON_HOST) || readString(FILE.cfg.addonHost) || '127.0.0.1',
   addonPort: num(process.env.DSH_BLENDER_ADDON_PORT || readString(FILE.cfg.addonPort), 9876),
   httpPort: num(process.env.DSH_BLENDER_HTTP_PORT || readString(FILE.cfg.httpPort), 9877),
+  /** 3.1 Gateway 单端点端口；9877 仅作为显式 httpPort 兼容保留。 */
+  gatewayPort: num(
+    process.env.DSH_BLENDER_GATEWAY_PORT || readString(FILE.cfg.gatewayPort),
+    GATEWAY_DEFAULT_PORT,
+  ),
   /**
    * Windows 侧启动代理（默认 127.0.0.1:9878）。
    * WSL 走它拉起 GUI Blender ⇒ 本次启动 0 次互操作调用，回避 microsoft/WSL#41173
@@ -450,6 +456,7 @@ export function describeConfig(over: { httpPort?: number | string } = {}) {
     distro: IS_WIN || IS_MAC ? null : IS_WSL ? DISTRO : linuxDistroName(),
     addon: CFG.addonHost + ':' + String(CFG.addonPort),
     http: '127.0.0.1:' + String(o.httpPort || CFG.httpPort),
+    gateway: '127.0.0.1:' + String(CFG.gatewayPort),
     workDir: {
       win: CFG.workDirWin,
       wsl: CFG.workDirWsl,

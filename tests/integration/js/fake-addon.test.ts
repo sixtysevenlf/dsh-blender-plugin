@@ -38,7 +38,7 @@ describe('addon channel against a fake addon', () => {
     const c = client(server)
     await expect(c.send('get_addon_info', {}, 1000)).resolves.toMatchObject({
       name: 'DSH Blender Bridge',
-      protocol: 11,
+      protocol: 12,
     })
     await expect(c.send('ping', {}, 1000)).resolves.toMatchObject({ pong: true })
   })

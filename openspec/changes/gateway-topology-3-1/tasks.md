@@ -4,31 +4,31 @@
 
 - [x] 1.1 同步并开分支：`git fetch origin --tags`；先提交并推送当前 planning artifacts（proposal/design/tasks/7 spec），确保 worktree 干净；`git fetch origin --tags`，以 `origin/main` 为准（当前审计时为 `82a44bc`，不要把这个哈希写死为永久基线）；从 `chore/gateway-topology-3-1-plan` rebase/merge 到最新 main 后切 `feat/gateway-topology-3-1`；验证基线 = 最新 `origin/main` + plan 提交，工作树只有明确保留的未跟踪证据（`local-workspace/` 等），不把 active change 混进实现 PR。（2026-11-07：plan PR #85 已合并到 main `2362508`；已从 main 切 `feat/gateway-topology-3-1`。）
 - [x] 1.2 记录基线：在分支上记录 `git rev-parse HEAD`，跑 `npm run build`、`check:finalization`、`check:structure`、`check:exceptions`、`check-plan-ids --enforce`、`test:matrix`、`check:python-static`、`typecheck`、`lint`、`format:check`、`test:unit`、`test:contract`、`test:python`、`check:addon`、`check:build`、`check:git-hygiene`；验证全部 exit 0，并记录 15 tools / 34 families / 228 ops / 38 commands / 29 routes / protocol 11。（2026-11-07 HEAD `2362508`；16 个命令全部 exit 0；日志 `local-workspace/1.2-baseline-2026-11-07T14-17-54-398Z.log`，摘要 `local-workspace/1.2-baseline-summary.md`。）
-- [ ] 1.3 先红（Gateway）：新增“addon 进程无监听 socket、旧 addon 被拒”的 contract/integration 测试，在未实现前应失败；把失败输出贴到 PR 草稿。
-- [ ] 1.4 冻结 PoC 输入：把 A2 PoC v2.1 的 P1/P2/P4/P5 证据路径、已知 BLOCKED 项写进 PR 草稿；确认 P3 virtual-display 仍为 BLOCKED，不能作为验收依据。
-- [ ] 1.5 建立 V0 真机矩阵：列出 Windows 本机、Windows 无管理员、Linux 有 GPU/无 GPU、锁屏/RDP 四个环境；每个环境记录 Blender 4.2.10 LTS 路径、GPU、驱动、Xvfb/VirtualGL 版本；Linux 的 user-gui parity 环境先按“物理桌面，或同机真实 Xorg + VNC/dummy display”登记；普通 VM 的软件 GL 不算，GPU passthrough VM 需单独记录。
+- [x] 1.3 先红（Gateway）：新增“addon 进程无监听 socket、旧 addon 被拒”的 contract/integration 测试，在未实现前应失败；把失败输出贴到 PR 草稿。
+- [x] 1.4 冻结 PoC 输入：把 A2 PoC v2.1 的 P1/P2/P4/P5 证据路径、已知 BLOCKED 项写进 PR 草稿；确认 P3 virtual-display 仍为 BLOCKED，不能作为验收依据。
+- [x] 1.5 建立 V0 真机矩阵：列出 Windows 本机、Windows 无管理员、Linux 有 GPU/无 GPU、锁屏/RDP 四个环境；每个环境记录 Blender 4.2.10 LTS 路径、GPU、驱动、Xvfb/VirtualGL 版本；Linux 的 user-gui parity 环境先按“物理桌面，或同机真实 Xorg + VNC/dummy display”登记；普通 VM 的软件 GL 不算，GPU passthrough VM 需单独记录。
 - [x] 1.6 清理 active changes：`terminal-state-closeout` 已归档到 `openspec/changes/archive/2026-11-07-terminal-state-closeout`；`vision-motion-analysis` 已移到 `openspec/future/` 并记录在 `openspec/future/README.md`；确认 `openspec list` 只剩本 change。
 
 ## 2. Gateway 单端点与 addon 反向连接
 
-- [ ] 2.1 实现 Gateway 进程入口与 HTTP 装配：新增 `runtime/gateway.ts`（替代 `runtime/server.ts`）作为唯一进程入口，装配 HTTP server、`/health`、`/addon` WebSocket upgrade 与路由矩阵；默认端口 39877；验证进程可独立启动、`/health` 可探、无第二个 listener。
+- [x] 2.1 实现 Gateway 进程入口与 HTTP 装配：新增 `runtime/gateway.ts`（替代 `runtime/server.ts`）作为唯一进程入口，装配 HTTP server、`/health`、`/addon` WebSocket upgrade 与路由矩阵；默认端口 39877；验证进程可独立启动、`/health` 可探、无第二个 listener。
 - [ ] 2.2 删除 addon 入站 server 路径：`addon/dsh_blender_bridge/server.py` 的 listen/accept 改为 client 连接；先保留协议编解码单测，验证 addon 进程自身无 listening socket（按 PID 检查；不做机器级 9876 端口断言）。
-- [ ] 2.3 实现同端口 WebSocket 控制通道：`runtime/transport/addon-ws.ts` 负责 upgrade、握手、帧、ping/pong、关闭；addon 侧 `transport.py` 对应实现；新增帧边界/半包/非法帧单测，验证无新增 npm/pip 依赖。
-- [ ] 2.3a WebSocket spike 先行：以 2 天为时间盒验证同端口 upgrade、帧解析、心跳与背压；若超出预算，回 design 修改单端点定义，不静默新增控制端口；记录 spike 结论到 PR 草稿。
-- [ ] 2.4 定义握手 schema 到 `config/gateway.json`（instanceId/kind/version/protocol/project/capabilities 字段、protocol 12 约束）；TS 与 Python 都从同一 schema 读取或生成，验证 schema 漂移会红。
-- [ ] 2.5 实现 instance registry：连接注册、ready 状态、lastSeen、connectionEpoch、project、capabilities；验证两个实例可独立列出，断线后实例离线但保留最后身份。
-- [ ] 2.6 实现按 instanceId 路由：单个实例可省略，多实例省略返回 ambiguity 并列出 ID；验证请求只到达目标实例，错 ID 返回结构化错误。
-- [ ] 2.7 实现重连替换：相同 instanceId 的新连接在握手后替换旧 epoch；旧请求返回 disconnect，不重放；验证 P1 的 10/10 与重连延迟记录。
-- [ ] 2.8 实现协议/版本拒绝：protocol 11、缺少字段、未知 kind 全部拒绝并给升级/修复提示；验证旧 addon 负向用例通过且不会回退旧入站拓扑。
+- [x] 2.3 实现同端口 WebSocket 控制通道：`runtime/transport/addon-ws.ts` 负责 upgrade、握手、帧、ping/pong、关闭；addon 侧 `transport.py` 对应实现；新增帧边界/半包/非法帧单测，验证无新增 npm/pip 依赖。
+- [x] 2.3a WebSocket spike 先行：以 2 天为时间盒验证同端口 upgrade、帧解析、心跳与背压；若超出预算，回 design 修改单端点定义，不静默新增控制端口；记录 spike 结论到 PR 草稿。
+- [x] 2.4 定义握手 schema 到 `config/gateway.json`（instanceId/kind/version/protocol/project/capabilities 字段、protocol 12 约束）；TS 与 Python 都从同一 schema 读取或生成，验证 schema 漂移会红。
+- [x] 2.5 实现 instance registry：连接注册、ready 状态、lastSeen、connectionEpoch、project、capabilities；验证两个实例可独立列出，断线后实例离线但保留最后身份。
+- [x] 2.6 实现按 instanceId 路由：单个实例可省略，多实例省略返回 ambiguity 并列出 ID；验证请求只到达目标实例，错 ID 返回结构化错误。
+- [x] 2.7 实现重连替换：相同 instanceId 的新连接在握手后替换旧 epoch；旧请求返回 disconnect，不重放；验证 P1 的 10/10 与重连延迟记录。
+- [x] 2.8 实现协议/版本拒绝：protocol 11、缺少字段、未知 kind 全部拒绝并给升级/修复提示；验证旧 addon 负向用例通过且不会回退旧入站拓扑。
 - [ ] 2.9 收口 Gateway 生命周期：唯一 HTTP 端口，端口占用 fail closed；host/tools 只连 Gateway；删除 runtime 直连 addon 的分支；按 PID 验证 addon 进程无监听 socket；机器级只检查 Gateway 端口的归属，不断言 9876 无监听。
 - [ ] 2.10 定义默认进程模型：host + Gateway + Blender 三个进程；Gateway 生命周期归 DSH host/plugin（插件启用/首次后端调用时拉起，host 退出或插件卸载时停止；插件重载先停旧 Gateway 再启新，不 detached、不交给 Blender/job-queue）；改造 `src/host/backend/spawn.ts`：去掉 3.0.x 的 `detached`/`unref` 存活语义，stdio 接日志文件；host 启动/停止顺序、日志、退出清理可测；Gateway 崩溃由 host 有界重启（退避 + 上限）；验证 host 退出后无 Gateway 残留、崩溃不会在旧端口无限重试。
 - [ ] 2.11 更新 addon 连接错误文案：addon 未启动、Gateway 未启动、版本不匹配分别给出 stage 和 fix；验证三类错误不会互相冒充。
 - [ ] 2.12 删除 3.0.x server 相关死代码/测试/文档入口；验证 `check-no-shims`、`check-structure` 不因删除产生未入册例外。
 - [ ] 2.12a 迁移 `runtime/server.ts` → `runtime/gateway.ts` 的路径引用：`src/constants.ts` 的 `SERVER_PATH`、`src/host/backend/*`、`src/tui/*`、`src/client/index.js`、`scripts/check-build.mjs`/`ensure-build.mjs`、`src/tools/viewport/*`、`src/tools/worker/execute.ts`、`src/tools/do/execute.ts`、`tests/integration/*` 与 `runtime/_probe_tools.ts`；删除 `server.ts`，更新 `check-no-shims` 的 facade/retired 登记、build/parity/install-smoke 引用；新增 grep gate 禁止 `runtime/server`/`server.js` 残留。
-- [ ] 2.13 记录 Gateway 的单端点测试：`curl /health`、WS `/addon` 握手、非法 upgrade、端口占用、进程退出；作为 PR CI 的 integration 层。
+- [x] 2.13 记录 Gateway 的单端点测试：`curl /health`、WS `/addon` 握手、非法 upgrade、端口占用、进程退出；作为 PR CI 的 integration 层。
 - [ ] 2.14 默认端口迁移：Gateway 默认 9877 → 39877；同步 `config/*`、`src/constants.ts`、`src/host/backend/*`、`src/tui/*`、`src/client/index.js`、`src/tools/viewport/*`、`docs/配置参考`、操作教程、测试 fixture、`scripts/*` 与升级说明（写明 addon 升级/替换后必须重启 Blender：无热重载，旧 listener 不会自动释放）；验证默认配置只监听 39877，9877 仅显式配置时生效，并新增 grep gate 检查非测试/非历史文件中的 9877。
-- [ ] 2.15 端口占用 fail closed 与归因：bind 失败时解析占用者（Windows `GetExtendedTcpTable` / `netstat -ano`，Linux `/proc/net/tcp` + `/proc/<pid>/cmdline`），返回 `stage=config` envelope（port、pid、process）；验证 3s 内失败且不留第二个 listener。
-- [ ] 2.16 禁止 SO_REUSEADDR 静默共享：Gateway 与 addon 都不以 REUSEADDR 与既有 listener 共存，启动前显式检测端口归属；验证同址双绑无法复现（对照 2026-11-06 的 9876 现场）。
+- [x] 2.15 端口占用 fail closed 与归因：bind 失败时解析占用者（Windows `GetExtendedTcpTable` / `netstat -ano`，Linux `/proc/net/tcp` + `/proc/<pid>/cmdline`），返回 `stage=config` envelope（port、pid、process）；验证 3s 内失败且不留第二个 listener。
+- [x] 2.16 禁止 SO_REUSEADDR 静默共享：Gateway 与 addon 都不以 REUSEADDR 与既有 listener 共存，启动前显式检测端口归属；验证同址双绑无法复现（对照 2026-11-06 的 9876 现场）。
 - [ ] 2.17 端口冲突回归用例：模拟外部 listener 占用默认端口（含 Blender Lab MCP 扩展真机场景），验证插件 3s 内报 `port_conflict`（含占用者），而不是 `addon timeout`；接入 PR CI。
 - [ ] 2.18 实现 Gateway 单 host 归属：启动写 `gateway-<port>.json`（gatewayId/hostId/pid/endpoint/startedAt）；`/health` 暴露 owner；第二个 DSH host 请求时返回 `GATEWAY_IN_USE`（stage=config，含 hostId/pid/port），不 attach、不复用；同 host 插件重载先停旧 Gateway、再由新插件实例启动新 Gateway，不传旧句柄。验证两个 host 并发启动只有一个 Gateway、第二个 3s 内失败且没有请求被路由到既有 Gateway；加入 integration 回归。
 

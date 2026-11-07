@@ -56,7 +56,6 @@ class _Context:
         self.scene.name = "Scene"
         self.scene.dshbb_ai_paused = False
         self.scene.dshbb_backend_url = ""
-        self.scene.dshbb_port = 9876
         self.scene.dshbb_auto_start_server = False
         self.scene.dshbb_server_running = False
         self.scene.dshbb_selection_mode = "MULTI"

@@ -375,8 +375,8 @@ function checkAddonCommands(catalogs) {
   if (!catalogs.addonSource.includes('_command("ping"')) {
     fail('addon ping command is missing from command_registry.py')
   }
-  if (catalogs.protocol !== 11) {
-    fail('addon protocol version is ' + String(catalogs.protocol) + ', expected 11')
+  if (catalogs.protocol !== 12) {
+    fail('addon protocol version is ' + String(catalogs.protocol) + ', expected 12')
   }
   const registry = catalogs.addonRegistry
   if (registry.registeredCount === null) {
