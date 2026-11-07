@@ -1106,7 +1106,7 @@ ffmpeg -start_number 1 -framerate 10 -i seq_%04d.png \
 
 | 症状 | 原因 | 改法 |
 |---|---|---|
-| `'Action' object has no attribute 'fcurves'` | 5.2 改 layered / slotted action | 不要遍历 `action.fcurves`；要控制缓动就**自己按缓动采样打关键帧** |
+| `'Action' object has no attribute 'fcurves'` | 5.2 改 layered / slotted action | **能遍历，只是换了入口** → 见下方 A.6.5.6a（别退回手工采样） |
 | `bpy_prop_collection[slice]: slice steps not supported` | `vertices[::n]` 不支持步长切片 | `[o.data.vertices[i] for i in range(0, n, step)]` |
 | `CyclesRenderSettings has no attribute 'use_persistent_data'` | 属性移到 `scene.render` | 见附录 A.6.5.4 |
 | `Scene.frame_set()` expected int, not float | 帧号必须整数 | `int(1 + round(t * fps))` |
@@ -1117,6 +1117,154 @@ ffmpeg -start_number 1 -framerate 10 -i seq_%04d.png \
 | `Error: Node type CompositorNodeMixRGB undefined`（同理 `CompositorNodeMath` / `CompositorNodeComposite`） | 5.x 合成器删掉了旧 Mix/Math/Composite | 合成器树里**改用着色器节点**：`ShaderNodeMix` / `ShaderNodeMath` / `ShaderNodeValToRGB` 仍可 `nodes.new`；叠加用 `CompositorNodeAlphaOver`，调色用 `CompositorNodeColorBalance` / `CompositorNodeCurveRGB` |
 | `'CyclesMaterialSettings' object has no attribute 'displacement_method'` | 5.2 把它挪到 Material 本体 | `mat.displacement_method = 'BUMP'`（**不是** `mat.cycles.displacement_method`）；透明混合用 `mat.surface_render_method = 'BLENDED'`（枚举只有 `DITHERED`/`BLENDED`） |
 | 控制台每帧刷 `Shadow buffer full (3040 / 2048)`，且 `scene.eevee.shadow_pool_size='4096'` **静默无效** | 阴影池是**枚举**且上限就是 `'2048'`（2 GB） | ① `scene.eevee.shadow_pool_size='2048'`；② 主力是**减投影灯**：`light.use_shadow=False`（点光/面光都算），只留 2–4 盏；③ 大场景再降 `scene.eevee.shadow_resolution_scale`；④ 一行跑完用 `K.light_hygiene(apply=True)`（v2.6 起常驻） |
+
+#### A.6.5.6a 分层动作（layered / slotted action）的正确遍历方式 ★
+
+**结论：`action.fcurves` 原生不存在，但 fcurve 完全可遍历、可改插值、可新建通道。**
+不要因为拿不到 `.fcurves` 就退回"手工按缓动采样打关键帧"——那是更差的办法
+（帧数暴涨、丢 Bezier 手感、改不动已有动画）。**"逐帧烘焙"是导出需求，不是 API 限制**，两者别混为一谈。
+
+**实测环境：Blender 5.2.2 LTS。**
+
+> ⚠️ **先破除一个陷阱**：某些扩展会给 `Action` 装一个 `fcurves` 兼容垫片
+> （实测 `mmd_tools` 的 `compat/action_compat.py` 就是，类名 `ActionGroupsCompatibility`）。
+> 它**只暴露第一个 channelbag**（源码注释原文："Only the first channelbag is used"）。
+> 所以 **`hasattr(action, "fcurves")` 不能用来判断"是不是 4.x"** —— 有它也不代表全量可用。
+> 判版本请判结构：`len(getattr(action, "layers", []))` 或 `action.is_action_layered`。
+
+##### 结构硬约束（决定了你只能怎么写）
+
+实测（5.2.2）：`action.layers.new()` 建第二个 layer → `RuntimeError: An Action may not have more than one layer`；
+`layer.strips.new()` 建第二个 strip → `RuntimeError: A layer may not have more than one strip`。
+
+**1 action = 1 layer = 1 strip = N 个 channelbag（每个 slot 一个）。**
+所以"遍历会重复拿到同名通道"这种担心**不成立**；真正的风险是**方向相反的**——把不同 slot 误当成重复。
+
+##### 三种取 channelbag 的入口
+
+```python
+import bpy
+from bpy_extras import anim_utils
+
+arm  = bpy.data.objects['骨架']
+ad   = arm.animation_data
+act  = ad.action
+slot = ad.action_slot            # ActionSlot；identifier 形如 'OB' + 对象名（如 'OBO1'）
+
+# ① 按 slot 取（推荐：明确只处理"当前对象自己那条"）
+cb = anim_utils.action_get_channelbag_for_slot(act, slot)
+fcurves = list(cb.fcurves) if cb else []          # ★ cb 可能为 None，必须判空
+
+# ② 从 animdata 取"已分配 slot"的 channelbag
+cb = anim_utils.animdata_get_channelbag_for_assigned_slot(ad)
+fcurves = list(cb.fcurves) if cb else []
+
+# ③ 遍历所有 slot（会拿到**其它对象**的数据，只在确实要全量时用）
+for layer in act.layers:
+    for strip in layer.strips:
+        for sl in act.slots:
+            c = strip.channelbag(sl)
+            if c:
+                ...   # c 属于 sl 这个 slot，不是"重复"
+
+# ④ 另一种操作：确保某条通道存在（必要时创建）
+fc = act.fcurve_ensure_for_datablock(arm, 'pose.bones["腕.R"].rotation_euler', index=0)
+```
+
+**①② 返回的是"已分配 slot 那一个"channelbag；③ 返回"所有 slot 的并集"。**
+**多 slot 时 ③ 天然比 ①② 多，它们不是"同一批" —— 别混用。**
+
+##### 可直接抄的 helper
+
+```python
+def action_fcurves(action, slot=None):
+    """取 action 的 fcurve。
+
+    slot 给定 → 只取该 slot 的 channelbag（推荐，语义最明确）。
+    slot 为 None → 取全部 slot 的并集（按对象身份去重，不会丢数据）。
+
+    兼容：4.x 走 action.fcurves；5.x 走 layered channelbag。
+    注意：不要用 getattr(action,"fcurves") 判版本——扩展可能装了只暴露
+    第一个 channelbag 的兼容垫片。
+    """
+    if action is None:
+        return []
+
+    # 5.x 分层结构优先判（结构判定，不是属性判定）
+    if getattr(action, "layers", None):
+        out, seen = [], set()
+        for layer in action.layers:
+            for strip in layer.strips:
+                targets = [slot] if slot is not None else action.slots
+                for sl in targets:
+                    try:
+                        cb = strip.channelbag(sl)
+                    except Exception:
+                        continue
+                    if not cb:
+                        continue
+                    for fc in cb.fcurves:
+                        # 按对象身份去重：不同 slot 的同名通道是**不同数据**
+                        key = fc.as_pointer()
+                        if key not in seen:
+                            seen.add(key)
+                            out.append(fc)
+        return out
+
+    # 4.x 及更早
+    try:
+        return list(action.fcurves)
+    except Exception:
+        return []
+
+
+# —— 用法 ——
+ad = bpy.data.objects['骨架'].animation_data
+# 只改"当前对象自己那条"（最常见、最安全）
+for fc in action_fcurves(ad.action, ad.action_slot):
+    for kp in fc.keyframe_points:
+        kp.interpolation = 'LINEAR'
+
+# 要处理这个 action 的全部 slot 时，才省略第二个参数
+for fc in action_fcurves(ad.action):
+    for kp in fc.keyframe_points:
+        kp.interpolation = 'LINEAR'
+```
+
+> ★ **不要按 `(fc.data_path, fc.array_index)` 去重。**
+> 实测反例：两个对象共用一个 action（2 个 slot），两者的
+> `pose.bones["腕.R"].rotation_euler[0]` data_path 完全相同，但数据不同
+> （实测 `[0, 0.6]` vs `[0, 1.1]`，`as_pointer()` 也不同）。
+> 按 data_path 去重 → 6 条变 3 条，**静默丢掉另一个对象的一整份动画**，且不报错。
+> 这正是"没报错当通过"的典型陷阱。
+
+##### 实测边界（都验过，可以依赖）
+
+| 情况 | 结果 |
+|---|---|
+| `action_get_channelbag_for_slot(act, None)` | 返回 `None`，**不抛异常** |
+| 传别的 action 的 slot | 同样返回 `None`，不抛 |
+| `animdata_get_channelbag_for_assigned_slot(None)` | 返回 `None` |
+| 已分配 action 但**还没打关键帧** | `len(slots)==0`、`action_slot is None` → ①返回 `None`，**直接取 `.fcurves` 会 `AttributeError: 'NoneType'`** |
+| `action.layers.new()` / `strips.new()` 建第二个 | `RuntimeError`（1 layer / 1 strip 是硬约束） |
+| 改 `kp.interpolation` 是否真生效 | ✅ 求值验证：Bezier `0.156/0.5/0.844` vs Linear `0.25/0.5/0.75`（与解析值一致） |
+| 改完要不要 `fc.update()` | 不需要，实测不调也正确求值 |
+| `fcurve_ensure_for_datablock` 建通道 | ✅ 返回 `FCurve`；**前置条件：action 必须已分配给对象**，否则 `RuntimeError: Assign action ... before calling this function` |
+| `pose_bone.animation_data` | ✅ 不存在，`AttributeError`；动画数据在 **armature object** 上 |
+| `ActionSlot.identifier` | 形如 `'OB'+对象名`（`'OBO1'`），shape key 是 `'KE'+名`，**不是**固定 `'OBA'` |
+
+##### 验收判据（别用"没报错"当通过）
+
+```python
+fcs = action_fcurves(ad.action, ad.action_slot)
+assert fcs, "没拿到任何 fcurve"
+n = sum(len(fc.keyframe_points) for fc in fcs)
+print(f"fcurves={len(fcs)} keys={n}")
+# 多 slot 时要额外核对：每个 slot 的数量与真值是否分别对得上，
+# 不能只看总数——总数对得上也可能是"一个多一个少"凑出来的。
+```
+
+
 
 
 **5.2 合成器最小可跑片段（Fog Glow 泛光；照抄即可）**：
