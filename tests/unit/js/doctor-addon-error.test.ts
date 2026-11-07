@@ -9,7 +9,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { addonErrorDiagnosis, createDoctorApi } from '../../../runtime/core/engine-api/doctor.js'
-import type { EngineApiDeps } from '../../../../runtime/core/engine-api/index.js'
+import type { EngineApiDeps } from '../../../runtime/core/engine-api/index.js'
 
 function fakeE(send: (type: string, params?: unknown, timeoutMs?: number) => Promise<unknown>) {
   return {

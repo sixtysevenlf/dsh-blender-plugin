@@ -39,10 +39,10 @@
 - [x] 3.3 实现 stage 归因：config/session/spawn/transport/handshake/addon/bpy/queue/render 各自判定函数，禁止 unknown 折叠；用 3.0.6 A1–A6 的六类故障做参数化测试。
 - [x] 3.4 统一 status/doctor readiness：Gateway liveness、addon control、bpy probe、instance identity 同源；验证 start 成功时 doctor 同一实例 ready，反之不 ready。
 - [x] 3.5 把 `/health` 降为 liveness：不参与 readiness；验证 Gateway 存活但 addon 未连时 status 不报 ready。
-- [ ] 3.6 收紧诊断预算：config/session 决策 ≤100ms、spawn 预检 ≤250ms、transport/handshake/addon/bpy/queue/render 各自硬超时（≤3s）；失败首调 P95 口径按 design D2：本地 loopback、Gateway 已 ready、每个新 DSH session 第一次 session-bound 调用，A1–A6 每类至少 20 次冷调用，从 tool 入口计时到 envelope 返回，合并样本算 P95，排除安装/同意/Gateway 启动；验证半开 addon、无 exe、无会话、commands 断连、队列满或渲染失败都在预算内返回。本机健康暖调用基线已记录到 design D2（2026-11-07，`/status` P95 53.9ms、`/doctor` P95 108.0ms），但该基线不能替代失败首调采样。
-- [ ] 3.7 删除嵌套重试链：诊断只做单层有界探测；验证超时返回结构化 timeout，不出现 backend_unreachable 冒充 addon 故障。
-- [ ] 3.8 实现安全 fallback：显式不可用/降级路径；禁止可见 GUI、伪造渲染、旧拓扑回退；用“无 provider”“无 addon”“无 exe”三组测试验证 fallback 文案。
-- [ ] 3.9 把 3.0.6 A1–A6 变成回归用例并接入 PR CI；验证无 exe、Steam、半开 addon、commands、全门禁、五步时间线全部通过。
+- [x] 3.6 收紧诊断预算：config/session 决策 ≤100ms、spawn 预检 ≤250ms、transport/handshake/addon/bpy/queue/render 各自硬超时（≤3s）；失败首调 P95 口径按 design D2：本地 loopback、Gateway 已 ready、每个新 DSH session 第一次 session-bound 调用，A1–A6 每类至少 20 次冷调用，从 tool 入口计时到 envelope 返回，合并样本算 P95，排除安装/同意/Gateway 启动；验证半开 addon、无 exe、无会话、commands 断连、队列满或渲染失败都在预算内返回。本机健康暖调用基线已记录到 design D2（2026-11-07，`/status` P95 53.9ms、`/doctor` P95 108.0ms），但该基线不能替代失败首调采样。证据（2026-11-08）：`tests/e2e/first-call-budget.mjs` 每类 N=20，报告 `local-workspace/3.6-first-call-budget.json`：no-exe（A1）p95 6ms、half-open（A3）p95 2522ms、commands 断连（A4）p95 8ms、timeline（A6）p95 18ms，合并 80 个冷样本 P95 2519ms ≤3000ms；无会话 attach 决策 ≤100ms、queue_full 立即返回 <100ms 由 `tests/integration/js/fallback-safety.test.ts` 与 `tests/unit/js/job-queue.test.ts` 断言；预算常量锁定在 `tests/unit/js/contract/diagnosis-budget.test.ts`；A2 Steam 由 `tests/unit/js/blender-detect.test.ts` 的合成 registry/vdf fixture 覆盖，A5 全门禁由 PR CI 覆盖。
+- [x] 3.7 删除嵌套重试链：诊断只做单层有界探测；验证超时返回结构化 timeout，不出现 backend_unreachable 冒充 addon 故障。证据：`tests/integration/js/doctor-bounded.test.ts` 记录 fake addon 请求，/status 与 /doctor 各只发 1 次 execute_code；超时直接返回 addon-unresponsive（stage=addon），无 ping/二次探测。
+- [x] 3.8 实现安全 fallback：显式不可用/降级路径；禁止可见 GUI、伪造渲染、旧拓扑回退；用“无 provider”“无 addon”“无 exe”三组测试验证 fallback 文案。证据：`tests/integration/js/fallback-safety.test.ts` 五例覆盖 virtual-gui 无 provider、无 addon、无 exe、commands 断连、无会话；断言 stage/root_cause/fix/fallback 齐全、fallback.kind=unavailable，且 fallback/fix 不含旧拓扑/伪造成功文案（config 段仍展示 legacy 配置键，不在断言范围）。
+- [x] 3.9 把 3.0.6 A1–A6 变成回归用例并接入 PR CI；验证无 exe、Steam、半开 addon、commands、全门禁、五步时间线全部通过。证据：PR CI `.github/workflows/pr.yml` 跑 test:unit/integration/contract/python/matrix；A1=fallback-safety + worker/headless/job-exe-guard，A2=blender-detect，A3=doctor-bounded，A4=commands-next-action + fallback-safety，A5=门禁步骤，A6=readiness-agreement。
 
 ## 4. 会话归属与 scope grant
 

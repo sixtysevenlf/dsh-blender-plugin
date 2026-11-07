@@ -113,13 +113,17 @@ describe('3.1 job queue', () => {
     const { queue } = setup({ capacity: { pending: 2 } })
     queue.submit(main(), { kind: 'render', file: 'a.blend' })
     queue.submit(main(), { kind: 'render', file: 'b.blend' })
+    const t0 = performance.now()
     try {
       queue.submit(main(), { kind: 'render', file: 'c.blend' })
       throw new Error('expected queue full')
     } catch (e) {
+      const elapsedMs = performance.now() - t0
       expect(e).toBeInstanceOf(QueueError)
       expect((e as QueueError).failure.code).toBe('queue_full')
       expect((e as QueueError).failure.evidence.limit).toBe(2)
+      // 3.6：队列满的决策是立即返回，不等待队列空位（queue 预算 ≤3s，决策 ≤100ms）。
+      expect(elapsedMs).toBeLessThan(100)
     }
   })
 

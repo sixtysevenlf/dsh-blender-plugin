@@ -10,12 +10,10 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { startBackend } from '../../helpers/backend'
 import { startFakeWsAddon } from '../../helpers/fake-ws-addon.mjs'
 
-// 改造前（未 await 的启动探测占串行队列头，budgets 3.5s/3s）：冷/热 /status 8983/6026ms、
-// /doctor 8495/5526ms —— 冷启多付 ~3s 串行税。改造后（去掉启动探测，budgets 恢复 5s/4s）：
-// /status 7533/7527ms、/doctor 6531/6518ms，冷热差 <20ms。
-// 这里先预热一次再计时，并留 2s 余量：判据是「远小于旧的 20s+ 且给出 addon 归因」，不是卡死某个毫秒数；
-// 另断言冷热差 <2s，防止启动串行税回归。
-const BUDGET_MS = 12_000
+// 3.1 预算：addon 单次 status 探测 ≤2500ms，端到端 /status 与 /doctor ≤3000ms
+// （config/availability.json 的 transport/addon 预算）。本机实测冷/热 /status 2525/2522ms、
+// /doctor 2523/2530ms；这里先预热一次再计时，并断言一次调用只发一个探测请求（3.7：不做嵌套重试）。
+const BUDGET_MS = 3_000
 const closers: Array<() => Promise<void>> = []
 
 afterEach(async () => {
@@ -58,9 +56,15 @@ describe('half-open addon: bounded status/doctor with honest diagnosis', () => {
     // 预热：首调含启动队列/首次 diagnose，计时只量稳态。
     await backend.get('/status')
 
+    const probesBefore = (addon.requests as Array<{ type: string }>).filter(
+      (r) => r.type === 'execute_code',
+    ).length
     const t0 = Date.now()
     const status = await backend.get('/status')
     const statusMs = Date.now() - t0
+    const probesAfter = (addon.requests as Array<{ type: string }>).filter(
+      (r) => r.type === 'execute_code',
+    ).length
     console.log('[doctor-bounded] GET /status = ' + String(statusMs) + 'ms')
 
     expect(status.status).toBe(200)
@@ -72,6 +76,8 @@ describe('half-open addon: bounded status/doctor with honest diagnosis', () => {
     expect(typeof status.json.addonError).toBe('string')
     expect(status.json.addonError).toContain('addon timeout')
     expect(status.json.region).toBeNull()
+    // 3.7：一次 /status 只发一次有界 addon 探测；超时后不得再 ping 或二次探测。
+    expect(probesAfter - probesBefore).toBe(1)
   }, 60_000)
 
   it('answers /doctor in bounded time with a diagnosis that points at the addon, not a missing backend', async () => {
@@ -94,9 +100,15 @@ describe('half-open addon: bounded status/doctor with honest diagnosis', () => {
     // 预热：首调含启动队列/首次 diagnose，计时只量稳态。
     await backend.get('/doctor')
 
+    const probesBefore = (addon.requests as Array<{ type: string }>).filter(
+      (r) => r.type === 'execute_code',
+    ).length
     const t0 = Date.now()
     const doctor = await backend.get('/doctor')
     const doctorMs = Date.now() - t0
+    const probesAfter = (addon.requests as Array<{ type: string }>).filter(
+      (r) => r.type === 'execute_code',
+    ).length
     console.log('[doctor-bounded] GET /doctor = ' + String(doctorMs) + 'ms')
 
     expect(doctor.status).toBe(200)
@@ -116,6 +128,8 @@ describe('half-open addon: bounded status/doctor with honest diagnosis', () => {
     expect(String(addonDiagnosis.fix)).toContain('Blender')
     expect(String(addonDiagnosis.fix)).toContain('DSH Blender Bridge')
     expect(String(doctor.json.error)).toContain('addon timeout')
+    // 3.7：/doctor 复用 /status 的同源 readiness，一次有界探测后直接给 addon 归因，不 ping 重试。
+    expect(probesAfter - probesBefore).toBe(1)
   }, 60_000)
 
   it('reports no addon connected when only Gateway is running', async () => {

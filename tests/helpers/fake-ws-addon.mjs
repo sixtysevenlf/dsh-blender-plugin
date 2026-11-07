@@ -42,6 +42,7 @@ export async function startFakeWsAddon(options) {
   const ws = new WebSocket('ws://127.0.0.1:' + String(gatewayPort) + '/addon')
 
   let closed = false
+  const requests = []
   let readyResolve
   let readyReject
   const ready = new Promise((resolve, reject) => {
@@ -90,6 +91,7 @@ export async function startFakeWsAddon(options) {
     if (msg.type === 'protocol_error') return
     if (msg.type === 'heartbeat' || msg.type === 'pong') return
     if (typeof msg.requestId !== 'string') return
+    requests.push({ type: String(msg.type || ''), params: msg.params || {} })
     let out
     try {
       out = await behavior(String(msg.type || ''), msg.params || {})
@@ -120,6 +122,7 @@ export async function startFakeWsAddon(options) {
 
   return {
     instanceId,
+    requests,
     ready,
     sendEvent(name, payload = {}) {
       if (ws.readyState !== WebSocket.OPEN) throw new Error('fake ws addon is not connected')

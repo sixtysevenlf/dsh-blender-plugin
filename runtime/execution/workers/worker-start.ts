@@ -142,13 +142,38 @@ function assertWorkerReady(
   info: WorkerInfo,
 ): Record<string, unknown> {
   if (info.spawnErr) {
-    const e: Error & { hint?: string } = new Error(
+    const spawnErr = info.spawnErr as NodeJS.ErrnoException
+    const exeMissing = String(spawnErr.code || '') === 'ENOENT'
+    const e: Error & {
+      hint?: string
+      code?: string
+      stage?: string
+      fix?: string
+      fallback?: { kind: string; summary: string }
+      evidence?: Record<string, unknown>
+    } = new Error(
       'worker 起不来（' +
         String(BLENDER_EXE) +
         '）：' +
         String((info.spawnErr && info.spawnErr.message) || info.spawnErr),
     )
-    e.hint = '检查 blenderExe 配置与 runtime/py/core/worker.py 是否存在'
+    e.hint = exeMissing
+      ? 'blenderExe 指向的文件不存在；设置 DSH_BLENDER_EXE 或 dsh-blender.config.json 的 blenderExe 为真实 blender.exe，改完重启 DSH，再 blender_rt_worker op=start 重试'
+      : '检查 blenderExe 配置与 runtime/py/core/worker.py 是否存在'
+    if (exeMissing) {
+      // 安全 fallback：spawn ENOENT 不是未知后端故障，而是可执行的配置错误。
+      e.code = 'blender_exe_missing'
+      e.stage = 'config'
+      e.fix = e.hint
+      e.fallback = {
+        kind: 'unavailable',
+        summary: '没有可执行的 Blender 时无法启动无头 worker；不会启动可见 GUI 或伪造渲染。',
+      }
+      e.evidence = {
+        blenderExe: String(BLENDER_EXE || ''),
+        spawnError: String(spawnErr.code || ''),
+      }
+    }
     throw e
   }
   if (!info.ok) {

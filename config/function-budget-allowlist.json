@@ -1,7 +1,7 @@
 {
   "version": 1,
   "description": "Function-level budget registry (two-level exception model): every 80-120 line function is registered with a real classification, reason, class owner and future reviewBy; unregistered, unclassified, expired and stale entries fail. Functions over 120 lines always fail. Path-level file-budget exceptions live in config/exceptions.json.",
-  "generatedAt": "2026-11-07T17:26:59.072Z",
+  "generatedAt": "2026-11-07T20:55:22.523Z",
   "functions": [
     {
       "file": "addon/dsh_blender_bridge/commands/core/bpy_lookup.py",
@@ -194,17 +194,8 @@
     },
     {
       "file": "runtime/http/routes/worker.ts",
-      "name": "<anonymous>",
-      "lines": 86,
-      "classification": "dispatch-table",
-      "reason": "Streamed worker op dispatcher: one branch per worker op.",
-      "owner": "runtime",
-      "reviewBy": "2027-06-30"
-    },
-    {
-      "file": "runtime/http/routes/worker.ts",
       "name": "createWorkerRoutes",
-      "lines": 111,
+      "lines": 102,
       "classification": "dispatch-table",
       "reason": "HTTP route table for the worker endpoint.",
       "owner": "runtime",
@@ -213,7 +204,7 @@
     {
       "file": "runtime/http/routes/worker.ts",
       "name": "worker",
-      "lines": 106,
+      "lines": 97,
       "classification": "dispatch-table",
       "reason": "Worker route handler: payload parse, lease gate and op dispatch; length tracks the wire protocol surface.",
       "owner": "runtime",
