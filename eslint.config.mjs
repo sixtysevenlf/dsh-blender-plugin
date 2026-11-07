@@ -32,7 +32,7 @@ export default defineConfig([
     'lib/**',
     'coverage/**',
     '.dsh/**',
-    '.dsh-ops/**',
+    'local-workspace/**',
     '.review-tmp/**',
     'runtime/ext/**',
     'skills/**',

@@ -3,8 +3,6 @@ __pycache__/
 .pytest_cache/
 .vitest/
 *.pyc
-tmp/
-.scratch/
 dsh-blender.config.json
 *.tgz
 *.zip
@@ -34,7 +32,8 @@ coverage/
 # Local-only working notes and evidence: never commit
 /docs/refactor/
 /.dsh/
-/.dsh-ops/
+# Agent-local working directory (never committed)
+/local-workspace/
 # Local PR-review workspace (never committed or shipped)
 /.review-tmp/
 .vscode/

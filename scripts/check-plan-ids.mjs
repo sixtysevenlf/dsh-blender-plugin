@@ -67,7 +67,7 @@ const DEFAULT_SCAN = {
     'dist',
     '__pycache__',
     '.dsh',
-    '.dsh-ops',
+    'local-workspace',
     '.review-tmp',
     'openspec',
     'runtime/ext',
