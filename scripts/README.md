@@ -25,6 +25,7 @@ npm package. npm scripts in package.json call these files; tests live under test
 | build.sh         | Deprecated convenience wrapper for optional DSH_CHECKOUT linking; canonical is npm run build | manual only                                | node_modules links, lib/ via build.mjs                                    |
 | ensure-build.mjs | Ensure lib/ exists and is fresh before tests/checks                                          | imported by checkers and test helpers      | lib/                                                                      |
 | gen-routes.mjs   | Render the worker/GUI route tables from config/routing.json; header carries the source hash  | npm run build                              | src/plan/routes.generated.ts, runtime/core/dispatcher/routes.generated.ts |
+| publish-extension.mjs | Upload one built extension version to extensions.blender.org (multipart version_file + release_notes); dry-run and token-missing fail closed | npm run publish:extension / Manual CD | network call only on a real publish |
 
 ### Test entry points
 

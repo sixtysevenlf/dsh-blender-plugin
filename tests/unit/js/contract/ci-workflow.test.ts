@@ -79,6 +79,28 @@ describe('CI workflow hygiene', () => {
     expect(release).toContain('name: release')
     expect(release).toContain('--draft')
   })
+
+  it('gates the extension upload behind an explicit opt-in and a real token', () => {
+    expect(release).toContain('publish_extension:')
+    expect(release).toContain("description: 'Upload the extension zip to extensions.blender.org")
+    expect(release).toMatch(
+      /publish_extension:\n\s+description:.*\n\s+required: true\n\s+default: false/,
+    )
+    expect(release).toContain('if: ${{ !inputs.dry_run && inputs.publish_extension }}')
+    expect(release).toContain('BLENDER_EXTENSIONS_TOKEN is not configured')
+    expect(release).toContain('npm run publish:extension --')
+    expect(release).toContain('--notes-file release/extension-release-notes.md')
+    expect(release).toContain('submitted manually at https://extensions.blender.org/')
+  })
+
+  it('validates the addon manifest and protocol against one gateway schema', () => {
+    expect(release).toContain('const protocol = protocolSource.match')
+    expect(release).toContain('const addonVersion = manifest.match')
+    expect(release).toContain('addon protocol.py and config/gateway.json disagree')
+    expect(release).toContain('blender_manifest.toml and config/gateway.json disagree')
+    expect(release).not.toContain('addon protocol.py must keep protocol 11')
+    expect(release).not.toContain('addon protocol.py must keep addon version 1.11')
+  })
 })
 
 describe('build hooks and VCS gate wiring', () => {
