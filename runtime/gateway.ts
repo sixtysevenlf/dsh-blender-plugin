@@ -18,7 +18,14 @@ console.log(
     app.host +
     ':' +
     String(app.port) +
-    '/  (ws /addon; routes: ' +
+    '/  (routes: ' +
     app.routes.join(' ') +
     ')',
+)
+console.log(
+  '[dsh-blender-gateway] addon control endpoint: ws://' +
+    app.host +
+    ':' +
+    String(app.port) +
+    '/addon',
 )

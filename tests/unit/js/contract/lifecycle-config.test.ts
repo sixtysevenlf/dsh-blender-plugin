@@ -31,7 +31,7 @@ const engineSource = [
   readTree(pkgPath('runtime', 'core', 'engine'), '.ts'),
 ].join('\n')
 const addonSource = readTree(pkgPath('addon', 'dsh_blender_bridge'), '.py')
-const serverSource = readTree(pkgPath('runtime', 'http'), '.ts')
+const gatewayLifecycleSource = readTree(pkgPath('runtime', 'gateway'), '.ts')
 
 describe('backend start decision table', () => {
   it('prefers a listening port over a stale child handle', () => {
@@ -67,18 +67,18 @@ describe('configuration contract', () => {
     const d = describeConfig()
     expect(CFG.addonHost).toBe('127.0.0.1')
     expect(CFG.addonPort).toBe(9876)
-    expect(CFG.httpPort).toBe(9877)
+    expect(CFG.httpPort).toBe(39877)
     expect(CFG.leaseTtlMs).toBe(600000)
     expect(CFG.workerPort).toBe(9879)
     expect(d.addon).toBe('127.0.0.1:9876')
-    expect(d.http).toBe('127.0.0.1:9877')
+    expect(d.http).toBe('127.0.0.1:39877')
     expect(d.leaseTtlMs).toBe(600000)
     expect(d.workerPort).toBe(9879)
   })
 
   it('lets the command-line port override the summary only', () => {
     expect(describeConfig({ httpPort: 19999 }).http).toBe('127.0.0.1:19999')
-    expect(describeConfig().http).toBe('127.0.0.1:9877')
+    expect(describeConfig().http).toBe('127.0.0.1:39877')
   })
 
   it('reads a config file when no environment override is present', () => {
@@ -119,7 +119,7 @@ describe('configuration contract', () => {
     })
     expect(JSON.parse(raw.trim().split('\n').pop()!)).toEqual({
       addon: 9876,
-      http: 9877,
+      http: 39877,
       ttl: 600000,
     })
   })
@@ -187,11 +187,11 @@ describe('backend lifecycle operations', () => {
     const viewport = f.tools.find((t) => t.name === 'blender_viewport')!
     try {
       const started = await (viewport.execute as any)({ op: 'start' }, {})
-      expect(started).toContain('后端已在运行')
+      expect(started).toContain('Gateway 已在运行')
       const stopped = await (viewport.execute as any)({ op: 'stop' }, {})
       expect(stopped).toContain('看护已暂停')
       const restarted = await (viewport.execute as any)({ op: 'restart' }, {})
-      expect(restarted).toContain('后端已重启')
+      expect(restarted).toContain('Gateway 已重启')
     } finally {
       f.dispose()
       await backend.close()
@@ -221,12 +221,11 @@ describe('lifecycle source contract', () => {
     expect(addonSource).toContain('unregister_activity_handlers()')
   })
 
-  it('reclaims a dead port and exits cleanly when the holder answers', () => {
-    expect(serverSource).toContain("code === 'EADDRINUSE'")
-    expect(serverSource).toContain('reclaimTries < 2')
-    expect(serverSource).toContain('process.exit(0)')
-    expect(serverSource).toContain('SIGTERM')
-    expect(serverSource).toContain('SIGKILL')
-    expect(serverSource).toContain("process.on('SIGTERM', shutdown)")
+  it('fails closed on an occupied Gateway port and cleans up on SIGTERM', () => {
+    expect(gatewayLifecycleSource).toContain("code === 'EADDRINUSE'")
+    expect(gatewayLifecycleSource).toContain('GATEWAY_IN_USE')
+    expect(gatewayLifecycleSource).toContain('port_conflict')
+    expect(gatewayLifecycleSource).toContain("process.once('SIGTERM', shutdown)")
+    expect(gatewayLifecycleSource).toContain('stopGateway(app)')
   })
 })

@@ -33,7 +33,7 @@ export function serverPidsFromProcRows(
     let isShell = false
     for (let i = 0; i < r.toks.length; i++) {
       if (i === 0 && /(^|\/)(bash|sh|zsh|dash|fish|bwrap)$/.test(r.toks[i])) isShell = true
-      if (i >= 1 && /(^|\/)server\.(mjs|js)$/.test(r.toks[i])) isServer = true
+      if (i >= 1 && /(^|\/)gateway\.(mjs|js)$/.test(r.toks[i])) isServer = true
       if (r.toks[i] === '--port' && r.toks[i + 1] === wantPort) portOk = true
     }
     if (isServer && portOk && !isShell) out.push(r.pid)

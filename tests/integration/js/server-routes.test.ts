@@ -2,9 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { spawn } from 'node:child_process'
 import net from 'node:net'
 import { pkgPath } from '../../helpers/pkg'
-import { startFakeAddon } from '../../helpers/fake-addon.mjs'
+import { startFakeWsAddon } from '../../helpers/fake-ws-addon.mjs'
 
-let addon: { port: number; close: () => Promise<void> }
+let addon: { instanceId: string; ready: Promise<unknown>; close: () => Promise<void> }
 let child: ReturnType<typeof spawn>
 let base = ''
 let childLog = ''
@@ -43,18 +43,17 @@ async function post(path: string, body: unknown) {
 }
 
 beforeAll(async () => {
-  addon = await startFakeAddon()
   const port = await freePort()
   base = 'http://127.0.0.1:' + String(port)
   child = spawn(
     process.execPath,
-    [pkgPath('lib', 'runtime', 'server.js'), '--port', String(port)],
+    [pkgPath('lib', 'runtime', 'gateway.js'), '--port', String(port)],
     {
       cwd: pkgPath(),
       env: {
         ...process.env,
         DSH_BLENDER_ADDON_HOST: '127.0.0.1',
-        DSH_BLENDER_ADDON_PORT: String(addon.port),
+        DSH_BLENDER_GATEWAY_PORT: String(port),
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     },
@@ -66,6 +65,8 @@ beforeAll(async () => {
     childLog += c.toString()
   })
   await waitHealth(base)
+  addon = await startFakeWsAddon({ gatewayPort: port })
+  await addon.ready
 }, 20000)
 
 afterAll(async () => {

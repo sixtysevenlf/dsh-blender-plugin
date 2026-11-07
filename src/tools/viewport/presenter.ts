@@ -251,10 +251,10 @@ function appendAddonVerdict(payload: Record<string, unknown>, s: Record<string, 
   const timeout = !busy && isTimeoutError(addonError)
   payload.code = busy ? 'busy_render' : timeout ? 'addon_unresponsive' : 'addon_error'
   payload.next_action = busy
-    ? 'Blender 正在渲染（BUSY_RENDER）：用 blender_rt_plan(op="render_wait") 等渲染结束，或等渲染完再发；长渲染一开始就走 blender_rt_job。不要 op=start（那只修 9877 后端进程）'
+    ? 'Blender 正在渲染（BUSY_RENDER）：用 blender_rt_plan(op="render_wait") 等渲染结束，或等渲染完再发；长渲染一开始就走 blender_rt_job。不要 op=start（那只修 Gateway 进程）'
     : timeout
-      ? '后端（9877）在，addon/bpy 没在预算内回包：检查 Blender 是否运行且「DSH Blender Bridge」已 Connect、是否卡在渲染/模态操作；重载 addon 后用 op=doctor 复核'
-      : '后端（9877）在，addon 回了错误：按 addonError 修（检查 Blender 是否运行、「DSH Blender Bridge」是否 Connect），再用 op=doctor 复核'
+      ? 'Gateway 在（/health 通），addon/bpy 没在预算内回包：检查 Blender 是否运行且「DSH Blender Bridge」已 Connect、是否卡在渲染/模态操作；重载 addon 后用 op=doctor 复核'
+      : 'Gateway 在（/health 通），addon 回了错误：按 addonError 修（检查 Blender 是否运行、「DSH Blender Bridge」是否 Connect），再用 op=doctor 复核'
   return JSON.stringify(payload)
 }
 
@@ -299,8 +299,8 @@ export function formatStatusError(port: number, e: unknown): string {
       url: base(port) + '/',
       error: err,
       code: 'backend_unreachable',
-      next_action: '用 blender_viewport op=start 拉起后端；仍失败看 op=doctor',
-      hint: '连接层失败（拒绝 / 重置 / connect 超时）：9877 没有可用的监听进程 —— 用 blender_viewport op=start 拉起后端',
+      next_action: '用 blender_viewport op=start 拉起 Gateway；仍失败看 op=doctor',
+      hint: '连接层失败（拒绝 / 重置 / connect 超时）：Gateway 没有可用的监听进程 —— 用 blender_viewport op=start 拉起 Gateway',
     })
   if (isTimeoutError(e))
     return JSON.stringify({

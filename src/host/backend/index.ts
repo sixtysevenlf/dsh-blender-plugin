@@ -13,11 +13,11 @@ export { killBackendByCmd } from './process-scan.js'
 
 /**
  * 端口解析（与 runtime/config.ts 同一套来源，避免两处配置漂移）：
- *   插件配置 port → DSH_BLENDER_HTTP_PORT → $DSH_BLENDER_CONFIG → <包根>/dsh-blender.config.json
- *   → ~/.dsh/dsh-blender.config.json → 9877
+ *   插件配置 port → DSH_BLENDER_GATEWAY_PORT / DSH_BLENDER_HTTP_PORT → $DSH_BLENDER_CONFIG
+ *   → <包根>/dsh-blender.config.json → ~/.dsh/dsh-blender.config.json → 39877
  */
 export function resolveHttpPort(): number {
-  const env = Number(process.env.DSH_BLENDER_HTTP_PORT)
+  const env = Number(process.env.DSH_BLENDER_GATEWAY_PORT || process.env.DSH_BLENDER_HTTP_PORT)
   if (Number.isFinite(env) && env > 0) return env
   const cands = [
     process.env.DSH_BLENDER_CONFIG,
@@ -27,13 +27,13 @@ export function resolveHttpPort(): number {
   for (const p of cands) {
     try {
       const j = asRecord(JSON.parse(readFileSync(p, 'utf8')))
-      const n = Number(j.httpPort)
+      const n = Number(j.gatewayPort ?? j.httpPort)
       if (Number.isFinite(n) && n > 0) return n
     } catch {
       /* 没这个文件或不是 JSON：跳过 */
     }
   }
-  return 9877
+  return 39877
 }
 
 /** 用户用 op=stop 显式停过 → 看护不再自动拉起（op=start 解除） */

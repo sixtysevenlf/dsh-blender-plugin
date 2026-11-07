@@ -5,7 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { pkgPath } from './pkg'
 
-// Shared integration harness: a real lib/runtime/server.js on an ephemeral port with
+// Shared integration harness: a real lib/runtime/gateway.js on an ephemeral port with
 // a throw-away workDir, plus a small fetch wrapper. Integration never touches the
 // user's live 9877 backend or the fixed 9876 addon port.
 
@@ -44,7 +44,7 @@ export async function startBackend(
   let log = ''
   const child = spawn(
     process.execPath,
-    [pkgPath('lib', 'runtime', 'server.js'), '--port', String(port)],
+    [pkgPath('lib', 'runtime', 'gateway.js'), '--port', String(port)],
     {
       cwd: pkgPath(),
       env: Object.assign(
@@ -52,6 +52,7 @@ export async function startBackend(
         process.env,
         {
           DSH_BLENDER_WORKDIR: workDir,
+          DSH_BLENDER_GATEWAY_PORT: String(port),
           DSH_BLENDER_HTTP_PORT: String(port),
           DSH_BLENDER_ADDON_HOST: '127.0.0.1',
           ...(options.addonPort ? { DSH_BLENDER_ADDON_PORT: String(options.addonPort) } : {}),

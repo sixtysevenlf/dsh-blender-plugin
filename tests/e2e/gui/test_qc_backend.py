@@ -47,7 +47,7 @@ def _require_backend():
     except (urllib.error.URLError, OSError, ValueError) as exc:
         pytest.skip(
             "backend not running at %s (%s); start the plugin backend with a real Blender "
-            "add-on connected, e.g. npm run build && node lib/runtime/server.js" % (API, exc))
+            "add-on connected, e.g. npm run build && node lib/runtime/gateway.js" % (API, exc))
     assert health.get("ok") is True, health
     return health
 

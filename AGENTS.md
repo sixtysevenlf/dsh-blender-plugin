@@ -77,7 +77,7 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
 | Install, deploy, configure, troubleshoot | [docs/操作教程.md](docs/操作教程.md) → [docs/配置参考.md](docs/配置参考.md) → [MIGRATIONS.md](MIGRATIONS.md) |
 | Use the plugin or model a scene | [skills/blender-modeling/SKILL.md](skills/blender-modeling/SKILL.md) → [docs/操作教程.md](docs/操作教程.md) |
 | Host side (`src/`) | [src/index.ts](src/index.ts) → [tests/README.md](tests/README.md) → [architecture](docs/architecture.md) |
-| Backend (`runtime/`) | [runtime/engine.ts](runtime/engine.ts) · [runtime/server.ts](runtime/server.ts) → [tests/README.md](tests/README.md) |
+| Backend (`runtime/`) | [runtime/engine.ts](runtime/engine.ts) · [runtime/gateway.ts](runtime/gateway.ts) → [tests/README.md](tests/README.md) |
 | Blender addon | [addon/README.md](addon/README.md) → [docs/宿主集成-接口契约-v2.3增补.md](docs/宿主集成-接口契约-v2.3增补.md) |
 | Catalog, op, or route change | section 1 count-sync commands → [tests/README.md](tests/README.md) contract tests |
 | Tests, CI, coverage | [tests/README.md](tests/README.md) |

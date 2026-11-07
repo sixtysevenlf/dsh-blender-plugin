@@ -7,7 +7,7 @@
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import { startBackend } from '../../helpers/backend'
-import { startFakeAddon } from '../../helpers/fake-addon.mjs'
+import { startFakeWsAddon } from '../../helpers/fake-ws-addon.mjs'
 import { executeViewport } from '../../../src/tools/viewport/execute.js'
 
 const closers: Array<() => Promise<void>> = []
@@ -23,17 +23,21 @@ afterEach(async () => {
   }
 })
 
-/** TCP accept 后对任何请求都不回写：模拟 addon 线程卡死 / Blender 主线程被占。 */
-function halfOpenBehavior(): Promise<never> {
-  return new Promise<never>(() => {})
+/** 握手后对任何请求都不回写：模拟 addon 线程卡死 / Blender 主线程被占。 */
+function halfOpenBehavior() {
+  return { action: 'hang' }
 }
 
 describe('op=start: /status probe must outlive the backend addon budget', () => {
   it('returns the addonError diagnosis instead of a host-side abort', async () => {
-    const addon = await startFakeAddon({ behavior: halfOpenBehavior })
-    closers.push(() => addon.close())
-    const backend = await startBackend({ addonPort: addon.port })
+    const backend = await startBackend()
     closers.push(() => backend.stop())
+    const addon = await startFakeWsAddon({
+      gatewayPort: backend.port,
+      behavior: halfOpenBehavior,
+    })
+    closers.push(() => addon.close())
+    await addon.ready
 
     const t0 = Date.now()
     const out = await executeViewport({ op: 'start' }, backend.port)
@@ -42,7 +46,7 @@ describe('op=start: /status probe must outlive the backend addon budget', () => 
 
     expect(elapsedMs).toBeLessThan(15000)
     expect(out).toContain('addon/bpy 未响应')
-    expect(out).toContain('timeout')
+    expect(out).toContain('addon timeout')
     expect(out).not.toMatch(/aborted/i)
     expect(out).toContain('DSH Blender Bridge')
   }, 60000)

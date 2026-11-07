@@ -33,20 +33,25 @@ async function waitHealth(port: number, timeoutMs = 12000): Promise<void> {
 }
 
 function spawnServer(port: number, workDir: string, addonPort: number): ChildProcess {
-  return spawn(process.execPath, [pkgPath('lib', 'runtime', 'server.js'), '--port', String(port)], {
-    cwd: PKG_ROOT,
-    env: {
-      ...process.env,
-      DSH_BLENDER_HTTP_PORT: String(port),
-      DSH_BLENDER_WORKER_PORT: String(port + 1),
-      // Pin the addon to a port nothing listens on: an unrelated local Blender
-      // addon must not turn /status and /doctor into a 30 s wait.
-      DSH_BLENDER_ADDON_PORT: String(addonPort),
-      DSH_BLENDER_WORKDIR: workDir,
-      DSH_BLENDER_EXE: path.join(workDir, 'no-blender.exe'),
+  return spawn(
+    process.execPath,
+    [pkgPath('lib', 'runtime', 'gateway.js'), '--port', String(port)],
+    {
+      cwd: PKG_ROOT,
+      env: {
+        ...process.env,
+        DSH_BLENDER_GATEWAY_PORT: String(port),
+        DSH_BLENDER_HTTP_PORT: String(port),
+        DSH_BLENDER_WORKER_PORT: String(port + 1),
+        // Pin the addon to a port nothing listens on: an unrelated local Blender
+        // addon must not turn /status and /doctor into a 30 s wait.
+        DSH_BLENDER_ADDON_PORT: String(addonPort),
+        DSH_BLENDER_WORKDIR: workDir,
+        DSH_BLENDER_EXE: path.join(workDir, 'no-blender.exe'),
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
     },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  )
 }
 
 async function stopChild(child: ChildProcess): Promise<void> {
@@ -227,7 +232,7 @@ describe('live HTTP route contract', () => {
 })
 
 describe('port conflict contract', () => {
-  it('exits 0 when a responsive backend already owns the port', async () => {
+  it('fails closed when the Gateway port is already owned', async () => {
     const blocker = http.createServer((req, res) => {
       res.writeHead(200)
       res.end('ok')
@@ -256,7 +261,7 @@ describe('port conflict contract', () => {
     try {
       fs.rmSync(workDir, { recursive: true, force: true })
     } catch (e) {}
-    expect(code).toBe(0)
-    expect(err).toContain('能应答')
+    expect(code).toBe(1)
+    expect(err).toContain('port_conflict')
   }, 20000)
 })

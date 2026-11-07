@@ -80,7 +80,7 @@ describe('op=start: /health 通不等于通道就绪', () => {
 
     const out = await executeViewport({ op: 'start' }, PORT)
 
-    expect(out).toContain('后端已在运行')
+    expect(out).toContain('Gateway 已在运行')
     expect(out).toContain('addon/bpy 可用')
     expect(mocks.startBackend).not.toHaveBeenCalled()
   })
@@ -110,7 +110,7 @@ describe('op=start: /health 通不等于通道就绪', () => {
 
     const out = await executeViewport({ op: 'start' }, PORT)
 
-    expect(out).toContain('后端在（9877')
+    expect(out).toContain('Gateway 在（9877')
     expect(out).toContain('addon/bpy 未响应')
     expect(out).toContain('addon timeout: execute_code')
     expect(out).toContain('DSH Blender Bridge')
@@ -136,7 +136,7 @@ describe('op=doctor catch: /health decides who is at fault', () => {
 
     const out = await executeViewport({ op: 'doctor' }, PORT)
 
-    expect(out).toContain('后端在（9877')
+    expect(out).toContain('Gateway 在（9877')
     expect(out).toContain('问题在 addon 或 bpy 往返')
     expect(out).toContain('This operation was aborted')
     expect(out).not.toContain('后端没起')

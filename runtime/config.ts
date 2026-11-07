@@ -8,7 +8,7 @@
  *   1) 环境变量     DSH_BLENDER_*（见 docs/配置参考.md）
  *   2) 配置文件     $DSH_BLENDER_CONFIG → <包根>/dsh-blender.config.json → ~/.dsh/dsh-blender.config.json
  *   3) 自动探测     工作目录（Windows 用户临时区）/ Blender 安装路径 / PATH
- *   4) 内置默认     addon 127.0.0.1:9876 · 后端 127.0.0.1:9877 · 租约 TTL 600000 ms
+ *   4) 内置默认     Gateway 127.0.0.1:39877 · 租约 TTL 600000 ms
  */
 import fs from 'node:fs'
 import os from 'node:os'
@@ -381,8 +381,11 @@ export const CFG = {
   addonHost:
     readString(process.env.DSH_BLENDER_ADDON_HOST) || readString(FILE.cfg.addonHost) || '127.0.0.1',
   addonPort: num(process.env.DSH_BLENDER_ADDON_PORT || readString(FILE.cfg.addonPort), 9876),
-  httpPort: num(process.env.DSH_BLENDER_HTTP_PORT || readString(FILE.cfg.httpPort), 9877),
-  /** 3.1 Gateway 单端点端口；9877 仅作为显式 httpPort 兼容保留。 */
+  httpPort: num(
+    process.env.DSH_BLENDER_HTTP_PORT || readString(FILE.cfg.httpPort),
+    GATEWAY_DEFAULT_PORT,
+  ),
+  /** 3.1 Gateway 单端点端口；DSH_BLENDER_HTTP_PORT 仅作为显式兼容名保留。 */
   gatewayPort: num(
     process.env.DSH_BLENDER_GATEWAY_PORT || readString(FILE.cfg.gatewayPort),
     GATEWAY_DEFAULT_PORT,

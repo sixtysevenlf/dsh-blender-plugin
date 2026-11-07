@@ -56,13 +56,14 @@ Layout:
 
 - runtime/core/: dispatch, kernel, scripts, catalog, engine;
 - runtime/execution/: headless, jobs, workers, recovery;
-- runtime/http/: server, routes, lease, host views;
+- runtime/http/: routes, lease, host views;
+- runtime/gateway/: the Gateway process, addon WebSocket channel, ownership, and lifecycle;
 - runtime/transport/: frames, sockets, protocol helpers;
 - contract tables: `config/contracts.json` is the catalog <-> Python link layer (described in section 8); there is no separate runtime contract-table directory;
 - runtime/py/: the Blender-side Python library described below.
 
 The runtime build precedes the host build because host modules import boundary helpers from the built
-runtime. The backend entry used by SERVER_PATH is lib/runtime/server.js. Source maps are emitted so a
+runtime. The Gateway entry used by GATEWAY_PATH is lib/runtime/gateway.js. Source maps are emitted so a
 crash still points at a TypeScript line.
 
 ### Public facades and the dual entry
@@ -87,7 +88,7 @@ grep the consumers, update the registry and the facade together.
 
 Two entry paths share the same engine core. External scripts, tools, and tests import
 `lib/runtime/engine.js` (check-parity, install-smoke, sync_counts, GUI probes, unit and integration
-tests); `runtime/server.ts` imports the created engine and `engineProvenance` from source;
+tests); `runtime/gateway/app.ts` imports the created engine and `engineProvenance` from source;
 `runtime/catalog/logic.ts` runs the built facade in a child process to fingerprint it.
 `engineProvenance` hashes the facade file on disk, so facade edits are observable, and `check:build` /
 `ensure-build` keep `lib/runtime/engine.js` as a required artifact. check-parity declares public
@@ -143,7 +144,7 @@ rendering a second editor.
 - npm pack produces the published tarball: lib/, runtime Python, addon package, skills, docs, and tests.
 - The addon zip is built from addon/dsh_blender_bridge/ and attached to the release.
 - npm run smoke:install installs the tarball into a clean directory and checks that the entry loads,
-  the backend starts from lib/runtime/server.js, and doctor returns kind=ok.
+  the Gateway starts from lib/runtime/gateway.js, and doctor returns kind=ok.
 - Release is a separate, human-owned gate: the foundation can be complete before release is approved.
 
 The package must never ship backend TypeScript sources, a committed lib/, a legacy single-file addon,

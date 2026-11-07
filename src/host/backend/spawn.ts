@@ -1,7 +1,7 @@
 /** host/backend/spawn：子进程句柄与生命周期（issue #51 的 win32 三件套集中在这里）。 */
 import { spawn } from 'node:child_process'
 import type { ChildProcess } from 'node:child_process'
-import { SERVER_PATH } from '../../constants.js'
+import { GATEWAY_PATH } from '../../constants.js'
 import { winKillPids } from '../runtime-bridge.js'
 
 let child: ChildProcess | null = null
@@ -16,22 +16,22 @@ export function spawnChild(port: number): string {
   //   ① ELECTRON_RUN_AS_NODE：host 跑在 Electron 里时 process.execPath 是 **GUI 可执行体**，
   //      不带这个变量会另起一个 GUI 实例（或直接被单实例锁吞掉），而不是 node 子进程；
   //   ② windowsHide：console-subsystem 可执行体在"宿主无控制台"时会新配一个控制台（#38/#43 同族）；
-  //   ③ detached：win32 上等价 DETACHED_PROCESS，宿主退出后后端继续活着（既定语义）。
-  const spawned = spawn(process.execPath, [SERVER_PATH, '--port', String(port)], {
+  //   ③ detached=false：Gateway 生命周期归 host/plugin；不 detach、不 unref，host 退出由插件清理。
+  const spawned = spawn(process.execPath, [GATEWAY_PATH, '--port', String(port)], {
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
     stdio: 'ignore',
-    detached: true,
+    detached: false,
     windowsHide: true,
   })
   child = spawned
-  // ★ 先挂监听、再 unref：spawn 的失败（EPERM / EACCES / ENOENT）是**异步 'error' 事件**。
+  // ★ 必须挂监听：spawn 的失败（EPERM / EACCES / ENOENT）是**异步 'error' 事件**。
   //   没有监听时它会冒到宿主的 uncaughtException —— 现场（#51）表现为 dsh-desktop-host 每 15 s
   //   整个被打死一次（看护间隔 ENSURE_INTERVAL_MS 一到就重试），并且残留后端占着端口。
   //   有监听则只降级为"后端不可用"，宿主照常跑。
   spawned.on('error', (err: Error) => {
     if (child === spawned) child = null
     try {
-      console.error('[dsh-blender] 后端子进程启动失败（已降级，宿主不受影响）：' + err.message)
+      console.error('[dsh-blender] Gateway 子进程启动失败（已降级，宿主不受影响）：' + err.message)
     } catch {
       /* 日志失败不影响主流程 */
     }
@@ -39,7 +39,6 @@ export function spawnChild(port: number): string {
   spawned.on('exit', () => {
     if (child === spawned) child = null
   })
-  spawned.unref()
   return 'spawned pid=' + String(spawned.pid)
 }
 

@@ -1,5 +1,7 @@
 // engine API：通道诊断
 import { diagnose, freshPing, protocolInfo, tcpProbe } from '../../transport/probes.js'
+import { ADDON_PROTOCOL_VERSION, gatewayInstances } from '../../transport/addon-ws.js'
+import type { AddonInstanceView } from '../../transport/addon-ws.js'
 import type { Diagnosis } from '../../transport/probes.js'
 import { FLAGS_CODE, REGION_CODE } from '../flags.js'
 import { jsonFromStdout } from '../output/index.js'
@@ -114,12 +116,12 @@ export function addonErrorDiagnosis(error: string): Record<string, unknown> {
     tcp: true,
     ping: null,
     error: error,
-    stage: 'execute_code',
+    stage: 'addon',
     summary: busy
-      ? '后端（9877）在、9876 端口也通，Blender 正在渲染（BUSY_RENDER）：' +
+      ? 'Gateway 在（/health 通）、addon 连接也通，Blender 正在渲染（BUSY_RENDER）：' +
         error +
         ' —— 主线程被渲染占用，不是 addon 进程坏、也不是通道未起。'
-      : '后端（9877）在、9876 端口也通，addon 回了错误（不是超时）：' +
+      : 'Gateway 在、addon 控制连接也通，addon 回了错误（不是超时）：' +
         error +
         ' —— 通道本身仍在，按 addonError 处理（如操作已暂停 / 参数或脚本报错），不是 main-thread-busy。',
     fix: busy
@@ -127,7 +129,7 @@ export function addonErrorDiagnosis(error: string): Record<string, unknown> {
       : '按 addonError 的具体报错修（例如在 DSH 里恢复被暂停的「AI 操作」；脚本/参数错误按报错改参数），不要按「主线程忙」重试。',
     hint: busy
       ? 'BUSY_RENDER：主线程命令会排队到超时，等渲染结束再发。'
-      : 'TCP 127.0.0.1:9876 通，但 addon 明确回了错误 → 归因 addonError，不是通道未起、也不是主线程忙。',
+      : 'addon 控制连接通，但 addon 明确回了错误 → 归因 addonError，不是通道未起、也不是主线程忙。',
   }
 }
 
@@ -165,13 +167,135 @@ async function failedDoctor(
     timeout_ms: ADDON_DOCTOR_STATUS_TIMEOUT_MS,
     elapsed_ms: elapsedMs,
     summary:
-      '后端（9877）在，9876 端口也通，但 addon 在 ' +
+      'Gateway 在（/health 通），addon 连接也通，但 addon 在 ' +
       String(ADDON_DOCTOR_STATUS_TIMEOUT_MS) +
       'ms 内没回 bpy 往返（execute_code 超时）—— addon 线程卡住 / Blender 主线程被占 / 对面不是本仓 addon',
-    fix: '先确认 Blender 在运行且「DSH Blender Bridge」已 Connect；再把 Blender 从渲染/模态操作里放出来，必要时重载 addon（N 面板 Disconnect → Connect）。op=start 只管 9877 后端进程，不修这条通道。',
-    hint: 'TCP 127.0.0.1:9876 通 + 后端 9877 在，但 bpy 往返超时 → 问题在 addon/bpy，不在后端进程。',
+    fix: '先确认 Blender 在运行且「DSH Blender Bridge」已 Connect；再把 Blender 从渲染/模态操作里放出来，必要时重载 addon（N 面板 Disconnect → Connect）。op=start 只管 Gateway 进程，不修这条通道。',
+    hint: 'addon 连接通 + Gateway 在，但 bpy 往返超时 → 问题在 addon/bpy，不在 Gateway 进程。',
   }
   return { ok: false, addon, metrics: metricsView(E), error: err }
+}
+
+function noAddonDiagnosis(instances: AddonInstanceView[]): Record<string, unknown> {
+  return {
+    kind: 'addon-unreachable',
+    stage: 'transport',
+    connected: false,
+    tcp: false,
+    ready_instances: 0,
+    instances: instances.map((x) => x.instanceId),
+    summary:
+      'Gateway 在，但没有 Blender addon 连接到 Gateway —— Blender 未启动、DSH Blender Bridge 扩展未启用/未连接，或仍在握手。',
+    fix: '启动 Blender 4.2.10 LTS，在 3D 视图 N 面板启用「DSH Blender Bridge」2.0.0（protocol 12），确认扩展显示已连接 Gateway；纯渲染/批处理改用 blender_run。',
+    hint: 'Gateway /health 只证明 Gateway 进程存活，不代表 addon/bpy 可用。',
+    error: 'no addon connected to Gateway',
+  }
+}
+
+function ambiguousDiagnosis(ready: AddonInstanceView[]): Record<string, unknown> {
+  return {
+    kind: 'ambiguous-instance',
+    stage: 'transport',
+    connected: true,
+    tcp: true,
+    ready_instances: ready.length,
+    instances: ready.map((x) => x.instanceId),
+    summary:
+      'Gateway 有多个 Blender 实例连接，doctor 不能替你选一个：' +
+      ready.map((x) => x.instanceId).join(' / '),
+    fix: '在调用里显式传 instanceId（或先停掉多余实例），再重试 doctor。',
+    hint: '多实例时任何省略 instanceId 的路由都必须报 ambiguity，不能静默选第一个。',
+    error: 'ambiguous addon instance',
+  }
+}
+
+function gatewayFailure(
+  E: EngineApiDeps,
+  e: unknown,
+  elapsedMs: number,
+  instance: AddonInstanceView,
+): Record<string, unknown> {
+  const err = errorMessage(e)
+  if (!isAddonTimeout(e))
+    return {
+      ok: false,
+      addon: { ...addonErrorDiagnosis(err), connected: true, instanceId: instance.instanceId },
+      metrics: metricsView(E),
+      error: err,
+    }
+  return {
+    ok: false,
+    addon: {
+      kind: 'addon-unresponsive',
+      tcp: true,
+      connected: true,
+      ping: null,
+      instanceId: instance.instanceId,
+      error: err,
+      stage: 'addon',
+      timeout_ms: ADDON_DOCTOR_STATUS_TIMEOUT_MS,
+      elapsed_ms: elapsedMs,
+      summary:
+        'Gateway 在、addon 控制连接也在，但 addon 在 ' +
+        String(ADDON_DOCTOR_STATUS_TIMEOUT_MS) +
+        'ms 内没回 bpy 往返（execute_code 超时）—— addon 线程卡住 / Blender 主线程被占。',
+      fix: '先确认 Blender 在运行且「DSH Blender Bridge」已 Connect；再把 Blender 从渲染/模态操作里放出来，必要时重载 addon（N 面板 Disconnect → Connect）。op=start 只管 Gateway 进程，不修这条通道。',
+      hint: 'addon 控制连接通 + Gateway 在，但 bpy 往返超时 → 问题在 addon/bpy，不在 Gateway 进程。',
+    },
+    metrics: metricsView(E),
+    error: err,
+  }
+}
+
+async function gatewayDoctor(
+  E: EngineApiDeps,
+  instances: AddonInstanceView[],
+): Promise<Record<string, unknown>> {
+  const t0 = Date.now()
+  const ready = instances.filter((x) => x.ready)
+  if (ready.length === 0) {
+    const addon = noAddonDiagnosis(instances)
+    return { ok: false, addon, metrics: metricsView(E), error: addon.error }
+  }
+  if (ready.length > 1) {
+    const addon = ambiguousDiagnosis(ready)
+    return { ok: false, addon, metrics: metricsView(E), error: addon.error }
+  }
+  const instance = ready[0]
+  try {
+    const s = await statusView(E, { addonTimeoutMs: ADDON_DOCTOR_STATUS_TIMEOUT_MS })
+    if (s.addonError) throw new Error(String(s.addonError))
+    const pingStart = Date.now()
+    let pingMs: number | null = null
+    try {
+      await E.addon.send('ping', {}, 2000)
+      pingMs = Date.now() - pingStart
+    } catch (e) {
+      pingMs = null
+    }
+    return {
+      ok: true,
+      addon: {
+        kind: 'ok',
+        tcp: true,
+        connected: true,
+        instanceId: instance.instanceId,
+        ready_instances: 1,
+        ping: pingMs !== null,
+        ping_ms: pingMs,
+        roundTripMs: Date.now() - t0,
+        summary: '通道健康：Gateway WebSocket + bpy 往返都通',
+        protocol: ADDON_PROTOCOL_VERSION,
+        protocol_label: 'Gateway WebSocket (protocol 12)',
+        protocol_from: 'gateway',
+        fix: '无需处理',
+        region: s.region,
+      },
+      metrics: metricsView(E),
+    }
+  } catch (e) {
+    return gatewayFailure(E, e, Date.now() - t0, instance)
+  }
 }
 
 export function createDoctorApi(E: EngineApiDeps) {
@@ -182,6 +306,8 @@ export function createDoctorApi(E: EngineApiDeps) {
     },
     /** 现场体检：真跑一次 bpy 往返（status），通了才算 ok；不通才去三级判定 */
     async doctor() {
+      const gateway = gatewayInstances(E.addon)
+      if (gateway) return await gatewayDoctor(E, gateway)
       const t0 = Date.now()
       if (!(await tcpProbe())) {
         const d = await diagnose()

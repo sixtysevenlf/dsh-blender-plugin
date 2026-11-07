@@ -25,7 +25,7 @@ export type LeaseAcquireFn = (
 ) =>
   { denied: true; holder: string | null; expiresInMs: number } | { granted: true; lease: LeaseView }
 
-/** 路由工厂共同依赖（server.ts 组装的 E 对象）。 */
+/** 路由工厂共同依赖（gateway/app.ts 组装的 E 对象）。 */
 export interface HttpRouteDeps {
   [k: string]: unknown
   engine: EngineSurface

@@ -21,7 +21,9 @@
         },
         {
           "name": "Config",
-          "consumers": ["tests/integration/js/dsh-api-compat.test.ts"]
+          "consumers": [
+            "tests/integration/js/dsh-api-compat.test.ts"
+          ]
         },
         {
           "name": "apply",
@@ -41,11 +43,15 @@
         },
         {
           "name": "frameDedupe",
-          "consumers": ["tests/unit/js/frame-dedupe.test.ts"]
+          "consumers": [
+            "tests/unit/js/frame-dedupe.test.ts"
+          ]
         },
         {
           "name": "resetFrameCache",
-          "consumers": ["tests/unit/js/frame-dedupe.test.ts"]
+          "consumers": [
+            "tests/unit/js/frame-dedupe.test.ts"
+          ]
         }
       ]
     },
@@ -53,31 +59,42 @@
       "exports": [
         {
           "name": "PLUGIN_VERSION",
-          "consumers": ["runtime/catalog/logic.ts"]
+          "consumers": [
+            "runtime/catalog/logic.ts"
+          ]
         },
         {
           "name": "engineProvenance",
           "consumers": [
-            "runtime/server.ts",
+            "runtime/gateway/app.ts",
             "tests/integration/js/route-matrix.test.ts",
             "tests/unit/js/provenance.test.ts"
           ]
         },
         {
           "name": "COMMAND_CATALOG",
-          "consumers": ["scripts/check-parity.mjs"]
+          "consumers": [
+            "scripts/check-parity.mjs"
+          ]
         },
         {
           "name": "PLAN_CATALOG",
-          "consumers": ["scripts/check-parity.mjs", "tests/unit/js/shape-search.test.ts"]
+          "consumers": [
+            "scripts/check-parity.mjs",
+            "tests/unit/js/shape-search.test.ts"
+          ]
         },
         {
           "name": "TOOL_DETAIL",
-          "consumers": ["scripts/check-parity.mjs"]
+          "consumers": [
+            "scripts/check-parity.mjs"
+          ]
         },
         {
           "name": "PLAN_TOOL_MAP",
-          "consumers": ["scripts/check-parity.mjs"]
+          "consumers": [
+            "scripts/check-parity.mjs"
+          ]
         },
         {
           "name": "planOpNames",
@@ -107,37 +124,56 @@
           "name": "catalogFingerprint",
           "consumers": [
             "scripts/check-parity.mjs",
-            "scripts/install-smoke.mjs",
             "runtime/catalog/logic.ts"
           ]
         },
         {
           "name": "PLAN_READ_ONLY_OPS",
-          "consumers": ["scripts/check-parity.mjs", "tests/unit/js/contract/single-source.test.ts"]
+          "consumers": [
+            "scripts/check-parity.mjs",
+            "tests/unit/js/contract/single-source.test.ts"
+          ]
         },
         {
           "name": "PLAN_READ_ONLY",
-          "consumers": ["scripts/check-parity.mjs", "tests/unit/js/shape-search.test.ts"]
+          "consumers": [
+            "scripts/check-parity.mjs",
+            "tests/unit/js/shape-search.test.ts"
+          ]
         },
         {
           "name": "MODELING_CLASS_GUIDE",
-          "consumers": ["scripts/check-parity.mjs", "tests/unit/js/contract/guidance.test.ts"]
+          "consumers": [
+            "scripts/check-parity.mjs",
+            "tests/unit/js/contract/guidance.test.ts"
+          ]
         },
         {
           "name": "renderClassText",
-          "consumers": ["scripts/check-parity.mjs"]
+          "consumers": [
+            "scripts/check-parity.mjs"
+          ]
         },
         {
           "name": "classGuideStats",
-          "consumers": ["scripts/check-parity.mjs", "tests/unit/js/contract/guidance.test.ts"]
+          "consumers": [
+            "scripts/check-parity.mjs",
+            "tests/unit/js/contract/guidance.test.ts"
+          ]
         },
         {
           "name": "renderHandoff",
-          "consumers": ["scripts/check-parity.mjs", "tests/unit/js/contract/guidance.test.ts"]
+          "consumers": [
+            "scripts/check-parity.mjs",
+            "tests/unit/js/contract/guidance.test.ts"
+          ]
         },
         {
           "name": "MODEL_FACING_TOOLS",
-          "consumers": ["scripts/check-parity.mjs", "tests/unit/js/contract/guidance.test.ts"]
+          "consumers": [
+            "scripts/check-parity.mjs",
+            "tests/unit/js/contract/guidance.test.ts"
+          ]
         },
         {
           "name": "catalogPayload",
@@ -156,21 +192,27 @@
         },
         {
           "name": "GATE_FLAGS",
-          "consumers": ["scripts/check-parity.mjs"]
+          "consumers": [
+            "scripts/check-parity.mjs"
+          ]
         },
         {
           "name": "FLAGS_CODE",
-          "consumers": ["scripts/check-parity.mjs"]
+          "consumers": [
+            "scripts/check-parity.mjs"
+          ]
         },
         {
           "name": "PATH_GUARD",
-          "consumers": ["scripts/check-parity.mjs", "tests/unit/js/platform-paths.test.ts"]
+          "consumers": [
+            "scripts/check-parity.mjs",
+            "tests/unit/js/platform-paths.test.ts"
+          ]
         },
         {
           "name": "createEngine",
           "consumers": [
-            "runtime/server.ts",
-            "scripts/install-smoke.mjs",
+            "runtime/gateway/app.ts",
             "tools/gui-channel-probe.mjs",
             "tests/e2e/blender_42_headless.mjs",
             "tests/unit/js/engine-surface.test.ts"
@@ -183,6 +225,7 @@
     "src/tui-host.ts",
     "runtime/execution/headless.ts",
     "runtime/core/server-compat.ts",
-    "src/host/backend/port-holders.ts"
+    "src/host/backend/port-holders.ts",
+    "runtime/server.ts"
   ]
 }

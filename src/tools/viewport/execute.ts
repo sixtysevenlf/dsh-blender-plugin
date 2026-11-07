@@ -1,7 +1,7 @@
 /** blender_viewport 的执行层：op 分发 + 每个 op 一个阶段函数（行为与 v2.6.2 一致）。 */
 import {
   HOLDER,
-  SERVER_PATH,
+  GATEWAY_PATH,
   VIEWPORT_DOCTOR_HEALTH_TIMEOUT_MS,
   VIEWPORT_START_STATUS_TIMEOUT_MS,
 } from '../../constants.js'
@@ -51,23 +51,25 @@ async function opStart(port: number): Promise<string> {
     '启动失败：' +
     how +
     '（15 s 内 /health 仍不通；可先 op=restart 清残留进程，或检查 ' +
-    SERVER_PATH +
+    GATEWAY_PATH +
     ' 与 node）'
   )
 }
 
 /**
- * /health 通只证明 9877 后端活着，**不证明** Blender/addon/bpy 可用。
+ * /health 通只证明 Gateway 活着，**不证明** Blender/addon/bpy 可用。
  * 再用有界 /status 看 bpy 往返，把「后端在 + addon/bpy 可用」与「后端在、addon 没响应」分开说。
  */
 async function formatBackendUp(port: number, how?: string): Promise<string> {
   const endpoint = base(port) + '/'
   const addonDown = (detail: string): string =>
-    '后端在（9877）' +
+    'Gateway 在（' +
+    String(port) +
+    '）' +
     endpoint +
     '：addon/bpy 未响应：' +
     detail +
-    ' → 检查 Blender 是否运行且「DSH Blender Bridge」已 Connect（op=start 只管后端进程，不修这条通道；op=doctor 复核）'
+    ' → 检查 Blender 是否运行且「DSH Blender Bridge」已 Connect（op=start 只管 Gateway 进程，不修这条通道；op=doctor 复核）'
   let status: Record<string, unknown>
   try {
     status = await backendJson(port, '/status', VIEWPORT_START_STATUS_TIMEOUT_MS)
@@ -76,7 +78,7 @@ async function formatBackendUp(port: number, how?: string): Promise<string> {
   }
   if (status.addonError) return addonDown(text(status.addonError))
   return (
-    (how ? '后端已启动（' + how + '）' : '后端已在运行') +
+    (how ? 'Gateway 已启动（' + how + '）' : 'Gateway 已在运行') +
     '：' +
     endpoint +
     '（看护已启用）· addon/bpy 可用（/status bpy 往返通）'
@@ -90,7 +92,7 @@ async function opRestart(port: number): Promise<string> {
   await sleep(500)
   const how = await startBackend(port)
   if (await waitHttp(base(port) + '/health', 15000, 300))
-    return '后端已重启（' + how + '）：' + base(port) + '/'
+    return 'Gateway 已重启（' + how + '）：' + base(port) + '/'
   return '重启失败：' + how + '（15 s 内 /health 仍不通）'
 }
 
@@ -160,7 +162,9 @@ async function opDoctor(port: number): Promise<string> {
       return (
         '体检失败：' +
         err +
-        '（后端在（9877），doctor 超时/失败：问题在 addon 或 bpy 往返 —— ' +
+        '（Gateway 在（' +
+        String(port) +
+        '），doctor 超时/失败：问题在 addon 或 bpy 往返 —— ' +
         '检查 Blender 是否运行且「DSH Blender Bridge」已 Connect；op=start 只管后端进程，不修这条通道；op=doctor 稍后重试）'
       )
     return '体检失败：' + err + '（后端没起：blender_viewport op=start）'

@@ -37,7 +37,7 @@ function run(label, file, args) {
 run('build-runtime', process.execPath, [path.join(HERE, 'build.mjs'), 'runtime'])
 if (!failures.length) {
   const runtimeArtifacts = [
-    'lib/runtime/server.js',
+    'lib/runtime/gateway.js',
     'lib/runtime/engine.js',
     'lib/runtime/catalog/index.js',
   ]

@@ -1,14 +1,14 @@
 /**
- * 集成回归（验收）：9876 有监听但 addon 不回包（半开）时，
- * 真实 lib 后端的 /status 与 /doctor 必须在 10s 内返回结构化诊断，且指向 addon，
+ * 集成回归（验收）：addon 已连接 Gateway 但不回包（半开）时，
+ * 真实 Gateway 的 /status 与 /doctor 必须在 10s 内返回结构化诊断，且指向 addon，
  * 而不是 host 先 20s abort / 统一报 backend_unreachable。
  *
- * 半开 addon 用 tests/helpers/fake-addon.mjs 的 behavior 构造：TCP accept 后永不回写。
- * 后端用 tests/helpers/backend.ts 的 startBackend({addonPort}) 起真实 lib/runtime/server.js。
+ * 半开 addon 用 tests/helpers/fake-ws-addon.mjs 的 behavior 构造：握手后对任何请求都不回写。
+ * 后端用 tests/helpers/backend.ts 的 startBackend() 起真实 lib/runtime/gateway.js。
  */
 import { afterEach, describe, expect, it } from 'vitest'
-import { freePort, startBackend } from '../../helpers/backend'
-import { startFakeAddon } from '../../helpers/fake-addon.mjs'
+import { startBackend } from '../../helpers/backend'
+import { startFakeWsAddon } from '../../helpers/fake-ws-addon.mjs'
 
 // 改造前（未 await 的启动探测占串行队列头，budgets 3.5s/3s）：冷/热 /status 8983/6026ms、
 // /doctor 8495/5526ms —— 冷启多付 ~3s 串行税。改造后（去掉启动探测，budgets 恢复 5s/4s）：
@@ -29,17 +29,21 @@ afterEach(async () => {
   }
 })
 
-/** TCP accept 后对任何请求都不回写：模拟 addon 线程卡死/主线程忙到不响应。 */
-function halfOpenBehavior(): Promise<never> {
-  return new Promise<never>(() => {})
+/** 握手后对任何请求都不回写：模拟 addon 线程卡死/主线程忙到不响应。 */
+function halfOpenBehavior() {
+  return { action: 'hang' }
 }
 
 describe('half-open addon: bounded status/doctor with honest diagnosis', () => {
   it('answers /status in bounded time with a non-empty addonError', async () => {
-    const addon = await startFakeAddon({ behavior: halfOpenBehavior })
-    closers.push(() => addon.close())
-    const backend = await startBackend({ addonPort: addon.port })
+    const backend = await startBackend()
     closers.push(() => backend.stop())
+    const addon = await startFakeWsAddon({
+      gatewayPort: backend.port,
+      behavior: halfOpenBehavior,
+    })
+    closers.push(() => addon.close())
+    await addon.ready
 
     const health = await backend.get('/health')
     expect(health.json.ok).toBe(true)
@@ -66,15 +70,19 @@ describe('half-open addon: bounded status/doctor with honest diagnosis', () => {
     expect(status.json.ok).toBe(true)
     expect(status.json.plugin.version).toMatch(/^\d+\.\d+\.\d+$/)
     expect(typeof status.json.addonError).toBe('string')
-    expect(status.json.addonError).toContain('timeout')
+    expect(status.json.addonError).toContain('addon timeout')
     expect(status.json.region).toBeNull()
   }, 60_000)
 
   it('answers /doctor in bounded time with a diagnosis that points at the addon, not a missing backend', async () => {
-    const addon = await startFakeAddon({ behavior: halfOpenBehavior })
-    closers.push(() => addon.close())
-    const backend = await startBackend({ addonPort: addon.port })
+    const backend = await startBackend()
     closers.push(() => backend.stop())
+    const addon = await startFakeWsAddon({
+      gatewayPort: backend.port,
+      behavior: halfOpenBehavior,
+    })
+    closers.push(() => addon.close())
+    await addon.ready
 
     // 冷启动首调：改造前启动探测让 doctor 首调多付 ~3s，这里记录冷热差防回归。
     const tCold = Date.now()
@@ -98,30 +106,34 @@ describe('half-open addon: bounded status/doctor with honest diagnosis', () => {
     expect(doctor.json.ok).toBe(false)
     const addonDiagnosis = doctor.json.addon as Record<string, unknown>
     expect(addonDiagnosis.tcp).toBe(true)
+    expect(addonDiagnosis.connected).toBe(true)
+    expect(addonDiagnosis.stage).toBe('addon')
     expect(addonDiagnosis.kind).not.toBe('blender-unreachable')
     expect(addonDiagnosis.kind).toBe('addon-unresponsive')
-    expect(String(addonDiagnosis.error)).toContain('timeout')
+    expect(String(addonDiagnosis.error)).toContain('addon timeout')
     expect(Number(addonDiagnosis.timeout_ms)).toBeGreaterThan(0)
     expect(Number(addonDiagnosis.timeout_ms)).toBeLessThanOrEqual(5000)
     expect(String(addonDiagnosis.fix)).toContain('Blender')
     expect(String(addonDiagnosis.fix)).toContain('DSH Blender Bridge')
-    expect(String(doctor.json.error)).toContain('timeout')
+    expect(String(doctor.json.error)).toContain('addon timeout')
   }, 60_000)
 
-  it('keeps the old blender-unreachable verdict when nothing listens on 9876', async () => {
-    const deadAddonPort = await freePort()
-    const backend = await startBackend({ addonPort: deadAddonPort })
+  it('reports no addon connected when only Gateway is running', async () => {
+    const backend = await startBackend()
     closers.push(() => backend.stop())
 
     const t0 = Date.now()
     const doctor = await backend.get('/doctor')
     const doctorMs = Date.now() - t0
-    console.log('[doctor-bounded] GET /doctor (dead addon) = ' + String(doctorMs) + 'ms')
+    console.log('[doctor-bounded] GET /doctor (no addon) = ' + String(doctorMs) + 'ms')
 
     expect(doctorMs).toBeLessThan(5000)
     expect(doctor.json.ok).toBe(false)
     const addonDiagnosis = doctor.json.addon as Record<string, unknown>
-    expect(addonDiagnosis.kind).toBe('blender-unreachable')
+    expect(addonDiagnosis.kind).toBe('addon-unreachable')
+    expect(addonDiagnosis.stage).toBe('transport')
+    expect(addonDiagnosis.connected).toBe(false)
     expect(addonDiagnosis.tcp).toBe(false)
+    expect(String(addonDiagnosis.summary)).toContain('Gateway')
   }, 60_000)
 })
