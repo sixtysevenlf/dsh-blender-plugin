@@ -1,8 +1,11 @@
 import { claimExisting, createSession, pickInstance } from './attach.js'
+import { startVirtualGuiGate } from './display-gate.js'
 import { applyHumanPause } from './human.js'
 import { presenceRows, setSelection, setView, touchAgent } from './presence.js'
 import { pyTimeoutFailure, waitForPyLock } from './py-lock.js'
 import { resolveGrantContext } from './grants.js'
+import { displayCapabilities } from '../../display/prerequisites.js'
+import type { DisplayCapabilities } from '../../display/types.js'
 import { authorizeMainWrite, coveringGrant, evaluateWriteGate } from './write-gate.js'
 import {
   GRANT_TTL_MS,
@@ -31,10 +34,15 @@ export class SessionRegistry {
   private instances: InstanceRef[] = []
   private humanPaused = new Map<string, boolean>()
 
-  constructor(instances: () => InstanceRef[]) {
+  constructor(
+    instances: () => InstanceRef[],
+    display: () => DisplayCapabilities = displayCapabilities,
+  ) {
     this.listInstances = instances
+    this.display = display
   }
   private listInstances: () => InstanceRef[]
+  private display: () => DisplayCapabilities
 
   refreshInstances(next: InstanceRef[]): void {
     this.instances = next
@@ -271,13 +279,7 @@ export class SessionRegistry {
         'use attach for a user-started Blender',
         { kind },
       )
-    return fail(
-      'feature_disabled',
-      'config',
-      'virtual-gui is not enabled yet',
-      'enable features.virtualGui and install the platform display prerequisites, then retry',
-      { feature: 'virtualGui', enabled: false },
-    )
+    return startVirtualGuiGate(this.display())
   }
 
   stop(c: CallerIdentity, sessionId?: string): SessionResult<{ stopped: boolean }> {

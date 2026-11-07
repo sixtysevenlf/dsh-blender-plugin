@@ -13,6 +13,7 @@ import { COMMAND_CATALOG } from '../../catalog/index.js'
 import { errorMessage } from '../json.js'
 import type { EngineApiDeps } from './index.js'
 import { metricsView } from './metrics.js'
+import { displayCapabilities } from '../../display/prerequisites.js'
 
 /**
  * addon 侧阶段预算。宿主 backendJson 默认 20s、T.commands 静态截止 60s；
@@ -95,6 +96,7 @@ export async function statusView(
   return {
     region: region,
     addonError: addonError,
+    virtualGui: displayCapabilities(),
     readiness: readinessView(gatewayInstances(addon), addonError, gatewayHandshakeError(addon)),
     plugin: {
       version: PLUGIN_VERSION,
@@ -386,11 +388,13 @@ export function createDoctorApi(E: EngineApiDeps) {
             summary: 'engine 需要 Gateway addon client；3.1 不再直连 addon TCP 端口。',
             fix: '用 lib/runtime/gateway.js 启动 Gateway，并让 host/tools 只连 Gateway。',
           },
+          virtualGui: displayCapabilities(),
           metrics: metricsView(E),
           error: 'gateway addon client required',
         }
       }
-      return await gatewayDoctor(E, gateway)
+      const result = await gatewayDoctor(E, gateway)
+      return { ...result, virtualGui: displayCapabilities() }
     },
     /** 3D 视口区域 rect / 窗口尺寸 / 着色模式 */
     status() {

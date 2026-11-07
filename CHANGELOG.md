@@ -45,6 +45,13 @@
 - addon 零遥测：删除 telemetry consent 偏好与 Telemetry & Privacy 区块、编辑事件采集/缓冲与 `drain_human_activity`，删除 Discord / “Stay updated” / Terms 推广入口；`get_activity_state` 只保留本地内存判定，不落盘、不外发。
 - 契约同步：`command_registry.py` 的 counts、handshake capabilities、catalog（`runtime/catalog/commands.ts` 增 `access: read|internal`）、PAUSE_SAFE 列表、BEHAVIOR_MATRIX（333 rows）、JS/Python 契约测试与安装文档全部改为 25/26 口径；addon extension zip 74 entries（sha256 `db59b7fc…`）。
 
+### 3.1 virtual-gui 能力门
+
+- 新增 `features.virtualGui` 能力门（env `DSH_BLENDER_VIRTUAL_GUI`）：Windows 在 V0 验收前默认 `off`、通过后默认 `auto`；Linux/macOS 默认 `off`，Linux 仅显式 `on` 进入 preview；非法值回退 `off` 并标记 `invalid`。`/status`、`doctor` 与 `blender_session start` 共用 capabilities（enabled/preview/ready/prerequisites/missing/reason/fix）。
+- 新增 DisplayProvider 契约与选择顺序（Windows hidden-desktop → IDD fallback；Linux Xvfb+VirtualGL preview；macOS 未实现）；当前构建不附带平台 provider，selection 永远返回 `provider_unavailable`。`blender_session start` 在 feature 关闭、依赖缺失或 provider 未实现时只返回 `stage=config`，不 spawn Blender/Xvfb，也不回落 headless。
+- 依赖表收敛到 `runtime/display/prerequisites.ts`（包名/检测/安装/是否 root/复检），VirtualGL 明确 Ubuntu 24.04 无 apt 包、须官方仓库安装。
+- 回归：`tests/unit/js/display-capabilities.test.ts` 14 项（feature 默认与非法值、三条负向启动、provider 顺序、status 暴露）。
+
 ### 开发环境
 
 - 新增 `npm run setup:dev`：自动发现 Python（`PYTHON` → `python` → `python3` → Windows `py -3`，含坏 Store alias 的兜底）、创建/复用 `.venv`、安装 `requirements-dev.txt` + `requirements-typecheck.txt`、仅在缺失时执行 `npm ci --legacy-peer-deps`，支持 `--check` / `--force`，幂等可重复执行；`.github/workflows/pr.yml` 与 `release.yml` 复用同一脚本，不再各自内联 venv 步骤。

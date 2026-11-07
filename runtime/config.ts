@@ -364,6 +364,15 @@ function resolveWorkDir(): WorkDirInfo {
   })
 }
 
+const FEATURE_VIRTUAL_GUI = (() => {
+  const env = readString(process.env.DSH_BLENDER_VIRTUAL_GUI)
+  if (env) return { value: env, source: 'env:DSH_BLENDER_VIRTUAL_GUI' }
+  const features = isRecord(FILE.cfg.features) ? FILE.cfg.features : null
+  const file = features ? readString(features.virtualGui) : ''
+  if (file) return { value: file, source: 'file:' + String(FILE.from || 'config') }
+  return { value: '', source: 'default' }
+})()
+
 const WORK = resolveWorkDir()
 /** blender.exe 探测在 runtime/blender-detect.ts（可注入依赖；Windows 含 Steam 库）。
  *  config.ts 不再转出 detectBlenderExe：需要探测结果的调用方直接 import blender-detect.js；
@@ -427,6 +436,11 @@ export const CFG = {
     null,
   /** 热无头 worker 的本地端口（与 Gateway 39877 区分开） */
   workerPort: num(process.env.DSH_BLENDER_WORKER_PORT || readString(FILE.cfg.workerPort), 9879),
+  // 功能开关（3.1：virtual-gui 默认 off；Linux preview 需显式 on）
+  features: {
+    virtualGui: FEATURE_VIRTUAL_GUI.value,
+    source: FEATURE_VIRTUAL_GUI.source,
+  },
   // 溯源（doctor/日志/教程排查用）
   source: { configFile: FILE.from, workDir: WORK.from, blenderExe: BLENDER.from },
 }
