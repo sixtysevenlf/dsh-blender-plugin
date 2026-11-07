@@ -2,7 +2,7 @@
 
 ## Purpose
 
-定义 virtual-gui 的显示提供者抽象与平台验收门槛：Gateway 必须能启动一个用户不可察、真实 GUI、硬件 GL 的 Blender；没有任何满足门槛的 provider 时，virtual-gui 不得以 headless 或软件渲染冒充。
+定义 virtual-gui 的显示提供者抽象、feature gate 与平台验收门槛：Gateway 必须能启动一个用户不可察、真实 GUI、硬件 GL 的 Blender；virtual-gui 默认 opt-in，Linux 只作 preview、不阻塞 3.1 GA；Windows 没有任何满足 GA 门槛的 provider 时，virtual-gui 不得以 headless 或软件渲染冒充。
 
 ## ADDED Requirements
 
@@ -36,11 +36,15 @@ On Windows, the preferred provider SHALL launch Blender as a normal GUI process 
 
 ### Requirement: IDD is a conditional fallback
 
-A signed virtual display driver MAY be used only when the hidden-desktop provider fails the V0 GL or viewport acceptance. Driver installation MUST require explicit user approval, MUST NOT be silent, and MUST report missing prerequisites as an actionable error.
+A signed virtual display driver MAY be used only when the hidden-desktop provider fails the Windows GA V0 GL or viewport acceptance. Driver installation MUST require explicit user approval, MUST NOT be silent, and MUST report missing prerequisites as an actionable error. When the hidden-desktop provider passes, IDD MUST NOT be required and its absence MUST NOT block the release.
 
 #### Scenario: IDD is offered only after a proven failure
-- **WHEN** the Windows hidden-desktop provider fails the V0 acceptance
+- **WHEN** the Windows hidden-desktop provider fails the Windows GA V0 acceptance
 - **THEN** the system reports the measured failure and offers the IDD provider as an explicit fallback
+
+#### Scenario: IDD is not required after the hidden desktop passes
+- **WHEN** the self-written hidden-desktop provider passes the Windows GA V0 acceptance
+- **THEN** the IDD fallback is not selected and its absent driver does not block the release
 
 #### Scenario: Missing driver is actionable
 - **WHEN** the IDD provider is selected but no compatible driver is installed
@@ -48,7 +52,7 @@ A signed virtual display driver MAY be used only when the hidden-desktop provide
 
 ### Requirement: Linux uses Xvfb with a GPU GL transport
 
-On Linux, the preferred provider SHALL use Xvfb plus VirtualGL so Blender gets a GUI display and a GPU-backed GL context. The final default/fallback order and instance limits SHALL be set only after the V0 bake-off. A software-only Xvfb provider MUST be reported as preview-only and MUST NOT satisfy the virtual-gui release gate.
+On Linux, the preferred provider SHALL use Xvfb plus VirtualGL so Blender gets a GUI display and a GPU-backed GL context. It SHALL be preview-only: it MUST NOT count as GA support or block the 3.1 GA release. A software-only provider MUST be reported as preview-only, MAY run only behind the Linux preview feature gate, and MUST NOT claim hardware GL.
 
 #### Scenario: GPU GL is used
 - **WHEN** the Linux provider starts Blender
@@ -56,19 +60,47 @@ On Linux, the preferred provider SHALL use Xvfb plus VirtualGL so Blender gets a
 
 #### Scenario: Software fallback is labeled
 - **WHEN** only llvmpipe is available
-- **THEN** the provider reports preview-only capability and virtual-gui readiness fails the gate
+- **THEN** the provider reports preview-only capability, does not satisfy the hardware-GL acceptance, and MUST NOT be advertised or labeled as GA
 
 #### Scenario: Two displays are isolated
 - **WHEN** two Linux virtual-gui sessions start
 - **THEN** each uses a distinct X display and neither shares the other session scene or GL context
 
-### Requirement: V0 proves the provider before release
+### Requirement: virtual-gui is an explicit opt-in feature gate
 
-3.1 SHALL NOT ship virtual-gui until the V0 bake-off proves on Windows and Linux: real GUI (`bpy.app.background == False`), hardware GL, viewport capture through the GUI path, two concurrent instances, clean stop with no orphan, and parity with a user-gui viewport. If either Windows or Linux has no passing provider, the release MUST be blocked rather than shipping a headless substitute.
+The plugin SHALL expose virtual-gui behind a feature gate inside the existing bundle and MUST NOT require a second bundle. The gate SHALL default off on Linux and become auto on Windows only after Windows GA V0 passes. Capabilities and doctor SHALL report enabled state, preview, prerequisites, and missing items. When off or unready, start MUST fail before spawning with stage=config and a fix; see/op/py MUST NOT fall back to headless or software rendering.
 
-#### Scenario: V0 acceptance blocks release
-- **WHEN** either the Windows or the Linux V0 acceptance has no passing provider
-- **THEN** the 3.1 release gate is blocked and the report names the failing measurements
+#### Scenario: Off is explicit and spawns nothing
+- **WHEN** virtual-gui is disabled or unready
+- **THEN** start returns stage=config with the missing prerequisite and no Blender, Xvfb, VirtualGL, or helper process is spawned
+
+#### Scenario: Linux preview is off by default
+- **WHEN** the plugin runs on Linux with default configuration
+- **THEN** virtual-gui is disabled until the user explicitly enables the Linux preview gate
+
+#### Scenario: Linux prerequisites are actionable
+- **WHEN** the Linux preview is enabled but Xvfb, VirtualGL, or /dev/dri access is missing
+- **THEN** capabilities/doctor name the missing item and exact install/permission step, and start refuses without attempting an install
+
+#### Scenario: Tool surface stays six
+- **WHEN** virtual-gui is disabled
+- **THEN** the six model tools remain registered and see/op/py reject without a ready GUI session; none silently becomes a headless operation
+
+### Requirement: Windows GA V0 proves the provider before release
+
+3.1 SHALL NOT ship Windows virtual-gui until the Windows GA V0 bake-off proves real GUI (`bpy.app.background == False`), hardware GL, GUI-path viewport capture, two concurrent instances, clean stop, and user-gui parity. The self-written hidden-desktop helper is required; signed IDD is fallback only. If both fail, Windows GA MUST be blocked. Linux preview MUST NOT block 3.1 GA.
+
+#### Scenario: Hidden desktop passing unblocks Windows GA
+- **WHEN** the self-written hidden-desktop provider passes the Windows GA V0 acceptance
+- **THEN** the Windows GA release gate is satisfied and the IDD fallback is not required
+
+#### Scenario: Both Windows providers fail blocks Windows GA
+- **WHEN** both the hidden-desktop provider and the IDD fallback fail the Windows GA V0 acceptance
+- **THEN** the 3.1 release is blocked for Windows and the report names the failing measurements
+
+#### Scenario: Linux preview does not block GA
+- **WHEN** the Linux provider is preview-only or fails its preview acceptance
+- **THEN** the 3.1 Windows GA release is not blocked, and Linux virtual-gui remains disabled or labeled preview
 
 #### Scenario: Headless is not a substitute
 - **WHEN** a display provider is unavailable

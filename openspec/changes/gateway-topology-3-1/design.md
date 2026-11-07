@@ -16,7 +16,7 @@
 
 - 让 Gateway 成为唯一服务端，addon 反向连接、可多实例、可重连，旧 addon 被拒绝。
 - 让首调失败可执行：统一四问 envelope、start/doctor 一致、P95 ≤3s。
-- 把会话收敛为 user-gui / virtual-gui；virtual-gui 成为 3.1 发布门槛。
+- 把会话收敛为 user-gui / virtual-gui；virtual-gui 的 Windows provider 是 3.1 GA 发布门槛，Linux provider 只作 preview、不阻塞 GA。
 - 建立有界、可持久化、可取消的 render/headless 作业队列。
 - 把 addon 收口为 Blender 4.2 extension，并接入官方市场审核/更新通道。
 - 把模型工具面收敛为 6 个产品能力，行为等价迁移后再做命名验收。
@@ -89,25 +89,33 @@
 ### D4 — DisplayProvider 与 virtual-gui V0
 
 - 抽象接口：`start(profile)`、`stop(handle)`、`health(handle)`、`capabilities()`。`start` 返回 provider handle、display endpoint、Blender 启动描述；`stop` 幂等并释放进程树/显示资源；`capabilities()` 报告平台、GPU/GL、prerequisites、是否需要用户授权。
-- Windows W1（首选）：自写 Win32 helper（C++，无第三方依赖）实现 `CreateDesktopW` + `CreateJobObject` + `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` + `CreateProcessW(CREATE_SUSPENDED, lpDesktop)` + `AssignProcessToJobObject` + `ResumeThread`；Blender 是隐藏 desktop 上的 normal window，不是最小化，默认任务栏/Alt-Tab 不显示。helper 代理 stdout/stderr/exit，失败必须 fail closed，不能回退到用户默认 desktop。
+- Windows W1（即早期讨论的 W0；首选且必需）：自写 Win32 helper（C++，无第三方依赖）实现 `CreateDesktopW` + `CreateJobObject` + `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` + `CreateProcessW(CREATE_SUSPENDED, lpDesktop)` + `AssignProcessToJobObject` + `ResumeThread`；Blender 是隐藏 desktop 上的 normal window，不是最小化，默认任务栏/Alt-Tab 不显示。helper 代理 stdout/stderr/exit，失败必须 fail closed，不能回退到用户默认 desktop。
 - helper 源码放 `tools/win-hidden-desktop/`，Windows CI 用 MSVC 构建并作为 Gateway 资源打包；不在仓库提交编译产物，发布包必须包含与源码版本匹配的 helper。
-- Windows W2（仅 fallback）：签名 IDD 虚拟显示驱动，只有在 W1 未通过 V0 的 GPU/GL 或 viewport parity 时才启用；安装必须用户明确同意、不能静默，报告驱动/UAC 前提和许可证/分发限制。
-- Linux L1（首选）：Xvfb 提供 X display，VirtualGL 把 GLX/EGL 转发到真实 GPU；每个实例独立 `:N`。provider 启动 Blender 前必须强制 X11（清除 `WAYLAND_DISPLAY`、`XDG_SESSION_TYPE=x11`），不能继承 WSLg/Wayland；VirtualGL 必须显式走 EGL device（如 `vglrun -d egl`），不能依赖 `vglrun -d :N` 默认选到 GLX/llvmpipe。stop 时按进程树终止 Blender、vglrun、Xvfb，重复 stop 幂等；只读 `-ac` 仅用于 loopback provider。GL renderer 为 llvmpipe/软件实现只能标 `preview-only`，必须在 start 时 fail closed，不能通过 gate；非 root 场景必须在 spawn 前检查 `/dev/dri` 读权限，无权限时 fail closed 或只标 preview-only，不能静默回退 llvmpipe。
+- Windows W2（即早期讨论的 W1；仅 fallback）：签名 IDD 虚拟显示驱动，只有在 W1 未通过 V0 的 GPU/GL 或 viewport parity 时才启用；W1 通过时 W2 不进入门禁，W2 失败不单独阻断 3.1。安装必须用户明确同意、不能静默，报告驱动/UAC 前提和许可证/分发限制。
+- Linux L1（首选）：Xvfb 提供 X display，VirtualGL 把 GLX/EGL 转发到真实 GPU；每个实例独立 `:N`。provider 启动 Blender 前必须强制 X11（清除 `WAYLAND_DISPLAY`、`XDG_SESSION_TYPE=x11`），不能继承 WSLg/Wayland；VirtualGL 必须显式走 EGL device（如 `vglrun -d egl`），不能依赖 `vglrun -d :N` 默认选到 GLX/llvmpipe。stop 时按进程树终止 Blender、vglrun、Xvfb，重复 stop 幂等；只读 `-ac` 仅用于 loopback provider。GL renderer 为 llvmpipe/软件实现只能标 `preview-only`：feature gate 未显式开启 Linux preview 时必须在 start 时 fail closed，不能通过 gate；开启 preview 后也不得冒充硬件 GL，也不得作为 Windows GA 验收证据；非 root 场景必须在 spawn 前检查 `/dev/dri` 读权限，无权限时 fail closed 或只标 preview-only，不能静默回退 llvmpipe。
 - 不采用 WSL/WSLg/WSL+Xvfb、Xdummy、Weston headless 作为 3.1 provider；未来版本再评估。
-- V0 bake-off 是本 change 的发布门槛：Windows W1、Windows W2（仅 W1 失败时）、Linux L1 各跑同一组验收；通过后才在文档和配置里写默认 provider、fallback 顺序、virtual-gui 默认上限和安装前提。V0 是发布门槛，不是 apply 前代码门槛；可以先实现和合并代码，但在真实 Linux（Blender 4.2.10 LTS）与 user-gui parity 证据到位前不得发布 3.1，也不得宣称 virtual-gui 通过。Linux L1 当前为 PARTIAL（见下文），不得当作已通过。
-- V0 验收（每个通过的 provider 必须具备，Blender 基线固定 4.2.10 LTS；5.x 结果只作技术探查，不计入 V0）：`bpy.app.background == False`；GL renderer 为真实 GPU，非 llvmpipe/软件实现；`see` 通过插件 addon 的 GUI capture，并与同一 GPU/驱动/Blender 版本的真实 user-gui viewport 结果 parity（独立 Blender 截图或仅按文件大小判定不算）；2 个并发实例严格互不串场景（验收窗口内不得有第三个实例）；stop 幂等（SIGTERM/timer 正常退出、重复 stop 无孤儿）；截图像素内容校验（非全黑/非单色，双实例内容可区分）；非 root 账号必须具备 `video`/`render` 组或等效 `/dev/dri` 读权限，否则 provider 必须 fail closed 或 preview-only，不能把软件 GL 当通过；安装前提可查询；锁屏/RDP/无显示环境行为已记录。
+- V0 bake-off 是 **Windows GA** 的发布门槛：Windows W1（W0）跑验收；W1 通过即满足 3.1 GA 门禁，W2 不要求，W2 失败不单独阻断。W1 失败才评估 W2；W1/W2 都失败则 Windows GA 不发布。V0 不是 apply 前代码门槛；可以先实现和合并代码。Linux L1 是 **preview 质量门禁**，不是 3.1 GA 门禁：不要求再做真实 GPU 实机 PoC，但开启 Linux preview 前必须通过自动化 see 链路测试与 prerequisites 检查；Linux preview 不得被描述为 GA 支持，默认关闭（见 D4.1）。
+- **Windows GA V0 验收**（Blender 基线固定 4.2.10 LTS；5.x 结果只作技术探查）：`bpy.app.background == False`；GL renderer 为真实 GPU，非 llvmpipe/软件实现；`see` 通过插件 addon 的 GUI capture，并与同一 GPU/驱动/Blender 版本的真实 user-gui viewport 结果 parity（独立 Blender 截图或仅按文件大小判定不算）；2 个并发实例严格互不串场景（验收窗口内不得有第三个实例）；stop 幂等（SIGTERM/timer 正常退出、重复 stop 无孤儿）；截图像素内容校验（非全黑/非单色，双实例内容可区分）；安装前提可查询；锁屏/RDP/无显示环境行为已记录。
+- **Linux preview 验收（不是 GA 门禁）**：不要求新的实机 GPU PoC；用 Linux CI（Xvfb + Blender 4.2.10 + 真实 addon/Gateway）自动化验证插件 `see` 返回有效 GUI PNG、像素非全黑/非单色、错误路径不回落 headless/Workbench；llvmpipe 只验证调用链，不作为硬件 GL 证据。已有真实 Ubuntu + RX 7900 XTX 的 EGL/Xorg/双实例/stop 证据作为参考，不作为 GA 承诺；非 root 账号必须能读 `/dev/dri`，否则 provider 必须 fail closed 或 preview-only；`user-gui` parity 是 Linux preview 的已知限制。
 - user-gui parity 环境必须是真实 GPU 桌面：物理桌面，或同机真实 Xorg（Xvfb 之外的 Xorg + VNC/dummy display）优先；普通 VM 的 virtio-gpu/virgl/llvmpipe 桌面不算，不能拿普通 VM 截图当 parity；GPU passthrough VM 只有在完整记录硬件/驱动/Blender 版本并经评审后才能作为 parity 环境。
 - 缺依赖是代码级硬门：provider 的 start 路径在 spawn 任何进程之前检查 prerequisites，缺失即拒绝；不存在 force/unsafe/skip-check 开关，agent 的意图不能绕过。UI 与 agent 都只能看到“不可用 + 缺什么 + 怎么装”，不能“先试一下”。
 - 依赖引导不是静默安装：provider `capabilities()` 报告 prerequisites 与安装状态；host 的 `doctor --fix` 与 addon 偏好设置按钮共用同一张 prerequisites 描述表；Ubuntu 22.04/24.04 与 Debian 12 的 `xvfb` 走发行版 apt（`pkexec` 一键安装）；`virtualgl` 先探测发行版仓库，Ubuntu 24.04 无包时给官方 `.deb`/官方仓库步骤，绝不能给不可执行的 `apt install virtualgl`；Fedora/Arch/无 polkit 环境只给准确命令；GPU 驱动只检测不安装；安装后必须复检 capabilities，失败保留原始 stderr 且不得把 provider 标为 ready。
-- 若 Windows 或 Linux 任一平台没有 provider 通过 V0：3.1 不发布，也不允许把 render/headless 当作替代；发布报告必须写明失败的测量项。
+- 若 Windows W1（W0）或 W1 失败后的 W2 都没有 provider 通过 Windows GA V0：3.1 不发布，也不允许把 render/headless 当作替代；发布报告必须写明失败的测量项。Linux preview 不阻塞 3.1 GA；Linux preview 未通过自动化 see/能力门禁时默认关闭，不能宣称 Linux virtual-gui 可用。
 
-#### Linux L1 V0 预验证记录（2026-11-07，两轮，PARTIAL，不计入通过）
+#### D4.1 — virtual-gui feature gate 与 Linux preview
+
+- virtual-gui 是现有 bundle 内的显式 feature gate，不拆第二个 bundle/包；配置为 `features.virtualGui`（实现时定 `off` / `auto` 等枚举），Windows 在 W1 V0 通过后默认 `auto`，Linux 默认 `off`，preview 需用户显式开启。
+- `capabilities()` 返回 `enabled`、`platform`、`preview`、`supported`、`prerequisites`、`missing`、`requiresApproval`；`doctor` 与 `session start` 在 off、缺依赖、缺 `/dev/dri` 权限时返回 `stage=config` 与可执行 fix，不 spawn 任何进程，不静默安装，不回落 headless/worker/llvmpipe。
+- Linux preview 仍必须走真实 GUI addon capture；自动化测试用 Xvfb + Blender 4.2.10 + 真实 addon/Gateway 验证 `see` 的 PNG、像素和错误路径，llvmpipe 只作链路验证，不能作为硬件 GL/GA 证据。不要求新的实机 GPU PoC；已有实机证据只作参考。
+- feature gate 关闭时工具面仍是 6 个工具；`see`/`op`/`py` 在无 ready GUI session 时按 D3 会话门拒绝，不因关闭 virtual-gui 而转 headless。
+
+#### Linux L1 V0 预验证记录（2026-11-07，两轮，PARTIAL，Linux preview 参考，不计入 Windows GA）
 
 - 第一轮（初测，Blender 5.2.3）：Ubuntu 24.04.5 / AMD RX 7900 XTX / VirtualGL 3.1.5 / Xvfb；`vglrun -d egl` 为真实 AMD GPU，`vglrun -d :N` 为 llvmpipe；但同步退出挂死、GLX/no-vgl 12 KB 全黑截图 `screenshot_ok=true`、双实例重叠期存在第三个 Blender（s11），且未走插件 `see`、无 user-gui parity、非 root 与 stop 幂等未验。
 - 第二轮（follow-up，`local-workspace/linux-v0-followup-2026-11-07/`）：真实 Ubuntu 24.04.5 裸机（`systemd-detect-virt=none`）/ AMD RX 7900 XTX / Blender 4.2.10 LTS（tarball sha256 `7b888b36…`）/ VirtualGL 3.1.5 / Xvfb 21.1.12；`vglrun -d egl` 为 `AMD Radeon RX 7900 XTX (radeonsi, navi31, ...)`、GL 4.6；`vglrun -d :N` 负向为 llvmpipe + 12,007 B 全黑 screen。
 - 第二轮已补齐：4.2.10 基线；严格 2 实例（timer 版 0.4–2.2s 采样为 2，keepalive 变体 t+3s 为 2，无第三实例）；红/蓝 render sha 不同且像素分离；TERM 后 0.23s 消失、二次 TERM ESRCH、无孤儿；render/screen 像素统计非全黑/非单色；真实 Xorg `:1` + openbox + x11vnc 下为 amdgpu/glamor/radeonsi，user-gui 与 EGL 的 render sha256 完全相同（`7bb6593c…`）。
 - 第二轮仍未关闭：插件 `see` BLOCKED（目标机无 DSH/3.0.6 插件，未用独立截图冒充）；非 root 用户不在 `video`/`render` 组，`/dev/dri` 不可读，`vglrun -d egl` 回退 llvmpipe（未改组，属部署前置）；Xorg 用 1024×768 初始 framebuffer，主机 4 个输出全 disconnected，无物理显示器/交互登录会话，parity 只能算条件性。
-- 结论：Linux L1 V0 = PARTIAL；5.20a–5.20c、5.20f 的预验证已补齐，5.20d（插件 see）与 5.20e（非 root 硬件 GL）仍未完成，不能勾选 5.8/5.20，也不能发布 3.1。
+- 结论：Linux L1 V0 = PARTIAL，但 Linux 只作 preview，不阻塞 3.1 GA；5.20a–5.20c、5.20f 的预验证已补齐，5.20e1 把非 root `/dev/dri` 权限列为部署前置。插件 `see` 改由 Linux CI 自动化链路测试覆盖（Xvfb + Blender 4.2.10 + 真实 addon/Gateway；llvmpipe 只验证链路），不再要求目标机实机 PoC；5.20d 作为 preview 门禁保留，未通过前 Linux virtual-gui 默认关闭。
 
 #### WSL PoC 记录（2026-11-07，补充证据，不计入 V0）
 
@@ -117,7 +125,7 @@
 - 显示服务器差异（关键）：WSL 默认设置 `WAYLAND_DISPLAY=wayland-0`，即使设置 `DISPLAY=:110`，Blender 4.2.10 仍选择 Wayland；`bpy.ops.wm.quit_blender()` 在这种情况下 exit 139，日志先出现 `GHOST/Wayland: xdg_wm_base@... protocol error 4`。这不是“无 DE”导致，也不是 Mesa teardown 的必然结果。
 - 强制 X11 后：`WAYLAND_DISPLAY=` + `XDG_SESSION_TYPE=x11` + `GDK_BACKEND=x11`，Xvfb :110 + openbox 下 API 退出 exit 0；WSLg 的 XWayland `:0` 下 API 退出 exit 0；alt+F4 关窗 exit 0；SIGTERM exit 143 且无孤儿；`blender -b` exit 0。
 - VirtualGL：`vglrun -d :110` + 强制 X11 + Xvfb D3D12 下，Blender GUI 的 `DSH_RENDERER=D3D12 (NVIDIA GeForce RTX 4070 SUPER)`，`render.opengl` 与 `screen.screenshot` 成功，`wm.quit_blender` exit 0；两个 `vglrun` Blender 实例并发均 exit 0，截图成功。`glxspheres64` 也报告 D3D12 renderer。注意 `vglrun glxinfo` 在 Xvfb 上会 exit 139（VirtualGL 的 glxinfo 问题），不能作为 VirtualGL 通过/失败的唯一判据。
-- 结论：WSL 不是 3.1 目标平台；WSLg 的 Wayland 退出崩溃可通过强制 X11 规避，VirtualGL 在 WSL + 强制 X11 下能跑 Blender GUI，但这些仍不能作为 Linux L1/V0 通过证据：未在真实 Linux 验证，未做 user-gui parity，WSLg Wayland 路径不可用，VirtualGL 回读性能低。Linux V0 仍需真实 Linux（Xorg/Wayland）+ Blender 4.2.10 LTS + Xvfb/VirtualGL + 用户 GUI parity；普通 VM 的软件 GL 桌面不能替代。证据存本机 `local-workspace/wsl-poc/`（不入库）。
+- 结论：WSL 不是 3.1 目标平台，也不是 Linux preview 的验收环境；WSLg 的 Wayland 退出崩溃可通过强制 X11 规避，VirtualGL 在 WSL + 强制 X11 下能跑 Blender GUI，但这些只作技术参考，不能作为 Linux L1/V0 通过证据。Linux preview 不再要求新的实机 GPU PoC，由 5.20d 的 Linux CI 自动化 `see` 链路测试收口；已有真实 Ubuntu + RX 7900 XTX 证据作为参考，不作为 GA 承诺。证据存本机 `local-workspace/wsl-poc/`（不入库）。
 
 ### D5 — 作业队列
 
@@ -222,8 +230,9 @@
 ## Risks / Trade-offs
 
 - **同端口 WebSocket 复杂度**：最小 RFC6455 实现需要帧解析/心跳/背压；P1 已验证方向，但仍是实现风险。缓解：先做 spike + 负向帧测试；若超出预算，回 design 修改单端点定义，不静默加端口。
-- **W1 隐藏 desktop 的 GL 行为未知**：CreateDesktop 不保证 GPU/GL 正常，V0 是唯一判据。缓解：W1 失败即 fail closed，IDD 只作为显式 fallback；没有 provider 通过就不发 3.1。
-- **VirtualGL/Xvfb 安装前提**：Linux 用户可能没有 Xvfb/VirtualGL/GPU 驱动；插件不能静默安装。缓解：capabilities 先报 prerequisites，文档给发行版命令，软件 GL 只标 preview-only。
+- **W1 隐藏 desktop 的 GL 行为未知**：CreateDesktop 不保证 GPU/GL 正常，Windows GA V0 是唯一判据。缓解：W1 失败即 fail closed，IDD 只作为显式 fallback；W1 通过即不阻断 3.1，W1/W2 都失败才不发 Windows GA。
+- **VirtualGL/Xvfb 安装前提**：Linux 用户可能没有 Xvfb/VirtualGL/GPU 驱动；插件不能静默安装。缓解：Linux 只作 preview、feature gate 默认关闭；capabilities 先报 prerequisites，文档给发行版命令，软件 GL 只标 preview-only。
+- **feature gate 变成第二套分叉**：offscreen 关闭路径容易出现“只测 enabled 路径”。缓解：off/缺依赖/无权限三条路径都做负向测试，工具面仍只有 6 个工具，不引入第二套 bundle。
 - **队列持久化与取消竞态**：重启、取消、进程退出可能交错；用原子写 + 状态机 CAS + 进程树测试覆盖。
 - **六工具迁移破坏现有调用**：3.1.0 是 breaking；旧名直接报错，文档给映射。缓解：行为等价测试先迁移，CHANGELOG/README/教程同步，不用别名掩盖。
 - **extension 审核/GPL**：首次上架可能被拒或延迟；GPL 与 BSD 边界必须清楚。缓解：先本地 validate + 人工检查，token/CD 只负责后续版本，不承诺自动通过。
@@ -232,16 +241,16 @@
 
 ## Migration Plan
 
-1. 前置：确认 `origin/main=82a44bc`、3.0.6 已发布；从 `chore/gateway-topology-3-1-plan` 切 `feat/gateway-topology-3-1`（或先把 plan 合入 main）；记录基线门禁和计数。
+1. 前置：从最新 `origin/main` 切 `feat/gateway-topology-3-1`（或先把 plan 合入 main；不写死 commit 哈希）；记录基线门禁和计数。
 2. Gateway/transport：新 Gateway 入口、addon WS client、握手/registry/重连；负向旧 addon、addon 进程无监听 socket 测试。
 3. Availability：共享 envelope、stage 分类、status/doctor 同源、预算收紧；A1–A6 回归。
 4. Sessions：user-gui 归属与 scope grant、human pause、virtual-gui lifecycle、see 边界；worker 退出模型面。
-5. Virtual-gui V0：Windows W1 helper、Linux Xvfb+VirtualGL、IDD fallback 评估；V0 报告作为发布门禁。
+5. Virtual-gui：Windows W1（W0）helper 的 GA V0、IDD 仅在 W1 失败时评估；Linux Xvfb+VirtualGL 只作 preview，用 Linux CI 的插件 `see` 链路测试收口，不再要求实机 GPU PoC。
 6. Job queue：render/headless、状态机、持久化、取消/collect、GPU/CPU slot；实现 `run` 的内部提交面（切片 7 暴露为模型工具）。
 7. Tool surface：6 工具面重写（删除旧工具定义与注册，不做 facade）、旧名与命令迁移错误、inspect 只读、契约计数更新。
 8. Extension：manifest/无 bl_info、namespace、构建/validate、GPL/权限、CD 上传。
 9. 文档/CI：README、操作教程、配置参考、架构、SKILL、CHANGELOG、中英同步；PR 门禁和 release workflow。
-10. 真机验收与发布：V0、A1–A6、6 工具、队列、extension 安装升级、pack/install smoke；通过后发 3.1.0，归档本 change。
+10. 验收与发布：Windows GA V0（W1 通过即满足，IDD 仅在 W1 失败时）、A1–A6、6 工具、队列、extension 安装升级、pack/install smoke；Linux preview 由自动化 `see` 链路测试收口，不作为 3.1 GA 门禁。通过后发 3.1.0，归档本 change。
 
 ## Open Questions
 
