@@ -104,6 +104,12 @@ function runSessionAction(
       return registry.pause(caller, sessionId)
     case 'resume':
       return registry.resume(caller, sessionId)
+    case 'mark_read':
+      return registry.markRead(
+        caller,
+        sessionId,
+        payload.scopes === undefined ? payload.scope : payload.scopes,
+      )
     case 'presence':
       return registry.presence(caller, sessionId)
     case 'heartbeat':
@@ -114,7 +120,7 @@ function runSessionAction(
         code: 'invalid_params',
         stage: 'config',
         root_cause: 'unknown session action: ' + action,
-        fix: 'use list, attach, claim, detach, release, status, doctor, start, stop, grant, revoke, grants, pause, resume, presence, heartbeat',
+        fix: 'use list, attach, claim, detach, release, status, doctor, start, stop, grant, revoke, grants, pause, resume, mark_read, presence, heartbeat',
         fallback: { kind: 'unavailable', summary: 'the session action was not executed' },
         evidence: { action },
       }

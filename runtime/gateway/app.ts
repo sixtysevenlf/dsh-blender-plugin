@@ -61,6 +61,15 @@ function addonEventSink(
         event.paused === true,
       )
     }
+    if (event.type === 'event' && event.name === 'human_edit' && registryRef.current) {
+      registryRef.current.applyHumanEdits(
+        event.instanceId === null ? undefined : String(event.instanceId),
+        [
+          ...(Array.isArray(event.objects) ? event.objects : []),
+          ...(Array.isArray(event.collections) ? event.collections : []),
+        ] as Record<string, unknown>[],
+      )
+    }
     opts.onEvent?.(event)
   }
 }

@@ -210,6 +210,13 @@ def tick_activity():
     get_activity_tracker().tick()
 
 
+def drain_human_edits():
+    """Return the human edit records collected since the last drain."""
+    from .recorders.activity import get_activity_tracker
+
+    return get_activity_tracker().drain_human_edits()
+
+
 def begin_agent_command():
     """Context manager marking the current dispatch as agent-originated."""
     from .recorders.user_edit import get_edit_recorder

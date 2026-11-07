@@ -1,6 +1,7 @@
 import type { CallerIdentity, GrantRecord, SessionRecord, SessionResult } from './types.js'
 import { callerKey, fail } from './types.js'
 import { anyOverlap, parseScopes, scopesCover } from './scopes.js'
+import { conflictingHumanEdits } from './human-edits.js'
 import type { ScopeSpec } from './scopes.js'
 
 /** State checks shared by every agent write: ownership, pause, python lock, scope syntax. */
@@ -17,6 +18,24 @@ export function evaluateWriteGate(
       'the human paused agent writes in Blender',
       'wait for the human to resume writes in the DSH Blender Bridge panel',
       { sessionId: session.id, pausedAt: session.pausedAt },
+    )
+  }
+  const humanEdits = conflictingHumanEdits(session, parseScopes(scopes))
+  if (humanEdits.length) {
+    return fail(
+      'human_modified',
+      'session',
+      'the human changed objects covered by this write scope',
+      're-read the changed objects, then call blender_session mark_read with the same scope before writing',
+      {
+        sessionId: session.id,
+        humanModifiedAt: session.humanModifiedAt,
+        changed: humanEdits.map((edit) => ({
+          kind: edit.kind,
+          name: edit.name,
+          revision: edit.revision,
+        })),
+      },
     )
   }
   if (opts.py && session.activePy && callerKey(session.activePy.caller) !== callerKey(c)) {

@@ -1,6 +1,8 @@
 import { claimExisting, createSession, pickInstance } from './attach.js'
 import { startVirtualGuiGate } from './display-gate.js'
 import { applyHumanPause } from './human.js'
+import { applyHumanEditsToSessions, markHumanRead } from './human-edits.js'
+import type { HumanEditInput } from './human-edits.js'
 import { presenceRows, setSelection, setView, touchAgent } from './presence.js'
 import { pyTimeoutFailure, waitForPyLock } from './py-lock.js'
 import { resolveGrantContext } from './grants.js'
@@ -205,6 +207,8 @@ export class SessionRegistry {
     s.activePy = null
     s.paused = false
     s.pausedAt = null
+    s.humanEdits.clear()
+    s.humanModifiedAt = null
     s.status = 'stopped'
   }
 
@@ -557,6 +561,18 @@ export class SessionRegistry {
   timeoutPy(c: CallerIdentity, sessionId?: string): SessionResult<{ running: boolean }> {
     const session = sessionId ? this.sessions.get(String(sessionId)) : this.findForCaller(c)
     return session ? pyTimeoutFailure(session, c) : { ok: true, running: false }
+  }
+
+  applyHumanEdits(instanceId: string | undefined, edits: HumanEditInput[]): number {
+    return applyHumanEditsToSessions(this.sessions, instanceId, edits)
+  }
+  markRead(
+    c: CallerIdentity,
+    sessionId: string | undefined,
+    scopes: unknown,
+  ): SessionResult<{ cleared: number }> {
+    this.prune()
+    return markHumanRead(this.sessions, c, sessionId, scopes)
   }
 
   applyHumanPause(instanceId: string | undefined, paused: boolean): number {

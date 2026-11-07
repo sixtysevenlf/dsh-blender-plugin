@@ -25,6 +25,7 @@ from .command_registry import (
     begin_agent_command,
     command_requires_network,
     command_mixins,
+    drain_human_edits,
     end_agent_command,
     gate_property,
     start_runtime_handlers,
@@ -298,6 +299,34 @@ class DSHBlenderBridgeServer(*command_mixins()):
         except Exception as exc:
             print("DSH Blender Bridge: failed to report the pause state: %s" % str(exc))
 
+    def _report_human_edits(self):
+        """Tell the Gateway which objects/collections the human changed.
+
+        The Gateway turns this into a write-gate conflict so an agent re-reads
+        the scene instead of overwriting a human edit. Records are only kept in
+        memory and drained on the next main-thread tick.
+        """
+        try:
+            edits = drain_human_edits()
+        except Exception:
+            return
+        if not edits:
+            return
+        with self._connection_lock:
+            connection = self._connection
+        if connection is None or not self.connected:
+            return
+        try:
+            connection.send_text(json.dumps({
+                "type": "event",
+                "name": "human_edit",
+                "instanceId": _INSTANCE_ID,
+                "objects": [e for e in edits if e.get("kind") == "object"],
+                "collections": [e for e in edits if e.get("kind") == "collection"],
+            }, ensure_ascii=False))
+        except Exception as exc:
+            print("DSH Blender Bridge: failed to report human edits: %s" % str(exc))
+
     def _handle_gateway_message(self, text, send):
         """Parse one Gateway message and queue it for the main-thread timer.
 
@@ -336,6 +365,7 @@ class DSHBlenderBridgeServer(*command_mixins()):
         except Exception:
             pass
         self._report_pause_change()
+        self._report_human_edits()
 
         while True:
             try:

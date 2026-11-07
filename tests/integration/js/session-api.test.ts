@@ -164,6 +164,41 @@ describe('Gateway session API', () => {
     expect(allowed.status).toBe(200)
   })
 
+  it('blocks a write after a human edit and clears it with mark_read', async () => {
+    const { backend, addons } = await setup()
+    const attached = await backend.post('/lease', { action: 'attach' }, main)
+    const sessionId = String(attached.json.session.id)
+    addons[0]!.sendEvent('human_edit', {
+      instanceId: 'inst-1',
+      objects: [{ kind: 'object', name: 'Cube', revision: 2 }],
+      collections: [],
+    })
+    await waitFor(async () => {
+      const who = await backend.get('/who', main)
+      return who.json.sessions?.[0]?.humanModified?.objects?.[0]?.name === 'Cube'
+    })
+    const blocked = await backend.post(
+      '/act',
+      { code: 'print(1)', write_scope: 'object:Cube', sessionId },
+      main,
+    )
+    expect(blocked.status).toBe(409)
+    expect(blocked.json.code).toBe('human_modified')
+    const marked = await backend.post(
+      '/lease',
+      { action: 'mark_read', sessionId, scopes: ['object:Cube'] },
+      main,
+    )
+    expect(marked.status).toBe(200)
+    expect(marked.json.cleared).toBe(1)
+    const allowed = await backend.post(
+      '/act',
+      { code: 'print(1)', write_scope: 'object:Cube', sessionId },
+      main,
+    )
+    expect(allowed.status).toBe(200)
+  })
+
   it('records presence views without changing the scene', async () => {
     const { backend } = await setup()
     await backend.post('/lease', { action: 'attach' }, main)

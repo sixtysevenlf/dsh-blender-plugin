@@ -62,6 +62,14 @@ export interface AgentPresence {
   displayName: string
 }
 
+/** One object/collection the human changed since the last mark_read. */
+export interface HumanEdit {
+  kind: 'object' | 'collection'
+  name: string
+  revision: number
+  at: number
+}
+
 export interface GrantRecord {
   id: string
   sessionId: string
@@ -92,6 +100,8 @@ export interface SessionRecord {
   paused: boolean
   pausedAt: number | null
   activePy: { caller: CallerIdentity; startedAt: number } | null
+  humanEdits: Map<string, HumanEdit>
+  humanModifiedAt: number | null
   createdAt: number
   lastActivityAt: number
 }
@@ -197,6 +207,17 @@ export function sessionView(s: SessionRecord): Record<string, unknown> {
     grants: [...s.grants.values()].map(grantView),
     activePy: s.activePy
       ? { holder: callerView(s.activePy.caller), startedAt: s.activePy.startedAt }
+      : null,
+    humanModified: s.humanEdits.size
+      ? {
+          at: s.humanModifiedAt,
+          objects: [...s.humanEdits.values()]
+            .filter((edit) => edit.kind === 'object')
+            .map((edit) => ({ name: edit.name, revision: edit.revision })),
+          collections: [...s.humanEdits.values()]
+            .filter((edit) => edit.kind === 'collection')
+            .map((edit) => ({ name: edit.name, revision: edit.revision })),
+        }
       : null,
     createdAt: s.createdAt,
     lastActivityAt: s.lastActivityAt,

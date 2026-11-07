@@ -25,6 +25,10 @@ class _Base:
     pass
 
 
+class _Object(_Base):
+    pass
+
+
 class _Scene(_Base):
     pass
 
@@ -173,6 +177,7 @@ def install():
         "WindowManager",
     ):
         setattr(types_mod, name, globals().get(name, _Base))
+    types_mod.Object = _Object
     types_mod.Collection = _Collection
     types_mod.Node = _Node
     types_mod.Scene = _Scene

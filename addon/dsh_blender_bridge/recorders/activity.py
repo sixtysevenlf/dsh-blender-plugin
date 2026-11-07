@@ -33,6 +33,8 @@ class ActivityTracker:
                            "mode": "OBJECT", "truncated": False}
         self._modal = []
         self._scene = None
+        self._human_edits = {}
+        self._edit_revision = 0
 
     def attach(self, recorder):
         self._recorder = recorder
@@ -55,6 +57,56 @@ class ActivityTracker:
     def note_agent_end(self, now=None):
         """Mark that an agent command just finished (so its side effects are not blamed on the human)."""
         self._last_agent_at = time.time() if now is None else float(now)
+
+    def note_depsgraph(self, depsgraph, now=None):
+        """Record objects/collections changed by the human since the last drain.
+
+        Agent dispatches hold AgentCommandGate, so their depsgraph updates are
+        ignored. Revisions are monotonic per session and only kept in memory.
+        """
+        if self._suppressed():
+            return
+        now = time.time() if now is None else float(now)
+        # Depsgraph evaluation can land just after the command context exits;
+        # treat that window as agent activity so side effects are not blamed on
+        # the human.
+        if self.agent_active(now):
+            return
+        try:
+            updates = list(depsgraph.updates)
+        except Exception:
+            return
+        for update in updates:
+            try:
+                idblock = update.id
+            except Exception:
+                continue
+            kind = None
+            if isinstance(idblock, bpy.types.Object):
+                kind = "object"
+            elif isinstance(idblock, bpy.types.Collection):
+                kind = "collection"
+            if kind is None:
+                continue
+            name = str(getattr(idblock, "name", "") or "")
+            if not name:
+                continue
+            self._edit_revision += 1
+            key = kind + ":" + name
+            if key not in self._human_edits and len(self._human_edits) >= 512:
+                self._human_edits.pop(next(iter(self._human_edits)))
+            self._human_edits[key] = {
+                "kind": kind,
+                "name": name,
+                "revision": self._edit_revision,
+                "at": now,
+            }
+
+    def drain_human_edits(self):
+        """Return and clear the pending human edit records for the Gateway."""
+        edits = list(self._human_edits.values())
+        self._human_edits.clear()
+        return edits
 
     def _resync(self):
         """Drop the previous selection fingerprint after agent commands (avoids a false 'human' event)."""
@@ -192,7 +244,10 @@ def _dshbb_activity_redo_post(scene, depsgraph=None):
 @persistent
 def _dshbb_activity_depsgraph_post(scene, depsgraph=None):
     try:
-        get_activity_tracker().tick()
+        tracker = get_activity_tracker()
+        if depsgraph is not None:
+            tracker.note_depsgraph(depsgraph)
+        tracker.tick()
     except Exception:
         pass
 
