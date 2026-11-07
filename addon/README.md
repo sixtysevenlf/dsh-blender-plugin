@@ -20,17 +20,17 @@
 | TCP 端口 | Gateway `127.0.0.1:39877`；addon 主动连接，不监听入站端口 |
 | 命令面 | 38 条（22 条常驻 + 16 条集成门控；命令名、参数、返回结构与 pause 语义与 v1.10 一致） |
 
-## 来源与许可（MIT）
+## 来源与许可（GPL-3.0-or-later，上游 MIT）
 
-本包是 [ahujasid/blender-mcp](https://github.com/ahujasid/blender-mcp) 的**衍生改名版**（MIT）。
-改名只动了**显示名、模块名与标识前缀**，**版权与许可文本原样保留**：
+本包是 [ahujasid/blender-mcp](https://github.com/ahujasid/blender-mcp) 的**衍生改名版**（上游 MIT）。
+改名只动了**显示名、模块名与标识前缀**，**上游版权与 MIT 许可声明保留**；本包整体按
+**GPL-3.0-or-later** 分发（见 `blender_manifest.toml` 的 `license`、包内 `LICENSE` 与 `NOTICE`）。
 
 ```
 # Code created by Siddharth Ahuja: www.github.com/ahujasid © 2025
-    "author": "Siddharth Ahuja",
 ```
 
-上游 MIT 许可要求保留上述版权声明 —— **请勿删除**。
+上游 MIT 许可要求保留上述版权声明 —— **请勿删除**；完整 MIT 文本与 GPL 文本随包分发。
 
 ## 构建 zip
 
@@ -41,7 +41,7 @@ node scripts/build-addon.mjs          # 写 addon/dsh_blender_bridge.zip
 node scripts/build-addon.mjs --check  # 只校验现有 zip 清单与版本
 ```
 
-zip 内只有一个包根 `dsh_blender_bridge/`，含 `blender_manifest.toml` 与全部 `.py` 模块，不含
+zip 内只有一个包根 `dsh_blender_bridge/`，含 `blender_manifest.toml`、`LICENSE`、`NOTICE` 与全部 `.py` 模块，不含
 `__pycache__` / `.pyc`，并使用固定时间戳保证可复现。构建脚本同时校验 manifest、`gateway_schema.py`
 与 `config/gateway.json` 的版本一致，并用 Blender 4.2 的 `--command extension validate` 验证产物。
 

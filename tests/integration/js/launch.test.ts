@@ -27,6 +27,8 @@ describe('launch name hints and boot script', () => {
       'addon_utils.enable',
       'spec_from_file_location',
       'DSH_BLENDER_LAUNCH_STATUS',
+      'addon_issue',
+      '_installed_addon_names',
       'dsh_blender_bridge',
       '_report',
     ]) {

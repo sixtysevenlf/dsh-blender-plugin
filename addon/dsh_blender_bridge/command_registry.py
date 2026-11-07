@@ -54,15 +54,17 @@ class CommandSpec(NamedTuple):
     handler: str
     gate: Optional[str]  # None for base commands, else a key of GATE_PROPERTIES
     pause_safe: bool
+    network: bool = False  # requires Blender's online access / an external API
 
 
-def _command(name, params=(), gate=None, pause_safe=None, handler=None):
+def _command(name, params=(), gate=None, pause_safe=None, handler=None, network=False):
     return CommandSpec(
         name=name,
         params=tuple(params),
         handler=handler or name,
         gate=gate,
         pause_safe=(name in PAUSE_SAFE_EXTRA) if pause_safe is None else bool(pause_safe),
+        network=network,
     )
 
 
@@ -95,31 +97,33 @@ REGISTERED_COMMANDS = (
     _command("get_polyhaven_categories", ("asset_type",), gate="polyhaven"),
     _command("search_polyhaven_assets",
              ("asset_type", "category", "attributes", "query", "limit", "min_size_m"),
-             gate="polyhaven"),
+             gate="polyhaven", network=True),
     _command("download_polyhaven_asset",
-             ("asset_id", "asset_type", "resolution", "file_format"), gate="polyhaven"),
-    _command("get_polyhaven_asset_preview", ("asset_id",), gate="polyhaven"),
+             ("asset_id", "asset_type", "resolution", "file_format"), gate="polyhaven",
+             network=True),
+    _command("get_polyhaven_asset_preview", ("asset_id",), gate="polyhaven", network=True),
     _command("set_texture", ("object_name", "texture_id"), gate="polyhaven"),
     # -- hyper3d gate ------------------------------------------------------
     # The three wrappers dispatch on *args/**kwargs to main-site / fal.ai paths.
-    _command("create_rodin_job", (), gate="hyper3d"),
-    _command("poll_rodin_job_status", (), gate="hyper3d"),
-    _command("import_generated_asset", (), gate="hyper3d"),
+    _command("create_rodin_job", (), gate="hyper3d", network=True),
+    _command("poll_rodin_job_status", (), gate="hyper3d", network=True),
+    _command("import_generated_asset", (), gate="hyper3d", network=True),
     # -- sketchfab gate ----------------------------------------------------
     _command("search_sketchfab_models", ("query", "categories", "count", "downloadable"),
-             gate="sketchfab"),
-    _command("get_sketchfab_model_preview", ("uid",), gate="sketchfab"),
+             gate="sketchfab", network=True),
+    _command("get_sketchfab_model_preview", ("uid",), gate="sketchfab", network=True),
     _command("download_sketchfab_model", ("uid", "normalize_size", "target_size"),
-             gate="sketchfab"),
+             gate="sketchfab", network=True),
     # -- polypizza gate ----------------------------------------------------
     _command("search_polypizza_models",
-             ("query", "category", "licence", "animated", "limit", "page"), gate="polypizza"),
+             ("query", "category", "licence", "animated", "limit", "page"), gate="polypizza",
+             network=True),
     _command("download_polypizza_model", ("model_id", "normalize_size", "target_size"),
-             gate="polypizza"),
+             gate="polypizza", network=True),
     # -- hunyuan gate ------------------------------------------------------
-    _command("create_hunyuan_job", (), gate="hunyuan"),
-    _command("poll_hunyuan_job_status", (), gate="hunyuan"),
-    _command("import_generated_asset_hunyuan", (), gate="hunyuan"),
+    _command("create_hunyuan_job", (), gate="hunyuan", network=True),
+    _command("poll_hunyuan_job_status", (), gate="hunyuan", network=True),
+    _command("import_generated_asset_hunyuan", (), gate="hunyuan", network=True),
 )
 
 # Transport liveness probe, not a catalog command, but part of the wire surface.
@@ -164,6 +168,12 @@ def command_spec(name):
 def gate_property(spec):
     """Scene property that gates a command (None for base commands)."""
     return GATE_PROPERTIES.get(spec.gate) if spec and spec.gate else None
+
+
+def command_requires_network(name):
+    """True when a wire command calls an external API and needs online access."""
+    spec = WIRE_SPECS.get(name)
+    return bool(spec and spec.network)
 
 
 # ---------------------------------------------------------------------------

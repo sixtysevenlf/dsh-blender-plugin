@@ -3,8 +3,8 @@
  * Build addon/dsh_blender_bridge.zip from the add-on package.
  *
  * The zip has a single package root (dsh_blender_bridge/) containing
- * blender_manifest.toml and every .py module, so Blender treats it as one
- * add-on or extension. Entries are stored (no compression) and use a fixed
+ * blender_manifest.toml, the license/notice files and every .py module, so
+ * Blender treats it as one add-on or extension. Entries are stored (no compression) and use a fixed
  * DOS timestamp so identical trees produce identical bytes. No __pycache__ /
  * .pyc files are included.
  *
@@ -24,6 +24,7 @@ const PACKAGE_DIR = join(ROOT, 'addon', 'dsh_blender_bridge')
 const ZIP_PATH = join(ROOT, 'addon', 'dsh_blender_bridge.zip')
 const PACKAGE_ROOT = 'dsh_blender_bridge'
 const CHECK_ONLY = process.argv.includes('--check')
+const EXTRA_FILES = new Set(['blender_manifest.toml', 'LICENSE', 'NOTICE'])
 
 function fail(message) {
   console.error('build-addon: ' + message)
@@ -38,7 +39,7 @@ function walk(dir) {
     if (stat.isDirectory()) {
       if (name === '__pycache__') continue
       out.push(...walk(path))
-    } else if (stat.isFile() && (name.endsWith('.py') || name === 'blender_manifest.toml')) {
+    } else if (stat.isFile() && (name.endsWith('.py') || EXTRA_FILES.has(name))) {
       out.push(path)
     }
   }
@@ -209,6 +210,11 @@ function main() {
     if (!entries.some((entry) => entry.name === PACKAGE_ROOT + '/blender_manifest.toml')) {
       fail('zip does not contain blender_manifest.toml at its root')
     }
+    for (const extra of ['LICENSE', 'NOTICE']) {
+      if (!entries.some((entry) => entry.name === PACKAGE_ROOT + '/' + extra)) {
+        fail('zip does not contain ' + extra + ' at its root')
+      }
+    }
     for (const entry of entries) {
       if (!entry.name.startsWith(PACKAGE_ROOT + '/'))
         fail('zip entry outside package root: ' + entry.name)
@@ -245,6 +251,11 @@ function main() {
   }
   if (!files.some((path) => zipName(path) === PACKAGE_ROOT + '/blender_manifest.toml')) {
     fail('package root blender_manifest.toml is missing')
+  }
+  for (const extra of ['LICENSE', 'NOTICE']) {
+    if (!files.some((path) => zipName(path) === PACKAGE_ROOT + '/' + extra)) {
+      fail('package root ' + extra + ' is missing')
+    }
   }
   // Normalize line endings so the committed zip is reproducible across checkouts
   // (Git may materialize the Python sources with CRLF on Windows).

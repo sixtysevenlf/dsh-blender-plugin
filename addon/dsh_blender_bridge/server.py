@@ -23,6 +23,7 @@ from .command_registry import (
     COMMAND_NAMES,
     WIRE_SPECS,
     begin_agent_command,
+    command_requires_network,
     command_mixins,
     drain_edit_recorder,
     end_agent_command,
@@ -31,7 +32,14 @@ from .command_registry import (
     stop_runtime_handlers,
     tick_activity,
 )
-from .config import get_credential, get_gateway_host, get_gateway_port, gateway_url
+from .config import (
+    get_credential,
+    get_gateway_host,
+    get_gateway_port,
+    gateway_url,
+    online_access_enabled,
+    online_access_error,
+)
 from .gateway_schema import ADDON_WS_PATH, ADDON_VERSION as ADDON_VERSION_TEXT
 from .protocol import ADDON_PROTOCOL_VERSION, ai_paused, is_pause_safe_command
 
@@ -401,6 +409,8 @@ class DSHBlenderBridgeServer(*command_mixins()):
         handler = self._resolve_handler(cmd_type)
         if not handler:
             return {"status": "error", "message": "Unknown command type: %s" % cmd_type}
+        if command_requires_network(cmd_type) and not online_access_enabled():
+            return online_access_error()
 
         try:
             print("Executing handler for %s" % cmd_type)

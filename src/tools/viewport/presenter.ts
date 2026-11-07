@@ -125,6 +125,11 @@ function appendLaunchBootLines(lines: string[], x: Record<string, unknown>): voi
     )
     const bootErrors = asArray(b.errors)
     if (bootErrors.length) lines.push('boot 错误：' + bootErrors.slice(0, 4).map(text).join(' | '))
+    const issue = asRecord(b.addon_issue)
+    if (issue.code) {
+      lines.push('addon 状态：' + text(issue.code) + ' — ' + text(issue.detail || ''))
+      if (issue.fix) lines.push('修法：' + text(issue.fix))
+    }
     if (b.env) lines.push('boot 环境：' + JSON.stringify(b.env))
     const seen = asArray(b.addon_modules_seen)
     if (seen.length)

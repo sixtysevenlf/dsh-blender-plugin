@@ -26,10 +26,14 @@ def _package_python_files():
 
 
 def _package_entries():
-    """Every file the deterministic builder ships, including the manifest."""
+    """Every file the deterministic builder ships, including metadata and licenses."""
     return sorted(
         [PACKAGE_ROOT + "/" + relative for relative in _package_python_files()]
-        + [PACKAGE_ROOT + "/blender_manifest.toml"]
+        + [
+            PACKAGE_ROOT + "/blender_manifest.toml",
+            PACKAGE_ROOT + "/LICENSE",
+            PACKAGE_ROOT + "/NOTICE",
+        ]
     )
 
 
@@ -52,6 +56,10 @@ def test_zip_manifest_has_package_root_and_all_python_files():
         assert 'id = "dsh_blender_bridge"' in manifest
         assert 'version = "2.0.0"' in manifest
         assert 'license = ["SPDX:GPL-3.0-or-later"]' in manifest
+        assert "GNU GENERAL PUBLIC LICENSE" in archive.read(PACKAGE_ROOT + "/LICENSE").decode("utf-8")
+        notice = archive.read(PACKAGE_ROOT + "/NOTICE").decode("utf-8")
+        assert "github.com/ahujasid/blender-mcp" in notice
+        assert "MIT License" in notice
 
 
 def test_zip_installs_as_package_and_registers_from_any_cwd(tmp_path, monkeypatch):
@@ -104,7 +112,7 @@ def test_zip_contains_the_whole_module_package_without_the_old_single_file():
     with zipfile.ZipFile(ZIP_PATH) as archive:
         names = archive.namelist()
     expected = _package_entries()
-    assert len(expected) == 74
+    assert len(expected) == 76
     assert names == expected
     assert PACKAGE_ROOT + ".py" not in names
     assert PACKAGE_ROOT + "/blender_manifest.toml" in names

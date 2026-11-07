@@ -158,6 +158,13 @@ function missingBlenderPathResult(ctx: LaunchContext, exe: string): Record<strin
   })
 }
 
+function bootAddonIssue(boot: unknown): Record<string, unknown> | null {
+  if (!boot || typeof boot !== 'object') return null
+  const issue = (boot as { addon_issue?: unknown }).addon_issue
+  if (!issue || typeof issue !== 'object') return null
+  return issue as Record<string, unknown>
+}
+
 function spawnErrorText(spawnErr: unknown): string {
   return String(
     spawnErr !== null && typeof spawnErr === 'object' && 'message' in spawnErr
@@ -192,6 +199,7 @@ async function runSpawnedBlender(
     '已 spawn ' + exe + ' pid=' + String(child ? child.pid : null) + '（detached，与后端进程解耦）',
   )
   const boot = readJsonSafe(ctx.statusWsl)
+  const addonIssue = bootAddonIssue(boot)
   if (listening)
     ctx.steps.push(
       'Gateway 已看到 ' +
@@ -210,13 +218,19 @@ async function runSpawnedBlender(
     waitedMs: Date.now() - ctx.started,
     steps: ctx.steps,
     boot: boot,
+    addonIssue: addonIssue,
     bootScript: plan.sp.win,
     args: plan.args,
     hint: listening
       ? 'GUI Blender 已起来，addon 已连接 Gateway —— 现在可以用 rt_do / rt_see 了（写操作记得 blender_viewport op=lease 拿租约）'
-      : '等待 ' +
-        String(ctx.waitMs) +
-        'ms Gateway 仍未看到 addon 实例：看 statusFile 里的 boot 结论（addon 没被扫到 / 不是 GUI 模式 / exe 起了但崩了）和 /doctor',
+      : addonIssue && addonIssue.fix
+        ? 'GUI Blender 已启动，但 addon 不可用（' +
+          String(addonIssue.code || 'unknown') +
+          '）：' +
+          String(addonIssue.fix)
+        : '等待 ' +
+          String(ctx.waitMs) +
+          'ms Gateway 仍未看到 addon 实例：看 statusFile 里的 boot 结论（addon 没被扫到 / 不是 GUI 模式 / exe 起了但崩了）和 /doctor',
   })
 }
 

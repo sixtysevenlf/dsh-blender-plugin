@@ -65,6 +65,13 @@ describe('CI workflow hygiene', () => {
     }
   })
 
+  it('validates the addon package with a pinned Blender 4.2 LTS validator', () => {
+    expect(pr).toContain('blender-4.2.10-linux-x64.tar.xz')
+    expect(pr).toContain('key: blender-4.2.10-linux-x64')
+    expect(pr).toContain('--command extension validate addon/dsh_blender_bridge.zip')
+    expect(pr).toContain('Reject an invalid extension package')
+  })
+
   it('keeps manual CD inputs typed and gated', () => {
     expect(release).toContain('if: ${{ !inputs.dry_run }}')
     expect(release).toContain('if: ${{ !inputs.dry_run && inputs.publish_npm }}')

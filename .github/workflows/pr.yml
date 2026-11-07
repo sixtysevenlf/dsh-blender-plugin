@@ -99,6 +99,48 @@ jobs:
           PYTHON: .venv/bin/python
         run: npm run check:python-static
 
+  extension:
+    name: Blender extension package validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+      - name: Build the addon package
+        run: npm run build:addon
+      - name: Cache Blender 4.2 LTS
+        id: blender-cache
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        with:
+          path: .cache/blender-4.2.10
+          key: blender-4.2.10-linux-x64
+      - name: Download Blender 4.2.10 LTS
+        if: steps.blender-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p .cache
+          curl -fsSL https://mirrors.ocf.berkeley.edu/blender/release/Blender4.2/blender-4.2.10-linux-x64.tar.xz -o /tmp/blender-4.2.10.tar.xz
+          echo "7b888b36cf5bd7e35d495eb9717f7a9b645ea5f2fb4fe9850991800b8f08d531  /tmp/blender-4.2.10.tar.xz" | sha256sum -c -
+          mkdir -p .cache/blender-4.2.10
+          tar -xJf /tmp/blender-4.2.10.tar.xz -C .cache/blender-4.2.10 --strip-components=1
+      - name: Record the validator version
+        run: .cache/blender-4.2.10/blender --version | head -n 1
+      - name: Reject an invalid extension package
+        run: |
+          printf 'not a blender extension\n' > /tmp/invalid-extension.zip
+          if .cache/blender-4.2.10/blender --command extension validate /tmp/invalid-extension.zip; then
+            echo "::error::the validator accepted an invalid package"
+            exit 1
+          fi
+      - name: Validate the addon package
+        run: .cache/blender-4.2.10/blender --command extension validate addon/dsh_blender_bridge.zip
+
   coverage:
     name: Coverage ratchet
     runs-on: ubuntu-latest

@@ -70,6 +70,29 @@ def test_protocol_no_longer_reexports_the_command_registry():
         assert not hasattr(protocol, name), name
 
 
+def test_network_commands_are_declared_with_their_policy():
+    expected = {
+        "search_polyhaven_assets",
+        "download_polyhaven_asset",
+        "get_polyhaven_asset_preview",
+        "create_rodin_job",
+        "poll_rodin_job_status",
+        "import_generated_asset",
+        "search_sketchfab_models",
+        "get_sketchfab_model_preview",
+        "download_sketchfab_model",
+        "search_polypizza_models",
+        "download_polypizza_model",
+        "create_hunyuan_job",
+        "poll_hunyuan_job_status",
+        "import_generated_asset_hunyuan",
+    }
+    assert {spec.name for spec in registry.REGISTERED_COMMANDS if spec.network} == expected
+    assert registry.command_requires_network("search_polyhaven_assets") is True
+    assert registry.command_requires_network("get_scene_info") is False
+    assert registry.command_requires_network("not_a_command") is False
+
+
 def test_groups_cover_every_command_once():
     assert registry.GROUP_ORDER == (
         "base", "polyhaven", "hyper3d", "sketchfab", "polypizza", "hunyuan")

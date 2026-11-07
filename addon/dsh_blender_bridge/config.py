@@ -76,6 +76,26 @@ POLYHAVEN_SITE = "https://polyhaven.com"
 REQ_HEADERS = requests.utils.default_headers()
 REQ_HEADERS.update({"User-Agent": "dsh-blender-bridge"})
 
+# 3.1 network policy: asset integrations call external APIs. Blender exposes a
+# global online-access switch; keep local scene/bridge commands usable when it
+# is off, but refuse network commands with a structured policy error.
+def online_access_enabled():
+    try:
+        return bool(bpy.app.online_access)
+    except Exception:
+        return True
+
+
+def online_access_error():
+    return {
+        "status": "error",
+        "code": "network_policy",
+        "message": "Blender online access is disabled; this command needs network access.",
+        "fix": "Enable Edit > Preferences > System > Network > Allow Online Access, then retry. "
+               "Local scene and bridge commands keep working while it is off.",
+    }
+
+
 # Set when the user disconnects so opening another blend file does not restart
 # the server behind their back. A manual connect or add-on reload clears it.
 _user_stopped_server = False
