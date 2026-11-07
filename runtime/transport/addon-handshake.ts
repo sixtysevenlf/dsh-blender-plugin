@@ -111,6 +111,16 @@ export function validateHandshake(value: unknown): HandshakeResult {
   }
 }
 
+/** The most recent rejected handshake, kept so /doctor can attribute a version mismatch. */
+export interface AddonHandshakeError {
+  stage: 'handshake'
+  code: string
+  message: string
+  fix: string
+  upgrade_required?: boolean
+  at: number
+}
+
 export interface AddonInstanceView {
   instanceId: string
   kind: AddonKind
@@ -128,4 +138,11 @@ export interface AddonInstanceView {
 export function gatewayInstances(addon: unknown): AddonInstanceView[] | null {
   const value = (addon as { instances?: unknown } | null | undefined)?.instances
   return Array.isArray(value) ? (value as AddonInstanceView[]) : null
+}
+
+/** Return the last rejected handshake on a Gateway client, null for the legacy client. */
+export function gatewayHandshakeError(addon: unknown): AddonHandshakeError | null {
+  const value = (addon as { lastHandshakeError?: unknown } | null | undefined)?.lastHandshakeError
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  return value as AddonHandshakeError
 }

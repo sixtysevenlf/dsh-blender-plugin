@@ -13,6 +13,7 @@ import {
   sleep,
   startBackend,
 } from '../../host/backend/index.js'
+import { resetGatewayRestartBudget } from '../../host/backend/restart.js'
 import { backendJson, backendPost } from '../../host/http.js'
 import { probeHttp, waitHttp } from '../../host/runtime-bridge.js'
 import { errorMessage, text } from '../../contracts/dynamic.js'
@@ -42,6 +43,7 @@ export async function executeViewport(
 
 async function opStart(port: number): Promise<string> {
   setPaused(false)
+  resetGatewayRestartBudget()
   const url = base(port) + '/health'
   if (await probeHttp(url, 800)) return formatBackendUp(port)
   const how = await startBackend(port)
@@ -87,6 +89,7 @@ async function formatBackendUp(port: number, how?: string): Promise<string> {
 
 async function opRestart(port: number): Promise<string> {
   setPaused(false)
+  resetGatewayRestartBudget()
   killChildHandle()
   killBackendByCmd(port)
   await sleep(500)

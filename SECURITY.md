@@ -25,7 +25,7 @@ This plugin **by design** executes code and starts processes; it is not a read-o
 | Surface | Description |
 |---|---|
 | Blender-side Python | `blender_rt_do` / `blender_rt_headless` / `blender_rt_worker` / `blender_rt_plan` pass caller-provided Python to Blender's `bpy`; `K` is a persistent kernel that survives across calls |
-| Local processes | Starts the backend `node lib/runtime/server.js` (after `npm run build`), headless `blender -b`, and external validators under `runtime/ext/` (glTF-Validator / open3d); uses `SIGTERM` then `SIGKILL` to clean up a residual backend when needed |
+| Local processes | Starts the backend `node lib/runtime/gateway.js` (after `npm run build`), headless `blender -b`, and external validators under `runtime/ext/` (glTF-Validator / open3d); uses `SIGTERM` then `SIGKILL` to clean up a residual backend when needed |
 | Local network | The backend listens only on `127.0.0.1` (default 9877); it talks to the Blender addon over TCP on `127.0.0.1:9876`. The plugin itself makes **no** outbound telemetry calls |
 | File I/O | Default work directory is `~/.dsh-blender-rt` (override with `DSH_BLENDER_*` environment variables or a root `dsh-blender.config.json`): renders, logs, and the job ledger |
 | Gate expressions | `gate_run`'s `pass_if` / `degrade_if` are **restricted expressions**: first checked against the syntax whitelist in `runtime/py/core/gate.py` (`_check_ast`), then evaluated node by node (`_eval_node`); **no `eval` / `exec`**; underscore attributes are denied; functions are limited to `min` / `max` / `len` / `abs` / `round` / `all` / `any` / `sum` / `float` / `int` / `str` |

@@ -1,7 +1,11 @@
 // engine API：通道诊断
 import { diagnose, freshPing, protocolInfo, tcpProbe } from '../../transport/probes.js'
-import { ADDON_PROTOCOL_VERSION, gatewayInstances } from '../../transport/addon-ws.js'
-import type { AddonInstanceView } from '../../transport/addon-ws.js'
+import {
+  ADDON_PROTOCOL_VERSION,
+  gatewayHandshakeError,
+  gatewayInstances,
+} from '../../transport/addon-ws.js'
+import type { AddonHandshakeError, AddonInstanceView } from '../../transport/addon-ws.js'
 import type { Diagnosis } from '../../transport/probes.js'
 import { FLAGS_CODE, REGION_CODE } from '../flags.js'
 import { jsonFromStdout } from '../output/index.js'
@@ -176,6 +180,25 @@ async function failedDoctor(
   return { ok: false, addon, metrics: metricsView(E), error: err }
 }
 
+function handshakeDiagnosis(rejection: AddonHandshakeError): Record<string, unknown> {
+  return {
+    kind: 'addon-handshake-rejected',
+    stage: 'handshake',
+    connected: false,
+    tcp: true,
+    ready_instances: 0,
+    code: rejection.code,
+    upgrade_required: rejection.upgrade_required === true,
+    summary:
+      'Gateway 在，但 addon 握手被拒绝：' +
+      rejection.message +
+      '这不是 addon 未启动，而是 addon 版本/协议不匹配。',
+    fix: rejection.fix,
+    hint: '旧 addon 重连会持续被拒绝；升级到 2.0.0（protocol 12）并重启 Blender。',
+    error: rejection.message,
+  }
+}
+
 function noAddonDiagnosis(instances: AddonInstanceView[]): Record<string, unknown> {
   return {
     kind: 'addon-unreachable',
@@ -254,7 +277,8 @@ async function gatewayDoctor(
   const t0 = Date.now()
   const ready = instances.filter((x) => x.ready)
   if (ready.length === 0) {
-    const addon = noAddonDiagnosis(instances)
+    const rejected = gatewayHandshakeError(E.addon)
+    const addon = rejected ? handshakeDiagnosis(rejected) : noAddonDiagnosis(instances)
     return { ok: false, addon, metrics: metricsView(E), error: addon.error }
   }
   if (ready.length > 1) {

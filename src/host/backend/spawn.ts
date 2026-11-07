@@ -1,10 +1,30 @@
 /** host/backend/spawn：子进程句柄与生命周期（issue #51 的 win32 三件套集中在这里）。 */
 import { spawn } from 'node:child_process'
 import type { ChildProcess } from 'node:child_process'
+import { closeSync, mkdirSync, openSync } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { GATEWAY_PATH } from '../../constants.js'
 import { winKillPids } from '../runtime-bridge.js'
 
 let child: ChildProcess | null = null
+
+function openGatewayLog(): number | null {
+  try {
+    return openSync(gatewayLogPath(), 'a')
+  } catch {
+    return null
+  }
+}
+
+/** Host-side Gateway log; the child inherits the same file for stdout and stderr. */
+export function gatewayLogPath(): string {
+  const dir = process.env.DSH_BLENDER_WORKDIR
+    ? path.join(process.env.DSH_BLENDER_WORKDIR, 'logs')
+    : path.join(os.tmpdir(), 'dsh-blender-gateway')
+  mkdirSync(dir, { recursive: true })
+  return path.join(dir, 'gateway-host.log')
+}
 
 /** 子进程是否真的还活着：被信号杀掉时 exitCode 仍为 null、只有 signalCode 有值 */
 export function childAlive(): boolean {
@@ -17,12 +37,20 @@ export function spawnChild(port: number): string {
   //      不带这个变量会另起一个 GUI 实例（或直接被单实例锁吞掉），而不是 node 子进程；
   //   ② windowsHide：console-subsystem 可执行体在"宿主无控制台"时会新配一个控制台（#38/#43 同族）；
   //   ③ detached=false：Gateway 生命周期归 host/plugin；不 detach、不 unref，host 退出由插件清理。
+  const logFd = openGatewayLog()
   const spawned = spawn(process.execPath, [GATEWAY_PATH, '--port', String(port)], {
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
-    stdio: 'ignore',
+    stdio: logFd === null ? 'ignore' : ['ignore', logFd, logFd],
     detached: false,
     windowsHide: true,
   })
+  if (logFd !== null) {
+    try {
+      closeSync(logFd)
+    } catch {
+      /* the child keeps its inherited handle */
+    }
+  }
   child = spawned
   // ★ 必须挂监听：spawn 的失败（EPERM / EACCES / ENOENT）是**异步 'error' 事件**。
   //   没有监听时它会冒到宿主的 uncaughtException —— 现场（#51）表现为 dsh-desktop-host 每 15 s

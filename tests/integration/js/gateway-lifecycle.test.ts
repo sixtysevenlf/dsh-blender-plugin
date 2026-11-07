@@ -24,6 +24,23 @@ afterEach(async () => {
 })
 
 describe('Gateway single-host lifecycle', () => {
+  it('exposes the single owner through /health', async () => {
+    const app = make()
+    const started = await startGateway(app, { handleSignals: false })
+    expect(started.ok).toBe(true)
+    const health = (await (
+      await fetch('http://127.0.0.1:' + String(started.port) + '/health')
+    ).json()) as any
+    expect(health.ok).toBe(true)
+    expect(health.gateway).toMatchObject({
+      port: started.port,
+      pid: process.pid,
+      gatewayId: started.owner?.gatewayId,
+      hostId: started.owner?.hostId,
+    })
+    expect(health.gateway.endpoint).toBe('ws://127.0.0.1:' + String(started.port) + '/addon')
+  })
+
   it('writes the owner file on start and removes it on stop', async () => {
     const app = make()
     const started = await startGateway(app, { handleSignals: false })
@@ -41,6 +58,26 @@ describe('Gateway single-host lifecycle', () => {
 
     stopGateway(app)
     expect(readGatewayOwner(port)).toBeNull()
+  })
+
+  it('lets a reloaded host stop the old Gateway and take the port again', async () => {
+    const first = make()
+    const started = await startGateway(first, { handleSignals: false })
+    expect(started.ok).toBe(true)
+    const port = started.port
+    const oldId = started.owner?.gatewayId
+    stopGateway(first)
+    expect(readGatewayOwner(port)).toBeNull()
+
+    const second = make(port)
+    const restarted = await startGateway(second, { handleSignals: false })
+    expect(restarted.ok).toBe(true)
+    expect(restarted.port).toBe(port)
+    expect(restarted.owner?.gatewayId).not.toBe(oldId)
+    const health = (await (
+      await fetch('http://127.0.0.1:' + String(port) + '/health')
+    ).json()) as any
+    expect(health.gateway.gatewayId).toBe(restarted.owner?.gatewayId)
   })
 
   it('fails closed with GATEWAY_IN_USE for another host within 3s', async () => {

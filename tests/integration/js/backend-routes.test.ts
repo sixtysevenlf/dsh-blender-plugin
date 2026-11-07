@@ -240,6 +240,7 @@ describe('port conflict contract', () => {
     await new Promise<void>((resolve) => blocker.listen(0, '127.0.0.1', resolve))
     const port = (blocker.address() as any).port
     const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-t14-conflict-'))
+    const startedAt = Date.now()
     const child = spawnServer(port, workDir, await freePort())
     let err = ''
     child.stderr?.on('data', (d) => {
@@ -261,7 +262,20 @@ describe('port conflict contract', () => {
     try {
       fs.rmSync(workDir, { recursive: true, force: true })
     } catch (e) {}
+    const elapsed = Date.now() - startedAt
     expect(code).toBe(1)
-    expect(err).toContain('port_conflict')
+    expect(elapsed).toBeLessThan(3000)
+    const lines = err
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+    const failure = JSON.parse(lines[lines.length - 1])
+    expect(failure.code).toBe('port_conflict')
+    expect(failure.stage).toBe('config')
+    expect(failure.port).toBe(port)
+    expect(failure.evidence.probe.port).toBe(port)
+    expect(typeof failure.evidence.probe.pid).toBe('number')
+    expect(typeof failure.evidence.probe.process).toBe('string')
+    expect(String(failure.fix)).toContain('占用者')
   }, 20000)
 })

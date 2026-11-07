@@ -27,10 +27,15 @@ import {
   MAX_MESSAGE_BYTES,
 } from './gateway-schema.generated.js'
 import { validateHandshake } from './addon-handshake.js'
-import type { AddonHandshake, AddonInstanceView } from './addon-handshake.js'
+import type { AddonHandshake, AddonHandshakeError, AddonInstanceView } from './addon-handshake.js'
 
-export { validateHandshake, gatewayInstances } from './addon-handshake.js'
-export type { AddonHandshake, AddonInstanceView, HandshakeResult } from './addon-handshake.js'
+export { validateHandshake, gatewayInstances, gatewayHandshakeError } from './addon-handshake.js'
+export type {
+  AddonHandshake,
+  AddonHandshakeError,
+  AddonInstanceView,
+  HandshakeResult,
+} from './addon-handshake.js'
 
 export {
   ADDON_KINDS,
@@ -89,6 +94,8 @@ export interface AddonGatewayOptions {
 export class AddonGateway {
   readonly gatewayId: string
   readonly instances = new Map<string, AddonInstanceView>()
+  /** Most recent rejected handshake, so /doctor can report a version mismatch. */
+  lastHandshakeError: AddonHandshakeError | null = null
   private readonly sockets = new Set<Connection>()
   private readonly pending = new Map<string, PendingRequest>()
   private readonly heartbeatMs: number
@@ -375,6 +382,7 @@ export class AddonGateway {
     ) as unknown
     const result = validateHandshake(value)
     if (!result.ok) {
+      this.lastHandshakeError = { ...result, at: Date.now() }
       this.sendJson(conn, {
         type: 'handshake_error',
         stage: result.stage,
@@ -407,6 +415,7 @@ export class AddonGateway {
       epoch: conn.epoch,
     }
     this.instances.set(hs.instanceId, view)
+    this.lastHandshakeError = null
     this.sendJson(conn, {
       type: 'handshake_ok',
       gatewayId: this.gatewayId,
@@ -553,5 +562,8 @@ export class GatewayAddonClient {
   }
   get instances(): AddonInstanceView[] {
     return this.gateway.list()
+  }
+  get lastHandshakeError(): AddonHandshakeError | null {
+    return this.gateway.lastHandshakeError
   }
 }
