@@ -92,21 +92,22 @@
 - Windows W1（首选）：自写 Win32 helper（C++，无第三方依赖）实现 `CreateDesktopW` + `CreateJobObject` + `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` + `CreateProcessW(CREATE_SUSPENDED, lpDesktop)` + `AssignProcessToJobObject` + `ResumeThread`；Blender 是隐藏 desktop 上的 normal window，不是最小化，默认任务栏/Alt-Tab 不显示。helper 代理 stdout/stderr/exit，失败必须 fail closed，不能回退到用户默认 desktop。
 - helper 源码放 `tools/win-hidden-desktop/`，Windows CI 用 MSVC 构建并作为 Gateway 资源打包；不在仓库提交编译产物，发布包必须包含与源码版本匹配的 helper。
 - Windows W2（仅 fallback）：签名 IDD 虚拟显示驱动，只有在 W1 未通过 V0 的 GPU/GL 或 viewport parity 时才启用；安装必须用户明确同意、不能静默，报告驱动/UAC 前提和许可证/分发限制。
-- Linux L1（首选）：Xvfb 提供 X display，VirtualGL 把 GLX/EGL 转发到真实 GPU；每个实例独立 `:N`。provider 启动 Blender 前必须强制 X11（清除 `WAYLAND_DISPLAY`、`XDG_SESSION_TYPE=x11`），不能继承 WSLg/Wayland；VirtualGL 必须显式走 EGL device（如 `vglrun -d egl`），不能依赖 `vglrun -d :N` 默认选到 GLX/llvmpipe。stop 时按进程树终止 Blender、vglrun、Xvfb，重复 stop 幂等；只读 `-ac` 仅用于 loopback provider。GL renderer 为 llvmpipe/软件实现只能标 `preview-only`，必须在 start 时 fail closed，不能通过 gate。
+- Linux L1（首选）：Xvfb 提供 X display，VirtualGL 把 GLX/EGL 转发到真实 GPU；每个实例独立 `:N`。provider 启动 Blender 前必须强制 X11（清除 `WAYLAND_DISPLAY`、`XDG_SESSION_TYPE=x11`），不能继承 WSLg/Wayland；VirtualGL 必须显式走 EGL device（如 `vglrun -d egl`），不能依赖 `vglrun -d :N` 默认选到 GLX/llvmpipe。stop 时按进程树终止 Blender、vglrun、Xvfb，重复 stop 幂等；只读 `-ac` 仅用于 loopback provider。GL renderer 为 llvmpipe/软件实现只能标 `preview-only`，必须在 start 时 fail closed，不能通过 gate；非 root 场景必须在 spawn 前检查 `/dev/dri` 读权限，无权限时 fail closed 或只标 preview-only，不能静默回退 llvmpipe。
 - 不采用 WSL/WSLg/WSL+Xvfb、Xdummy、Weston headless 作为 3.1 provider；未来版本再评估。
 - V0 bake-off 是本 change 的发布门槛：Windows W1、Windows W2（仅 W1 失败时）、Linux L1 各跑同一组验收；通过后才在文档和配置里写默认 provider、fallback 顺序、virtual-gui 默认上限和安装前提。V0 是发布门槛，不是 apply 前代码门槛；可以先实现和合并代码，但在真实 Linux（Blender 4.2.10 LTS）与 user-gui parity 证据到位前不得发布 3.1，也不得宣称 virtual-gui 通过。Linux L1 当前为 PARTIAL（见下文），不得当作已通过。
-- V0 验收（每个通过的 provider 必须具备，Blender 基线固定 4.2.10 LTS；5.x 结果只作技术探查，不计入 V0）：`bpy.app.background == False`；GL renderer 为真实 GPU，非 llvmpipe/软件实现；`see` 通过插件 addon 的 GUI capture，并与同一 GPU/驱动/Blender 版本的真实 user-gui viewport 结果 parity（独立 Blender 截图或仅按文件大小判定不算）；2 个并发实例严格互不串场景（验收窗口内不得有第三个实例）；stop 幂等（SIGTERM/timer 正常退出、重复 stop 无孤儿）；截图像素内容校验（非全黑/非单色，双实例内容可区分）；非 root + `/dev/dri` 权限场景；安装前提可查询；锁屏/RDP/无显示环境行为已记录。
+- V0 验收（每个通过的 provider 必须具备，Blender 基线固定 4.2.10 LTS；5.x 结果只作技术探查，不计入 V0）：`bpy.app.background == False`；GL renderer 为真实 GPU，非 llvmpipe/软件实现；`see` 通过插件 addon 的 GUI capture，并与同一 GPU/驱动/Blender 版本的真实 user-gui viewport 结果 parity（独立 Blender 截图或仅按文件大小判定不算）；2 个并发实例严格互不串场景（验收窗口内不得有第三个实例）；stop 幂等（SIGTERM/timer 正常退出、重复 stop 无孤儿）；截图像素内容校验（非全黑/非单色，双实例内容可区分）；非 root 账号必须具备 `video`/`render` 组或等效 `/dev/dri` 读权限，否则 provider 必须 fail closed 或 preview-only，不能把软件 GL 当通过；安装前提可查询；锁屏/RDP/无显示环境行为已记录。
 - user-gui parity 环境必须是真实 GPU 桌面：物理桌面，或同机真实 Xorg（Xvfb 之外的 Xorg + VNC/dummy display）优先；普通 VM 的 virtio-gpu/virgl/llvmpipe 桌面不算，不能拿普通 VM 截图当 parity；GPU passthrough VM 只有在完整记录硬件/驱动/Blender 版本并经评审后才能作为 parity 环境。
 - 缺依赖是代码级硬门：provider 的 start 路径在 spawn 任何进程之前检查 prerequisites，缺失即拒绝；不存在 force/unsafe/skip-check 开关，agent 的意图不能绕过。UI 与 agent 都只能看到“不可用 + 缺什么 + 怎么装”，不能“先试一下”。
 - 依赖引导不是静默安装：provider `capabilities()` 报告 prerequisites 与安装状态；host 的 `doctor --fix` 与 addon 偏好设置按钮共用同一张 prerequisites 描述表；Ubuntu 22.04/24.04 与 Debian 12 的 `xvfb` 走发行版 apt（`pkexec` 一键安装）；`virtualgl` 先探测发行版仓库，Ubuntu 24.04 无包时给官方 `.deb`/官方仓库步骤，绝不能给不可执行的 `apt install virtualgl`；Fedora/Arch/无 polkit 环境只给准确命令；GPU 驱动只检测不安装；安装后必须复检 capabilities，失败保留原始 stderr 且不得把 provider 标为 ready。
 - 若 Windows 或 Linux 任一平台没有 provider 通过 V0：3.1 不发布，也不允许把 render/headless 当作替代；发布报告必须写明失败的测量项。
 
-#### Linux L1 V0 预验证记录（2026-11-07，PARTIAL，不计入通过）
+#### Linux L1 V0 预验证记录（2026-11-07，两轮，PARTIAL，不计入通过）
 
-- 环境：Ubuntu 24.04.5 / kernel 7.0.0-38 / AMD RX 7900 XTX / Mesa 25.2.8 / Blender 5.2.3 LTS / VirtualGL 3.1.5 / Xvfb 21.1.12；无桌面会话（`XDG_SESSION_TYPE=tty`，Xorg 未运行），未用 WSL。
-- 通过项：`bpy.app.background == False`；`vglrun -d egl` 的 renderer 为 `AMD Radeon RX 7900 XTX`、GL 4.6；单实例 GUI 截图约 358 KB；双实例红/蓝场景隔离成立；SIGTERM exit 143、0.045s，最终无孤儿。
-- 失败/不计入项：`vglrun -d :N` 回退到 llvmpipe（软件，不合格）；GLX/no-vgl 截图 12,014 B 全黑但 `screenshot_ok=true`，说明文件大小不能作为成功判据；截图后同步 `wm.quit_blender` 挂死 exit 124，timer quit exit 0 约 4.275s，故 provider stop 必须用 SIGTERM/timer 并做幂等；双实例重叠期前 9s 还有第三个 Blender（s11），不满足严格 2 实例；未用 Blender 4.2.10；未走插件 addon 的 `see`；无 user-gui parity；非 root `/dev/dri` 与 stop 幂等未验。
-- 结论：Linux L1 V0 = PARTIAL，不能勾选 5.8/5.20，也不能发布 3.1。证据在 `local-workspace/linux-v0-2026-11-07/`（不入库）；后续任务见 `tasks.md` 5.20a–5.20f。
+- 第一轮（初测，Blender 5.2.3）：Ubuntu 24.04.5 / AMD RX 7900 XTX / VirtualGL 3.1.5 / Xvfb；`vglrun -d egl` 为真实 AMD GPU，`vglrun -d :N` 为 llvmpipe；但同步退出挂死、GLX/no-vgl 12 KB 全黑截图 `screenshot_ok=true`、双实例重叠期存在第三个 Blender（s11），且未走插件 `see`、无 user-gui parity、非 root 与 stop 幂等未验。
+- 第二轮（follow-up，`local-workspace/linux-v0-followup-2026-11-07/`）：真实 Ubuntu 24.04.5 裸机（`systemd-detect-virt=none`）/ AMD RX 7900 XTX / Blender 4.2.10 LTS（tarball sha256 `7b888b36…`）/ VirtualGL 3.1.5 / Xvfb 21.1.12；`vglrun -d egl` 为 `AMD Radeon RX 7900 XTX (radeonsi, navi31, ...)`、GL 4.6；`vglrun -d :N` 负向为 llvmpipe + 12,007 B 全黑 screen。
+- 第二轮已补齐：4.2.10 基线；严格 2 实例（timer 版 0.4–2.2s 采样为 2，keepalive 变体 t+3s 为 2，无第三实例）；红/蓝 render sha 不同且像素分离；TERM 后 0.23s 消失、二次 TERM ESRCH、无孤儿；render/screen 像素统计非全黑/非单色；真实 Xorg `:1` + openbox + x11vnc 下为 amdgpu/glamor/radeonsi，user-gui 与 EGL 的 render sha256 完全相同（`7bb6593c…`）。
+- 第二轮仍未关闭：插件 `see` BLOCKED（目标机无 DSH/3.0.6 插件，未用独立截图冒充）；非 root 用户不在 `video`/`render` 组，`/dev/dri` 不可读，`vglrun -d egl` 回退 llvmpipe（未改组，属部署前置）；Xorg 用 1024×768 初始 framebuffer，主机 4 个输出全 disconnected，无物理显示器/交互登录会话，parity 只能算条件性。
+- 结论：Linux L1 V0 = PARTIAL；5.20a–5.20c、5.20f 的预验证已补齐，5.20d（插件 see）与 5.20e（非 root 硬件 GL）仍未完成，不能勾选 5.8/5.20，也不能发布 3.1。
 
 #### WSL PoC 记录（2026-11-07，补充证据，不计入 V0）
 
