@@ -125,6 +125,8 @@
     "check:routes": "node scripts/check-routes.mjs",
     "gen:gateway-schema": "node scripts/gen-gateway-schema.mjs",
     "check:gateway-schema": "node scripts/check-gateway-schema.mjs",
+    "gen:availability": "node scripts/gen-availability.mjs",
+    "check:availability": "node scripts/check-availability-schema.mjs",
     "check:function-budget": "node scripts/check-function-budget.mjs",
     "check:build": "node scripts/check-build.mjs",
     "check:git-hygiene": "node scripts/check-git-hygiene.mjs",
@@ -154,7 +156,7 @@
     "check:import-boundaries": "node scripts/check-import-boundaries.mjs",
     "check:doc-paths": "node scripts/check-doc-paths.mjs",
     "check:plan-ids": "node scripts/check-plan-ids.mjs",
-    "check:finalization": "npm run check:function-budget && npm run check:no-shims && npm run check:runtime-layout && npm run check:import-boundaries && npm run check:doc-paths && npm run check:gateway-schema && npm run typecheck:scripts"
+    "check:finalization": "npm run check:function-budget && npm run check:no-shims && npm run check:runtime-layout && npm run check:import-boundaries && npm run check:doc-paths && npm run check:gateway-schema && npm run check:availability && npm run typecheck:scripts"
   },
   "exports": {
     ".": {

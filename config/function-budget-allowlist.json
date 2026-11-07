@@ -1,7 +1,7 @@
 {
   "version": 1,
   "description": "Function-level budget registry (two-level exception model): every 80-120 line function is registered with a real classification, reason, class owner and future reviewBy; unregistered, unclassified, expired and stale entries fail. Functions over 120 lines always fail. Path-level file-budget exceptions live in config/exceptions.json.",
-  "generatedAt": "2026-11-04T18:53:21.007Z",
+  "generatedAt": "2026-11-07T17:26:59.072Z",
   "functions": [
     {
       "file": "addon/dsh_blender_bridge/commands/core/bpy_lookup.py",
@@ -73,15 +73,6 @@
       "classification": "integration-io",
       "reason": "Sketchfab HTTP client adapter: request, pagination and preview selection.",
       "owner": "addon",
-      "reviewBy": "2027-06-30"
-    },
-    {
-      "file": "runtime/core/engine-api/doctor.ts",
-      "name": "createDoctorApi",
-      "lines": 107,
-      "classification": "dispatch-table",
-      "reason": "Engine API factory: one handler per doctor/protocol/install/diagnose endpoint; length tracks endpoint count.",
-      "owner": "runtime",
       "reviewBy": "2027-06-30"
     },
     {
@@ -166,6 +157,15 @@
       "reviewBy": "2027-06-30"
     },
     {
+      "file": "runtime/execution/ledger/recover.ts",
+      "name": "recoverFromDisk",
+      "lines": 103,
+      "classification": "orchestration",
+      "reason": "Recovery orchestration across ledger, logs, artifacts and evidence.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
       "file": "runtime/execution/ledger/state.ts",
       "name": "createLedgerStore",
       "lines": 87,
@@ -186,7 +186,7 @@
     {
       "file": "runtime/http/routes/health.ts",
       "name": "createHealthRoutes",
-      "lines": 96,
+      "lines": 98,
       "classification": "dispatch-table",
       "reason": "HTTP route table: one handler per health/status endpoint.",
       "owner": "runtime",
@@ -883,15 +883,6 @@
       "classification": "formatting",
       "reason": "Visual report phase 2: defect rows and verdict formatting.",
       "owner": "host",
-      "reviewBy": "2027-06-30"
-    },
-    {
-      "file": "runtime/execution/ledger/recover.ts",
-      "name": "recoverFromDisk",
-      "lines": 103,
-      "classification": "orchestration",
-      "reason": "Recovery orchestration across ledger, logs, artifacts and evidence.",
-      "owner": "runtime",
       "reviewBy": "2027-06-30"
     },
     {

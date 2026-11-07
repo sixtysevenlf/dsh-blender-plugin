@@ -21,23 +21,49 @@ import { metricsView } from './metrics.js'
  * 这里的预算必须落在宿主之前，否则模型只拿到 aborted，看不到任何结构化诊断。
  */
 /**
- * /status 的 bpy 往返（REGION_CODE）预算：5s —— 修复后的诚实值（启动探测不再占串行队列头，
- * 修复前只能收到 3.5s）。注意 installAddonSend 在 transport 错误后还会串一次 diagnose()
- * （半开 addon 约 2.5s），所以这里不能贴着 host 的 20s，留足余量（半开稳态 ≈5s + 2.5s）。
+ * /status 的 bpy 往返（REGION_CODE）预算：2.5s。
+ *
+ * addon/bpy 的硬超时 <=3s，首调失败的第 95 百分位 <=3s；Gateway 路径的传输诊断是
+ * 同步的实例表判定（不再串 legacy 9876 的 ~2.5s diagnose），所以半开 addon 的
+ * /status 稳态 = 2.5s + 路由开销，落在预算内。
  */
-export const ADDON_STATUS_TIMEOUT_MS = 5000
-/** /doctor 的 status 阶段预算：4s（修复后回调；半开场景 ≈4s + 复用诊断 ≈2.5s，仍 <10s 目标）。 */
-export const ADDON_DOCTOR_STATUS_TIMEOUT_MS = 4000
-/** /commands 的 FLAGS + 5 个集成必须整段落在客户端预算内：15s + 5×(3s+~2.5s 诊断)≈42.5s < 45s 客户端 < 60s 宿主。 */
-export const ADDON_FLAGS_TIMEOUT_MS = 15000
-/** /commands 单个集成 status 预算（5 个串行；失败还会各串一次 ~2.5s 诊断，故取 3s）。 */
-export const ADDON_INTEGRATION_TIMEOUT_MS = 3000
+export const ADDON_STATUS_TIMEOUT_MS = 2500
+/** /doctor 的 status 阶段预算：2.5s；复用 statusView 的同源 readiness，不重复探测。 */
+export const ADDON_DOCTOR_STATUS_TIMEOUT_MS = 2500
+/** /commands 的 FLAGS 预算：2s（单层硬超时；commands 断连的 socket closed 不再叠加重试）。 */
+export const ADDON_FLAGS_TIMEOUT_MS = 2000
+/** /commands 单个集成 status 预算：1.5s；五个集成并行，总代价不随数量线性增长。 */
+export const ADDON_INTEGRATION_TIMEOUT_MS = 1500
 
 const TIMEOUT_RE = /timeout|timed out|aborted|abort/i
 
 /** 是否"等不到 addon 回包"类错误（超时/被 abort）：把失败归因到 addon/bpy 而不是后端进程。 */
 export function isAddonTimeout(e: unknown): boolean {
   return TIMEOUT_RE.test(errorMessage(e))
+}
+
+function readinessView(
+  instances: AddonInstanceView[] | null,
+  addonError: string | null,
+  handshakeError: AddonHandshakeError | null,
+): Record<string, unknown> {
+  const readyInstances = instances ? instances.filter((x) => x.ready) : []
+  const instanceId = readyInstances.length === 1 ? readyInstances[0].instanceId : null
+  const connected = instances === null ? !addonError : readyInstances.length > 0
+  const bpyOk = !addonError && (instances === null || readyInstances.length === 1)
+  return {
+    gateway: { live: true },
+    addon: {
+      connected,
+      ready_instances: instances === null ? null : readyInstances.length,
+      instanceId,
+      handshake_error: handshakeError,
+      kind: handshakeError ? 'addon-handshake-rejected' : null,
+    },
+    bpy: { ok: !addonError, error: addonError },
+    instanceId,
+    ready: bpyOk && connected,
+  }
 }
 
 export async function statusView(
@@ -71,6 +97,7 @@ export async function statusView(
   return {
     region: region,
     addonError: addonError,
+    readiness: readinessView(gatewayInstances(addon), addonError, gatewayHandshakeError(addon)),
     plugin: {
       version: PLUGIN_VERSION,
       runtimeDir: wslToWin(RUNTIME_DIR),
@@ -279,11 +306,23 @@ async function gatewayDoctor(
   if (ready.length === 0) {
     const rejected = gatewayHandshakeError(E.addon)
     const addon = rejected ? handshakeDiagnosis(rejected) : noAddonDiagnosis(instances)
-    return { ok: false, addon, metrics: metricsView(E), error: addon.error }
+    return {
+      ok: false,
+      addon,
+      readiness: readinessView(instances, String(addon.error || 'no addon'), rejected),
+      metrics: metricsView(E),
+      error: addon.error,
+    }
   }
   if (ready.length > 1) {
     const addon = ambiguousDiagnosis(ready)
-    return { ok: false, addon, metrics: metricsView(E), error: addon.error }
+    return {
+      ok: false,
+      addon,
+      readiness: readinessView(instances, String(addon.error || 'ambiguous instance'), null),
+      metrics: metricsView(E),
+      error: addon.error,
+    }
   }
   const instance = ready[0]
   try {
@@ -315,11 +354,60 @@ async function gatewayDoctor(
         fix: '无需处理',
         region: s.region,
       },
+      readiness: s.readiness,
       metrics: metricsView(E),
     }
   } catch (e) {
     return gatewayFailure(E, e, Date.now() - t0, instance)
   }
+}
+
+/** 五个集成 status 并行探测：一个卡住只付一份预算，而不是串行叠加。 */
+async function integrationStatus(E: EngineApiDeps): Promise<Record<string, unknown>> {
+  // 集成"开关已开但仍不可用"的实情（缺 key 等）由各自 status 命令回答
+  const integrations: Record<string, unknown> = {}
+  // Five independent status checks run in parallel: a stuck integration costs one
+  // 1.5s budget, not five serial budgets (single-layer bounded probe).
+  const probes = [
+    'get_polyhaven_status',
+    'get_hyper3d_status',
+    'get_sketchfab_status',
+    'get_polypizza_status',
+    'get_hunyuan3d_status',
+  ]
+  const results = await Promise.all(
+    probes.map(async (name) => {
+      const key = name.replace('get_', '').replace('_status', '')
+      try {
+        const r = await E.addon.send(name, {}, ADDON_INTEGRATION_TIMEOUT_MS)
+        const rr = (r || null) as Record<string, unknown> | null
+        return [
+          key,
+          {
+            enabled: !!(rr && rr.enabled),
+            message: String((rr && rr.message) || '')
+              .split('\n')[0]
+              .slice(0, 160),
+          },
+        ] as const
+      } catch (e) {
+        const timeout = isAddonTimeout(e)
+        const msg = errorMessage(e).slice(0, 120)
+        return [
+          key,
+          {
+            enabled: false,
+            timeout: timeout,
+            message: timeout
+              ? 'timeout（' + String(ADDON_INTEGRATION_TIMEOUT_MS) + 'ms）：' + msg
+              : msg,
+          },
+        ] as const
+      }
+    }),
+  )
+  for (const [key, value] of results) integrations[key] = value
+  return integrations
 }
 
 export function createDoctorApi(E: EngineApiDeps) {
@@ -388,36 +476,7 @@ export function createDoctorApi(E: EngineApiDeps) {
         if (!gate || flags[gate]) available.push(name)
         else disabled.push(name)
       }
-      // 集成"开关已开但仍不可用"的实情（缺 key 等）由各自 status 命令回答
-      const integrations: Record<string, unknown> = {}
-      for (const t of [
-        'get_polyhaven_status',
-        'get_hyper3d_status',
-        'get_sketchfab_status',
-        'get_polypizza_status',
-        'get_hunyuan3d_status',
-      ]) {
-        try {
-          const r = await addon.send(t, {}, ADDON_INTEGRATION_TIMEOUT_MS)
-          const rr = (r || null) as Record<string, unknown> | null
-          integrations[t.replace('get_', '').replace('_status', '')] = {
-            enabled: !!(rr && rr.enabled),
-            message: String((rr && rr.message) || '')
-              .split('\n')[0]
-              .slice(0, 160),
-          }
-        } catch (e) {
-          const timeout = isAddonTimeout(e)
-          const msg = errorMessage(e).slice(0, 120)
-          integrations[t.replace('get_', '').replace('_status', '')] = {
-            enabled: false,
-            timeout: timeout,
-            message: timeout
-              ? 'timeout（' + String(ADDON_INTEGRATION_TIMEOUT_MS) + 'ms）：' + msg
-              : msg,
-          }
-        }
-      }
+      const integrations = await integrationStatus(E)
       return {
         scene: meta.scene,
         file: meta.file,

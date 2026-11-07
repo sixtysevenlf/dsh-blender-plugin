@@ -34,11 +34,11 @@
 
 ## 3. 可用性统一契约
 
-- [ ] 3.1 新增 `config/availability.json`：stage 枚举、envelope 必填字段、fallback 类型；新增 schema 校验测试，缺字段/未知 stage 必红。
-- [ ] 3.2 在 `src/contracts/availability.ts` 与 runtime 侧实现同一构造器/序列化；所有 tool/route/job 失败改走该构造器；验证旧 generic error 的对照测试变红后修复。
-- [ ] 3.3 实现 stage 归因：config/session/spawn/transport/handshake/addon/bpy/queue/render 各自判定函数，禁止 unknown 折叠；用 3.0.6 A1–A6 的六类故障做参数化测试。
-- [ ] 3.4 统一 status/doctor readiness：Gateway liveness、addon control、bpy probe、instance identity 同源；验证 start 成功时 doctor 同一实例 ready，反之不 ready。
-- [ ] 3.5 把 `/health` 降为 liveness：不参与 readiness；验证 Gateway 存活但 addon 未连时 status 不报 ready。
+- [x] 3.1 新增 `config/availability.json`：stage 枚举、envelope 必填字段、fallback 类型；新增 schema 校验测试，缺字段/未知 stage 必红。
+- [x] 3.2 在 `src/contracts/availability.ts` 与 runtime 侧实现同一构造器/序列化；所有 tool/route/job 失败改走该构造器；验证旧 generic error 的对照测试变红后修复。
+- [x] 3.3 实现 stage 归因：config/session/spawn/transport/handshake/addon/bpy/queue/render 各自判定函数，禁止 unknown 折叠；用 3.0.6 A1–A6 的六类故障做参数化测试。
+- [x] 3.4 统一 status/doctor readiness：Gateway liveness、addon control、bpy probe、instance identity 同源；验证 start 成功时 doctor 同一实例 ready，反之不 ready。
+- [x] 3.5 把 `/health` 降为 liveness：不参与 readiness；验证 Gateway 存活但 addon 未连时 status 不报 ready。
 - [ ] 3.6 收紧诊断预算：config/session 决策 ≤100ms、spawn 预检 ≤250ms、transport/handshake/addon/bpy/queue/render 各自硬超时（≤3s）；失败首调 P95 口径按 design D2：本地 loopback、Gateway 已 ready、每个新 DSH session 第一次 session-bound 调用，A1–A6 每类至少 20 次冷调用，从 tool 入口计时到 envelope 返回，合并样本算 P95，排除安装/同意/Gateway 启动；验证半开 addon、无 exe、无会话、commands 断连、队列满或渲染失败都在预算内返回。本机健康暖调用基线已记录到 design D2（2026-11-07，`/status` P95 53.9ms、`/doctor` P95 108.0ms），但该基线不能替代失败首调采样。
 - [ ] 3.7 删除嵌套重试链：诊断只做单层有界探测；验证超时返回结构化 timeout，不出现 backend_unreachable 冒充 addon 故障。
 - [ ] 3.8 实现安全 fallback：显式不可用/降级路径；禁止可见 GUI、伪造渲染、旧拓扑回退；用“无 provider”“无 addon”“无 exe”三组测试验证 fallback 文案。

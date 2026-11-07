@@ -5,6 +5,8 @@ coverage/
 .venv/
 runtime/ext/
 runtime/transport/gateway-schema.generated.ts
+src/contracts/availability.generated.ts
+runtime/core/availability-schema.generated.ts
 
 # Vendored / generated assets
 addon/

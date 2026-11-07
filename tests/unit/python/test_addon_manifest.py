@@ -20,7 +20,7 @@ registration = importlib.import_module("addon.dsh_blender_bridge.registration")
 
 EXPECTED_PACKAGE_FILES = [
     "__init__.py", "assets/__init__.py", "assets/geometry.py",
-    "assets/io.py", "command_registry.py", "commands/__init__.py",
+    "assets/io.py", "availability.py", "availability_schema.py", "command_registry.py", "commands/__init__.py",
     "commands/activity.py", "commands/assets_polyhaven.py", "commands/core/__init__.py",
     "commands/core/bpy_lookup.py", "commands/core/describe.py", "commands/core/screenshot.py",
     "commands/hunyuan/__init__.py", "commands/hunyuan/client.py", "commands/hunyuan/importing.py",
@@ -68,7 +68,7 @@ def test_package_layout_is_exactly_the_two_level_split():
     root = Path(pkg.__file__).resolve().parent
     actual = sorted(path.relative_to(root).as_posix() for path in root.rglob("*.py"))
     assert actual == sorted(EXPECTED_PACKAGE_FILES)
-    assert len(actual) == 71
+    assert len(actual) == 73
     assert not (root.parent / "dsh_blender_bridge.py").exists(), "single-file install entry must be gone"
     assert not (root / "__pycache__").exists() or (root / "__pycache__").is_dir()
 

@@ -7,6 +7,7 @@ import { createFakeContext } from '../../../helpers/fake-context'
 import { closedPort, startFakeBackend } from '../../../helpers/fake-backend.mjs'
 import { validateFileOpt } from '../../../../runtime/file_guard.js'
 import { setPaused } from '../../../../src/host/backend/index'
+import { validateAvailabilityEnvelope } from '../../../../src/contracts/availability'
 
 const { losslessSanitize, errorLine, redactSecrets, toolError, headlessReceipt } =
   plugin.__internals
@@ -79,6 +80,12 @@ describe('error, lossless and security contract', () => {
       message: 'missing name',
       next_action: 'pass name=ping',
     })
+    expect(failure.envelope.stage).toBe('config')
+    expect(failure.envelope.root_cause).toBe('missing name')
+    expect(failure.envelope.fix).toBe('pass name=ping')
+    expect(failure.envelope.fallback.kind).toBe('unavailable')
+    expect(failure.envelope.evidence).toEqual({ code: 'invalid_params' })
+    expect(validateAvailabilityEnvelope(failure.envelope)).toEqual([])
     expect(() => losslessSanitize(failure)).not.toThrow()
     expect(losslessSanitize(failure).fixes).toEqual([])
   })
