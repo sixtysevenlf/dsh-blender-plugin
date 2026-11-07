@@ -5,6 +5,7 @@ import type { HttpStats } from '../config.js'
 import type { LeaseRec, LeaseView } from '../lease.js'
 import type { SelectionStoreView } from '../host/index.js'
 import type { SessionRegistry } from '../../core/sessions/registry.js'
+import type { JobQueue } from '../../core/queue/manager.js'
 
 export type JsonFn = (res: ServerResponse, code: number, obj: unknown) => void
 export type HostJsonFn = (res: ServerResponse, code: number, obj: unknown, origin?: unknown) => void
@@ -32,6 +33,7 @@ export interface HttpRouteDeps {
   engine: EngineSurface
   selectionStore: SelectionStoreView
   sessionRegistry: SessionRegistry
+  jobQueue: JobQueue
   json: JsonFn
   hostJson: HostJsonFn
   hostErrText: (e: unknown) => string

@@ -17,6 +17,8 @@ import {
 } from '../http/lease.js'
 import { trimJob, clampIntParam } from '../http/jobs.js'
 import { SessionRegistry } from '../core/sessions/registry.js'
+import { JobQueue } from '../core/queue/manager.js'
+import { SpawnJobExecutor } from '../core/queue/spawn-executor.js'
 import { setSessionRegistry } from '../http/session-gate.js'
 import { gatewayInstances } from '../transport/addon-handshake.js'
 import { createRouter } from '../http/router.js'
@@ -36,6 +38,8 @@ export interface GatewayAppOptions extends AddonGatewayOptions {
 export interface GatewayApp {
   server: Server
   engine: EngineSurface
+  sessionRegistry: SessionRegistry
+  jobQueue: JobQueue
   addonGateway: AddonGateway
   addonClient: GatewayAddonClient
   port: number
@@ -80,8 +84,10 @@ export function createGatewayApp(opts: GatewayAppOptions = {}): GatewayApp {
   )
   registryRef.current = sessionRegistry
   setSessionRegistry(sessionRegistry)
+  const jobQueue = new JobQueue({ executor: new SpawnJobExecutor() })
   const E: HttpRouteDeps = {
     sessionRegistry,
+    jobQueue,
     gatewayOwner: () => app.owner,
     engine,
     selectionStore,
@@ -114,6 +120,8 @@ export function createGatewayApp(opts: GatewayAppOptions = {}): GatewayApp {
   const app: GatewayApp = {
     server,
     engine,
+    sessionRegistry,
+    jobQueue,
     addonGateway,
     addonClient,
     port,

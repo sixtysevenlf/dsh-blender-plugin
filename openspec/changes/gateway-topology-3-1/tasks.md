@@ -103,21 +103,21 @@
 
 ## 6. 作业队列
 
-- [ ] 6.1 定义 job schema 与持久化：jobId、kind、params、state、priority、slot、pid、timestamps、result、artifacts、error；原子写 JSON；验证损坏文件恢复策略。
-- [ ] 6.2 先红：submit 立即返回 jobId、状态 queued；未实现同步/as_job 路径；验证旧 headless 同步 API 的测试被替换而不是保留双路径。
-- [ ] 6.3 实现 render kind：声明式参数 + 固定内部入口，不接受 script；验证任意 Python 被拒绝，渲染参数落到 Blender CLI。
-- [ ] 6.4 实现 headless kind：fresh `blender -b`、script/script_file、outdir、preload、timeout、HEADLESS {json}；验证不启动 GUI、不进入 session 列表。
-- [ ] 6.5 实现状态机与事件：queued/assigned/running/completed/failed/canceled，终态不可变；验证非法转移被拒、每次转移有事件。
-- [ ] 6.6 实现容量与 slot：pending 64、GPU 1、CPU 2、每个 virtual-gui 占 1 个 GPU slot、QUEUE_FULL；验证 render 占 GPU、headless 默认 CPU、virtual-gui 占 GPU 时 render 排队、超限立即失败不排队无限等待。
-- [ ] 6.7 实现调度：FIFO + priority + quota，virtual-gui 占 GPU slot 时 render 等待；验证不超卖、不饿死、优先级与配额可解释。
-- [ ] 6.8 实现重启恢复：queued 保留、running 标 failed/gateway_restart、终态/产物保留；验证重启后同 jobId 可 status/collect。
-- [ ] 6.9 实现 cancel：幂等、终止进程树、清理临时目录；验证 Windows job object 与 Unix process group 都不留 Blender。
-- [ ] 6.10 实现 wait/collect/list/perf：wait 默认 120s、上限 600s、超时不取消；collect 返回日志/产物、list 支持过滤、perf 返回队列指标；验证大日志不阻塞。
-- [ ] 6.11 实现 `blender_run` 的内部提交面：submit/status/wait/collect/cancel/list/perf，唯一 job 入口；本切片不注册模型工具，切片 7 统一暴露为 `blender_run`；验证内部 handler 覆盖 render/headless 两种 kind。
-- [ ] 6.12 统一 job 失败 envelope：spawn/queue/render/runtime 失败可归因，进程退出后仍可读；验证四问字段完整。
-- [ ] 6.13 新增队列 integration：P4 的 7/7 场景 + 重启恢复 + 取消 + 容量 + 两种 kind 混跑；验证真机 `blender -b` 至少一例成功。
+- [x] 6.1 定义 job schema 与持久化：jobId、kind、params、state、priority、slot、pid、timestamps、result、artifacts、error；原子写 JSON；验证损坏文件恢复策略。 — types.ts/store.ts：JobRecord + 原子 JSON + 损坏隔离；tests/unit/js/job-queue.test.ts::quarantines/round-trips
+- [x] 6.2 先红：submit 立即返回 jobId、状态 queued；未实现同步/as_job 路径；验证旧 headless 同步 API 的测试被替换而不是保留双路径。 — submit 同步返回 queued/id，无同步执行路径；旧 headless 工具面在 7.1 删除
+- [x] 6.3 实现 render kind：声明式参数 + 固定内部入口，不接受 script；验证任意 Python 被拒绝，渲染参数落到 Blender CLI。 — spawn-executor.renderPrelude 固定入口；单测拒绝 script；真机 6.13 渲染 2 帧
+- [x] 6.4 实现 headless kind：fresh `blender -b`、script/script_file、outdir、preload、timeout、HEADLESS {json}；验证不启动 GUI、不进入 session 列表。 — spawn-executor headless -b --factory-startup --python；真机 HEADLESS json 解析通过
+- [x] 6.5 实现状态机与事件：queued/assigned/running/completed/failed/canceled，终态不可变；验证非法转移被拒、每次转移有事件。 — manager.transition 记录事件；单测状态序列与终态不可变
+- [x] 6.6 实现容量与 slot：pending 64、GPU 1、CPU 2、每个 virtual-gui 占 1 个 GPU slot、QUEUE_FULL；验证 render 占 GPU、headless 默认 CPU、virtual-gui 占 GPU 时 render 排队、超限立即失败不排队无限等待。 — scheduler.nextAdmission + DEFAULT_CAPACITY；单测 GPU 不超卖/CPU 并发/QUEUE_FULL/virtual-gui 预留
+- [x] 6.7 实现调度：FIFO + priority + quota，virtual-gui 占 GPU slot 时 render 等待；验证不超卖、不饿死、优先级与配额可解释。 — priority+FIFO+ownerQuota；单测 decision.reason 可观察且不饿死
+- [x] 6.8 实现重启恢复：queued 保留、running 标 failed/gateway_restart、终态/产物保留；验证重启后同 jobId 可 status/collect。 — restore 将 assigned/running 标 gateway_restart；integration restart 用例
+- [x] 6.9 实现 cancel：幂等、终止进程树、清理临时目录；验证 Windows job object 与 Unix process group 都不留 Blender。 — cancel 幂等 + taskkill /T/进程组；真机 e2e 取消后 tasklist 无孤儿
+- [x] 6.10 实现 wait/collect/list/perf：wait 默认 120s、上限 600s、超时不取消；collect 返回日志/产物、list 支持过滤、perf 返回队列指标；验证大日志不阻塞。 — wait clamp 120s/600s 超时不取消；collect tail；list 过滤；perf 指标；单测覆盖
+- [x] 6.11 实现 `blender_run` 的内部提交面：submit/status/wait/collect/cancel/list/perf，唯一 job 入口；本切片不注册模型工具，切片 7 统一暴露为 `blender_run`；验证内部 handler 覆盖 render/headless 两种 kind。 — JobSurface + /job surface=queue；integration 路由用例覆盖 submit/status/list/perf
+- [x] 6.12 统一 job 失败 envelope：spawn/queue/render/runtime 失败可归因，进程退出后仍可读；验证四问字段完整。 — failureForRestart/spawn/render/runtime envelope；integration 断言 stage/root_cause/fix/fallback/evidence
+- [x] 6.13 新增队列 integration：P4 的 7/7 场景 + 重启恢复 + 取消 + 容量 + 两种 kind 混跑；验证真机 `blender -b` 至少一例成功。 — tests/integration/js/job-queue-api.test.ts + tests/e2e/queue_blender.mjs（真机 headless/render/取消 4 项 PASS）
 - [ ] 6.14 相机动画预览：验证 `render` 以 `camera` + `frames` + 低 `resolution`/`samples` 提交时在后台求值关键帧/约束/驱动器并产出帧/MP4，不改变 GUI 当前帧；验证 `blender_see(viewpoint=camera, mode=sequence)` 被拒绝并指向 `blender_run(kind=render)`，不存在 `blender_see` 内切帧的路径。
-- [ ] 6.15 实现 job owner 与调度可解释性：job 记录 `(hostId,dshSessionId,agentId,parentAgentId)`；collect/cancel 只允许 owner、父 agent、Team Lead；FIFO + priority + quota 的准入决策写入 job status；验证非 owner 不能取消、优先级不饿死 FIFO、配额拒绝有结构化原因。
+- [x] 6.15 实现 job owner 与调度可解释性：job 记录 `(hostId,dshSessionId,agentId,parentAgentId)`；collect/cancel 只允许 owner、父 agent、Team Lead；FIFO + priority + quota 的准入决策写入 job status；验证非 owner 不能取消、优先级不饿死 FIFO、配额拒绝有结构化原因。 — job-owner 复用；单测 owner/父/主权限、quota、priority；integration 非 owner 拒绝
 
 ## 7. 六工具面
 
