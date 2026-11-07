@@ -67,6 +67,7 @@ class DSHBlenderBridgeServer(*command_mixins()):
         self._connection = None
         self._connection_lock = threading.Lock()
         self._project = ""
+        self._reported_pause = None
 
     # Credentials live in exactly one place: add-on preferences, with the
     # DSHBB_*/BLENDERMCP_* environment variables as fallback
@@ -107,6 +108,7 @@ class DSHBlenderBridgeServer(*command_mixins()):
         self.running = True
         self.handshake_error = ""
         self._project = self._current_project()
+        self._reported_pause = None
 
         try:
             start_runtime_handlers()
@@ -263,6 +265,33 @@ class DSHBlenderBridgeServer(*command_mixins()):
                 return
             self._handle_gateway_message(text, connection.send_text)
 
+    def _report_pause_change(self):
+        """Tell the Gateway when the human toggles the N-panel pause.
+
+        Pause is human-owned: the Gateway mirrors this state onto the session so
+        the write gate can answer before an agent command reaches Blender.
+        """
+        try:
+            paused = bool(ai_paused())
+        except Exception:
+            return
+        if paused == self._reported_pause:
+            return
+        self._reported_pause = paused
+        with self._connection_lock:
+            connection = self._connection
+        if connection is None or not self.connected:
+            return
+        try:
+            connection.send_text(json.dumps({
+                "type": "event",
+                "name": "pause",
+                "paused": paused,
+                "instanceId": _INSTANCE_ID,
+            }, ensure_ascii=False))
+        except Exception as exc:
+            print("DSH Blender Bridge: failed to report the pause state: %s" % str(exc))
+
     def _handle_gateway_message(self, text, send):
         """Parse one Gateway message and queue it for the main-thread timer.
 
@@ -300,6 +329,7 @@ class DSHBlenderBridgeServer(*command_mixins()):
             tick_activity()
         except Exception:
             pass
+        self._report_pause_change()
 
         while True:
             try:

@@ -121,6 +121,10 @@ export async function startFakeWsAddon(options) {
   return {
     instanceId,
     ready,
+    sendEvent(name, payload = {}) {
+      if (ws.readyState !== WebSocket.OPEN) throw new Error('fake ws addon is not connected')
+      ws.send(JSON.stringify({ type: 'event', name, ...payload }))
+    },
     get closed() {
       return closed || ws.readyState === WebSocket.CLOSED
     },

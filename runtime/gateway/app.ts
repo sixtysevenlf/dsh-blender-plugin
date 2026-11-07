@@ -16,6 +16,9 @@ import {
   isReadOnly,
 } from '../http/lease.js'
 import { trimJob, clampIntParam } from '../http/jobs.js'
+import { SessionRegistry } from '../core/sessions/registry.js'
+import { setSessionRegistry } from '../http/session-gate.js'
+import { gatewayInstances } from '../transport/addon-handshake.js'
 import { createRouter } from '../http/router.js'
 import { createRoutes, CONTRACT_ROUTES } from '../http/routes/index.js'
 import { AddonGateway, GatewayAddonClient, GATEWAY_DEFAULT_PORT } from '../transport/addon-ws.js'
@@ -42,15 +45,43 @@ export interface GatewayApp {
   close: () => void
 }
 
+/** Forward addon events to the session registry and any external listener. */
+function addonEventSink(
+  opts: GatewayAppOptions,
+  registryRef: { current: SessionRegistry | null },
+): (event: Record<string, unknown>) => void {
+  return (event) => {
+    if (event.type === 'event' && event.name === 'pause' && registryRef.current) {
+      registryRef.current.applyHumanPause(
+        event.instanceId === null ? undefined : String(event.instanceId),
+        event.paused === true,
+      )
+    }
+    opts.onEvent?.(event)
+  }
+}
+
 /** Build the Gateway app without listening; tests and the process entry share it. */
 export function createGatewayApp(opts: GatewayAppOptions = {}): GatewayApp {
   const port = opts.port ?? GATEWAY_DEFAULT_PORT
   const host = opts.host ?? HOST
-  const addonGateway = new AddonGateway(opts)
+  const registryRef: { current: SessionRegistry | null } = { current: null }
+  const addonGateway = new AddonGateway({ ...opts, onEvent: addonEventSink(opts, registryRef) })
   const addonClient = new GatewayAddonClient(addonGateway)
   const engine = createEngine({ addonClient: addonClient as unknown as AddonClient })
   const selectionStore = createSelectionStore()
+  const sessionRegistry = new SessionRegistry(() =>
+    (gatewayInstances(addonClient) || []).map((x) => ({
+      instanceId: x.instanceId,
+      kind: x.kind,
+      ready: x.ready,
+      project: x.project,
+    })),
+  )
+  registryRef.current = sessionRegistry
+  setSessionRegistry(sessionRegistry)
   const E: HttpRouteDeps = {
+    sessionRegistry,
     gatewayOwner: () => app.owner,
     engine,
     selectionStore,

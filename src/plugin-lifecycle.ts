@@ -7,7 +7,6 @@ import {
   probe,
   sleep,
 } from './host/backend/index.js'
-import { backendPost } from './host/http.js'
 import {
   canRestartGateway,
   noteGatewayRestartFailure,
@@ -38,12 +37,8 @@ export function registerLifecycle(ctx: HostContext, port: number, autoStart: boo
           if (await probe(port)) {
             probeMisses = 0
             noteGatewayRestartSuccess()
-            // 租约心跳：只在"本来就持有"时续期，空闲时不抢占别的会话
-            try {
-              await backendPost(port, '/lease', { renewOnly: true }, 5000)
-            } catch {
-              /* 后端可能刚挂，下一轮再试 */
-            }
+            // 3.1: ownership/grant heartbeats travel with real calls; the watchdog
+            // only checks Gateway liveness and never renews a legacy write lease.
             return
           }
           probeMisses += 1

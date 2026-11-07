@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { ABORT_HINT, HOLDER } from '../constants.js'
-import { execSignal } from './exec-context.js'
+import { callerHeaders, execSignal } from './exec-context.js'
 import { base, withTimeout } from './backend/index.js'
 import { asRecord, isRecord, text } from '../contracts/dynamic.js'
 
@@ -113,7 +113,7 @@ export async function backendPost(
   try {
     const r = await fetch(base(port) + path, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...callerHeaders() },
       body: JSON.stringify({ ...asRecord(body), holder: HOLDER }),
       signal,
     })

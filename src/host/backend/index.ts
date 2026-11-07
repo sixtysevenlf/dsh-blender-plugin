@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { ABORT_HINT, HERE, HOSTNAME } from '../../constants.js'
 import { asRecord } from '../../contracts/dynamic.js'
-import { execSignal } from '../exec-context.js'
+import { callerHeaders, execSignal } from '../exec-context.js'
 import { decideStart, probeHttp } from '../runtime-bridge.js'
 import { childAlive, killStaleChild, spawnChild } from './spawn.js'
 
@@ -112,7 +112,9 @@ export async function withTimeout(
   }, timeoutMs)
   const signal = ext ? AbortSignal.any([ext, ac.signal]) : ac.signal
   try {
-    return await fetch(path, { ...(init || {}), signal })
+    const headers = new Headers((init && init.headers) || undefined)
+    for (const [name, value] of Object.entries(callerHeaders())) headers.set(name, value)
+    return await fetch(path, { ...(init || {}), headers, signal })
   } catch (e: unknown) {
     if (!fired && ext && ext.aborted) throw new Error(ABORT_HINT, { cause: e })
     throw e

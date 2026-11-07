@@ -1,9 +1,11 @@
 // /session 路由：lease / release（拆分）
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { HttpRouteDeps } from '../deps.js'
+import { currentCaller } from '../../caller.js'
+import { dispatchSessionAction } from './api.js'
 
 export function createLeaseHandler(E: HttpRouteDeps) {
-  const { json, leaseAcquire, leaseView, readBody, releaseStaleLease } = E
+  const { json, leaseAcquire, leaseView, readBody, releaseStaleLease, sessionRegistry } = E
   return async function lease(
     req: IncomingMessage,
     res: ServerResponse,
@@ -16,6 +18,11 @@ export function createLeaseHandler(E: HttpRouteDeps) {
       payload = JSON.parse(raw)
     } catch (e) {
       payload = {}
+    }
+    if (typeof payload.action === 'string' && payload.action) {
+      const result = dispatchSessionAction(sessionRegistry, payload.action, payload)
+      json(res, result.status, result.body)
+      return
     }
     const holder = String(payload.holder || 'anonymous')
     releaseStaleLease('op=lease 到达时探活发现持有者进程不存在') // v0.9.4
@@ -56,7 +63,7 @@ export function createLeaseHandler(E: HttpRouteDeps) {
 }
 
 export function createReleaseHandler(E: HttpRouteDeps) {
-  const { LEASE, json, leaseView, readBody } = E
+  const { LEASE, json, leaseView, readBody, sessionRegistry } = E
   return async function release(
     req: IncomingMessage,
     res: ServerResponse,
@@ -69,6 +76,15 @@ export function createReleaseHandler(E: HttpRouteDeps) {
       payload = JSON.parse(raw)
     } catch (e) {
       payload = {}
+    }
+    const caller = currentCaller()
+    if (caller) {
+      const result = sessionRegistry.release(
+        caller,
+        payload.sessionId === undefined ? undefined : String(payload.sessionId),
+      )
+      json(res, result.ok ? 200 : 409, result as unknown as Record<string, unknown>)
+      return
     }
     const want = String(payload.holder || '')
     let released: string | null = null

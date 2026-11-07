@@ -200,11 +200,11 @@ describe('backend lifecycle operations', () => {
 })
 
 describe('lifecycle source contract', () => {
-  it('keeps the watchdog cadence, two-miss threshold, and lease heartbeat', () => {
+  it('keeps the watchdog cadence and two-miss threshold without a global lease renewal', () => {
     expect(indexSource).toContain('setInterval')
     expect(indexSource).toContain('15000')
     expect(indexSource).toContain('probeMisses >= 2')
-    expect(indexSource).toContain('renewOnly: true')
+    expect(indexSource).not.toContain('renewOnly')
     expect(indexSource).toContain('SIGKILL')
     expect(indexSource).toContain('backend')
   })

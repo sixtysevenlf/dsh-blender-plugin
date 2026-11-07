@@ -4,6 +4,7 @@ import { CFG } from '../config.js'
 import { PLAN_READ_ONLY_OPS } from '../catalog/index.js'
 import { stats } from './config.js'
 import { errorCode } from '../core/json.js'
+import { gateResponse, sessionWriteGate } from './session-gate.js'
 
 /**
  * 写权限租约：多 agent / 多会话同时驱动一个 Blender 时，靠它避免互相踩。
@@ -174,6 +175,11 @@ function isReadOnly(path: string, op: unknown): boolean {
 /** 请求带上 holder/force 时的门禁；返回 null = 放行 */
 function leaseGate(payload?: Record<string, unknown> | null): Record<string, unknown> | null {
   const payloadRec: Record<string, unknown> = (payload || {}) as Record<string, unknown>
+  // 3.1: host-attributed calls are gated by session ownership + scope grants.
+  // Requests without caller headers keep the legacy lease path during the
+  // six-tool migration, so 3.0.x callers never bypass a live 3.1 guard.
+  const sessionFailure = sessionWriteGate(payloadRec)
+  if (sessionFailure) return gateResponse(sessionFailure)
   const h = String(payloadRec.holder || payloadRec.lease || '')
   const force = !!payloadRec.force
   // v0.9.4：先回收"持有者进程已经不存在"的租约（否则会话崩了会把写通道挡到 TTL 结束）

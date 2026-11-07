@@ -369,6 +369,14 @@ export class AddonGateway {
       conn.lastSeen = Date.now()
       return
     }
+    if (msg.type === 'event') {
+      this.onEvent?.({
+        ...msg,
+        type: 'event',
+        instanceId: conn.instance?.instanceId || null,
+      })
+      return
+    }
     if (typeof msg.requestId === 'string') {
       this.handleResponse(msg)
       return

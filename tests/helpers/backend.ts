@@ -26,8 +26,12 @@ export interface Backend {
   workDir: string
   child: ChildProcessWithoutNullStreams
   log: () => string
-  post: (route: string, body?: unknown) => Promise<{ status: number; json: any }>
-  get: (route: string) => Promise<{ status: number; json: any }>
+  post: (
+    route: string,
+    body?: unknown,
+    headers?: Record<string, string>,
+  ) => Promise<{ status: number; json: any }>
+  get: (route: string, headers?: Record<string, string>) => Promise<{ status: number; json: any }>
   stop: () => Promise<void>
 }
 
@@ -107,16 +111,16 @@ export async function startBackend(
         (healthDetail ? ' (' + healthDetail + ')' : ''),
     )
   }
-  const post = async (route: string, body?: unknown) => {
+  const post = async (route: string, body?: unknown, headers?: Record<string, string>) => {
     const response = await fetch(base + route, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...(headers || {}) },
       body: JSON.stringify(body || {}),
     })
     return { status: response.status, json: await response.json() }
   }
-  const get = async (route: string) => {
-    const response = await fetch(base + route)
+  const get = async (route: string, headers?: Record<string, string>) => {
+    const response = await fetch(base + route, { headers: headers || {} })
     return { status: response.status, json: await response.json() }
   }
   return {
