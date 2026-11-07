@@ -11,6 +11,101 @@ from contextlib import suppress
 from ...protocol import MAX_SNAPSHOT_OBJECTS, MAX_SNAPSHOT_SELECTED
 
 
+# --- F-curve access across the layered / slotted Action API -----------------
+#
+# Blender 4.4 made actions layered and slotted, and 5.2 removed the
+# `Action.fcurves` shortcut: a slot's curves now live on a channelbag, reached
+# through `bpy_extras.anim_utils` or a layers -> strips -> channelbag walk.
+#
+# Do not detect the API generation with `hasattr(action, "fcurves")`: some
+# third-party extensions (mmd_tools, for one) install a compatibility shim that
+# exposes only the first channelbag, so a shim-driven "legacy" branch silently
+# skips every other slot. The structural test is `getattr(action, "layers", None)`.
+
+_ANIM_UTILS = None
+_ANIM_UTILS_PROBED = False
+
+
+def _resolve_anim_utils():
+    """Return `bpy_extras.anim_utils`, or None outside a Blender session."""
+    global _ANIM_UTILS, _ANIM_UTILS_PROBED
+    if not _ANIM_UTILS_PROBED:
+        try:
+            from bpy_extras import anim_utils as module
+        except Exception:
+            module = None
+        _ANIM_UTILS = module
+        _ANIM_UTILS_PROBED = True
+    return _ANIM_UTILS
+
+
+def _channelbag_for_slot(action, slot):
+    """The channelbag holding `slot`'s curves, or None. Layered actions only."""
+    anim_utils = _resolve_anim_utils()
+    getter = getattr(anim_utils, "action_get_channelbag_for_slot", None)
+    if getter is not None:
+        try:
+            channelbag = getter(action, slot)
+        except Exception:
+            channelbag = None
+        if channelbag is not None:
+            return channelbag
+    for layer in getattr(action, "layers", None) or ():
+        for strip in getattr(layer, "strips", None) or ():
+            try:
+                channelbag = strip.channelbag(slot)
+            except Exception:
+                channelbag = None
+            if channelbag is not None:
+                return channelbag
+    return None
+
+
+def _fcurve_identity(fcurve):
+    """Datablock identity for de-duplication across slots.
+
+    `(data_path, array_index)` is not an identity: two objects sharing one
+    action repeat the same paths in different slots with different data, so
+    de-duplicating on paths drops a whole animation without raising.
+    """
+    as_pointer = getattr(fcurve, "as_pointer", None)
+    if callable(as_pointer):
+        try:
+            return ("pointer", as_pointer())
+        except Exception:
+            pass
+    return ("object", id(fcurve))
+
+
+def action_fcurves(action, slot=None):
+    """F-curves of `action`, through the channelbag API when it is in use.
+
+    `slot=None` returns the union of every slot (each curve once); pass the
+    slot assigned to the object — `obj.animation_data.action_slot` — for the
+    curves that actually drive it. Actions from Blender < 4.4 keep using
+    `Action.fcurves`.
+    """
+    if action is None:
+        return []
+    if getattr(action, "layers", None) is not None:
+        slots = [slot] if slot is not None else list(getattr(action, "slots", None) or ())
+        curves = []
+        seen = set()
+        for candidate in slots:
+            channelbag = _channelbag_for_slot(action, candidate)
+            if channelbag is None:
+                continue
+            for fcurve in getattr(channelbag, "fcurves", None) or ():
+                identity = _fcurve_identity(fcurve)
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                curves.append(fcurve)
+        if curves or slots:
+            return curves
+    return list(getattr(action, "fcurves", None) or ())
+
+
 class WorldSnapshotCommands:
     @staticmethod
     def _snapshot_geometry(obj):
@@ -100,7 +195,8 @@ class WorldSnapshotCommands:
                 channels = []
                 total_keyframes = 0
                 frame_min, frame_max = None, None
-                for fcurve in action.fcurves:
+                slot = getattr(anim_data, "action_slot", None)
+                for fcurve in action_fcurves(action, slot):
                     keyframe_points = fcurve.keyframe_points
                     count = len(keyframe_points)
                     total_keyframes += count
