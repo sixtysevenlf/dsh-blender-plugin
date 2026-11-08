@@ -182,7 +182,7 @@ describe('configuration contract', () => {
 })
 
 describe('backend lifecycle operations', () => {
-  it('keeps v2.6.2 apply order: lifecycle effects before the 15 tools', () => {
+  it('keeps v2.6.2 apply order: lifecycle effects before the 6 tools', () => {
     const f = createFakeContext()
     plugin.apply(f.ctx, { autoStart: false, tui: false, port: 9898 })
     const watchdog = f.events.indexOf('effect:dsh-blender-plugin: watchdog')
@@ -194,29 +194,27 @@ describe('backend lifecycle operations', () => {
     f.dispose()
   })
 
-  it('re-registers all 15 tools after a host dispose and reload', () => {
+  it('re-registers all 6 tools after a host dispose and reload', () => {
     const first = createFakeContext()
     plugin.apply(first.ctx, { autoStart: false, tui: false, port: 9898 })
-    expect(first.tools).toHaveLength(15)
+    expect(first.tools).toHaveLength(6)
     first.dispose()
     const second = createFakeContext()
     plugin.apply(second.ctx, { autoStart: false, tui: false, port: 9898 })
-    expect(second.tools).toHaveLength(15)
+    expect(second.tools).toHaveLength(6)
     second.dispose()
   })
 
-  it('starts against an existing backend, pauses on stop, and restarts in place', async () => {
+  it('reports Gateway health through blender_session status and doctor', async () => {
     const backend = await startFakeBackend()
     const f = createFakeContext()
     plugin.apply(f.ctx, { autoStart: false, tui: false, port: backend.port })
-    const viewport = f.tools.find((t) => t.name === 'blender_viewport')!
+    const session = f.tools.find((t) => t.name === 'blender_session')!
     try {
-      const started = await (viewport.execute as any)({ op: 'start' }, {})
-      expect(started).toContain('Gateway 已在运行')
-      const stopped = await (viewport.execute as any)({ op: 'stop' }, {})
-      expect(stopped).toContain('看护已暂停')
-      const restarted = await (viewport.execute as any)({ op: 'restart' }, {})
-      expect(restarted).toContain('Gateway 已重启')
+      const status = await (session.execute as any)({ action: 'status' }, {})
+      expect(status.text).toContain('SESSION status')
+      const doctor = await (session.execute as any)({ action: 'doctor' }, {})
+      expect(doctor.text).toContain('SESSION doctor · ok=true')
     } finally {
       f.dispose()
       await backend.close()

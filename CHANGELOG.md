@@ -72,6 +72,34 @@
 - 新增 `npm run setup:dev`：自动发现 Python（`PYTHON` → `python` → `python3` → Windows `py -3`，含坏 Store alias 的兜底）、创建/复用 `.venv`、安装 `requirements-dev.txt` + `requirements-typecheck.txt`、仅在缺失时执行 `npm ci --legacy-peer-deps`，支持 `--check` / `--force`，幂等可重复执行；`.github/workflows/pr.yml` 与 `release.yml` 复用同一脚本，不再各自内联 venv 步骤。
 - `CONTRIBUTING` / `README`（中英）与 `scripts/README` 收敛到同一条开发环境命令。
 
+### 3.1 Gateway 拓扑（breaking）
+
+- 宿主负责 Gateway 生命周期，模型面不再有 launch/restart/lease 工具；Gateway 默认监听 `127.0.0.1:39877`（原 9877），端口被占时 fail closed（`port_conflict`）。
+- addon 改为**主动反向连接** Gateway（WebSocket `/addon` upgrade），不再监听 9876；断线可重连，多实例以 `instanceId` 区分；旧协议 addon 被明确拒绝，不做双栈兼容。
+- 插件版本 3.1.0 / addon 2.0.0 / protocol 12；addon 只以 Blender **Extension** 安装（`Edit ▸ Preferences ▸ Extensions ▸ Install from Disk...`），旧 zip 的 Add-ons 安装方式删除；升级后需重启 Blender。
+- 迁移与排障见 `MIGRATIONS.md` §0.1/§0.2；回归：`tests/e2e/addon_reverse_connect.mjs`（真实 Blender+Gateway 9/9，断言 addon 无 LISTENING、心跳/doctor 协议 12）、`tests/integration/js/host-gateway-lifecycle.test.ts`、`tests/unit/js/contract/ports-gate.test.ts`。
+
+### 3.1 有界作业队列与唯一作业入口
+
+- `blender_run` 是唯一作业面：`action=submit` 立即返回唯一 `jobId`，没有同步 headless / `as_job` / `wait_s` 双路径；`kind=render` 是声明式参数（支持相机 + `frames` 动画），`kind=headless` 跑脚本并回 `HEADLESS {json}`。
+- 状态机 `queued → assigned → running → completed|failed|canceled`，终态不可变、每次转移有事件；容量 pending 64 / GPU 1 / CPU 2 / 每个 virtual-gui 预留 1 GPU slot，超出返回 `QUEUE_FULL`；FIFO + priority + owner quota 的排队决策在回执里可解释。
+- 重启恢复：queued 保留，running/assigned 标 `failed`（`gateway_restart`）且不重放；`action=cancel` 幂等并清理进程树；`action=wait` 默认 120s、上限 600s，超时只回 `waitTimedOut` 不取消；`collect` 返回日志与产物；collect/cancel 只允许 owner、父 agent 或 Team Lead。
+- 旧 Cycles 性能分析保留为 `action=tune`；回归：`tests/unit/js/job-queue.test.ts`（23 项）、`tests/e2e/queue_blender.mjs`（真实 Blender 5 项，`local-workspace/6.14-queue-e2e.log`）。
+
+### 3.1 GUI 视点采集与 Python 写占用
+
+- `blender_see` 只服务 GUI：`viewpoint=viewport|camera|custom`，`mode=frame`（默认）或 `sequence`；viewport/custom 使用固定档位（1:1 544/768/1024/1280、4:3 640/960/1280、16:9 1024/1152/1280，默认 16:9+1024），非法值报错不夹取；`camera` 只允许 frame，读取当前帧 evaluated 相机与渲染比例，**不修改** `scene.camera`/当前帧/视口/选择；PANO 返回 `unsupported` 并指向 `blender_run(kind="render")`，DOF/运动模糊标 `preview_only`。
+- 新增 `current` 离屏模式：按用户当前 viewport 朝向重算目标宽高投影，不移动用户视口；真机回归 `tests/e2e/see_modes_gui.mjs` 18/18（current/camera/命名相机/PANO/序列拒绝/前后不变）。
+- `blender_py` 固定 exclusive 写占用：并发调用返回 `py_busy`（holder/started_at/retry_after），可选 `wait_ms` ≤5s；活动 grant 不按 30s TTL 过期；human pause 只拒绝新写不打断运行；事务 `blender_session(action="txn")` 的 restore/mark/revert 同样受 exclusive grant 与 human pause 约束。回归：`tests/integration/js/session-api.test.ts`。
+
+### 3.1 六工具面迁移（breaking）
+
+- 模型面从 15 个工具收口为 **6 个**：`blender_session`（会话/归属/权限/事务）、`blender_op`（catalog 与 loop/opt/preset）、`blender_py`（GUI 会话内 Python）、`blender_see`（GUI 视点截图与序列帧）、`blender_run`（唯一作业入口：render / headless）、`blender_inspect`（只读 addon 命令目录与执行）。
+- 旧名不再注册，调用会得到迁移提示；完整对照表见 `MIGRATIONS.md` §0.3：`blender_rt_see`→`blender_see`、`blender_rt_watch`→`blender_see(mode="sequence")`、`blender_rt_do`→`blender_py`、`blender_rt_plan`→`blender_op`、`blender_rt_loop/opt/preset`→`blender_op(action=…)`、`blender_rt_perf`→`blender_run(action="tune")`、`blender_rt_headless`/`blender_rt_job`→`blender_run(action="submit"/"status"/"wait"/"collect"/"cancel"/"list")`、`blender_rt_cmd`/`blender_rt_commands`→`blender_inspect`、`blender_rt_txn`→`blender_session(action="txn")`、`blender_viewport`→`blender_session`。
+- `blender_run` 是**唯一**作业提交面：submit 立即返回 job id，不再有同步 headless / `as_job` / `wait_s`；render 作业是声明式参数，不执行脚本。
+- `blender_rt_worker` 不再是对模型暴露的工具：GUI 内的「改一步看一眼」用 `blender_py` + `blender_see`；没有 GUI 时用 `blender_run(kind="headless")` 后台作业。`session="auto"`、`preload="…worker…"` 与 worker see/watch 不再出现在工具面。
+- 计数不变：34 family / 228 op / 25 addon commands（+ping = 26 wire）/ 29 routes / protocol 12；工具数 15 → 6 是本版唯一计数变化。
+
 ## v3.0.5（2026-11-04）—— 修复源码注入 __file__ 缺失
 
 - 修复 #73：源码注入的 Python 模块现在会收到真实模块路径作为 `__file__`，`audit` / `qc` / `contract` 等高层算子不再报 `NameError`。

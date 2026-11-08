@@ -47,7 +47,7 @@ export function headlessHumanText(res: unknown, ctx: ReceiptContext): string {
     parts.push(
       '运行号：' +
         text(r.runId) +
-        '（blender_rt_job(op="status"/"collect"/"wait", id=…) 可查；后端重启后也能从磁盘台账查到）',
+        '（blender_run action=status/collect/wait id=… 可查；Gateway 重启后也能从磁盘队列查到）',
     )
   const notes = ctx.notes
   if (Array.isArray(notes)) for (const n of notes) parts.push('· ' + text(n))

@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 // @ts-check
 /**
- * scripts/gen-routes.mjs — generate both route tables from config/routing.json .
+ * scripts/gen-routes.mjs — generate the GUI dispatch table from config/routing.json .
  *
- * config/routing.json is the single source of truth for plan/EXT routing. This
+ * config/routing.json is the single source of truth for plan/EXT GUI routing. This
  * script renders:
- *   - src/plan/routes.generated.ts              (host → headless worker mapping)
  *   - runtime/core/dispatcher/routes.generated.ts (GUI addon dispatch table)
  *
- * Both outputs carry the sha256 of the source and the regeneration command.
- * `node scripts/check-routes.mjs` (npm run check:routes) fails when a checked-in
+ * The host-side worker mapping table was removed in 3.1 together with the worker
+ * plan channel; `blender_run` submits scripts through the job queue instead.
+ * The output carries the sha256 of the source and the regeneration command.
+ * `node scripts/check-routes.mjs` (npm run check:routes) fails when the checked-in
  * generated file no longer matches the source (or was hand-edited).
  */
 import crypto from 'node:crypto'
@@ -21,12 +22,9 @@ import * as prettier from 'prettier'
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 export const DEFAULT_ROOT = path.resolve(HERE, '..')
 export const ROUTING_FILE = 'config/routing.json'
-export const GENERATED_FILES = [
-  'src/plan/routes.generated.ts',
-  'runtime/core/dispatcher/routes.generated.ts',
-]
+export const GENERATED_FILES = ['runtime/core/dispatcher/routes.generated.ts']
 
-const SIDES = new Set(['gui', 'worker', 'both'])
+const SIDES = new Set(['gui'])
 const GROUPS = ['main', 'module', 'ext']
 const KINDS = ['dispatch', 'qc-render', 'montage', 'motion', 'deliver', 'view', 'render']
 const MATCHES = new Set(['prefix', 'exact'])
@@ -74,7 +72,7 @@ export function validateRouting(config) {
     if (!isNonEmptyString(row.id)) add('id must be a non-empty string')
     else if (ids.has(row.id)) add('duplicate id')
     else ids.add(row.id)
-    if (!SIDES.has(row.side)) add('side must be gui|worker|both')
+    if (!SIDES.has(row.side)) add('side must be gui')
     if (!isNonEmptyString(row.family)) add('family must be a non-empty string')
     else if (hostSide.has(row.family))
       add('family ' + row.family + ' is declared host-side and cannot be routed')
@@ -87,25 +85,16 @@ export function validateRouting(config) {
     } else if (typeof row.prefix !== 'string') {
       add('prefix rows need a prefix string')
     }
-    const hasGui = row.side === 'gui' || row.side === 'both'
-    const hasWorker = row.side === 'worker' || row.side === 'both'
-    if (hasGui) {
-      if (GROUPS.indexOf(row.group) < 0) add('group must be main|module|ext')
-      if (KINDS.indexOf(row.kind) < 0) add('kind must be one of ' + KINDS.join('|'))
-      if (!isNonEmptyString(row.ensure) || !ENSURE_PATTERN.test(row.ensure))
-        add('ensure must look like ensureXxx')
-      if (!Number.isInteger(row.timeoutMs) || row.timeoutMs <= 0)
-        add('timeoutMs must be a positive integer')
-      if (row.kind === 'qc-render' && !isNonEmptyString(row.preload))
-        add('qc-render rows need the worker preload chunk list')
-    }
-    if (hasWorker) {
-      if (!isNonEmptyString(row.preload)) add('worker rows need a non-empty preload')
-      if (!Number.isInteger(row.workerRank) || row.workerRank < 0)
-        add('worker rows need a non-negative integer workerRank')
-      if (row.match === 'exact' && !isNonEmptyString(row.sub))
-        add('exact worker rows need a fixed sub')
-    }
+    if (GROUPS.indexOf(row.group) < 0) add('group must be main|module|ext')
+    if (KINDS.indexOf(row.kind) < 0) add('kind must be one of ' + KINDS.join('|'))
+    if (!isNonEmptyString(row.ensure) || !ENSURE_PATTERN.test(row.ensure))
+      add('ensure must look like ensureXxx')
+    if (!Number.isInteger(row.timeoutMs) || row.timeoutMs <= 0)
+      add('timeoutMs must be a positive integer')
+    if (row.kind === 'qc-render' && !isNonEmptyString(row.preload))
+      add('qc-render rows need the worker preload chunk list')
+    if (row.preload !== undefined && !isNonEmptyString(row.preload))
+      add('preload must be a non-empty string when present')
     if (row.sub !== undefined && !isNonEmptyString(row.sub))
       add('sub must be a non-empty string when present')
     if (row.subAliases !== undefined) {
@@ -119,17 +108,7 @@ export function validateRouting(config) {
       }
     }
   })
-  const workerRows = routes.filter((row) => row.side === 'worker' || row.side === 'both')
-  const ranks = workerRows
-    .map((row) => row.workerRank)
-    .filter((rank) => Number.isInteger(rank))
-    .sort((a, b) => a - b)
-  const expectedRanks = ranks.map((_rank, index) => index)
-  if (JSON.stringify(ranks) !== JSON.stringify(expectedRanks))
-    failures.push(
-      'workerRank values must be unique and contiguous from 0 (got ' + ranks.join(',') + ')',
-    )
-  const guiRows = routes.filter((row) => row.side === 'gui' || row.side === 'both')
+  const guiRows = routes
   for (const group of GROUPS) {
     if (!guiRows.some((row) => row.group === group))
       failures.push('GUI group ' + group + ' has no routes')
@@ -161,54 +140,8 @@ function guiRowLiteral(row) {
   )
 }
 
-function renderWorker(config, hash) {
-  const workerRows = config.routes
-    .filter((row) => row.side === 'worker' || row.side === 'both')
-    .sort((a, b) => a.workerRank - b.workerRank)
-  const exact = workerRows.filter((row) => row.match === 'exact')
-  const prefixes = workerRows.filter((row) => row.match !== 'exact')
-  return [
-    header(hash),
-    '',
-    'export type HeadlessTarget = { api: string; sub: string; preload: string }',
-    '',
-    '/** Exact-op worker aliases; checked before every prefix row (old alias precedence). */',
-    'export const PLAN_HEADLESS_ALIAS: Readonly<Record<string, readonly [string, string, string]>> = {',
-    ...exact.map(
-      (row) =>
-        '  ' +
-        JSON.stringify(row.op) +
-        ': [' +
-        JSON.stringify(row.api) +
-        ', ' +
-        JSON.stringify(row.sub) +
-        ', ' +
-        JSON.stringify(row.preload) +
-        '],',
-    ),
-    '}',
-    '',
-    '/** Worker prefix routes in precedence order; strip = leading characters removed first. */',
-    'export const PLAN_HEADLESS_MAP: ReadonlyArray<',
-    '  readonly [prefix: string, api: string, preload: string, strip: number]',
-    '> = [',
-    ...prefixes.map(
-      (row) =>
-        '  [' +
-        [
-          JSON.stringify(row.prefix),
-          JSON.stringify(row.api),
-          JSON.stringify(row.preload),
-          String(row.strip),
-        ].join(', ') +
-        '],',
-    ),
-    ']',
-  ].join('\n')
-}
-
 function renderGui(config, hash) {
-  const guiRows = config.routes.filter((row) => row.side === 'gui' || row.side === 'both')
+  const guiRows = config.routes
   const ensureNames = [...new Set(guiRows.map((row) => row.ensure))].sort()
   const groupArray = (name, group) => [
     'export const ' + name + ': readonly GuiRoute[] = [',
@@ -281,10 +214,7 @@ export async function generateRoutes(root = DEFAULT_ROOT) {
   if (failures.length) throw new Error(ROUTING_FILE + ' is invalid:\n- ' + failures.join('\n- '))
   const hash = crypto.createHash('sha256').update(source).digest('hex')
   const options = await prettierOptions(root)
-  const rendered = [
-    { file: GENERATED_FILES[0], code: renderWorker(config, hash) },
-    { file: GENERATED_FILES[1], code: renderGui(config, hash) },
-  ]
+  const rendered = [{ file: GENERATED_FILES[0], code: renderGui(config, hash) }]
   const files = []
   for (const entry of rendered) {
     const filePath = path.join(root, entry.file)

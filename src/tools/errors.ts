@@ -73,7 +73,8 @@ export function toolError(
 ): ToolFailure {
   const msg = redactSecrets(message).slice(0, 500)
   const next =
-    String(nextAction || '').trim() || 'blender_viewport op=status / op=doctor 查看后端与环境'
+    String(nextAction || '').trim() ||
+    'blender_session action=status / action=doctor 查看 Gateway 与环境'
   const availability = availabilityFailure({
     stage: stage || stageForFailureCode(code),
     code,

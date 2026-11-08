@@ -304,6 +304,23 @@ describe('3.1 queue executor command shape', () => {
     expect(args.slice(-5)).toEqual(['-s', '1', '-e', '2', '-a'])
   })
 
+  it('render with camera + frames previews an animation without a GUI session', () => {
+    const { args } = buildJobArgs(
+      record('render', {
+        file: 'scene.blend',
+        camera: 'Camera',
+        frames: [3, 7],
+        resolution: [160, 90],
+        samples: 4,
+      }),
+      os.tmpdir(),
+    )
+    const expr = args[args.indexOf('--python-expr') + 1]
+    expect(expr).toContain('s.camera=bpy.data.objects.get("Camera")')
+    expect(args.slice(-5)).toEqual(['-s', '3', '-e', '7', '-a'])
+    expect(args).not.toContain('--python')
+  })
+
   it('render without output writes under the writable workDir and collects that outdir', () => {
     const { args, outdir } = buildJobArgs(
       record('render', { resolution: [64, 64], frames: [1, 1] }),

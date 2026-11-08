@@ -24,7 +24,7 @@ This plugin **by design** executes code and starts processes; it is not a read-o
 
 | Surface | Description |
 |---|---|
-| Blender-side Python | `blender_rt_do` / `blender_rt_headless` / `blender_rt_worker` / `blender_rt_plan` pass caller-provided Python to Blender's `bpy`; `K` is a persistent kernel that survives across calls |
+| Blender-side Python | `blender_py` (GUI session) and `blender_run(kind="headless")` pass caller-provided Python to Blender's `bpy`; `K` is a persistent kernel inside a GUI session |
 | Local processes | Starts the backend `node lib/runtime/gateway.js` (after `npm run build`), headless `blender -b`, and external validators under `runtime/ext/` (glTF-Validator / open3d); uses `SIGTERM` then `SIGKILL` to clean up a residual backend when needed |
 | Local network | The Gateway listens only on `127.0.0.1` (default 39877). The Blender add-on dials the Gateway over WebSocket and opens no inbound port. The plugin itself makes **no** telemetry calls besides that local control channel |
 | File I/O | Default work directory is `~/.dsh-blender-rt` (override with `DSH_BLENDER_*` environment variables or a root `dsh-blender.config.json`): renders, logs, and the job ledger |

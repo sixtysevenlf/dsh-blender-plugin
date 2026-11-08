@@ -11,7 +11,7 @@
 | EEVEE 的 GPU 依赖 | 纯 GPU，走图形后端（本机 OPENGL + NVIDIA RTX 4060 Laptop GPU/PCIe/SSE2，GL 4.6 / 驱动 610.74）；没有 CPU 回退 |
 | 与 Cycles 的区别 | Cycles 用 compute_device_type 设备体系（可多卡/可 CPU+GPU，靠偏好）；EEVEE 不用这套 → 无头不受偏好影响，不会静默降级 |
 | 预热帧（360 对象 / 512x512 / 64 采样） | EEVEE+光追 1.35 s vs Cycles GPU 3.13 s（2.3 倍） |
-| 首帧着色器编译 | 冷缓存约 16 s；缓存热后约 2.4 s → 迭代务必用热会话（blender_rt_worker：编译只付一次） |
+| 首帧着色器编译 | 冷缓存约 16 s；缓存热后约 2.4 s → 迭代务必用同一个 GUI 会话（blender_py：编译只付一次） |
 | 光追开关 | scene.eevee.use_raytracing（默认 False）；ray_tracing_method 本机枚举含 SCREEN |
 | 无头可用性 | blender -b 里 EEVEE 渲染会自行初始化 GPU 上下文（实测出图正常）；但 gpu.platform 读取需先 gpu.init()（离屏绘图才需要） |
 | 渲染 harness 实测（v0.8.8，350 可见 mesh / 512×512 / 64 采样） | 3 视角 2124 / 798 / 565 ms（首张含着色器编译）· 共 3487 ms · jsonl 3 行 · 四边余量 36 px |
@@ -52,11 +52,11 @@
 
 | 场景 | 用什么 |
 |---|---|
-| 迭代看材质变化 | blender_rt_do（持久内核；改参数后 see:true 立刻回帧）或 blender_rt_worker（热会话，EEVEE 编译只付一次） |
-| 批量出图/多机位对比 | blender_rt_headless（默认已注入 EEVEE+光追前导；engine="cycles" 可切回） |
-| 判「改得像不像」 | blender_rt_plan(op="qc_compare")：IoU/Dice/缺多面积/边界距离 + 对照图；回执带 engine_at_qc（同引擎内才可比） |
-| 试参数怕改坏 | blender_rt_txn（mark → 改 → revert；大改前 snapshot） |
-| 跑长脚本 | blender_rt_do(file="//scripts/xxx.py")（支持 //rel、/mnt/...、D:/...) |
+| 迭代看材质变化 | blender_py（GUI 会话持久内核；改参数后 see:true 立刻回帧） |
+| 批量出图/多机位对比 | blender_run(action="submit", kind="render", ...) 或 blender_run(kind="headless")（默认已注入 EEVEE+光追前导；engine="cycles" 可切回） |
+| 判「改得像不像」 | blender_op(op="qc_compare")：IoU/Dice/缺多面积/边界距离 + 对照图；回执带 engine_at_qc（同引擎内才可比） |
+| 试参数怕改坏 | blender_session(action="txn", op="mark") → 改 → revert；大改前 snapshot |
+| 跑长脚本 | blender_py(file="//scripts/xxx.py")（支持 //rel、/mnt/...、D:/...) |
 
 > **致谢**：本文第 2–4 节的 EEVEE 硬限制、NPR 材质管线分工与渐变组踩坑，来自 **@lurenjia-l** 的实测记录
 > （仓库 [lurenjia-l/dsh-blender-stylized-shading](https://github.com/lurenjia-l/dsh-blender-stylized-shading) 中的 `material_pipeline.md`）。

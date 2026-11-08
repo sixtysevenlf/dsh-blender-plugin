@@ -53,14 +53,14 @@ zip 内只有一个包根 `dsh_blender_bridge/`，含 `blender_manifest.toml`、
 2. 勾选启用 **DSH Blender Bridge**。
 3. 3D 视图按 `N` → 找到「DSH Blender Bridge」面板 → 连接到本地 Gateway（`127.0.0.1:39877`）。
 
-> 也可以让插件**一键拉起**：`blender_viewport(op="launch")` —— 拉起 GUI Blender 并**自动扫到并启用**
-> 本 addon（目录或 zip 形式的 `dsh_blender_bridge` / `dshbb_*`），并校验 addon v2.0+ / protocol 12。
+> Blender 与 Gateway 的启动/连接由用户与宿主管理：模型面没有 launch 工具。先打开 Blender 并启用本 addon，
+> 再在面板里 Connect；Gateway 由 DSH 宿主启动。
 
 ## 验证
 
 ```bash
-blender_rt_cmd get_addon_info     # addon_version 应为 [2, 0, 0]，protocol_version 应为 12
-blender_rt_cmd get_activity_state # state 可能为 idle / human / agent / both
+blender_inspect(command="get_addon_info")     # addon_version 应为 [2, 0, 0]，protocol_version 应为 12
+blender_inspect(command="get_activity_state") # state 可能为 idle / human / agent / both
 ```
 
 装好后在 Blender 里选物体 → `N` →「Selection → DSH」→ 发送，选中会进 **DSH 当前会话草稿**（不自动发送）。

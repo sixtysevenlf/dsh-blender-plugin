@@ -5,7 +5,7 @@
 > Contribution entry: [CONTRIBUTING.md](CONTRIBUTING.md) · [docs/zh/CONTRIBUTING.md](docs/zh/CONTRIBUTING.md).
 
 This repository is the **DSH × Blender plugin** (v3.1.0): a DeepSeek Harness plugin that drives a live
-Blender session over a loopback TCP bridge. Model surface: **15 tools**; planning surface:
+Blender session over a loopback TCP bridge. Model surface: **6 tools** (`blender_session` / `blender_op` / `blender_py` / `blender_see` / `blender_run` / `blender_inspect`); planning surface:
 **34 families / 228 ops**; Blender addon **v2.0.0 / protocol 12** (Blender extension install); Gateway `127.0.0.1:39877`, addon dials the Gateway (no inbound port).
 Ports, config keys, and paths are facts of [docs/配置参考.md](docs/配置参考.md) — never invent them.
 
@@ -54,16 +54,16 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
 ## 3. Hard rules
 
 - **Installed means verified.** GUI route: `doctor` returns `kind=ok`. Headless-only route:
-  `blender_rt_worker(op="start")` plus `see` returns a frame. Never report success otherwise.
+  `blender_run(kind="headless")` submit + `wait`/`collect` returns outputs. Never report success otherwise.
 - **Install, config, and troubleshooting facts** live in [docs/操作教程.md](docs/操作教程.md) and
   [docs/配置参考.md](docs/配置参考.md). Read them before advising.
 - **Only the bundled addon is supported** (`addon/dsh_blender_bridge.zip`, v2.0.0 / protocol 12).
   MCP for Blender is unsupported since v2.3; migration is in [MIGRATIONS.md](MIGRATIONS.md).
-- **Tool and op names come from the catalog**: `blender_rt_plan(op="catalog")`; fix from `did_you_mean`.
+- **Tool and op names come from the catalog**: `blender_op(op="catalog")`; fix from `did_you_mean`.
 - **Not installed / not covered**: landmark and face (no cv2 or MediaPipe), OCR, DXF,
   Open3D / manifold3d / glTF-Validator. Never document them as supported.
-- **GUI first, headless fallback.** Work over one minute goes to `blender_rt_job` or
-  `blender_rt_headless(as_job=true)`; a client timeout is not a failed job.
+- **GUI first, headless jobs.** Work over one minute goes to `blender_run(action="submit", kind=render|headless)`;
+  poll by job id — a client timeout is not a failed job.
 - **Verdicts are three-state** (`pass` / `fail` / `degraded`); `degraded` is not a pass; delivery gates
   use `gate_preflight` / `gate_checkpoint` / `gate_deliver` and `deliver_export(require_gate=true)`.
 - **Migrate in slices** ([architecture](docs/architecture.md)): one module or boundary per change,
@@ -85,7 +85,7 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
 
 ## 5. Definition of done
 
-- Typecheck and the tests for the touched layer pass; contract counts stay 15 tools / 34 families /
+- Typecheck and the tests for the touched layer pass; contract counts stay 6 tools / 34 families /
   228 ops / 25 addon commands / 29 routes / protocol 12 unless the change declares a new count.
   The addon count is 25 **registered** commands; the transport-only `ping` makes 26 wire commands.
   The single truth is `addon/dsh_blender_bridge/command_registry.py` (see architecture §5).
@@ -111,7 +111,7 @@ review failure.
 | Install, upgrade, uninstall, troubleshooting | [README.md](README.md) · [docs/zh/README.md](docs/zh/README.md) · [docs/操作教程.md](docs/操作教程.md) |
 | Install prompt for another AI assistant | [docs/AI-安装提示词.md](docs/AI-安装提示词.md) |
 | Config keys, ports, environment variables | [docs/配置参考.md](docs/配置参考.md) |
-| Tool parameters, ops, families | `blender_rt_plan(op="catalog")` · [docs/操作教程.md](docs/操作教程.md) |
+| Tool parameters, ops, families | `blender_op(op="catalog")` · [docs/操作教程.md](docs/操作教程.md) |
 | Addon and host integration contract | [docs/宿主集成-接口契约-v2.3增补.md](docs/宿主集成-接口契约-v2.3增补.md) |
 | Architecture and constraints | [docs/architecture.md](docs/architecture.md) |
 | Test layers and fixtures | [tests/README.md](tests/README.md) |

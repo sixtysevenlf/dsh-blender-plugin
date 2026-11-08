@@ -53,7 +53,7 @@ function catalogIndexLines(): string[] {
       '机器/复盘要结构化明细用 args={full:true}。',
   )
   L.push(
-    '工具参数细节（重工具的长尾说明）：args={tool:"rt_headless"}；可查 ' +
+    '工具参数细节（重工具的长尾说明）：args={tool:"blender_run"}；可查 ' +
       Object.keys(TOOL_DETAIL).join(' / ') +
       '。',
   )
@@ -116,6 +116,8 @@ function renderCatalogIndex(o: Record<string, unknown>, prov: Provenance): Recor
     out.detail = PLAN_CATALOG.map((e) => ({
       family: e.f,
       prefix: e.prefix,
+      requires_session: e.requires_session,
+      write_scope: e.write_scope,
       ops: e.ops,
       when: e.when,
       not: e.not,

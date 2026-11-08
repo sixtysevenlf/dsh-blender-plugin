@@ -1,6 +1,6 @@
 # MIGRATIONS —— 从旧版本迁到 v3.1
 
-> **当前版本（2026-11-08）**：插件 **v3.1.0** · **15 个模型工具** · plan catalog **34 family / 228 op** ·
+> **当前版本（2026-11-08）**：插件 **v3.1.0** · **6 个模型工具** · plan catalog **34 family / 228 op** ·
 > addon command **25**（+ping = 26 wire）· addon **v2.0.0**（protocol **12**）· Gateway `127.0.0.1:39877` · addon 主动连接 Gateway（无入站监听）。
 > **旧 `MCP for Blender` 自 v2.3 起不再支持**；v3.0 是工程重构 + addon 安装方式 breaking，按下文 §0/§1 迁。
 
@@ -15,12 +15,12 @@
 
 1. 更新 DSH 插件包到 **v3.0.0**：`dsh plugin --profile <profile> add dsh-blender-plugin@3.0.0` → **重启 DSH**；旧「Blender 视口」tab / 点击进消息在 v2.3 已删除，这是预期。
 2. Blender 里停用并移除旧 addon（含旧的单文件 `dsh_blender_bridge.py`）→ 安装本仓 `addon/dsh_blender_bridge.zip`（**v2.0.0**）→ 启用 → N → Connect。
-3. `blender_rt_cmd get_addon_info` → `addon_version=[2,0,0]`、`protocol=12`；
-   GUI 路线 `curl http://127.0.0.1:39877/doctor` → `kind=ok`（纯无头路线用 `rt_worker(start)` + `see` 出图自证）；
-   `blender_rt_plan(op="catalog")` → **34 family / 228 op**。
+3. `blender_inspect(command="get_addon_info")` → `addon_version=[2,0,0]`、`protocol=12`；
+   GUI 路线 `curl http://127.0.0.1:39877/doctor` → `kind=ok`（纯无头路线用 `blender_run(action="submit", kind="headless", …)` + `wait`/`collect` 取产物自证）；
+   `blender_op(op="catalog")` → **34 family / 228 op**。
 4. 选中入口：Blender 原生选中 → `N` →「Selection → DSH」→ 发送（多选 / 集合）；编辑模式选点/面、姿态选骨骼也会一起发。
 5. 新能力（交互式无头、`img_*`、`asm_*`、`blockout`、`visualreport`、`shapesolve`、`eval_run`、强制门等）用
-   `blender_rt_plan(op="catalog")` 查骨架；除 v3.0 明确移除的 Premium/Tripo 通道外，旧 op 不删除、只增不改。
+   `blender_op(op="catalog")` 查骨架；除 v3.0 明确移除的 Premium/Tripo 通道外，旧 op 不删除、只增不改。
 
 ## 0.1 v3.0.0 明确移除的能力（breaking）
 
@@ -38,7 +38,30 @@
 - 采集/同意：`get_telemetry_consent`、`set_telemetry_consent`、`drain_human_activity`
 - 预览：`get_polyhaven_asset_preview`
 
-旧调用会得到 unknown command 或 `command_removed` 提示。当前命令面用 `blender_rt_commands` 查看；3.1 后续模型面收口为 `blender_inspect`。addon 不再采集人工编辑事件、没有 telemetry 偏好、没有 Discord/Terms 推广入口；`get_activity_state` 的 human/agent/idle/both 判定只在内存中计算，不落盘、不外发。
+旧调用会得到 unknown command 或 `command_removed` 提示。当前命令面用 `blender_inspect` 查看（默认 help）；写命令已从命令面删除。addon 不再采集人工编辑事件、没有 telemetry 偏好、没有 Discord/Terms 推广入口；`get_activity_state` 的 human/agent/idle/both 判定只在内存中计算，不落盘、不外发。
+
+## 0.3 3.1 模型工具面：15 → 6（breaking）
+
+3.1 模型面从 15 个工具收口为 6 个：`blender_session`（会话/归属/权限/事务）、`blender_op`（catalog 与 loop/opt/preset）、`blender_py`（GUI 会话内执行 Python）、`blender_see`（GUI 视点截图与序列帧）、`blender_run`（唯一作业入口：render / headless）、`blender_inspect`（只读 addon 命令目录与执行）。旧名不再注册，调用旧名会得到迁移提示。
+
+| 3.1 之前 | 3.1 模型面 |
+|---|---|
+| `blender_rt_see` | `blender_see` |
+| `blender_rt_watch` | `blender_see(mode="sequence")`（`code=` 改由 `blender_py` 执行） |
+| `blender_rt_do` | `blender_py`（`session` / `preload` / `auto` / `view_size` 参数删除） |
+| `blender_rt_plan` | `blender_op`（`action` 默认 `plan`；`op` / `args` / `path` / `attach_images` 不变） |
+| `blender_rt_loop` | `blender_op(action="loop", …)` |
+| `blender_rt_opt` | `blender_op(action="opt", …)` |
+| `blender_rt_preset` | `blender_op(action="preset", …)` |
+| `blender_rt_perf` | `blender_run(action="tune", …)` |
+| `blender_rt_headless` | `blender_run(action="submit", kind="headless", …)`（异步提交；`wait` / `collect` 收取） |
+| `blender_rt_job` | `blender_run(action="submit" \| "status" \| "wait" \| "collect" \| "cancel" \| "list")` |
+| `blender_rt_cmd(name=X, params=Y)` | `blender_inspect(command=X, args=Y)` |
+| `blender_rt_commands` | `blender_inspect`（默认 help） |
+| `blender_rt_txn(op=O, …)` | `blender_session(action="txn", op=O, …)` |
+| `blender_viewport` | `blender_session`（status/doctor/presence；lease/launch/restart 改由宿主管理，不再是模型工具） |
+
+`blender_rt_worker` 不再属于模型面：交互式「改一步看一眼」用 `blender_py` + `blender_see`（需要 ready 的 GUI 会话）；没有 GUI 时的脚本/渲染改用 `blender_run(action="submit", kind="headless")`，再 `wait`/`collect` 取产物。`session="auto"`、`preload="…worker…"`、worker see/watch 不再是对用户暴露的能力。
 
 ## 1. Blender 侧 addon：必须换成 `DSH Blender Bridge` v2.0.0（Blender 4.2 extension）
 
@@ -47,8 +70,8 @@ v2.3 的原生选中 / 集合 / activity 依赖本仓 addon 的 5 条命令与 N
 
 1. `Edit ▸ Preferences ▸ Add-ons` → 停用旧条目（`MCP for Blender` / `blender_mcp` / `blender_mcp_addon`）。
 2. `Extensions ▸ Install from Disk...` → 选本仓 [`addon/dsh_blender_bridge.zip`](addon/dsh_blender_bridge.zip) → 勾选启用 **DSH Blender Bridge**（v2.0.0 / protocol 12）。v3.0 起不再支持单文件安装。
-3. 3D 视图按 `N` →「DSH Blender Bridge」→ **Connect**（addon 主动连接 Gateway，默认 `39877`）；或直接 `blender_viewport(op="launch")`。
-4. `blender_rt_cmd get_addon_info` → `addon_version` 应为 `[2,0,0]`、`protocol=12`，capabilities 含
+3. 3D 视图按 `N` →「DSH Blender Bridge」→ **Connect**（addon 主动连接 Gateway，默认 `39877`）；Gateway/Blender 生命周期由宿主管理，不再有模型侧启动工具。
+4. `blender_inspect(command="get_addon_info")` → `addon_version` 应为 `[2,0,0]`、`protocol=12`，capabilities 含
    `get_activity_state` / `get_selection` / `get_collections` / `send_*_to_dsh`。
 
 > 旧名 `blender_mcp` 的"已启用"记录是死引用，可以移除；插件**不再做双名回退**。
@@ -56,9 +79,9 @@ v2.3 的原生选中 / 集合 / activity 依赖本仓 addon 的 5 条命令与 N
 ## 2. DSH 侧：升级插件后必须重启 DSH
 
 - 客户端半边（`@` 提及 + 原生选中桥）是启动时装载的；不重启会继续跑旧 bundle（里面还有已删除的面板）。
-- 旧「Blender 视口」tab、点击进消息、`blender_rt_pick` 在 v2.3 全部消失，这是**预期行为**。
+- 旧「Blender 视口」tab、点击进消息、模型点选工具在 v2.3 全部消失，这是**预期行为**。
 - 选中入口改为：Blender 原生选中 → `N` →「Selection → DSH」→ 发送（多选 / 集合两种模式）。
-- v2.6 升级后同样需要**重启 DSH**；只改后端时可用 `blender_viewport(op="restart")`。
+- v2.6 升级后同样需要**重启 DSH**；只改后端时重启宿主即可（Gateway 生命周期由宿主管理，没有模型侧 restart 工具）。
 
 ## 3. 配置文件清理（可选）
 
@@ -89,10 +112,10 @@ v2.3 的原生选中 / 集合 / activity 依赖本仓 addon 的 5 条命令与 N
 - **v2.6**：回执**只增字段**（`recovered / progress / heartbeat / warnings / scope` 等，不改旧字段语义）；
   `audit_mesh` 新增第五态 `pass_multi_shell`；catalog 增加"不覆盖声明"；写作用域支持集合 + 对象前缀两维。
   升级插件后**重启 DSH**；旧调用参数保持兼容。
-- 新增能力（P0–P2）：交互式无头（`rt_worker` see/watch/reset/preload/warmup、`rt_do/rt_see` 可 `session/auto`、
-  `plan session="auto"`、worker 空闲 TTL）、`img_digest/probe/measure/calib`、`asm_scan/manifest/merge/repair/export/gate`、
+- 新增能力（P0–P2）：`img_digest/probe/measure/calib`、`asm_scan/manifest/merge/repair/export/gate`、
   `blockout_base/batch/export/turntable/refsheet`、`visualreport_report`、`shapesolve_solve`、`eval_run`、
   `gate_preflight/checkpoint/deliver` + `deliver_export(require_gate)` —— 都是**新增 op**，用 catalog 查，不替换旧用法。
+  3.1 起模型面收口为 6 个工具（§0.3）：GUI 交互用 `blender_py` / `blender_see`，长活和无头用 `blender_run`。
 
 > **不覆盖 / 未安装依赖**（迁移后也不要承诺）：landmark/人脸（无 cv2/MediaPipe）、OCR、DXF、
 > Open3D / manifold3d / glTF-Validator 未安装，不在支持范围。
@@ -109,7 +132,7 @@ v2.3 的原生选中 / 集合 / activity 依赖本仓 addon 的 5 条命令与 N
 
 1. 安装 v2.6.2 的插件包（tag `refactor-base-v2.6.2` / 对应 tarball），不要用 v3.0.0 的目录覆盖；
 2. Blender 里停用 v1.11 zip addon，重新安装 v2.6.2 自带的单文件 `dsh_blender_bridge.py`（或 v2.6.2 的 addon 产物），启用后 N → Connect；
-3. **重启 DSH**；`blender_rt_cmd get_addon_info` 应回到 v1.10 / protocol 11，`blender_rt_plan(op="catalog")` 应回到 34 family / 228 op。
+3. **重启 DSH**；回滚后的 v2.6.2 是 15 工具面，按 §0.3 对照表换名调用；`addon_version` 应回到 v1.10 / protocol 11，catalog 应回到 34 family / 228 op。
 4. v2.6.2 tag 自带 `lib/` 与旧 `runtime/*.mjs`，不需要构建；v3.0.0 的 `lib/runtime` 与 `.ts` 不要混用。
 5. 回滚演练记录保存在本地重构工作区，不随仓库发布。
 

@@ -63,7 +63,7 @@ export async function blenderCommand(
         text:
           '体检失败：后端不可达（127.0.0.1:' +
           String(port) +
-          '）· 让模型跑 blender_viewport(op="start")',
+          '）· 让模型跑 blender_session action=status',
       }
     const a = asRecord(d.addon)
     const lines = ['诊断：' + (text(a.kind) || (d.ok ? 'ok' : 'unknown'))]

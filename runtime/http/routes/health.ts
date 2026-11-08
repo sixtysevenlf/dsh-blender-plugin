@@ -48,7 +48,7 @@ export function createHealthRoutes(E: HttpRouteDeps) {
         ok: false,
         error: 'gone',
         reason: '人肉视口面板（网页 UI + MJPEG 直播 + 输入注入）已移除',
-        hint: '请关闭此标签页；Blender 交互改用 AI 通道：blender_rt_see / blender_rt_do / blender_rt_watch',
+        hint: '请关闭此标签页；Blender 交互改用 AI 通道：blender_see / blender_py / blender_see',
         removedAt: '2026-09-12',
       })
       return

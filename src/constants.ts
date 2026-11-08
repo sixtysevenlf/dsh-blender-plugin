@@ -42,7 +42,7 @@ export const HOSTNAME = '127.0.0.1'
 
 /** 后端未就绪时的统一提示（不假设任何本机路径） */
 export const BACKEND_HINT =
-  '先确认 Blender 在运行且本仓 addon（DSH Blender Bridge v2.0+）已连接 Gateway；然后 blender_viewport op=start 拉起 Gateway。' +
+  '先确认 Blender 在运行且本仓 addon（DSH Blender Bridge v2.0+）已连接 Gateway；Gateway 由宿主管理，重启 DSH 插件即可。' +
   '端口/工作目录/blender.exe 可用 DSH_BLENDER_* 环境变量或包根 dsh-blender.config.json 配置（见 docs/配置参考.md）。'
 
 /**
@@ -128,7 +128,7 @@ export const HOST_API = hostApiInfo()
 /** 宿主取消（exec.signal abort）时的统一措辞：只说"等待被取消"，不谎称任务失败 */
 export const ABORT_HINT =
   '宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。' +
-  '服务端任务可能仍在跑 —— 长任务请用 blender_rt_job 并按 runId 回收；' +
+  '服务端任务可能仍在跑 —— 长任务请用 blender_run（submit → wait/collect 按 jobId 回收）；' +
   '本插件的内部超时通常先于宿主截止触发，正常情况看到的是上面这类可读错误。'
 
 /** 本会话在写通道上的身份（租约 holder）；跨会话共用同一个后端时用它区分 */

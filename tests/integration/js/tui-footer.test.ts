@@ -18,7 +18,7 @@ describe('footer field matrix', () => {
     expect(down.text).toBe('Blender ○')
     expect(down.tone).toBe('dim')
     expect(down.detail).toContain(String(PORT))
-    expect(down.detail).toContain('blender_viewport')
+    expect(down.detail).toContain('blender_session')
 
     const notConnected = footerField(
       {

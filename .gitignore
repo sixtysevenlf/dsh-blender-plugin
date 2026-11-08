@@ -14,6 +14,7 @@ dsh-blender.config.json
 venv/
 runtime/ext/venv/
 .venv/
+.venv.broken-*/
 
 # Ruff editor cache
 .ruff_cache/
@@ -37,3 +38,6 @@ coverage/
 # Local PR-review workspace (never committed or shipped)
 /.review-tmp/
 .vscode/
+
+# Local agent workspace (never committed or shipped)
+.dsh-ops/

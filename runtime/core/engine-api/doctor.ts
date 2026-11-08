@@ -156,7 +156,7 @@ export function addonErrorDiagnosis(error: string): Record<string, unknown> {
         error +
         ' —— 通道本身仍在，按 addonError 处理（如操作已暂停 / 参数或脚本报错），不是 main-thread-busy。',
     fix: busy
-      ? '等渲染结束，或用 blender_rt_plan(op="render_wait") 等它；长渲染一开始就走 blender_rt_job。不要按「主线程忙」反复重试，也不用 op=start（那只修 Gateway 进程）。'
+      ? '等渲染结束，或用 blender_op(op="render_wait") 等它；长渲染一开始就走 blender_run。不要按「主线程忙」反复重试，也不用 op=start（那只修 Gateway 进程）。'
       : '按 addonError 的具体报错修（例如在 DSH 里恢复被暂停的「AI 操作」；脚本/参数错误按报错改参数），不要按「主线程忙」重试。',
     hint: busy
       ? 'BUSY_RENDER：主线程命令会排队到超时，等渲染结束再发。'
@@ -414,6 +414,35 @@ export function createDoctorApi(E: EngineApiDeps) {
         if (!gate || flags[gate]) available.push(name)
         else disabled.push(name)
       }
+      // Args / pause_safe / network come from the addon's single command
+      // registry (get_addon_info), never from a second host-side table.
+      const info = (await addon
+        .send('get_addon_info', {}, ADDON_FLAGS_TIMEOUT_MS)
+        .catch(() => null)) as Record<string, unknown> | null
+      const rawSpecs = info && Array.isArray(info.command_specs) ? info.command_specs : []
+      const specs = new Map<string, Record<string, unknown>>()
+      for (const row of rawSpecs) {
+        if (
+          row &&
+          typeof row === 'object' &&
+          typeof (row as Record<string, unknown>).name === 'string'
+        )
+          specs.set(String((row as Record<string, unknown>).name), row as Record<string, unknown>)
+      }
+      const commands = Object.keys(COMMAND_CATALOG).map((name) => {
+        const entry = COMMAND_CATALOG[name]
+        const spec = specs.get(name) || {}
+        return {
+          name,
+          description: entry.d,
+          access: entry.access,
+          gate: entry.gate,
+          enabled: !entry.gate || !!flags[entry.gate],
+          pause_safe: spec.pause_safe === true,
+          network: spec.network === true,
+          args: Array.isArray(spec.params) ? spec.params : [],
+        }
+      })
       const integrations = await integrationStatus(E)
       return {
         scene: meta.scene,
@@ -423,6 +452,7 @@ export function createDoctorApi(E: EngineApiDeps) {
         disabled: disabled,
         gates: flags,
         integrations: integrations,
+        commands: commands,
       }
     },
     /** 内环：启动（spec 见 runner.py 顶部契约） */

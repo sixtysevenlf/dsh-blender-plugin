@@ -19,13 +19,13 @@ const ops = cat.ops_count
 const dry = process.argv.includes('--dry')
 
 const targets = [
-  // 之后 plan 工具的描述在 src/plan/tool.ts（入口 src/index.ts 只做 re-export）。
+  // 3.1：plan 工具并入 src/tools/op/index.ts（六工具面；入口 src/index.ts 只做 re-export）。
   {
-    file: path.join(ROOT, 'src', 'plan', 'tool.ts'),
+    file: path.join(ROOT, 'src', 'tools', 'op', 'index.ts'),
     pairs: [
       [
-        /(【判定 \/ 验收 \/ 导出 \/ 造型】)\d+ 个 family · \d+ 个 op/,
-        '$1' + fams + ' 个 family · ' + ops + ' 个 op',
+        /(\d+ family \/ \d+ op；op=catalog 看目录)/,
+        fams + ' family / ' + ops + ' op；op=catalog 看目录',
       ],
     ],
   },
@@ -48,7 +48,10 @@ const targets = [
 for (const rel of ['docs/操作教程.md', 'skills/blender-modeling/SKILL.md']) {
   targets.push({
     file: path.join(ROOT, rel),
-    pairs: [[/\d+ (?:个 )?family \/ \d+ (?:个 )?op/g, fams + ' 个 family / ' + ops + ' 个 op']],
+    pairs: [
+      [/\d+ family \/ \d+ op/g, fams + ' family / ' + ops + ' op'],
+      [/\d+ 个 family \/ \d+ 个 op/g, fams + ' 个 family / ' + ops + ' 个 op'],
+    ],
   })
 }
 

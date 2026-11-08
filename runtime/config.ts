@@ -42,7 +42,7 @@ export const IS_MAC = process.platform === 'darwin'
  * 为什么必须单独判：`wslToWin()` 原来只分了 Windows / macOS，**其余一律当成「Linux 宿主 ⇒ WSL +
  * Windows 上的 Blender」**，把宿主绝对路径映射成 `\\wsl.localhost\<distro>\…`。原生 Linux 上 Blender
  * 与宿主同机同 OS（跟 macOS 一样同构），这个映射会让 Blender 把该串当**相对路径**，产物落进一个字面量
- * 反斜杠目录，后端再按原路径读就 ENOENT ⇒ `blender_rt_see` 恒报 `frame http 502`。
+ * 反斜杠目录，后端再按原路径读就 ENOENT ⇒ `blender_see` 恒报 `frame http 502`。
  *
  * 判据：环境变量优先（交互式 WSL 一定有）；再退回 /proc/version —— dsh 跑在 systemd 服务里时**不继承**
  * `WSL_DISTRO_NAME`（issue #6 现场），但那台机器确实是 WSL，不能因此误判成原生 Linux。
@@ -463,7 +463,7 @@ export const PATHS = {
   viewPngWsl: path.join(CFG.workDirWsl, 'dsh_view_capture.png'),
 }
 
-/** 配置摘要（自检/排错时打印；blender_rt_headless 缺 exe 时也用它给提示）
+/** 配置摘要（自检/排错时打印；blender_run 缺 exe 时也用它给提示）
  *  over.httpPort：后端实际监听的端口（命令行 --port 会覆盖配置值，摘要要跟着走） */
 export function describeConfig(over: { httpPort?: number | string } = {}) {
   const o = over || {}

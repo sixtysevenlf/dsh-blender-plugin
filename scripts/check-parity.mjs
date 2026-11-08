@@ -34,6 +34,17 @@ const TMP_ROOT = process.env.DSH_TMP || os.tmpdir()
 // every other byte while making an intentional, reviewed contract change
 // explicit instead of silently weakening the comparison. v3.0.0 removes the
 // Premium/Tripo channel; nothing else may disappear without adding it here.
+// v3.1 is a declared breaking model-surface change: the 15-tool surface
+// becomes exactly 6 tools, and the catalog family metadata grows the
+// requires_session / write_scope target fields. Those two surfaces are frozen
+// by config/contracts + tests/unit/js/tool-surface-3-1.test.ts and
+// tests/unit/js/contract/op-contract.test.ts instead of being byte-compared
+// against the pre-3.1 base. Everything else stays strict.
+const DECLARED_TOOL_SURFACE_3_1 = {
+  toolDetailKeys: { base: 7, current: 6 },
+  tables: ['TOOL_DETAIL', 'PLAN_TOOL_MAP', 'MODEL_FACING_TOOLS'],
+  catalogPayloadForms: ['default', 'family', 'tool', 'full', 'handoff', 'verify'],
+}
 const DECLARED_CATALOG_REMOVALS = [
   'get_tripo_status',
   'export_scene',
@@ -285,32 +296,86 @@ try {
   ok('declared-engine-removals', 'declared engine exports removed', DECLARED_ENGINE_REMOVALS.length)
   ok('exports-count', 'engine exports', bKeys.length)
 
-  // 2. Catalog fingerprint (34 families / 228 ops / 38 commands / 7 tool details).
+  // 2. Catalog fingerprint (34 families / 228 ops / 25 commands / 6 tool details).
+  // The 3.1 tool-surface change is declared: toolDetailKeys shrinks 7 -> 6 and
+  // the family metadata grows target fields, so the hash itself is not compared;
+  // the structural contract counts are.
   const bFp = baseEngine.catalogFingerprint()
   const cFp = curEngine.catalogFingerprint()
-  eq('fingerprint', 'catalogFingerprint()', bFp, cFp)
-  ok('contract-counts', 'catalog contract counts', bFp)
+  if (bFp.families !== cFp.families || bFp.opsCount !== cFp.opsCount)
+    throw new Error(
+      'catalog fingerprint counts changed: ' +
+        bFp.families +
+        '/' +
+        bFp.opsCount +
+        ' -> ' +
+        cFp.families +
+        '/' +
+        cFp.opsCount,
+    )
+  if (bFp.commandCatalogKeys !== cFp.commandCatalogKeys)
+    throw new Error(
+      'command catalog keys changed: ' + bFp.commandCatalogKeys + ' -> ' + cFp.commandCatalogKeys,
+    )
+  if (bFp.toolDetailKeys !== DECLARED_TOOL_SURFACE_3_1.toolDetailKeys.base)
+    throw new Error('base toolDetailKeys changed: ' + bFp.toolDetailKeys)
+  if (cFp.toolDetailKeys !== DECLARED_TOOL_SURFACE_3_1.toolDetailKeys.current)
+    throw new Error('current toolDetailKeys must be 6, got ' + cFp.toolDetailKeys)
+  ok('declared-tool-surface-3-1', 'declared 15 -> 6 tool surface', {
+    from: bFp.toolDetailKeys,
+    to: cFp.toolDetailKeys,
+  })
+  ok('contract-counts', 'catalog contract counts', cFp)
 
   // 3. Catalog payload in every output form, provenance hashes normalised.
   const payloadForms = [
     ['default', {}],
     ['family', { family: 'sculpt' }],
-    ['tool', { tool: 'rt_headless' }],
     ['full', { full: true }],
     ['handoff', { handoff: true }],
     ['verify', { verify: true }],
   ]
   for (const [id, opts] of payloadForms) {
-    eq(
-      'catalog-' + id,
-      'catalogPayload(' + JSON.stringify(opts) + ')',
-      baseEngine.catalogPayload(opts),
-      curEngine.catalogPayload(opts),
+    // Declared 3.1 surface change: the catalog prose embeds the tool names and
+    // the new target fields, so it cannot be byte-compared to the 15-tool base.
+    // Compare the structure every form keeps and forbid legacy names from
+    // leaking back into the model-facing text (the old names are migration-only).
+    const body = curEngine.catalogPayload(opts)
+    const baseBody = baseEngine.catalogPayload(opts)
+    if (JSON.stringify(body.families ?? null) !== JSON.stringify(baseBody.families ?? null))
+      throw new Error('catalog-' + id + ' family list drifted')
+    if (body.ops_count !== baseBody.ops_count)
+      throw new Error('catalog-' + id + ' op count drifted')
+    if (!body.text || typeof body.text !== 'string')
+      throw new Error('catalog-' + id + ' has no text')
+    if (
+      /blender_rt_(see|do|watch|plan|loop|opt|preset|headless|job|perf|cmd|commands|txn|worker)|blender_viewport/.test(
+        body.text,
+      )
     )
-    ok('catalog-' + id + '-len', 'catalogPayload text length', {
-      text: curEngine.catalogPayload(opts).text.length,
-    })
+      throw new Error('catalog-' + id + ' still advertises a legacy 3.0 tool name')
+    ok('catalog-' + id + '-len', 'catalogPayload text length', { text: body.text.length })
   }
+  // The per-tool view cannot be executed against the base (the 3.0 surface has
+  // no blender_* names). Freeze it on the 6 current tools instead.
+  for (const name of curEngine.MODEL_FACING_TOOLS) {
+    const body = curEngine.catalogPayload({ tool: name })
+    if (!body.text || typeof body.text !== 'string')
+      throw new Error('catalogPayload({tool:' + name + '}) has no text')
+    if (!body.text.includes(name))
+      throw new Error('catalogPayload({tool:' + name + '}) omits the tool')
+    if (
+      /blender_rt_(see|do|watch|plan|loop|opt|preset|headless|job|perf|cmd|commands|txn|worker)|blender_viewport/.test(
+        body.text,
+      )
+    )
+      throw new Error('catalogPayload({tool:' + name + '}) advertises a legacy name')
+  }
+  ok(
+    'declared-catalog-payload-forms',
+    'declared catalog payload forms compared structurally (+6 per-tool views)',
+    DECLARED_TOOL_SURFACE_3_1.catalogPayloadForms.length,
+  )
 
   // 4. Catalog / plan / command / tool tables (names + structure, not prose).
   const tables = [
@@ -325,6 +390,15 @@ try {
     'PATH_GUARD',
   ]
   for (const name of tables) {
+    if (DECLARED_TOOL_SURFACE_3_1.tables.includes(name)) {
+      // Declared 3.1 surface change; the frozen replacement is
+      // tests/unit/js/tool-surface-3-1.test.ts + capability.lock.json.
+      const k = Object.keys(curEngine[name] || {}).length
+      if (k !== DECLARED_TOOL_SURFACE_3_1.toolDetailKeys.current)
+        throw new Error(name + ' must expose 6 entries, got ' + k)
+      ok('table-' + name + '-declared', name + ' declared 3.1 surface', k)
+      continue
+    }
     eq(
       'table-' + name,
       name,
@@ -358,13 +432,33 @@ try {
     baseEngine.classGuideStats(),
     curEngine.classGuideStats(),
   )
-  eq('render-handoff', 'renderHandoff()', baseEngine.renderHandoff(), curEngine.renderHandoff())
-  eq(
-    'render-class-text',
-    'renderClassText()',
-    baseEngine.renderClassText(baseEngine.MODELING_CLASS_GUIDE[0]),
-    curEngine.renderClassText(curEngine.MODELING_CLASS_GUIDE[0]),
-  )
+  {
+    // Declared 3.1 surface change: the handoff text lists the tool surface, so
+    // it cannot be byte-compared. Freeze its current invariants instead.
+    const handoff = curEngine.renderHandoff()
+    if (typeof handoff !== 'string' || !handoff.length) throw new Error('renderHandoff() is empty')
+    for (const name of curEngine.MODEL_FACING_TOOLS)
+      if (!handoff.includes(name)) throw new Error('renderHandoff() omits ' + name)
+    if (
+      /blender_rt_(see|do|watch|plan|loop|opt|preset|headless|job|perf|cmd|commands|txn|worker)|blender_viewport/.test(
+        handoff,
+      )
+    )
+      throw new Error('renderHandoff() advertises a legacy 3.0 tool name')
+    ok('render-handoff-declared', 'renderHandoff() declared 3.1 surface', handoff.length)
+  }
+  {
+    // Declared 3.1 surface change: the class text embeds the entry-tool call.
+    const text = curEngine.renderClassText(curEngine.MODELING_CLASS_GUIDE[0])
+    if (typeof text !== 'string' || !text.length) throw new Error('renderClassText() is empty')
+    if (
+      /blender_rt_(see|do|watch|plan|loop|opt|preset|headless|job|perf|cmd|commands|txn|worker)|blender_viewport/.test(
+        text,
+      )
+    )
+      throw new Error('renderClassText() advertises a legacy 3.0 tool name')
+    ok('render-class-text-declared', 'renderClassText() declared 3.1 surface', text.length)
+  }
   eq('plan-read-only', 'PLAN_READ_ONLY', baseEngine.PLAN_READ_ONLY, curEngine.PLAN_READ_ONLY)
   eq(
     'plan-read-only-ops',
@@ -385,7 +479,7 @@ try {
       families: bFp.families,
       ops: bFp.opsCount,
       commands: bFp.commandCatalogKeys,
-      toolDetailKeys: bFp.toolDetailKeys,
+      toolDetailKeys: cFp.toolDetailKeys,
       routes: curRoutes.CONTRACT_ROUTES.length,
     },
     parity: 'PASS',

@@ -1,57 +1,61 @@
-/** blender_rt_see 的呈现层：帧文本/空帧告警（不改变任何判定）。 */
+/** blender_see 的呈现层：视角/相机/序列帧文本与空帧告警。 */
 import { asRecord, text } from '../../contracts/dynamic.js'
 
 const LF = String.fromCharCode(10)
 
-export function formatHeadlessSeeText(res: Record<string, unknown>): string {
-  return (
-    '无头 see（Workbench 离屏，GUI 未连接自动降级）· ' +
-    text(res.ms) +
-    'ms · ' +
-    text(res.width) +
-    'x' +
-    text(res.height) +
-    ' · ' +
-    text(res.bytes || 0) +
-    'B' +
-    (res.coverage_estimate === null || res.coverage_estimate === undefined
-      ? ''
-      : ' · 覆盖 ' + (Number(res.coverage_estimate) * 100).toFixed(2) + '%') +
-    ' · 场景与用户视口未改动'
-  )
+/** Read PNG width/height from IHDR (the only fields see needs). */
+export function pngSize(png: Uint8Array): [number, number] {
+  if (!png || png.length < 24 || png[1] !== 0x50 || png[2] !== 0x4e || png[3] !== 0x47)
+    return [0, 0]
+  const dv = new DataView(png.buffer, png.byteOffset, png.byteLength)
+  return [dv.getUint32(16), dv.getUint32(20)]
 }
 
-interface ViewLike {
+export interface ViewLike {
   png: Uint8Array
   ms: unknown
   hash: string
   meta: Record<string, unknown> | null
 }
 
-export function formatCustomViewText(spec: Record<string, unknown>, fv: ViewLike): string {
+export function formatViewText(
+  label: string,
+  dims: { width: number; height: number },
+  fv: ViewLike,
+  _spec: Record<string, unknown>,
+): string {
   const mt = asRecord(fv.meta)
+  const extras: string[] = []
+  if (label === 'camera') {
+    if (mt.camera) extras.push('camera=' + text(mt.camera))
+    if (mt.frame !== undefined && mt.frame !== null) extras.push('frame=' + text(mt.frame))
+    if (mt.preview_only) extras.push('preview_only')
+    if (mt.dof_ignored) extras.push('dof_ignored')
+    if (mt.motion_blur_ignored) extras.push('motion_blur_ignored')
+  }
+  if (mt.fallback_from) extras.push('fallback=' + text(mt.fallback_from))
+  const cov =
+    mt.coverage_estimate === undefined || mt.coverage_estimate === null
+      ? ''
+      : ' · 覆盖 ' + (Number(mt.coverage_estimate) * 100).toFixed(2) + '%'
   return (
-    '自定义视角 ' +
-    text(mt.mode || spec.mode || 'viewport') +
+    'SEE ' +
+    label +
     ' · ' +
-    text(spec.width) +
+    String(dims.width) +
     'x' +
-    text(spec.height) +
+    String(dims.height) +
     ' · ' +
-    text(fv.ms) +
+    String(fv.ms) +
     'ms · ' +
-    text((fv.png as Uint8Array).length) +
+    String(fv.png.length) +
     'B · hash ' +
     String(fv.hash) +
-    ' · from ' +
-    JSON.stringify(spec.from) +
-    ' → look_at ' +
-    JSON.stringify(spec.look_at) +
-    (mt.fallback_from ? ' · (viewport 不可用已降级 render：' + text(mt.fallback_from) + ')' : '') +
-    (mt.coverage_estimate === undefined || mt.coverage_estimate === null
-      ? ''
-      : ' · 覆盖 ' + (Number(mt.coverage_estimate) * 100).toFixed(2) + '%') +
-    ' · 场景与用户视口均未改动'
+    (extras.length ? ' · ' + extras.join(' · ') : '') +
+    cov +
+    (label === 'camera'
+      ? ' · 当前帧求值，未改 scene.camera / 帧 / 选择 / 用户视口'
+      : ' · 场景与用户视口均未改动')
   )
 }
 
@@ -84,17 +88,34 @@ export function appendEmptyFrameWarning(t: string, raw: unknown): string {
   )
 }
 
-export function formatPlainFrameText(
-  size: number,
-  full: boolean,
-  f: { png: Uint8Array; ms: unknown; hash: string },
+export function formatSequenceText(
+  label: string,
+  seconds: number,
+  fps: number,
+  shots: Array<{ t: number; ms: number; hash: string }>,
+  distinct: number,
 ): string {
-  return (
-    (full ? '区域截图（screenshot_area）· ' : '视口帧 ' + String(size) + 'px · ') +
-    String(f.ms) +
-    'ms · ' +
-    String((f.png as Uint8Array).length) +
-    'B · hash ' +
-    f.hash
-  )
+  const avg = shots.length
+    ? Math.round(shots.reduce((n, s) => n + Number(s.ms || 0), 0) / shots.length)
+    : 0
+  const parts = [
+    'SEE sequence(' +
+      label +
+      ') · ' +
+      String(seconds) +
+      's @' +
+      String(fps) +
+      'fps → ' +
+      String(shots.length) +
+      ' 帧 · 平均 ' +
+      String(avg) +
+      'ms/帧 · 不同画面 ' +
+      String(distinct) +
+      '/' +
+      String(shots.length) +
+      (distinct <= 1 ? ' · static=true' : ''),
+  ]
+  const timeline = shots.map((s, i) => String(i) + '@' + String(s.t) + 'ms:' + s.hash).join(' ')
+  if (timeline) parts.push('timeline ' + timeline)
+  return parts.join(LF)
 }

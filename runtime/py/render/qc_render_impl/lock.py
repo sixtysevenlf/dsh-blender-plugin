@@ -215,7 +215,7 @@ def _lock_status(path, ttl_s=None):
 def render_lock(args=None):
     """跨进程渲染锁原语（v0.9.1 E1）：action="acquire" | "release" | "status"。
 
-    blender_rt_plan(op="qc_render_lock", args={"action": "acquire", "holder": "me"})   # 或 plan(op="render_lock")
+    blender_op(op="qc_render_lock", args={"action": "acquire", "holder": "me"})   # 或 plan(op="render_lock")
     K.dsh_qc_render_api("render_lock", {"action": "status"})
 
     参数：

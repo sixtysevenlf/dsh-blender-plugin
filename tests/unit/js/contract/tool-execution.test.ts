@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import * as plugin from '../../../../src/index'
 import { createFakeContext, type CapturedTool } from '../../../helpers/fake-context'
-import { closedPort, startFakeBackend } from '../../../helpers/fake-backend.mjs'
+import { startFakeBackend } from '../../../helpers/fake-backend.mjs'
 
 let backend: Awaited<ReturnType<typeof startFakeBackend>>
 let fake: ReturnType<typeof createFakeContext>
@@ -13,8 +13,36 @@ function tool(name: string): CapturedTool {
   return t
 }
 
-async function run(name: string, args: unknown, exec: Record<string, unknown> = {}): Promise<any> {
-  return await (tool(name).execute as any)(args, exec)
+async function run(name: string, args: unknown): Promise<any> {
+  return await (tool(name).execute as any)(args, {})
+}
+
+function requestsSince(mark: number): any[] {
+  return backend.requests.slice(mark)
+}
+
+function requestSince(mark: number, method: string, path: string): any | undefined {
+  return requestsSince(mark).find((r: any) => r.method === method && r.path === path)
+}
+
+/** No visible GUI session: the decision-required path, never a spawn. */
+function hideSessions(): void {
+  backend.setHandler('POST /lease', () => ({
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+    body: Buffer.from(JSON.stringify({ ok: true, sessions: [] })),
+  }))
+}
+
+const QUEUED_JOB = {
+  id: 'job-1',
+  kind: 'render',
+  state: 'queued',
+  slot: 'gpu',
+  priority: 0,
+  createdAt: Date.now(),
+  updatedAt: Date.now(),
+  owner: { hostId: 'host-1', dshSessionId: 'ds-1', agentId: 'main' },
 }
 
 beforeAll(async () => {
@@ -43,181 +71,265 @@ afterAll(async () => {
   await backend.close()
 })
 
-describe('model tool execution semantics', () => {
-  it('tool blender_rt_see executes a viewport frame round-trip', async () => {
-    const out = await run('blender_rt_see', { max_size: 320 })
-    expect(out.text).toContain('视口帧 320px')
-    expect(out.image?.attachmentId).toContain('viewport-')
-    expect(
-      backend.requests.some(
-        (r: any) => r.method === 'GET' && r.path === '/frame.png' && r.search.includes('size=320'),
-      ),
-    ).toBe(true)
+describe('model tool execution semantics (six-tool surface)', () => {
+  it('blender_session lists sessions through the session route', async () => {
+    const mark = backend.requests.length
+    const out = await run('blender_session', { action: 'list' })
+    expect(out.text).toContain('SESSION list · 1 个会话')
+    expect(out.text).toContain('sess-1')
+    expect(requestSince(mark, 'POST', '/lease')?.body.action).toBe('list')
   })
 
-  it('tool blender_rt_do executes code and returns the follow-up frame', async () => {
-    const out = await run('blender_rt_do', { code: 'print(1)' })
-    expect(out.text).toContain('ACT ok')
-    expect(out.text).toContain('fake stdout')
-    expect(out.image).toBeTruthy()
-    const act = backend.requests.find((r: any) => r.method === 'POST' && r.path === '/act')
-    expect(act?.body.code).toBe('print(1)')
+  it('blender_session attaches with an explicit instance id', async () => {
+    const mark = backend.requests.length
+    const out = await run('blender_session', { action: 'attach', instance_id: 'inst-1' })
+    expect(out.text).toContain('SESSION attach ok')
+    expect(out.text).toContain('session=sess-1')
+    const req = requestSince(mark, 'POST', '/lease')
+    expect(req?.body).toMatchObject({ action: 'attach', instanceId: 'inst-1' })
   })
 
-  it('tool blender_rt_watch samples a time window', async () => {
-    const out = await run('blender_rt_watch', {
-      code: 'x = 1',
-      seconds: 0.2,
-      fps: 1,
-      max_size: 120,
-    })
-    expect(out.text).toContain('WATCH 0.2s @1fps')
-    expect(out.text).toContain('timeline:')
-  })
-
-  it('tool blender_rt_cmd sends one addon command', async () => {
-    const out = await run('blender_rt_cmd', { name: 'get_scene_info', params: { a: 1 } })
-    expect(out.text).toContain('CMD get_scene_info ok')
-    const req = backend.requests.find((r: any) => r.method === 'POST' && r.path === '/cmd')
-    expect(req?.body).toMatchObject({ name: 'get_scene_info', params: { a: 1 } })
-  })
-
-  it('tool blender_rt_commands renders the command catalog', async () => {
-    const out = await run('blender_rt_commands', {})
-    expect(out.text).toContain('可用命令 25 条')
-    expect(out.text).toContain('polyhaven=off')
-  })
-
-  it('tool blender_rt_loop runs an inner-loop op', async () => {
-    const out = await run('blender_rt_loop', { op: 'status' })
-    expect(out.text).toContain('LOOP status')
-    expect(backend.requests.some((r: any) => r.path === '/loop' && r.body.op === 'status')).toBe(
-      true,
-    )
-  })
-
-  it('tool blender_rt_perf runs a perf op', async () => {
-    const out = await run('blender_rt_perf', { op: 'status' })
-    expect(out.text).toContain('PERF status')
-  })
-
-  it('tool blender_rt_opt maps join to the canonical opt_join op', async () => {
-    const out = await run('blender_rt_opt', { op: 'join', args: '{"dry_run":true}' })
-    expect(out.text).toContain('OPT join')
-    const req = backend.requests.find((r: any) => r.path === '/opt')
-    expect(req?.body.op).toBe('opt_join')
-  })
-
-  it('tool blender_rt_headless returns a headless receipt', async () => {
-    const out = await run('blender_rt_headless', { script: 'print(1)' })
-    expect(out.text).toContain('HEADLESS')
-    expect(out.envelope?.status).toBe('done')
-    const req = backend.requests.find((r: any) => r.path === '/headless')
-    expect(req?.body.script).toBe('print(1)')
-  })
-
-  it('tool blender_rt_plan returns a plan receipt', async () => {
-    const out = await run('blender_rt_plan', { op: 'catalog' })
-    expect(out.text).toContain('PLAN catalog ok')
-    expect(out.envelope?.verdict).toBe('pass')
-  })
-
-  it('tool blender_rt_worker starts a worker session', async () => {
-    const out = await run('blender_rt_worker', { op: 'start', name: 'w1' })
-    expect(out.text).toContain('WORKER start ok')
-    expect(out.text).toContain('w1')
-  })
-
-  it('tool blender_rt_txn lists snapshots and marks', async () => {
-    const out = await run('blender_rt_txn', { op: 'list' })
+  it('blender_session action=txn keeps the txn route and renders its receipt', async () => {
+    const mark = backend.requests.length
+    const out = await run('blender_session', { action: 'txn', op: 'list' })
     expect(out.text).toContain('TXN list ok')
+    expect(out.text).toContain('目录：/tmp/fake')
+    expect(requestSince(mark, 'POST', '/txn')?.body.op).toBe('list')
   })
 
-  it('tool blender_rt_preset lists the recipe library', async () => {
-    const out = await run('blender_rt_preset', { op: 'list' })
-    expect(out.text).toContain('PRESET list ok')
+  it('blender_op plan catalog runs without a GUI session', async () => {
+    const mark = backend.requests.length
+    const out = await run('blender_op', { action: 'plan', op: 'catalog' })
+    expect(out.text).toContain('OP catalog ok')
+    expect(out.envelope?.verdict).toBe('pass')
+    expect(requestSince(mark, 'POST', '/plan')?.body.op).toBe('catalog')
+    expect(
+      requestsSince(mark).some((r: any) => r.path === '/lease' && r.body?.action === 'list'),
+    ).toBe(false)
   })
 
-  it('tool blender_rt_job lists jobs', async () => {
-    const out = await run('blender_rt_job', { op: 'list' })
-    expect(out.text).toContain('作业（1）')
-    expect(out.text).toContain('job-1')
+  it('blender_op rejects an executing op without a ready session', async () => {
+    hideSessions()
+    const out = await run('blender_op', { action: 'plan', op: 'gate_deliver' })
+    expect(out.text).toContain('Blender 未附着')
+    expect(out.text).toContain('session_required')
+    expect(out.envelope?.stage).toBe('session')
+    backend.setHandler('POST /lease')
   })
 
-  it('tool blender_viewport status reports backend state', async () => {
-    const out = await run('blender_viewport', { op: 'status' })
-    expect(typeof out).toBe('string')
-    expect(JSON.parse(out).running).toBe(true)
-    expect(JSON.parse(out).endpoint).toContain(String(backend.port))
+  it('blender_py executes code in the attached GUI session and returns a frame', async () => {
+    const mark = backend.requests.length
+    const out = await run('blender_py', { code: 'print(1)' })
+    expect(out.text).toContain('PY ok')
+    expect(out.text).toContain('fake stdout')
+    expect(out.image?.attachmentId).toContain('py-see-')
+    expect(requestSince(mark, 'POST', '/act')?.body).toMatchObject({
+      code: 'print(1)',
+      py: true,
+      sessionId: 'sess-1',
+    })
   })
 
-  it('rejects missing required parameters before touching the backend', async () => {
-    expect((await run('blender_rt_do', {})).text).toContain('需要 code 或 file 之一')
-    await expect(run('blender_rt_cmd', {})).rejects.toThrow('missing required property "name"')
-    expect((await run('blender_rt_headless', { blend: 'D:/x.blend' })).text).toContain(
-      '没有参数 blend',
+  it('blender_py refuses to run without a session and never starts headless', async () => {
+    hideSessions()
+    const mark = backend.requests.length
+    const t0 = Date.now()
+    const out = await run('blender_py', { code: 'x = 1' })
+    expect(Date.now() - t0).toBeLessThan(3000)
+    expect(out.text).toContain('Blender 未附着')
+    expect(out.text).toContain('session_required')
+    expect(out.text).toContain('blender_session action=attach')
+    expect(out.text).toContain('virtual-gui')
+    expect(requestsSince(mark).some((r: any) => r.path === '/headless' || r.path === '/act')).toBe(
+      false,
     )
-    expect((await run('blender_rt_headless', { file: '   ' })).text).toContain('空字符串')
-    expect((await run('blender_rt_job', { op: 'start', file: '' })).text).toContain('空字符串')
-    expect((await run('blender_rt_plan', { op: 'catalog', args: '{bad' })).text).toContain(
-      'args 不是合法 JSON 对象',
-    )
-    expect((await run('blender_rt_preset', { op: 'save', data: '{bad' })).text).toContain(
-      'data 不是合法 JSON',
-    )
+    backend.setHandler('POST /lease')
   })
 
-  it('maps a backend lease conflict to a readable 409 message', async () => {
-    backend.setHandler('POST /act', () => ({
-      status: 409,
+  it('blender_see captures a viewport frame at a fixed tier', async () => {
+    const mark = backend.requests.length
+    const out = await run('blender_see', {})
+    expect(out.text).toContain('SEE viewport · 1024x576')
+    expect(out.image?.attachmentId).toContain('see-viewport-')
+    expect(requestSince(mark, 'POST', '/view')?.body).toMatchObject({
+      mode: 'current',
+      width: 1024,
+      height: 576,
+    })
+  })
+
+  it('blender_see captures the evaluated camera without moving it', async () => {
+    const mark = backend.requests.length
+    const out = await run('blender_see', { viewpoint: 'camera', force: true })
+    expect(out.text).toContain('SEE camera')
+    expect(out.text).toContain('camera=Camera')
+    expect(out.text).toContain('frame=1')
+    expect(out.text).toContain('未改 scene.camera')
+    expect(requestSince(mark, 'POST', '/view')?.body.mode).toBe('camera')
+  })
+
+  it('blender_see samples a short sequence of viewport frames', async () => {
+    const out = await run('blender_see', {
+      mode: 'sequence',
+      viewpoint: 'viewport',
+      seconds: 0.2,
+      fps: 5,
+    })
+    expect(out.text).toContain('SEE sequence(viewport) · 0.2s @5fps → 1 帧')
+    expect(out.text).toContain('timeline')
+  })
+
+  it('blender_see rejects removed and ambiguous parameters before capturing', async () => {
+    const viewSize = await run('blender_see', { view_size: '1280x720' })
+    expect(viewSize.text).toContain('view_size')
+    expect(viewSize.text).toContain('invalid_params')
+    const cameraFrom = await run('blender_see', { viewpoint: 'camera', from: '1,2,3' })
+    expect(cameraFrom.text).toContain('camera')
+    expect(cameraFrom.text).toContain('invalid_params')
+    const seq = await run('blender_see', {
+      mode: 'sequence',
+      viewpoint: 'camera',
+      seconds: 2,
+      fps: 4,
+    })
+    expect(seq.text).toContain('sequence 只支持 viewpoint=viewport 或 custom')
+    expect(seq.text).toContain('invalid_params')
+  })
+
+  it('blender_run submits a declarative render job to the queue', async () => {
+    backend.setHandler('POST /job', () => ({
+      status: 200,
       headers: { 'content-type': 'application/json' },
-      body: Buffer.from(
-        JSON.stringify({
-          ok: false,
-          error: 'leased',
-          holder: 'other',
-          expiresInMs: 5000,
-          hint: 'wait',
-        }),
-      ),
+      body: Buffer.from(JSON.stringify({ ok: true, op: 'submit', job: QUEUED_JOB })),
     }))
-    const out = await run('blender_rt_do', { code: 'x = 1', see: false })
-    expect(out.text).toContain('写通道被别的会话占用')
-    expect(out.text).toContain('other')
-    backend.setHandler('POST /act')
+    const mark = backend.requests.length
+    const out = await run('blender_run', {
+      action: 'submit',
+      kind: 'render',
+      file: '',
+      frames: [1, 2],
+    })
+    expect(out.text).toContain('RUN job-1 · render · queued')
+    expect(out.text).toContain('next  blender_run action=wait id=job-1')
+    const body = requestSince(mark, 'POST', '/job')?.body
+    expect(body).toMatchObject({ surface: 'queue', op: 'submit', kind: 'render' })
+    backend.setHandler('POST /job')
   })
 
-  it('aborts waiting when the host exec signal fires', async () => {
-    backend.hangOn('POST /act')
-    const ac = new AbortController()
-    const pending = run('blender_rt_do', { code: 'x = 1', see: false }, { signal: ac.signal })
-    setTimeout(() => ac.abort(), 50)
-    await expect(pending).rejects.toThrow('宿主取消了本次等待')
-    backend.unhang('POST /act')
+  it('blender_run refuses script parameters on a render submit', async () => {
+    const mark = backend.requests.length
+    const out = await run('blender_run', {
+      action: 'submit',
+      kind: 'render',
+      script: 'print(1)',
+    })
+    expect(out.text).toContain('render 不接受 script/script_file')
+    expect(out.text).toContain('kind=headless')
+    expect(requestsSince(mark).some((r: any) => r.path === '/job')).toBe(false)
   })
 
-  it('passes session routing through to the backend act endpoint', async () => {
-    const before = backend.requests.length
-    const out = await run('blender_rt_do', { code: 'x = 1', session: 'w1', see: false })
-    expect(out.text).toContain('ACT(session=w1) ok')
-    const req = backend.requests.slice(before).find((r: any) => r.path === '/worker')
-    expect(req?.body).toMatchObject({ op: 'exec', name: 'w1', code: 'x = 1' })
+  it('blender_run requires a script or file for a headless submit', async () => {
+    const out = await run('blender_run', { action: 'submit', kind: 'headless' })
+    expect(out.text).toContain('headless 需要 script / script_file / file 之一')
   })
-})
 
-describe('model tool failure semantics', () => {
-  it('reports an unreachable backend without hanging', async () => {
-    const port = await closedPort()
-    const f = createFakeContext()
-    plugin.apply(f.ctx, { autoStart: false, tui: false, port })
-    const out = await (f.tools.find((t) => t.name === 'blender_viewport')!.execute as any)(
-      { op: 'status' },
-      {},
-    )
-    const parsed = JSON.parse(out)
-    expect(parsed.running).toBe(false)
-    expect(parsed.error).toBeTruthy()
-    expect(parsed.hint).toContain('op=start')
-    f.dispose()
+  it('blender_run lists queued jobs', async () => {
+    backend.setHandler('POST /job', () => ({
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+      body: Buffer.from(JSON.stringify({ ok: true, jobs: [QUEUED_JOB] })),
+    }))
+    const out = await run('blender_run', { action: 'list' })
+    expect(out.text).toContain('RUN list · 1 个作业')
+    expect(out.text).toContain('job-1')
+    backend.setHandler('POST /job')
+  })
+
+  it('blender_inspect help lists only executable read commands', async () => {
+    const out = await run('blender_inspect', {})
+    expect(out.text).toContain('INSPECT help · 2 个可执行只读命令')
+    expect(out.text).toContain('get_scene_info')
+    expect(out.text).toContain('DISABLED(polyhaven)')
+    expect(out.text).toContain('内部传输命令不列出')
+    expect(out.text).not.toContain('get_viewport_screenshot')
+  })
+
+  it('blender_inspect executes one read command', async () => {
+    const mark = backend.requests.length
+    const out = await run('blender_inspect', { command: 'get_scene_info', args: { a: 1 } })
+    expect(out.text).toContain('INSPECT get_scene_info ok')
+    expect(requestSince(mark, 'POST', '/cmd')?.body).toMatchObject({
+      name: 'get_scene_info',
+      params: { a: 1 },
+    })
+  })
+
+  it('blender_inspect routes legacy write commands and internals to the right tool', async () => {
+    const write = await run('blender_inspect', { command: 'set_texture' })
+    expect(write.text).toContain('wrong_tool')
+    expect(write.text).toContain('blender_op')
+    const internal = await run('blender_inspect', { command: 'execute_code' })
+    expect(internal.text).toContain('wrong_tool')
+    expect(internal.text).toContain('blender_py')
+  })
+
+  it('blender_inspect suggests a close command name for a typo', async () => {
+    const out = await run('blender_inspect', { command: 'get_scene_inf' })
+    expect(out.text).toContain('unknown_command')
+    expect(out.text).toContain('did_you_mean')
+    expect(out.text).toContain('get_scene_info')
+  })
+
+  it('blender_op action=loop keeps the internal loop route and GUI target', async () => {
+    const mark = backend.requests.length
+    const out = await run('blender_op', {
+      action: 'loop',
+      op: 'start',
+      spec: { iterations: 3 },
+      target: 'gui',
+    })
+    expect(out.text).toContain('LOOP start')
+    expect(requestSince(mark, 'POST', '/loop')?.body).toMatchObject({
+      op: 'start',
+      spec: { iterations: 3 },
+    })
+  })
+
+  it('blender_op action=opt and action=preset keep their routes', async () => {
+    let mark = backend.requests.length
+    const opt = await run('blender_op', { action: 'opt', op: 'analyze' })
+    expect(opt.text).toContain('OPT analyze')
+    expect(requestSince(mark, 'POST', '/opt')?.body).toMatchObject({ op: 'opt_analyze' })
+    mark = backend.requests.length
+    const preset = await run('blender_op', { action: 'preset', op: 'list' })
+    expect(preset.text).toContain('PRESET list ok')
+    expect(requestSince(mark, 'POST', '/preset')?.body.op).toBe('list')
+  })
+
+  it('blender_run submit keeps kind=headless and returns a job id immediately', async () => {
+    const mark = backend.requests.length
+    const out = await run('blender_run', {
+      action: 'submit',
+      kind: 'headless',
+      script: 'print(\'HEADLESS {"a": 1}\')',
+      outdir: '/tmp/out',
+    })
+    expect(out.text).toContain('RUN')
+    const body = requestSince(mark, 'POST', '/job')?.body
+    expect(body).toMatchObject({
+      surface: 'queue',
+      op: 'submit',
+      kind: 'headless',
+      outdir: '/tmp/out',
+    })
+    expect(body.script).toContain('HEADLESS')
+  })
+
+  it('blender_run tune uses the legacy perf route, not the queue', async () => {
+    const mark = backend.requests.length
+    const out = await run('blender_run', { action: 'tune', op: 'status' })
+    expect(out.text).toContain('RUN tune status')
+    expect(requestSince(mark, 'POST', '/perf')?.body.op).toBe('status')
+    expect(requestSince(mark, 'POST', '/job')).toBeUndefined()
   })
 })

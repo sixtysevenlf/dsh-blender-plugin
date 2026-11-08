@@ -24,7 +24,7 @@ export function jobModeReceipt(input: {
     logs: { stdout: job.stdoutLog, stderr: job.stderrLog },
     reason: null,
     hint:
-      '已转作业层（长任务）：用 blender_rt_job(op="status"/"collect"/"wait", id="' +
+      '已转作业层（长任务）：用 blender_run(action=""status"/"collect"/"wait", id="' +
       job.id +
       '") 跟进',
   }

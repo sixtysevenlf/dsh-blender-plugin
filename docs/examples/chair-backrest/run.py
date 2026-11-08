@@ -18,7 +18,8 @@ r"""椅子靠背接缝实验 —— 外部证据不足 + 探针判别（示例�
 运行（无头，约 3 s）：
     blender -b --factory-startup --python <本文件> -- <outdir>
 或用插件：
-    blender_rt_headless(preload="view", script="exec(open(<本文件>).read())", outdir="D:...")
+    blender_run(action="submit", kind="headless", preload="view", script="exec(open(<本文件>).read())", outdir="D:...")
+    （submit 立即返回 jobId，再 action=wait id=<jobId> 收结果）
 
 依赖：Blender 5.x（离屏绘制需 gpu.init()）+ numpy。preload="view" 时用 K.dsh_view_api 出图，否则走内置兜底。
 """
@@ -421,7 +422,7 @@ def write_report(res, path):
         L.append("| best_%s_probe.png | %s 假设最优参数在探针视图下 |" % (k, k))
     L += ["", "## 复现", "",
           "    blender -b --factory-startup --python docs/examples/chair-backrest/run.py -- <outdir>",
-          "    # 或 blender_rt_headless(preload='view', script=..., outdir=...)", "",
+          "    # 或 blender_run(action='submit', kind='headless', preload='view', script=..., outdir=...)，再 action='wait'", "",
           "## 结论怎么用", "",
           "- 外部证据不足时不要在 attach / insert 之间随便选：报 unresolved，并列出「需要什么探针」；",
           "- 判别前禁止 boolean_union / weld / apply_transform（会毁掉可回退性）；",

@@ -4,7 +4,7 @@
 灵感来自 lurenjia-l/dsh-blender-stylized-shading 的「配方化」优点：它把自然语言风格词翻译成节点组参数组合并写成手册；
 本模块把它通用化为**与领域无关**的机制：任意 JSON 配方（材质参数 / 对象属性 / 场景设置 / 自定义）都能存、列、取、套用、导出、导入。
 
-API 挂 K.dsh_preset_api；工具入口 blender_rt_preset。
+API 挂 K.dsh_preset_api；工具入口 blender_op。
     配方文件：<K.out_dir>/presets/<name>.json   （自包含：name/kind/tags/note/data/mapping/version/created）
     data 用**点路径**表达：{"data": {"inputs.Base Color": [1,0,0,1], "Base Color": [1,0,0,1]}}
     apply(name, targets) 支持 target 形如：

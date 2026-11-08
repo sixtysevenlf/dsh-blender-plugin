@@ -24,7 +24,8 @@ There are three logical processes and one inbound endpoint:
 - the Gateway owns jobs, leases, sessions, receipts, and routing;
 - the host owns the model-facing tools and the headless/fallback policy.
 
-The public model surface is 15 tools, 34 planning families, 228 operations, 25 addon commands
+The public model surface is 6 tools (blender_session, blender_op, blender_py, blender_see,
+blender_run, blender_inspect), 34 planning families, 228 operations, 25 addon commands
 (25 registered commands; the transport-only ping makes 26 wire commands), 29 HTTP routes, and
 protocol 12. These counts are facts, not goals; changing one requires updating the catalog, lock,
 tests, and migration notes in the same change.
@@ -37,8 +38,8 @@ helpers, and wires the host modules; it must not grow feature logic. Its export 
 [Public facades and the dual entry](#public-facades-and-the-dual-entry)). The rest of the tree is
 split by responsibility:
 
-- src/tools/: one tool per directory with registration, execution, and presenter/receipt pieces;
-- src/plan/: plan state, render guard, external checks, shape search;
+- src/tools/: one model-facing tool per directory (registration, execution, presenter/receipt
+  pieces) plus a shared session helper;
 - src/host/: backend lifecycle and HTTP client;
 - src/contracts/: typed contracts and schema helpers;
 - src/ui/ and src/tui/: DSH UI cards and terminal behavior;
@@ -227,13 +228,13 @@ history.
 
 The op surface has two derived data sources; neither is hand-maintained inside the dispatch code:
 
-- `config/routing.json` is the single routing table (op prefix or exact alias, strip length, python
-  api, GUI vs worker side, preload, timeout, ensure hook). `scripts/gen-routes.mjs` renders
-  `src/plan/routes.generated.ts` (headless worker) and
-  `runtime/core/dispatcher/routes.generated.ts` (GUI). Both files start with an AUTO-GENERATED header
-  plus the source sha256. `npm run build` regenerates them and `npm run check:routes` fails when a
-  generated file is missing, stale, or hand-edited. Generated tables are excluded from the size
-  scanners and validated by `check:routes`.
+- `config/routing.json` is the single GUI routing table (op prefix or exact alias, strip length,
+  python api, preload, timeout, ensure hook). `scripts/gen-routes.mjs` renders
+  `runtime/core/dispatcher/routes.generated.ts`, which starts with an AUTO-GENERATED header plus the
+  source sha256. The host-side worker table was removed with the 3.1 worker plan channel: headless
+  work belongs to `blender_run(kind="headless")`. `npm run build` regenerates the table and
+  `npm run check:routes` fails when a generated file is missing, stale, or hand-edited. Generated
+  tables are excluded from the size scanners and validated by `check:routes`.
 - `config/contracts.json` is the catalog <-> Python link layer: family -> python api -> declared
   extraction of the literal dispatch table. `scripts/catalog_dispatch_keys.py` parses those tables
   with the Python ast module (no import, no bpy), and

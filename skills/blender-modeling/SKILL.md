@@ -1,50 +1,42 @@
 ---
 name: blender-modeling
-description: Blender 建模与交付教程（v3.1.0，GUI 优先，无头备用）——先按决策树选形（分面硬表面 / 光滑硬表面 / 有机 / 重复阵列 / 布尔），再走流水线（冻结规格 → 场景准备 → 白模 → 粗形精修 → 修改器栈 → 清理 → 装配/验收 → 交付）。覆盖参考图量测（img_digest/probe/measure/calib）、无头多视轮廓拟合（shapesolve）、装配扫描/清单/合并/修复/门/导出（asm_*）、白模与 Seedance 参考包（blockout_*，含 4 视图与转台 MP4）、同机位 QC（visualreport_report）、缺陷注入评估（eval_run）、交互式无头会话（worker see/watch，rt_do/rt_see session）与强制门（gate_/deliver_export require_gate）。用于做 3D 物体、按参考图还原、量比例、装配体检、修穿模/浮空、批量白模、交付导出与验收。
+description: Blender 建模与交付教程（v3.1.0，GUI 优先，后台作业备用）——先按决策树选形（分面硬表面 / 光滑硬表面 / 有机 / 重复阵列 / 布尔），再走流水线（冻结规格 → 场景准备 → 白模 → 粗形精修 → 修改器栈 → 清理 → 装配/验收 → 交付）。覆盖参考图量测（img_digest/probe/measure/calib）、无头多视轮廓拟合（shapesolve）、装配扫描/清单/合并/修复/门/导出（asm_*）、白模与 Seedance 参考包（blockout_*，含 4 视图与转台 MP4）、同机位 QC（visualreport_report）、缺陷注入评估（eval_run）、GUI 会话内 Python 与取帧（blender_py / blender_see）、后台作业（blender_run，render/headless）与强制门（gate_/deliver_export require_gate）。用于做 3D 物体、按参考图还原、量比例、装配体检、修穿模/浮空、批量白模、交付导出与验收。
 license: MIT（融合自 RobLe3/cc-blender-skill 与 arjun988/blender-skills，见 NOTICE.md）
 ---
 
 # Blender 建模流程
 
-> **v3.1.0 · 2026-11-05**：配套插件 dsh-blender-plugin v3.1.0，15 个模型工具，plan 通道 34 个 family / 228 个 op，addon v2.0.0 / protocol 12。**默认 GUI 优先**：先开 GUI Blender + Connect；无头是备用路径（GUI 不可用/批处理/长活），但无头也能 rt_see，同样能“改一步、同步看一步”。
+> **v3.1.0 · 2026-11-08**：配套插件 dsh-blender-plugin v3.1.0，6 个模型工具，plan 通道 34 个 family / 228 个 op，addon v2.0.0 / protocol 12。**默认 GUI 优先**：先开 GUI Blender + Connect；无头用于批处理/长活/全新场景，通过 blender_run 后台作业提交、按 id 收图与产物。
 > 旧版按 v2/v3/v7 记录的“哪段是哪次实测加的”不再写在正文；需要追溯看 CHANGELOG。下面只写**当前有效口径**。
 
 先定形状，再走流程，改一步看一眼。**不要一口气写完整个模型再回来看**——每一步都要有画面或数字证据。
 
 ## 0. 本机工具与通道语义（先读，这决定你怎么写代码）
 
-### 0.1 当前工具面（15 个模型工具）
+### 0.1 当前工具面（6 个模型工具）
 
 | 工具 | 什么时候用 | 关键点 |
 |---|---|---|
-| blender_rt_see | 看一眼画面 | GUI 可用时走视口；**GUI 不在/传 session 时自动走持久 worker 的 Workbench 离屏**，50–150 ms；给 from/look_at 走自定义视角，不动用户视口 |
-| blender_rt_do | 改一步看一眼 | 持久内核 K；传 session 时在同一个无头 worker 里 exec+see；GUI 不可达自动降级；不是异步 job |
-| blender_rt_watch | 判断“动没动/对不对” | GUI 时间窗采样；传 session 走无头帧序列（逐帧 hash + 最多 6 帧图），支持 frames/帧范围/动画默认范围 |
-| blender_rt_loop | 参数搜索内环 | GUI timers 或 target=session 的同步阻塞内环；收敛后必须换通路（渲染/量测/装配门）复核 |
-| blender_rt_worker | 热无头会话 | start/preload/warmup/exec/see/watch/reset/status/stop/restart；preload 后可直接调 K.dsh_*_api；空闲 TTL 默认 15 min |
-| blender_rt_headless | 批处理/重活 | 独立 blender -b；preload/outdir/args/attach_images/shots；长活走 as_job；不占 GUI |
-| blender_rt_job | 超长作业 | start/status/wait/collect/kill；超时不等于失败，按 id 回收 |
-| blender_rt_txn | 回滚 | 对象级 mark/revert 不含拓扑；拓扑改动前用文件级 snapshot |
-| blender_rt_plan | 契约层 + 判定/验收/导出/造型 | op=catalog 先查 34 个 family / 228 个 op；传 session="auto" 时按 family 自动起无头 worker 同步执行，不依赖 GUI |
-| blender_rt_perf | 渲染性能 | analyze/apply/revert；persistent_data 等 |
-| blender_rt_opt | 对象精简 | analyze/join 安全合并；几何零损失 |
-| blender_rt_preset | 配方库 | save/list/get/apply/delete/export/import |
-| blender_rt_cmd / blender_rt_commands | addon 命令透传/查能力 | 需要 GUI addon 的命令才走这里；不确定先 commands |
-| blender_viewport | 通道运维 | status/doctor/start/stop/restart/launch/lease/release；写 op 过租约 |
+| blender_session | 会话与通道运维 | list/status/doctor/attach/claim/release/grant/revoke/pause/mark_read/presence；action=txn 回滚；Blender/Gateway 生命周期由宿主管理 |
+| blender_op | 契约层 + 判定/验收/导出/造型 | op=catalog 先查 34 个 family / 228 个 op；执行 op 需要 ready 的 GUI 会话（catalog/dry-run 本地只读、无需会话）；action=loop/opt/preset |
+| blender_py | 改一步看一眼 | 在已 attach 的 GUI 会话里跑 Python，持久内核 K；see=true 回一帧；仅 GUI，重活转 blender_run |
+| blender_see | 看一眼画面 | 仅 GUI 取帧：viewpoint=viewport/camera/custom、mode=frame/sequence，固定分档；不动用户视口 |
+| blender_run | 批处理/长活 | 唯一作业入口：submit kind=render|headless 立即回 job id；status/wait/collect/cancel/list；action=tune 管渲染性能；超时不等于失败 |
+| blender_inspect | addon 命令目录 | 默认 help 列出可执行只读命令；command=X args=Y 执行；写命令已删除，会回 wrong_tool |
 
 **硬规则**：
-1. **先查目录，不要猜 op**：blender_rt_plan(op="catalog")；单族 args={family:"audit"}；算子细节 <family>_help。写错 op 会回 did_you_mean，参数名错会回“不认识的参数”。
-2. **写操作要过写租约**（blender_viewport op=lease/who/release）；只读 op 豁免；多会话并行时必须先声明写作用域。
+1. **先查目录，不要猜 op**：blender_op(op="catalog")；单族 args={family:"audit"}；算子细节 <family>_help。写错 op 会回 did_you_mean，参数名错会回“不认识的参数”。
+2. **写操作先声明写作用域**（blender_session(action="grant", scopes=...)）；只读 op 豁免；多会话并行时必须先声明。
 3. **回执先读 verdict，不读 ok**：gate/audit/asm/visualreport/eval 都是 pass|fail|degraded 三态；degraded ≠ 通过；ok 只表示“跑完了”。
 4. **数字必须可复算**：尺寸、px_per_mm、bbox、md5、IoU 要带来源；没有标定就不许把像素当毫米。
 5. **headless 里优先 bpy.data/bmesh，慎用 bpy.ops**：依赖 screen/context 的 GUI 型 ops 在无头会话可能失败；必须用时先小步验证。
 
-### 0.2 GUI 优先（默认）：两种交互式回路
+### 0.2 GUI 优先（默认）：交互回路 + 后台作业
 
-- **GUI 回路**（人在 Blender 前）：rt_do / rt_see / rt_watch 走 addon，~50–100 ms/步。
-- **无头回路**（没有人看画面）：rt_worker start + preload，然后 rt_do(session="s1", see=true) / rt_see(session="s1")。每次 exec 后同步 see，图片直接回模型；场景与 K 跨调用保留。**这是同步交互，不是“提交作业—等回合”。**
-- **plan 无头**：blender_rt_plan(op="asm_scan", args={...}, session="auto")；首次冷启动约 2 s，之后复用 worker。
-- **默认先开 GUI**；只有没有人看画面/GUI 不可用时才用无头回路。无头也必须能“改一步、立刻拿到图/数字”，不要退化成长时间无反馈的批处理。
+- **GUI 回路**（人在 Blender 前）：blender_py / blender_see 走 addon，~50–100 ms/步；blender_see(mode="sequence") 看动画有没有动。
+- **后台作业**（没有人看画面）：blender_run(action="submit", kind="headless", script=...) 立即拿 job id，再 wait/collect 收产物；渲染用 kind="render" 的声明式参数。**这是异步作业，不是同步交互。**
+- **plan 执行**：blender_op 的 op 需要 ready 的 GUI 会话；catalog、dry-run、help 可离线查，不依赖会话。
+- **默认先开 GUI**；只有没有人看画面/GUI 不可用时才用后台作业。作业也要“小步提交、拿产物核对”，不要退化成长时间无反馈的批处理。
 
 ### 0.3 单位与尺度（先定，后建模）
 
@@ -56,7 +48,7 @@ license: MIT（融合自 RobLe3/cc-blender-skill 与 arjun988/blender-skills，�
 ### 0.4 证据链与回执
 
 每次关键步骤至少留一种证据：
-- 画面：rt_see / rt_watch / blockout 3 视图 / refsheet 4 视图；
+- 画面：blender_see / blender_see(mode="sequence") / blockout 3 视图 / refsheet 4 视图；
 - 数字：audit_mesh / asm_scan / gate_run / visualreport_report / eval_run；
 - 文件：manifest/md5/GLB/FBX/OBJ/MP4。
 
@@ -76,7 +68,7 @@ license: MIT（融合自 RobLe3/cc-blender-skill 与 arjun988/blender-skills，�
 
 ### 0.5.2 写作用域协议（谁写哪个文件）
 
-每个 builder 只写自己的 .py 和对象前缀；并行前用 blender_viewport lease 声明 collection/prefix 作用域；装配前用 K.route_collections 归位。不要让两个 agent 同时写同一个 .blend 或同一批对象。
+每个 builder 只写自己的 .py 和对象前缀；并行前用 blender_session(action="grant", scopes=[...]) 声明 collection/prefix 作用域；装配前用 K.route_collections 归位。不要让两个 agent 同时写同一个 .blend 或同一批对象。
 
 ### 0.5.3 并行期无法互测 = 固有代价
 
@@ -140,7 +132,7 @@ license: MIT（融合自 RobLe3/cc-blender-skill 与 arjun988/blender-skills，�
 
 | 我要做什么 | 首选 | 备注 |
 |---|---|---|
-| 不知道该用什么 | blender_rt_plan(op="catalog") | 34 个 family / 228 个 op；单族 family=... |
+| 不知道该用什么 | blender_op(op="catalog") | 34 个 family / 228 个 op；单族 family=... |
 | 基本体/分面硬表面 | bmesh / geo primitives + bevel | 分面件不要 SubSurf |
 | 光滑硬表面 | Bevel + Subdivision + shade smooth | Bevel 必须在 SubSurf 前 |
 | 布尔开孔/切割 | geo.boolean / K.dsh_geo_api | 先判连接/闭合；保留 cutter 副本 |
@@ -157,8 +149,8 @@ license: MIT（融合自 RobLe3/cc-blender-skill 与 arjun988/blender-skills，�
 | 网格毛病 | audit_mesh → fix_repair → audit_mesh | 没修动会回 ok=false |
 | 打印检查 | print_report | 低于分辨率会警告 |
 | 交付 | asm_export / deliver_export + gate_deliver | 门不过不交付 |
-| 参数搜索 | blender_rt_loop（target=session 可无头） | 收敛后换通路复核 |
-| 判断动画动没动 | rt_watch(session=...) | 逐帧 hash + 图 |
+| 参数搜索 | blender_op(action="loop") | 收敛后换通路复核 |
+| 判断动画动没动 | blender_see(mode="sequence") | 逐帧 hash + 图 |
 | 项目级验收 | gate_run / eval_run | verdict 三态 |
 | 参数化曲面（放样/扫掠/补片） | surface_loft/sweep/patch → tessellate → validate → export | 纯 bpy+numpy；细节见 references/曲面算法.md；M3 fit、M5 blend/offset 未实现 |
 
@@ -200,10 +192,10 @@ license: MIT（融合自 RobLe3/cc-blender-skill 与 arjun988/blender-skills，�
 
 任何建模任务，从第一分钟到交付，默认按这个顺序：
 
-1. **看现状**：blender_rt_cmd get_scene_info / blender_rt_plan(op="audit_scene")；确认单位、对象、已有资产。
-2. **查目录**：blender_rt_plan(op="catalog")；不确定就单族展开 args={family:"..."}；算子细节 <family>_help。
+1. **看现状**：blender_inspect(command="get_scene_info") / blender_op(op="audit_scene")；确认单位、对象、已有资产。
+2. **查目录**：blender_op(op="catalog")；不确定就单族展开 args={family:"..."}；算子细节 <family>_help。
 3. **定流程**：按 §2 状态机选阶段；把阶段、输入、验收门写进任务卡。
-4. **选通道**：GUI 在就 rt_do/rt_see；GUI 不在就 rt_worker start + preload，然后 rt_do/rt_see(session=...)；plan op 传 session="auto"。
+4. **选通道**：GUI 在就用 blender_py / blender_see 跑交互；GUI 不在就 blender_run 提交 headless 作业；plan op 在 GUI 会话里用 blender_op 执行。
 5. **执行一个可验证的小步**：优先 plan op；没有对应 op 才写 bpy/bmesh；每步尽量带回图片或数字。
 6. **读回执**：先读 verdict，再读 top_defects / failures / warnings / next；不要只读 ok。
 7. **过门**：audit_mesh → asm_scan → asm_gate/gate_run → visualreport；不过门不进入下一步。
@@ -219,7 +211,7 @@ license: MIT（融合自 RobLe3/cc-blender-skill 与 arjun988/blender-skills，�
 - 写 op 前先查 <family>_help 的参数表；参数名写错会回“不认识的参数”，照提示改，不要猜第二遍。
 
 **铁律 B：evidence-first。**
-- 每一步至少一种证据：图（rt_see/rt_watch/blockout views/refsheet）、数字（audit/asm/gate/visualreport/eval）、文件（manifest/md5/GLB/FBX/OBJ/MP4）。
+- 每一步至少一种证据：图（blender_see / blockout views / refsheet）、数字（audit/asm/gate/visualreport/eval）、文件（manifest/md5/GLB/FBX/OBJ/MP4）。
 - “看起来对”不是证据；没有数字的“完成了”一律视为未完成。
 - 数字必须带来源：px_per_mm 来自哪次标定、bbox 来自哪个 op、md5 来自哪个文件。
 
@@ -239,13 +231,13 @@ license: MIT（融合自 RobLe3/cc-blender-skill 与 arjun988/blender-skills，�
 
 plan 通道返回 receipt.v2 信封（contract/op/verdict/summary/top_defects/next/images/provenance）。大结果会被截断，完整结果用 out_json 落盘或看 results/；不要因为文本截断就认为 op 没结果。
 
-### 1.4 GUI 优先；无头是备用交互回路
+### 1.4 GUI 优先；无头用后台作业
 
-- **默认先开 GUI**；只有没有人看画面/GUI 不可用时，才用持久 worker 做“改一步、同步看一步”。
-- 固定 session：worker start 一次，后面所有 rt_do/rt_see/rt_watch 都带同一个 session；不要每步换名字导致反复冷启动。
-- preload 一次把要用的模块注入 K：imgtools/assembly/blockout/visualreport/shapesolve/gate/txn/deliver 等。preload 后可直接 K.dsh_*_api。
-- 每步 see 50–100 ms 是正常；几秒说明走错通道或冷启动。
-- 长活（>1 min/长渲染/批量）走 rt_job/rt_headless as_job；交互回路只做小步验证。
+- **默认先开 GUI**；只有没有人看画面/GUI 不可用时，才用 blender_run 提交后台作业。
+- GUI 交互用固定会话：一次 attach，后面 blender_py / blender_see 都在同一会话里做；不要反复重连。
+- 后台作业小步提交：submit → wait/collect 拿日志与产物；长渲染/批量用 kind="render" 的声明式参数。
+- 每步 see 50–100 ms 是正常；几秒说明走错通道或会话未 ready。
+- 长活（>1 min/长渲染/批量）只走 blender_run；GUI 回路只做小步验证。
 
 ### 1.5 spec / manifest 是架构的合同
 
@@ -332,15 +324,15 @@ plan 通道返回 receipt.v2 信封（contract/op/verdict/summary/top_defects/ne
 | 装配 | asm_manifest → scan → repair → gate | 手工对齐 | asm_gate verdict |
 | 视觉 QC | visualreport_report / qc_compare | 人眼看图 | 同机位 IoU + 缺陷 |
 | 交付 | asm_export / deliver_export + gate_deliver | 手工导出 | manifest + md5 |
-| 参数搜索 | rt_loop（target=session 可无头） | 手写网格搜索 | 换通路复核 |
-| 动画/修改器验证 | rt_watch(session) | 逐帧 see | hash 变化 + 图 |
+| 参数搜索 | blender_op(action="loop") | 手写网格搜索 | 换通路复核 |
+| 动画/修改器验证 | blender_see(mode="sequence") | 固定机位采样 | hash 变化 + 图 |
 | 缺陷评估 | eval_run | 自写用例 | capture_rate/baseline |
 
 **判据**：能用第一选择就不用第二选择；第二选择必须在回执里写明“为什么不用插件 op”。
 
 ## 4. 当前 plan 通道速查（v3.1.0 · 34 个 family / 228 个 op）
 
-先 blender_rt_plan(op="catalog") 看“什么时候用 / 别用 / 最小骨架”，再单族展开。常用家族：
+先 blender_op(op="catalog") 看“什么时候用 / 别用 / 最小骨架”，再单族展开。常用家族：
 
 | family | 用途 | 代表 op |
 |---|---|---|
@@ -364,112 +356,110 @@ plan 通道返回 receipt.v2 信封（contract/op/verdict/summary/top_defects/ne
 
 规则：
 - op 名拼错会回 did_you_mean；参数名写错会回“不认识的参数”，照提示改。
-- 只读 op 不走写租约；写 op 先 lease。
+- 只读 op 不需要写作用域；写 op 先 grant scopes。
 - 大结果会落 results/ 目录；回执文本截断时用 out_json/结果文件。
-- plan 传 session="auto" 时按 family 自动起无头 worker；首次冷启动约 2 s，之后复用。
+- plan op 需要 ready 的 GUI 会话；catalog、dry-run、help 在本地只读执行，不需要会话。
 
 ## 5. P0–P2 新链路配方（可直接照抄）
 
-### Recipe 5.1 交互式无头建模（没有人看画面）
+### Recipe 5.1 GUI 交互式建模（有人看着画面）
 
-    # 1) 起一个持久无头会话（preload 决定能直接调哪些 K API）
-    blender_rt_worker(op="start", name="s1",
-      preload="imgtools,assembly,blockout,visualreport,shapesolve,gate,txn,deliver",
-      engine="workbench", warmup=true)
+    # 1) 一次 attach 到 GUI 会话（后续 py/see 复用同一个会话）
+    blender_session(action="attach", instance_id="<gui-instance>")
     # 2) 改一步，同步看一步（图片直接回模型；不是异步 job）
-    blender_rt_do(code="...bpy/bmesh 代码...", session="s1", see=true, max_size=560)
-    # 3) 换角度复核
-    blender_rt_see(session="s1", from="7,-7,5", look_at="0,0,1")
-    # 4) 动画/修改器有没有动
-    blender_rt_watch(session="s1", frames=[1,10,20], max_size=420)
-    # 5) 不想要 GUI 也能跑 plan op
-    blender_rt_plan(op="img_digest", args={path:"..."}, session="auto")
+    blender_py(code="...bpy/bmesh 代码...", see=true, max_size=560)
+    # 3) 换角度复核（不动用户视口）
+    blender_see(viewpoint="custom", from="7,-7,5", look_at="0,0,1")
+    # 4) 动画/修改器有没有动（固定机位采样，不执行代码）
+    blender_see(mode="sequence", seconds=2, fps=4, max_size=420)
+    # 5) plan op 在同一个 GUI 会话里执行
+    blender_op(op="img_digest", args={path:"..."})
 
-判据：start 一次约 2–3 s；之后每步 exec 0–2 ms、see 50–100 ms（320–560 px）。如果 see 要几秒，说明走错通道/每步在冷启动。
+判据：py+see 每步约 50–150 ms；如果 see 要几秒，说明会话未 ready 或走错通道。
 
 ### Recipe 5.2 参考图 → 尺寸 → 白模 → 验收
 
     # 1) 先量：无标定会给 needs_scale，不猜 mm
-    blender_rt_plan(op="img_digest", args={path:"ref.png"}, session="auto")
+    blender_op(op="img_digest", args={path:"ref.png"})
     # 2) 已知边长/两点 → px_per_mm
-    blender_rt_plan(op="img_measure", args={path:"ref.png", known_len:{...}}, session="auto")
+    blender_op(op="img_measure", args={path:"ref.png", known_len:{...}})
     # 3) 白模（mm 口径；先冻结 spec）
-    blender_rt_plan(op="blockout_base", args={
+    blender_op(op="blockout_base", args={
       name:"robot",
       parts:[{id:"torso", prim:"box", size_mm:[300,180,420], at_mm:[0,0,900]}],
       render:{views:"auto3", res:[512,512]},
       export:{glb:"D:/out/robot.glb"}
-    }, session="auto")
+    })
     # 4) 同机位像不像（同相机/同分辨率）
-    blender_rt_plan(op="visualreport_report", args={
+    blender_op(op="visualreport_report", args={
       ref:"ref.png", render:"render.png", px_per_mm:0.16
-    }, session="auto")
+    })
 
-注意：IoU 只是单视轮廓的必要条件；还要用尺寸/接口/装配门交叉验证。
+注意：IoU 只是单视轮廓的必要条件；还要用尺寸/接口/装配门交叉验证。以上 op 需要 ready 的 GUI 会话；纯后台跑用 blender_run(kind="headless") 提交等价脚本，产物按 job id 收。
 
 ### Recipe 5.3 装配：清单 → 扫描 → 安全修复 → 门 → 导出
 
     # 1) 清单（id/文件/md5/接口/allow）
-    blender_rt_plan(op="asm_manifest", args={action:"build", parts:[...]}, session="auto")
+    blender_op(op="asm_manifest", args={action:"build", parts:[...]})
     # 2) 全对全分类（clash/hidden_ok/contact/gap/float/contained/unresolved）
-    blender_rt_plan(op="asm_scan", args={manifest:"assembly.json"}, session="auto")
+    blender_op(op="asm_scan", args={manifest:"assembly.json"})
     # 3) 低风险修复：safe 只做 translate/snap，硬禁布尔/缩放；先 dry_run
-    blender_rt_plan(op="asm_repair", args={manifest:"assembly.json", policy:"safe", dry_run:true}, session="auto")
+    blender_op(op="asm_repair", args={manifest:"assembly.json", policy:"safe", dry_run:true})
     # 4) 门（verdict 三态；export_allowed 只在 pass）
-    blender_rt_plan(op="asm_gate", args={manifest:"assembly.json"}, session="auto")
+    blender_op(op="asm_gate", args={manifest:"assembly.json"})
     # 5) 交付导出（GLB/FBX/OBJ + manifest + merge_ledger）
-    blender_rt_plan(op="asm_export", args={
+    blender_op(op="asm_export", args={
       manifest:"assembly.json", merge:true, dry_run:false,
       out_dir:"D:/out", name:"assembly",
       formats:["glb","fbx","obj"], ledger:true
-    }, session="auto")
+    })
 
 边界：hidden_ok 是 manifest 里声明允许的隐藏交叠，不是穿模；不要为了让 clash=0 随意扩大 allow。非合并导出 gate 非 pass 时文件会写出但 verdict=fail + warnings，不可当出厂件。
 
 ### Recipe 5.4 Seedance 参考包（4 视图 + 转台 MP4）
 
-    blender_rt_plan(op="blockout_refsheet", args={
+    blender_op(op="blockout_refsheet", args={
       objects:["robot_torso","robot_arm"],
       out_dir:"D:/Blender/robot/ref",
       name:"robot", views:["front","side","top","iso"], res:[768,768],
       turntable:{frames:120, fps:24, elev_deg:15}
-    }, session="auto")
+    })
     # 只要转台 MP4
-    blender_rt_plan(op="blockout_turntable", args={
+    blender_op(op="blockout_turntable", args={
       objects:["robot_torso"], out_dir:"D:/Blender/robot/ref",
       name:"robot", frames:120, fps:24, res:[512,512]
-    }, session="auto")
+    })
 
 产物：4 PNG + 2x2 拼图 + refsheet.json（units/bbox/forward_axis/fps）+ 可选 MP4。MP4 无 alpha；无 FFMPEG 构建回退 PNG 序列并标 degraded。白模是参考包，不是高模。
 
 ### Recipe 5.5 轮廓反推（shapesolve）与复核
 
-    blender_rt_plan(op="shapesolve_solve", args={
+    blender_op(op="shapesolve_solve", args={
       setup:"def apply(p): ...",
       params:[{name:"width",min:0.5,max:2.0,init:1.0}],
       views:[{ref:"front.png", from:[0,-5,1], look_at:[0,0,1], ortho_scale:3.0}],
       iterations:200, budget_ms:10000
-    }, session="auto")
+    })
 
 复核：best 参数写回几何 → blockout/渲染 → visualreport 或 img_measure 量尺寸；不要拿拟合目标函数当验收。
 
 ### Recipe 5.6 强制门交付
 
     # 先体检/留回退点
-    blender_rt_plan(op="gate_preflight", session="auto")
-    blender_rt_plan(op="gate_checkpoint", args={label:"before_delivery"}, session="auto")
+    blender_op(op="gate_preflight")
+    blender_op(op="gate_checkpoint", args={label:"before_delivery"})
     # 先过门再导出（不过门 blocked，不写盘）
-    blender_rt_plan(op="gate_deliver", args={
+    blender_op(op="gate_deliver", args={
       dir:"D:/out", spec_path:"gate.json", name:"model", fmt:"obj", verify:true
-    }, session="auto")
+    })
 
 deliver_export 也支持 require_gate=true；gate_deliver 是弱模型/交付流程的一键强制路径。degraded 要显式 allow_degraded 并说明，不能静默变绿。
 
 ### Recipe 5.7 缺陷注入评估（改门之后先跑它）
 
-    blender_rt_plan(op="eval_run", args={
+    blender_op(op="eval_run", args={
       suite:"assembly", out_json:"D:/out/eval.json"
-    }, session="auto")
+    })
 
 读数：capture_rate / missed / false_positive / baseline_pass；assembly/reference 绿、core 缺依赖时 degraded 是正常。capture_rate 只代表合成缺陷集，不等于真实项目通过率。
 
@@ -486,7 +476,7 @@ deliver_export 也支持 require_gate=true；gate_deliver 是弱模型/交付流
 7. **Verifier**：独立跑 audit/asm/visualreport/eval，不采信 builder 的结论。
 
 写作用域：
-- 每个 builder 只写自己的对象前缀与文件；用 blender_viewport lease 声明 collection/prefix；
+- 每个 builder 只写自己的对象前缀与文件；用 blender_session(action="grant", scopes=[...]) 声明 collection/prefix；
 - 装配前用 K.route_collections 按前缀归位（COL_Lights/COL_Camera/COL_VFX/COL_Geo 等）；
 - 任何人不得改别人的对象；接口改动必须回 spec/manifest，不允许“口头约定”。
 
@@ -511,9 +501,9 @@ deliver_export 也支持 require_gate=true；gate_deliver 是弱模型/交付流
 | 只看 ok 不看 verdict | ok 只表示跑完；degraded 被当通过 | 先读 verdict/state |
 | 把 skipped 当通过 | 门没跑过，等于没检查 | 补 args/overrides 或记未检查 |
 | 为让 scan=0 乱扩 allow | 真穿模被隐藏，交付后炸 | allow 必须有设计理由 |
-| GUI 不在就停工 | headless 本来就能交互 | worker session + see |
+| GUI 不在就停工 | 后台作业能照常出图/产物 | blender_run(kind="headless") 提交后按 id 收 |
 | 每步换 session / 每步冷启动 | 慢且状态丢 | 固定 session + preload |
-| 长活同步硬等 | 客户端超时误判失败 | as_job/rt_job |
+| 长活同步硬等 | 客户端超时误判失败 | blender_run 提交后按 id 收 |
 | 改拓扑前不 snapshot | 无法回滚 | txn.snapshot / gate_checkpoint |
 | 用“看起来接上了”代替 manifest | 装配无法复检 | asm_manifest + 接口表 |
 | 交付不带 manifest/md5 | 不可复现 | asm_export/deliver_export |
@@ -525,13 +515,13 @@ deliver_export 也支持 require_gate=true；gate_deliver 是弱模型/交付流
 ### 5.10 新会话开场模板（直接复制）
 
     你在 DSH × Blender 插件环境里建模。必须按插件架构走：
-    1) 先 blender_rt_plan(op="catalog") 查能力，不要自造几何/验收；
-    2) 有 plan op 就用 op（传 session="auto" 可无头）；没有才写 bpy/bmesh，并说明理由；
+    1) 先 blender_op(op="catalog") 查能力，不要自造几何/验收；
+    2) 有 plan op 就用 op（需要 ready 的 GUI 会话）；没有才写 bpy/bmesh，并说明理由；
     3) 每步给我图或数字证据；回执先读 verdict，degraded ≠ 通过；
     4) 参考图先 img_digest/probe/measure/calib；无标定不许写 mm；
     5) 多件先 asm_manifest，再 asm_scan/asm_repair/asm_gate；门不过不交付；
     6) 交付用 asm_export/deliver_export，带 manifest/md5/ledger；
-    7) 长活走 rt_job/headless as_job；交互小步用 rt_worker + rt_do/rt_see(session)。
+    7) 长活走 blender_run（kind=render|headless）；交互小步用 blender_py + blender_see。
     任务：<目标/单位/交付/参考图/预算/禁用项>
 
 ### 5.11 从零到交付的四条最短路径
@@ -561,9 +551,9 @@ blockout_batch 出 N 件 → blockout_refsheet（4 视图 + 拼图 + refsheet.js
 
 | 症状 | 原因 | 处理 |
 |---|---|---|
-| GUI 不在，rt_see/rt_do 报连接失败 | 没走无头降级 | 传 session="s1" 或 auto；先 worker start |
-| worker see 很慢/每次都冷启动 | 每步换了 session 名，或 worker 被 TTL 回收 | 固定 session；preload 一次；status 看 idleMs |
-| plan op 执行失败提示无头映射 | 该 family 未接无头路由/模块未 preload | 用 blender_rt_headless(preload=...) 直接调 K API，或走 GUI 通道 |
+| GUI 不在，blender_py/blender_see 报连接失败 | 没有可用的 GUI 会话 | 改用 blender_run(kind="headless") 提交后台作业；交互需先开 GUI 并 attach |
+| blender_see 很慢/会话频繁漂移 | 会话未 ready 或每步重新 attach | 固定 GUI 会话；blender_session(action="status") 看状态 |
+| plan op 在无 GUI 时无法执行 | 该 op 只在 GUI 会话里执行 | 在 GUI 会话里用 blender_op；批处理改用 blender_run(kind="headless") + 脚本 |
 | 无标定却想要 mm | img_digest verdict=needs_scale | 给 known_len/标尺/两点，或 img_calib；不猜 |
 | asm_scan 把设计内交叠报 clash | manifest 没声明 allow/hidden_ok | 先 asm_manifest 声明；不要直接改几何 |
 | asm_repair 不动/blocked | 有父级/动画/超 max_move，或 policy=safe | 清父级/关键帧、调 max_move；布尔交人工/aggressive |
@@ -729,7 +719,7 @@ bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
 bm.to_mesh(obj.data); bm.free(); obj.data.update()
 ```
 
-必须用 ops 时：用 `bpy.context.temp_override(...)` 补齐 context，或者**改走 GUI 通道**（`blender_rt_do`，那里有真的窗口与区域）。
+必须用 ops 时：用 `bpy.context.temp_override(...)` 补齐 context，或者**改走 GUI 通道**（`blender_py`，那里有真的窗口与区域）。
 判据：**同一段脚本在 headless 里报 poll/context 错、在 GUI 里正常 → 就是这个坑**，不要去怀疑几何数据。
 
 ### 坑五：法线方向是一切"穿模 / 内含"判据的前提（★ 会给出反向结论）
@@ -914,13 +904,13 @@ def buried_faces(obj, eps=1e-5):
 
 ```python
 # ① 单件 / 集合的网格健康（boundary / nonmanifold / degenerate / loose / self-intersections / normals）
-blender_rt_plan(op="audit_mesh", args={"scope": "COL_Geo"})
+blender_op(op="audit_mesh", args={"scope": "COL_Geo"})
 # ② 出厂门：连通 + 包络（★ 装配口径；只有单件时请只用 ①）
-blender_rt_plan(op="audit_gate", args={"scope": "COL_Geo", "envelope": [x0, y0, z0, x1, y1, z1]})
+blender_op(op="audit_gate", args={"scope": "COL_Geo", "envelope": [x0, y0, z0, x1, y1, z1]})
 # ③ 穿模 / 干涉（逐对；设计上允许的隐藏交叠要白名单化）
-blender_rt_plan(op="audit_interference", args={"a": "GEO-rungear", "b": "GEO-hull"})
+blender_op(op="audit_interference", args={"a": "GEO-rungear", "b": "GEO-hull"})
 # ④ 全场景初筛（★ 交付验收必须显式开自交检查：默认不跑 ⇒ state=degraded，拿不到 pass）
-blender_rt_plan(op="audit_scene", args={"summary_only": True, "top_k": 10, "self_intersect": True})
+blender_op(op="audit_scene", args={"summary_only": True, "top_k": 10, "self_intersect": True})
 ```
 
 > ★ **`audit_scene` 的自交开关（当前版本 实测）**：它按性能契约**默认 `self_intersect=false`**（便宜初筛），
@@ -1032,7 +1022,7 @@ assert worst <= 1.0, "切边：worst NDC=%.3f" % worst
 
 ### A.6.5.3 长活（>2 min）：默认必须能被打断 ★
 
-**实测**：10 分钟渲染期间后端重启 ⇒ `blender_rt_job(op="wait")` 回 `Error: terminated`，
+**实测**：10 分钟渲染期间后端重启 ⇒ `blender_run(action="wait")` 回 `Error: terminated`，
 作业变 `stale：pid 已不存在`。**这是常态，不是异常。**
 
 **规范（每条都省过时间）**：
@@ -1042,7 +1032,7 @@ assert worst <= 1.0, "切边：worst NDC=%.3f" % worst
    实测 301 帧的视频补渲 1 帧用 **6 秒**，而不是重跑 10 分钟；
 4. 每 N 帧 print 进度 + **实测 s/帧 + ETA**；ETA 用**已渲帧数**算，不要用循环序号算（续跑时后者会骗你）；
 5. **草稿与终稿必须分目录**：否则"存在即跳过"会把 480p 草稿当成 1080p 成品帧；
-6. **作业句柄归属要认清**：`as_job=true` 回的是 **Blender 侧台账 id**，用 `blender_rt_job(op=wait/collect)` 收；
+6. **作业句柄归属要认清**：`blender_run(action="submit")` 回 **job id**，用 `blender_run(action="wait"|"collect")` 收；
    拿它去 DSH 的 `job_output` 会回 `unknown job`（两套注册表）。
 
 ### A.6.5.4 渲染耗时：先测 3 帧，再排期
@@ -1111,7 +1101,7 @@ ffmpeg -start_number 1 -framerate 10 -i seq_%04d.png \
 | `CyclesRenderSettings has no attribute 'use_persistent_data'` | 属性移到 `scene.render` | 见附录 A.6.5.4 |
 | `Scene.frame_set()` expected int, not float | 帧号必须整数 | `int(1 + round(t * fps))` |
 | GUI 里 `open_mainfile` 后见空网格 | 用的是"用户当前视口" | 传 `from=` / `look_at=` 走自定义视角 |
-| `module 'dsh_rt_kernel' has no attribute 'dsh_audit_api'` | 该模块**没被 preload 进内核** | `blender_rt_headless(..., preload="audit")`；或查已加载：`K.dsh_kit.kapi("audit")`（找不到会列出可用模块名） |
+| `module 'dsh_rt_kernel' has no attribute 'dsh_audit_api'` | 该模块**没被 preload 进内核** | `blender_run(kind="headless", preload="audit", ...)`；或查已加载：`K.dsh_kit.kapi("audit")`（找不到会列出可用模块名） |
 | `'Scene' object has no attribute 'node_tree'` | **5.0 起合成器改成节点组**（`scene.node_tree` 被移除） | `ng = bpy.data.node_groups.new("Comp","CompositorNodeTree"); scene.compositing_node_group = ng`；先 `ng.interface.new_socket(name="Image", in_out='OUTPUT', socket_type='NodeSocketColor')`，输出用 **`NodeGroupOutput`**（`CompositorNodeComposite` 已不存在） |
 | `AttributeError: type ... is read-only` / `glare_type` 无效 | 5.x 把 Glare 的 **Type/Quality 变成 MENU 输入插座**，参数也进了 inputs | `gl.inputs['Type'].default_value = 'Fog Glow'`、`gl.inputs['Quality'].default_value = 'High'`、`gl.inputs['Threshold'] / ['Size'] / ['Strength']`；不要写 `gl.glare_type` / `gl.threshold` |
 | `Error: Node type CompositorNodeMixRGB undefined`（同理 `CompositorNodeMath` / `CompositorNodeComposite`） | 5.x 合成器删掉了旧 Mix/Math/Composite | 合成器树里**改用着色器节点**：`ShaderNodeMix` / `ShaderNodeMath` / `ShaderNodeValToRGB` 仍可 `nodes.new`；叠加用 `CompositorNodeAlphaOver`，调色用 `CompositorNodeColorBalance` / `CompositorNodeCurveRGB` |
@@ -1309,9 +1299,9 @@ sc.render.use_compositing = True
 
 ### A.8. 来源与许可
 
-本技能由以下两个 MIT 许可项目的**建模流程部分**融合改写而成，工具调用一律换成本机 `blender_rt_*` 直连链：
+本技能由以下两个 MIT 许可项目的**建模流程部分**融合改写而成，工具调用一律换成本插件 6 个模型工具的直连链：
 
 - **RobLe3/cc-blender-skill**（`blender-modeling` 及其 `references/overview.md`）——决策树、配方、坑表、深水参考
 - **arjun988/blender-skills**（`blender-modeler`）——六步总纲、集合结构、修改器规则、清理清单、MUST / MUST NOT
 
-完整归属与许可见同目录 `NOTICE.md`。上游原版面向 MCP（mcp__blender__*），本版已改写为本机直连工具链。
+完整归属与许可见同目录 `NOTICE.md`。上游原版面向 MCP，本版已改写为本插件 6 个模型工具的直连链。

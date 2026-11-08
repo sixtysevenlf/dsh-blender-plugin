@@ -22,7 +22,7 @@
 
 | 面 | 说明 |
 |---|---|
-| Blender 侧 Python | `blender_rt_do` / `blender_rt_headless` / `blender_rt_worker` / `blender_rt_plan` 等会把调用方给的 Python 交给 Blender 的 `bpy` 执行；`K` 是跨调用保留的持久内核 |
+| Blender 侧 Python | `blender_py`（GUI 会话）与 `blender_run(kind="headless")` 会把调用方给的 Python 交给 Blender 的 `bpy` 执行；`K` 是 GUI 会话内跨调用保留的持久内核 |
 | 本地进程 | 会 spawn 后端 `node lib/runtime/gateway.js`（先 `npm run build`）、无头 `blender -b`、以及 `runtime/ext/` 下的外部校验器（glTF-Validator / open3d）；必要时用 `SIGTERM` -> `SIGKILL` 清残留后端 |
 | 本地网络 | Gateway 只监听 `127.0.0.1`（默认 39877）；Blender addon 主动连接 Gateway 的 WebSocket，不开放入站端口。除这条本地控制通道外，插件**没有**遥测 |
 | 文件读写 | 默认工作目录 `~/.dsh-blender-rt`（可用 `DSH_BLENDER_*` 环境变量或包根 `dsh-blender.config.json` 覆盖）：渲染产物、日志、作业台账 |

@@ -249,4 +249,101 @@ describe('Gateway session API', () => {
     const push = addons[0]!.requests.find((request) => request.type === 'execute_code')!
     expect(String(push.params.code)).toContain('presence_draw')
   })
+
+  it('4.8 holds the Python lock for the holder and reports py_busy to other agents', async () => {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const backend = await startBackend()
+    closers.push(() => backend.stop())
+    const addon = await startFakeWsAddon({
+      gatewayPort: backend.port,
+      instanceId: 'inst-1',
+      behavior: async (type: string, params: Record<string, unknown>) => {
+        if (type === 'execute_code' && String(params.code || '').includes('print(1)')) {
+          await gate
+          return { status: 'success', result: { ok: true, ms: 1, stdout: 'done', executed: true } }
+        }
+        return { status: 'success', result: { type } }
+      },
+    })
+    await addon.ready
+    closers.push(() => addon.close())
+    expect((await backend.post('/lease', { action: 'attach' }, main)).status).toBe(200)
+
+    const first = backend.post('/act', { code: 'print(1)', py: true }, main)
+    await waitFor(async () =>
+      (addon.requests as Array<{ type: string }>).some(
+        (request) => request.type === 'execute_code',
+      ),
+    )
+    const blocked = await backend.post('/act', { code: 'print(2)', py: true }, sub)
+    expect(blocked.status).toBe(409)
+    expect(blocked.json.code).toBe('py_busy')
+    expect(blocked.json.evidence.holder.agentId).toBe('agent-main')
+
+    release()
+    const done = await first
+    expect(done.status).toBe(200)
+    expect(done.json.ok).toBe(true)
+
+    const after = await backend.post('/act', { code: 'print(3)', py: true }, sub)
+    expect(after.status).toBe(409)
+    expect(after.json.code).toBe('scope_required')
+  })
+
+  it('4.8 gates txn restore behind the exclusive scope and a human pause', async () => {
+    const { backend, addons } = await setup()
+    const attached = await backend.post('/lease', { action: 'attach' }, main)
+    const sessionId = String(attached.json.session.id)
+    expect((await backend.post('/txn', { op: 'list' }, sub)).status).toBe(200)
+
+    const denied = await backend.post('/txn', { op: 'restore', args: { label: 's' } }, sub)
+    expect(denied.status).toBe(409)
+    expect(denied.json.code).toBe('scope_required')
+
+    const granted = await backend.post(
+      '/lease',
+      { action: 'grant', sessionId, targetAgentId: 'agent-sub', scopes: ['exclusive'] },
+      main,
+    )
+    expect(granted.status).toBe(200)
+    const allowed = await backend.post('/txn', { op: 'restore', args: { label: 's' } }, sub)
+    expect(allowed.status).toBe(200)
+
+    addons[0]!.sendEvent('pause', { paused: true })
+    await waitFor(async () => {
+      const who = await backend.get('/who', main)
+      const rows = who.json.sessions as Array<{ paused?: boolean }>
+      return rows.some((row) => row.paused === true)
+    })
+    const paused = await backend.post('/txn', { op: 'restore', args: { label: 's' } }, main)
+    expect(paused.status).toBe(409)
+    expect(paused.json.code).toBe('human_paused')
+  })
+
+  it('5.15 keeps virtual-gui off when the feature gate is closed, without spawning anything', async () => {
+    const { backend } = await setup()
+    const before = await backend.get('/status')
+    const consent = await backend.post('/lease', { action: 'consent' }, main)
+    expect(consent.status).toBe(200)
+    const token = String(consent.json.consentToken)
+    const started = await backend.post(
+      '/lease',
+      { action: 'start', kind: 'virtual-gui', consentToken: token },
+      main,
+    )
+    expect(started.status).toBeGreaterThanOrEqual(400)
+    expect(started.json.code).toBe('feature_disabled')
+    expect(started.json.stage).toBe('config')
+    expect(String(started.json.fix || '')).toMatch(/virtual[-_]?gui/i)
+
+    const after = await backend.get('/status')
+    expect(after.json.readiness.addon.ready_instances).toBe(
+      before.json.readiness.addon.ready_instances,
+    )
+    const sessions = await backend.post('/lease', { action: 'list' }, main)
+    expect(sessions.json.sessions).toEqual([])
+  })
 })

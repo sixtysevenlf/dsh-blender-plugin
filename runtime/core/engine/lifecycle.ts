@@ -61,7 +61,7 @@ function renderBusyError(
     ' s，scene=' +
     String((g.info && g.info.scene) || '?') +
     '）—— 主线程命令会排队到超时；' +
-    '用 blender_rt_plan(op="render_wait") 等它，或等渲染完再发（长渲染建议一开始就走 blender_rt_job）'
+    '用 blender_op(op="render_wait") 等它，或等渲染完再发（长渲染建议一开始就走 blender_run）'
   metrics.lastError = msg
   const e = new Error(msg) as Error & {
     renderBusy?: boolean

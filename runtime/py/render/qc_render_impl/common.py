@@ -52,8 +52,8 @@ v0.9.1 来自上线项目 rifle-build《93 反馈》—— 两条 P0（A1/A2，�
       仍返回 **str**（引擎契约不变）。
 
 API 挂 K.dsh_qc_render_api。入口两条：
-    blender_rt_plan(op="qc_render_views", args={...})                    # 走 qc_render 模块（engine 路由）
-    blender_rt_headless(file=..., preload="qc,qc_render", script=...)    # 无头/作业层（长活、天然隔离）
+    blender_op(op="qc_render_views", args={...})                    # 走 qc_render 模块（engine 路由）
+    blender_run(kind="headless", file=..., preload="qc,qc_render", script=...)    # 无头/作业层（长活、天然隔离）
 
 参数（除 views 外都有默认值）：
     file        .blend 路径。与当前文件不同时：后台 -b 直接打开；GUI 默认拒绝（会顶掉用户场景），

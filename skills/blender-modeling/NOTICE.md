@@ -1,6 +1,6 @@
 # NOTICE — 来源与许可
 
-本技能（`blender-modeling`）是 MIT 许可项目的派生作品，工具调用已改写为本机 `blender_rt_*` 直连工具链。
+本技能（`blender-modeling`）是 MIT 许可项目的派生作品，工具调用已改写为本插件 6 个模型工具的直连链。
 
 ## 上游项目
 
@@ -12,7 +12,7 @@
 
 ## 本地改动
 
-- `mcp__blender__execute_blender_code` / `get_scene_info` / `get_object_info` → `blender_rt_do` / `blender_rt_headless` / `blender_rt_cmd` / `blender_rt_see` / `blender_rt_job` / `blender_rt_txn`。
+- `mcp__blender__execute_blender_code` / `get_scene_info` / `get_object_info` → `blender_py` / `blender_run` / `blender_inspect` / `blender_see` / `blender_session`。
 - 新增「通道语义」一节（MCP 的「每次重新 import」假设在本机只对 headless 成立）。
 - 正文改写为中文，结构精简合并。
 

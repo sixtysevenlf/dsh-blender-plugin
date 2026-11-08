@@ -158,7 +158,7 @@ function assertWorkerReady(
         String((info.spawnErr && info.spawnErr.message) || info.spawnErr),
     )
     e.hint = exeMissing
-      ? 'blenderExe 指向的文件不存在；设置 DSH_BLENDER_EXE 或 dsh-blender.config.json 的 blenderExe 为真实 blender.exe，改完重启 DSH，再 blender_rt_worker op=start 重试'
+      ? 'blenderExe 指向的文件不存在；设置 DSH_BLENDER_EXE 或 dsh-blender.config.json 的 blenderExe 为真实 blender.exe，改完重启 DSH，再 blender_run op=start 重试'
       : '检查 blenderExe 配置与 runtime/py/core/worker.py 是否存在'
     if (exeMissing) {
       // 安全 fallback：spawn ENOENT 不是未知后端故障，而是可执行的配置错误。

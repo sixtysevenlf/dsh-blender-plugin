@@ -8,13 +8,13 @@
 ROUGHNESS/NORMAL/AO/EMIT/COMBINED），再接 deliver_export 就能把材质一起交付。
 
 ops：
-    blender_rt_plan(op="material_scan",  args={objects:["P01"]})                      # 只读
-    blender_rt_plan(op="material_build", args={name:"M-hull", preset:"metal_brushed",
+    blender_op(op="material_scan",  args={objects:["P01"]})                      # 只读
+    blender_op(op="material_build", args={name:"M-hull", preset:"metal_brushed",
                                               params:{base_color:[0.35,0.38,0.42], scale:24}})
-    blender_rt_plan(op="material_apply", args={material:"M-hull", objects:["P01","P02"]})
-    blender_rt_plan(op="material_bake",  args={objects:["P01"], bake_type:"DIFFUSE",
+    blender_op(op="material_apply", args={material:"M-hull", objects:["P01","P02"]})
+    blender_op(op="material_bake",  args={objects:["P01"], bake_type:"DIFFUSE",
                                               resolution:1024, outdir:"D:/out/bake"})
-    blender_rt_plan(op="material_selftest")
+    blender_op(op="material_selftest")
 
 **硬规则**：preset 名写错 ⇒ 回允许列表；参数名写错 ⇒ 回"不认识的参数"；bake 前没有 UV ⇒ ok=false
 并指路 uv_smart_project；bake 走 Cycles（会临时切引擎，结束还原）。
@@ -489,7 +489,7 @@ def material_bake(objects=None, scope="ACTIVE", bake_type="DIFFUSE", resolution=
             rec = {"name": ob.name, "bake_type": bt, "resolution": [res, res]}
             if not ob.data.uv_layers:
                 rec.update({"ok": False, "error": "没有 UV",
-                            "hint": "先 blender_rt_plan(op=\"uv_smart_project\", args={objects:[\"%s\"]})" % ob.name})
+                            "hint": "先 blender_op(op=\"uv_smart_project\", args={objects:[\"%s\"]})" % ob.name})
                 out.append(rec)
                 continue
             if not ob.data.materials:

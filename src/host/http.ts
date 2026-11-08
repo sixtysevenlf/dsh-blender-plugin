@@ -188,9 +188,9 @@ export function leasedText(r: unknown): string | undefined {
     String(Math.round(Number(body.expiresInMs || 0) / 1000)) +
     's）。' +
     text(body.hint) +
-    '；要强抢：blender_viewport op=lease force=true' +
+    '；写 scope 由 blender_session action=grant 管理' +
     '\ncode: lease_conflict' +
-    '\nnext_action: 等租约释放后重试，或 blender_viewport op=lease force=true 强抢'
+    '\nnext_action: 等当前写操作结束或 release 后重试；写 scope 由 blender_session action=grant 管理'
   )
 }
 

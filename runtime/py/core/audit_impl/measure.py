@@ -212,5 +212,5 @@ def audit_snap_floaters(objects=None, scope=None, dry_run=True, visible_frac=VIS
                "before": {"visible_floater_count": a["visible_floater_count"],
                           "real_floater_count": a["real_floater_count"], "gate": _gate_from(a)},
                "hint": ("只报告。" if dry_run else "已平移（只动了整件属于浮块的对象）") +
-                       " 应用前建议先 blender_rt_txn(op=snapshot)；改完用 audit_gate 复核",
+                       " 应用前建议先 blender_session(action='txn', op='snapshot')；改完用 audit_gate 复核",
                "note": "平移只收口「贴而未重合」；若浮块是对象的一部分，需在编辑那一步改几何"})

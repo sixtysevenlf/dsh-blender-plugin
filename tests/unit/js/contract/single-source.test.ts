@@ -31,10 +31,10 @@ describe('single source of truth', () => {
     expect(lease).toContain("'/plan': PLAN_READ_ONLY_OPS")
   })
 
-  it('keeps the plan tool description counts equal to the catalog', () => {
+  it('keeps the op tool description counts equal to the catalog', () => {
     const catalog = payload({})
-    const source = fs.readFileSync(pkgPath('src', 'plan', 'tool.ts'), 'utf8')
-    const match = source.match(/【判定 \/ 验收 \/ 导出 \/ 造型】(\d+) 个 family · (\d+) 个 op/)
+    const source = fs.readFileSync(pkgPath('src', 'tools', 'op', 'index.ts'), 'utf8')
+    const match = source.match(/(\d+) family \/ (\d+) op/)
     expect(match).not.toBeNull()
     expect(Number(match![1])).toBe(catalog.families.length)
     expect(Number(match![2])).toBe(catalog.ops_count)

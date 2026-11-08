@@ -2,6 +2,10 @@
 export interface PlanFamily {
   f: string
   prefix: string
+  /** 3.1 target surface: G (GUI session) requires a ready session; L (host-local) does not. */
+  requires_session: boolean
+  /** Max write scope a family may request when it mutates the scene; 'none' for host-local families. */
+  write_scope: 'exclusive' | 'none'
   when: string
   not: string
   sk: string
@@ -22,55 +26,67 @@ export interface DiskCatalog {
 export const PLAN_CATALOG: PlanFamily[] = [
   {
     f: 'sculpt',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'sculpt_',
     when: '要"雕出形体"：有机/角色/道具的体积感、表面起伏、浮雕式细节',
     not: '规整硬表面板件（板+倒角那条路）；也不需要时别为了细节狂细分',
-    sk: 'blender_rt_plan(op="sculpt_scan", args={objects:["Head"]}) → "sculpt_setup"(mode="VOXEL", voxel_size="auto") → "sculpt_apply"(strokes=[{brush:"draw", points:[[0,0,1]], radius:0.45, strength:0.7}])',
+    sk: 'blender_op(op="sculpt_scan", args={objects:["Head"]}) → "sculpt_setup"(mode="VOXEL", voxel_size="auto") → "sculpt_apply"(strokes=[{brush:"draw", points:[[0,0,1]], radius:0.45, strength:0.7}])',
     ops: ['scan', 'setup', 'apply', 'filter', 'mask', 'remesh', 'selftest', 'help'],
-    key: 'brush=draw|inflate|pinch|flatten|smooth|crease；无头可跑；笔触改拓扑后 mark/revert 回不去，改前先 rt_txn(op="snapshot")',
+    key: 'brush=draw|inflate|pinch|flatten|smooth|crease；无头可跑；笔触改拓扑后 mark/revert 回不去，改前先 blender_session(op="snapshot")',
   },
   {
     f: 'fix',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'fix_',
     when: 'audit_mesh 报了缺陷要治（重复点/零面积面/孤立点/法线），或要减面',
     not: '设计上就该开放的薄壳：fill_holes 会把它封死',
-    sk: 'blender_rt_plan(op="fix_repair", args={objects:["P01"], actions:["merge_doubles","dissolve_degenerate","delete_loose","recalc_normals"]})',
+    sk: 'blender_op(op="fix_repair", args={objects:["P01"], actions:["merge_doubles","dissolve_degenerate","delete_loose","recalc_normals"]})',
     ops: ['repair', 'decimate', 'selftest', 'help'],
     key: '回执带 before/after 缺陷计数；没修动就 ok=false（不许把"跑过"当"修好"）',
   },
   {
     f: 'uv',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'uv_',
     when: '要贴图、要交付带 UV 的 OBJ/MTL，或减面之后 UV 乱了',
     not: '纯几何验证阶段不必展开 UV；**别手动摆 UV** —— uv_smart_project/unwrap/pack',
-    sk: 'blender_rt_plan(op="uv_smart_project", args={objects:["Body"], angle_limit:66}) → "uv_stats" → "uv_pack"',
+    sk: 'blender_op(op="uv_smart_project", args={objects:["Body"], angle_limit:66}) → "uv_stats" → "uv_pack"',
     ops: ['stats', 'smart_project', 'unwrap', 'project', 'pack', 'selftest', 'help'],
     key: '判据：有 UV 层 且 零面积 UV 面=0；method 传错会回"允许列表"',
   },
   {
     f: 'print',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'print_',
     when: '判断"能不能造出来"：3D 打印/加工口径的壁厚与悬垂',
     not: '装配干涉/连通/包络（那走 audit_*）',
-    sk: 'blender_rt_plan(op="print_report", args={objects:["Body"], min_mm:1.2, max_angle_deg:45})',
+    sk: 'blender_op(op="print_report", args={objects:["Body"], min_mm:1.2, max_angle_deg:45})',
     ops: ['walls', 'overhang', 'report', 'selftest', 'help'],
     key: '回执带 resolution_mm（本地面尺寸）；min_mm 低于它会给"结论不可信"警告 —— 别拿粗网格下细结论；悬垂默认**排除贴床面**（bed_area_mm2 单列、overhang_area_incl_bed_mm2 留老口径、exclude_bed=false 回退），min_area_mm2 是净悬垂预算；flat 有 bed_band_mm 防线（半空中的大帽檐不会被当平台面 ⇒ 不会把真实悬垂吞成绿），平台面判据的自证警告在 overhang 的 bed_warning 与 print_report 顶层 warnings[]',
   },
   {
     f: 'sweep',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'sweep_',
     when: '管路 / 线缆 / 轨道 / 护栏这类"沿路径成形"',
     not: '等距重复阵列（履带/链节走参数化 Array 配方）；**别手接路径段** —— 先 sweep_analyze 算弯折半径',
-    sk: 'blender_rt_plan(op="sweep_analyze", args={path:[[0,0,0],[0.6,0,0],[0.6,0,0.6]], profile:{type:"circle", radius:0.05}}) → "sweep_build"',
+    sk: 'blender_op(op="sweep_analyze", args={path:[[0,0,0],[0.6,0,0],[0.6,0,0.6]], profile:{type:"circle", radius:0.05}}) → "sweep_build"',
     ops: ['analyze', 'build', 'selftest', 'help'],
     key: '先算弯折半径 vs 型材半宽；过紧默认拒绝（force=true 才硬做）',
   },
   {
     f: 'audit',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'audit_',
     when: '装配体检与出厂门：连通 / 干涉 / 包络 / 漂移 / 量测 / 重复件 / 浮块',
     not: '主观"像不像"（那走 qc_*）；**别目测代替体检** —— 用 audit_*（summary_only 瘦身）；**装配口径**：连通门是「单体船」口径（默认 0.3 mm）—— 222 个独立零件的正常装配必然被报浮空；多零件请调 micro_gap_mm（1–2 mm）或走 gate_plan(preset="assembly")',
-    sk: 'blender_rt_plan(op="audit_scene", args={}) → "audit_mesh"(objects=[...]) → "audit_gate"(scope="COL_Geo", envelope=[[min],[max]])',
+    sk: 'blender_op(op="audit_scene", args={}) → "audit_mesh"(objects=[...]) → "audit_gate"(scope="COL_Geo", envelope=[[min],[max]])',
     ops: [
       'mesh',
       'scene',
@@ -91,10 +107,12 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'qc',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'qc_',
     when: '与参考图比对（IoU / 剖面差 / 鲁棒性）或做合成自检',
     not: '能数值判定的装配问题（audit_* 更硬）；**别拿"看起来像"当验收** —— 用 qc_render_views(ref_path=…) 算 IoU / 剖面差',
-    sk: 'blender_rt_plan(op="qc_compare", args={ref_path:"ref.png", render_path:"out.png"})',
+    sk: 'blender_op(op="qc_compare", args={ref_path:"ref.png", render_path:"out.png"})',
     ops: [
       'compare',
       'compare_basic',
@@ -117,15 +135,19 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'qc_render',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'qc_render_',
     when: '要对照图 / 多视角 / 逐部件配色图（自动取景 + 临时三点光 + 逐张 md5）',
-    not: '只是"改一步看一眼"→ 用 blender_rt_see（约 100 ms，别开渲染）',
-    sk: 'blender_rt_plan(op="qc_render_views", args={views:[{name:"front", from:[7,-7,5], look_at:[0,0,0], lens:50}], res:[1280,720], samples:64, outdir:"D:/DSH/blender/out/qc"})',
+    not: '只是"改一步看一眼"→ 用 blender_see（约 100 ms，别开渲染）',
+    sk: 'blender_op(op="qc_render_views", args={views:[{name:"front", from:[7,-7,5], look_at:[0,0,0], lens:50}], res:[1280,720], samples:64, outdir:"D:/DSH/blender/out/qc"})',
     ops: ['views', 'catalog', 'help'],
     key: '长渲染加 asJob=true 转作业层；ref_path 给了就逐张算 IoU；主体 <5% 画面会给 subject_too_small',
   },
   {
     f: 'pipe',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'pipe_',
     when: '多步链要一次跑完、产出要传给下一步：别再人肉搬运 JSON，用 @工件 引用',
     not: '不是新的几何能力：它是编排层，实际执行仍在各家族；单发 op 不需要它',
@@ -135,6 +157,8 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'shape',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'shape_',
     when: '任何**参考图还原**：先 S0 草稿（`shape_draft`：是什么/几块/主体配件/什么形/哪凸哪凹，不出 mm、不数 mesh）→ `shape_plan` 拿协议 → 放样→特征线→IoU',
     not: '不是新几何引擎：几何复用 img_*/vehicle_* 的量具与放样；也不适用于没外轮廓的（布料/毛发/流体）；**别手算站表**（问 shape_plan）；**S0 别写 mm、别数面数**',
@@ -157,6 +181,8 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'vehicle',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'vehicle_',
     when: '车辆外壳要贴参考图 / 要根治穿模：先用比例门定包络，再放样成壳（轮眉解析扣出 ⇒ 零互穿）',
     not: '不做细节件（灯/格栅/后视镜/玻璃分件）—— 那些用硬表面单独做再挂；也不是车漆材质（material_*）；**别自己写放样** —— 车壳走 vehicle_sections→loft→panels（自造=没棱没缝）',
@@ -177,6 +203,8 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'clearance',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'clear_',
     when: '成对间隙/互穿判定：轮↔轮眉必须留间隙、板件允许互插——两种规则要分开判',
     not: '不是整体交集体积（那是 audit_interference）；它按规则表逐对判',
@@ -186,6 +214,8 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'human',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'human_',
     when: '要人形：比例正确的素体（装配基准/摆姿势/挂装甲），或从参考图反推人体比例',
     not: '不做写实人体：脸/手这类高细节部位用面罩手套回避；也不是骨骼绑定（那是 motion_*）；**别自造比例** —— human_* 素体/头型起步',
@@ -195,6 +225,8 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'ext',
+    requires_session: false,
+    write_scope: 'none',
     prefix: '',
     when: '交付物/几何要外部独立通路复核：glTF 语义合规（规则码）、水密/流形/自交的第二意见',
     not: '不是插件内体检（那是 audit_*/print_*）：它跑外部进程 glTF-Validator / open3d',
@@ -204,6 +236,8 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'face',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'face_',
     when: '人形/人脸要判「比例对不对」「这版比参考差多少」—— 把脸从主观判断变成可优化数字',
     not: '不认脸、不做检测：landmarks 要你给（自己标或 MediaPipe/EMOCA 出）；轮廓那一半用 img_diff',
@@ -213,9 +247,11 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'img',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'img_',
     when: '参考图看不清细节 / 要量它：轮廓尺寸、长宽比、主要直线角度、指定点取色；或把量到的东西画回图上、把两张图做差分',
-    not: '不是"看图"本身（看图仍要 read_image/rt_see）；它是量具，负责把像素变成数字；**别用眼睛估尺寸** —— 用 img_* 量',
+    not: '不是"看图"本身（看图仍要 read_image/blender_see）；它是量具，负责把像素变成数字；**别用眼睛估尺寸** —— 用 img_* 量',
     sk: 'op="img_scan", args={path:"D:/ref/front.png"} → op="img_crop", args={path:…, x:20, y:30, w:200, h:160, scale:2} → op="img_diff", args={a:"render.png", b:"ref.png"}',
     ops: [
       'scan',
@@ -234,6 +270,8 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'assembly',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'asm_',
     when: '多会话/多零件要合并：先生成 manifest（md5/接口帧/允许交叠），再全对全扫描、合并、过装配门',
     not: '不是单件网格体检（audit_*）；**别手工 append 零件** —— asm_merge 按 id 序 + 接口帧落位',
@@ -243,6 +281,8 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'blockout',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'blockout_',
     when: '给视频模型/下游做基础白模：声明式 parts（mm/锚点/模板）→ 低模 + 3 视图 + GLB；或批量 N 件',
     not: '不是高模/雕刻/材质入口；细节仍走 recipe/vehicle/human 现有通路',
@@ -252,6 +292,8 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'eval',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'eval_',
     when: '验收自己的门/工具到底抓得住什么：缺陷注入（装配 D1/D3/D4/D5/D7/D8 + 参考图矩形/圆/斜线）+ 基线回放 + capture_rate',
     not: '不是项目验收（项目走 gate_run/asm_gate）；capture_rate 只代表合成缺陷集，不等于真实项目通过率',
@@ -261,6 +303,8 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'calib',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'calib_',
     when: '想知道"我的门到底抓得住什么"：注入 8 类已知缺陷量捕获率；或改了门之后验证有没有变强',
     not: '不是日常体检（那是 audit_*/print_*）；它跑的是自建装配，不动你的件',
@@ -270,6 +314,8 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'visualreport',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'visualreport_',
     when: '同机位 QC：参考图 vs 渲染图要一页 verdict（IoU/缺多面积/缺陷 crop/修法），不靠肉眼看两张图',
     not: '不是出图（出图用 qc_render_views）；不同机位/分辨率不可比；**别把 degraded 当通过**',
@@ -279,6 +325,8 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'shapesolve',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'shapesolve_',
     when: '参数化形体要按参考图轮廓反推尺寸：无头多视正交解析投影 + numpy 光栅化，不渲染、不依赖 timers',
     not: '不是放样/建模（先 shape_plan/shape_loft）；**参考图必须同相机参数生成**；只比轮廓并集',
@@ -288,6 +336,8 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'surface',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'surface_',
     when: '复杂曲面要参数化候选：loft/sweep/patch → tessellate → validate → export(GLB)',
     not: '不是雕刻/有机建模；**M1 截面间 B-spline 插值、z 线性；M3 fit、M5 blend/offset 未实现（需 OCCT）**；**参考图 IoU / 材质 / 打印检查仍需 qc_render_views / print_report**',
@@ -310,6 +360,8 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'gate',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'gate_',
     when: '把**一个项目的验收判据固化下来、一次跑完**（替掉"每个项目重写一遍门脚本"）',
     not: '不是单点体检（只查一项用 audit_mesh / print_report）；也不做渲染对照（那是 qc_*）；**别自写判据** —— gate_plan→gate_run 读 verdict 三态',
@@ -319,6 +371,8 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'material',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'material_',
     when: '要材质：程序化材质（金属拉丝 / 漆面 / 锈 / 玻璃 / 布料 / 木纹 / 混凝土 / 自发光 / 全息），或把程序化材质**烘成贴图**交付',
     not: '只是换个纯色（改 BSDF 默认值就行）；也不是贴图库（那走 PolyHaven 集成）；**别手搭节点树** —— material_build(preset=…)',
@@ -328,9 +382,11 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'render_guard',
+    requires_session: false,
+    write_scope: 'none',
     prefix: '',
     when: '渲染中撞到"卡住/超时"：想知道 Blender 是不是正在渲染、等它空下来，或清掉崩溃后留下的陈标记',
-    not: '它不是渲染入口（出图用 qc_render_views / rt_headless）；多会话排队用 render_lock',
+    not: '它不是渲染入口（出图用 qc_render_views / blender_run）；多会话排队用 render_lock',
     sk: 'op="render_state", args={} → op="render_wait"(timeout_ms=300000)',
     ops: [
       'render_state',
@@ -343,28 +399,34 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'render',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'render_',
     when: '渲染队列/锁与渲染状态（多会话排队）',
     not: '单次出图不需要锁',
-    sk: 'blender_rt_plan(op="render_status", args={})',
+    sk: 'blender_op(op="render_status", args={})',
     ops: ['lock', 'status', 'help'],
     key: 'cross-process 文件锁：acquire/release/status，TTL + 持有者',
   },
   {
     f: 'deliver',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'deliver_',
     when: '交付导出：单位盒归一化 + 多组 OBJ/MTL + manifest(md5)',
-    not: '中间产物（直接 rt_headless 里 export 就行）；**别手写导出** —— deliver_export→verify（manifest md5）',
-    sk: 'blender_rt_plan(op="deliver_export", args={objects:["COL_Geo"]}) → "deliver_verify"',
+    not: '中间产物（直接 blender_run 里 export 就行）；**别手写导出** —— deliver_export→verify（manifest md5）',
+    sk: 'blender_op(op="deliver_export", args={objects:["COL_Geo"]}) → "deliver_verify"',
     ops: ['export', 'verify', 'help'],
-    key: '要 GLB/FBX 用 rt_cmd export_scene（addon v1.7 起）',
+    key: '要 GLB/FBX 用 blender_inspect export_scene（addon v1.7 起）',
   },
   {
     f: 'motion',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'motion_',
     when: '机构/铰接：关节轴与锚点实测、扫掠验证、URDF/USDA 导出',
     not: '静态几何（audit_measure 就够）；**别手摆姿态** —— motion_joints→measure→export_urdf',
-    sk: 'blender_rt_plan(op="motion_joints", args={}) → "motion_measure" → "motion_export_urdf"',
+    sk: 'blender_op(op="motion_joints", args={}) → "motion_measure" → "motion_export_urdf"',
     ops: [
       'joints',
       'joint',
@@ -381,28 +443,34 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'generator',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'generator_',
     when: '参数化重复件（履带/链节/齿圈/阵列）；"改参不改码"，配方即形状',
     not: '一次性造型；**别写一次性循环** —— 要改参用 generator_save→run',
-    sk: 'blender_rt_plan(op="generator_save", args={name:"sprocket", code:"n=PARAMS.get(\'n\',8)\\n…", params:{n:8}}) → op="generator_run", args={name:"sprocket", args:{n:12}, expect:{objects:12}}',
+    sk: 'blender_op(op="generator_save", args={name:"sprocket", code:"n=PARAMS.get(\'n\',8)\\n…", params:{n:8}}) → op="generator_run", args={name:"sprocket", args:{n:12}, expect:{objects:12}}',
     ops: ['save', 'run', 'list', 'get', 'diff', 'selftest', 'help'],
     key: '源码参数名是 **code**（不是 script）；generator_run 的 PARAMS 走 **args**（这一层不会被摊平）。编译门 = 全新无头进程复现；源码一改回执自动过期',
   },
   {
     f: 'plan',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'plan_',
     when: '假设驱动建模：组件/连接/包络注册、三态判定、破坏性门控、证据账本',
     not: '单纯几何体检（audit_* 更直接）',
-    sk: 'blender_rt_plan(op="plan_status", args={})',
+    sk: 'blender_op(op="plan_status", args={})',
     ops: ['load', 'validate', 'order', 'build', 'graph', 'status', 'diag', 'help'],
     key: '判据见插件包 docs/假设驱动建模-cookbook.md；外部证据不足必须报 unresolved',
   },
   {
     f: 'contract',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: '',
     when: '需要"先判定再动手"：包络/干涉/接口校验、未判别连接上的 destructive_guard、证据与报告',
     not: '已经明确要改就直说（别为了流程而流程）',
-    sk: 'blender_rt_plan(op="check_interference", args={a:"P01", b:"P02"}) / op="destructive_guard"',
+    sk: 'blender_op(op="check_interference", args={a:"P01", b:"P02"}) / op="destructive_guard"',
     ops: [
       'status',
       'help',
@@ -428,19 +496,23 @@ export const PLAN_CATALOG: PlanFamily[] = [
   },
   {
     f: 'gui',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: 'gui_',
     when: '只有真 UI 上下文才能做的事：框选对象/全场景、切视口着色、打开 .blend',
     not: '无头 -b 进程里做不了（会明确报"没有 VIEW_3D 区域"）',
-    sk: 'blender_rt_plan(op="gui_frame", args={object:"P01"})',
+    sk: 'blender_op(op="gui_frame", args={object:"P01"})',
     ops: ['frame', 'shading', 'open', 'help'],
     key: 'gui_frame/gui_shading 属只读；gui_open 会换文件',
   },
   {
     f: 'montage',
+    requires_session: true,
+    write_scope: 'exclusive',
     prefix: '',
     when: '把多张对照图拼成一张给眼睛看（证据分级：只给少数格）',
     not: '只有一张图时不需要',
-    sk: 'blender_rt_plan(op="montage", args={images:[...], out:"D:/.../montage.png"})',
+    sk: 'blender_op(op="montage", args={images:[...], out:"D:/.../montage.png"})',
     ops: ['montage', 'help'],
     key: '',
   },
@@ -449,7 +521,7 @@ export const PLAN_CATALOG: PlanFamily[] = [
 /** plan 之外的顶层工具：先决定"用哪个工具"，再决定 op */
 /**
  * 描述预算：重工具的参数长尾（从工具描述里搬出来的那部分）。
- * 取用：blender_rt_plan(op="catalog", args={tool:"rt_headless"})（后端本地直出）
+ * 取用：blender_op(op="catalog", args={tool:"blender_run"})（后端本地直出）
  * 动机：15 个工具的 schema 是每轮固定开销；模型在"调用那一刻"只需要参数名 + 一句说明。
  * 维护：工具描述里删掉的解释性文字往这里放，别让它悄悄涨回去（tests/unit/js/contract/description-budget.test.ts 有预算门）。
  */
@@ -463,34 +535,18 @@ export function planOpNames(): string[] {
 }
 
 export const PLAN_TOOL_MAP: Array<{ t: string; use: string }> = [
-  { t: 'blender_viewport(op="doctor")', use: '开工前体检/排错；launch 可一键拉起 GUI Blender' },
-  { t: 'blender_rt_see', use: '看一眼画面（约 100 ms；给 from/look_at 走自定义视角，不建相机）' },
-  { t: 'blender_rt_do', use: '改一步看一眼（GUI 常驻 + 持久内核 K，变量跨调用保留）' },
+  { t: 'blender_session', use: '会话/归属/写权限/事务快照（status、doctor、attach、grant、txn）' },
   {
-    t: 'blender_rt_headless',
-    use: '独立进程跑脚本（变量不保留）；批处理/无 GUI 备用（默认 GUI 优先）',
+    t: 'blender_op',
+    use: 'catalog 算子（判定/验收/导出/雕刻/修复/UV/制造/扫掠；不确定就 op="catalog"）+ loop/opt/preset',
   },
+  { t: 'blender_py', use: '在 GUI 会话里执行 agent 写的 Python（改一步看一眼，变量跨调用保留）' },
+  { t: 'blender_see', use: '看 GUI：viewport/camera/custom 视点，frame 单帧或 sequence 序列帧' },
   {
-    t: 'blender_rt_job',
-    use: '重活/长渲染：op=start 异步 + op=wait/collect 按 runId 回收（超时不丢结果）',
+    t: 'blender_run',
+    use: '唯一作业入口：submit 返回 jobId，status/wait/collect/cancel/list/perf；kind=render|headless',
   },
-  {
-    t: 'blender_rt_worker',
-    use: '同一脚本反复跑（冷启动与着色器编译只付一次）；单例串行，多 agent 别共用',
-  },
-  { t: 'blender_rt_txn', use: '回退点：mark/revert 对象级毫秒级；拓扑改动必须 snapshot/restore' },
-  {
-    t: 'blender_rt_preset',
-    use: '参数配方：save/apply/export/import（点路径 data；MAT:/OBJ:/SCENE）',
-  },
-  {
-    t: 'blender_rt_plan',
-    use: '所有"判定/验收/导出/雕刻/修复/UV/制造/扫掠"的 op 都在这里（不确定就 op="catalog"）',
-  },
-  {
-    t: 'blender_rt_cmd / rt_commands',
-    use: '执行 addon 只读命令（get_scene_info / get_selection / describe_node_type / bpy_api_lookup …）',
-  },
+  { t: 'blender_inspect', use: '只读 addon 命令目录与执行（help 只列可执行只读命令）' },
 ]
 
 export const PLAN_READ_ONLY_OPS: string[] = [

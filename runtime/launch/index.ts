@@ -109,7 +109,7 @@ async function agentLaunchResult(
     hint: up
       ? 'GUI Blender 已起来，addon 已连接 Gateway（' +
         String(count) +
-        ' 个实例）—— 现在可以用 rt_do / rt_see 了'
+        ' 个实例）—— 现在可以用 blender_py / blender_see 了'
       : 'Windows 代理已派发启动，但 Gateway 在 ' +
         String(ctx.waitMs) +
         'ms 内未看到 addon 实例；看 ' +
@@ -222,7 +222,7 @@ async function runSpawnedBlender(
     bootScript: plan.sp.win,
     args: plan.args,
     hint: listening
-      ? 'GUI Blender 已起来，addon 已连接 Gateway —— 现在可以用 rt_do / rt_see 了（写操作记得 blender_viewport op=lease 拿租约）'
+      ? 'GUI Blender 已起来，addon 已连接 Gateway —— 现在可以用 blender_py / blender_see 了（写操作记得 blender_session op=lease 拿租约）'
       : addonIssue && addonIssue.fix
         ? 'GUI Blender 已启动，但 addon 不可用（' +
           String(addonIssue.code || 'unknown') +

@@ -142,6 +142,25 @@ if len(WIRE_COMMANDS) != WIRE_COMMAND_COUNT:
     )
 
 
+def wire_spec_rows():
+    """Wire-level spec rows for the model-facing inspect help surface.
+
+    Pure data, no bpy: the Gateway merges these with the host catalog so
+    blender_inspect can list name / args / gate / pause_safe per command
+    without a second hardcoded table.
+    """
+    return [
+        {
+            "name": spec.name,
+            "params": list(spec.params),
+            "gate": spec.gate,
+            "pause_safe": spec.pause_safe,
+            "network": spec.network,
+        }
+        for spec in WIRE_COMMANDS
+    ]
+
+
 def command_spec(name):
     """Return the CommandSpec for a wire command, or None."""
     return WIRE_SPECS.get(name)

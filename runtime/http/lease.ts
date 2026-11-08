@@ -196,7 +196,7 @@ function leaseGate(payload?: Record<string, unknown> | null): Record<string, unk
       hint:
         '另一个会话正在驱动这个 Blender。要么等它（剩余 ' +
         Math.round(v.expiresInMs / 1000) +
-        's），要么 body 加 force:true 抢占，或 blender_viewport op=lease force=true',
+        's），要么 body 加 force:true 抢占，或 blender_session op=lease force=true',
     }
   }
   // 放行时顺手续期：holder 匹配或无人持有时自动接管

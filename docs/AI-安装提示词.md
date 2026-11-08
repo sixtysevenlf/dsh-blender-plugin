@@ -3,10 +3,10 @@
 **为什么需要这一页**：直接把仓库地址丢给 AI，常见翻车姿势是 —— 跳过 §2 前置条件直接构建；自己编 `blenderExe` / 端口 / 配置项；把"命令跑完了"当成"装好了"；不跑 `doctor` 就宣布成功。
 下面这段提示词把「**先读 → 再装 → 按判据验收**」写成硬要求，复制粘贴即可。
 
-> **当前版本口径（2026-11-05）**：插件 **v3.1.0** · **15 个模型工具** · plan catalog **34 family / 228 op** ·
+> **当前版本口径（2026-11-08）**：插件 **v3.1.0** · **6 个模型工具** · plan catalog **34 family / 228 op** ·
 > Blender 侧 addon **v2.0.0**（protocol **12**）· Gateway `127.0.0.1:39877` · addon 主动连接 Gateway（无入站端口）。
-> **验收判据**：GUI 路线 = `doctor` 回 `kind=ok`；纯无头路线（不装 addon）= `rt_worker(start)` + `see` 出图自证
-> （doctor 的 bpy 往返不可达属预期）。**GUI 不再必需**：交互式无头（持久 worker + see/watch/reset）可独立建模。
+> **验收判据**：GUI 路线 = `doctor` 回 `kind=ok`；纯无头路线（不装 addon）= `blender_run(action="submit", kind="headless")` + `wait`/`collect` 拿到产物
+> （doctor 的 bpy 往返不可达属预期）。**GUI 不再是唯一门**：后台无头作业可独立建模。
 
 ---
 
@@ -18,19 +18,19 @@
 动手前的要求（必须遵守）：
 1. 先完整阅读仓库里的 docs/zh/README.md：前置条件、Quick start 的 npm 安装、常见故障，以及 AGENTS.md。
 2. 逐条核对 5 条前置条件；缺哪条先告诉我，不要跳过，也不要替我决定。
-   当前版本：插件 v3.1.0 / 15 个模型工具 / plan catalog 34 family 228 op / addon v2.0.0（protocol 12）。
+   当前版本：插件 v3.1.0 / 6 个模型工具 / plan catalog 34 family 228 op / addon v2.0.0（protocol 12）。
    注意：普通安装不需要 clone 或构建；npm 包自带 lib/。只有从源码开发才需要 npm ci --legacy-peer-deps && npm run build。
 3. 严格按 §3 的 5 步执行；配置项只从 docs/配置参考.md 里取，不要自己编路径 / 端口 / 配置名。
 4. 验收判据（按路线二选一，另一条不适用时说明原因）：
-   · GUI 路线：curl -sS http://127.0.0.1:39877/doctor → kind=ok，且 blender_rt_see(max_size=560) 回一帧图；
-   · 纯无头路线（不装 addon）：blender_rt_worker(op="start") + op="see" 回一帧图
-     （doctor 的 bpy 往返不可达属预期，不是没装好）；
-   两条路线都要：blender_rt_plan(op="catalog") 能列出 34 family / 228 op。
+   · GUI 路线：curl -sS http://127.0.0.1:39877/doctor → kind=ok，且 blender_see(max_size=560) 回一帧图；
+   · 纯无头路线（不装 addon）：blender_run(action="submit", kind="headless", script="print('ok')") →
+     blender_run(action="wait", id="<jobId>") 回产物（doctor 的 bpy 往返不可达属预期，不是没装好）；
+   两条路线都要：blender_op(op="catalog") 能列出 34 family / 228 op。
    没到对应判据不许说"安装成功"；失败就按 §8 的表逐条排查。
 5. 每一步都把原始回执贴给我，不要只给结论。
 6. 装完并验收通过后，必须主动告诉我当前版本能力（照 §③.5，用你自己的话复述，不要漏）：
-   交互式无头（rt_worker see/watch/reset/preload/warmup、rt_do/rt_see 可 session/auto、
-   plan session="auto" 同步无头路由、worker 空闲 TTL）、参考图量具 img_digest/probe/measure/calib、
+   GUI 会话（blender_py / blender_see）、后台无头作业（blender_run：render / headless）、
+   参考图量具 img_digest/probe/measure/calib、
    装配 asm_scan/manifest/merge/repair/export/gate、白模 blockout base/batch/export/turntable/refsheet、
    同机位 QC visualreport_report、无头轮廓拟合 shapesolve_solve、缺陷评估 eval_run、
    强制门 gate_preflight/checkpoint/deliver + deliver_export(require_gate)。
@@ -42,11 +42,11 @@
 ~~~text
 读 dsh-blender-plugin/docs/zh/README.md 的 §2 / §3 / §8 与 AGENTS.md，
 按 §3 的五步把这个插件装进我的 DSH profile（构建（必须）→ 配置 → 装进 profile → 起 Blender → 验证）。
-装完跑 blender_viewport(op="doctor")，kind=ok 才算成功；不是 kind=ok 就按 §8 排查，并把原始回执贴给我。
-（纯无头路线不装 addon 时，doctor 的 bpy 往返不可达属预期：改用 blender_rt_worker(op="start") + op="see" 出图自证。）
+装完跑 blender_session(action="doctor")，kind=ok 才算成功；不是 kind=ok 就按 §8 排查，并把原始回执贴给我。
+（纯无头路线不装 addon 时，doctor 的 bpy 往返不可达属预期：改用 blender_run(action="submit", kind="headless") + wait/collect 收产物自证。）
 验收通过后，请主动告诉我当前版本（v3.1.0）的新能力：
-· 交互式无头：rt_worker 持久 worker（see/watch/reset/preload/warmup，空闲 TTL 默认 15 min）、
-  rt_do/rt_see 在 GUI 不可达时自动走 session/auto、plan session="auto" 同步无头路由；
+· GUI 会话：blender_py 在已 attach 的会话里跑 Python（持久内核）、blender_see 取帧；
+  后台作业：blender_run 唯一提交面（render / headless，submit 回 jobId，wait/collect 收）；
 · 曲面算法（v2.6.2 新增）：surface_loft/sweep/patch → tessellate → validate → export（M0–M2/M4；M3 fit、M5 blend/offset 未实现）；
 · 参考图量具 / 装配 / 白模与转台/refsheet / visualreport / shapesolve / eval_run / 强制门（详见 catalog）；
 · Blender 原生选中 → N 面板「发送选中到 DSH」仍可用（v2.3 起；addon 需 v2.0.0+）；
@@ -58,17 +58,16 @@
 ## ③ 装完让 AI 自检（GUI / 无头两套）
 
 ~~~text
-blender_viewport(op="doctor")             # kind=ok ？（真跑一次 bpy 往返）
-blender_rt_plan(op="catalog")             # 34 family / 228 op 能列出来？
+blender_session(action="doctor")          # kind=ok ？（真跑一次 bpy 往返）
+blender_op(op="catalog")                  # 34 family / 228 op 能列出来？
 skill(name="blender-modeling")            # 随包 skill 能加载？（v2.2.0 起自动注册，无需另装）
-blender_rt_cmd(name="get_addon_info")     # addon_version=[2,0,0] + protocol 12？
-blender_rt_cmd(name="get_activity_state") # 选中/activity 命令在不在？
-blender_rt_cmd(name="get_collections")    # 集合模式的数据源在不在？
+blender_inspect(command="get_addon_info")     # addon_version=[2,0,0] + protocol 12？
+blender_inspect(command="get_activity_state") # 选中/activity 命令在不在？
+blender_inspect(command="get_collections")    # 集合模式的数据源在不在？
 
-# GUI 不可用时（交互式无头；不需要打开 Blender 窗口）
-blender_rt_worker(op="start")             # 持久 blender -b（冷启动 ~2s）
-blender_rt_worker(op="see", from="4,-4,3", look_at="0,0,1")  # 出图 ~50–100ms
-blender_rt_do(code="print(K.out_dir)", session="auto")       # 同步 exec，不占 GUI
+# GUI 不可用时（后台无头作业；不需要打开 Blender 窗口）
+blender_run(action="submit", kind="headless", script="print('ok')")  # 立即回 jobId
+blender_run(action="wait", id="<jobId>")                               # 收日志与产物
 ~~~
 
 ## ③.5 装完必须告知主人（v3.1.0 的"顺手通知"要求）
@@ -76,19 +75,18 @@ blender_rt_do(code="print(K.out_dir)", session="auto")       # 同步 exec，不
 > 这一节是给**安装插件的 AI** 看的硬要求：验收通过后，用你自己的话（中文优先）把下面几点告诉用户，不要省略。
 > 用户装插件通常只关心"能干什么"，不会去翻 CHANGELOG —— 所以由你转达。
 
-1. **版本口径**：插件 v3.1.0、15 个模型工具、plan catalog 34 family / 228 op、addon v2.0.0（protocol 12）；
+1. **版本口径**：插件 v3.1.0、6 个模型工具、plan catalog 34 family / 228 op、addon v2.0.0（protocol 12）；
    装完/升级后必须**重启 DSH**（插件是启动时装载的模块）。
-2. **交互式无头（v2.6 重点）**：`blender_rt_worker` 是常驻 `blender -b` 热会话（`start/exec/see/watch/reset/stop`，
-   支持 `preload`/`warmup`，空闲 TTL 默认 15 min，回执带 `idleMs`）；`blender_rt_do`/`blender_rt_see` 在 GUI 不可达
-   或显式 `session` 时自动走无头；`blender_rt_plan(..., session="auto")` 按 family 自动起 worker 并同步返回。
-   **GUI 不再是必需条件**，但 GUI 可用时仍是最顺手的看图方式。
+2. **GUI 交互 + 后台作业**：`blender_py` / `blender_see` 在已 attach 的 GUI 会话里做「改一步看一眼」；
+   `blender_run` 是唯一作业提交面（render / headless，submit 立即回 jobId，`wait`/`collect` 收产物与日志）。
+   没有 GUI 时用后台无头作业；**GUI 不再是必需条件**，但 GUI 可用时仍是最顺手的看图方式。
 3. **曲面算法（v2.6.2 新增）**：`surface_loft / surface_sweep / surface_patch → surface_tessellate →`
    `surface_validate → surface_export`；纯 bpy+numpy，单位 mm、同 spec 可复现；verdict 三态（`fail` 不静默成 pass，
    `degraded` 不等于通过）。**M3 fit、M5 blend/offset 未实现**（明确 `ok:false`，需 OCCT）。
 4. **新能力面（P0–P2）**：参考图量具 `img_digest/probe/measure/calib`；装配 `asm_scan/manifest/merge/repair/export/gate`；
    白模 `blockout_base/batch/export/turntable/refsheet`；同机位 QC `visualreport_report`（verdict-first）；
    无头轮廓拟合 `shapesolve_solve`；缺陷评估 `eval_run`；强制门 `gate_preflight/checkpoint/deliver` +
-   `deliver_export(require_gate=true)`；`blender_rt_watch` 也支持无头。
+   `deliver_export(require_gate=true)`；固定机位序列帧用 `blender_see(mode="sequence")`。
 5. **选中入口仍在 Blender 侧**（v2.3 起）：原生选中 → `N` →「DSH Blender Bridge」→ **Selection → DSH**；
    多选 / 集合两种模式；编辑模式点/线/面、姿态骨骼、曲线/晶格点也会随选中一起发送；
    activity 四态可查（`get_activity_state`）；该入口**只支持本仓 addon v2.0.0+**。
@@ -105,14 +103,14 @@ blender_rt_do(code="print(K.out_dir)", session="auto")       # 同步 exec，不
 
 | 回执 | 含义 | 处置 |
 |---|---|---|
-| `blender-unreachable` | Blender 没跑，或 addon 没 Connect | `blender_viewport(op="launch")`；或人工在 Blender 里按 `N` → Connect；纯无头可改用 `blender_rt_worker` |
+| `blender-unreachable` | Blender 没跑，或 addon 没 Connect | 人工在 Blender 里启用 addon 后按 `N` → Connect；Gateway 由宿主启动（重启 DSH）；纯无头改用 `blender_run(kind="headless")` |
 | `addon-unresponsive`（`/doctor` 的 `addon.kind`） | Gateway 有 addon 实例，但 addon 在预算内（3s）没回 `execute_code` 的 bpy 往返（超时） | 确认 Blender 在运行且「DSH Blender Bridge」已 Connect；等长命令/渲染结束，必要时重启 Blender；`op=start` 只管 39877 Gateway，不修这条通道 |
 | `addon-error`（`/doctor` 的 `addon.kind`） | addon 明确回了错误（非超时，如「AI 操作已暂停」/ 脚本报错 / `BUSY_RENDER`） | 按报错修；渲染中则等渲染结束或用 `render_wait`；不是主线程忙，不用反复重试 |
-| `main-thread-busy` | 主线程被渲染 / 模态操作占住 | 等它空下来，或改走无头（`blender_rt_headless` / `blender_rt_worker`） |
-| 后端不可用 | 后端进程没起来 | `blender_viewport(op="start")` |
-| 工具数 / op 数与文档不符（如仍是旧目录） | 插件/lib 与宿主版本不一致，或升级后没重启 | 重新安装 v3.1.0 → **重启 DSH** → `blender_rt_plan(op="catalog")` 复核 34/228 |
+| `main-thread-busy` | 主线程被渲染 / 模态操作占住 | 等它空下来，或改走 `blender_run(kind="render"|"headless")` |
+| 后端不可用 | Gateway/后端进程没起来 | 重启 DSH 宿主（Gateway 生命周期由宿主管理） |
+| 工具数 / op 数与文档不符（如仍是旧目录） | 插件/lib 与宿主版本不一致，或升级后没重启 | 重新安装 v3.1.0 → **重启 DSH** → `blender_op(op="catalog")` 复核 34/228 |
 | `value is not lossless JSON` | 宿主与插件的回执契约不匹配（旧版或未重载） | 升级到 v3.1.0 后**重启 DSH**，再跑一遍验收 |
-| 写操作 409 `leased` | 别的会话持有写租约 | `blender_viewport(op="who")`，别强抢 |
+| 写操作被拒绝 | 别的会话持有写作用域（或被人类改动阻塞） | `blender_session(action="grants")` / `mark_read`，别强抢 |
 
 ## ⑤ 给仓库维护者：让 AI"先读 README"的四个抓手
 

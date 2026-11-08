@@ -91,7 +91,7 @@ export function createRenderGuardOp(
             timeout: true,
             waitedMs: Date.now() - t0,
             flag: g.info,
-            hint: '仍在渲染：长渲染请一开始就用 blender_rt_job(op="start")，这样它是独立进程、不占主线程',
+            hint: '仍在渲染：长渲染请一开始就用 blender_run(action="submit", kind="render")，这样它是独立进程、不占主线程',
           }
         }
         await new Promise<void>((r) => setTimeout(r, 400))

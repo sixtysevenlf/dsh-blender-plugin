@@ -61,7 +61,7 @@ describe('job spawn exe guard', () => {
     expect(err.code).toBe('blender_exe_missing')
     expect(String(err.message)).toContain('not-found')
     expect(String(err.message)).not.toContain('The "file" argument')
-    expect(String(err.hint)).toContain('blender_rt_job op=start')
+    expect(String(err.hint)).toContain('blender_run')
     expect(String(err.hint)).toContain('DSH_BLENDER_EXE')
     expect(h.spawnCalls).toHaveLength(0)
   })

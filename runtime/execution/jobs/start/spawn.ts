@@ -22,7 +22,7 @@ export function spawnJobChild(
   const jobs = d.jobs
   // job 与 worker 共用预检；为空时立即抛 blender_exe_missing，
   // 不再让 spawn(null) 抛 Node 的原始 TypeError（路由/工具层拿不到可执行指引）。
-  assertBlenderExe(BLENDER_EXE, blenderExeSource(), 'blender_rt_job op=start')
+  assertBlenderExe(BLENDER_EXE, blenderExeSource(), 'blender_run op=start')
   const spawnOpts: SpawnOptions = {
     env: withWslEnv(
       baseChildEnv(Object.assign({}, p.envPairs)),
