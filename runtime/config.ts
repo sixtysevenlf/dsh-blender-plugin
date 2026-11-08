@@ -275,6 +275,16 @@ function probeWritable(dir: string): ProbeResult {
   }
 }
 
+/**
+ * 宿主（Node）自己的路径形态。Windows 原样；WSL 里把 Windows 盘符/UNC 转回 /mnt 或 /；
+ * 其余 POSIX 路径原样。这样 workDir 的 .wsl 字段永远是 Node 真能 fopen 的那一个。
+ */
+function hostPathOf(p: string): string {
+  if (IS_WIN) return p
+  if (/^[A-Za-z]:[\\/]/.test(p) || /^\\\\/.test(p)) return winToWsl(p)
+  return p
+}
+
 /** 原始候选（不探写）；回退逻辑在 resolveWorkDir() 里 */
 interface RawWorkDir {
   win: string
@@ -299,8 +309,8 @@ interface WorkDirInfo {
 function resolveWorkDirRaw(): RawWorkDir {
   const given = readString(process.env.DSH_BLENDER_WORKDIR) || readString(FILE.cfg.workDir)
   if (given) {
-    const win = /^[A-Za-z]:[\\/]/.test(given) ? given : wslToWin(given)
-    return { win: win, wsl: winToWsl(given), from: 'config' }
+    const host = hostPathOf(given)
+    return { win: blenderPath(host, BLENDER.exe), wsl: host, from: 'config' }
   }
   if (IS_MAC) {
     // macOS：用户级持久目录（不用 os.tmpdir()，它会被系统清理，帧/台账会丢）
@@ -309,11 +319,11 @@ function resolveWorkDirRaw(): RawWorkDir {
   }
   const lad = winLocalAppData()
   if (lad) {
-    const win = path.win32.join(lad, 'dsh-blender-rt')
-    return { win: win, wsl: winToWsl(win), from: 'auto:localappdata' }
+    const host = hostPathOf(path.win32.join(lad, 'dsh-blender-rt'))
+    return { win: blenderPath(host, BLENDER.exe), wsl: host, from: 'auto:localappdata' }
   }
-  const t = path.join(os.tmpdir(), 'dsh-blender-rt')
-  return { win: t, wsl: t, from: 'auto:tmpdir' }
+  const host = path.join(os.tmpdir(), 'dsh-blender-rt')
+  return { win: blenderPath(host, BLENDER.exe), wsl: host, from: 'auto:tmpdir' }
 }
 
 /**
@@ -334,9 +344,10 @@ function resolveWorkDir(): WorkDirInfo {
   for (const t of tries) {
     const p2 = probeWritable(t.dir)
     if (p2.ok) {
+      const host = hostPathOf(t.dir)
       return {
-        win: wslToWin(t.dir),
-        wsl: t.dir,
+        win: blenderPath(host, BLENDER.exe),
+        wsl: host,
         from: t.from,
         writable: true,
         fallback: {
@@ -383,11 +394,12 @@ const FEATURE_VIRTUAL_GUI_MAX = (() => {
   return { value: '', source: 'default' }
 })()
 
-const WORK = resolveWorkDir()
 /** blender.exe 探测在 runtime/blender-detect.ts（可注入依赖；Windows 含 Steam 库）。
  *  config.ts 不再转出 detectBlenderExe：需要探测结果的调用方直接 import blender-detect.js；
- *  这里只用一次（模块级 CFG），探测来源见 CFG.source.blenderExe。 */
+ *  这里只用一次（模块级 CFG），探测来源见 CFG.source.blenderExe。
+ *  必须在 resolveWorkDir 之前：workDir 的 Blender 侧形态取决于 Blender 是 Windows 还是同机进程。 */
 const BLENDER = detectBlenderExe({ fileCfg: FILE.cfg })
+const WORK = resolveWorkDir()
 
 function num(v: unknown, d: number): number {
   const n = Number(v)
@@ -459,20 +471,55 @@ export const CFG = {
 }
 
 /**
+ * Blender 进程是否使用 Windows 路径（而不是与宿主相同的 POSIX 路径）。
+ *
+ * 3.0 的规则是「Windows 宿主 / macOS 宿主 / 其余一律当 WSL+Windows Blender」。3.1 起
+ * Linux（含 WSL 里的 Linux Blender）也能被 virtual-gui provider 拉起，因此 WSL 不再
+ * 自动意味着 Blender 在 Windows 侧：只有配置的 Blender 可执行文件本身是 Windows 程序
+ * 时才做 /mnt 与 UNC 映射，否则必须把宿主路径原样交给同机的 Linux Blender。
+ *
+ * 判据是纯函数，便于在任意平台对拍（tests/unit/js/platform-paths.test.ts）。
+ */
+export function blenderUsesWindowsPaths(
+  platform: string,
+  isWsl: boolean,
+  blenderExe: unknown,
+): boolean {
+  if (platform === 'win32') return true
+  if (platform === 'darwin') return false
+  if (!isWsl) return false
+  const exe = String(blenderExe || '')
+  return /.exe$/i.test(exe) || /^[A-Za-z]:[\\/]/.test(exe)
+}
+
+/**
+ * 宿主侧路径 → Blender 进程侧路径。
+ *   Windows / WSL+Windows Blender → 反斜杠 / UNC
+ *   原生 Linux、macOS、WSL+Linux Blender → 恒等
+ */
+export function blenderPath(p: unknown, blenderExe: unknown = CFG.blenderExe): string {
+  const s = String(p || '')
+  if (blenderUsesWindowsPaths(process.platform, IS_WSL, blenderExe)) {
+    return IS_WIN ? s.replace(/\//g, '\\') : wslToWin(s)
+  }
+  return s
+}
+
+/**
  * 成对路径：`...Win` 给 Blender 进程用，`...Wsl` 给宿主 Node 用。
- * macOS 上两者同构，不能再无脑 path.win32.join —— 那会产出
- * \\Users\\...\\dsh_live_viewport.png，Blender 在 mac 上打不开（取帧静默失败）。
+ * macOS / 原生 Linux / WSL+Linux Blender 上两者同构，不能再无脑 path.win32.join 或 UNC
+ * 映射 —— 那会产出 \\Users\\... 或 \\wsl.localhost\\...，同机 Blender 打不开（取帧静默失败）。
  */
 function blenderSidePath(p: string, name: string): string {
-  if (IS_MAC) return path.join(p, name)
-  if (IS_WIN) return path.win32.join(p, name)
-  return wslToWin(path.join(p, name))
+  return blenderPath(path.join(p, name))
 }
 
 export const PATHS = {
-  livePngWin: blenderSidePath(CFG.workDirWin, 'dsh_live_viewport.png'),
+  // workDirWsl 是宿主真实路径；Blender 侧形态由 blenderPath 按 Blender 平台推导，
+  // 不再依赖 workDirWin 是否已被提前转换成 UNC（WSL 里的 Linux Blender 会因此 ENOENT）。
+  livePngWin: blenderSidePath(CFG.workDirWsl, 'dsh_live_viewport.png'),
   livePngWsl: path.join(CFG.workDirWsl, 'dsh_live_viewport.png'),
-  viewPngWin: blenderSidePath(CFG.workDirWin, 'dsh_view_capture.png'),
+  viewPngWin: blenderSidePath(CFG.workDirWsl, 'dsh_view_capture.png'),
   viewPngWsl: path.join(CFG.workDirWsl, 'dsh_view_capture.png'),
 }
 

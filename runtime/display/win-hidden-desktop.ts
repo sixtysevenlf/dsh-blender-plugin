@@ -10,6 +10,7 @@ import { spawn } from 'node:child_process'
 import type { ChildProcess, SpawnOptions } from 'node:child_process'
 import fs from 'node:fs'
 import { CFG } from '../config.js'
+import { DisplayProviderError } from './errors.js'
 import { isHelperFile, resolveHiddenDesktopHelper } from './helper-path.js'
 import type { HelperResolution } from './helper-path.js'
 import { buildDisplayCapabilities } from './prerequisites.js'
@@ -29,41 +30,6 @@ const HELPER_FIX =
 const BLENDER_FIX = 'set DSH_BLENDER_EXE or install Blender 4.2.10 LTS'
 const SELF_TEST_FIX =
   'run the helper manually with --self-test and inspect its error event (code + win32 field)'
-
-/** A start failure the session layer can pass through as a stage=config error. */
-export class DisplayProviderError extends Error {
-  readonly stage: string
-  readonly code: string
-  readonly fix: string
-  readonly evidence: Record<string, unknown>
-
-  constructor(
-    stage: string,
-    code: string,
-    message: string,
-    fix: string,
-    evidence: Record<string, unknown> = {},
-  ) {
-    super(message)
-    this.name = 'DisplayProviderError'
-    this.stage = stage
-    this.code = code
-    this.fix = fix
-    this.evidence = evidence
-  }
-
-  /** The availability-envelope-shaped view used by callers and tests. */
-  view(): Record<string, unknown> {
-    return {
-      ok: false,
-      stage: this.stage,
-      code: this.code,
-      root_cause: this.message,
-      fix: this.fix,
-      evidence: this.evidence,
-    }
-  }
-}
 
 export type SpawnHelper = (
   command: string,

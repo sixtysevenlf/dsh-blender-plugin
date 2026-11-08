@@ -5,10 +5,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import {
-  DisplayProviderError,
-  WinHiddenDesktopProvider,
-} from '../../../runtime/display/win-hidden-desktop.js'
+import { DisplayProviderError } from '../../../runtime/display/errors.js'
+import { WinHiddenDesktopProvider } from '../../../runtime/display/win-hidden-desktop.js'
 import { resolveHiddenDesktopHelper } from '../../../runtime/display/helper-path.js'
 
 class FakeChild extends EventEmitter {

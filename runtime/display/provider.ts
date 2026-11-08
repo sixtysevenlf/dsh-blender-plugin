@@ -1,10 +1,11 @@
 // Provider selection order for virtual-gui displays. 3.1 GA ships the Windows
 // W1 hidden-desktop provider; Windows W2 (IDD) stays a fallback only if W1
-// fails acceptance, Linux Xvfb+VirtualGL stays preview-only, and macOS has no
-// provider. Selection returns a provider only once capabilities are ready, so
+// fails acceptance, Linux Xvfb+VirtualGL ships as preview-only, and macOS has
+// no provider. Selection returns a provider only once capabilities are ready, so
 // the session layer fails closed instead of faking readiness.
 import type { DisplayCapabilities, DisplayProvider } from './types.js'
 import { displayCapabilities } from './prerequisites.js'
+import { LinuxXvfbVirtualGlProvider } from './linux-xvfb-virtualgl.js'
 import { WinHiddenDesktopProvider } from './win-hidden-desktop.js'
 
 export interface ProviderCandidate {
@@ -40,7 +41,7 @@ export function providerCandidates(
     ]
   }
   if (platform === 'linux') {
-    return [{ kind: 'linux-xvfb-virtualgl', preview: true, implemented: false }]
+    return [{ kind: 'linux-xvfb-virtualgl', preview: true, implemented: true }]
   }
   return [{ kind: 'macos-provider', preview: false, implemented: false }]
 }
@@ -64,6 +65,14 @@ export function selectDisplayProvider(options: SelectProviderOptions = {}): Prov
         env: options.env,
         helperPath: options.helperPath,
       }),
+      candidates,
+      capabilities,
+      reason: null,
+    }
+  }
+  if (chosen && chosen.kind === 'linux-xvfb-virtualgl') {
+    return {
+      provider: new LinuxXvfbVirtualGlProvider({ env: options.env }),
       candidates,
       capabilities,
       reason: null,

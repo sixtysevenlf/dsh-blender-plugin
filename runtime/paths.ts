@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { CFG, PATHS, IS_WIN, IS_MAC, wslToWin } from './config.js'
+import { CFG, PATHS, IS_WIN, IS_MAC, blenderPath } from './config.js'
 
 /** 与 engine.mjs 同目录（runtime/） */
 export const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -32,9 +32,7 @@ export const LIVE_PNG_WSL = PATHS.livePngWsl
  * 统一收到这里，避免以后再漏。
  */
 export function blenderJoin(...parts: string[]): string {
-  if (IS_MAC) return path.join(...parts)
-  if (IS_WIN) return path.win32.join(...parts)
-  return wslToWin(path.join(...parts))
+  return blenderPath(path.join(...parts))
 }
 /**
  * Python 领域包布局。真实实现在 runtime/py/<domain>/，**公开模块名不变**

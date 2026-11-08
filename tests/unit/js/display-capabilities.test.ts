@@ -24,9 +24,9 @@ describe('provider selection order', () => {
     ])
   })
 
-  it('keeps Linux preview-only and gives macOS a single candidate', () => {
+  it('offers the implemented Linux preview provider and gives macOS a single candidate', () => {
     expect(providerCandidates('linux')).toEqual([
-      { kind: 'linux-xvfb-virtualgl', preview: true, implemented: false },
+      { kind: 'linux-xvfb-virtualgl', preview: true, implemented: true },
     ])
     expect(providerCandidates('darwin')).toEqual([
       { kind: 'macos-provider', preview: false, implemented: false },
@@ -59,13 +59,31 @@ describe('provider selection order', () => {
     expect(none.reason).toContain('feature_disabled')
   })
 
-  it('never selects a provider on Linux or macOS', () => {
+  it('selects the Linux preview provider only for a ready software or hardware capability', () => {
     const linux = buildDisplayCapabilities({
       platform: 'linux',
       configured: 'on',
-      providerImplemented: false,
+      env: { PATH: '/usr/bin' },
+      checks: { xvfb: true, virtualgl: false, 'gpu-device': false, blender: true },
+      providerImplemented: true,
     })
-    expect(selectDisplayProvider({ platform: 'linux', capabilities: linux }).provider).toBeNull()
+    expect(linux.ready).toBe(true)
+    expect(linux.hardware_gl).toBe(false)
+    const selected = selectDisplayProvider({ platform: 'linux', capabilities: linux })
+    expect(selected.provider?.kind).toBe('linux-xvfb-virtualgl')
+    expect(selected.reason).toBeNull()
+
+    const hardware = buildDisplayCapabilities({
+      platform: 'linux',
+      configured: 'on',
+      env: { PATH: '/usr/bin' },
+      checks: { xvfb: true, virtualgl: true, 'gpu-device': true, blender: true },
+      providerImplemented: true,
+    })
+    expect(hardware.hardware_gl).toBe(true)
+  })
+
+  it('never selects a provider on macOS', () => {
     const mac = buildDisplayCapabilities({
       platform: 'darwin',
       configured: 'on',

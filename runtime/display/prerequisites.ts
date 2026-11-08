@@ -39,18 +39,21 @@ const LINUX: DisplayPrerequisiteSpec[] = [
   {
     id: 'virtualgl',
     label: 'VirtualGL (vglrun)',
-    check: 'vglrun is on PATH',
+    check:
+      'vglrun is on PATH (required for hardware GL; without it Linux runs preview-only llvmpipe)',
     install:
       'add the official VirtualGL APT repository (github.com/VirtualGL/repo), run apt update, then sudo apt install virtualgl; Ubuntu 22.04/24.04 and Debian 12 package archives have no virtualgl package, so apt install virtualgl without that repository is not a valid step',
     needsRoot: true,
+    optional: true,
   },
   {
     id: 'gpu-device',
     label: '/dev/dri readable by the Gateway user',
-    check: '/dev/dri exists and a render node is readable',
+    check: '/dev/dri exists and a render node is readable (required for hardware GL)',
     install:
       'add the Gateway user to the video/render group; fix udev permissions instead of running as root',
     needsRoot: true,
+    optional: true,
   },
   {
     id: 'blender',
@@ -77,7 +80,7 @@ export function prerequisiteTable(platform: string): DisplayPrerequisiteSpec[] {
   return MAC
 }
 
-function onPath(command: string, env: NodeJS.ProcessEnv): string | null {
+export function onPath(command: string, env: NodeJS.ProcessEnv): string | null {
   const exts = process.platform === 'win32' ? ['', '.exe', '.cmd', '.bat'] : ['']
   for (const dir of String(env.PATH || '').split(path.delimiter)) {
     if (!dir) continue
@@ -93,7 +96,7 @@ function onPath(command: string, env: NodeJS.ProcessEnv): string | null {
   return null
 }
 
-function canReadLinuxGpu(): { ok: boolean; detail: string } {
+export function canReadLinuxGpu(): { ok: boolean; detail: string } {
   try {
     const names = fs.readdirSync('/dev/dri')
     const node = names.find((n) => n.startsWith('renderD'))
@@ -177,31 +180,43 @@ export function buildDisplayCapabilities(
   const prerequisites = prerequisiteTable(platform).map((spec) =>
     probeOne(spec, platform, env, options.checks, options.blenderExe),
   )
+  // Optional rows (Linux VirtualGL and /dev/dri) name a hardware-GL degradation.
+  // They are reported in `missing` but do not gate a preview-only start: a
+  // software-GL provider MUST be labeled preview-only instead of pretending.
+  const missingRequired = prerequisites.filter((p) => !p.ok && p.optional !== true).map((p) => p.id)
+  const missingOptional = prerequisites.filter((p) => !p.ok && p.optional === true).map((p) => p.id)
   const missing = prerequisites.filter((p) => !p.ok).map((p) => p.id)
   const providerImplemented = options.providerImplemented === true
   const enabled = feature.value !== 'off'
   const preview = platform === 'linux' && feature.value === 'on'
-  const ready = enabled && providerImplemented && missing.length === 0
+  const hardware_gl = missingRequired.length === 0 && missingOptional.length === 0
+  const ready = enabled && providerImplemented && missingRequired.length === 0
   const reason = !enabled
     ? feature.source.startsWith('default')
       ? 'feature_disabled'
       : 'feature_disabled:' + feature.source
     : !providerImplemented
       ? 'provider_unavailable'
-      : missing.length
+      : missingRequired.length
         ? 'prerequisites_missing'
         : null
+  const requiredRows = prerequisites.filter((p) => !p.ok && p.optional !== true)
+  const optionalRows = prerequisites.filter((p) => !p.ok && p.optional === true)
   const fix = !enabled
     ? 'set features.virtualGui=on in dsh-blender.config.json (or DSH_BLENDER_VIRTUAL_GUI=on) after the platform prerequisites are installed'
     : !providerImplemented
       ? 'virtual-gui provider is not implemented in this build; use user-gui or blender_run headless'
-      : missing.length
+      : requiredRows.length
         ? 'install the missing prerequisites: ' +
-          prerequisites
-            .filter((p) => !p.ok)
-            .map((p) => p.label + ' (' + p.install + ')')
-            .join('; ')
-        : ''
+          requiredRows.map((p) => p.label + ' (' + p.install + ')').join('; ') +
+          (optionalRows.length
+            ? '; hardware GL additionally needs ' +
+              optionalRows.map((p) => p.label + ' (' + p.install + ')').join('; ')
+            : '')
+        : optionalRows.length
+          ? 'preview-only: hardware GL unavailable; install ' +
+            optionalRows.map((p) => p.label + ' (' + p.install + ')').join('; ')
+          : ''
   return {
     platform,
     provider:
@@ -215,6 +230,7 @@ export function buildDisplayCapabilities(
     feature_source: feature.source,
     enabled,
     preview,
+    hardware_gl,
     ready,
     needs_approval: enabled,
     prerequisites,
@@ -236,8 +252,8 @@ export function displayCapabilities(options: DisplayCapabilitiesQuery = {}): Dis
     configured: CFG.features.virtualGui,
     source: CFG.features.source,
     env: options.env,
-    // The W1 implementation ships in the bundle; prerequisites decide whether
-    // this machine can actually use it. Linux/macOS still have no provider.
-    providerImplemented: platform === 'win32',
+    // The Windows W1 and Linux L1 implementations ship in the bundle;
+    // prerequisites decide whether this machine can actually use them.
+    providerImplemented: platform === 'win32' || platform === 'linux',
   })
 }

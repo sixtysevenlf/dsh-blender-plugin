@@ -60,6 +60,12 @@
 - 回归：`tests/unit/js/virtual-gui-lifecycle.test.ts` 7 项（握手前不可见、握手失败清理、provider 错误结构化透传、上限、stop 幂等、attach 归属、limits clamp/低内存）；真机 `tests/e2e/virtual_gui_session.mjs` 20/20（consent 拒绝、真实 helper 启动 GUI Blender、同 instanceId 握手、display/pid、stop 无孤儿、重复 stop、缺 helper fail closed）。
 - Windows virtual-gui V0 通过 GA 验收（5.5），默认值由 `off` 翻为 `auto`：`tests/e2e/windows_ga_v0.mjs` 走默认 feature 的产品路径启动 2 个并发实例，32/32 通过（NVIDIA 硬件 GL、GPUOffScreen 800x447 截图、红/蓝材质与私有 desktop 互不串、stop 无 Blender/helper 残留、二次 stop 幂等、非管理员会话）；锁屏/RDP 作为未执行场景记录。验收同时修复多实例路由缺陷：engine 的 `addon.send` 指标包装丢弃第 4 个 `opts` 参数，导致第二个 addon 连接后带 `instanceId` 的调用报 ambiguous，现转发 opts 并加单测。
 
+### 3.1 Linux preview（Xvfb + VirtualGL）与 Blender 平台路径
+
+- 新增 Linux DisplayProvider `linux-xvfb-virtualgl`（preview）：每个实例启动独立 Xvfb `:N`，强制 X11（清除 `WAYLAND_DISPLAY`、`XDG_SESSION_TYPE=x11`、`GDK_BACKEND=x11`）；只有 `vglrun` 存在且 `/dev/dri/renderD*` 可读时才走 `vglrun -d egl` 硬件 GL，否则以 llvmpipe 软件路径启动并标 `preview-only`（capabilities 新增 `hardware_gl`）。feature 未显式 `on` 时 fail closed；Linux 必需的 `xvfb`/`blender` 与可选 `virtualgl`/`gpu-device` 在 prerequisites/missing/fix 里分开展示，可选缺失不阻塞 preview。stop 先 TERM 进程组再 KILL，清理 Blender/vglrun/Xvfb 与 socket/lock，重复 stop 幂等。
+- 新增 `tests/e2e/linux_preview_see.mjs` 与 PR CI `linux-preview-see` job（ubuntu-latest + Xvfb + Blender 4.2.10）：真实 Gateway + addon + virtual-gui 下调用 `blender_see`，断言 GUI 非 background、PNG 可解码且非全黑/非单色、stop 无孤儿、stop 后不回落 headless。WSL Ubuntu 24.04 + llvmpipe 软件链路 **22/22 PASS**（`local-workspace/5.8-linux-preview-see.json`）；llvmpipe 只证明调用链，不作硬件 GL 证据。
+- 修正 WSL 里 Linux Blender 的路径形态：Blender 侧 workDir/PNG 路径不再无条件映射成 UNC，而由 `blenderUsesWindowsPaths(platform,isWsl,blenderExe)` 判断——只有 Blender 可执行文件本身是 Windows 程序（`.exe`/盘符）时才做 WSL 映射；WSL 里的 Linux Blender 与原生 Linux/macOS 一样使用同机 POSIX 路径。此前 `blender_see` 在 WSL Linux Blender 上把 PNG 写到字面量 `\\wsl.localhost\...` 路径，随后读原路径必然 `ENOENT`（view http 502）；Windows Blender 行为不变。回归：`tests/unit/js/platform-paths.test.ts` 23 项（含 WSL+Windows/Linux Blender 决策表）。
+
 ### 3.1 virtual-gui 显式授权
 
 - `blender_session start kind=virtual-gui` 首次返回 `consent_required`（stage=session，evidence.options 给出 attach/start 两个显式选项）；只有 DSH host 在用户确认后通过内部 `session action=consent` 发放一次性 30s `consent_token`，模型 tool schema 不能自行设置。start 每次重新复检：已有 ready user-gui 时返回 `session_already_available` 且不创建会话；token 缺失/无效/过期/重放都继续要求决策，不自动降级到 headless 或 GUI。回归：`tests/unit/js/display-capabilities.test.ts`、`tests/integration/js/session-api.test.ts`。

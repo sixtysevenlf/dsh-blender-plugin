@@ -33,8 +33,11 @@ function headers(
   }
 }
 
-async function setup(instanceIds: string[] = ['inst-1']) {
-  const backend = await startBackend()
+async function setup(
+  instanceIds: string[] = ['inst-1'],
+  env?: Record<string, string>,
+) {
+  const backend = await startBackend({ env })
   closers.push(() => backend.stop())
   const addons: Array<{
     close: () => Promise<void> | void
@@ -324,7 +327,7 @@ describe('Gateway session API', () => {
   })
 
   it('5.15 keeps virtual-gui off when the feature gate is closed, without spawning anything', async () => {
-    const { backend } = await setup()
+    const { backend } = await setup(undefined, { DSH_BLENDER_VIRTUAL_GUI: 'off' })
     const before = await backend.get('/status')
     const consent = await backend.post('/lease', { action: 'consent' }, main)
     expect(consent.status).toBe(200)

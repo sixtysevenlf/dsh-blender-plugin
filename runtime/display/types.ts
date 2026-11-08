@@ -12,6 +12,8 @@ export interface DisplayPrerequisiteSpec {
   check: string
   install: string
   needsRoot: boolean
+  /** Optional rows name a degradation (for example software GL) instead of a start gate. */
+  optional?: boolean
 }
 
 export interface DisplayPrerequisiteStatus extends DisplayPrerequisiteSpec {
@@ -27,6 +29,8 @@ export interface DisplayCapabilities {
   feature_source: string
   enabled: boolean
   preview: boolean
+  /** Linux/Windows only: every hardware-GL prerequisite is present (not a software fallback). */
+  hardware_gl: boolean
   ready: boolean
   needs_approval: boolean
   prerequisites: DisplayPrerequisiteStatus[]

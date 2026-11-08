@@ -42,7 +42,7 @@ function expectSafeFallback(json: Record<string, unknown>): void {
 
 describe('safe fallback for unavailable capabilities', () => {
   it('reports a session-stage-free config failure when no display provider can start virtual-gui', async () => {
-    const backend = await startBackend()
+    const backend = await startBackend({ env: { DSH_BLENDER_VIRTUAL_GUI: 'off' } })
     closers.push(() => backend.stop())
 
     const response = await backend.post('/lease', { action: 'start', kind: 'virtual-gui' }, caller)

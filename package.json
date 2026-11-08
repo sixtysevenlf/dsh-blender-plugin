@@ -153,6 +153,7 @@
     "test:e2e:win-provider": "node tests/e2e/win_hidden_desktop_provider.mjs",
     "test:e2e:vgui": "node tests/e2e/virtual_gui_session.mjs",
     "test:e2e:win-ga": "node tests/e2e/windows_ga_v0.mjs",
+    "test:e2e:linux-see": "node tests/e2e/linux_preview_see.mjs",
     "test:e2e:gui": "node scripts/test.mjs e2e:gui",
     "test:matrix": "node scripts/check-behavior-matrix.mjs --release",
     "test:coverage": "node node_modules/vitest/vitest.mjs run --coverage --no-file-parallelism --coverage.reporter=text-summary --coverage.reporter=json-summary --coverage.reporter=lcov --coverage.reporter=cobertura",
