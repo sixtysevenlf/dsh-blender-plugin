@@ -250,7 +250,7 @@ jobs:
           PYTHON: python
           TMPDIR: ${{ runner.temp }}
         run: |
-          python -m pytest tests/unit/python tests/integration/python --cov=addon --cov-branch --cov-report=json:coverage/python-coverage.json --cov-report=term
+          python -m pytest tests/unit/python tests/integration/python --cov=extension --cov-branch --cov-report=json:coverage/python-coverage.json --cov-report=term
       - name: Coverage ratchet gate
         env:
           COVERAGE_BASE_REF: v2.6.2

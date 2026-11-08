@@ -130,7 +130,7 @@ jobs:
       - name: Coverage ratchet
         run: |
           npm run test:coverage
-          .venv/bin/python -m pytest tests/unit/python tests/integration/python --cov=addon --cov-branch --cov-report=json:coverage/python-coverage.json --cov-report=term
+          .venv/bin/python -m pytest tests/unit/python tests/integration/python --cov=extension --cov-branch --cov-report=json:coverage/python-coverage.json --cov-report=term
           git rev-parse --verify v2.6.2
           .venv/bin/diff-cover coverage/lcov.info --compare-branch=v2.6.2 --json-report=coverage/diff-cover.json
           npm run check:coverage
