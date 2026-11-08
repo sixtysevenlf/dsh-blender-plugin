@@ -273,6 +273,24 @@ check(
   subView.status === 200 && subView.body.presence.length === 2,
 )
 
+const [frameA, frameB] = await Promise.all([
+  fetch(base + '/frame.png?size=320'),
+  fetch(base + '/frame.png?size=320'),
+])
+const [bytesA, bytesB] = await Promise.all([
+  frameA.arrayBuffer().then((buffer) => Buffer.from(buffer)),
+  frameB.arrayBuffer().then((buffer) => Buffer.from(buffer)),
+])
+check(
+  'two agents can capture the GUI viewport concurrently',
+  frameA.status === 200 &&
+    frameB.status === 200 &&
+    frameA.headers.get('content-type') === 'image/png' &&
+    bytesA.subarray(1, 4).toString('ascii') === 'PNG' &&
+    bytesB.subarray(1, 4).toString('ascii') === 'PNG',
+  JSON.stringify({ a: bytesA.length, b: bytesB.length }),
+)
+
 const selected = await post('/lease', {
   action: 'update_selection',
   sessionId,

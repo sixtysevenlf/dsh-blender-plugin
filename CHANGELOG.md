@@ -65,7 +65,7 @@
 
 - Gateway 保存每个 caller 的 display name、颜色、view pose、选中 session_uid、activity；视图/选中更新时通过既有内部 `execute_code` 通道把快照推给 addon，不新增工具或路由。
 - addon 新增 `presence_draw.py`：用 `SpaceView3D` 的 POST_VIEW/POST_PIXEL 绘制视锥、标签和选中包围盒；只画视口，不写场景、不改选择、不动相机/帧/用户视角；断开或卸载时静默清除 handler。
-- 回归：`tests/unit/js/presence-push.test.ts` 3 项、`tests/unit/python/test_addon_presence_draw.py` 5 项、`tests/integration/js/session-api.test.ts` 的 update_view/update_selection 推送；真机 GUI E2E `tests/e2e/addon_presence_draw.mjs` 14 项（两个 agent 独立颜色/机位、view matrix 与对象/选择不变、清除后 handler 归零）。
+- 回归：`tests/unit/js/presence-push.test.ts` 3 项、`tests/unit/python/test_addon_presence_draw.py` 5 项、`tests/integration/js/session-api.test.ts` 的 update_view/update_selection 推送，以及 `tests/integration/js/session-multi-agent.test.ts` 的多 agent 并发/隔离；真机 GUI E2E `tests/e2e/addon_presence_draw.mjs` 15 项（两个 agent 独立颜色/机位、view matrix 与对象/选择不变、两个 agent 并发截帧、清除后 handler 归零）。
 
 ### 开发环境
 
