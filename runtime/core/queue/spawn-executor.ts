@@ -143,7 +143,7 @@ function prepare(job: JobRecord, spawnOptions: SpawnExecutorOptions): Prepared {
   return { ...built, tempDir }
 }
 
-function prepareFailure(e: unknown): JobExecutionResult {
+function prepareFailure(e: unknown, blenderExe: string | null): JobExecutionResult {
   return {
     exitCode: null,
     signal: null,
@@ -156,7 +156,7 @@ function prepareFailure(e: unknown): JobExecutionResult {
       root_cause: 'Could not start Blender: ' + (e instanceof Error ? e.message : String(e)),
       fix: 'Set DSH_BLENDER_EXE or write dsh-blender.config.json with blenderExe.',
       fallback: { kind: 'unavailable', summary: 'install Blender or set DSH_BLENDER_EXE' },
-      evidence: { blenderExe: BLENDER_EXE },
+      evidence: { blenderExe },
     },
   }
 }
@@ -268,13 +268,21 @@ export class SpawnJobExecutor implements JobExecutor {
     try {
       prepared = prepare(job, this.opts)
     } catch (e) {
-      return { pid: null, cancel: () => {}, done: Promise.resolve(prepareFailure(e)) }
+      return {
+        pid: null,
+        cancel: () => {},
+        done: Promise.resolve(prepareFailure(e, this.opts.blenderExe || BLENDER_EXE)),
+      }
     }
     let child: ChildProcess
     try {
       child = spawnBlender(this.opts, prepared, job.id)
     } catch (e) {
-      return { pid: null, cancel: () => {}, done: Promise.resolve(prepareFailure(e)) }
+      return {
+        pid: null,
+        cancel: () => {},
+        done: Promise.resolve(prepareFailure(e, this.opts.blenderExe || BLENDER_EXE)),
+      }
     }
     const started = (this.opts.now || Date.now)()
     const logs = captureLogs(child)
@@ -325,7 +333,7 @@ export class SpawnJobExecutor implements JobExecutor {
       child.once('error', (e) => {
         clearTimeout(timer)
         settled = true
-        resolve(prepareFailure(e))
+        resolve(prepareFailure(e, this.opts.blenderExe || BLENDER_EXE))
       })
       child.once('close', (code, signal) => finish(code, signal ? String(signal) : null))
     })

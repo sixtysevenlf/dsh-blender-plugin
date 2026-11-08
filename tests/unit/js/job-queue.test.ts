@@ -348,14 +348,13 @@ describe('3.1 queue executor command shape', () => {
   })
 
   it('attributes a missing Blender executable to stage spawn', async () => {
-    const executor = new SpawnJobExecutor({
-      blenderExe: path.join(os.tmpdir(), 'missing-blender-' + process.pid),
-    })
+    const missing = path.join(os.tmpdir(), 'missing-blender-' + process.pid)
+    const executor = new SpawnJobExecutor({ blenderExe: missing })
     const handle = executor.start(record('headless', { script: 'print(1)' }))
     const result = await handle.done
     expect(result.error?.code).toBe('blender_exe_missing')
     expect(result.error?.stage).toBe('spawn')
-    expect(result.error?.evidence.blenderExe).toBeTruthy()
+    expect(result.error?.evidence.blenderExe).toBe(missing)
   })
 })
 

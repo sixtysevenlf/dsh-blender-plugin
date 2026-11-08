@@ -22,6 +22,19 @@ afterEach(() => {
   }
 })
 
+async function waitForExit(pid: number, timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    try {
+      process.kill(pid, 0)
+    } catch {
+      return true
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  return false
+}
+
 async function waitUntil<T>(fn: () => Promise<T | null>, timeoutMs: number): Promise<T | null> {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
@@ -61,6 +74,7 @@ describe('host-owned Gateway lifecycle', () => {
         }
       }, 8000)
       expect(closed).toBe(true)
+      expect(await waitForExit(health.gateway.pid, 10000)).toBe(true)
 
       const reloaded = createFakeContext()
       try {

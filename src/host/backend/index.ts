@@ -70,6 +70,15 @@ export async function ensureBackend(port: number): Promise<boolean> {
   }
   for (let i = 0; i < 25; i++) {
     if (await probe(port)) return true
+    // A previous Gateway may still be releasing the port after dispose; retry the
+    // spawn once the OS has had a moment to free it instead of waiting for the watchdog.
+    if (i === 5 && !(await probe(port))) {
+      try {
+        await startBackend(port)
+      } catch {
+        /* keep probing */
+      }
+    }
     await sleep(300)
   }
   return false
