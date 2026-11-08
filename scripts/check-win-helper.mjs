@@ -138,7 +138,14 @@ if (packedCheck) {
   } catch (error) {
     fail('npm pack --dry-run printed invalid JSON: ' + error.message)
   }
-  const files = ((entries && entries[0] && entries[0].files) || []).map((file) =>
+  // npm <=11 returns an array of pack results; npm 12 returns an object keyed by
+  // package name. Accept both so the check also runs on developer machines.
+  const results = Array.isArray(entries)
+    ? entries
+    : entries && typeof entries === 'object'
+      ? Object.values(entries)
+      : []
+  const files = ((results[0] && results[0].files) || []).map((file) =>
     String(file.path).replace(/\\/g, '/'),
   )
   for (const required of [
