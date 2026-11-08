@@ -39,7 +39,7 @@ EXPECTED_PACKAGE_FILES = [
     "presence_draw.py", "recorders/__init__.py", "recorders/activity.py",
     "recorders/user_edit.py", "registration.py", "selection/__init__.py",
     "selection/caps.py", "selection/payload.py", "server.py",
-    "transport.py", "ui/__init__.py", "ui/lists.py", "ui/operators.py",
+    "transport.py", "ui/__init__.py", "ui/install.py", "ui/lists.py", "ui/operators.py",
     "ui/panels/__init__.py", "ui/panels/api.py", "ui/panels/env.py",
     "ui/panels/index.py", "ui/panels/model.py", "ui/preferences.py",
 ]
@@ -79,7 +79,7 @@ def test_package_layout_is_exactly_the_two_level_split():
     root = Path(pkg.__file__).resolve().parent
     actual = sorted(path.relative_to(root).as_posix() for path in root.rglob("*.py"))
     assert actual == sorted(EXPECTED_PACKAGE_FILES)
-    assert len(actual) == 72
+    assert len(actual) == 73
     assert not (root.parent / "dsh_blender_bridge.py").exists(), "single-file install entry must be gone"
     assert not (root / "__pycache__").exists() or (root / "__pycache__").is_dir()
 

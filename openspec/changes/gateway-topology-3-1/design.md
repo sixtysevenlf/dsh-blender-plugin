@@ -127,6 +127,16 @@
 - VirtualGL：`vglrun -d :110` + 强制 X11 + Xvfb D3D12 下，Blender GUI 的 `DSH_RENDERER=D3D12 (NVIDIA GeForce RTX 4070 SUPER)`，`render.opengl` 与 `screen.screenshot` 成功，`wm.quit_blender` exit 0；两个 `vglrun` Blender 实例并发均 exit 0，截图成功。`glxspheres64` 也报告 D3D12 renderer。注意 `vglrun glxinfo` 在 Xvfb 上会 exit 139（VirtualGL 的 glxinfo 问题），不能作为 VirtualGL 通过/失败的唯一判据。
 - 结论：WSL 不是 3.1 目标平台，也不是 Linux preview 的验收环境；WSLg 的 Wayland 退出崩溃可通过强制 X11 规避，VirtualGL 在 WSL + 强制 X11 下能跑 Blender GUI，但这些只作技术参考，不能作为 Linux L1/V0 通过证据。Linux preview 不再要求新的实机 GPU PoC，由 5.20d 的 Linux CI 自动化 `blender_see` 链路测试收口；已有真实 Ubuntu + RX 7900 XTX 证据作为参考，不作为 GA 承诺。证据存本机 `local-workspace/wsl-poc/`（不入库）。
 
+#### Windows GA V0 报告（2026-11-08，结论：PASS）
+
+- 环境：Windows 11 / RTX 4070 SUPER / Blender 4.2.10 LTS（`D:/blender-medium/blender-4.2.10-windows-x64/blender.exe`，Medium 完整性，避开 D:\DSH 整树的 Low 标签）/ 真实 Gateway + committed addon zip + helper 3.1.0；非管理员控制台会话。RDP 无会话不可测，锁屏未执行（会锁住用户桌面），两者都记录为未覆盖场景，不作为通过项。
+- 产品路径：不设 `DSH_BLENDER_VIRTUAL_GUI`，走 V0 后的默认 feature `auto`；两个 caller 各自 consent 后并发 `blender_session start kind=virtual-gui`。`tests/e2e/windows_ga_v0.mjs` **32/32 PASS**，原始报告/日志/截图在 `local-workspace/5.5-windows-ga-v0/`。
+- 测量结果：capability `feature=auto`、`feature_source=default:v0`、`ready=true`；两个实例的 `instanceId`/Blender pid/私有 desktop 互异，desktop 均为 `dsh-vgui-…` 且各 14 个窗口（默认任务栏/Alt-Tab 不可见）；两实例 renderer 均为 `NVIDIA GeForce RTX 4070 SUPER/PCIe/SSE2`（非 llvmpipe）；GPUOffScreen `method=offscreen`、800×447 截图成功，两图 sha256 不同，红/蓝材质像素均值不串；各自 `execute_code` 的 marker 不跨实例；stop 后无 `blender.exe`/`dsh-blender-hidden-desktop.exe` 残留，二次 stop 幂等返回 `stopped=false`。
+- 默认/fallback 顺序：Windows 为 `win-hidden-desktop` → `win-idd`。W1/W0 通过，因此 W2（IDD）不要求、不评估、不阻断；`win-idd` 在 3.1 保持未实现，provider 选择不会静默安装驱动，也不会回退到默认 desktop。Linux 顺序为 `linux-xvfb-virtualgl`（preview）。
+- 默认实例上限与低资源阈值（由本报告确定）：`features.virtualGuiMax` 默认 4、范围 1–16、env `DSH_BLENDER_VIRTUAL_GUI_MAX` 可覆盖；总内存 <16 GiB 或可用内存 <4 GiB 时自动降为 2。两个并发实例的验收覆盖 4 上限内的启动与隔离，未以 4 个实例做压力测试（上限/低资源判定由 `tests/unit/js/virtual-gui-lifecycle.test.ts` 与 limits 单测覆盖）。
+- Linux preview（单列，不进入本 GA 门禁）：两轮 Linux L1 PARTIAL 记录见上；`tests/e2e/linux_preview_see.mjs` 在 WSL Ubuntu 24.04 + Blender 4.2.10 + llvmpipe 软件路径 **22/22 PASS**（真实 Gateway + addon，`bpy.app.background=False`、`blender_see` 1024×576 非全黑/非单色、stop 无孤儿、stop 后不回落 headless），PR CI 已新增 `linux-preview-see` job（ubuntu-latest + Xvfb + Blender 4.2.10），首次 CI 实跑待推送后补记；Linux 默认 `off`，只有显式 `on` 才进入 preview，llvmpipe 结果不冒充硬件 GL。
+- 结论：Windows GA V0 通过，3.1 可以发布；没有失败测量项需要写入发布阻断记录。Linux preview 保持 opt-in，不作为 3.1 GA 承诺。
+
 ### D5 — 作业队列
 
 - Gateway 内唯一队列，承载 `render` 和 `headless` 两种 kind。`blender_run` 是唯一模型入口，提交立即返回 `jobId`；没有同步执行路径，没有 `run-`/`job-` 双 ID。
@@ -254,4 +264,4 @@
 
 ## Open Questions
 
-- V0 通过后确定的 Windows provider 默认/fallback 顺序、virtual-gui 默认实例上限、低资源降级阈值（由 V0 报告决定，不在实现前写死）。
+- 无。V0 报告已在上方 D4 收口：Windows provider 顺序、默认实例上限与低资源阈值均已确定。

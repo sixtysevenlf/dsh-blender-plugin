@@ -159,6 +159,10 @@ addon 仍然是唯一支持的 Blender 侧 agent 桥。其他 Blender 侧 agent 
 
 3.0 的旧工具名不再注册；迁移表见 [MIGRATIONS.md](../../MIGRATIONS.md) §0.3.
 
+## 虚拟显示（virtual-gui）
+
+Windows 与 Linux 上 Gateway 可以为 agent 拉起一个隔离的 Blender GUI。Windows 在 V0 验收后默认 `auto`；Linux 是需要显式开启的 preview。缺依赖时绝不静默启动：`blender_session start kind=virtual-gui` 返回 `stage=config` 和确切安装命令，`/blender doctor --fix`（或 addon 偏好设置按钮）只执行同一份安装计划。一键安装仅限 Ubuntu 22.04/24.04 与 Debian 12 的 `xvfb`（走 `pkexec`）；VirtualGL 必须来自官方仓库，GPU 驱动只检测不安装，不支持的平台给手动命令。详见 [配置参考 §5.7](../配置参考.md)。
+
 ## 文档
 
 - 曲面算法：[skills/blender-modeling/references/曲面算法.md](../../skills/blender-modeling/references/曲面算法.md)

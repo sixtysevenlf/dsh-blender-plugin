@@ -66,6 +66,12 @@
 - 新增 `tests/e2e/linux_preview_see.mjs` 与 PR CI `linux-preview-see` job（ubuntu-latest + Xvfb + Blender 4.2.10）：真实 Gateway + addon + virtual-gui 下调用 `blender_see`，断言 GUI 非 background、PNG 可解码且非全黑/非单色、stop 无孤儿、stop 后不回落 headless。WSL Ubuntu 24.04 + llvmpipe 软件链路 **22/22 PASS**（`local-workspace/5.8-linux-preview-see.json`）；llvmpipe 只证明调用链，不作硬件 GL 证据。
 - 修正 WSL 里 Linux Blender 的路径形态：Blender 侧 workDir/PNG 路径不再无条件映射成 UNC，而由 `blenderUsesWindowsPaths(platform,isWsl,blenderExe)` 判断——只有 Blender 可执行文件本身是 Windows 程序（`.exe`/盘符）时才做 WSL 映射；WSL 里的 Linux Blender 与原生 Linux/macOS 一样使用同机 POSIX 路径。此前 `blender_see` 在 WSL Linux Blender 上把 PNG 写到字面量 `\\wsl.localhost\...` 路径，随后读原路径必然 `ENOENT`（view http 502）；Windows Blender 行为不变。回归：`tests/unit/js/platform-paths.test.ts` 23 项（含 WSL+Windows/Linux Blender 决策表）。
 
+### 3.1 virtual-gui 前提引导式安装
+
+- `/doctor`（与 `/status`）的 `virtualGui` 新增 `installPlans`：由 `runtime/display/install.ts` 按发行版给出 exact 安装计划（Ubuntu 22.04/24.04、Debian 12 有 `pkexec` 时一键 `pkexec apt-get install -y xvfb`，无 polkit 降级为 `sudo` 命令；Fedora/Arch 只给命令；VirtualGL 永远只给官方仓库步骤，绝不给裸 `apt install virtualgl`；GPU 驱动只检测并给 `usermod -aG video,render`；Windows helper 随包、Blender 只给配置说明）。
+- 两个入口共用同一份计划：TUI `/blender doctor --fix` 执行支持的 one-click 后重新拉取 `/doctor` 复检，未 ready 明确返回 error；addon Preferences 的 “Install missing prerequisites” 按钮通过 `ui/install.py` 执行 Gateway 展示的 argv，失败保留 stderr 并停止，装后同样复检 `ready`。不装依赖时 `blender_session start` 仍返回 `stage=config`，不启动、不回落 headless。
+- 安全边界变化：addon 唯一新增的进程执行点是审计过的 `addon/dsh_blender_bridge/ui/install.py`，只执行 list argv、无 shell；契约测试 `tests/unit/js/contract/security.test.ts` 改为按文件断言其余模块不含 `subprocess`，并保留 `os.system` / `shell=True` 禁用。回归：`tests/unit/js/install-plans.test.ts` 11 项、`tests/integration/js/tui-commands.test.ts` 的 `doctor --fix` 用例、`tests/unit/python/test_addon_install_ui.py` 9 项。
+
 ### 3.1 virtual-gui 显式授权
 
 - `blender_session start kind=virtual-gui` 首次返回 `consent_required`（stage=session，evidence.options 给出 attach/start 两个显式选项）；只有 DSH host 在用户确认后通过内部 `session action=consent` 发放一次性 30s `consent_token`，模型 tool schema 不能自行设置。start 每次重新复检：已有 ready user-gui 时返回 `session_already_available` 且不创建会话；token 缺失/无效/过期/重放都继续要求决策，不自动降级到 headless 或 GUI。回归：`tests/unit/js/display-capabilities.test.ts`、`tests/integration/js/session-api.test.ts`。

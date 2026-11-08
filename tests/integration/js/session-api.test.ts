@@ -33,10 +33,7 @@ function headers(
   }
 }
 
-async function setup(
-  instanceIds: string[] = ['inst-1'],
-  env?: Record<string, string>,
-) {
+async function setup(instanceIds: string[] = ['inst-1'], env?: Record<string, string>) {
   const backend = await startBackend({ env })
   closers.push(() => backend.stop())
   const addons: Array<{

@@ -6,7 +6,7 @@ from .commands.selection import on_selection_mode_update
 from .config import register_auto_start, unregister_auto_start
 from .recorders.activity import unregister_activity_handlers
 from .ui.lists import DSHBB_SelectionItem, DSHBB_UL_ObjectList, dshbb_ui_list_timer, on_show_collection_list_update, on_show_selection_list_update
-from .ui.operators import DSHBB_OT_ListRowsDec, DSHBB_OT_ListRowsInc, DSHBB_OT_SendCollectionToDSH, DSHBB_OT_SendSelectionToDSH, DSHBB_OT_SetFreeTrialHyper3DAPIKey, DSHBB_OT_StartServer, DSHBB_OT_StopServer, DSHBB_OT_ToggleAIPause, DSHBB_OT_UseSelectionCollection
+from .ui.operators import DSHBB_OT_InstallVirtualDisplayDeps, DSHBB_OT_ListRowsDec, DSHBB_OT_ListRowsInc, DSHBB_OT_SendCollectionToDSH, DSHBB_OT_SendSelectionToDSH, DSHBB_OT_SetFreeTrialHyper3DAPIKey, DSHBB_OT_StartServer, DSHBB_OT_StopServer, DSHBB_OT_ToggleAIPause, DSHBB_OT_UseSelectionCollection
 from .ui.panels import DSHBB_PT_EnvGen, DSHBB_PT_EnvModelAPI, DSHBB_PT_ModelGen, DSHBB_PT_Panel
 from .ui.preferences import DSHBB_AddonPreferences
 
@@ -200,6 +200,7 @@ def _register_classes():
     bpy.utils.register_class(DSHBB_OT_ListRowsDec)
     bpy.utils.register_class(DSHBB_OT_UseSelectionCollection)
     bpy.utils.register_class(DSHBB_OT_StopServer)
+    bpy.utils.register_class(DSHBB_OT_InstallVirtualDisplayDeps)
     
 
 def register():
@@ -249,6 +250,7 @@ def unregister():
     bpy.utils.unregister_class(DSHBB_OT_ListRowsDec)
     bpy.utils.unregister_class(DSHBB_OT_UseSelectionCollection)
     bpy.utils.unregister_class(DSHBB_OT_StopServer)
+    bpy.utils.unregister_class(DSHBB_OT_InstallVirtualDisplayDeps)
     bpy.utils.unregister_class(DSHBB_AddonPreferences)
 
     del bpy.types.Scene.dshbb_server_running

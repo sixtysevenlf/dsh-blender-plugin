@@ -14,6 +14,7 @@ import { errorMessage } from '../json.js'
 import type { EngineApiDeps } from './index.js'
 import { metricsView } from './metrics.js'
 import { displayCapabilities } from '../../display/prerequisites.js'
+import { buildInstallPlans } from '../../display/install.js'
 
 /**
  * addon 侧阶段预算。宿主 backendJson 默认 20s、T.commands 静态截止 60s；
@@ -96,7 +97,7 @@ export async function statusView(
   return {
     region: region,
     addonError: addonError,
-    virtualGui: displayCapabilities(),
+    virtualGui: virtualGuiView(),
     readiness: readinessView(gatewayInstances(addon), addonError, gatewayHandshakeError(addon)),
     plugin: {
       version: PLUGIN_VERSION,
@@ -367,6 +368,12 @@ async function integrationStatus(E: EngineApiDeps): Promise<Record<string, unkno
   return integrations
 }
 
+/** Capabilities plus the guided-install plans shared by doctor --fix and the add-on button. */
+function virtualGuiView(): Record<string, unknown> {
+  const capabilities = displayCapabilities()
+  return { ...capabilities, installPlans: buildInstallPlans(capabilities) }
+}
+
 export function createDoctorApi(E: EngineApiDeps) {
   const { addon } = E
   return {
@@ -388,7 +395,7 @@ export function createDoctorApi(E: EngineApiDeps) {
             summary: 'engine 需要 Gateway addon client；3.1 不再直连 addon TCP 端口。',
             fix: '用 lib/runtime/gateway.js 启动 Gateway，并让 host/tools 只连 Gateway。',
           },
-          virtualGui: displayCapabilities(),
+          virtualGui: virtualGuiView(),
           metrics: metricsView(E),
           error: 'gateway addon client required',
         }

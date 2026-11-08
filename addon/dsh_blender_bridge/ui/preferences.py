@@ -62,6 +62,18 @@ class DSHBB_AddonPreferences(bpy.types.AddonPreferences):
         connection_box.prop(self, "gateway_port", text="Gateway Port")
 
         layout.separator()
+        layout.label(text="Virtual Display (virtual-gui):", icon='DISPLAY')
+        display_box = layout.box()
+        display_box.operator(
+            "dshbb.install_virtual_display_deps",
+            text="Install missing prerequisites",
+        )
+        display_box.label(
+            text="同一份计划也由终端 /blender doctor --fix 使用；一键只执行 Gateway 给出的 pkexec 命令",
+            icon='INFO',
+        )
+
+        layout.separator()
         layout.label(text="3D Generation:", icon='SHADERFX')
         gen_box = layout.box()
         col = gen_box.column()
