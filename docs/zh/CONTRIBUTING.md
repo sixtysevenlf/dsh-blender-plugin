@@ -14,7 +14,7 @@ AGENTS.md 说明各层怎么拼在一起、什么算“装好了”，以及命�
 - **文档**：两个 README、`docs/`、架构说明，以及 `skills/blender-modeling/` 下的随包 skill。面向用户的
   中文指南保持中文；面向 AI 的文档保持英文。
 - **测试**：能复现真实 bug 的失败测试，比没有测试的修复更有价值。
-- **代码**：`src/`（TypeScript 宿主侧）、`runtime/`（后端）、`addon/`（Blender 侧）。
+- **代码**：`src/`（TypeScript 宿主侧）、`runtime/`（后端）、`extension/`（Blender 侧）。
 
 ## 开 issue 之前
 
@@ -61,7 +61,7 @@ Blender 侧：从 release 的 zip 安装 addon，启用并点 **Connect**。只�
 | `src/` | 插件宿主侧的 TypeScript 源码，按 tools、host、plan、contracts 拆分 |
 | `lib/` | 构建产物——生成物，3.0.0 起不入库，不要手改 |
 | `runtime/` | 后端：engine、server、catalog、worker、无头 runner、Python 领域包 |
-| `addon/` | Blender addon 包——唯一受支持的 addon |
+| `extension/` | Blender addon 包——唯一受支持的 addon |
 | `skills/` | 随包的 `blender-modeling` skill，自动注册 |
 | `tests/` | 单元、集成、端到端三层；见 [tests/README.md](../../tests/README.md) |
 | `docs/` | 用户指南（中文）、架构说明、重构规格与证据包 |
@@ -100,7 +100,7 @@ capability lock，再跑契约测试。在 PR 里说明 lock 为什么变；不�
 ## 发布流程
 
 发布流程由发布清单与 [docs/architecture.md](../../docs/architecture.md) 负责。简言之：先核对发布门禁，同一次改动里更新
-`package.json` 与 `src/constants.ts` 的 `PLUGIN_VERSION`，由 `prepack` 构建 `lib/`，把 addon zip 与
+`package.json` 与 `src/constants.ts` 的 `PLUGIN_VERSION`，由 `prepack` 构建 `lib/`，把 extension zip 与
 npm tarball 挂到 release，并在打 tag 前演练回滚。详细清单保存在本地重构工作区，不随仓库发布。
 
 ### 手动 CD
@@ -118,5 +118,7 @@ environment 配置 required reviewers，保护 `v*` tag。npm 发布使用 trust
 
 ## 许可
 
-项目使用 [BSD-3-Clause](../../LICENSE)。提交贡献即表示你同意以相同条款授权。请保持尊重、假定善意；设计
-分歧没问题，人身攻击不行。
+宿主插件与仓库代码使用 [BSD-3-Clause](../../LICENSE)。随包的 Blender 扩展位于 [`extension/`](../../extension/)，
+按 GPL-3.0-or-later 分发（见 [extension/LICENSE](../../extension/LICENSE)）；它是 MIT 上游的衍生版本，
+归属声明见 [extension/NOTICE](../../extension/NOTICE)。提交贡献即表示你同意按所修改组件的许可证授权。
+请保持尊重、假定善意；设计分歧没问题，人身攻击不行。

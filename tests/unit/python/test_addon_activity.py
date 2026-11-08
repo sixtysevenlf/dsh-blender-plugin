@@ -9,7 +9,7 @@ import bpy_stub
 
 bpy = bpy_stub.install()
 
-activity = importlib.import_module("addon.dsh_blender_bridge.recorders.activity")
+activity = importlib.import_module("extension.dsh_blender_bridge.recorders.activity")
 
 
 class _Recorder:

@@ -1,0 +1,24 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "include": [
+    "extension/dsh_blender_bridge/command_registry.py",
+    "extension/dsh_blender_bridge/protocol.py",
+    "extension/dsh_blender_bridge/config.py",
+    "extension/dsh_blender_bridge/compat.py",
+    "extension/dsh_blender_bridge/selection/caps.py",
+    "extension/dsh_blender_bridge/selection/payload.py",
+    "extension/dsh_blender_bridge/recorders/activity.py",
+    "extension/dsh_blender_bridge/recorders/user_edit.py",
+    "extension/dsh_blender_bridge/integrations/hunyuan_client.py",
+    "extension/dsh_blender_bridge/integrations/polyhaven_client.py",
+    "extension/dsh_blender_bridge/integrations/sketchfab_client.py",
+    "extension/dsh_blender_bridge/integrations/polypizza_client.py",
+    "extension/dsh_blender_bridge/commands/selection.py",
+    "extension/dsh_blender_bridge/commands/activity.py"
+  ],
+  "exclude": ["**/__pycache__"],
+  "typeCheckingMode": "basic",
+  "reportMissingModuleSource": "none",
+  "reportMissingTypeStubs": false
+}

@@ -12,7 +12,7 @@ import bpy_stub
 
 bpy = bpy_stub.install()
 
-activity_commands = importlib.import_module("addon.dsh_blender_bridge.commands.activity")
+activity_commands = importlib.import_module("extension.dsh_blender_bridge.commands.activity")
 
 
 def _install_doubles(snapshot=None, paused=False, raise_on=None):

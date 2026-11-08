@@ -19,7 +19,7 @@ import json
 import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
-ADDON = ROOT / "addon" / "dsh_blender_bridge"
+ADDON = ROOT / "extension" / "dsh_blender_bridge"
 EXCEPTIONS = ROOT / "config" / "exceptions.json"
 KIND = "python-private-import"
 

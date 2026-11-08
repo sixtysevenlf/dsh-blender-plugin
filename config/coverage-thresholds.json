@@ -93,16 +93,16 @@
   },
   "python": {
     "scope": [
-      "addon/dsh_blender_bridge/command_registry.py",
-      "addon/dsh_blender_bridge/protocol.py",
-      "addon/dsh_blender_bridge/config.py",
-      "addon/dsh_blender_bridge/recorders/activity.py",
-      "addon/dsh_blender_bridge/commands/selection.py",
-      "addon/dsh_blender_bridge/commands/activity.py",
-      "addon/dsh_blender_bridge/integrations/hyper3d_client.py",
-      "addon/dsh_blender_bridge/integrations/sketchfab_client.py",
-      "addon/dsh_blender_bridge/assets/io.py",
-      "addon/dsh_blender_bridge/selection/caps.py"
+      "extension/dsh_blender_bridge/command_registry.py",
+      "extension/dsh_blender_bridge/protocol.py",
+      "extension/dsh_blender_bridge/config.py",
+      "extension/dsh_blender_bridge/recorders/activity.py",
+      "extension/dsh_blender_bridge/commands/selection.py",
+      "extension/dsh_blender_bridge/commands/activity.py",
+      "extension/dsh_blender_bridge/integrations/hyper3d_client.py",
+      "extension/dsh_blender_bridge/integrations/sketchfab_client.py",
+      "extension/dsh_blender_bridge/assets/io.py",
+      "extension/dsh_blender_bridge/selection/caps.py"
     ],
     "floor": {
       "lines": 80,

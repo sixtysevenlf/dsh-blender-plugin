@@ -15,8 +15,8 @@ import bpy_stub
 
 bpy = bpy_stub.install()
 
-pkg = importlib.import_module("addon.dsh_blender_bridge")
-registration = importlib.import_module("addon.dsh_blender_bridge.registration")
+pkg = importlib.import_module("extension.dsh_blender_bridge")
+registration = importlib.import_module("extension.dsh_blender_bridge.registration")
 
 
 def test_init_is_a_thin_entry_point():

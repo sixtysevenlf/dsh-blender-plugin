@@ -14,9 +14,9 @@ import bpy_stub
 
 bpy = bpy_stub.install()
 
-registry = importlib.import_module("addon.dsh_blender_bridge.command_registry")
-protocol = importlib.import_module("addon.dsh_blender_bridge.protocol")
-server_module = importlib.import_module("addon.dsh_blender_bridge.server")
+registry = importlib.import_module("extension.dsh_blender_bridge.command_registry")
+protocol = importlib.import_module("extension.dsh_blender_bridge.protocol")
+server_module = importlib.import_module("extension.dsh_blender_bridge.server")
 
 
 def test_command_counts_are_frozen():

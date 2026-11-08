@@ -12,8 +12,8 @@ import bpy_stub
 bpy = bpy_stub.install()
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-ADDON_DIR = REPO_ROOT / "addon" / "dsh_blender_bridge"
-ZIP_PATH = REPO_ROOT / "addon" / "dsh_blender_bridge.zip"
+ADDON_DIR = REPO_ROOT / "extension" / "dsh_blender_bridge"
+ZIP_PATH = REPO_ROOT / "extension" / "dsh_blender_bridge.zip"
 PACKAGE_ROOT = "dsh_blender_bridge"
 
 
@@ -38,7 +38,7 @@ def _package_entries():
 
 
 def test_zip_manifest_has_package_root_and_all_python_files():
-    assert ZIP_PATH.is_file(), "run scripts/build-addon.mjs first"
+    assert ZIP_PATH.is_file(), "run scripts/build-extension.mjs first"
     with zipfile.ZipFile(ZIP_PATH) as archive:
         names = archive.namelist()
         assert len(names) == len(set(names))

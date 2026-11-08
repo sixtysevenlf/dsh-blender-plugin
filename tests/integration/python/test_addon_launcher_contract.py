@@ -17,8 +17,8 @@ import bpy_stub
 
 bpy = bpy_stub.install()
 
-protocol = importlib.import_module("addon.dsh_blender_bridge.protocol")
-pkg = importlib.import_module("addon.dsh_blender_bridge")
+protocol = importlib.import_module("extension.dsh_blender_bridge.protocol")
+pkg = importlib.import_module("extension.dsh_blender_bridge")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 LAUNCH_SOURCE = (REPO_ROOT / "runtime" / "launch" / "resolve.ts").read_text(encoding="utf-8")

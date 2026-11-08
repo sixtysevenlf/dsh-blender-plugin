@@ -22,7 +22,7 @@ const root = path.resolve(import.meta.dirname, '..', '..')
 const workDir =
   process.env.DSH_BLENDER_WORKDIR ||
   path.join(os.tmpdir(), 'dsh-presence-draw-e2e-' + String(process.pid))
-const zip = path.join(root, 'addon', 'dsh_blender_bridge.zip')
+const zip = path.join(root, 'extension', 'dsh_blender_bridge.zip')
 const userScripts = path.join(workDir, 'user_scripts')
 const userExtensions = path.join(workDir, 'user_extensions')
 const userConfig = path.join(workDir, 'user_config')
@@ -42,7 +42,7 @@ if (!exe || !existsSync(exe)) {
   process.exit(0)
 }
 if (!existsSync(zip)) {
-  console.log('SKIP presence E2E: addon zip missing (run npm run build:addon)')
+  console.log('SKIP presence E2E: extension zip missing (run npm run build:extension)')
   process.exit(0)
 }
 

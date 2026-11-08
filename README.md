@@ -30,7 +30,7 @@ DSH × Blender connects DeepSeek Harness to Blender so an agent can build, inspe
 
 ## Quick start
 
-**Before anything else: install the bundled addon first.** Use the addon shipped in this repository: **addon/dsh_blender_bridge.zip**. It must be your only Blender-side *agent bridge*: do not install or run `MCP for Blender`, `blender_mcp`, or any other addon that serves Blender over its own socket. The 3.1 addon dials the Gateway and opens no inbound port, but a legacy MCP bridge still listens on 127.0.0.1:9876; two Blender-side agent bridges confuse the host. Unrelated addons (modeling, materials, rendering, asset libraries) are fine and are neither checked nor blocked. Install and enable this addon in Blender before the other steps. If the installation below does not work, first check that this exact addon is installed, enabled, and connected.
+**Before anything else: install the bundled addon first.** Use the addon shipped in this repository: **extension/dsh_blender_bridge.zip**. It must be your only Blender-side *agent bridge*: do not install or run `MCP for Blender`, `blender_mcp`, or any other addon that serves Blender over its own socket. The 3.1 addon dials the Gateway and opens no inbound port, but a legacy MCP bridge still listens on 127.0.0.1:9876; two Blender-side agent bridges confuse the host. Unrelated addons (modeling, materials, rendering, asset libraries) are fine and are neither checked nor blocked. Install and enable this addon in Blender before the other steps. If the installation below does not work, first check that this exact addon is installed, enabled, and connected.
 
 ### Requirements
 
@@ -50,11 +50,11 @@ This is the supported installation path. It does not require `git clone`, `npm c
 
    - **DSH Web or DSH TUI:** install into the profile you actually run:
 
-         dsh plugin --profile <profile> add dsh-blender-plugin@3.1.0
+         dsh plugin --profile <profile> add dsh-blender-plugin@3.1.0-alpha.1
 
      Then restart DSH in step 3.
 
-   - **DSH Desktop:** open the Plugins page and install the bundle `dsh-blender-plugin@3.1.0`. DSH Desktop applies the bundle from the Plugins page and does not need a DSH restart.
+   - **DSH Desktop:** open the Plugins page and install the bundle `dsh-blender-plugin@3.1.0-alpha.1`. DSH Desktop applies the bundle from the Plugins page and does not need a DSH restart.
 
 3. **Restart DSH (DSH Web and DSH TUI only).** If you installed from the DSH Desktop Plugins page, skip this step.
 
@@ -78,7 +78,7 @@ Copy this prompt into an agent that can run commands:
     ), disable it; do not uninstall the user's other addons and
     do not ask them to.
     Then install the DSH × Blender plugin from npm for my DSH profile:
-    dsh plugin --profile <profile> add dsh-blender-plugin@3.1.0
+    dsh plugin --profile <profile> add dsh-blender-plugin@3.1.0-alpha.1
     Read docs/AI-安装提示词.md first, follow it exactly,
     and finish with the acceptance check: doctor must return kind=ok for the
     GUI route, or a blender_run headless submit + wait must return outputs for the headless-only route.
@@ -96,7 +96,7 @@ Install the standalone modeling skill (only needed for hosts that do not load th
 
 1. **Install the bundled addon first.**
 
-   Download **addon/dsh_blender_bridge.zip** from the addon/ folder of this repository. In Blender, open Edit > Preferences > Extensions > Install from Disk..., select that zip, enable DSH Blender Bridge, open the N panel in the 3D view, and click Connect. The addon dials the DSH Gateway at 127.0.0.1:39877 after Connect; it does not listen on a port. Replacing or upgrading the addon requires a Blender restart: there is no hot reload, and a 3.0.x addon keeps its old 9876 listener until Blender exits. If you previously installed the single-file `dsh_blender_bridge.py`, disable and remove it first: 3.1 installs only this Blender extension.
+   Download **extension/dsh_blender_bridge.zip** from the extension/ folder of this repository. In Blender, open Edit > Preferences > Extensions > Install from Disk..., select that zip, enable DSH Blender Bridge, open the N panel in the 3D view, and click Connect. The addon dials the DSH Gateway at 127.0.0.1:39877 after Connect; it does not listen on a port. Replacing or upgrading the addon requires a Blender restart: there is no hot reload, and a 3.0.x addon keeps its old 9876 listener until Blender exits. If you previously installed the single-file `dsh_blender_bridge.py`, disable and remove it first: 3.1 installs only this Blender extension.
 
    Keep this addon as your only agent bridge. If `MCP for Blender` / `blender_mcp` (or any other Blender-side agent bridge) is enabled, turn it off — uninstalling is not required. Your other addons can stay. If the rest of the installation does not work, check this step first.
 
@@ -188,7 +188,7 @@ On Windows and Linux the Gateway can launch an isolated Blender GUI for the agen
 | Another session is writing to the same scene | Claim a write scope with `blender_session(action="grant", scopes=...)`, or attach a separate GUI session; parallel jobs are fine through `blender_run`. |
 | An old MCP for Blender / blender_mcp addon is still enabled | Disable it (uninstalling is not required) and use the bundled DSH Blender Bridge addon; the 3.1 bridge dials the Gateway, but two Blender-side agent bridges still confuse the host; the legacy MCP bridge listens on 127.0.0.1:9876. |
 | Images are generated but not attached | Update to the latest build; the Windows path fix is included. If it persists, open the returned path directly. |
-| Followed the steps and it still does not work | Check the bundled addon first: only addon/dsh_blender_bridge.zip is supported, and it must be enabled and connected. |
+| Followed the steps and it still does not work | Check the bundled addon first: only extension/dsh_blender_bridge.zip is supported, and it must be enabled and connected. |
 
 ## Development
 
@@ -213,4 +213,8 @@ If this project is useful to you, you can support its development on Afdian (爱
 
 ## License
 
-The plugin is BSD-3-Clause. The bundled modeling skill is MIT; see skills/blender-modeling/LICENSE and NOTICE.md. Blender is a trademark of the Blender Foundation.
+The DSH host plugin is BSD-3-Clause (see [LICENSE](LICENSE)). The bundled Blender extension under [
+`extension/`](extension/) is GPL-3.0-or-later (see [extension/LICENSE](extension/LICENSE)) and contains
+MIT-licensed code derived from [ahujasid/blender-mcp](https://github.com/ahujasid/blender-mcp), whose
+copyright and MIT notice are preserved in [extension/NOTICE](extension/NOTICE). The bundled modeling skill is MIT; see
+skills/blender-modeling/LICENSE and NOTICE.md. Blender is a trademark of the Blender Foundation.

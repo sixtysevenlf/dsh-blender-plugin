@@ -10,7 +10,7 @@ export const IS_WIN = process.platform === 'win32'
  * description 由**已加载的那份 lib** 生成 → 会话里一眼能看出自己跑的是哪一代，
  * 不会再出现「读的是新源码、跑的是旧 lib」那种排查事故（外部反馈 j20-build 的元教训）。
  */
-export const PLUGIN_VERSION = '3.1.0'
+export const PLUGIN_VERSION = '3.1.0-alpha.1'
 
 // 后端与 Blender 侧模块都放在插件包的 runtime/ 下 → 整个包可搬到任意目录（WSL 或 Windows）
 export const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -80,7 +80,7 @@ export const T = {
  * 同时要明显小于 T.viewport（60s），保证工具自身仍有界。
  */
 /**
- * op=start：/health 通后再探 /status，判定 addon/bpy 是否可用。
+ * op=start：/health 通后再探 /status，判定 extension/bpy 是否可用。
  * 修复后 backend 侧 /status 的 addon 预算 5s；transport 超时后 lifecycle 还会串一次 diagnose()（~2.5s），
  * 半开 addon 稳态 ≈7.5s；启动探测不再占串行队列，首调只多一次冷启动开销。预算取 12s 覆盖首调，
  * 仍远小于 T.viewport 60s。

@@ -105,7 +105,7 @@ data: it disappears on release or Gateway restart and is rebuilt from addon hand
 
 Presence rows hold each caller's display name, colour, view pose, selected `session_uid`s, activity,
 and held scopes. On every view/selection update the Gateway pushes the current snapshot to the add-on
-over the existing internal `execute_code` transport. `addon/dsh_blender_bridge/presence_draw.py`
+over the existing internal `execute_code` transport. `extension/dsh_blender_bridge/presence_draw.py`
 installs `SpaceView3D` POST_VIEW/POST_PIXEL draw handlers that draw frusta, labels, and selection
 boxes; it never writes scene data, selection, the camera, or the frame, and it does not move the
 user's view. Session presence queries read the same rows from the Gateway, so a read-only query
@@ -130,7 +130,7 @@ the shared runtime/py/_facade.py helper and re-export the implementation package
 lives in the sibling <name>_impl/ package. The public path, preload name, and K.dsh_<name>_api entry are
 the contract; the facade is the stable entry, not a temporary shim.
 
-## 5. Blender addon (addon/dsh_blender_bridge/)
+## 5. Blender addon (extension/dsh_blender_bridge/)
 
 The addon is a package, not a single file. Its modules cover protocol, command registration, selection,
 recorders, assets, integrations, and UI. The release artifact is a deterministic zip built from that
@@ -138,7 +138,7 @@ package.
 
 The addon version is 2.0.0 and protocol is 12; it installs only as a Blender extension. A
 register/unregister round trip is part of the tests.
-`addon/dsh_blender_bridge/command_registry.py` is the only command truth: 25 registered commands
+`extension/dsh_blender_bridge/command_registry.py` is the only command truth: 25 registered commands
 plus the transport-only `ping` (26 wire commands). `get_addon_info` derives its handshake
 capabilities from `command_registry.COMMAND_NAMES`, and the host catalog
 (`runtime/catalog/commands.ts`) is parity-checked in both directions against it.
@@ -159,7 +159,7 @@ rendering a second editor.
 - lib/ is generated and is not committed.
 - prepack builds lib/; CI's check:build verifies the artifact.
 - npm pack produces the published tarball: lib/, runtime Python, addon package, skills, docs, and tests.
-- The addon zip is built from addon/dsh_blender_bridge/ and attached to the release.
+- The extension zip is built from extension/dsh_blender_bridge/ and attached to the release.
 - npm run smoke:install installs the tarball into a clean directory and checks that the entry loads,
   the Gateway starts from lib/runtime/gateway.js, and doctor returns kind=ok.
 - Release is a separate, human-owned gate: the foundation can be complete before release is approved.

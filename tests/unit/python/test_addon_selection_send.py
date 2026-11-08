@@ -15,7 +15,7 @@ import bpy_stub
 
 bpy = bpy_stub.install()
 
-selection = importlib.import_module("addon.dsh_blender_bridge.commands.selection")
+selection = importlib.import_module("extension.dsh_blender_bridge.commands.selection")
 
 
 class _Collections(dict):

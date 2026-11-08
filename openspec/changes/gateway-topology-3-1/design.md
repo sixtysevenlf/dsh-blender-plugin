@@ -43,7 +43,7 @@
 - Gateway 是每 DSH host 的单例：启动时在状态目录原子写 `gateway-<port>.json`（gatewayId、hostId、pid、endpoint、startedAt）。端口已有 listener 时先请求 `/health`：属于另一个 DSH host 就返回 `stage=config` 的 `GATEWAY_IN_USE`（含 hostId、pid、port），绝不 attach、复用或共享；属于本 host 的插件重载不传递旧句柄：旧 Gateway 必须先停止，新插件实例再启动新的 Gateway；不允许两个 Gateway 并存或留下孤儿。端口被非 Gateway 进程占用仍按 `port_conflict` 处理；两种情况都必须 fail closed。
 - Gateway 只监听一个 loopback HTTP 端口（默认 39877；9877 仅作为显式配置保留）。host/tools 走 HTTP；addon 在同一端口通过 WebSocket upgrade 路径 `/addon` 建立控制通道。不新增第二个 listener，旧 addon 的入站监听不存在。
 - WebSocket 端点使用仓库内最小 RFC6455 实现（`runtime/transport/addon-ws.ts` 与 addon 侧 `transport.py`），不新增 npm/pip 依赖。P1 已证明该方向可行；如果实现阶段发现同端口 WS 需要超出预算的复杂度，回到 design 修改契约，不能静默加一个控制端口。
-- addon 删除入站 server：`addon/dsh_blender_bridge/server.py` 的 accept/listen 路径删除，改为 client 连接、心跳、重连。`bpy.app.background` 仍拒绝加载 addon。
+- addon 删除入站 server：`extension/dsh_blender_bridge/server.py` 的 accept/listen 路径删除，改为 client 连接、心跳、重连。`bpy.app.background` 仍拒绝加载 addon。
 - 握手字段：`instanceId`、`kind`（user-gui/virtual-gui）、`version`、`protocol`、`project`、`capabilities`。`instanceId` 在 Blender 进程生命周期内稳定；重连携带同一 ID。
 - Gateway 维护 instance registry：`connected`、`ready`、`lastSeen`、`connectionEpoch`、`project`、`capabilities`。请求带 `requestId`，响应必须回显；旧 epoch 的响应丢弃，不重放。
 - 多实例路由：tool/session 显式 `instanceId`；只有一个实例时可省略；多个实例省略时返回 ambiguity 错误并列出 ID。`instanceId` 相同的重连在握手校验后替换旧连接，旧请求失败，不执行两次。
@@ -57,7 +57,7 @@
 - `stage` 固定枚举：`config`、`session`、`spawn`、`transport`、`handshake`、`addon`、`bpy`、`queue`、`render`。每个失败只归一个 stage；缺字段视为契约缺陷，测试直接红。
 - status/doctor 使用同一 readiness 快照：Gateway liveness、addon control、addon bpy probe、instance identity。`/health` 只返回进程存活，不参与 readiness。start 成功必须能在同一快照里被 doctor 复现；start/doctor 矛盾由 contract test 拦截。
 - 诊断预算：`config` 失败立即返回；`spawn` 使用显式 executable 检查；`transport`/`handshake`/`addon`/`bpy` 各自有硬超时。首调失败 P95 ≤3s；当前 3.0.6 的 failed-first-call 基线约 status 7.5s、doctor 6.5s，是待收紧的基线，不是目标。
-- P95 口径：在本地 loopback、Gateway 已 ready、每个新 DSH session 的第一次 session-bound 调用上采样；A1–A6 每个失败类至少 20 次冷调用（不含安装、同意和 Gateway 启动），从 tool 入口计时到 envelope 返回，合并样本计算 P95。stage 子预算：config/session 决策 ≤100ms，spawn 预检 ≤250ms，transport/handshake/addon/bpy/queue/render 各自有 ≤3s 硬超时；不允许用健康暖调用替代失败首调。
+- P95 口径：在本地 loopback、Gateway 已 ready、每个新 DSH session 的第一次 session-bound 调用上采样；A1–A6 每个失败类至少 20 次冷调用（不含安装、同意和 Gateway 启动），从 tool 入口计时到 envelope 返回，合并样本计算 P95。stage 子预算：config/session 决策 ≤100ms，spawn 预检 ≤250ms，transport/handshake/extension/bpy/queue/render 各自有 ≤3s 硬超时；不允许用健康暖调用替代失败首调。
 - 本机健康暖调用基线（2026-11-07，3.0.6，插件已启用、Blender 已打开；N=30，每样本新连接）：`/health` P50 0.8ms / P95 19.4ms；`/status` 53.2ms / 53.9ms；`/doctor` 106.5ms / 108.0ms。该数据只说明健康路径的传输/探测下限，不能替代 failed-first-call P95；A1–A6 失败场景仍需按上述口径采样。
 - 移除 3.0.x 的嵌套重试链：诊断只做有界的单层探测，超时返回结构化 timeout，不把多个失败合并成 backend unreachable。
 - `fix` 必须可执行（命令、配置键、安装步骤）；`fallback` 必须安全（显式不可用或降级路径），不得启动可见 GUI、伪造输出或回退旧拓扑。
@@ -96,7 +96,7 @@
 - 不采用 WSL/WSLg/WSL+Xvfb、Xdummy、Weston headless 作为 3.1 provider；未来版本再评估。
 - V0 bake-off 是 **Windows GA** 的发布门槛：Windows W1（W0）跑验收；W1 通过即满足 3.1 GA 门禁，W2 不要求，W2 失败不单独阻断。W1 失败才评估 W2；W1/W2 都失败则 Windows GA 不发布。V0 不是 apply 前代码门槛；可以先实现和合并代码。Linux L1 是 **preview 质量门禁**，不是 3.1 GA 门禁：不要求再做真实 GPU 实机 PoC，但开启 Linux preview 前必须通过自动化 `blender_see` 链路测试与 prerequisites 检查；Linux preview 不得被描述为 GA 支持，默认关闭（见 D4.1）。
 - **Windows GA V0 验收**（Blender 基线固定 4.2.10 LTS；5.x 结果只作技术探查）：`bpy.app.background == False`；GL renderer 为真实 GPU，非 llvmpipe/软件实现；`blender_see` 通过插件 addon 的 GUI capture，并与同一 GPU/驱动/Blender 版本的真实 user-gui viewport 结果 parity（独立 Blender 截图或仅按文件大小判定不算）；2 个并发实例严格互不串场景（验收窗口内不得有第三个实例）；stop 幂等（SIGTERM/timer 正常退出、重复 stop 无孤儿）；截图像素内容校验（非全黑/非单色，双实例内容可区分）；安装前提可查询；锁屏/RDP/无显示环境行为已记录。
-- **Linux preview 验收（不是 GA 门禁）**：不要求新的实机 GPU PoC；用 Linux CI（Xvfb + Blender 4.2.10 + 真实 addon/Gateway）自动化验证插件 `blender_see` 返回有效 GUI PNG、像素非全黑/非单色、错误路径不回落 headless/Workbench；llvmpipe 只验证调用链，不作为硬件 GL 证据。已有真实 Ubuntu + RX 7900 XTX 的 EGL/Xorg/双实例/stop 证据作为参考，不作为 GA 承诺；非 root 账号必须能读 `/dev/dri`，否则 provider 必须 fail closed 或 preview-only；`user-gui` parity 是 Linux preview 的已知限制。
+- **Linux preview 验收（不是 GA 门禁）**：不要求新的实机 GPU PoC；用 Linux CI（Xvfb + Blender 4.2.10 + 真实 extension/Gateway）自动化验证插件 `blender_see` 返回有效 GUI PNG、像素非全黑/非单色、错误路径不回落 headless/Workbench；llvmpipe 只验证调用链，不作为硬件 GL 证据。已有真实 Ubuntu + RX 7900 XTX 的 EGL/Xorg/双实例/stop 证据作为参考，不作为 GA 承诺；非 root 账号必须能读 `/dev/dri`，否则 provider 必须 fail closed 或 preview-only；`user-gui` parity 是 Linux preview 的已知限制。
 - user-gui parity 环境必须是真实 GPU 桌面：物理桌面，或同机真实 Xorg（Xvfb 之外的 Xorg + VNC/dummy display）优先；普通 VM 的 virtio-gpu/virgl/llvmpipe 桌面不算，不能拿普通 VM 截图当 parity；GPU passthrough VM 只有在完整记录硬件/驱动/Blender 版本并经评审后才能作为 parity 环境。
 - 缺依赖是代码级硬门：provider 的 start 路径在 spawn 任何进程之前检查 prerequisites，缺失即拒绝；不存在 force/unsafe/skip-check 开关，agent 的意图不能绕过。UI 与 agent 都只能看到“不可用 + 缺什么 + 怎么装”，不能“先试一下”。
 - 依赖引导不是静默安装：provider `capabilities()` 报告 prerequisites 与安装状态；host 的 `doctor --fix` 与 addon 偏好设置按钮共用同一张 prerequisites 描述表；Ubuntu 22.04/24.04 与 Debian 12 的 `xvfb` 走发行版 apt（`pkexec` 一键安装）；`virtualgl` 先探测发行版仓库，Ubuntu 24.04 无包时给官方 `.deb`/官方仓库步骤，绝不能给不可执行的 `apt install virtualgl`；Fedora/Arch/无 polkit 环境只给准确命令；GPU 驱动只检测不安装；安装后必须复检 capabilities，失败保留原始 stderr 且不得把 provider 标为 ready。
@@ -106,7 +106,7 @@
 
 - virtual-gui 是现有 bundle 内的显式 feature gate，不拆第二个 bundle/包；配置为 `features.virtualGui`（实现时定 `off` / `auto` 等枚举），Windows 在 W1 V0 通过后默认 `auto`，Linux 默认 `off`，preview 需用户显式开启。
 - `capabilities()` 返回 `enabled`、`platform`、`preview`、`supported`、`prerequisites`、`missing`、`requiresApproval`；`doctor` 与 `blender_session start` 在 off、缺依赖、缺 `/dev/dri` 权限时返回 `stage=config` 与可执行 fix，不 spawn 任何进程，不静默安装，不回落 headless/worker/llvmpipe。
-- Linux preview 仍必须走真实 GUI addon capture；自动化测试用 Xvfb + Blender 4.2.10 + 真实 addon/Gateway 验证 `blender_see` 的 PNG、像素和错误路径，llvmpipe 只作链路验证，不能作为硬件 GL/GA 证据。不要求新的实机 GPU PoC；已有实机证据只作参考。
+- Linux preview 仍必须走真实 GUI addon capture；自动化测试用 Xvfb + Blender 4.2.10 + 真实 extension/Gateway 验证 `blender_see` 的 PNG、像素和错误路径，llvmpipe 只作链路验证，不能作为硬件 GL/GA 证据。不要求新的实机 GPU PoC；已有实机证据只作参考。
 - feature gate 关闭时工具面仍是 6 个工具；`blender_see`/`blender_op`/`blender_py` 在无 ready GUI session 时按 D3 会话门拒绝，不因关闭 virtual-gui 而转 headless。
 
 #### Linux L1 V0 预验证记录（2026-11-07，两轮，PARTIAL，Linux preview 参考，不计入 Windows GA）
@@ -115,7 +115,7 @@
 - 第二轮（follow-up，`local-workspace/linux-v0-followup-2026-11-07/`）：真实 Ubuntu 24.04.5 裸机（`systemd-detect-virt=none`）/ AMD RX 7900 XTX / Blender 4.2.10 LTS（tarball sha256 `7b888b36…`）/ VirtualGL 3.1.5 / Xvfb 21.1.12；`vglrun -d egl` 为 `AMD Radeon RX 7900 XTX (radeonsi, navi31, ...)`、GL 4.6；`vglrun -d :N` 负向为 llvmpipe + 12,007 B 全黑 screen。
 - 第二轮已补齐：4.2.10 基线；严格 2 实例（timer 版 0.4–2.2s 采样为 2，keepalive 变体 t+3s 为 2，无第三实例）；红/蓝 render sha 不同且像素分离；TERM 后 0.23s 消失、二次 TERM ESRCH、无孤儿；render/screen 像素统计非全黑/非单色；真实 Xorg `:1` + openbox + x11vnc 下为 amdgpu/glamor/radeonsi，user-gui 与 EGL 的 render sha256 完全相同（`7bb6593c…`）。
 - 第二轮仍未关闭：插件 `blender_see` BLOCKED（目标机无 DSH/3.0.6 插件，未用独立截图冒充）；非 root 用户不在 `video`/`render` 组，`/dev/dri` 不可读，`vglrun -d egl` 回退 llvmpipe（未改组，属部署前置）；Xorg 用 1024×768 初始 framebuffer，主机 4 个输出全 disconnected，无物理显示器/交互登录会话，parity 只能算条件性。
-- 结论：Linux L1 V0 = PARTIAL，但 Linux 只作 preview，不阻塞 3.1 GA；5.20a–5.20c、5.20f 的预验证已补齐，5.20e1 把非 root `/dev/dri` 权限列为部署前置。插件 `blender_see` 改由 Linux CI 自动化链路测试覆盖（Xvfb + Blender 4.2.10 + 真实 addon/Gateway；llvmpipe 只验证链路），不再要求目标机实机 PoC；5.20d 作为 preview 门禁保留，未通过前 Linux virtual-gui 默认关闭。
+- 结论：Linux L1 V0 = PARTIAL，但 Linux 只作 preview，不阻塞 3.1 GA；5.20a–5.20c、5.20f 的预验证已补齐，5.20e1 把非 root `/dev/dri` 权限列为部署前置。插件 `blender_see` 改由 Linux CI 自动化链路测试覆盖（Xvfb + Blender 4.2.10 + 真实 extension/Gateway；llvmpipe 只验证链路），不再要求目标机实机 PoC；5.20d 作为 preview 门禁保留，未通过前 Linux virtual-gui 默认关闭。
 
 #### WSL PoC 记录（2026-11-07，补充证据，不计入 V0）
 
@@ -129,7 +129,7 @@
 
 #### Windows GA V0 报告（2026-11-08，结论：PASS）
 
-- 环境：Windows 11 / RTX 4070 SUPER / Blender 4.2.10 LTS（`D:/blender-medium/blender-4.2.10-windows-x64/blender.exe`，Medium 完整性，避开 D:\DSH 整树的 Low 标签）/ 真实 Gateway + committed addon zip + helper 3.1.0；非管理员控制台会话。RDP 无会话不可测，锁屏未执行（会锁住用户桌面），两者都记录为未覆盖场景，不作为通过项。
+- 环境：Windows 11 / RTX 4070 SUPER / Blender 4.2.10 LTS（`D:/blender-medium/blender-4.2.10-windows-x64/blender.exe`，Medium 完整性，避开 D:\DSH 整树的 Low 标签）/ 真实 Gateway + committed extension zip + helper 3.1.0；非管理员控制台会话。RDP 无会话不可测，锁屏未执行（会锁住用户桌面），两者都记录为未覆盖场景，不作为通过项。
 - 产品路径：不设 `DSH_BLENDER_VIRTUAL_GUI`，走 V0 后的默认 feature `auto`；两个 caller 各自 consent 后并发 `blender_session start kind=virtual-gui`。`tests/e2e/windows_ga_v0.mjs` **32/32 PASS**，原始报告/日志/截图在 `local-workspace/5.5-windows-ga-v0/`。
 - 测量结果：capability `feature=auto`、`feature_source=default:v0`、`ready=true`；两个实例的 `instanceId`/Blender pid/私有 desktop 互异，desktop 均为 `dsh-vgui-…` 且各 14 个窗口（默认任务栏/Alt-Tab 不可见）；两实例 renderer 均为 `NVIDIA GeForce RTX 4070 SUPER/PCIe/SSE2`（非 llvmpipe）；GPUOffScreen `method=offscreen`、800×447 截图成功，两图 sha256 不同，红/蓝材质像素均值不串；各自 `execute_code` 的 marker 不跨实例；stop 后无 `blender.exe`/`dsh-blender-hidden-desktop.exe` 残留，二次 stop 幂等返回 `stopped=false`。
 - 默认/fallback 顺序：Windows 为 `win-hidden-desktop` → `win-idd`。W1/W0 通过，因此 W2（IDD）不要求、不评估、不阻断；`win-idd` 在 3.1 保持未实现，provider 选择不会静默安装驱动，也不会回退到默认 desktop。Linux 顺序为 `linux-xvfb-virtualgl`（preview）。
@@ -150,9 +150,9 @@
 
 ### D6 — Blender Extension
 
-- 单个产物：`addon/dsh_blender_bridge/` 增加 `blender_manifest.toml`；zip 只包含一个顶层 `dsh_blender_bridge/` 文件夹，manifest、`__init__.py` 和模块都在该文件夹内（单文件夹布局），没有 wrapper 或根级散文件；删除 `bl_info`，删除 legacy `dsh_blender_bridge.zip` 安装路径与文档。
+- 单个产物：`extension/dsh_blender_bridge/` 增加 `blender_manifest.toml`；zip 只包含一个顶层 `dsh_blender_bridge/` 文件夹，manifest、`__init__.py` 和模块都在该文件夹内（单文件夹布局），没有 wrapper 或根级散文件；删除 `bl_info`，删除 legacy `dsh_blender_bridge.zip` 安装路径与文档。
 - manifest：`schema_version = "1.0.0"`、`id = "dsh_blender_bridge"`、`version = "2.0.0"`、`name`、`tagline`、`maintainer`、`type = "add-on"`、`blender_version_min = "4.2.0"`、`license = ["SPDX:GPL-3.0-or-later"]`；`[permissions]` 的 `network` 与 `files` 必须是带 reason 的字符串；真实字段以 Blender 4.2 文档为准，用 `blender --command extension validate` 校验。
-- 构建：`scripts/build-addon.mjs` 继续作为确定性 builder（固定时间戳/顺序），只是输入布局改为 extension；CI/release 额外跑 Blender 4.2 CLI validate。官方 CLI build 不作为唯一 builder，避免产物哈希不可复现；若 validate 要求官方 builder 的字段，按报错补齐后仍保持自定义 builder。
+- 构建：`scripts/build-extension.mjs` 继续作为确定性 builder（固定时间戳/顺序），只是输入布局改为 extension；CI/release 额外跑 Blender 4.2 CLI validate。官方 CLI build 不作为唯一 builder，避免产物哈希不可复现；若 validate 要求官方 builder 的字段，按报错补齐后仍保持自定义 builder。
 - namespace：`compat.ADDON_MODULE = __package__` 保留；`runtime/launch/resolve.ts` 改为扫描 `bpy.context.preferences.addons` 与 `sys.modules`，接受 `dsh_blender_bridge` 或 `bl_ext.<repo>.dsh_blender_bridge`；版本读 `ADDON_VERSION`/manifest，不再读 `bl_info`；zip fallback 删除。
 - 安装/启用：用户通过 Blender Extensions 安装；host 只检测/报告，不静默安装。`virtual-gui` 启动前必须检测 extension 已安装且启用；缺失时返回 install/enable 步骤。
 - 权限：manifest 声明 network/files；asset 网络调用前检查 `bpy.app.online_access`；关闭 online access 时本地 Gateway 仍工作，网络能力返回 policy error。
@@ -220,9 +220,9 @@
 
 ### D8 — addon 零遥测、零数据采集与无推广入口
 
-- 删除 `addon/dsh_blender_bridge/commands/telemetry.py`，以及 `commands/activity.py:19-33` 的 `drain_human_activity`；`commands/activity.py` 只保留 `get_activity_state`。旧 host 调用这三个命令时返回 unknown-command/upgrade-required，不做 shim。
+- 删除 `extension/dsh_blender_bridge/commands/telemetry.py`，以及 `commands/activity.py:19-33` 的 `drain_human_activity`；`commands/activity.py` 只保留 `get_activity_state`。旧 host 调用这三个命令时返回 unknown-command/upgrade-required，不做 shim。
 - 删除 `ui/preferences.py:12-23` 的 `telemetry_consent` 与 `_on_telemetry_consent_changed`、`:62-83` 的 Telemetry & Privacy 区块与 `dshbb.open_terms` 调用；删除 `ui/operators.py:226-240` 的 `DSHBB_OT_OpenTerms` 及 `registration.py` 的注册/反注册。Hyper3D/fal.ai/Tencent Cloud 等凭据帮助链接保留。
-- 删除 `recorders/edit_capture.py` 整条 consent-gated 采集路径；`command_registry.start_runtime_handlers/stop_runtime_handlers` 不再注册/反注册它，`server.py` 不再 import/调用 `drain_edit_recorder`，`pyrightconfig.addon.json:20` 删除该文件。
+- 删除 `recorders/edit_capture.py` 整条 consent-gated 采集路径；`command_registry.start_runtime_handlers/stop_runtime_handlers` 不再注册/反注册它，`server.py` 不再 import/调用 `drain_edit_recorder`，`pyrightconfig.extension.json:20` 删除该文件。
 - 将 `recorders/user_edit.py` 的 `UserEditRecorder` 收敛为只维护 agent command depth/suppression 的 scope（`begin_agent_command`/`end_agent_command`/`ActivityTracker._suppressed` 所依赖的最小接口）；删除事件 deque、`record_undo`、`poll_operators`、`drain`。`recorders/activity.py` 的 modal/selection/undo/redo 本地判定保留，`get_activity_state` 继续工作且不写盘、不发网络。
 - 删除 `config.py:70` 的 `DISCORD_URL`、`ui/panels/index.py:9` 的 import、`:46` 的 `_draw_community` 调用和 `:252-267` 的函数；N 面板不再出现 “Stay updated”/“Join Discord”。若 `textwrap` 因此无其他用途一并删除。
 - `command_registry.py`：删除三个 telemetry 命令、9 条写命令与 `get_polyhaven_asset_preview`，并删除 `TelemetryCommands` mixin；`REGISTERED_COMMAND_COUNT` 38→25，`WIRE_COMMAND_COUNT` 39→26；`PAUSE_SAFE_EXTRA` 删除 `drain_human_activity`；`get_activity_state` 仍为 pause-safe。`runtime/catalog/commands.ts`（21 条 `blender_inspect` 可执行只读 + 4 条 internal，internal 不进 help；ping 仅 wire）、`runtime/_probe_tools.ts`、`src/tools/inspect/*` 的 help fixture 同步。
@@ -247,7 +247,7 @@
 - **六工具迁移破坏现有调用**：3.1.0 是 breaking；旧名直接报错，文档给映射。缓解：行为等价测试先迁移，CHANGELOG/README/教程同步，不用别名掩盖。
 - **extension 审核/GPL**：首次上架可能被拒或延迟；GPL 与 BSD 边界必须清楚。缓解：先本地 validate + 人工检查，token/CD 只负责后续版本，不承诺自动通过。
 - **构建产物与校验**：自定义 builder 与官方 CLI validate 可能不一致；以 validate 为准补齐 manifest，保持确定性 zip 哈希门禁。
-- **工作区冲突**：3.1 改动跨 src/runtime/addon/docs/CI；从最新 main 开分支，按切片合并，避免与 terminal-state-closeout 的旧分支混用。
+- **工作区冲突**：3.1 改动跨 src/runtime/extension/docs/CI；从最新 main 开分支，按切片合并，避免与 terminal-state-closeout 的旧分支混用。
 
 ## Migration Plan
 

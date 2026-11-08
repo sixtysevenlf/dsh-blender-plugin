@@ -9,8 +9,8 @@ import bpy_stub
 
 bpy = bpy_stub.install()
 
-assets_io = importlib.import_module("addon.dsh_blender_bridge.assets.io")
-core = importlib.import_module("addon.dsh_blender_bridge.commands.core")
+assets_io = importlib.import_module("extension.dsh_blender_bridge.assets.io")
+core = importlib.import_module("extension.dsh_blender_bridge.commands.core")
 
 
 def test_collect_mesh_children_walks_descendants():

@@ -7,8 +7,8 @@ import {
 } from '../../../../scripts/publish-extension.mjs'
 import { repoPath } from '../../../helpers/docs'
 
-const zipPath = repoPath('addon', 'dsh_blender_bridge.zip')
-const manifestPath = repoPath('addon', 'dsh_blender_bridge', 'blender_manifest.toml')
+const zipPath = repoPath('extension', 'dsh_blender_bridge.zip')
+const manifestPath = repoPath('extension', 'dsh_blender_bridge', 'blender_manifest.toml')
 const notes = 'Release 3.1.0 extension package.'
 
 describe('extension publish script', () => {

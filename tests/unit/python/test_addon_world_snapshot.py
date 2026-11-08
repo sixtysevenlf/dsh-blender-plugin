@@ -18,7 +18,7 @@ import bpy_stub
 
 bpy = bpy_stub.install()
 
-world = importlib.import_module("addon.dsh_blender_bridge.commands.scene.world")
+world = importlib.import_module("extension.dsh_blender_bridge.commands.scene.world")
 
 
 class _Keyframe:

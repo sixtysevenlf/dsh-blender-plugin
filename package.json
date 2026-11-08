@@ -1,11 +1,11 @@
 {
   "name": "dsh-blender-plugin",
-  "version": "3.1.0",
+  "version": "3.1.0-alpha.1",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sixtysevenlf/dsh-blender-plugin.git"
   },
-  "description": "DSH × Blender 直连插件（v3.1.0，GUI 优先，无头备用）：6 个模型工具让 AI 直接驱动 Blender——blender_session（会话/归属/权限/事务）、blender_op（catalog 与 loop/opt/preset）、blender_py（GUI 会话内 Python）、blender_see（视口截图与序列）、blender_run（唯一作业入口：render/headless/队列）、blender_inspect（commands/cmd）；Gateway 单一端点、addon 反向连接，Windows virtual-gui GA、Linux preview，34 family / 228 op 的契约层（catalog / 判定 / 验收 / 造型 / 装配 / 白模 / 导出）。v3.0.0 为工程重构版（runtime TypeScript、addon zip）；v2.6.2 新增曲面算法包 surface_*（loft/sweep/patch → tessellate → validate → export，M0–M2/M4；M3 fit 与 M5 blend/offset 未实现）。P0–P2 能力（现由上述 6 工具承载）：参考图量具（img_digest/probe/measure/calib）、装配扫描/清单/合并/修复/门/导出（asm_*）、白模与 Seedance 参考包（blockout refsheet/turntable）、同机位 QC（visualreport_report）、无头轮廓拟合（shapesolve_solve）、缺陷注入评估（eval_run）、强制门（gate_/deliver_export require_gate）。默认先开 GUI；无头备用；装完必须重启 DSH；唯一验收判据 doctor kind=ok；blender-modeling skill 随包自动注册。详见 README 与 docs/操作教程.md。",
+  "description": "DSH × Blender 直连插件（v3.1.0-alpha.1，GUI 优先，无头备用）：6 个模型工具让 AI 直接驱动 Blender——blender_session（会话/归属/权限/事务）、blender_op（catalog 与 loop/opt/preset）、blender_py（GUI 会话内 Python）、blender_see（视口截图与序列）、blender_run（唯一作业入口：render/headless/队列）、blender_inspect（commands/cmd）；Gateway 单一端点、addon 反向连接，Windows virtual-gui GA、Linux preview，34 family / 228 op 的契约层（catalog / 判定 / 验收 / 造型 / 装配 / 白模 / 导出）。v3.0.0 为工程重构版（runtime TypeScript、extension zip）；v2.6.2 新增曲面算法包 surface_*（loft/sweep/patch → tessellate → validate → export，M0–M2/M4；M3 fit 与 M5 blend/offset 未实现）。P0–P2 能力（现由上述 6 工具承载）：参考图量具（img_digest/probe/measure/calib）、装配扫描/清单/合并/修复/门/导出（asm_*）、白模与 Seedance 参考包（blockout refsheet/turntable）、同机位 QC（visualreport_report）、无头轮廓拟合（shapesolve_solve）、缺陷注入评估（eval_run）、强制门（gate_/deliver_export require_gate）。默认先开 GUI；无头备用；装完必须重启 DSH；唯一验收判据 doctor kind=ok；blender-modeling skill 随包自动注册。详见 README 与 docs/操作教程.md。",
   "private": false,
   "keywords": [
     "dsh",
@@ -24,7 +24,7 @@
   "main": "./lib/index.js",
   "types": "./lib/types/index.d.ts",
   "files": [
-    "addon",
+    "extension",
     "lib",
     "runtime",
     "!runtime/ext/venv",
@@ -111,10 +111,10 @@
   "scripts": {
     "setup:dev": "node scripts/setup-dev.mjs",
     "build": "node scripts/gen-routes.mjs && node scripts/gen-gateway-schema.mjs && node scripts/build.mjs all",
-    "build:addon": "node scripts/build-addon.mjs",
+    "build:extension": "node scripts/build-extension.mjs",
     "build:win-helper": "node scripts/build-win-helper.mjs",
     "check:win-helper": "node scripts/check-win-helper.mjs",
-    "check:addon": "node scripts/build-addon.mjs --check",
+    "check:extension": "node scripts/build-extension.mjs --check",
     "publish:extension": "node scripts/publish-extension.mjs",
     "typecheck": "node scripts/typecheck.mjs -p tsconfig.runtime.json && node scripts/build.mjs runtime && node scripts/typecheck.mjs && node scripts/typecheck.mjs -p tsconfig.test.json",
     "typecheck:src": "node scripts/build.mjs runtime && node scripts/typecheck.mjs",
@@ -158,8 +158,8 @@
     "test:matrix": "node scripts/check-behavior-matrix.mjs --release",
     "test:coverage": "node node_modules/vitest/vitest.mjs run --coverage --no-file-parallelism --coverage.reporter=text-summary --coverage.reporter=json-summary --coverage.reporter=lcov --coverage.reporter=cobertura",
     "check:coverage": "node scripts/check-coverage.mjs",
-    "typecheck:addon": "pyright -p pyrightconfig.addon.json",
-    "test:addon-unit": "node scripts/test.mjs addon-unit",
+    "typecheck:extension": "pyright -p pyrightconfig.extension.json",
+    "test:extension-unit": "node scripts/test.mjs extension-unit",
     "check:no-shims": "node scripts/check-no-shims.mjs",
     "check:runtime-layout": "node scripts/check-runtime-layout.mjs",
     "check:import-boundaries": "node scripts/check-import-boundaries.mjs",

@@ -6,36 +6,36 @@ const read = (relative: string): string => fs.readFileSync(repoPath(relative), '
 
 describe('final-state addon pack invariants', () => {
   it('keeps the single command registry counts in source and package metadata', () => {
-    const registry = read('addon/dsh_blender_bridge/command_registry.py')
+    const registry = read('extension/dsh_blender_bridge/command_registry.py')
     expect(registry).toContain('REGISTERED_COMMAND_COUNT = 25')
     expect(registry).toContain('WIRE_COMMAND_COUNT = 26')
     const pkg = JSON.parse(read('package.json')) as { version: string; engines?: { node?: string } }
-    expect(pkg.version).toBe('3.1.0')
+    expect(pkg.version).toBe('3.1.0-alpha.1')
     expect(pkg.engines?.node).toBe('>=24.9.0')
-    const init = read('addon/dsh_blender_bridge/__init__.py')
+    const init = read('extension/dsh_blender_bridge/__init__.py')
     expect(init).not.toContain('bl_info')
-    const manifest = read('addon/dsh_blender_bridge/blender_manifest.toml')
+    const manifest = read('extension/dsh_blender_bridge/blender_manifest.toml')
     expect(manifest).toContain('version = "2.0.0"')
-    expect(read('addon/dsh_blender_bridge/gateway_schema.py')).toContain(
+    expect(read('extension/dsh_blender_bridge/gateway_schema.py')).toContain(
       'ADDON_PROTOCOL_VERSION = 12',
     )
   })
 
   it('ships the zip package and no legacy single-file addon entry', () => {
-    const zip = repoPath('addon', 'dsh_blender_bridge.zip')
+    const zip = repoPath('extension', 'dsh_blender_bridge.zip')
     expect(fs.existsSync(zip)).toBe(true)
     expect(fs.statSync(zip).size).toBeGreaterThan(1000)
-    expect(fs.existsSync(repoPath('addon', 'dsh_blender_bridge.py'))).toBe(false)
+    expect(fs.existsSync(repoPath('extension', 'dsh_blender_bridge.py'))).toBe(false)
   })
 
   it('ships exactly one Blender extension package and no legacy single-file entry', () => {
     const zips = fs
-      .readdirSync(repoPath('addon'))
+      .readdirSync(repoPath('extension'))
       .filter((name) => name.endsWith('.zip'))
       .sort()
     expect(zips).toEqual(['dsh_blender_bridge.zip'])
-    expect(fs.existsSync(repoPath('addon', 'dsh_blender_bridge.py'))).toBe(false)
-    const manifest = read('addon/dsh_blender_bridge/blender_manifest.toml')
+    expect(fs.existsSync(repoPath('extension', 'dsh_blender_bridge.py'))).toBe(false)
+    const manifest = read('extension/dsh_blender_bridge/blender_manifest.toml')
     expect(manifest).toContain('type = "add-on"')
     expect(manifest).toContain('blender_version_min = "4.2.0"')
   })
@@ -44,7 +44,7 @@ describe('final-state addon pack invariants', () => {
     const installDocs = [
       'README.md',
       'docs/zh/README.md',
-      'addon/README.md',
+      'extension/README.md',
       'docs/操作教程.md',
       'docs/给第三方的安装清单.md',
       'docs/部署SOP.md',

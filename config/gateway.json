@@ -2,7 +2,7 @@
   "version": 1,
   "generated": [
     "runtime/transport/gateway-schema.generated.ts",
-    "addon/dsh_blender_bridge/gateway_schema.py"
+    "extension/dsh_blender_bridge/gateway_schema.py"
   ],
   "addon": {
     "protocol": 12,

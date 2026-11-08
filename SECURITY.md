@@ -35,7 +35,7 @@ This plugin **by design** executes code and starts processes; it is not a read-o
 ## Third-party dependencies / Blender addon
 
 - The Blender side requires the addon bundled with this repository (`DSH Blender Bridge` v2.0.0 / protocol 12),
-  shipped as `addon/dsh_blender_bridge.zip` and built from `addon/dsh_blender_bridge/` in this repository.
+  shipped as `extension/dsh_blender_bridge.zip` and built from `extension/dsh_blender_bridge/` in this repository.
   The old `MCP for Blender` / category-action implementation is **not** part of this repository and has been
   unsupported since v2.3; do not install it for this plugin.
 - The release package is produced by `npm pack` and contains only the files in the `files` whitelist in

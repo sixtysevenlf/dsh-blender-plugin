@@ -20,7 +20,7 @@ npm package. npm scripts in package.json call these files; tests live under test
 | Script           | Purpose                                                                                      | Main caller                                | Writes                                                                    |
 | ---------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------- |
 | build.mjs        | Compile runtime, host, or all targets through tsc; optional client build                     | npm run build / build:host / build:runtime | lib/                                                                      |
-| build-addon.mjs  | Build and verify the addon zip                                                               | npm run build:addon / check:addon          | addon zip                                                                 |
+| build-extension.mjs  | Build and verify the extension zip                                                               | npm run build:extension / check:extension          | extension zip                                                                 |
 | build-client.mjs | Build the hand-written client half into lib/client.js; --check verifies freshness            | build.mjs, check-build.mjs                 | lib/client.js                                                             |
 | build.sh         | Deprecated convenience wrapper for optional DSH_CHECKOUT linking; canonical is npm run build | manual only                                | node_modules links, lib/ via build.mjs                                    |
 | ensure-build.mjs | Ensure lib/ exists and is fresh before tests/checks                                          | imported by checkers and test helpers      | lib/                                                                      |
@@ -33,7 +33,7 @@ npm package. npm scripts in package.json call these files; tests live under test
 
 | Script                    | Purpose                                                                          | Main caller               | Writes                |
 | ------------------------- | -------------------------------------------------------------------------------- | ------------------------- | --------------------- |
-| test.mjs                  | One entry for unit, integration, contract, python, addon-unit and e2e modes      | npm test / test:*         | none (test temp dirs) |
+| test.mjs                  | One entry for unit, integration, contract, python, extension-unit and e2e modes      | npm test / test:*         | none (test temp dirs) |
 | install-smoke.mjs         | Pack, install into a clean temp dir, load entry and check doctor/health          | npm run smoke:install     | temp install tree     |
 | python_function_budget.py | Emit Python function line counts as JSON; invoked by the function-budget checker | check-function-budget.mjs | stdout only           |
 

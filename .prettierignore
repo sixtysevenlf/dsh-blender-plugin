@@ -9,7 +9,7 @@ src/contracts/availability.generated.ts
 runtime/core/availability-schema.generated.ts
 
 # Vendored / generated assets
-addon/
+extension/
 skills/
 tests/fixtures/
 tests/capability.lock.json

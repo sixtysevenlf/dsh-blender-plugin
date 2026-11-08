@@ -43,14 +43,14 @@ for (const domain of manifest.domains || []) {
     }
   }
 }
-const addonAssets = path.join(ROOT, 'addon', 'dsh_blender_bridge', 'assets', 'io.py')
+const addonAssets = path.join(ROOT, 'extension', 'dsh_blender_bridge', 'assets', 'io.py')
 if (
   existsSync(addonAssets) &&
   /^\s*(from|import)\s+.*commands/m.test(readFileSync(addonAssets, 'utf8'))
 ) {
   failures.push('addon assets/io.py imports commands')
 }
-for (const file of walk(path.join(ROOT, 'addon', 'dsh_blender_bridge', 'ui', 'panels'))) {
+for (const file of walk(path.join(ROOT, 'extension', 'dsh_blender_bridge', 'ui', 'panels'))) {
   if (
     file.endsWith('.py') &&
     /from\s+\.\.\.integrations|from\s+\.\.integrations|import\s+integrations/.test(

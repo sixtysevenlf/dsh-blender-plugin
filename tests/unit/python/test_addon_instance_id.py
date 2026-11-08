@@ -12,7 +12,7 @@ import bpy_stub
 
 bpy_stub.install()
 
-server_module = importlib.import_module("addon.dsh_blender_bridge.server")
+server_module = importlib.import_module("extension.dsh_blender_bridge.server")
 
 
 def test_instance_id_uses_the_environment_override(monkeypatch):

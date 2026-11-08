@@ -18,9 +18,9 @@ import bpy_stub
 
 bpy = bpy_stub.install()
 
-server_module = importlib.import_module("addon.dsh_blender_bridge.server")
-transport = importlib.import_module("addon.dsh_blender_bridge.transport")
-command_registry = importlib.import_module("addon.dsh_blender_bridge.command_registry")
+server_module = importlib.import_module("extension.dsh_blender_bridge.server")
+transport = importlib.import_module("extension.dsh_blender_bridge.transport")
+command_registry = importlib.import_module("extension.dsh_blender_bridge.command_registry")
 
 
 class _FakeGateway:

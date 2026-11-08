@@ -2,7 +2,7 @@
   "schema": "dsh-behavior-matrix/1",
   "generatedAt": "2026-11-08T01:52:52.775Z",
   "node": "v24.18.0",
-  "pluginVersion": "3.1.0",
+  "pluginVersion": "3.1.0-alpha.1",
   "generatedBy": "node scripts/check-behavior-matrix.mjs --generate",
   "generators": {
     "tools": "tests/unit/js/contract/tool-matrix.test.ts (A1_MATRIX_OUT)",
@@ -392,7 +392,7 @@
         "route": "/status",
         "aspect": "normal",
         "status": "PASS",
-        "evidence": "200 application/json · ok=true plugin.version=3.1.0"
+        "evidence": "200 application/json · ok=true plugin.version=3.1.0-alpha.1"
       },
       {
         "route": "/doctor",
@@ -1325,7 +1325,7 @@
         "gate": null,
         "pause_safe": true,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.core.CoreCommands.get_scene_info",
+        "handler": "extension.dsh_blender_bridge.commands.core.CoreCommands.get_scene_info",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1335,7 +1335,7 @@
         "gate": null,
         "pause_safe": true,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.scene.world.WorldSnapshotCommands.get_world_state_snapshot",
+        "handler": "extension.dsh_blender_bridge.commands.scene.world.WorldSnapshotCommands.get_world_state_snapshot",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1345,7 +1345,7 @@
         "gate": null,
         "pause_safe": true,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.core.CoreCommands.get_addon_info",
+        "handler": "extension.dsh_blender_bridge.commands.core.CoreCommands.get_addon_info",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1357,7 +1357,7 @@
         "gate": null,
         "pause_safe": true,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.core.CoreCommands.get_object_info",
+        "handler": "extension.dsh_blender_bridge.commands.core.CoreCommands.get_object_info",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1370,7 +1370,7 @@
         "gate": null,
         "pause_safe": true,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.core.screenshot.ScreenshotCommands.get_viewport_screenshot",
+        "handler": "extension.dsh_blender_bridge.commands.core.screenshot.ScreenshotCommands.get_viewport_screenshot",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1382,7 +1382,7 @@
         "gate": null,
         "pause_safe": false,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.core.CoreCommands.execute_code",
+        "handler": "extension.dsh_blender_bridge.commands.core.CoreCommands.execute_code",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1394,7 +1394,7 @@
         "gate": null,
         "pause_safe": true,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.core.describe.DescribeCommands.describe_node_type",
+        "handler": "extension.dsh_blender_bridge.commands.core.describe.DescribeCommands.describe_node_type",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1406,7 +1406,7 @@
         "gate": null,
         "pause_safe": true,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.core.bpy_lookup.BpyApiLookupCommands.bpy_api_lookup",
+        "handler": "extension.dsh_blender_bridge.commands.core.bpy_lookup.BpyApiLookupCommands.bpy_api_lookup",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1416,7 +1416,7 @@
         "gate": null,
         "pause_safe": true,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.activity.ActivityCommands.get_activity_state",
+        "handler": "extension.dsh_blender_bridge.commands.activity.ActivityCommands.get_activity_state",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1426,7 +1426,7 @@
         "gate": null,
         "pause_safe": true,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.selection.SelectionCommands.get_selection",
+        "handler": "extension.dsh_blender_bridge.commands.selection.SelectionCommands.get_selection",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1438,7 +1438,7 @@
         "gate": null,
         "pause_safe": false,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.selection.SelectionCommands.send_selection_to_dsh",
+        "handler": "extension.dsh_blender_bridge.commands.selection.SelectionCommands.send_selection_to_dsh",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1450,7 +1450,7 @@
         "gate": null,
         "pause_safe": true,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.selection.SelectionCommands.get_collections",
+        "handler": "extension.dsh_blender_bridge.commands.selection.SelectionCommands.get_collections",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1463,7 +1463,7 @@
         "gate": null,
         "pause_safe": false,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.selection.SelectionCommands.send_collection_to_dsh",
+        "handler": "extension.dsh_blender_bridge.commands.selection.SelectionCommands.send_collection_to_dsh",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1473,7 +1473,7 @@
         "gate": null,
         "pause_safe": true,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.assets_polyhaven.PolyHavenCommands.get_polyhaven_status",
+        "handler": "extension.dsh_blender_bridge.commands.assets_polyhaven.PolyHavenCommands.get_polyhaven_status",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1483,7 +1483,7 @@
         "gate": null,
         "pause_safe": true,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.hyper3d.client.Hyper3DClientMixin.get_hyper3d_status",
+        "handler": "extension.dsh_blender_bridge.commands.hyper3d.client.Hyper3DClientMixin.get_hyper3d_status",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1493,7 +1493,7 @@
         "gate": null,
         "pause_safe": true,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.sketchfab.client.SketchfabClientMixin.get_sketchfab_status",
+        "handler": "extension.dsh_blender_bridge.commands.sketchfab.client.SketchfabClientMixin.get_sketchfab_status",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1503,7 +1503,7 @@
         "gate": null,
         "pause_safe": true,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.polypizza.client.PolypizzaClientMixin.get_polypizza_status",
+        "handler": "extension.dsh_blender_bridge.commands.polypizza.client.PolypizzaClientMixin.get_polypizza_status",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1513,7 +1513,7 @@
         "gate": null,
         "pause_safe": true,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.hunyuan.client.HunyuanClientMixin.get_hunyuan3d_status",
+        "handler": "extension.dsh_blender_bridge.commands.hunyuan.client.HunyuanClientMixin.get_hunyuan3d_status",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1525,7 +1525,7 @@
         "gate": "dshbb_use_polyhaven",
         "pause_safe": true,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.assets_polyhaven.PolyHavenCommands.get_polyhaven_categories",
+        "handler": "extension.dsh_blender_bridge.commands.assets_polyhaven.PolyHavenCommands.get_polyhaven_categories",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1537,7 +1537,7 @@
         "gate": "dshbb_use_polyhaven",
         "pause_safe": false,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.assets_polyhaven.PolyHavenCommands.search_polyhaven_assets",
+        "handler": "extension.dsh_blender_bridge.commands.assets_polyhaven.PolyHavenCommands.search_polyhaven_assets",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1549,7 +1549,7 @@
         "gate": "dshbb_use_hyper3d",
         "pause_safe": false,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.hyper3d.poll.Hyper3DPollCommands.poll_rodin_job_status",
+        "handler": "extension.dsh_blender_bridge.commands.hyper3d.poll.Hyper3DPollCommands.poll_rodin_job_status",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1561,7 +1561,7 @@
         "gate": "dshbb_use_sketchfab",
         "pause_safe": false,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.sketchfab.client.SketchfabClientMixin.search_sketchfab_models",
+        "handler": "extension.dsh_blender_bridge.commands.sketchfab.client.SketchfabClientMixin.search_sketchfab_models",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1573,7 +1573,7 @@
         "gate": "dshbb_use_sketchfab",
         "pause_safe": true,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.sketchfab.client.SketchfabClientMixin.get_sketchfab_model_preview",
+        "handler": "extension.dsh_blender_bridge.commands.sketchfab.client.SketchfabClientMixin.get_sketchfab_model_preview",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1585,7 +1585,7 @@
         "gate": "dshbb_use_polypizza",
         "pause_safe": false,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.polypizza.client.PolypizzaClientMixin.search_polypizza_models",
+        "handler": "extension.dsh_blender_bridge.commands.polypizza.client.PolypizzaClientMixin.search_polypizza_models",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
@@ -1597,7 +1597,7 @@
         "gate": "dshbb_use_hunyuan3d",
         "pause_safe": false,
         "catalog": "catalog",
-        "handler": "addon.dsh_blender_bridge.commands.hunyuan.poll.HunyuanPollCommands.poll_hunyuan_job_status",
+        "handler": "extension.dsh_blender_bridge.commands.hunyuan.poll.HunyuanPollCommands.poll_hunyuan_job_status",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       }
     ]

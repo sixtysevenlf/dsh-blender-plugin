@@ -16,7 +16,7 @@ commands live.
 - **Documentation**: both READMEs, `docs/`, the architecture guide, and the bundled skill under
   `skills/blender-modeling/`. The Chinese user guides stay Chinese; AI-facing docs stay English.
 - **Tests**: a failing test that reproduces a real bug is more valuable than a fix without one.
-- **Code**: `src/` (TypeScript host), `runtime/` (backend), `addon/` (Blender side).
+- **Code**: `src/` (TypeScript host), `runtime/` (backend), `extension/` (Blender side).
 
 ## Before you open an issue
 
@@ -67,7 +67,7 @@ a frame (headless-only route).
 | `src/` | TypeScript source for the plugin host side, split into tools, host, plan, and contracts |
 | `lib/` | Build output — generated, never committed after 3.0.0, never hand-edited |
 | `runtime/` | Backend: engine, server, catalog, worker, headless runner, Python domains |
-| `addon/` | The Blender addon package — the only supported addon |
+| `extension/` | The Blender addon package — the only supported addon |
 | `skills/` | The bundled `blender-modeling` skill, registered automatically |
 | `tests/` | Unit, integration, and end-to-end layers; see [tests/README.md](tests/README.md) |
 | `scripts/` | Developer build/check/test tooling; see [scripts/README.md](scripts/README.md) |
@@ -109,7 +109,7 @@ contract tests. Explain in the pull request why the lock changed; never hand-edi
 ## Release process
 
 The release flow is owned by the release checklist and by [docs/architecture.md](docs/architecture.md). In short: verify the release gates, bump the version in
-`package.json` and `PLUGIN_VERSION` in the same change, let `prepack` build `lib/`, attach the addon zip
+`package.json` and `PLUGIN_VERSION` in the same change, let `prepack` build `lib/`, attach the extension zip
 and the npm tarball to the release, and rehearse the rollback before tagging. The detailed checklist is
 kept in the local refactor workspace, not in this repository.
 
@@ -129,6 +129,8 @@ required reviewers and protect `v*` tags. npm publishing uses trusted publishing
 
 ## License
 
-The project is [BSD-3-Clause](LICENSE). By contributing you agree that your contribution is licensed under
-the same terms. Be respectful and assume good faith; disagreements about design are fine, personal attacks
-are not.
+The host plugin and repository code are [BSD-3-Clause](LICENSE). The bundled Blender extension under
+[`extension/`](extension/) is GPL-3.0-or-later (see [extension/LICENSE](extension/LICENSE)) because it is a
+derivative of an MIT-licensed upstream (attribution in [extension/NOTICE](extension/NOTICE)). By contributing
+you agree that your contribution is licensed under the license of the component you modify. Be respectful and
+assume good faith; disagreements about design are fine, personal attacks are not.

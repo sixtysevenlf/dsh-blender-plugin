@@ -96,7 +96,7 @@ describe('AGENTS.md contract', () => {
       'src/tools/*',
       'runtime/http/*',
       'runtime/py/',
-      'addon/dsh_blender_bridge/',
+      'extension/dsh_blender_bridge/',
       'lib/',
     ]) {
       expect(AGENTS).toContain(marker)

@@ -6,7 +6,7 @@ __pycache__/
 dsh-blender.config.json
 *.tgz
 *.zip
-!addon/dsh_blender_bridge.zip
+!extension/dsh_blender_bridge.zip
 *.log
 .DS_Store
 

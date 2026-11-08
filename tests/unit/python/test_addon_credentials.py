@@ -19,9 +19,9 @@ import bpy_stub
 
 bpy = bpy_stub.install()
 
-config = importlib.import_module("addon.dsh_blender_bridge.config")
-server_module = importlib.import_module("addon.dsh_blender_bridge.server")
-operators = importlib.import_module("addon.dsh_blender_bridge.ui.operators")
+config = importlib.import_module("extension.dsh_blender_bridge.config")
+server_module = importlib.import_module("extension.dsh_blender_bridge.server")
+operators = importlib.import_module("extension.dsh_blender_bridge.ui.operators")
 
 CRED_ATTRS = (
     "hyper3d_api_key",

@@ -16,7 +16,7 @@ on:
       version:
         description: 'Release version; must match package.json and PLUGIN_VERSION'
         required: true
-        default: '3.1.0'
+        default: '3.1.0-alpha.1'
         type: string
       dry_run:
         description: 'Verify and package only; do not create a tag or release'
@@ -85,8 +85,8 @@ jobs:
           }
           const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
           const constants = fs.readFileSync('src/constants.ts', 'utf8')
-          const protocolSource = fs.readFileSync('addon/dsh_blender_bridge/protocol.py', 'utf8')
-          const manifest = fs.readFileSync('addon/dsh_blender_bridge/blender_manifest.toml', 'utf8')
+          const protocolSource = fs.readFileSync('extension/dsh_blender_bridge/protocol.py', 'utf8')
+          const manifest = fs.readFileSync('extension/dsh_blender_bridge/blender_manifest.toml', 'utf8')
           const gateway = JSON.parse(fs.readFileSync('config/gateway.json', 'utf8'))
           if (pkg.version !== version) {
             throw new Error('package.json is ' + pkg.version + ', input is ' + version)
@@ -123,14 +123,14 @@ jobs:
           npm run test:integration
           npm run test:contract
           npm run test:python
-          npm run test:addon-unit
-          npm run typecheck:addon
+          npm run test:extension-unit
+          npm run typecheck:extension
       - name: Behavior matrix release gate
         run: npm run test:matrix
       - name: Coverage ratchet
         run: |
           npm run test:coverage
-          .venv/bin/python -m pytest tests/unit/python tests/integration/python --cov=addon --cov-branch --cov-report=json:coverage/python-coverage.json --cov-report=term
+          .venv/bin/python -m pytest tests/unit/python tests/integration/python --cov=extension --cov-branch --cov-report=json:coverage/python-coverage.json --cov-report=term
           git rev-parse --verify v2.6.2
           .venv/bin/diff-cover coverage/lcov.info --compare-branch=v2.6.2 --json-report=coverage/diff-cover.json
           npm run check:coverage
@@ -199,15 +199,15 @@ jobs:
           path: vendor/win-hidden-desktop
       - name: Verify the packaged helper
         run: npm run check:win-helper
-      - name: Build and verify addon zip
+      - name: Build and verify extension zip
         run: |
-          npm run build:addon
-          npm run check:addon
+          npm run build:extension
+          npm run check:extension
       - name: Pack npm tarball and checksums
         run: |
           mkdir -p release-assets
           npm pack --json --pack-destination release-assets
-          cp addon/dsh_blender_bridge.zip release-assets/
+          cp extension/dsh_blender_bridge.zip release-assets/
           (cd release-assets && sha256sum * > SHA256SUMS)
           printf 'Release %s. See CHANGELOG.md for details.\n' "${{ inputs.version }}" > release-assets/extension-release-notes.md
           tar -tzf release-assets/*.tgz | grep -E '^package/vendor/win-hidden-desktop/dsh-blender-hidden-desktop\.exe$'
@@ -264,11 +264,11 @@ jobs:
           VERSION: ${{ inputs.version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "v${VERSION}" \
-            --draft \
-            --target "${GITHUB_SHA}" \
-            --title "v${VERSION}" \
-            --generate-notes \
+          ARGS=(--draft --target "${GITHUB_SHA}" --title "v${VERSION}" --generate-notes)
+          if [[ "${VERSION}" == *-* ]]; then
+            ARGS+=(--prerelease)
+          fi
+          gh release create "v${VERSION}" "${ARGS[@]}" \
             release/*.tgz release/*.zip release/SHA256SUMS
 
   publish-extension:
@@ -295,6 +295,11 @@ jobs:
         with:
           name: release-assets
           path: release
+      - name: Refuse a prerelease marketplace upload
+        if: contains(inputs.version, '-')
+        run: |
+          echo "::error::The Blender extension marketplace only accepts stable releases; use publish_extension=false for a prerelease."
+          exit 1
       - name: Require the extension upload token
         env:
           BLENDER_EXTENSIONS_TOKEN: ${{ secrets.BLENDER_EXTENSIONS_TOKEN }}
@@ -311,7 +316,7 @@ jobs:
             --zip release/dsh_blender_bridge.zip \
             --notes-file release/extension-release-notes.md \
             --extension-id dsh_blender_bridge \
-            --manifest addon/dsh_blender_bridge/blender_manifest.toml
+            --manifest extension/dsh_blender_bridge/blender_manifest.toml
 
   publish-npm:
     name: Publish npm package
@@ -338,6 +343,13 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           registry-url: https://registry.npmjs.org
       - name: Publish tarball
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
           ls -l release
-          npm publish ./release/*.tgz --access public --provenance
+          if [[ "${VERSION}" == *-* ]]; then
+            NPM_TAG=alpha
+          else
+            NPM_TAG=latest
+          fi
+          npm publish ./release/*.tgz --access public --provenance --tag "${NPM_TAG}"

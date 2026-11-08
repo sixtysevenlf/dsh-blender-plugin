@@ -15,13 +15,13 @@ import bpy_stub
 
 bpy = bpy_stub.install()
 
-geometry = importlib.import_module("addon.dsh_blender_bridge.assets.geometry")
-caps = importlib.import_module("addon.dsh_blender_bridge.selection.caps")
-payload = importlib.import_module("addon.dsh_blender_bridge.selection.payload")
+geometry = importlib.import_module("extension.dsh_blender_bridge.assets.geometry")
+caps = importlib.import_module("extension.dsh_blender_bridge.selection.caps")
+payload = importlib.import_module("extension.dsh_blender_bridge.selection.payload")
 sketchfab_importer = importlib.import_module(
-    "addon.dsh_blender_bridge.commands.sketchfab.importer")
+    "extension.dsh_blender_bridge.commands.sketchfab.importer")
 polypizza_importer = importlib.import_module(
-    "addon.dsh_blender_bridge.commands.polypizza.importer")
+    "extension.dsh_blender_bridge.commands.polypizza.importer")
 
 
 class _Matrix:

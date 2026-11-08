@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-TRANSPORT_PATH = REPO_ROOT / "addon" / "dsh_blender_bridge" / "transport.py"
+TRANSPORT_PATH = REPO_ROOT / "extension" / "dsh_blender_bridge" / "transport.py"
 
 
 def _load_transport():

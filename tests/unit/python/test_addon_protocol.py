@@ -8,9 +8,9 @@ import bpy_stub
 
 bpy = bpy_stub.install()
 
-protocol = importlib.import_module("addon.dsh_blender_bridge.protocol")
-registry = importlib.import_module("addon.dsh_blender_bridge.command_registry")
-compat = importlib.import_module("addon.dsh_blender_bridge.compat")
+protocol = importlib.import_module("extension.dsh_blender_bridge.protocol")
+registry = importlib.import_module("extension.dsh_blender_bridge.command_registry")
+compat = importlib.import_module("extension.dsh_blender_bridge.compat")
 
 BASE_COMMANDS = [
     "get_scene_info", "get_world_state_snapshot", "get_addon_info", "get_object_info",

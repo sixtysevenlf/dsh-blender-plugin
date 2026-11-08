@@ -9,8 +9,8 @@ import bpy_stub
 
 bpy = bpy_stub.install()
 
-selection_caps = importlib.import_module("addon.dsh_blender_bridge.selection.caps")
-selection = importlib.import_module("addon.dsh_blender_bridge.commands.selection")
+selection_caps = importlib.import_module("extension.dsh_blender_bridge.selection.caps")
+selection = importlib.import_module("extension.dsh_blender_bridge.commands.selection")
 
 
 def _mesh(name, collections=("SetA",), dimensions=(1.0, 2.0, 3.0)):

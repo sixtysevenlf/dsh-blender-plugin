@@ -37,7 +37,7 @@ describe('gateway handshake schema', () => {
     expect(result.protocol).toBe(12)
     expect(result.files).toEqual([
       'runtime/transport/gateway-schema.generated.ts',
-      'addon/dsh_blender_bridge/gateway_schema.py',
+      'extension/dsh_blender_bridge/gateway_schema.py',
     ])
   })
 
@@ -52,7 +52,7 @@ describe('gateway handshake schema', () => {
   })
 
   it('fails when a generated file is missing or hand-edited', () => {
-    fs.rmSync(path.join(root, 'addon/dsh_blender_bridge/gateway_schema.py'))
+    fs.rmSync(path.join(root, 'extension/dsh_blender_bridge/gateway_schema.py'))
     expect(checkGatewaySchema(root).failures.join('\n')).toContain('is missing')
 
     const ts = path.join(root, 'runtime/transport/gateway-schema.generated.ts')

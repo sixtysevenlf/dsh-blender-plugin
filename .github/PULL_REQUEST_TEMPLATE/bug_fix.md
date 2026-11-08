@@ -36,7 +36,7 @@ Fixes #
 
 ## Build and packaging evidence
 
-<!-- Required for src/, runtime/, addon/, or packaging changes; write "not applicable" otherwise. -->
+<!-- Required for src/, runtime/, extension/, or packaging changes; write "not applicable" otherwise. -->
 
 ## Risk
 

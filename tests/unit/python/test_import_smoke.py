@@ -68,7 +68,7 @@ def booted_runtime():
 
 
 def python_files():
-    for base in (RUNTIME, ROOT / "addon", ROOT / "tests"):
+    for base in (RUNTIME, ROOT / "extension", ROOT / "tests"):
         for path in sorted(base.rglob("*.py")):
             if "__pycache__" in path.parts:
                 continue
@@ -77,7 +77,7 @@ def python_files():
 
 def test_every_python_file_compiles():
     files = list(python_files())
-    assert len(files) > 100, f"only {len(files)} python files found under runtime/addon/tests"
+    assert len(files) > 100, f"only {len(files)} python files found under runtime/extension/tests"
     for path in files:
         source = path.read_text(encoding="utf-8")
         compile(source, str(path), "exec")

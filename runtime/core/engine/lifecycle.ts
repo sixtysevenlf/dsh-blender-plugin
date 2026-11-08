@@ -100,7 +100,7 @@ function gatewayTransportDiagnosis(
       summary:
         'Gateway 在，但没有 Blender addon 连接到 Gateway —— Blender 未启动、扩展未启用/未连接，或仍在握手。',
       fix: '启动 Blender 4.2.10 LTS，在 3D 视图 N 面板启用「DSH Blender Bridge」2.0.0（protocol 12）；确认扩展显示已连接 Gateway。纯渲染/批处理可改用 blender_run。',
-      hint: 'Gateway /health 只证明 Gateway 进程存活，不代表 addon/bpy 可用。',
+      hint: 'Gateway /health 只证明 Gateway 进程存活，不代表 extension/bpy 可用。',
     }
   }
   return {
