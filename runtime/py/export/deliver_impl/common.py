@@ -2,8 +2,8 @@
 """DSH 交付导出（v0.9.0 / #13）—— 把"场景里看着对"变成"文件能被别人打开、且能反推原始尺度"。
 
 API 挂 K.dsh_deliver_api（DELIVER_VERSION = 1），入口：
-    blender_inspect(command=""...") / K.dsh_deliver_api["export"](...)
-    blender_op 之外也可无头：preload="deliver" 后直接 K.dsh_deliver_api["export"]({...})
+    blender_rt_cmd(name="...") / K.dsh_deliver_api["export"](...)
+    blender_rt_plan 之外也可无头：preload="deliver" 后直接 K.dsh_deliver_api["export"]({...})
 
 能力：
   export(dir, objects, scope, name, fmt, normalize, target_half_extent, per_part_materials,

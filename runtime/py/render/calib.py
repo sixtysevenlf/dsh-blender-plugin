@@ -10,8 +10,8 @@
     ⇒ 捕获率 + 漏网清单 + 是谁抓住的（哪条门）
 
 **用法**：请在**无头干净场景**里跑（会临时建/删对象，dup 门需要干净场景）：
-    blender_run(kind="headless", preload="calib", script='print("HEADLESS " + K.dsh_calib_api("run", {}))')
-或 plan：blender_op(op="calib_run")   （会自己起无头进程）
+    blender_rt_headless(preload="calib", script='print("HEADLESS " + K.dsh_calib_api("run", {}))')
+或 plan：blender_rt_plan(op="calib_run")   （会自己起无头进程）
 """
 import json
 import time
@@ -435,8 +435,8 @@ def calib_help():
                         "旧口径 'verdict != pass 就算抓到' 会让坏掉的门刷高捕获率",
         "units": "基线与每一类缺陷都在 scale_length=%s（1 单位 = 1 mm）下跑，跑完复位场景单位；"
                  "回执 units.unit_ok=false 说明单位没管住，本次结论不可信" % CALIB_SCALE,
-        "how": ["优先走 blender_op(op='calib_run')（插件自己起无头干净场景）",
-                "或 blender_run(kind='headless', preload='calib,gate,printcheck', "
+        "how": ["优先走 blender_rt_plan(op='calib_run')（插件自己起无头干净场景）",
+                "或 blender_rt_headless(preload='calib,gate,printcheck', "
                 "script='print(\"HEADLESS \" + K.dsh_calib_api(\"run\", {}))')"],
         "reading": ["baseline_pass=false ⇒ 本次标定无效（门在误报/门配置错/场景不干净）",
                     "missed 列表 = 你的门的盲区 = 下一步要补的门",

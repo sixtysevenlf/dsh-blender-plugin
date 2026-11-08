@@ -2,8 +2,6 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { objArg } from './deps.js'
 import type { HttpRouteDeps } from './deps.js'
 import { errorMessage, errorField } from '../../core/json.js'
-import { currentCaller } from '../caller.js'
-import { gateResponse } from '../session-gate.js'
 // HTTP 路由 /act：Python 执行
 export function createActRoutes(E: HttpRouteDeps) {
   const { engine, json, leaseGate, pushRtt, readBody, stats } = E
@@ -20,21 +18,6 @@ export function createActRoutes(E: HttpRouteDeps) {
       if (gate) {
         json(res, 409, gate)
         return
-      }
-      const caller = payload.py === true ? currentCaller() : null
-      const registry = caller ? E.sessionRegistry : null
-      let pyHeld = false
-      if (caller && registry) {
-        const begin = await registry.beginPy(
-          caller,
-          payload.sessionId === undefined ? undefined : String(payload.sessionId),
-          Number(payload.waitMs) || 0,
-        )
-        if (!begin.ok) {
-          json(res, 409, gateResponse(begin))
-          return
-        }
-        pyHeld = true
       }
       const t0 = Date.now()
       try {
@@ -74,13 +57,6 @@ export function createActRoutes(E: HttpRouteDeps) {
           errorKind: errorField(e, 'kind') || null,
           diagnosis: errorField(e, 'diagnosis') || null,
         })
-      } finally {
-        if (pyHeld && caller && registry) {
-          registry.endPy(
-            caller,
-            payload.sessionId === undefined ? undefined : String(payload.sessionId),
-          )
-        }
       }
       return
     },

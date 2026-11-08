@@ -10,15 +10,15 @@ v0.9.1（rifle-build《93 反馈》）：**文件级算子** —— 不再"什�
     audit_interference  跨件/跨文件 交集体体积 mm³（Monte-Carlo 射线奇偶，不用 bpy boolean）
     audit_connectivity / audit_gate / audit_measure 全部新增 file=<.blend>（临时加载 → 跑 → finally 删净）
 API 挂 K.dsh_audit_api；入口：
-    blender_op(op="audit_mesh",  args={objects:["P01_Fuselage"], envelope:[min,max]})
-    blender_op(op="audit_scene", args={envelope:[min,max]})
-    blender_op(op="audit_overlap", args={file_a:".../05_barrel.blend", file_b:".../07_handguard.blend"})
-    blender_op(op="audit_interference", args={file_a:".../08_magazine.blend", a:"08_magazine",
+    blender_rt_plan(op="audit_mesh",  args={objects:["P01_Fuselage"], envelope:[min,max]})
+    blender_rt_plan(op="audit_scene", args={envelope:[min,max]})
+    blender_rt_plan(op="audit_overlap", args={file_a:".../05_barrel.blend", file_b:".../07_handguard.blend"})
+    blender_rt_plan(op="audit_interference", args={file_a:".../08_magazine.blend", a:"08_magazine",
                                                    file_b:".../01_body_shell.blend", b:"01_body_shell",
                                                    samples:200000})
-    blender_op(op="audit_connectivity", args={file:".../07_handguard.blend"})
-    blender_op(op="audit_duplicates")
-    blender_op(op="audit_purge_orphans")      # users==0 的灯/相机/网格/材质/图像
+    blender_rt_plan(op="audit_connectivity", args={file:".../07_handguard.blend"})
+    blender_rt_plan(op="audit_duplicates")
+    blender_rt_plan(op="audit_purge_orphans")      # users==0 的灯/相机/网格/材质/图像
 无头里也可 preload="audit" 后直接 K.dsh_audit_api["mesh"]({...})，或 K.dsh_audit_api("mesh", {...})（v0.9.1 起
 dict 子类可调用，返回已解析的 dict；api["dispatch"](op, json_str) 仍返回 str —— 引擎契约不变）。
 

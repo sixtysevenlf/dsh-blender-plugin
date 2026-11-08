@@ -6,10 +6,10 @@
 本模块按同一接口形状自实现：平行移动标架（rotation-minimizing frame）保证不扭转、不翻转。
 
 ops：
-    blender_op(op="sweep_analyze", args={path:[[0,0,0],[1,0,0],[1,1,0]], profile:{type:"circle", radius:0.05}})
-    blender_op(op="sweep_build",   args={name:"Hose", path:[[0,0,0],[1,0,0],[1,1,0]],
+    blender_rt_plan(op="sweep_analyze", args={path:[[0,0,0],[1,0,0],[1,1,0]], profile:{type:"circle", radius:0.05}})
+    blender_rt_plan(op="sweep_build",   args={name:"Hose", path:[[0,0,0],[1,0,0],[1,1,0]],
                                              profile:{type:"rect", width:0.08, height:0.04}, cap:true})
-    blender_op(op="sweep_selftest")
+    blender_rt_plan(op="sweep_selftest")
 
 **先算后建**：sweep_build 默认先跑 sweep_analyze；弯折半径 < 型材半宽 时直接拒（force=true 才硬做），
 因为"扫出来自交"在几何上不可修 —— 这和契约层的 destructive_guard 是同一套纪律。

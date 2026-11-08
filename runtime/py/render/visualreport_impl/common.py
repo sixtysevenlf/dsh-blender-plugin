@@ -11,7 +11,7 @@
     images   overlay（红=参考有渲染无 / 蓝=渲染多出 / 黄=重合）、sheet（参考|渲染|叠加三联）
     fix_hint 可执行的下一步（按缺陷方向给）
 
-ops（走 blender_op 或 K.dsh_visualreport_api）：
+ops（走 blender_rt_plan 或 K.dsh_visualreport_api）：
     report(ref, render | views, px_per_mm, targets, out_dir, max_defects, ref_box_px, render_box_px,
            label, iou_pass, iou_fail, max_missing_frac, max_extra_frac, save_images)
     selftest / help

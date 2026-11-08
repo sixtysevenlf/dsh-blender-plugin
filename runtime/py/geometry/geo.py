@@ -634,7 +634,7 @@ def quick_views(outdir, views, res=(1280, 720), engine="BLENDER_WORKBENCH", pref
     """多视角快速预览（不需要灯/材质也能出图）。
 
     views=[{"name","from","look_at","lens"?,"ortho"?}, …]；坐标 = 当前场景单位。
-    轻量自足；要**与参考图算 IoU / 剖面对齐**请走 blender_op(op="qc_render_views")。
+    轻量自足；要**与参考图算 IoU / 剖面对齐**请走 blender_rt_plan(op="qc_render_views")。
     """
     import os
     os.makedirs(str(outdir), exist_ok=True)

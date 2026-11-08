@@ -50,7 +50,7 @@ def gate_checkpoint(label=None, note=""):
     api = getattr(K, "dsh_txn_api", None) if K is not None else None
     if api is None:
         return _j({"ok": False, "op": "checkpoint",
-                   "error": "K.dsh_txn_api 不存在：preload 里加 txn（或先跑 blender_session）",
+                   "error": "K.dsh_txn_api 不存在：preload 里加 txn（或先跑 blender_rt_txn）",
                    "hint": "headless 预热：preload=\"txn\""})
     try:
         r = api("snapshot", {"label": label, "note": note})
@@ -59,7 +59,7 @@ def gate_checkpoint(label=None, note=""):
         if not isinstance(r, dict):
             return _j({"ok": False, "op": "checkpoint", "error": "txn.snapshot 返回类型异常"})
         r["op"] = "checkpoint"
-        r["hint"] = "拓扑类改动前拿到这个 snapshot；失败时可 blender_session(action='txn', op='restore', label=…)"
+        r["hint"] = "拓扑类改动前拿到这个 snapshot；失败时可 blender_rt_txn(op=\"restore\", label=…)"
         return _j(r)
     except Exception as e:
         return _j({"ok": False, "op": "checkpoint", "error": "%s: %s" % (type(e).__name__, str(e)[:240])})

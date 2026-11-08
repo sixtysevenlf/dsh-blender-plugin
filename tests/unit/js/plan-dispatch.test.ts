@@ -220,7 +220,7 @@ describe('render guard ops', () => {
     await vi.advanceTimersByTimeAsync(1200)
     const out = rec(await pending)
     expect(out).toMatchObject({ ok: false, idle: false, timeout: true })
-    expect(String(out.hint)).toContain('blender_run')
+    expect(String(out.hint)).toContain('blender_rt_job')
   })
 
   it('render_reset clears the local flag and reports the Blender clear', async () => {

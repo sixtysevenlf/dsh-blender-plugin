@@ -6,13 +6,13 @@ self_intersections / normals_inverted，但**纯只读**。上游 blend-ai 有 r
 本模块按同一接口形状与判据自实现（不复制其 AGPL 代码，只借"修完要能自证"的思路）。
 
 ops：
-    blender_op(op="fix_repair",   args={objects:["P01"], actions:["merge_doubles","dissolve_degenerate","delete_loose","recalc_normals","fill_holes"]})
-    blender_op(op="fix_decimate", args={objects:["P01"], target_tris:2000})
-    blender_op(op="fix_selftest")
+    blender_rt_plan(op="fix_repair",   args={objects:["P01"], actions:["merge_doubles","dissolve_degenerate","delete_loose","recalc_normals","fill_holes"]})
+    blender_rt_plan(op="fix_decimate", args={objects:["P01"], target_tris:2000})
+    blender_rt_plan(op="fix_selftest")
 
 **硬规则**：0 个 mesh ⇒ ok=false；actions 为空 ⇒ ok=false；修复是破坏性操作 ⇒ 回执必须带
 "前后缺陷计数"，且只有 nonmanifold_edges + degenerate_faces 明显下降才算 ok=true（否则 ok=false +
-说明为什么没修动）。改前要回退点请用 blender_session(action="txn", op="snapshot")（对象级 mark/revert 不含拓扑）。
+说明为什么没修动）。改前要回退点请用 blender_rt_txn(op="snapshot")（对象级 mark/revert 不含拓扑）。
 """
 import json
 import math
@@ -258,7 +258,7 @@ def fix_help():
             "fix_selftest": "自检：合成带缺陷网格 → 修 → 断言缺陷下降",
             "fix_help": "本表",
         },
-        "workflow": ["audit_mesh 拿缺陷清单", "blender_session(action='txn', op='snapshot') 留回退点",
+        "workflow": ["audit_mesh 拿缺陷清单", "blender_rt_txn(op=\"snapshot\") 留回退点",
                      "fix_repair（先 merge+dissolve+delete_loose，recalc_normals 保底）",
                      "audit_mesh 复检到 nonmanifold/degenerate 归零", "audit_gate 放行"],
         "hard_rules": ["0 个 mesh ⇒ ok=false", "actions 为空 ⇒ ok=false",

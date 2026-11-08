@@ -1,25 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { HttpRouteDeps } from './deps.js'
 import { errorCode, errorMessage, errorField } from '../../core/json.js'
-import { JobSurface, callerFromHeaders } from '../../core/queue/handler.js'
-
-/** The internal queue surface lives behind the same /job route until section 7 exposes blender_run. */
-async function handleQueueSurface(
-  E: HttpRouteDeps,
-  req: IncomingMessage,
-  res: ServerResponse,
-  payload: Record<string, unknown>,
-  op: string,
-): Promise<boolean> {
-  if (payload.surface !== 'queue') return false
-  const surface = new JobSurface(E.jobQueue)
-  const caller = callerFromHeaders(req.headers)
-  E.stats.job = (E.stats.job || 0) + 1
-  if (op === 'wait') await E.streamJson(res, () => surface.handle(caller, payload))
-  else E.json(res, 200, await surface.handle(caller, payload))
-  return true
-}
-
 // HTTP 路由 /job：作业层
 export function createJobRoutes(E: HttpRouteDeps) {
   const { engine, isReadOnly, json, leaseGate, pushRtt, readBody, stats, streamJson } = E
@@ -34,7 +15,6 @@ export function createJobRoutes(E: HttpRouteDeps) {
         payload = {}
       }
       const op = String(payload.op || 'list')
-      if (await handleQueueSurface(E, req, res, payload, op)) return
       const gate = isReadOnly('/job', op) ? null : leaseGate(payload)
       if (gate) {
         json(res, 409, gate)

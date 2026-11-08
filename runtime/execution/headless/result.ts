@@ -173,7 +173,7 @@ export function summarizeShots(shotsRes: Record<string, unknown>): ShotsSummary 
           '主体只占画面 ' +
           (cov * 100).toFixed(2) +
           '% —— 这个机位看不清细节：from 拉近 / 换 look_at / ' +
-          '给这一项加 targets=[名字] 或 focus="x,y,z,r" 缩小取景范围（blender_see 同类判据）',
+          '给这一项加 targets=[名字] 或 focus="x,y,z,r" 缩小取景范围（rt_see 同类判据）',
       }
     }
     return row

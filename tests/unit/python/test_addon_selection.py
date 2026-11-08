@@ -229,7 +229,7 @@ def test_post_selection_payload_posts_to_backend_and_reports_seq(monkeypatch):
     bpy.context.scene.dshbb_backend_url = ""
     try:
         result = selection._post_selection_payload({"v": 1}, timeout=1.5)
-        assert calls["url"] == "http://127.0.0.1:39877/host/selection"
+        assert calls["url"] == "http://127.0.0.1:9877/host/selection"
         assert calls["json"] == {"v": 1}
         assert calls["timeout"] == 1.5
         assert result["ok"] is True
@@ -275,7 +275,7 @@ def test_post_selection_payload_network_failure_has_hint(monkeypatch):
         result = selection._post_selection_payload({})
         assert result["ok"] is False
         assert result["error"] == "backend down"
-        assert "127.0.0.1:39877" in result["hint"]
+        assert "127.0.0.1:9877" in result["hint"]
     finally:
         bpy.context.scene.dshbb_backend_url = ""
 
@@ -294,7 +294,7 @@ def test_send_collection_to_dsh_does_not_post_an_unknown_collection(monkeypatch)
 
 def test_record_selection_send_tracks_last_result():
     result = {
-        "ok": True, "seq": 3, "backend_url": "http://127.0.0.1:39877",
+        "ok": True, "seq": 3, "backend_url": "http://127.0.0.1:9877",
         "payload": {"selection": {"count": 2, "kind": "objects"}},
     }
     returned = selection.record_selection_send(result)

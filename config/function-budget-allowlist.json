@@ -1,7 +1,7 @@
 {
   "version": 1,
   "description": "Function-level budget registry (two-level exception model): every 80-120 line function is registered with a real classification, reason, class owner and future reviewBy; unregistered, unclassified, expired and stale entries fail. Functions over 120 lines always fail. Path-level file-budget exceptions live in config/exceptions.json.",
-  "generatedAt": "2026-11-08T02:15:18.963Z",
+  "generatedAt": "2026-11-04T18:53:21.007Z",
   "functions": [
     {
       "file": "addon/dsh_blender_bridge/commands/core/bpy_lookup.py",
@@ -78,9 +78,9 @@
     {
       "file": "runtime/core/engine-api/doctor.ts",
       "name": "createDoctorApi",
-      "lines": 87,
+      "lines": 107,
       "classification": "dispatch-table",
-      "reason": "Gateway doctor/status API factory: one branch per reported surface (readiness, addon, bpy, virtualGui, sessions, diagnostics).",
+      "reason": "Engine API factory: one handler per doctor/protocol/install/diagnose endpoint; length tracks endpoint count.",
       "owner": "runtime",
       "reviewBy": "2027-06-30"
     },
@@ -166,15 +166,6 @@
       "reviewBy": "2027-06-30"
     },
     {
-      "file": "runtime/execution/ledger/recover.ts",
-      "name": "recoverFromDisk",
-      "lines": 103,
-      "classification": "orchestration",
-      "reason": "Recovery orchestration across ledger, logs, artifacts and evidence.",
-      "owner": "runtime",
-      "reviewBy": "2027-06-30"
-    },
-    {
       "file": "runtime/execution/ledger/state.ts",
       "name": "createLedgerStore",
       "lines": 87,
@@ -193,36 +184,27 @@
       "reviewBy": "2027-06-30"
     },
     {
-      "file": "runtime/http/routes/act.ts",
-      "name": "createActRoutes",
-      "lines": 81,
-      "classification": "dispatch-table",
-      "reason": "Act route: parse body, run the session write + py lock gate, then one engine call and one response shape.",
-      "owner": "runtime",
-      "reviewBy": "2027-06-30"
-    },
-    {
       "file": "runtime/http/routes/health.ts",
       "name": "createHealthRoutes",
-      "lines": 98,
+      "lines": 96,
       "classification": "dispatch-table",
       "reason": "HTTP route table: one handler per health/status endpoint.",
       "owner": "runtime",
       "reviewBy": "2027-06-30"
     },
     {
-      "file": "runtime/http/routes/session/api.ts",
-      "name": "runSessionAction",
-      "lines": 88,
+      "file": "runtime/http/routes/worker.ts",
+      "name": "<anonymous>",
+      "lines": 86,
       "classification": "dispatch-table",
-      "reason": "Session action dispatcher: one case per wire action (attach, grant, presence, human-edit readback, consent, virtual-gui start).",
+      "reason": "Streamed worker op dispatcher: one branch per worker op.",
       "owner": "runtime",
       "reviewBy": "2027-06-30"
     },
     {
       "file": "runtime/http/routes/worker.ts",
       "name": "createWorkerRoutes",
-      "lines": 102,
+      "lines": 111,
       "classification": "dispatch-table",
       "reason": "HTTP route table for the worker endpoint.",
       "owner": "runtime",
@@ -231,7 +213,7 @@
     {
       "file": "runtime/http/routes/worker.ts",
       "name": "worker",
-      "lines": 97,
+      "lines": 106,
       "classification": "dispatch-table",
       "reason": "Worker route handler: payload parse, lease gate and op dispatch; length tracks the wire protocol surface.",
       "owner": "runtime",
@@ -878,15 +860,6 @@
     },
     {
       "file": "runtime/py/render/view.py",
-      "name": "capture",
-      "lines": 90,
-      "classification": "dispatch-table",
-      "reason": "View capture entry: one branch per mode (viewport/current/camera/render) around a shared PNG/diagnostics tail.",
-      "owner": "runtime",
-      "reviewBy": "2027-06-30"
-    },
-    {
-      "file": "runtime/py/render/view.py",
       "name": "host_pick",
       "lines": 86,
       "classification": "integration-io",
@@ -913,6 +886,15 @@
       "reviewBy": "2027-06-30"
     },
     {
+      "file": "runtime/execution/ledger/recover.ts",
+      "name": "recoverFromDisk",
+      "lines": 103,
+      "classification": "orchestration",
+      "reason": "Recovery orchestration across ledger, logs, artifacts and evidence.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
       "file": "src/contracts/lossless.ts",
       "name": "losslessSanitize",
       "lines": 87,
@@ -928,6 +910,33 @@
       "classification": "parsing",
       "reason": "Recursive walk shared by the lossless sanitizer; rule order mirrors the JSON shape contract.",
       "owner": "host",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "src/plan/tool.ts",
+      "name": "<anonymous>",
+      "lines": 101,
+      "classification": "dispatch-table",
+      "reason": "Plan dispatcher closure: one branch per planning op.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "src/plan/tool.ts",
+      "name": "registerPlan",
+      "lines": 106,
+      "classification": "dispatch-table",
+      "reason": "Plan tool registration: one entry per planning facade method.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "src/tools/headless/register.ts",
+      "name": "buildHeadlessTool",
+      "lines": 87,
+      "classification": "dispatch-table",
+      "reason": "Headless tool facade: one handler per headless mode (worker/headless/job).",
+      "owner": "runtime",
       "reviewBy": "2027-06-30"
     },
     {

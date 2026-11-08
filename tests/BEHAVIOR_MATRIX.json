@@ -1,8 +1,8 @@
 {
   "schema": "dsh-behavior-matrix/1",
-  "generatedAt": "2026-11-08T01:52:52.775Z",
+  "generatedAt": "2026-11-04T13:01:03.829Z",
   "node": "v24.18.0",
-  "pluginVersion": "3.1.0",
+  "pluginVersion": "3.0.6",
   "generatedBy": "node scripts/check-behavior-matrix.mjs --generate",
   "generators": {
     "tools": "tests/unit/js/contract/tool-matrix.test.ts (A1_MATRIX_OUT)",
@@ -10,12 +10,12 @@
     "commands": "tests/integration/python/test_addon_command_matrix.py (DSHBB_COMMAND_MATRIX_OUT)"
   },
   "tools": {
-    "count": 6,
+    "count": 15,
     "aspects": [
       {
         "id": "success",
         "title": "成功执行",
-        "description": "代表性参数返回可读回执，且请求打到预期的 Gateway 通道"
+        "description": "代表性参数返回可读回执，且请求打到预期的 addon 通道"
       },
       {
         "id": "paramError",
@@ -30,7 +30,7 @@
       {
         "id": "timeoutAbort",
         "title": "超时/abort",
-        "description": "exec.signal abort 后 5s 内结束：reject 带取消提示，或 resolve 带取消提示"
+        "description": "exec.signal abort 后 5s 内结束：reject 带取消提示，或 resolve 带取消/后台化提示"
       },
       {
         "id": "presenter",
@@ -44,272 +44,655 @@
       },
       {
         "id": "sessionFallback",
-        "title": "session 门",
-        "description": "需要 GUI 会话的工具在没有 ready 会话时给出决策请求，不启动 Blender、不转 headless"
+        "title": "session/无头降级",
+        "description": "显式 session / 无头通道路由到 /worker、/headless，而不是 GUI 通道"
       }
     ],
-    "cells": 42,
+    "cells": 105,
     "summary": {
-      "total": 42,
-      "pass": 38,
-      "notApplicable": 4
+      "total": 105,
+      "pass": 96,
+      "notApplicable": 9
     },
     "rows": [
       {
-        "tool": "blender_session",
+        "tool": "blender_rt_see",
         "aspect": "success",
         "status": "PASS",
-        "evidence": "SESSION list · 1 个会话"
+        "evidence": "视口帧 320px · 3ms · 70B · hash 3766854d"
       },
       {
-        "tool": "blender_op",
+        "tool": "blender_rt_do",
         "aspect": "success",
         "status": "PASS",
-        "evidence": "OP catalog ok · 60 chars · verdict=pass · fake plan"
+        "evidence": "ACT ok · 4ms"
       },
       {
-        "tool": "blender_py",
+        "tool": "blender_rt_watch",
         "aspect": "success",
         "status": "PASS",
-        "evidence": "PY ok · 4ms"
+        "evidence": "ACT ok · 4ms · stdout: fake stdout"
       },
       {
-        "tool": "blender_see",
+        "tool": "blender_rt_cmd",
         "aspect": "success",
         "status": "PASS",
-        "evidence": "SEE viewport · 1024x576 · 15ms · 70B · hash 3766854d · 场景与用户视口均未改动"
+        "evidence": "CMD get_scene_info ok · 4ms · 28 chars"
       },
       {
-        "tool": "blender_run",
+        "tool": "blender_rt_commands",
         "aspect": "success",
         "status": "PASS",
-        "evidence": "RUN list · 1 个作业"
+        "evidence": "场景 Scene · 未保存文件"
       },
       {
-        "tool": "blender_inspect",
+        "tool": "blender_rt_loop",
         "aspect": "success",
         "status": "PASS",
-        "evidence": "INSPECT help · 2 个可执行只读命令（另有 1 个内部传输命令不列出、不可执行） · 场景 Scene"
+        "evidence": "LOOP status {\"op\":\"status\"}"
       },
       {
-        "tool": "blender_session",
+        "tool": "blender_rt_perf",
+        "aspect": "success",
+        "status": "PASS",
+        "evidence": "PERF status {\"op\":\"status\"}"
+      },
+      {
+        "tool": "blender_rt_opt",
+        "aspect": "success",
+        "status": "PASS",
+        "evidence": "OPT join {\"op\":\"opt_join\"}"
+      },
+      {
+        "tool": "blender_rt_headless",
+        "aspect": "success",
+        "status": "PASS",
+        "evidence": "HEADLESS ok · status=done"
+      },
+      {
+        "tool": "blender_rt_plan",
+        "aspect": "success",
+        "status": "PASS",
+        "evidence": "PLAN catalog ok · 60 chars · verdict=pass · fake plan"
+      },
+      {
+        "tool": "blender_rt_worker",
+        "aspect": "success",
+        "status": "PASS",
+        "evidence": "WORKER start ok · {\"name\":\"w1\",\"alive\":true,\"ready\":true,\"pid\":1,\"port\":1}"
+      },
+      {
+        "tool": "blender_rt_txn",
+        "aspect": "success",
+        "status": "PASS",
+        "evidence": "TXN list ok"
+      },
+      {
+        "tool": "blender_rt_preset",
+        "aspect": "success",
+        "status": "PASS",
+        "evidence": "PRESET list ok"
+      },
+      {
+        "tool": "blender_rt_job",
+        "aspect": "success",
+        "status": "PASS",
+        "evidence": "作业（1）："
+      },
+      {
+        "tool": "blender_viewport",
+        "aspect": "success",
+        "status": "PASS",
+        "evidence": "{\"running\":true,\"paused\":false,\"child\":\"none\",\"watchdog\":\"15s\",\"endpoint\":\"http://127.0.0.1:7002\",\"viewportRegion\":null,\"shading\":null,\"window\":null,\"stats\":{},"
+      },
+      {
+        "tool": "blender_rt_see",
         "aspect": "paramError",
         "status": "PASS",
-        "evidence": "schema reject: /action/"
+        "evidence": "schema reject: /\"max_size\" must be an integer/"
       },
       {
-        "tool": "blender_op",
+        "tool": "blender_rt_do",
         "aspect": "paramError",
         "status": "PASS",
-        "evidence": "工具级可读错误：未知 blender_op action：nope"
+        "evidence": "工具级可读错误：需要 code 或 file 之一"
       },
       {
-        "tool": "blender_py",
+        "tool": "blender_rt_watch",
         "aspect": "paramError",
         "status": "PASS",
-        "evidence": "工具级可读错误：PY 需要 code 或 file 之一"
+        "evidence": "schema reject: /\"seconds\" must be a number/"
       },
       {
-        "tool": "blender_see",
+        "tool": "blender_rt_cmd",
         "aspect": "paramError",
         "status": "PASS",
-        "evidence": "工具级可读错误：view_size 已删除：blender_see 用 aspect + max_size 固定档位"
+        "evidence": "schema reject: /missing required property \"name\"/"
       },
       {
-        "tool": "blender_run",
+        "tool": "blender_rt_loop",
         "aspect": "paramError",
         "status": "PASS",
-        "evidence": "工具级可读错误：render 不接受 script/script_file：最终渲染是声明式入口；跑脚本请用 kind=headless 或 blender_py"
+        "evidence": "schema reject: /missing required property \"op\"/"
       },
       {
-        "tool": "blender_inspect",
+        "tool": "blender_rt_perf",
         "aspect": "paramError",
         "status": "PASS",
-        "evidence": "schema reject: /command/"
+        "evidence": "schema reject: /missing required property \"op\"/"
       },
       {
-        "tool": "blender_session",
+        "tool": "blender_rt_opt",
+        "aspect": "paramError",
+        "status": "PASS",
+        "evidence": "schema reject: /missing required property \"op\"/"
+      },
+      {
+        "tool": "blender_rt_headless",
+        "aspect": "paramError",
+        "status": "PASS",
+        "evidence": "工具级可读错误：blender_rt_headless 没有参数 blend；打开 .blend 请用 file=。（收到的键：blend）；工具级可读错误：file= 传了空字符串 —— 本次不会打开任何 .blend（脚本会拿到出厂空场景）"
+      },
+      {
+        "tool": "blender_rt_plan",
+        "aspect": "paramError",
+        "status": "PASS",
+        "evidence": "工具级可读错误：PLAN catalog 失败 · args 不是合法 JSON 对象：{bad"
+      },
+      {
+        "tool": "blender_rt_worker",
+        "aspect": "paramError",
+        "status": "PASS",
+        "evidence": "schema reject: /missing required property \"op\"/"
+      },
+      {
+        "tool": "blender_rt_txn",
+        "aspect": "paramError",
+        "status": "PASS",
+        "evidence": "schema reject: /missing required property \"op\"/"
+      },
+      {
+        "tool": "blender_rt_preset",
+        "aspect": "paramError",
+        "status": "PASS",
+        "evidence": "schema reject: /missing required property \"op\"/；工具级可读错误：data 不是合法 JSON: Expected property name or '}' in JSON at position 1 (line 1 column 2)"
+      },
+      {
+        "tool": "blender_rt_job",
+        "aspect": "paramError",
+        "status": "PASS",
+        "evidence": "schema reject: /missing required property \"op\"/；工具级可读错误：file= 传了空字符串 —— 本次不会打开任何 .blend（脚本会拿到出厂空场景）"
+      },
+      {
+        "tool": "blender_viewport",
+        "aspect": "paramError",
+        "status": "PASS",
+        "evidence": "schema reject: /missing required property \"op\"/"
+      },
+      {
+        "tool": "blender_rt_commands",
+        "aspect": "paramError",
+        "status": "N/A",
+        "evidence": "空参数调用成功并返回命令目录",
+        "reason": "parameters 为空对象，没有可违反的字段；非法参数面为零"
+      },
+      {
+        "tool": "blender_rt_see",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: 后端不可用（127.0.0.1:13253）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:6438）"
       },
       {
-        "tool": "blender_op",
+        "tool": "blender_rt_do",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: Gateway 不可用（127.0.0.1:13255）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:6440）"
       },
       {
-        "tool": "blender_py",
+        "tool": "blender_rt_watch",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: session list 失败 · Gateway 不可达 · TypeError: fetch failed"
+        "evidence": "resolve: 后端不可用（127.0.0.1:6442）"
       },
       {
-        "tool": "blender_see",
+        "tool": "blender_rt_cmd",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: Blender 未附着：没有 ready 的 GUI 会话（不会自动启动 Blender 或转 headless）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:6444）"
       },
       {
-        "tool": "blender_run",
+        "tool": "blender_rt_commands",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: Gateway 不可用（127.0.0.1:13261）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:6446）"
       },
       {
-        "tool": "blender_inspect",
+        "tool": "blender_rt_loop",
         "aspect": "backendUnreachable",
         "status": "PASS",
-        "evidence": "resolve: Gateway 不可用（127.0.0.1:13263）"
+        "evidence": "resolve: 后端不可用（127.0.0.1:6448）"
       },
       {
-        "tool": "blender_session",
+        "tool": "blender_rt_perf",
+        "aspect": "backendUnreachable",
+        "status": "PASS",
+        "evidence": "resolve: 后端不可用（127.0.0.1:6450）"
+      },
+      {
+        "tool": "blender_rt_opt",
+        "aspect": "backendUnreachable",
+        "status": "PASS",
+        "evidence": "resolve: 后端不可用（127.0.0.1:6452）"
+      },
+      {
+        "tool": "blender_rt_headless",
+        "aspect": "backendUnreachable",
+        "status": "PASS",
+        "evidence": "resolve: 后端不可用（127.0.0.1:6454）"
+      },
+      {
+        "tool": "blender_rt_plan",
+        "aspect": "backendUnreachable",
+        "status": "PASS",
+        "evidence": "resolve: 后端不可用（127.0.0.1:6456）"
+      },
+      {
+        "tool": "blender_rt_worker",
+        "aspect": "backendUnreachable",
+        "status": "PASS",
+        "evidence": "resolve: 后端不可用（127.0.0.1:6458）"
+      },
+      {
+        "tool": "blender_rt_txn",
+        "aspect": "backendUnreachable",
+        "status": "PASS",
+        "evidence": "resolve: 后端不可用（127.0.0.1:6460）"
+      },
+      {
+        "tool": "blender_rt_preset",
+        "aspect": "backendUnreachable",
+        "status": "PASS",
+        "evidence": "resolve: 后端不可用（127.0.0.1:6462）"
+      },
+      {
+        "tool": "blender_rt_job",
+        "aspect": "backendUnreachable",
+        "status": "PASS",
+        "evidence": "resolve: 后端不可用（127.0.0.1:6465）"
+      },
+      {
+        "tool": "blender_viewport",
+        "aspect": "backendUnreachable",
+        "status": "PASS",
+        "evidence": "resolve: {\"running\":false,\"url\":\"http://127.0.0.1:6467/\",\"error\":\"fetch failed\",\"code\":\"backend_unreachable\",\"next_action\":\"用 blender_viewport op=sta"
+      },
+      {
+        "tool": "blender_rt_see",
         "aspect": "timeoutAbort",
         "status": "PASS",
-        "evidence": "resolve: session list 失败 · Gateway 不可达 · Error: 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_run（submit → wait/collec"
+        "evidence": "resolve: 取帧失败 · 127.0.0.1:7002 · Error: 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job 并按 runId 回收；本插件的内部超时通常先于宿"
       },
       {
-        "tool": "blender_op",
+        "tool": "blender_rt_do",
         "aspect": "timeoutAbort",
         "status": "PASS",
-        "evidence": "reject: 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_run（submit → wait/collect 按 jobId 回收）；本插件的内部超时通常先于宿主截止触发，正常情况看到"
+        "evidence": "reject: 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job 并按 runId 回收；本插件的内部超时通常先于宿主截止触发，正常情况看到的是上面这类可读错误。"
       },
       {
-        "tool": "blender_py",
+        "tool": "blender_rt_watch",
         "aspect": "timeoutAbort",
         "status": "PASS",
-        "evidence": "reject: 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_run（submit → wait/collect 按 jobId 回收）；本插件的内部超时通常先于宿主截止触发，正常情况看到"
+        "evidence": "resolve: WATCH 无头异常 · Error: 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job 并按 runId 回收；本插件的内部超时通常先于宿主截止触发，正常情况看"
       },
       {
-        "tool": "blender_see",
+        "tool": "blender_rt_cmd",
         "aspect": "timeoutAbort",
         "status": "PASS",
-        "evidence": "resolve: SEE viewport 失败 · 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_run（submit → wait/collect 按 jobId 回收）；本插件的内部超"
+        "evidence": "reject: 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job 并按 runId 回收；本插件的内部超时通常先于宿主截止触发，正常情况看到的是上面这类可读错误。"
       },
       {
-        "tool": "blender_run",
+        "tool": "blender_rt_commands",
         "aspect": "timeoutAbort",
         "status": "PASS",
-        "evidence": "resolve: RUN list 失败 · Gateway 不可达 · 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_run（submit → wait/collect 按 jobId 回"
+        "evidence": "reject: 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job 并按 runId 回收；本插件的内部超时通常先于宿主截止触发，正常情况看到的是上面这类可读错误。"
       },
       {
-        "tool": "blender_inspect",
+        "tool": "blender_rt_loop",
         "aspect": "timeoutAbort",
         "status": "PASS",
-        "evidence": "resolve: INSPECT help 失败 · 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_run（submit → wait/collect 按 jobId 回收）；本插件的内部超"
+        "evidence": "reject: 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job 并按 runId 回收；本插件的内部超时通常先于宿主截止触发，正常情况看到的是上面这类可读错误。"
       },
       {
-        "tool": "blender_session",
+        "tool": "blender_rt_perf",
+        "aspect": "timeoutAbort",
+        "status": "PASS",
+        "evidence": "reject: 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job 并按 runId 回收；本插件的内部超时通常先于宿主截止触发，正常情况看到的是上面这类可读错误。"
+      },
+      {
+        "tool": "blender_rt_opt",
+        "aspect": "timeoutAbort",
+        "status": "PASS",
+        "evidence": "reject: 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job 并按 runId 回收；本插件的内部超时通常先于宿主截止触发，正常情况看到的是上面这类可读错误。"
+      },
+      {
+        "tool": "blender_rt_headless",
+        "aspect": "timeoutAbort",
+        "status": "PASS",
+        "evidence": "resolve: ⏳ 已后台化（**不是失败**）· 客户端等待窗口到点或宿主取消：宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job 并按 runId 回收；本插件的内部超时通常先"
+      },
+      {
+        "tool": "blender_rt_plan",
+        "aspect": "timeoutAbort",
+        "status": "PASS",
+        "evidence": "reject: 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job 并按 runId 回收；本插件的内部超时通常先于宿主截止触发，正常情况看到的是上面这类可读错误。"
+      },
+      {
+        "tool": "blender_rt_worker",
+        "aspect": "timeoutAbort",
+        "status": "PASS",
+        "evidence": "reject: 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job 并按 runId 回收；本插件的内部超时通常先于宿主截止触发，正常情况看到的是上面这类可读错误。"
+      },
+      {
+        "tool": "blender_rt_txn",
+        "aspect": "timeoutAbort",
+        "status": "PASS",
+        "evidence": "reject: 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job 并按 runId 回收；本插件的内部超时通常先于宿主截止触发，正常情况看到的是上面这类可读错误。"
+      },
+      {
+        "tool": "blender_rt_preset",
+        "aspect": "timeoutAbort",
+        "status": "PASS",
+        "evidence": "reject: 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job 并按 runId 回收；本插件的内部超时通常先于宿主截止触发，正常情况看到的是上面这类可读错误。"
+      },
+      {
+        "tool": "blender_rt_job",
+        "aspect": "timeoutAbort",
+        "status": "PASS",
+        "evidence": "reject: 宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job 并按 runId 回收；本插件的内部超时通常先于宿主截止触发，正常情况看到的是上面这类可读错误。"
+      },
+      {
+        "tool": "blender_viewport",
+        "aspect": "timeoutAbort",
+        "status": "PASS",
+        "evidence": "resolve: {\"running\":false,\"url\":\"http://127.0.0.1:7002/\",\"error\":\"宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。服务端任务可能仍在跑 —— 长任务请用 blender_rt_job"
+      },
+      {
+        "tool": "blender_rt_see",
         "aspect": "presenter",
         "status": "PASS",
-        "evidence": "presentCall=Blender 会话 · list；presentResult=undefined(无信封/无代码 → 宿主通用卡片)"
+        "evidence": "presentCall=Blender 看视口 · 320px；presentResult=undefined(无信封/无代码 → 宿主通用卡片)"
       },
       {
-        "tool": "blender_op",
+        "tool": "blender_rt_do",
         "aspect": "presenter",
         "status": "PASS",
-        "evidence": "presentCall=Blender 算子 · plan · catalog；presentResult=undefined(无信封/无代码 → 宿主通用卡片)"
+        "evidence": "presentCall=Blender 执行 Python · print(1)；presentResult=card(1 blocks)"
       },
       {
-        "tool": "blender_py",
+        "tool": "blender_rt_watch",
         "aspect": "presenter",
         "status": "PASS",
-        "evidence": "presentCall=Blender 执行 Python · x = 1；presentResult=card(1 blocks)"
+        "evidence": "presentCall=Blender 连续观察 · 0.2s · 1fps · x = 1；presentResult=card(2 blocks)"
       },
       {
-        "tool": "blender_see",
+        "tool": "blender_rt_cmd",
         "aspect": "presenter",
         "status": "PASS",
-        "evidence": "presentCall=Blender 看视口 · viewport · frame · 1024px；presentResult=undefined(无信封/无代码 → 宿主通用卡片)"
+        "evidence": "presentCall=Blender 命令 · get_scene_info · {a}；presentResult=undefined(无信封/无代码 → 宿主通用卡片)"
       },
       {
-        "tool": "blender_run",
+        "tool": "blender_rt_commands",
+        "aspect": "presenter",
+        "status": "PASS",
+        "evidence": "presentCall=Blender 命令清单；presentResult=undefined(无信封/无代码 → 宿主通用卡片)"
+      },
+      {
+        "tool": "blender_rt_loop",
+        "aspect": "presenter",
+        "status": "PASS",
+        "evidence": "presentCall=Blender 内环 · status；presentResult=undefined(无信封/无代码 → 宿主通用卡片)"
+      },
+      {
+        "tool": "blender_rt_perf",
+        "aspect": "presenter",
+        "status": "PASS",
+        "evidence": "presentCall=Blender 性能 · status；presentResult=undefined(无信封/无代码 → 宿主通用卡片)"
+      },
+      {
+        "tool": "blender_rt_opt",
+        "aspect": "presenter",
+        "status": "PASS",
+        "evidence": "presentCall=Blender 精简 · join；presentResult=undefined(无信封/无代码 → 宿主通用卡片)"
+      },
+      {
+        "tool": "blender_rt_headless",
+        "aspect": "presenter",
+        "status": "PASS",
+        "evidence": "presentCall=Blender 无头 · print(1)；presentResult=card(1 blocks)"
+      },
+      {
+        "tool": "blender_rt_plan",
+        "aspect": "presenter",
+        "status": "PASS",
+        "evidence": "presentCall=Blender 规划 · catalog；presentResult=card(1 blocks)"
+      },
+      {
+        "tool": "blender_rt_worker",
+        "aspect": "presenter",
+        "status": "PASS",
+        "evidence": "presentCall=Blender 热会话 · start · w1；presentResult=undefined(无信封/无代码 → 宿主通用卡片)"
+      },
+      {
+        "tool": "blender_rt_txn",
+        "aspect": "presenter",
+        "status": "PASS",
+        "evidence": "presentCall=Blender 事务 · list；presentResult=undefined(无信封/无代码 → 宿主通用卡片)"
+      },
+      {
+        "tool": "blender_rt_preset",
+        "aspect": "presenter",
+        "status": "PASS",
+        "evidence": "presentCall=Blender 配方 · list；presentResult=undefined(无信封/无代码 → 宿主通用卡片)"
+      },
+      {
+        "tool": "blender_rt_job",
         "aspect": "presenter",
         "status": "PASS",
         "evidence": "presentCall=Blender 作业 · list；presentResult=undefined(无信封/无代码 → 宿主通用卡片)"
       },
       {
-        "tool": "blender_inspect",
+        "tool": "blender_viewport",
         "aspect": "presenter",
         "status": "PASS",
-        "evidence": "presentCall=Blender 只读检查 · 命令目录；presentResult=undefined(无信封/无代码 → 宿主通用卡片)"
+        "evidence": "presentCall=Blender 通道 · status；presentResult=undefined(无信封/无代码 → 宿主通用卡片)"
       },
       {
-        "tool": "blender_session",
+        "tool": "blender_rt_see",
+        "aspect": "lossless",
+        "status": "PASS",
+        "evidence": "snapshotJsonValue 通过；JSON round-trip 等价；image,text"
+      },
+      {
+        "tool": "blender_rt_do",
         "aspect": "lossless",
         "status": "PASS",
         "evidence": "snapshotJsonValue 通过；JSON round-trip 等价；text"
       },
       {
-        "tool": "blender_op",
+        "tool": "blender_rt_watch",
+        "aspect": "lossless",
+        "status": "PASS",
+        "evidence": "snapshotJsonValue 通过；JSON round-trip 等价；images,text"
+      },
+      {
+        "tool": "blender_rt_cmd",
+        "aspect": "lossless",
+        "status": "PASS",
+        "evidence": "snapshotJsonValue 通过；JSON round-trip 等价；text"
+      },
+      {
+        "tool": "blender_rt_commands",
+        "aspect": "lossless",
+        "status": "PASS",
+        "evidence": "snapshotJsonValue 通过；JSON round-trip 等价；text"
+      },
+      {
+        "tool": "blender_rt_loop",
+        "aspect": "lossless",
+        "status": "PASS",
+        "evidence": "snapshotJsonValue 通过；JSON round-trip 等价；text"
+      },
+      {
+        "tool": "blender_rt_perf",
+        "aspect": "lossless",
+        "status": "PASS",
+        "evidence": "snapshotJsonValue 通过；JSON round-trip 等价；text"
+      },
+      {
+        "tool": "blender_rt_opt",
+        "aspect": "lossless",
+        "status": "PASS",
+        "evidence": "snapshotJsonValue 通过；JSON round-trip 等价；text"
+      },
+      {
+        "tool": "blender_rt_headless",
         "aspect": "lossless",
         "status": "PASS",
         "evidence": "snapshotJsonValue 通过；JSON round-trip 等价；envelope,text"
       },
       {
-        "tool": "blender_py",
+        "tool": "blender_rt_plan",
+        "aspect": "lossless",
+        "status": "PASS",
+        "evidence": "snapshotJsonValue 通过；JSON round-trip 等价；envelope,text"
+      },
+      {
+        "tool": "blender_rt_worker",
         "aspect": "lossless",
         "status": "PASS",
         "evidence": "snapshotJsonValue 通过；JSON round-trip 等价；text"
       },
       {
-        "tool": "blender_see",
+        "tool": "blender_rt_txn",
         "aspect": "lossless",
         "status": "PASS",
         "evidence": "snapshotJsonValue 通过；JSON round-trip 等价；text"
       },
       {
-        "tool": "blender_run",
+        "tool": "blender_rt_preset",
         "aspect": "lossless",
         "status": "PASS",
         "evidence": "snapshotJsonValue 通过；JSON round-trip 等价；text"
       },
       {
-        "tool": "blender_inspect",
+        "tool": "blender_rt_job",
         "aspect": "lossless",
         "status": "PASS",
         "evidence": "snapshotJsonValue 通过；JSON round-trip 等价；text"
       },
       {
-        "tool": "blender_py",
+        "tool": "blender_viewport",
+        "aspect": "lossless",
+        "status": "PASS",
+        "evidence": "snapshotJsonValue 通过；JSON round-trip 等价；string(634 chars)"
+      },
+      {
+        "tool": "blender_rt_see",
         "aspect": "sessionFallback",
         "status": "PASS",
-        "evidence": "Blender 未附着：没有 ready 的 GUI 会话（不会自动启动 Blender 或转 headless）"
+        "evidence": "无头 see（Workbench 离屏，GUI 未连接自动降级）· 3ms · 1x1 · 70B · 场景与用户视口未改动"
       },
       {
-        "tool": "blender_see",
+        "tool": "blender_rt_do",
         "aspect": "sessionFallback",
         "status": "PASS",
-        "evidence": "Blender 未附着：没有 ready 的 GUI 会话（不会自动启动 Blender 或转 headless）"
+        "evidence": "ACT(session=w1) ok · 3ms"
       },
       {
-        "tool": "blender_session",
+        "tool": "blender_rt_watch",
         "aspect": "sessionFallback",
-        "status": "N/A",
-        "evidence": "工具的失败路径已由 backendUnreachable / paramError 覆盖",
-        "reason": "3.1 没有 GUI→headless 自动降级：session 是会话面，op=catalog/dry_run 与 inspect 是只读面，run 直接提交队列"
+        "status": "PASS",
+        "evidence": "WATCH(headless) 0 帧 · 不同画面 0/0 · 0ms"
       },
       {
-        "tool": "blender_op",
+        "tool": "blender_rt_loop",
         "aspect": "sessionFallback",
-        "status": "N/A",
-        "evidence": "工具的失败路径已由 backendUnreachable / paramError 覆盖",
-        "reason": "3.1 没有 GUI→headless 自动降级：session 是会话面，op=catalog/dry_run 与 inspect 是只读面，run 直接提交队列"
+        "status": "PASS",
+        "evidence": "LOOP start (session=dsh-loop) ok · \"fake exec\""
       },
       {
-        "tool": "blender_run",
+        "tool": "blender_rt_plan",
         "aspect": "sessionFallback",
-        "status": "N/A",
-        "evidence": "工具的失败路径已由 backendUnreachable / paramError 覆盖",
-        "reason": "3.1 没有 GUI→headless 自动降级：session 是会话面，op=catalog/dry_run 与 inspect 是只读面，run 直接提交队列"
+        "status": "PASS",
+        "evidence": "PLAN catalog 无头执行失败 · 该 plan op 没有无头映射（先 op=\"catalog\" 查，或走 GUI 通道）"
       },
       {
-        "tool": "blender_inspect",
+        "tool": "blender_rt_worker",
+        "aspect": "sessionFallback",
+        "status": "PASS",
+        "evidence": "WORKER exec ok · 3ms"
+      },
+      {
+        "tool": "blender_rt_headless",
+        "aspect": "sessionFallback",
+        "status": "PASS",
+        "evidence": "HEADLESS ok · status=done"
+      },
+      {
+        "tool": "blender_rt_cmd",
         "aspect": "sessionFallback",
         "status": "N/A",
-        "evidence": "工具的失败路径已由 backendUnreachable / paramError 覆盖",
-        "reason": "3.1 没有 GUI→headless 自动降级：session 是会话面，op=catalog/dry_run 与 inspect 是只读面，run 直接提交队列"
+        "evidence": "schema 无 session 参数；成功/失败路径已在其它方面覆盖",
+        "reason": "工具 schema 无 session 参数，只走 GUI addon 的 /cmd 通道，不路由 worker"
+      },
+      {
+        "tool": "blender_rt_commands",
+        "aspect": "sessionFallback",
+        "status": "N/A",
+        "evidence": "schema 无 session 参数；成功/失败路径已在其它方面覆盖",
+        "reason": "只读目录来自 GUI addon /commands，无 session 概念"
+      },
+      {
+        "tool": "blender_rt_perf",
+        "aspect": "sessionFallback",
+        "status": "N/A",
+        "evidence": "schema 无 session 参数；成功/失败路径已在其它方面覆盖",
+        "reason": "perf 只有 GUI addon /perf 通道，无 session 参数"
+      },
+      {
+        "tool": "blender_rt_opt",
+        "aspect": "sessionFallback",
+        "status": "N/A",
+        "evidence": "schema 无 session 参数；成功/失败路径已在其它方面覆盖",
+        "reason": "opt 只有 GUI addon /opt 通道，无 session 参数"
+      },
+      {
+        "tool": "blender_rt_txn",
+        "aspect": "sessionFallback",
+        "status": "N/A",
+        "evidence": "schema 无 session 参数；成功/失败路径已在其它方面覆盖",
+        "reason": "txn 只有 GUI addon /txn 通道，无 session 参数"
+      },
+      {
+        "tool": "blender_rt_preset",
+        "aspect": "sessionFallback",
+        "status": "N/A",
+        "evidence": "schema 无 session 参数；成功/失败路径已在其它方面覆盖",
+        "reason": "preset 只有 GUI addon /preset 通道，无 session 参数"
+      },
+      {
+        "tool": "blender_rt_job",
+        "aspect": "sessionFallback",
+        "status": "N/A",
+        "evidence": "schema 无 session 参数；成功/失败路径已在其它方面覆盖",
+        "reason": "job 自己就是后台作业通道（/job），schema 无 session 参数，无头降级不适用"
+      },
+      {
+        "tool": "blender_viewport",
+        "aspect": "sessionFallback",
+        "status": "N/A",
+        "evidence": "schema 无 session 参数；成功/失败路径已在其它方面覆盖",
+        "reason": "GUI 运维工具（/status、/launch、/doctor），schema 无 session 参数，不路由无头 worker"
       }
     ]
   },
@@ -386,19 +769,19 @@
         "route": "/health",
         "aspect": "normal",
         "status": "PASS",
-        "evidence": "200 application/json · ok=true lease.active=false backend.pid=43856"
+        "evidence": "200 application/json · ok=true lease.active=false backend.pid=43828"
       },
       {
         "route": "/status",
         "aspect": "normal",
         "status": "PASS",
-        "evidence": "200 application/json · ok=true plugin.version=3.1.0"
+        "evidence": "200 application/json · ok=true plugin.version=3.0.6"
       },
       {
         "route": "/doctor",
         "aspect": "normal",
         "status": "PASS",
-        "evidence": "200 application/json · ok=true config.http=127.0.0.1:13272"
+        "evidence": "200 application/json · ok=true config.http=127.0.0.1:2724"
       },
       {
         "route": "/launch",
@@ -446,7 +829,7 @@
         "route": "/commands",
         "aspect": "normal",
         "status": "PASS",
-        "evidence": "200 application/json · ok=true total=25"
+        "evidence": "200 application/json · ok=true total=38"
       },
       {
         "route": "/cmd",
@@ -1132,171 +1515,179 @@
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：200）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/status",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：200）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/doctor",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：200）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/launch",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/who",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：200）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/lease",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/release",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/frame",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：410）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/frame.png",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：200）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/act",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/commands",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：200）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/cmd",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/loop",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/perf",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/opt",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/view",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/headless",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/plan",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/worker",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/txn",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/preset",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       },
       {
         "route": "/job",
         "aspect": "cors",
         "status": "N/A",
         "evidence": "已断言响应无 access-control-allow-origin（非 500：404）",
-        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md）：非 host 路由按设计不设 CORS"
+        "reason": "CORS 头只属于 /host/* 宿主集成契约（docs/宿主集成-接口契约-v2.3增补.md §S1）；非 host 路由按设计不设 CORS"
       }
     ]
   },
   "commands": {
-    "registered": 25,
-    "wire": 26,
-    "catalog": 25,
+    "registered": 38,
+    "wire": 39,
+    "catalog": 38,
     "wireCommands": [
       "bpy_api_lookup",
+      "create_hunyuan_job",
+      "create_rodin_job",
       "describe_node_type",
+      "download_polyhaven_asset",
+      "download_polypizza_model",
+      "download_sketchfab_model",
+      "drain_human_activity",
       "execute_code",
+      "export_scene",
       "get_activity_state",
       "get_addon_info",
       "get_collections",
       "get_hunyuan3d_status",
       "get_hyper3d_status",
       "get_object_info",
+      "get_polyhaven_asset_preview",
       "get_polyhaven_categories",
       "get_polyhaven_status",
       "get_polypizza_status",
@@ -1304,8 +1695,11 @@
       "get_selection",
       "get_sketchfab_model_preview",
       "get_sketchfab_status",
+      "get_telemetry_consent",
       "get_viewport_screenshot",
       "get_world_state_snapshot",
+      "import_generated_asset",
+      "import_generated_asset_hunyuan",
       "ping",
       "poll_hunyuan_job_status",
       "poll_rodin_job_status",
@@ -1313,10 +1707,12 @@
       "search_polypizza_models",
       "search_sketchfab_models",
       "send_collection_to_dsh",
-      "send_selection_to_dsh"
+      "send_selection_to_dsh",
+      "set_telemetry_consent",
+      "set_texture"
     ],
-    "catalogOnly": [],
-    "registryOnly": [],
+    "catalogOnly": ["ping"],
+    "registryOnly": ["get_polyhaven_asset_preview"],
     "rows": [
       {
         "index": 1,
@@ -1411,6 +1807,16 @@
       },
       {
         "index": 9,
+        "command": "drain_human_activity",
+        "params": {},
+        "gate": null,
+        "pause_safe": true,
+        "catalog": "catalog",
+        "handler": "addon.dsh_blender_bridge.commands.activity.ActivityCommands.drain_human_activity",
+        "envelope": "flat success {status:success,result} / error {status:error,message}"
+      },
+      {
+        "index": 10,
         "command": "get_activity_state",
         "params": {},
         "gate": null,
@@ -1420,7 +1826,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 10,
+        "index": 11,
         "command": "get_selection",
         "params": {},
         "gate": null,
@@ -1430,7 +1836,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 11,
+        "index": 12,
         "command": "send_selection_to_dsh",
         "params": {
           "timeout": 1
@@ -1442,7 +1848,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 12,
+        "index": 13,
         "command": "get_collections",
         "params": {
           "limit": 5
@@ -1454,7 +1860,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 13,
+        "index": 14,
         "command": "send_collection_to_dsh",
         "params": {
           "collection": "SetA",
@@ -1467,7 +1873,29 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 14,
+        "index": 15,
+        "command": "get_telemetry_consent",
+        "params": {},
+        "gate": null,
+        "pause_safe": true,
+        "catalog": "catalog",
+        "handler": "addon.dsh_blender_bridge.commands.telemetry.TelemetryCommands.get_telemetry_consent",
+        "envelope": "flat success {status:success,result} / error {status:error,message}"
+      },
+      {
+        "index": 16,
+        "command": "set_telemetry_consent",
+        "params": {
+          "consent": true
+        },
+        "gate": null,
+        "pause_safe": false,
+        "catalog": "catalog",
+        "handler": "addon.dsh_blender_bridge.commands.telemetry.TelemetryCommands.set_telemetry_consent",
+        "envelope": "flat success {status:success,result} / error {status:error,message}"
+      },
+      {
+        "index": 17,
         "command": "get_polyhaven_status",
         "params": {},
         "gate": null,
@@ -1477,7 +1905,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 15,
+        "index": 18,
         "command": "get_hyper3d_status",
         "params": {},
         "gate": null,
@@ -1487,7 +1915,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 16,
+        "index": 19,
         "command": "get_sketchfab_status",
         "params": {},
         "gate": null,
@@ -1497,7 +1925,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 17,
+        "index": 20,
         "command": "get_polypizza_status",
         "params": {},
         "gate": null,
@@ -1507,7 +1935,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 18,
+        "index": 21,
         "command": "get_hunyuan3d_status",
         "params": {},
         "gate": null,
@@ -1517,7 +1945,20 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 19,
+        "index": 22,
+        "command": "export_scene",
+        "params": {
+          "filepath": "/tmp/out.glb",
+          "format": "glb"
+        },
+        "gate": null,
+        "pause_safe": false,
+        "catalog": "catalog",
+        "handler": "addon.dsh_blender_bridge.commands.scene.export.SceneExportMixin.export_scene",
+        "envelope": "flat success {status:success,result} / error {status:error,message}"
+      },
+      {
+        "index": 23,
         "command": "get_polyhaven_categories",
         "params": {
           "asset_type": "models"
@@ -1529,7 +1970,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 20,
+        "index": 24,
         "command": "search_polyhaven_assets",
         "params": {
           "asset_type": "models"
@@ -1541,7 +1982,57 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 21,
+        "index": 25,
+        "command": "download_polyhaven_asset",
+        "params": {
+          "asset_id": "asset-1",
+          "asset_type": "models"
+        },
+        "gate": "dshbb_use_polyhaven",
+        "pause_safe": false,
+        "catalog": "catalog",
+        "handler": "addon.dsh_blender_bridge.commands.polyhaven.download.PolyHavenDownloadMixin.download_polyhaven_asset",
+        "envelope": "flat success {status:success,result} / error {status:error,message}"
+      },
+      {
+        "index": 26,
+        "command": "get_polyhaven_asset_preview",
+        "params": {
+          "asset_id": "asset-1"
+        },
+        "gate": "dshbb_use_polyhaven",
+        "pause_safe": true,
+        "catalog": "off-catalog",
+        "handler": "addon.dsh_blender_bridge.commands.assets_polyhaven.PolyHavenCommands.get_polyhaven_asset_preview",
+        "envelope": "flat success {status:success,result} / error {status:error,message}"
+      },
+      {
+        "index": 27,
+        "command": "set_texture",
+        "params": {
+          "object_name": "Cube",
+          "texture_id": "tex-1"
+        },
+        "gate": "dshbb_use_polyhaven",
+        "pause_safe": false,
+        "catalog": "catalog",
+        "handler": "addon.dsh_blender_bridge.commands.material.MaterialCommands.set_texture",
+        "envelope": "flat success {status:success,result} / error {status:error,message}"
+      },
+      {
+        "index": 28,
+        "command": "create_rodin_job",
+        "params": {
+          "text_prompt": "a cube"
+        },
+        "gate": "dshbb_use_hyper3d",
+        "pause_safe": false,
+        "catalog": "catalog",
+        "handler": "addon.dsh_blender_bridge.commands.hyper3d.submit.Hyper3DSubmitCommands.create_rodin_job",
+        "envelope": "flat success {status:success,result} / error {status:error,message}"
+      },
+      {
+        "index": 29,
         "command": "poll_rodin_job_status",
         "params": {
           "subscription_key": "sub-1"
@@ -1553,7 +2044,17 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 22,
+        "index": 30,
+        "command": "import_generated_asset",
+        "params": {},
+        "gate": "dshbb_use_hyper3d",
+        "pause_safe": false,
+        "catalog": "catalog",
+        "handler": "addon.dsh_blender_bridge.commands.hyper3d.importing.Hyper3DImportCommands.import_generated_asset",
+        "envelope": "flat success {status:success,result} / error {status:error,message}"
+      },
+      {
+        "index": 31,
         "command": "search_sketchfab_models",
         "params": {
           "query": "chair"
@@ -1565,7 +2066,7 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 23,
+        "index": 32,
         "command": "get_sketchfab_model_preview",
         "params": {
           "uid": "uid-1"
@@ -1577,7 +2078,19 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 24,
+        "index": 33,
+        "command": "download_sketchfab_model",
+        "params": {
+          "uid": "uid-1"
+        },
+        "gate": "dshbb_use_sketchfab",
+        "pause_safe": false,
+        "catalog": "catalog",
+        "handler": "addon.dsh_blender_bridge.commands.sketchfab.download.SketchfabCommands.download_sketchfab_model",
+        "envelope": "flat success {status:success,result} / error {status:error,message}"
+      },
+      {
+        "index": 34,
         "command": "search_polypizza_models",
         "params": {
           "query": "chair"
@@ -1589,7 +2102,31 @@
         "envelope": "flat success {status:success,result} / error {status:error,message}"
       },
       {
-        "index": 25,
+        "index": 35,
+        "command": "download_polypizza_model",
+        "params": {
+          "model_id": "model-1"
+        },
+        "gate": "dshbb_use_polypizza",
+        "pause_safe": false,
+        "catalog": "catalog",
+        "handler": "addon.dsh_blender_bridge.commands.polypizza.download.PolypizzaCommands.download_polypizza_model",
+        "envelope": "flat success {status:success,result} / error {status:error,message}"
+      },
+      {
+        "index": 36,
+        "command": "create_hunyuan_job",
+        "params": {
+          "text_prompt": "a cube"
+        },
+        "gate": "dshbb_use_hunyuan3d",
+        "pause_safe": false,
+        "catalog": "catalog",
+        "handler": "addon.dsh_blender_bridge.commands.hunyuan.submit.HunyuanSubmitCommands.create_hunyuan_job",
+        "envelope": "flat success {status:success,result} / error {status:error,message}"
+      },
+      {
+        "index": 37,
         "command": "poll_hunyuan_job_status",
         "params": {
           "job_id": "job-1"
@@ -1599,12 +2136,22 @@
         "catalog": "catalog",
         "handler": "addon.dsh_blender_bridge.commands.hunyuan.poll.HunyuanPollCommands.poll_hunyuan_job_status",
         "envelope": "flat success {status:success,result} / error {status:error,message}"
+      },
+      {
+        "index": 38,
+        "command": "import_generated_asset_hunyuan",
+        "params": {},
+        "gate": "dshbb_use_hunyuan3d",
+        "pause_safe": false,
+        "catalog": "catalog",
+        "handler": "addon.dsh_blender_bridge.commands.hunyuan.importing.HunyuanImportCommands.import_generated_asset_hunyuan",
+        "envelope": "flat success {status:success,result} / error {status:error,message}"
       }
     ]
   },
   "behaviorMatrix": {
-    "total": 324,
-    "covered": 322,
+    "total": 346,
+    "covered": 344,
     "planned": 0,
     "exempt": 2
   }

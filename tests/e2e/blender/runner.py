@@ -1,12 +1,10 @@
 """Executed INSIDE a real Blender 4.2 process by harness.py (background mode).
 
-Steps: install the committed extension zip into a throw-away user extension repo
--> enable via the bl_ext namespace -> get_addon_info -> bpy execute -> selection
-POST to an in-process fake DSH backend -> pause gate -> uninstall.
+Steps: install the committed zip -> enable -> get_addon_info -> bpy execute ->
+selection POST to an in-process fake DSH backend -> pause gate -> uninstall.
 Writes a JSON check report; raises when a check fails so Blender exits non-zero.
 """
 
-import importlib
 import json
 import os
 import sys
@@ -17,16 +15,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import addon_utils
 import bpy
 
-PACKAGE_ROOT = "dsh_blender_bridge"
-EXTENSION_REPO = "user_default"
-PACKAGE_NAME = "bl_ext.user_default.dsh_blender_bridge"
-
-
-def extension_repo():
-    for index, repo in enumerate(bpy.context.preferences.extensions.repos):
-        if repo.module == EXTENSION_REPO:
-            return index, repo
-    raise RuntimeError("Blender user extension repository user_default is unavailable")
+PACKAGE_NAME = "dsh_blender_bridge"
 
 
 def main():
@@ -45,43 +34,34 @@ def main():
 
         return decorate
 
-    # 1. Install the zip into the throw-away user extension repository.
-    @check("install_extension")
+    # 1. Install the zip into a throw-away BLENDER_USER_SCRIPTS directory.
+    @check("install_zip")
     def _install():
-        _index, repo = extension_repo()
-        result = bpy.ops.extensions.package_install_files(
-            filepath=zip_path,
-            repo=EXTENSION_REPO,
-            enable_on_install=True,
-            overwrite=True,
-        )
-        package_dir = os.path.join(repo.directory, PACKAGE_ROOT)
-        return {
-            "operator_result": sorted(result),
-            "extension_dir": repo.directory,
-            "package_dir": package_dir,
-            "installed": result == {"FINISHED"} and os.path.isdir(package_dir),
-        }
+        result = bpy.ops.preferences.addon_install(filepath=zip_path, overwrite=True)
+        addon_dir = bpy.utils.user_resource("SCRIPTS", path="addons", create=True)
+        return {"operator_result": sorted(result), "addons_dir": addon_dir,
+                "installed": result == {"FINISHED"}}
 
     # 2. Enable it and read the registration/version surface.
     @check("enable_addon")
     def _enable():
         module = addon_utils.enable(PACKAGE_NAME, default_set=True)
         enabled = addon_utils.check(PACKAGE_NAME)
-        addon = importlib.import_module(PACKAGE_NAME)
-        command_registry = importlib.import_module(PACKAGE_NAME + ".command_registry")
+        import dsh_blender_bridge as addon
+        from dsh_blender_bridge import command_registry
         return {
-            "module": module.__name__ if module is not None else None,
             "module_file": addon.__file__,
             "enabled_pair": list(enabled),
+            "bl_info_version": list(addon.bl_info["version"]),
             "addon_version": list(addon.ADDON_VERSION),
             "protocol": addon.ADDON_PROTOCOL_VERSION,
             "commands": len(command_registry.COMMAND_NAMES),
             "scene_prop": hasattr(bpy.types.Scene, "dshbb_port"),
         }
 
-    server_module = importlib.import_module(PACKAGE_NAME + ".server")
-    server = server_module.DSHBlenderBridgeServer()
+    from dsh_blender_bridge.server import DSHBlenderBridgeServer
+
+    server = DSHBlenderBridgeServer(port=0)
 
     # 3. get_addon_info through the real dispatch path.
     @check("get_addon_info")
@@ -155,12 +135,12 @@ def main():
     def _unknown():
         return server.execute_command({"type": "definitely_not_a_command", "params": {}})
 
-    # 8. Uninstall: disable, check no scene props / timers, remove the extension.
+    # 8. Uninstall: disable, check no scene props / timers, remove the package dir.
     @check("uninstall")
     def _uninstall():
         server.stop()
-        index, repo = extension_repo()
-        package_dir = os.path.join(repo.directory, PACKAGE_ROOT)
+        addons_dir = bpy.utils.user_resource("SCRIPTS", path="addons", create=True)
+        package_dir = os.path.join(addons_dir, PACKAGE_NAME)
         config_module = sys.modules.get(PACKAGE_NAME + ".config")
         addon_module = sys.modules.get(PACKAGE_NAME)
         owned_timers = [timer for timer in (
@@ -174,30 +154,26 @@ def main():
             "pause_prop": hasattr(bpy.types.Scene, "dshbb_ai_paused"),
             "selection_prop": hasattr(bpy.types.Scene, "dshbb_selection_items"),
         }
-        uninstall_error = None
+        # The user-visible "Remove" is a UI operator. In background mode Blender's
+        # own operator raises AttributeError on context.area.tag_redraw(); record
+        # that honestly and finish the file removal directly for the headless run.
+        # The GUI probe (tests/e2e/gui) exercises the operator with a real area.
+        remove_error = None
         try:
-            result = bpy.ops.extensions.package_uninstall(
-                repo_directory=repo.directory,
-                repo_index=index,
-                pkg_id=PACKAGE_ROOT,
-            )
-        except (RuntimeError, AttributeError) as exc:
-            # Blender's UI operator can fail on a redraw in background mode; the
-            # report keeps the error instead of hiding it.
-            uninstall_error = str(exc)
-            result = set()
+            bpy.ops.preferences.addon_remove(module=PACKAGE_NAME)
+        except RuntimeError as exc:
+            remove_error = str(exc)
         if os.path.isdir(package_dir):
             import shutil
             shutil.rmtree(package_dir, ignore_errors=True)
         return {
-            "operator_result": sorted(result),
             "residue": residue,
             "owned_timers": [getattr(timer, "__name__", repr(timer)) for timer in owned_timers],
             "timer_registered": timer_registered,
             "package_dir_before_remove": package_dir,
             "package_dir_removed": not os.path.isdir(package_dir),
             "still_enabled": addon_utils.check(PACKAGE_NAME),
-            "uninstall_error": uninstall_error,
+            "addon_remove_error": remove_error,
         }
 
     with open(results_path, "w", encoding="utf-8") as handle:

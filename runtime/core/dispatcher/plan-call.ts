@@ -112,7 +112,7 @@ async function handleQcRender(
       jsonl: blenderJoin(String(p.outdir || WIN_TMP), 'render_views.jsonl'),
       job: j,
       hint:
-        '长活已转作业层：blender_run(action=""status"/"collect", id="' +
+        '长活已转作业层：blender_rt_job(op="status"/"collect", id="' +
         j.id +
         '") 跟进；产物与日志在 outdir/jobs/ 下',
     }

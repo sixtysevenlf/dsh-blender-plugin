@@ -5,7 +5,7 @@
 - 行为修复（Web 客户端）：Blender 选中写入草稿成功后不再弹提示，失败提示改用自动消失的 error Toast（约 4 秒）。此前成功后调用 `notify("info", …)` 显示"已接收 Blender 选中（已加入草稿，未发送）"，而 DSH 把 `info` 渲染成输入栏里的常驻 banner（无清除接口，发送消息后仍不消失），于是横幅一旦出现就一直在（后续选中只替换文案，不会清掉）。现成功静默（草稿出现文本即是反馈），桥轮询失败首帧改用 `notify("error", …)`。回归：`tests/integration/js/client-selection-notice.test.ts`；客户端契约文档中该步骤同步改写。
 - 行为修复：`qc_compare_auto` / `qc_align_iou` 现在能真正分派。此前 catalog 声明了这两个 op，但 Python 侧 `qc_ops()` 没有对应键，调用返回 `unknown qc op`；现补 `compare_auto` 分派与 `qc_align_iou` 的路径级封装（掩膜 bbox 紧裁后算 IoU，只返回 JSON 标量）。`config/contracts.json` 的 qc `catalogExtras` 随之删除，parity 测试与 native E2E 覆盖分派成功。`qc_help` 补 `compare_auto` / `align_iou` 的签名说明，`qc_align_iou` 缺路径参数时返回明确错误，不再在 `qc_load(None)` 上失败。
 - 行为修复（addon 快照）：`get_world_state_snapshot` 的动画段在 Blender 4.4+ 的分层（layered / slotted）action 上会静默丢数据 —— `_snapshot_animation` 直接遍历 `action.fcurves`，而 5.2 已删除该属性，外层 `except Exception` 把 `AttributeError` 吞成 `{}`，`channels` / `keyframe_count` / `frame_range` 全部消失且不报错。现改走 channelbag 入口（优先 `bpy_extras.anim_utils.action_get_channelbag_for_slot`，缺失或抛错时回退 `layers → strips → channelbag(slot)` 手工遍历），按 `obj.animation_data.action_slot` 取该对象自己的曲线；去重键用 `fcurve.as_pointer()` 而不是 `(data_path, array_index)`（多对象共用一个 action 的多 slot 场景按路径去重会把两份动画并成一份）。Blender 4.3 及更早的 `Action.fcurves` 路径不变。回归：`tests/unit/python/test_addon_world_snapshot.py`（10 例，修复前全部失败）；文档侧（SKILL.md 的 A.6.5.6 / A.6.5.6a）已由 #84 合入。
-- 上述两条修复本身不改变 API / 协议 / 工具计数；3.1 的协议与计数变化见下方「3.1 addon 命令面收缩与零遥测（breaking）」等小节。
+- 无 API / 协议 / 工具计数变化（15 tools / 34 family / 228 op / addon 1.11 / protocol 11）。
 
 ### 治理
 
@@ -40,86 +40,10 @@
 - 死代码与打包：删除 5 个未使用导出、重复的 `ReceiptContext`、addon `import_model_files` 死链、未使用的 compat 函数、永不存在的 `runtime/ext/pkg.tgz` 打包条目，并清理工作区 400+ 个陈旧 `.pyc`。
 - 文档终态：3 篇被取代文档归档到 `docs/archive/`；SKILL 标题重编号；曲面算法收敛为单一来源；addon 用户文案 MCP/Claude → Bridge（保留上游署名与 `BLENDERMCP_*` 兼容）；新增 `check:plan-ids` 与 `check:doc-paths` 的 warn→enforce 门禁，清理重构计划编号并修复文档链接/入链；`BEHAVIOR_MATRIX` 行号改为文件 + 符号并由门禁校验；SECURITY 的凭据说明改为准确描述。
 
-### 3.1 addon 命令面收缩与零遥测（breaking）
-
-- addon 命令面从 38 registered / 39 wire 收缩到 25 registered / 26 wire（18 常驻 + 7 集成门控；21 条只读 + 4 条内部传输；wire 另含 ping）。删除 9 条写命令（`export_scene`、`set_texture`、资产下载/生成导入）、3 条采集/同意命令（`get_telemetry_consent`、`set_telemetry_consent`、`drain_human_activity`）与 1 条未进 catalog 的预览命令（`get_polyhaven_asset_preview`）；旧名不再注册，调用返回 unknown command 或 `command_removed` 升级提示，不提供别名。
-- addon 零遥测：删除 telemetry consent 偏好与 Telemetry & Privacy 区块、编辑事件采集/缓冲与 `drain_human_activity`，删除 Discord / “Stay updated” / Terms 推广入口；`get_activity_state` 只保留本地内存判定，不落盘、不外发。
-- 契约同步：`command_registry.py` 的 counts、handshake capabilities、catalog（`runtime/catalog/commands.ts` 增 `access: read|internal`）、PAUSE_SAFE 列表、BEHAVIOR_MATRIX（333 rows）、JS/Python 契约测试与安装文档全部改为 25/26 口径；addon extension zip 74 entries（sha256 `db59b7fc…`）。
-
-### 3.1 virtual-gui 能力门
-
-- 新增 `features.virtualGui` 能力门（env `DSH_BLENDER_VIRTUAL_GUI`）：Windows 在 V0 验收前默认 `off`、通过后默认 `auto`；Linux/macOS 默认 `off`，Linux 仅显式 `on` 进入 preview；非法值回退 `off` 并标记 `invalid`。`/status`、`doctor` 与 `blender_session start` 共用 capabilities（enabled/preview/ready/prerequisites/missing/reason/fix）。
-- 新增 DisplayProvider 契约与选择顺序（Windows hidden-desktop → IDD fallback；Linux Xvfb+VirtualGL preview；macOS 未实现）。Windows 构建已带 W1 provider：helper 解析顺序为 env `DSH_HIDDEN_DESKTOP_HELPER` → `vendor/win-hidden-desktop` → `tools/win-hidden-desktop/out`；`blender_session start` 通过 helper 在私有 desktop 启动 Blender，代理 stdout/stderr/exit 并保留 tail，失败返回结构化 `helper_missing` / `blender_exe_missing` / `helper_exited` / `provider_timeout` 等错误，绝不回落默认 desktop；stop 由 job object 连带清理 Blender 且重复 stop 幂等。selection 只在 capabilities ready（feature 开启 + 依赖就绪）时返回 provider，否则仍 fail closed；`blender_session start` 在 feature 关闭、依赖缺失或 provider 未实现时只返回 `stage=config`，不 spawn Blender/Xvfb，也不回落 headless。
-- 依赖表收敛到 `runtime/display/prerequisites.ts`（包名/检测/安装/是否 root/复检），VirtualGL 明确 Ubuntu 24.04 无 apt 包、须官方仓库安装。
-- 发布包新增 `vendor/win-hidden-desktop` helper（Windows CI 用 MSVC 构建；`npm run check:win-helper` 校验 version/commit/sourceSha256/sha256/protocol，`--packed` 断言 npm tarball 含 exe+build.json；仓库不提交二进制）。
-- 回归：`tests/unit/js/display-capabilities.test.ts` 19 项（feature 默认与非法值、三条负向启动、provider 顺序与 Windows 选择条件、status 暴露、consent 与已有 user-gui 拒绝）；`tests/unit/js/win-hidden-desktop.test.ts` 11 项（ready/error/早退/超时、缺 helper/缺 Blender 不 spawn、stop 幂等、输出继续代理、helper 解析顺序）；真机 `tests/e2e/win_hidden_desktop_provider.mjs` 12/12（GUI 非最小化、私有 desktop、双实例隔离、stop 无孤儿；`local-workspace/5.4-windows-provider.md`）。
-
-### 3.1 virtual-gui 会话生命周期与上限
-
-- `blender_session start` 成功后的会话 id 为 `virtual-gui:<instanceId>`；只有 Gateway 拉起的那个 Blender 以同一 `instanceId` 完成 addon 握手才标记 `ready`（provider 注入 `DSHBB_INSTANCE_ID` / `DSHBB_SESSION_KIND=virtual-gui`，addon 握手按该环境报告 kind），握手超时 30 秒。provider 启动失败或握手超时会先停 provider，不留 Blender 进程或半注册会话；`stop` 只接受会话所有者，进程/会话一起清理，重复 `stop` 幂等。
-- 新增 `features.virtualGuiMax`（env `DSH_BLENDER_VIRTUAL_GUI_MAX`）实例上限，默认 4、范围 1–16；总内存 <16 GiB 或空闲 <4 GiB 时自动降为 2。超限时 `start` 在 spawn 前返回 `stage=session` / `capacity`（evidence `used`/`limit`/`configured`/`low_resource`/`reason`），不排队、不 spawn。
-- 回归：`tests/unit/js/virtual-gui-lifecycle.test.ts` 7 项（握手前不可见、握手失败清理、provider 错误结构化透传、上限、stop 幂等、attach 归属、limits clamp/低内存）；真机 `tests/e2e/virtual_gui_session.mjs` 20/20（consent 拒绝、真实 helper 启动 GUI Blender、同 instanceId 握手、display/pid、stop 无孤儿、重复 stop、缺 helper fail closed）。
-- Windows virtual-gui V0 通过 GA 验收（5.5），默认值由 `off` 翻为 `auto`：`tests/e2e/windows_ga_v0.mjs` 走默认 feature 的产品路径启动 2 个并发实例，32/32 通过（NVIDIA 硬件 GL、GPUOffScreen 800x447 截图、红/蓝材质与私有 desktop 互不串、stop 无 Blender/helper 残留、二次 stop 幂等、非管理员会话）；锁屏/RDP 作为未执行场景记录。验收同时修复多实例路由缺陷：engine 的 `addon.send` 指标包装丢弃第 4 个 `opts` 参数，导致第二个 addon 连接后带 `instanceId` 的调用报 ambiguous，现转发 opts 并加单测。
-
-### 3.1 Linux preview（Xvfb + VirtualGL）与 Blender 平台路径
-
-- 新增 Linux DisplayProvider `linux-xvfb-virtualgl`（preview）：每个实例启动独立 Xvfb `:N`，强制 X11（清除 `WAYLAND_DISPLAY`、`XDG_SESSION_TYPE=x11`、`GDK_BACKEND=x11`）；只有 `vglrun` 存在且 `/dev/dri/renderD*` 可读时才走 `vglrun -d egl` 硬件 GL，否则以 llvmpipe 软件路径启动并标 `preview-only`（capabilities 新增 `hardware_gl`）。feature 未显式 `on` 时 fail closed；Linux 必需的 `xvfb`/`blender` 与可选 `virtualgl`/`gpu-device` 在 prerequisites/missing/fix 里分开展示，可选缺失不阻塞 preview。stop 先 TERM 进程组再 KILL，清理 Blender/vglrun/Xvfb 与 socket/lock，重复 stop 幂等。
-- 新增 `tests/e2e/linux_preview_see.mjs` 与 PR CI `linux-preview-see` job（ubuntu-latest + Xvfb + Blender 4.2.10）：真实 Gateway + addon + virtual-gui 下调用 `blender_see`，断言 GUI 非 background、PNG 可解码且非全黑/非单色、stop 无孤儿、stop 后不回落 headless。WSL Ubuntu 24.04 + llvmpipe 软件链路 **22/22 PASS**（`local-workspace/5.8-linux-preview-see.json`）；llvmpipe 只证明调用链，不作硬件 GL 证据。
-- 修正 WSL 里 Linux Blender 的路径形态：Blender 侧 workDir/PNG 路径不再无条件映射成 UNC，而由 `blenderUsesWindowsPaths(platform,isWsl,blenderExe)` 判断——只有 Blender 可执行文件本身是 Windows 程序（`.exe`/盘符）时才做 WSL 映射；WSL 里的 Linux Blender 与原生 Linux/macOS 一样使用同机 POSIX 路径。此前 `blender_see` 在 WSL Linux Blender 上把 PNG 写到字面量 `\\wsl.localhost\...` 路径，随后读原路径必然 `ENOENT`（view http 502）；Windows Blender 行为不变。回归：`tests/unit/js/platform-paths.test.ts` 23 项（含 WSL+Windows/Linux Blender 决策表）。
-
-### 3.1 virtual-gui 前提引导式安装
-
-- `/doctor`（与 `/status`）的 `virtualGui` 新增 `installPlans`：由 `runtime/display/install.ts` 按发行版给出 exact 安装计划（Ubuntu 22.04/24.04、Debian 12 有 `pkexec` 时一键 `pkexec apt-get install -y xvfb`，无 polkit 降级为 `sudo` 命令；Fedora/Arch 只给命令；VirtualGL 永远只给官方仓库步骤，绝不给裸 `apt install virtualgl`；GPU 驱动只检测并给 `usermod -aG video,render`；Windows helper 随包、Blender 只给配置说明）。
-- 两个入口共用同一份计划：TUI `/blender doctor --fix` 执行支持的 one-click 后重新拉取 `/doctor` 复检，未 ready 明确返回 error；addon Preferences 的 “Install missing prerequisites” 按钮通过 `ui/install.py` 执行 Gateway 展示的 argv，失败保留 stderr 并停止，装后同样复检 `ready`。不装依赖时 `blender_session start` 仍返回 `stage=config`，不启动、不回落 headless。
-- 安全边界变化：addon 唯一新增的进程执行点是审计过的 `addon/dsh_blender_bridge/ui/install.py`，只执行 list argv、无 shell；契约测试 `tests/unit/js/contract/security.test.ts` 改为按文件断言其余模块不含 `subprocess`，并保留 `os.system` / `shell=True` 禁用。回归：`tests/unit/js/install-plans.test.ts` 11 项、`tests/integration/js/tui-commands.test.ts` 的 `doctor --fix` 用例、`tests/unit/python/test_addon_install_ui.py` 9 项。
-
-### 3.1 virtual-gui 显式授权
-
-- `blender_session start kind=virtual-gui` 首次返回 `consent_required`（stage=session，evidence.options 给出 attach/start 两个显式选项）；只有 DSH host 在用户确认后通过内部 `session action=consent` 发放一次性 30s `consent_token`，模型 tool schema 不能自行设置。start 每次重新复检：已有 ready user-gui 时返回 `session_already_available` 且不创建会话；token 缺失/无效/过期/重放都继续要求决策，不自动降级到 headless 或 GUI。回归：`tests/unit/js/display-capabilities.test.ts`、`tests/integration/js/session-api.test.ts`。
-
-### 3.1 human pause 与人改冲突
-
-- addon 现在在非 agent 窗口内记录人类改过的 Object/Collection（内存 revision，不落盘、不上传），通过 event 通道发 `human_edit`；Gateway 将其映射为 session 的 humanModified 记录。
-- 写门在 `human_modified` 时拒绝并让 agent 重读：object/collection/prefix/exclusive 按声明 scope 匹配；`blender_session mark_read` 只清除已重读的 scope，再次人改会重新阻塞。human 始终可编辑，pause 只阻止 agent 写，不自动合并、不做 per-actor undo。
-
-### 3.1 多 agent presence 与视口叠加
-
-- Gateway 保存每个 caller 的 display name、颜色、view pose、选中 session_uid、activity；视图/选中更新时通过既有内部 `execute_code` 通道把快照推给 addon，不新增工具或路由。
-- addon 新增 `presence_draw.py`：用 `SpaceView3D` 的 POST_VIEW/POST_PIXEL 绘制视锥、标签和选中包围盒；只画视口，不写场景、不改选择、不动相机/帧/用户视角；断开或卸载时静默清除 handler。
-- 回归：`tests/unit/js/presence-push.test.ts` 3 项、`tests/unit/python/test_addon_presence_draw.py` 5 项、`tests/integration/js/session-api.test.ts` 的 update_view/update_selection 推送，以及 `tests/integration/js/session-multi-agent.test.ts` 的多 agent 并发/隔离；真机 GUI E2E `tests/e2e/addon_presence_draw.mjs` 15 项（两个 agent 独立颜色/机位、view matrix 与对象/选择不变、两个 agent 并发截帧、清除后 handler 归零）。
-
 ### 开发环境
 
 - 新增 `npm run setup:dev`：自动发现 Python（`PYTHON` → `python` → `python3` → Windows `py -3`，含坏 Store alias 的兜底）、创建/复用 `.venv`、安装 `requirements-dev.txt` + `requirements-typecheck.txt`、仅在缺失时执行 `npm ci --legacy-peer-deps`，支持 `--check` / `--force`，幂等可重复执行；`.github/workflows/pr.yml` 与 `release.yml` 复用同一脚本，不再各自内联 venv 步骤。
 - `CONTRIBUTING` / `README`（中英）与 `scripts/README` 收敛到同一条开发环境命令。
-
-### 3.1 Gateway 拓扑（breaking）
-
-- 宿主负责 Gateway 生命周期，模型面不再有 launch/restart/lease 工具；Gateway 默认监听 `127.0.0.1:39877`（原 9877），端口被占时 fail closed（`port_conflict`）。
-- addon 改为**主动反向连接** Gateway（WebSocket `/addon` upgrade），不再监听 9876；断线可重连，多实例以 `instanceId` 区分；旧协议 addon 被明确拒绝，不做双栈兼容。
-- 插件版本 3.1.0 / addon 2.0.0 / protocol 12；addon 只以 Blender **Extension** 安装（`Edit ▸ Preferences ▸ Extensions ▸ Install from Disk...`），旧 zip 的 Add-ons 安装方式删除；升级后需重启 Blender。
-- 迁移与排障见 `MIGRATIONS.md` §0.1/§0.2；回归：`tests/e2e/addon_reverse_connect.mjs`（真实 Blender+Gateway 9/9，断言 addon 无 LISTENING、心跳/doctor 协议 12）、`tests/integration/js/host-gateway-lifecycle.test.ts`、`tests/unit/js/contract/ports-gate.test.ts`。
-
-### 3.1 有界作业队列与唯一作业入口
-
-- `blender_run` 是唯一作业面：`action=submit` 立即返回唯一 `jobId`，没有同步 headless / `as_job` / `wait_s` 双路径；`kind=render` 是声明式参数（支持相机 + `frames` 动画），`kind=headless` 跑脚本并回 `HEADLESS {json}`。
-- 状态机 `queued → assigned → running → completed|failed|canceled`，终态不可变、每次转移有事件；容量 pending 64 / GPU 1 / CPU 2 / 每个 virtual-gui 预留 1 GPU slot，超出返回 `QUEUE_FULL`；FIFO + priority + owner quota 的排队决策在回执里可解释。
-- 重启恢复：queued 保留，running/assigned 标 `failed`（`gateway_restart`）且不重放；`action=cancel` 幂等并清理进程树；`action=wait` 默认 120s、上限 600s，超时只回 `waitTimedOut` 不取消；`collect` 返回日志与产物；collect/cancel 只允许 owner、父 agent 或 Team Lead。
-- 旧 Cycles 性能分析保留为 `action=tune`；回归：`tests/unit/js/job-queue.test.ts`（23 项）、`tests/e2e/queue_blender.mjs`（真实 Blender 5 项，`local-workspace/6.14-queue-e2e.log`）。
-
-### 3.1 GUI 视点采集与 Python 写占用
-
-- `blender_see` 只服务 GUI：`viewpoint=viewport|camera|custom`，`mode=frame`（默认）或 `sequence`；viewport/custom 使用固定档位（1:1 544/768/1024/1280、4:3 640/960/1280、16:9 1024/1152/1280，默认 16:9+1024），非法值报错不夹取；`camera` 只允许 frame，读取当前帧 evaluated 相机与渲染比例，**不修改** `scene.camera`/当前帧/视口/选择；PANO 返回 `unsupported` 并指向 `blender_run(kind="render")`，DOF/运动模糊标 `preview_only`。
-- 新增 `current` 离屏模式：按用户当前 viewport 朝向重算目标宽高投影，不移动用户视口；真机回归 `tests/e2e/see_modes_gui.mjs` 18/18（current/camera/命名相机/PANO/序列拒绝/前后不变）。
-- `blender_py` 固定 exclusive 写占用：并发调用返回 `py_busy`（holder/started_at/retry_after），可选 `wait_ms` ≤5s；活动 grant 不按 30s TTL 过期；human pause 只拒绝新写不打断运行；事务 `blender_session(action="txn")` 的 restore/mark/revert 同样受 exclusive grant 与 human pause 约束。回归：`tests/integration/js/session-api.test.ts`。
-
-### 3.1 六工具面迁移（breaking）
-
-- 模型面从 15 个工具收口为 **6 个**：`blender_session`（会话/归属/权限/事务）、`blender_op`（catalog 与 loop/opt/preset）、`blender_py`（GUI 会话内 Python）、`blender_see`（GUI 视点截图与序列帧）、`blender_run`（唯一作业入口：render / headless）、`blender_inspect`（只读 addon 命令目录与执行）。
-- 旧名不再注册，调用会得到迁移提示；完整对照表见 `MIGRATIONS.md` §0.3：`blender_rt_see`→`blender_see`、`blender_rt_watch`→`blender_see(mode="sequence")`、`blender_rt_do`→`blender_py`、`blender_rt_plan`→`blender_op`、`blender_rt_loop/opt/preset`→`blender_op(action=…)`、`blender_rt_perf`→`blender_run(action="tune")`、`blender_rt_headless`/`blender_rt_job`→`blender_run(action="submit"/"status"/"wait"/"collect"/"cancel"/"list")`、`blender_rt_cmd`/`blender_rt_commands`→`blender_inspect`、`blender_rt_txn`→`blender_session(action="txn")`、`blender_viewport`→`blender_session`。
-- `blender_run` 是**唯一**作业提交面：submit 立即返回 job id，不再有同步 headless / `as_job` / `wait_s`；render 作业是声明式参数，不执行脚本。
-- `blender_rt_worker` 不再是对模型暴露的工具：GUI 内的「改一步看一眼」用 `blender_py` + `blender_see`；没有 GUI 时用 `blender_run(kind="headless")` 后台作业。`session="auto"`、`preload="…worker…"` 与 worker see/watch 不再出现在工具面。
-- 计数不变：34 family / 228 op / 25 addon commands（+ping = 26 wire）/ 29 routes / protocol 12；工具数 15 → 6 是本版唯一计数变化。
 
 ## v3.0.5（2026-11-04）—— 修复源码注入 __file__ 缺失
 

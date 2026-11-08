@@ -27,7 +27,7 @@ ln -s "$PLUGIN/skills/blender-modeling" ~/.dsh/skills/blender-modeling   # 或�
 
 ## 内容（v2.6 · 架构优先）
 
-- `SKILL.md` —— **插件架构优先的建模/装配作业指导书**：先 catalog → plan op（GUI 会话）→ 回执/verdict → 门/交付；含标准状态机、工具选择矩阵、参考图量测、装配修复/门/导出、白模与 Seedance 参考包、同机位 QC、缺陷评估、blender_see 序列帧、多 Agent 协议与反模式。通用 Blender 配方降为附录 A（深水参考，不是首选路径）。
+- `SKILL.md` —— **插件架构优先的建模/装配作业指导书**：先 catalog → plan op → worker session → 回执/verdict → 门/交付；含标准状态机、工具选择矩阵、参考图量测、装配修复/门/导出、白模与 Seedance 参考包、同机位 QC、缺陷评估、无头 watch、多 Agent 协议与反模式。通用 Blender 配方降为附录 A（深水参考，不是首选路径）。
 - `references/modeling-overview.md` —— 上游英文原文收录（深水参考；不替代插件架构）。
 - `references/multiview-calibration.md` —— 三视图联立标定脚本（可 `--selftest`；与 img_calib/shapesolve 配套）。
 - `references/参考图通用还原SOP.md` —— 参考图还原九步（优先 img_digest/probe/measure/calib；无标定不写 mm）。
@@ -39,7 +39,7 @@ ln -s "$PLUGIN/skills/blender-modeling" ~/.dsh/skills/blender-modeling   # 或�
 ## 许可与来源
 
 - 本目录内容：**MIT**（见 [LICENSE](LICENSE)），Copyright © 2026 sixtyseven67。
-- 派生自两个 MIT 项目（决策树 / 配方 / 坑表 / 六步总纲等），工具调用已改写为本插件 6 个模型工具的直连链：
+- 派生自两个 MIT 项目（决策树 / 配方 / 坑表 / 六步总纲等），工具调用已改写为本插件 `blender_rt_*` 直连链：
   [RobLe3/cc-blender-skill](https://github.com/RobLe3/cc-blender-skill) ·
   [arjun988/blender-skills](https://github.com/arjun988/blender-skills)。
 - 完整归属与本地改动见 [NOTICE.md](NOTICE.md)。

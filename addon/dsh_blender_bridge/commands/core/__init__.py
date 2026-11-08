@@ -7,7 +7,7 @@ import io
 from contextlib import redirect_stdout
 
 from ...assets.geometry import compute_aabb
-from ...command_registry import COMMAND_NAMES, wire_spec_rows
+from ...command_registry import COMMAND_NAMES
 from ...protocol import ADDON_NAME, ADDON_PROTOCOL_VERSION, ADDON_VERSION
 from ..scene.export import SceneExportMixin
 from .bpy_lookup import BpyApiLookupCommands
@@ -24,9 +24,6 @@ class CoreCommands(SceneExportMixin, BpyApiLookupCommands, ScreenshotCommands):
             # derive from the single command registry instead of a hardcoded
             # subset, so the handshake cannot drift from the dispatch table.
             "capabilities": sorted(COMMAND_NAMES),
-            # inspect help: args / gate / pause_safe / network for every wire
-            # command, so the host never keeps a second copy of this table.
-            "command_specs": wire_spec_rows(),
             "blender_version": bpy.app.version_string,
         }
 

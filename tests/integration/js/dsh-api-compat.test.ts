@@ -54,7 +54,7 @@ afterAll(() => fake.dispose())
 
 describe('plugin applies to the documented Cordis surface', () => {
   it('registers exactly the capability-lock tools', () => {
-    expect(expected).toHaveLength(6)
+    expect(expected).toHaveLength(15)
     expect([...tools.keys()].sort()).toEqual([...expected].sort())
     expect(Object.keys(plugin.__internals.cards.specs).sort()).toEqual([...expected].sort())
   })
@@ -94,7 +94,7 @@ describe('plugin applies to the documented Cordis surface', () => {
     expect(plugin.Config).toBeTruthy()
     expect(typeof plugin.apply).toBe('function')
     expect(typeof plugin.__internals.bundledSkill.createProvider).toBe('function')
-    expect(plugin.__internals.cards.specs.blender_session).toBeTruthy()
+    expect(plugin.__internals.cards.specs.blender_viewport).toBeTruthy()
   })
 
   it('validates the declared peer ranges against a discoverable host tree', () => {

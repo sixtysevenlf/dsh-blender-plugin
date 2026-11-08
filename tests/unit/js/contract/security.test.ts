@@ -25,16 +25,7 @@ function readTree(dir: string, ext: string): string {
     })
     .join('\n')
 }
-const addonRoot = pkgPath('addon', 'dsh_blender_bridge')
-const addonSource = readTree(addonRoot, '.py')
-function listTree(dir: string, ext: string): string[] {
-  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name)
-    if (entry.isDirectory()) return listTree(full, ext)
-    return entry.name.endsWith(ext) ? [full] : []
-  })
-}
-const addonFiles = listTree(addonRoot, '.py')
+const addonSource = readTree(pkgPath('addon', 'dsh_blender_bridge'), '.py')
 const serverSource = readTree(pkgPath('runtime', 'http'), '.ts')
 const indexSource = readTree(pkgPath('src'), '.ts')
 
@@ -134,19 +125,9 @@ describe('archive and lease security boundaries', () => {
 
   it('keeps command execution out of a shell', () => {
     expect(addonSource).not.toContain('os.system(')
+    expect(addonSource).not.toContain('subprocess')
     expect(addonSource).not.toContain('shell=True')
     expect(addonSource).toContain('handler(**params)')
-    // 3.1 guided install is the single audited place allowed to spawn a process;
-    // it executes the Gateway-displayed argv list, never a shell string.
-    const installRelative = path.join('ui', 'install.py')
-    for (const file of addonFiles) {
-      if (path.relative(addonRoot, file) === installRelative) continue
-      expect(fs.readFileSync(file, 'utf8'), file).not.toContain('subprocess')
-    }
-    const installSource = fs.readFileSync(path.join(addonRoot, 'ui', 'install.py'), 'utf8')
-    expect(installSource).toContain('runner or subprocess.run')
-    expect(installSource).not.toContain('shell=True')
-    expect(installSource).not.toContain('os.system(')
   })
 
   it('keeps write routes behind the lease gate while read-only ops bypass it', () => {

@@ -1,11 +1,11 @@
 // engine 装配：deps 上下文 + 各能力接线
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { AddonClient } from '../../transport/probes.js'
 import type { AddonClient as AddonClientType } from '../../transport/probes.js'
-import { WIN_TMP } from '../../paths.js'
+import { ADDRESS, WIN_TMP } from '../../paths.js'
 import { winToWsl } from '../../config.js'
 import { launchBlender } from '../../launch/index.js'
-import { gatewayInstances } from '../../transport/addon-ws.js'
 import { createKernel } from '../kernel/index.js'
 import { createRenderState } from '../render-state.js'
 import { createDumpResult } from '../output/index.js'
@@ -32,10 +32,7 @@ export interface EngineContext {
 }
 
 export function createEngineContext(opts: EngineOptions = {}): EngineContext {
-  const addon = opts.addonClient
-  if (!addon) {
-    throw new Error('createEngine requires a Gateway addon client (3.1): no direct addon TCP path')
-  }
+  const addon = new AddonClient((opts.address || ADDRESS) as { host: string; port: number })
   const { RENDER_FLAG_WSL, RENDER_FLAG_WIN, RENDER_STALE_MS, readRenderFlag, clearRenderFlag } =
     createRenderState({})
   // 需要 Blender 主线程的命令（ping 不在内：它走 addon 服务器线程，渲染中照样可用）
@@ -113,11 +110,7 @@ export function assembleEngine(ctx: EngineContext): {
       list: jobsApi.jobList,
       wait: jobsApi.jobWait,
     },
-    launchBlender: (o?: unknown) =>
-      launchBlender((o || {}) as Parameters<typeof launchBlender>[0], {
-        instanceCount: () =>
-          (gatewayInstances(addon) || []).filter((instance) => instance.ready).length,
-      }),
+    launchBlender: (o?: unknown) => launchBlender((o || {}) as Parameters<typeof launchBlender>[0]),
     sceneEpoch: kernel.sceneEpoch,
     renderFlag: () => readRenderFlag(),
     ...engineApi,

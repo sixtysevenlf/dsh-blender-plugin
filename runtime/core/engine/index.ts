@@ -55,8 +55,7 @@ export interface WorkerView {
 }
 
 export interface EngineOptions {
-  /** 3.1 Gateway: the only supported addon client; there is no direct TCP fallback. */
-  addonClient?: AddonClientType
+  address?: { host?: string; port?: number } | null
   [k: string]: unknown
 }
 

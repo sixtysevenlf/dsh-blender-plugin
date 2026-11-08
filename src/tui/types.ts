@@ -2,14 +2,10 @@ import type { Json } from './http.js'
 
 export type { Json }
 
-import type { HostInstallPlan, HostInstallResult } from './install.js'
-
 export interface TuiHostOptions {
   port: number
   /** 本插件的写租约 holder（页脚区分「本会话持有 / 别的会话持有」） */
   holder: string
-  /** Test seam for the doctor --fix one-click install; production uses runHostInstall. */
-  installRunner?: (plan: HostInstallPlan) => Promise<HostInstallResult>
 }
 
 export interface MentionItem {

@@ -21,7 +21,7 @@
  *     可 `require("react")`（baseline 提供，core client-ui 包同样用法）。
  *   - 所有 fetch 失败**静默降级**；`@` 候选失败返回 `[]` **不抛**。
  *   - 选中插入**不自动发送**，只填草稿。
- *   - Gateway 地址默认 http://127.0.0.1:39877，可被 ctx 配置 / localStorage 覆盖。
+ *   - 后端地址默认 http://127.0.0.1:9877，可被 ctx 配置 / localStorage 覆盖。
  */
 window.__ModuleLoader__.load({
   id: 'dsh-blender-plugin',
@@ -32,8 +32,8 @@ window.__ModuleLoader__.load({
     var React = require('react')
 
     //#region 配置
-    /** Gateway 默认地址（契约 §2.4：Gateway 127.0.0.1:39877）。 */
-    var DEFAULT_BACKEND = 'http://127.0.0.1:39877'
+    /** 后端默认地址（契约 §2.4 / AGENTS.md §2：后端 127.0.0.1:9877）。 */
+    var DEFAULT_BACKEND = 'http://127.0.0.1:9877'
     /** localStorage 覆盖键（最高优先级的用户侧覆盖）。 */
     var LS_BACKEND_KEY = 'dsh-blender-plugin:backend'
     /** v2.3：Blender 原生选中轮询间隔（会话可见时才轮询）。 */

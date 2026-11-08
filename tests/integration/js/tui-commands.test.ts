@@ -50,38 +50,7 @@ beforeAll(async () => {
       }
     }
     if (path.startsWith('/doctor'))
-      return {
-        json: {
-          ok: true,
-          addon: { kind: 'ok', summary: 'GUI 通道正常' },
-          virtualGui: {
-            ready: false,
-            missing: ['xvfb', 'virtualgl'],
-            installPlans: [
-              {
-                id: 'xvfb',
-                label: 'Xvfb',
-                ok: false,
-                needsRoot: true,
-                supported: true,
-                oneClick: ['pkexec', 'apt-get', 'install', '-y', 'xvfb'],
-                command: 'pkexec apt-get install -y xvfb',
-              },
-              {
-                id: 'virtualgl',
-                label: 'VirtualGL (vglrun)',
-                ok: false,
-                needsRoot: true,
-                supported: false,
-                oneClick: null,
-                command:
-                  'add the official VirtualGL APT repository: https://github.com/VirtualGL/repo',
-                reason: 'never a one-click install',
-              },
-            ],
-          },
-        },
-      }
+      return { json: { ok: true, addon: { kind: 'ok', summary: 'GUI 通道正常' } } }
     if (path.startsWith('/host/selection/latest'))
       return { json: { ok: true, seq: 0, unconsumed: false } }
     if (path.startsWith('/host/selection/consume')) return { json: { ok: true } }
@@ -123,24 +92,6 @@ describe('/blender command', () => {
     expect(out.kind).toBe('success')
     expect(out.text).toContain('诊断：ok')
     expect(out.text).toContain('GUI 通道正常')
-  })
-
-  it('shows and runs a supported one-click plan for doctor --fix', async () => {
-    const ran: string[] = []
-    const out = await blenderCommand('doctor --fix', {
-      ...OPTS,
-      port: host.port,
-      installRunner: async (plan) => {
-        ran.push(plan.id)
-        return { ok: true, detail: 'installed' }
-      },
-    })
-    expect(ran).toEqual(['xvfb'])
-    expect(out.text).toContain('pkexec apt-get install -y xvfb')
-    expect(out.text).toContain('需手动执行')
-    expect(out.text).toContain('never a one-click install')
-    expect(out.text).toContain('复检：仍未就绪')
-    expect(out.kind).toBe('error')
   })
 
   it('rejects an unknown subcommand with the available list', async () => {

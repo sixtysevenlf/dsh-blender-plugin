@@ -73,7 +73,7 @@ async function shapeSearchOp(
       spec_echo: specEcho,
       spec: spec,
       warnings: targets.warnings,
-      note: 'dry_run：只校验并回 spec，没有启动内环（想手跑就把它喂给 blender_op(op="start", spec=…)）',
+      note: 'dry_run：只校验并回 spec，没有启动内环（想手跑就把它喂给 blender_rt_loop(op="start", spec=…)）',
     }
   }
   const preloadError = await preloadForSearch(E, targets.renderObjective)

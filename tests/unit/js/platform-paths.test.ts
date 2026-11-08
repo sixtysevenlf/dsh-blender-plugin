@@ -8,7 +8,6 @@ import {
   IS_MAC,
   IS_WSL,
   PATHS,
-  blenderUsesWindowsPaths,
   describeConfig,
   detectWsl,
   winToWsl,
@@ -62,35 +61,6 @@ describe('detectWsl decision table (platform independent)', () => {
   })
   it('does not throw on undefined input', () => {
     expect((detectWsl as any)('linux', undefined, undefined)).toBe(false)
-  })
-})
-
-describe('blenderUsesWindowsPaths decision table (platform independent)', () => {
-  it.each([
-    ['win32 always uses Windows paths', 'win32', false, null, true],
-    [
-      'darwin is always POSIX',
-      'darwin',
-      false,
-      '/Applications/Blender.app/Contents/MacOS/Blender',
-      false,
-    ],
-    ['native linux is always POSIX', 'linux', false, '/opt/blender/blender', false],
-    ['WSL with a Linux Blender keeps POSIX paths', 'linux', true, '/opt/blender/blender', false],
-    [
-      'WSL with a Windows Blender maps /mnt paths',
-      'linux',
-      true,
-      '/mnt/c/Program Files/Blender/blender.exe',
-      true,
-    ],
-    ['WSL with a drive-letter Blender maps paths', 'linux', true, 'C:\\Blender\\blender.exe', true],
-    ['WSL without a configured Blender stays POSIX', 'linux', true, null, false],
-  ])('%s', (_label, platform, isWsl, exe, want) => {
-    expect((blenderUsesWindowsPaths as any)(platform, isWsl, exe)).toBe(want)
-  })
-  it('does not throw on undefined input', () => {
-    expect((blenderUsesWindowsPaths as any)('linux', true, undefined)).toBe(false)
   })
 })
 

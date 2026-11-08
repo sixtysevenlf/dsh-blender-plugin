@@ -14,8 +14,8 @@ beforeAll(() => {
 afterAll(() => fake.dispose())
 
 describe('tool presenters', () => {
-  it('attaches presentCall and presentResult to all 6 tools', () => {
-    expect(tools).toHaveLength(6)
+  it('attaches presentCall and presentResult to all 15 tools', () => {
+    expect(tools).toHaveLength(15)
     for (const t of tools) {
       expect(typeof t.presentCall, t.name).toBe('function')
       expect(typeof t.presentResult, t.name).toBe('function')
@@ -31,7 +31,9 @@ describe('tool presenters', () => {
   it('preserves the model-facing render channel', () => {
     for (const t of tools) {
       expect(typeof (t.output as any)?.render, t.name).toBe('function')
-      const block = (t.output as any).render({}, { text: 'hello' })
+      const value =
+        t.name === 'blender_viewport' ? 'hello' : { text: 'hello', envelope: { ok: true } }
+      const block = (t.output as any).render({}, value)
       expect(Array.isArray(block), t.name).toBe(true)
       expect(
         block.every((b: any) => typeof b.text === 'string'),
@@ -61,12 +63,9 @@ describe('tool presenters', () => {
     }
   })
 
-  it('renders a readable see call card and session card', () => {
-    const see = tools.find((t) => t.name === 'blender_see')!
-    expect((see.presentCall as any)({ viewpoint: 'camera' }).title).toBe(
-      'Blender 看视口 · camera · frame',
-    )
-    const session = tools.find((t) => t.name === 'blender_session')!
-    expect((session.presentCall as any)({ action: 'doctor' }).title).toBe('Blender 会话 · doctor')
+  it('renders a readable viewport call card', () => {
+    const viewport = tools.find((t) => t.name === 'blender_viewport')!
+    const card = (viewport.presentCall as any)({ op: 'doctor' })
+    expect(card.title).toBe('Blender 通道 · doctor')
   })
 })

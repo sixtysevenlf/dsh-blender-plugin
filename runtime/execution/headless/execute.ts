@@ -61,7 +61,7 @@ export async function executeHeadless(input: {
           ? '/Applications/Blender.app/Contents/MacOS/Blender'
           : '/mnt/d/.../blender.exe') +
       ' ② 包根写 dsh-blender.config.json: {"blenderExe":"..."}' +
-      ' ③ ~/.dsh/dsh-blender.config.json。当前探测结果见 blender_session op=doctor 的 config 字段。'
+      ' ③ ~/.dsh/dsh-blender.config.json。当前探测结果见 blender_viewport op=doctor 的 config 字段。'
     throw Object.assign(new Error(msg), { code: 'blender_exe_missing', hint: hint })
   }
   return { res, stdout: String(res.so || ''), stderr: String(res.se || ''), ms, logsClosed }

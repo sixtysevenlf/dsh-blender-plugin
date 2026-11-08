@@ -1,16 +1,16 @@
 /**
- * 集成回归（PR #75 review，3.1 迁移）：blender_session action=status 的 host 预算必须大于
- * backend /status 的实际耗时。半开 addon 下 backend /status 稳态 ~6s / 首调 ~9.4s，
- * host 必须拿到 addonError 文本，而不是自己先 abort 把诊断丢掉。
+ * 集成回归（PR #75 review）：op=start 探 /status 的 host 预算必须大于 backend /status 的实际耗时。
+ *
+ * 修前 VIEWPORT_START_STATUS_TIMEOUT_MS=6000，而半开 addon 下 /status 稳态 ~6.0s、
+ * 后端刚起首调 8.98–9.43s → execute.ts 走 catch，只输出「addon/bpy 未响应：This operation was aborted」，
+ * status.addonError / 结构化诊断全部丢失。修后预算 12s，应拿到 addonError 文本而不是 host abort。
  */
 import { afterEach, describe, expect, it } from 'vitest'
-import * as plugin from '../../../src/index'
-import { createFakeContext } from '../../helpers/fake-context'
 import { startBackend } from '../../helpers/backend'
-import { startFakeWsAddon } from '../../helpers/fake-ws-addon.mjs'
+import { startFakeAddon } from '../../helpers/fake-addon.mjs'
+import { executeViewport } from '../../../src/tools/viewport/execute.js'
 
 const closers: Array<() => Promise<void>> = []
-const EXEC = { agent: { id: 'main', session: { id: 'it-session' } } }
 
 afterEach(async () => {
   while (closers.length) {
@@ -23,38 +23,27 @@ afterEach(async () => {
   }
 })
 
-/** 握手后对任何请求都不回写：模拟 addon 线程卡死 / Blender 主线程被占。 */
-function halfOpenBehavior() {
-  return { action: 'hang' }
+/** TCP accept 后对任何请求都不回写：模拟 addon 线程卡死 / Blender 主线程被占。 */
+function halfOpenBehavior(): Promise<never> {
+  return new Promise<never>(() => {})
 }
 
-describe('blender_session status: host budget must outlive the backend addon budget', () => {
+describe('op=start: /status probe must outlive the backend addon budget', () => {
   it('returns the addonError diagnosis instead of a host-side abort', async () => {
-    const backend = await startBackend()
-    closers.push(() => backend.stop())
-    const addon = await startFakeWsAddon({
-      gatewayPort: backend.port,
-      behavior: halfOpenBehavior,
-    })
+    const addon = await startFakeAddon({ behavior: halfOpenBehavior })
     closers.push(() => addon.close())
-    await addon.ready
+    const backend = await startBackend({ addonPort: addon.port })
+    closers.push(() => backend.stop())
 
-    const fake = createFakeContext()
-    plugin.apply(fake.ctx, { autoStart: false, tui: false, port: backend.port })
-    try {
-      const tool = fake.tools.find((t) => t.name === 'blender_session')!
-      const t0 = Date.now()
-      const out: any = await (tool.execute as any)({ action: 'status' }, EXEC)
-      const elapsedMs = Date.now() - t0
-      console.log(
-        '[session-status] execute(action=status) = ' + String(elapsedMs) + 'ms: ' + out.text,
-      )
+    const t0 = Date.now()
+    const out = await executeViewport({ op: 'start' }, backend.port)
+    const elapsedMs = Date.now() - t0
+    console.log('[viewport-start] execute(op=start) = ' + String(elapsedMs) + 'ms: ' + out)
 
-      expect(elapsedMs).toBeLessThan(25000)
-      expect(String(out.text)).toContain('addonError')
-      expect(String(out.text)).not.toMatch(/aborted/i)
-    } finally {
-      fake.dispose()
-    }
+    expect(elapsedMs).toBeLessThan(15000)
+    expect(out).toContain('addon/bpy 未响应')
+    expect(out).toContain('timeout')
+    expect(out).not.toMatch(/aborted/i)
+    expect(out).toContain('DSH Blender Bridge')
   }, 60000)
 })

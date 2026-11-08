@@ -3,7 +3,7 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import type zt from '@deepseek-ai/schemastery'
 import { PLUGIN_VERSION } from '../constants.js'
-import { callerFromExec, EXEC_CTX } from '../host/exec-context.js'
+import { EXEC_CTX } from '../host/exec-context.js'
 import { isRecord } from './dynamic.js'
 import { losslessSanitize } from './lossless.js'
 import { cardPresenters } from '../ui/cards.js'
@@ -31,7 +31,7 @@ export const vTool = (spec: DynamicToolSpec): ToolDefinition => {
     // 一个字段写错（NaN / undefined / -0）不该让整条工具通道变成不可用。
     execute: async (args: unknown, exec: unknown) => {
       const signal = isRecord(exec) && exec.signal instanceof AbortSignal ? exec.signal : undefined
-      const raw = await EXEC_CTX.run({ signal, caller: callerFromExec(exec) }, () =>
+      const raw = await EXEC_CTX.run({ signal }, () =>
         (execute as (args: unknown, exec: unknown) => unknown)(args, exec),
       )
       const { value, fixes } = losslessSanitize(raw)

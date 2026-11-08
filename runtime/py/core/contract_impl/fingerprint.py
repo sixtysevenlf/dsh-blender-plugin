@@ -322,7 +322,7 @@ def c_report(path=None):
     L += ["", "## 历史", ""]
     for r in st["log"][-30:]:
         L.append("- %s %s %s" % (r["t"], r["action"], json.dumps(r["detail"], ensure_ascii=False)[:200]))
-    L += ["", "## 复现", "", "    该报告由契约层生成：blender_op(op=\"report\")",
+    L += ["", "## 复现", "", "    该报告由契约层生成：blender_rt_plan(op=\"report\")",
           "    假设/区间/探针流程见 docs/假设驱动建模-cookbook.md", ""]
     text = "\n".join(L) + "\n"
     if path:

@@ -228,7 +228,7 @@ export async function startSearchLoop(
       spec_echo: specEcho,
       error: (started && (started.err || started.error)) || '内环启动失败',
       detail: started || null,
-      hint: '若提示 loop already running：先 blender_op(op="status") 看上一轮，必要时 op="stop"',
+      hint: '若提示 loop already running：先 blender_rt_loop(op="status") 看上一轮，必要时 op="stop"',
     }
   }
   return null

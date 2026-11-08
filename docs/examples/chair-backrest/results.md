@@ -41,7 +41,7 @@
 ## 复现
 
     blender -b --factory-startup --python docs/examples/chair-backrest/run.py -- <outdir>
-    # 或 blender_run(action="submit", kind="headless", preload='view', script=..., outdir=...)
+    # 或 blender_rt_headless(preload='view', script=..., outdir=...)
 
 ## 结论怎么用
 

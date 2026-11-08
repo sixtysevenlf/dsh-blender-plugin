@@ -5,7 +5,7 @@
  *
  * 断言：
  *   ① src/index.ts ≤ 150 行，且只含 import / export（可选 apply(...) 调用）——不得有业务逻辑；
- *   ② 6 个模型 tool handler 全部下沉到 src/tools/<tool>/index.ts（3.1 六工具面），
+ *   ② 15 个 tool handler 全部下沉：14 个在 src/tools/*.ts，plan 在 src/plan/tool.ts，
  *      名称集合与 tests/fixtures/capability.lock.json 一致；
  *   ③ 架构文件全部存在；
  *   ④ src 内部相对 import 图无环（.js 说明符映射回 .ts）；
@@ -67,7 +67,7 @@ if (!fs.existsSync(INDEX)) {
   }
 }
 
-// ---------- ② 6 个模型 tool handler ----------
+// ---------- ② 15 个 tool handler ----------
 const TOOLS_DIR = path.join(ROOT, 'src', 'tools')
 const toolDecls = new Map() // name -> [files]
 function scanToolFile(file) {
@@ -92,6 +92,7 @@ function walkToolFiles(dir) {
 }
 const toolFiles = fs.existsSync(TOOLS_DIR) ? walkToolFiles(TOOLS_DIR).sort() : []
 for (const f of toolFiles) scanToolFile(path.join(ROOT, f))
+scanToolFile(path.join(ROOT, 'src', 'plan', 'tool.ts'))
 
 const LOCK = path.join(ROOT, 'tests', 'fixtures', 'capability.lock.json')
 let expected = null
@@ -108,18 +109,19 @@ const toolReport = {
   names,
   files: Object.fromEntries([...toolDecls].map(([k, v]) => [k, v])),
 }
-if (names.length !== 6) failures.push('tool handler 数 ' + names.length + ' != 6')
+if (names.length !== 15) failures.push('tool handler 数 ' + names.length + ' != 15')
 if (expected) {
   const exp = [...new Set(expected)].sort()
   for (const n of exp) if (!toolDecls.has(n)) failures.push('缺少 tool handler: ' + n)
   for (const n of names) if (!exp.includes(n)) failures.push('多出 tool handler: ' + n)
 } else {
-  failures.push('tests/fixtures/capability.lock.json 不存在或没有 tools 列表，无法对拍 6 tool')
+  failures.push('tests/fixtures/capability.lock.json 不存在或没有 tools 列表，无法对拍 15 tool')
 }
 for (const [name, files] of toolDecls) {
-  if (!files.some((f) => f.startsWith('src/tools/'))) {
-    failures.push('tool ' + name + ' 未落在 src/tools/: ' + files.join(','))
-  }
+  const inTools = files.some((f) => f.startsWith('src/tools/'))
+  const inPlan = files.includes('src/plan/tool.ts')
+  if (!inTools && !inPlan)
+    failures.push('tool ' + name + ' 未落在 src/tools/*.ts 或 src/plan/tool.ts: ' + files.join(','))
 }
 if (!fs.existsSync(path.join(TOOLS_DIR, 'index.ts')))
   failures.push('src/tools/index.ts（注册汇总）不存在')
@@ -138,53 +140,66 @@ const TARGET_FILES = [
   'src/host/http.ts',
   'src/utils/frame-cache.ts',
   'src/utils/image.ts',
+  'src/plan/headless-target.ts',
   'src/ui/cards.ts',
   'src/headless/receipts/index.ts',
   'src/headless/receipts/envelope.ts',
   'src/headless/receipts/human-text.ts',
   'src/tools/schema-diagnostic.ts',
-  'src/tools/migration.ts',
   'src/plugin.ts',
   'src/plugin-lifecycle.ts',
   'src/plugin-surfaces.ts',
   'src/tools/errors.ts',
   'src/host/skill.ts',
+  'src/plan/tool.ts',
   'src/tools/index.ts',
-  'src/tools/shared/session.ts',
-  'src/tools/session/index.ts',
-  'src/tools/session/execute.ts',
-  'src/tools/session/presenter.ts',
-  'src/tools/session/txn.ts',
-  'src/tools/session/txn-response.ts',
-  'src/tools/op/index.ts',
-  'src/tools/op/execute.ts',
-  'src/tools/op/read-only.ts',
-  'src/tools/op/plan.ts',
-  'src/tools/op/plan-response.ts',
-  'src/tools/op/loop.ts',
-  'src/tools/op/loop-response.ts',
-  'src/tools/op/opt.ts',
-  'src/tools/op/preset.ts',
-  'src/tools/op/preset-response.ts',
-  'src/tools/py/index.ts',
-  'src/tools/py/execute.ts',
-  'src/tools/py/envelope.ts',
-  'src/tools/see/index.ts',
-  'src/tools/see/execute.ts',
-  'src/tools/see/capture.ts',
-  'src/tools/see/validate.ts',
-  'src/tools/see/sequence.ts',
-  'src/tools/see/presenter.ts',
-  'src/tools/run/index.ts',
-  'src/tools/run/execute.ts',
-  'src/tools/run/presenter.ts',
-  'src/tools/inspect/index.ts',
-  'src/tools/inspect/execute.ts',
-  'src/tools/inspect/presenter.ts',
   'src/tui/index.ts',
   'src/tui/register/index.ts',
   'src/tui/register/lifecycle.ts',
   'src/tui/register/commands.ts',
+  'src/tools/viewport/index.ts',
+  'src/tools/viewport/register.ts',
+  'src/tools/viewport/execute.ts',
+  'src/tools/viewport/presenter.ts',
+  'src/tools/job/index.ts',
+  'src/tools/job/register.ts',
+  'src/tools/job/execute.ts',
+  'src/tools/job/presenter.ts',
+  'src/tools/see/index.ts',
+  'src/tools/see/register.ts',
+  'src/tools/see/execute.ts',
+  'src/tools/see/presenter.ts',
+  'src/tools/do/index.ts',
+  'src/tools/do/register.ts',
+  'src/tools/do/execute.ts',
+  'src/tools/do/envelope.ts',
+  'src/tools/watch/index.ts',
+  'src/tools/watch/register.ts',
+  'src/tools/watch/execute.ts',
+  'src/tools/watch/response.ts',
+  'src/tools/loop/index.ts',
+  'src/tools/loop/register.ts',
+  'src/tools/loop/execute.ts',
+  'src/tools/loop/response.ts',
+  'src/tools/headless/index.ts',
+  'src/tools/headless/register.ts',
+  'src/tools/headless/execute.ts',
+  'src/tools/headless/receipt.ts',
+  'src/tools/worker/index.ts',
+  'src/tools/worker/register.ts',
+  'src/tools/worker/execute.ts',
+  'src/tools/txn/index.ts',
+  'src/tools/txn/register.ts',
+  'src/tools/txn/execute.ts',
+  'src/tools/txn/response.ts',
+  'src/tools/preset/index.ts',
+  'src/tools/preset/register.ts',
+  'src/tools/preset/execute.ts',
+  'src/tools/preset/response.ts',
+  'src/tools/cmd.ts',
+  'src/tools/commands.ts',
+  'src/tools/perf.ts',
+  'src/tools/opt.ts',
 ]
 const missing = TARGET_FILES.filter((f) => !fs.existsSync(path.join(ROOT, f)))
 for (const f of missing) failures.push('目标文件缺失: ' + f)

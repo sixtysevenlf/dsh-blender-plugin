@@ -33,25 +33,20 @@ async function waitHealth(port: number, timeoutMs = 12000): Promise<void> {
 }
 
 function spawnServer(port: number, workDir: string, addonPort: number): ChildProcess {
-  return spawn(
-    process.execPath,
-    [pkgPath('lib', 'runtime', 'gateway.js'), '--port', String(port)],
-    {
-      cwd: PKG_ROOT,
-      env: {
-        ...process.env,
-        DSH_BLENDER_GATEWAY_PORT: String(port),
-        DSH_BLENDER_HTTP_PORT: String(port),
-        DSH_BLENDER_WORKER_PORT: String(port + 1),
-        // Pin the addon to a port nothing listens on: an unrelated local Blender
-        // addon must not turn /status and /doctor into a 30 s wait.
-        DSH_BLENDER_ADDON_PORT: String(addonPort),
-        DSH_BLENDER_WORKDIR: workDir,
-        DSH_BLENDER_EXE: path.join(workDir, 'no-blender.exe'),
-      },
-      stdio: ['ignore', 'pipe', 'pipe'],
+  return spawn(process.execPath, [pkgPath('lib', 'runtime', 'server.js'), '--port', String(port)], {
+    cwd: PKG_ROOT,
+    env: {
+      ...process.env,
+      DSH_BLENDER_HTTP_PORT: String(port),
+      DSH_BLENDER_WORKER_PORT: String(port + 1),
+      // Pin the addon to a port nothing listens on: an unrelated local Blender
+      // addon must not turn /status and /doctor into a 30 s wait.
+      DSH_BLENDER_ADDON_PORT: String(addonPort),
+      DSH_BLENDER_WORKDIR: workDir,
+      DSH_BLENDER_EXE: path.join(workDir, 'no-blender.exe'),
     },
-  )
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 }
 
 async function stopChild(child: ChildProcess): Promise<void> {
@@ -232,7 +227,7 @@ describe('live HTTP route contract', () => {
 })
 
 describe('port conflict contract', () => {
-  it('fails closed when the Gateway port is already owned', async () => {
+  it('exits 0 when a responsive backend already owns the port', async () => {
     const blocker = http.createServer((req, res) => {
       res.writeHead(200)
       res.end('ok')
@@ -240,7 +235,6 @@ describe('port conflict contract', () => {
     await new Promise<void>((resolve) => blocker.listen(0, '127.0.0.1', resolve))
     const port = (blocker.address() as any).port
     const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-t14-conflict-'))
-    const startedAt = Date.now()
     const child = spawnServer(port, workDir, await freePort())
     let err = ''
     child.stderr?.on('data', (d) => {
@@ -262,20 +256,7 @@ describe('port conflict contract', () => {
     try {
       fs.rmSync(workDir, { recursive: true, force: true })
     } catch (e) {}
-    const elapsed = Date.now() - startedAt
-    expect(code).toBe(1)
-    expect(elapsed).toBeLessThan(3000)
-    const lines = err
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
-    const failure = JSON.parse(lines[lines.length - 1])
-    expect(failure.code).toBe('port_conflict')
-    expect(failure.stage).toBe('config')
-    expect(failure.port).toBe(port)
-    expect(failure.evidence.probe.port).toBe(port)
-    expect(typeof failure.evidence.probe.pid).toBe('number')
-    expect(typeof failure.evidence.probe.process).toBe('string')
-    expect(String(failure.fix)).toContain('占用者')
+    expect(code).toBe(0)
+    expect(err).toContain('能应答')
   }, 20000)
 })

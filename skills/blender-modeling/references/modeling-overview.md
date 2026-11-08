@@ -1,7 +1,7 @@
 > **中文导读**：本文件是 `blender-modeling` 技能的深水参考（英文原文，来自 RobLe3/cc-blender-skill，MIT）。
-> **架构优先**：默认走 SKILL.md §1–§3 的插件架构（catalog → plan op（GUI 会话）→ 回执/verdict → 门/交付）；本文件只在没有对应 op 时参考，且做完仍要回插件门验收。
+> **架构优先**：默认走 SKILL.md §1–§3 的插件架构（catalog → plan op → worker session → 回执/verdict → 门/交付）；本文件只在没有对应 op 时参考，且做完仍要回插件门验收。
 > 内容：Blender 的两套 API（`bpy.ops.mesh` 操作符 vs `bmesh` 直接改数据）与选择规则 → 8 种基本体的专业选择 → 编辑模式工具箱（挤出/内插/倒角/环切/刀/桥接）→ bmesh 精度 API → 硬表面 Bevel+SubSurf 模式（含 bevel-weight）→ 布尔工具箱 → 关键修改器 → 常见坑 → `bpy.ops.mesh` 速查。
-> 用法：配方不够用时再读。代码是纯 Blender API，可直接跑在 `blender_py`（GUI）或 `blender_run(kind="headless")` 里。
+> 用法：配方不够用时再读。代码是纯 Blender API，可直接跑在本机 `blender_rt_do` / `blender_rt_headless` 上。
 
 ---
 # Modeling — Pro Knowledge Overview

@@ -25,9 +25,6 @@ npm package. npm scripts in package.json call these files; tests live under test
 | build.sh         | Deprecated convenience wrapper for optional DSH_CHECKOUT linking; canonical is npm run build | manual only                                | node_modules links, lib/ via build.mjs                                    |
 | ensure-build.mjs | Ensure lib/ exists and is fresh before tests/checks                                          | imported by checkers and test helpers      | lib/                                                                      |
 | gen-routes.mjs   | Render the worker/GUI route tables from config/routing.json; header carries the source hash  | npm run build                              | src/plan/routes.generated.ts, runtime/core/dispatcher/routes.generated.ts |
-| publish-extension.mjs | Upload one built extension version to extensions.blender.org (multipart version_file + release_notes); dry-run and token-missing fail closed | npm run publish:extension / Manual CD | network call only on a real publish |
-| build-win-helper.mjs | Build and self-test the Windows hidden-desktop helper with MSVC; Windows only | npm run build:win-helper / Windows CI | tools/win-hidden-desktop/out/ |
-| check-win-helper.mjs | Verify the staged helper's version, source commit, source/protocol, and sha256 against HEAD, then optionally that npm pack includes it | npm run check:win-helper / Windows CI / Manual CD | none (reads vendor/win-hidden-desktop) |
 
 ### Test entry points
 
@@ -48,7 +45,6 @@ npm package. npm scripts in package.json call these files; tests live under test
 | check-doc-paths.mjs         | Check doc links, commands, inbound links and nonexistent path refs; --enforce ratchets against config/doc-links-baseline.json (orphan list intentionally empty) | npm run check:doc-paths / check:finalization | stdout only |
 | check-exceptions.mjs        | Validate config/exceptions.json: kind enum, path exists, owned and unexpired | npm run lint / check:exceptions              | stdout only                              |
 | check-plan-ids.mjs          | Inventory plan-ID-shaped tokens; warn by default, --enforce ratchets against config/plan-id-baseline.json | npm run check:plan-ids | stdout only |
-| check-ports.mjs             | Reject the legacy 9877 Gateway default in current docs/config; tests, archives and migration history are exempt | npm run lint | stdout only |
 | check-routes.mjs            | Assert the generated route tables match config/routing.json byte for byte    | npm run check:routes                         | stdout only                              |
 | check-function-budget.mjs   | File and function line budgets; 80-120 line functions register in config/function-budget-allowlist.json | check:function-budget / check:finalization | stdout only |
 | check-git-hygiene.mjs       | Ensure lib/ is untracked; requires a git checkout                            | npm run check:git-hygiene / CI               | stdout only                              |

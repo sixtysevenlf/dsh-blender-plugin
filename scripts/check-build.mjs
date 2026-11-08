@@ -37,7 +37,7 @@ function run(label, file, args) {
 run('build-runtime', process.execPath, [path.join(HERE, 'build.mjs'), 'runtime'])
 if (!failures.length) {
   const runtimeArtifacts = [
-    'lib/runtime/gateway.js',
+    'lib/runtime/server.js',
     'lib/runtime/engine.js',
     'lib/runtime/catalog/index.js',
   ]
@@ -84,12 +84,8 @@ if (!failures.length) {
       'lib/index.js',
       'lib/plugin.js',
       'lib/tools/index.js',
-      'lib/tools/session/index.js',
-      'lib/tools/op/index.js',
-      'lib/tools/py/index.js',
-      'lib/tools/see/index.js',
-      'lib/tools/run/index.js',
-      'lib/tools/inspect/index.js',
+      'lib/tools/viewport/index.js',
+      'lib/plan/tool.js',
       'lib/host/backend/index.js',
       'lib/host/http.js',
       'lib/ui/cards.js',

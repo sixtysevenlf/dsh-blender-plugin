@@ -72,18 +72,6 @@ describe('plan op catalog contract', () => {
     expect(expected.sort()).toEqual(planOpNames().sort())
   })
 
-  it('marks every family as a G (session) or L (host-local) target with a write scope', () => {
-    const local = PLAN_CATALOG.filter((f: any) => !f.requires_session)
-    expect(local.map((f: any) => f.f).sort()).toEqual(['ext', 'render_guard'])
-    expect(local.every((f: any) => f.write_scope === 'none')).toBe(true)
-    const gui = PLAN_CATALOG.filter((f: any) => f.requires_session)
-    expect(gui).toHaveLength(32)
-    expect(gui.every((f: any) => f.write_scope === 'exclusive')).toBe(true)
-    expect(PLAN_CATALOG.every((f: any) => f.requires_session === (f.write_scope !== 'none'))).toBe(
-      true,
-    )
-  })
-
   it('exposes every family op in its catalog detail text', () => {
     for (const family of PLAN_CATALOG) {
       expect(opsLine(family.f), family.f).toEqual(family.ops)
@@ -124,7 +112,7 @@ describe('plan op catalog contract', () => {
 
   it('routes bare op names to the plan channel and keeps command names in the command channel', () => {
     expect(planOpCrossChannelHint('get_scene_info')).toBeNull()
-    expect(planOpCrossChannelHint('sculpt_scan')).toContain('blender_op')
+    expect(planOpCrossChannelHint('sculpt_scan')).toContain('blender_rt_plan')
     expect(planOpCrossChannelHint('nonexistent_xyz')).toBeNull()
   })
 
@@ -132,7 +120,7 @@ describe('plan op catalog contract', () => {
     const fp = catalogFingerprint()
     expect(fp.families).toBe(34)
     expect(fp.opsCount).toBe(228)
-    expect(fp.commandCatalogKeys).toBe(25)
+    expect(fp.commandCatalogKeys).toBe(38)
     expect(fp.catalogHash).toMatch(/^[0-9a-f]{12}$/)
   })
 })

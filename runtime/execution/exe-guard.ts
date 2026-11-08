@@ -10,7 +10,7 @@ import { CFG } from '../config.js'
 export function assertBlenderExe(
   exe: unknown,
   detectedFrom?: unknown,
-  retryTool = 'blender_run op=start',
+  retryTool = 'blender_rt_worker op=start',
 ): void {
   if (typeof exe === 'string' && exe.trim()) return
   const from =

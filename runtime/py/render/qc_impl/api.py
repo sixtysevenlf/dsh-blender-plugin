@@ -67,12 +67,12 @@ def _load_qc_render():
 def qc_render_views(**kw):
     """qc.py 侧转接：把参数整包转给 qc_render.views（多视角渲染 harness）。
 
-    用法（工具侧）：blender_op(op="qc_render_views", args={views:["iso","front"], budget_s:60, ...})
+    用法（工具侧）：blender_rt_plan(op="qc_render_views", args={views:["iso","front"], budget_s:60, ...})
     """
     api = _load_qc_render()
     if api is None:
         return _j({"ok": False, "error": "qc_render 模块不可用：K.dsh_qc_render_api 缺失（qc_render 未注入内核）",
-                   "hint": "headless 用 preload='qc,qc_render'；GUI 走 blender_op(op='qc_render_views')"})
+                   "hint": "headless 用 preload='qc,qc_render'；GUI 走 blender_rt_plan(op='qc_render_views')"})
     return api["render_views"](kw)
 
 
@@ -80,7 +80,7 @@ def qc_render_help():
     api = _load_qc_render()
     if api is None:
         return _j({"ok": False, "error": "qc_render 模块不可用：K.dsh_qc_render_api 缺失（qc_render 未注入内核）",
-                   "hint": "headless 用 preload='qc,qc_render'；GUI 走 blender_op(op='qc_render_views')"})
+                   "hint": "headless 用 preload='qc,qc_render'；GUI 走 blender_rt_plan(op='qc_render_views')"})
     return api["help"]()
 
 

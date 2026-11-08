@@ -14,7 +14,7 @@ function defaultBehavior(type, params) {
   if (type === 'get_addon_info') {
     return {
       status: 'success',
-      result: { name: 'DSH Blender Bridge', version: '2.0.0', protocol: 12, paused: false },
+      result: { name: 'DSH Blender Bridge', version: '1.8.0', protocol: 11, paused: false },
     }
   }
   if (type === 'fail') return { status: 'error', message: 'fake addon failure' }

@@ -1,6 +1,7 @@
 {
   "version": 1,
   "generated": [
+    "src/plan/routes.generated.ts",
     "runtime/core/dispatcher/routes.generated.ts"
   ],
   "hostSideFamilies": [
@@ -37,7 +38,7 @@
     },
     {
       "id": "qc",
-      "side": "gui",
+      "side": "both",
       "family": "qc",
       "group": "main",
       "kind": "dispatch",
@@ -47,11 +48,12 @@
       "api": "dsh_qc_api",
       "ensure": "ensureQc",
       "timeoutMs": 300000,
-      "preload": "qc,imgtools"
+      "preload": "qc,imgtools",
+      "workerRank": 17
     },
     {
       "id": "audit-clash-all",
-      "side": "gui",
+      "side": "both",
       "family": "assembly",
       "group": "main",
       "kind": "dispatch",
@@ -62,7 +64,8 @@
       "api": "dsh_assembly_api",
       "ensure": "ensureAssembly",
       "timeoutMs": 900000,
-      "preload": "assembly,audit,contract,clearance,gate,mesh_fix,geo,txn"
+      "preload": "assembly,audit,contract,clearance,gate,mesh_fix,geo,txn",
+      "workerRank": 4
     },
     {
       "id": "audit-clash-all-prefix",
@@ -80,7 +83,7 @@
     },
     {
       "id": "audit",
-      "side": "gui",
+      "side": "both",
       "family": "audit",
       "group": "main",
       "kind": "dispatch",
@@ -90,7 +93,8 @@
       "api": "dsh_audit_api",
       "ensure": "ensureAudit",
       "timeoutMs": 600000,
-      "preload": "audit"
+      "preload": "audit",
+      "workerRank": 16
     },
     {
       "id": "montage",
@@ -107,7 +111,7 @@
     },
     {
       "id": "motion",
-      "side": "gui",
+      "side": "both",
       "family": "motion",
       "group": "module",
       "kind": "motion",
@@ -117,11 +121,12 @@
       "api": "dsh_motion_api",
       "ensure": "ensureMotion",
       "timeoutMs": 900000,
-      "preload": "motion"
+      "preload": "motion",
+      "workerRank": 29
     },
     {
       "id": "deliver",
-      "side": "gui",
+      "side": "both",
       "family": "deliver",
       "group": "module",
       "kind": "deliver",
@@ -131,11 +136,12 @@
       "api": "dsh_deliver_api",
       "ensure": "ensureDeliver",
       "timeoutMs": 300000,
-      "preload": "deliver,gate"
+      "preload": "deliver,gate",
+      "workerRank": 22
     },
     {
       "id": "generator",
-      "side": "gui",
+      "side": "both",
       "family": "generator",
       "group": "module",
       "kind": "dispatch",
@@ -145,11 +151,12 @@
       "api": "dsh_generator_api",
       "ensure": "ensureGenerator",
       "timeoutMs": 600000,
-      "preload": "generator"
+      "preload": "generator",
+      "workerRank": 30
     },
     {
       "id": "fix-clash",
-      "side": "gui",
+      "side": "both",
       "family": "assembly",
       "group": "module",
       "kind": "dispatch",
@@ -160,11 +167,12 @@
       "api": "dsh_assembly_api",
       "ensure": "ensureAssembly",
       "timeoutMs": 900000,
-      "preload": "assembly,audit,contract,clearance,gate,mesh_fix,geo,txn"
+      "preload": "assembly,audit,contract,clearance,gate,mesh_fix,geo,txn",
+      "workerRank": 2
     },
     {
       "id": "fix-interference",
-      "side": "gui",
+      "side": "both",
       "family": "assembly",
       "group": "module",
       "kind": "dispatch",
@@ -175,11 +183,12 @@
       "api": "dsh_assembly_api",
       "ensure": "ensureAssembly",
       "timeoutMs": 900000,
-      "preload": "assembly,audit,contract,clearance,gate,mesh_fix,geo,txn"
+      "preload": "assembly,audit,contract,clearance,gate,mesh_fix,geo,txn",
+      "workerRank": 3
     },
     {
       "id": "qc-visual-report",
-      "side": "gui",
+      "side": "both",
       "family": "visualreport",
       "group": "module",
       "kind": "dispatch",
@@ -190,11 +199,12 @@
       "api": "dsh_visualreport_api",
       "ensure": "ensureVisualReport",
       "timeoutMs": 600000,
-      "preload": "visualreport,qc,imgtools"
+      "preload": "visualreport,qc,imgtools",
+      "workerRank": 0
     },
     {
       "id": "shape-solve",
-      "side": "gui",
+      "side": "both",
       "family": "shapesolve",
       "group": "module",
       "kind": "dispatch",
@@ -205,11 +215,12 @@
       "api": "dsh_shapesolve_api",
       "ensure": "ensureShapesolve",
       "timeoutMs": 900000,
-      "preload": "shapesolve,imgtools"
+      "preload": "shapesolve,imgtools",
+      "workerRank": 1
     },
     {
       "id": "model-preflight",
-      "side": "gui",
+      "side": "both",
       "family": "gate",
       "group": "module",
       "kind": "dispatch",
@@ -220,11 +231,12 @@
       "api": "dsh_gate_api",
       "ensure": "ensureGate",
       "timeoutMs": 1800000,
-      "preload": "gate,audit"
+      "preload": "gate,audit",
+      "workerRank": 5
     },
     {
       "id": "model-checkpoint",
-      "side": "gui",
+      "side": "both",
       "family": "gate",
       "group": "module",
       "kind": "dispatch",
@@ -235,11 +247,12 @@
       "api": "dsh_gate_api",
       "ensure": "ensureGate",
       "timeoutMs": 1800000,
-      "preload": "gate,txn"
+      "preload": "gate,txn",
+      "workerRank": 6
     },
     {
       "id": "model-deliver",
-      "side": "gui",
+      "side": "both",
       "family": "gate",
       "group": "module",
       "kind": "dispatch",
@@ -250,11 +263,12 @@
       "api": "dsh_gate_api",
       "ensure": "ensureGate",
       "timeoutMs": 1800000,
-      "preload": "gate,audit,txn,deliver"
+      "preload": "gate,audit,txn,deliver",
+      "workerRank": 7
     },
     {
       "id": "ext-gate",
-      "side": "gui",
+      "side": "both",
       "family": "gate",
       "group": "ext",
       "kind": "dispatch",
@@ -264,11 +278,12 @@
       "api": "dsh_gate_api",
       "ensure": "ensureGate",
       "timeoutMs": 1800000,
-      "preload": "gate,audit"
+      "preload": "gate,audit",
+      "workerRank": 18
     },
     {
       "id": "ext-img",
-      "side": "gui",
+      "side": "both",
       "family": "img",
       "group": "ext",
       "kind": "dispatch",
@@ -278,11 +293,12 @@
       "api": "dsh_img_api",
       "ensure": "ensureImg",
       "timeoutMs": 300000,
-      "preload": "imgtools"
+      "preload": "imgtools",
+      "workerRank": 15
     },
     {
       "id": "ext-face",
-      "side": "gui",
+      "side": "both",
       "family": "face",
       "group": "ext",
       "kind": "dispatch",
@@ -292,11 +308,12 @@
       "api": "dsh_face_api",
       "ensure": "ensureFace",
       "timeoutMs": 300000,
-      "preload": "faceeval"
+      "preload": "faceeval",
+      "workerRank": 31
     },
     {
       "id": "ext-human",
-      "side": "gui",
+      "side": "both",
       "family": "human",
       "group": "ext",
       "kind": "dispatch",
@@ -306,11 +323,12 @@
       "api": "dsh_human_api",
       "ensure": "ensureHuman",
       "timeoutMs": 900000,
-      "preload": "human,imgtools"
+      "preload": "human,imgtools",
+      "workerRank": 32
     },
     {
       "id": "ext-clearance",
-      "side": "gui",
+      "side": "both",
       "family": "clearance",
       "group": "ext",
       "kind": "dispatch",
@@ -320,11 +338,12 @@
       "api": "dsh_clearance_api",
       "ensure": "ensureClearance",
       "timeoutMs": 600000,
-      "preload": "clearance"
+      "preload": "clearance",
+      "workerRank": 21
     },
     {
       "id": "ext-vehicle",
-      "side": "gui",
+      "side": "both",
       "family": "vehicle",
       "group": "ext",
       "kind": "dispatch",
@@ -334,11 +353,12 @@
       "api": "dsh_vehicle_api",
       "ensure": "ensureVehicle",
       "timeoutMs": 900000,
-      "preload": "vehicle,audit,clearance,gate"
+      "preload": "vehicle,audit,clearance,gate",
+      "workerRank": 20
     },
     {
       "id": "ext-shape",
-      "side": "gui",
+      "side": "both",
       "family": "shape",
       "group": "ext",
       "kind": "dispatch",
@@ -348,7 +368,8 @@
       "api": "dsh_shape_api",
       "ensure": "ensureShape",
       "timeoutMs": 900000,
-      "preload": "shapegen,imgtools"
+      "preload": "shapegen,imgtools",
+      "workerRank": 19
     },
     {
       "id": "ext-pipe",
@@ -365,7 +386,7 @@
     },
     {
       "id": "ext-assembly",
-      "side": "gui",
+      "side": "both",
       "family": "assembly",
       "group": "ext",
       "kind": "dispatch",
@@ -375,11 +396,12 @@
       "api": "dsh_assembly_api",
       "ensure": "ensureAssembly",
       "timeoutMs": 900000,
-      "preload": "assembly,audit,contract,clearance,gate,mesh_fix,geo,txn"
+      "preload": "assembly,audit,contract,clearance,gate,mesh_fix,geo,txn",
+      "workerRank": 14
     },
     {
       "id": "ext-blockout",
-      "side": "gui",
+      "side": "both",
       "family": "blockout",
       "group": "ext",
       "kind": "dispatch",
@@ -389,11 +411,12 @@
       "api": "dsh_blockout_api",
       "ensure": "ensureBlockout",
       "timeoutMs": 900000,
-      "preload": "blockout,qc,qc_render,montage"
+      "preload": "blockout,qc,qc_render,montage",
+      "workerRank": 13
     },
     {
       "id": "ext-visualreport",
-      "side": "gui",
+      "side": "both",
       "family": "visualreport",
       "group": "ext",
       "kind": "dispatch",
@@ -403,11 +426,12 @@
       "api": "dsh_visualreport_api",
       "ensure": "ensureVisualReport",
       "timeoutMs": 600000,
-      "preload": "visualreport,qc,imgtools"
+      "preload": "visualreport,qc,imgtools",
+      "workerRank": 9
     },
     {
       "id": "ext-shapesolve",
-      "side": "gui",
+      "side": "both",
       "family": "shapesolve",
       "group": "ext",
       "kind": "dispatch",
@@ -417,11 +441,12 @@
       "api": "dsh_shapesolve_api",
       "ensure": "ensureShapesolve",
       "timeoutMs": 900000,
-      "preload": "shapesolve,imgtools"
+      "preload": "shapesolve,imgtools",
+      "workerRank": 10
     },
     {
       "id": "ext-eval",
-      "side": "gui",
+      "side": "both",
       "family": "eval",
       "group": "ext",
       "kind": "dispatch",
@@ -431,11 +456,12 @@
       "api": "dsh_evalharness_api",
       "ensure": "ensureEvalharness",
       "timeoutMs": 900000,
-      "preload": "evalharness,assembly,audit,contract,clearance,gate,imgtools,calib,mesh_fix"
+      "preload": "evalharness,assembly,audit,contract,clearance,gate,imgtools,calib,mesh_fix",
+      "workerRank": 11
     },
     {
       "id": "ext-surface",
-      "side": "gui",
+      "side": "both",
       "family": "surface",
       "group": "ext",
       "kind": "dispatch",
@@ -445,7 +471,8 @@
       "api": "dsh_surface_api",
       "ensure": "ensureSurface",
       "timeoutMs": 900000,
-      "preload": "surface,audit"
+      "preload": "surface,audit",
+      "workerRank": 12
     },
     {
       "id": "ext-calib",
@@ -462,7 +489,7 @@
     },
     {
       "id": "ext-material",
-      "side": "gui",
+      "side": "both",
       "family": "material",
       "group": "ext",
       "kind": "dispatch",
@@ -472,11 +499,12 @@
       "api": "dsh_material_api",
       "ensure": "ensureMaterial",
       "timeoutMs": 900000,
-      "preload": "material"
+      "preload": "material",
+      "workerRank": 28
     },
     {
       "id": "ext-sculpt",
-      "side": "gui",
+      "side": "both",
       "family": "sculpt",
       "group": "ext",
       "kind": "dispatch",
@@ -486,11 +514,12 @@
       "api": "dsh_sculpt_api",
       "ensure": "ensureSculpt",
       "timeoutMs": 900000,
-      "preload": "sculpt"
+      "preload": "sculpt",
+      "workerRank": 26
     },
     {
       "id": "ext-fix",
-      "side": "gui",
+      "side": "both",
       "family": "fix",
       "group": "ext",
       "kind": "dispatch",
@@ -500,11 +529,12 @@
       "api": "dsh_fix_api",
       "ensure": "ensureFix",
       "timeoutMs": 600000,
-      "preload": "mesh_fix"
+      "preload": "mesh_fix",
+      "workerRank": 23
     },
     {
       "id": "ext-uv",
-      "side": "gui",
+      "side": "both",
       "family": "uv",
       "group": "ext",
       "kind": "dispatch",
@@ -514,11 +544,12 @@
       "api": "dsh_uv_api",
       "ensure": "ensureUv",
       "timeoutMs": 600000,
-      "preload": "uv_tools"
+      "preload": "uv_tools",
+      "workerRank": 24
     },
     {
       "id": "ext-print",
-      "side": "gui",
+      "side": "both",
       "family": "print",
       "group": "ext",
       "kind": "dispatch",
@@ -528,11 +559,12 @@
       "api": "dsh_print_api",
       "ensure": "ensurePrint",
       "timeoutMs": 900000,
-      "preload": "printcheck"
+      "preload": "printcheck",
+      "workerRank": 25
     },
     {
       "id": "ext-sweep",
-      "side": "gui",
+      "side": "both",
       "family": "sweep",
       "group": "ext",
       "kind": "dispatch",
@@ -542,7 +574,8 @@
       "api": "dsh_sweep_api",
       "ensure": "ensureSweep",
       "timeoutMs": 300000,
-      "preload": "sweep"
+      "preload": "sweep",
+      "workerRank": 27
     },
     {
       "id": "ext-view",
@@ -585,6 +618,17 @@
       "api": "dsh_contract_api",
       "ensure": "ensureContract",
       "timeoutMs": 300000
+    },
+    {
+      "id": "qc-render-worker",
+      "side": "worker",
+      "family": "qc_render",
+      "match": "prefix",
+      "prefix": "qc_render_",
+      "strip": 3,
+      "api": "dsh_qc_render_api",
+      "preload": "qc,qc_render",
+      "workerRank": 8
     }
   ]
 }

@@ -80,7 +80,7 @@ export function name0StartsWith(s: unknown, p: string): boolean {
   return String(s).indexOf(p) === 0
 }
 
-/** blender_inspect 跨通道纠错：把 plan op 当 addon 命令发时，直接告诉它该走哪个工具（实测真实发生过） */
+/** rt_cmd 跨通道纠错：把 plan op 当 addon 命令发时，直接告诉它该走哪个工具（实测真实发生过） */
 export function planOpCrossChannelHint(addonName: unknown): string | null {
   const n = String(addonName || '')
   if (!n || COMMAND_CATALOG[n]) return null
@@ -92,10 +92,10 @@ export function planOpCrossChannelHint(addonName: unknown): string | null {
         return (
           '「' +
           n +
-          '」是 blender_op 的 op（' +
+          '」是 blender_rt_plan 的 op（' +
           e.f +
           ' 家族），不是 addon 命令 → ' +
-          '改用 blender_op(op="' +
+          '改用 blender_rt_plan(op="' +
           full +
           '", args={...})。' +
           (e.sk ? '最小骨架：' + e.sk : '')
@@ -112,7 +112,7 @@ export function planOpCrossChannelHint(addonName: unknown): string | null {
         n +
         '」是 plan 通道的 ' +
         e.f +
-        ' 家族 op → 完整写法是 blender_op(op="' +
+        ' 家族 op → 完整写法是 blender_rt_plan(op="' +
         full +
         '")。' +
         (e.sk ? '最小骨架：' + e.sk : '')
@@ -128,7 +128,7 @@ export function planOpCrossChannelHint(addonName: unknown): string | null {
       '」既不是 addon 命令、也不是已知 plan op；最接近的是「' +
       near.op +
       '」→ ' +
-      'blender_op(op="' +
+      'blender_rt_plan(op="' +
       near.op +
       '")。' +
       (near.skeleton ? '最小骨架：' + near.skeleton : '')
@@ -152,19 +152,7 @@ export interface CatalogFingerprint {
 export function catalogFingerprint(): CatalogFingerprint {
   const parts: string[] = []
   for (const e of PLAN_CATALOG)
-    parts.push(
-      [
-        e.f,
-        e.prefix,
-        e.requires_session ? 'G' : 'L',
-        e.write_scope,
-        e.ops.join(','),
-        e.when,
-        e.not,
-        e.sk || '',
-        e.key || '',
-      ].join('|'),
-    )
+    parts.push([e.f, e.prefix, e.ops.join(','), e.when, e.not, e.sk || '', e.key || ''].join('|'))
   return {
     catalogHash: sha12(Buffer.from(parts.join(String.fromCharCode(10)), 'utf8')),
     families: PLAN_CATALOG.length,
@@ -209,19 +197,13 @@ export function probeDiskCatalog(timeoutMs: unknown): DiskCatalog {
 export function renderFamilyText(e: PlanFamily): string {
   const L = []
   L.push('family: ' + e.f + (e.prefix ? '（前缀 ' + e.prefix + '）' : ''))
-  L.push(
-    'target: ' +
-      (e.requires_session ? 'G（需要 GUI 会话）' : 'L（host 本地，不要求会话）') +
-      ' · write_scope: ' +
-      e.write_scope,
-  )
   L.push('什么时候用: ' + e.when)
   L.push('什么时候别用: ' + e.not)
   L.push('ops: ' + e.ops.join(' / '))
   if (e.sk) L.push('最小骨架: ' + e.sk)
   if (e.key) L.push('要点: ' + e.key)
   L.push(
-    '细节速查: blender_op(op="' +
+    '细节速查: blender_rt_plan(op="' +
       (e.ops.indexOf('help') >= 0 ? (e.prefix ? e.prefix + 'help' : e.f + '_help') : 'help') +
       '")',
   )

@@ -192,7 +192,7 @@ def _install_post(response=None, raise_error=None):
         return response
 
     selection.requests = SimpleNamespace(post=_post)
-    selection.dshbb_backend_url = lambda: "http://127.0.0.1:39877"
+    selection.dshbb_backend_url = lambda: "http://127.0.0.1:9877"
     return state, original
 
 
@@ -211,7 +211,7 @@ def test_post_selection_payload_success():
     assert result["status_code"] == 200
     assert result["seq"] == 4
     assert result["received_at"] == 123
-    assert state.calls[0]["url"] == "http://127.0.0.1:39877/host/selection"
+    assert state.calls[0]["url"] == "http://127.0.0.1:9877/host/selection"
     assert state.calls[0]["timeout"] == 1.5
 
 
@@ -242,7 +242,7 @@ def test_post_selection_payload_never_raises_on_connection_errors():
         _restore(original)
     assert result["ok"] is False
     assert "refused" in result["error"]
-    assert "127.0.0.1:39877" in result["hint"]
+    assert "127.0.0.1:9877" in result["hint"]
 
 
 def test_send_collection_to_dsh_reports_missing_target():
@@ -255,7 +255,7 @@ def test_send_collection_to_dsh_reports_missing_target():
 
 def test_record_selection_send_tracks_the_last_result():
     result = selection.record_selection_send({
-        "ok": True, "seq": 7, "backend_url": "http://127.0.0.1:39877",
+        "ok": True, "seq": 7, "backend_url": "http://127.0.0.1:9877",
         "payload": {"selection": {"kind": "collection", "count": 3,
                                   "collection": "SetA"}},
     })

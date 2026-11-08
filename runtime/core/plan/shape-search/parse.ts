@@ -3,7 +3,7 @@ import { searchAxisValues } from './axes.js'
 import type { AxisSpec } from './axes.js'
 
 export const SHAPE_SEARCH_SKELETON =
-  'blender_op(op="shape_search", args={objective:"silhouette_iou", ' +
+  'blender_rt_plan(op="shape_search", args={objective:"silhouette_iou", ' +
   'ref:"D:/ref/side.png", view:{from:[0,-6,1.0], look_at:[0,0,0.5], lens:50}, ' +
   "apply:\"ob.location.y = p['dy_mm']/1000.0\\n    ob.location.z = p['dz_mm']/1000.0\\n" +
   '    bpy.context.view_layer.update()", ' +

@@ -5,7 +5,7 @@ import { PLAN_CATALOG } from '../../../../runtime/catalog/index.js'
 import { CONTRACT_ROUTES, createRoutes } from '../../../../runtime/http/routes/index.js'
 import { pkgPath } from '../../../helpers/pkg'
 
-const serverSource = fs.readFileSync(pkgPath('runtime', 'gateway', 'app.ts'), 'utf8')
+const serverSource = fs.readFileSync(pkgPath('runtime', 'server.ts'), 'utf8')
 const healthSource = fs.readFileSync(pkgPath('runtime', 'http', 'routes', 'health.ts'), 'utf8')
 function readTree(dir: string, ext: string): string {
   return fs

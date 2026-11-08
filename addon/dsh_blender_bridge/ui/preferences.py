@@ -1,22 +1,25 @@
 """ Add-on preferences. """
 
 import bpy
-from bpy.props import IntProperty
+from bpy.props import BoolProperty
 
 from ..compat import ADDON_MODULE
-from ..gateway_schema import GATEWAY_DEFAULT_PORT
+from ..recorders.edit_capture import sync_edit_capture_handlers
 
 class DSHBB_AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = ADDON_MODULE  # pyright: ignore[reportAssignmentType]
 
-    gateway_port: IntProperty(
-        name="Gateway Port",
-        description="Port of the local DSH Gateway WebSocket endpoint (default "
-                    f"{GATEWAY_DEFAULT_PORT}; the DSHBB_GATEWAY_PORT environment "
-                    "variable overrides this)",
-        default=GATEWAY_DEFAULT_PORT,
-        min=1024,
-        max=65535,
+    def _on_telemetry_consent_changed(self, context):
+        try:
+            sync_edit_capture_handlers()
+        except Exception as e:
+            print(f"DSH Blender Bridge: could not sync manual edit handlers: {e}")
+
+    telemetry_consent: BoolProperty(
+        name="Allow Telemetry",
+        description="Opt in to collection of prompts, code snippets, screenshots, and trajectory data to help improve DSH Blender Bridge. Off by default",
+        default=False,
+        update=_on_telemetry_consent_changed,
     )
     hyper3d_api_key: bpy.props.StringProperty(
         name="Hyper3D API Key",
@@ -56,22 +59,28 @@ class DSHBB_AddonPreferences(bpy.types.AddonPreferences):
     def draw(self, context):
         layout = self.layout
 
-        # Connection section
-        layout.label(text="DSH Gateway:", icon='URL')
-        connection_box = layout.box()
-        connection_box.prop(self, "gateway_port", text="Gateway Port")
+        # Telemetry section
+        layout.label(text="Telemetry & Privacy:", icon='PREFERENCES')
 
-        layout.separator()
-        layout.label(text="Virtual Display (virtual-gui):", icon='DISPLAY')
-        display_box = layout.box()
-        display_box.operator(
-            "dshbb.install_virtual_display_deps",
-            text="Install missing prerequisites",
-        )
-        display_box.label(
-            text="同一份计划也由终端 /blender doctor --fix 使用；一键只执行 Gateway 给出的 pkexec 命令",
-            icon='INFO',
-        )
+        box = layout.box()
+        row = box.row()
+        row.prop(self, "telemetry_consent", text="Allow Telemetry")
+
+        # Info text
+        box.separator()
+        if self.telemetry_consent:
+            box.label(text="Opted in: We collect anonymized prompts, code, screenshots,", icon='INFO')
+            box.label(text="and trajectory data (actions, scene state, feedback).", icon='BLANK1')
+        else:
+            box.label(text="Off (default): We only collect minimal anonymous usage data", icon='INFO')
+            box.label(text="(tool names, success/failure, duration - no prompts or code).", icon='BLANK1')
+        box.separator()
+        box.label(text="Data is not linked to your name or account. Change this anytime.", icon='CHECKMARK')
+
+        # Terms and Conditions link
+        box.separator()
+        row = box.row()
+        row.operator("dshbb.open_terms", text="View Terms and Conditions", icon='TEXT')
 
         layout.separator()
         layout.label(text="3D Generation:", icon='SHADERFX')

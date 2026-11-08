@@ -25,18 +25,6 @@ def _package_python_files():
     )
 
 
-def _package_entries():
-    """Every file the deterministic builder ships, including metadata and licenses."""
-    return sorted(
-        [PACKAGE_ROOT + "/" + relative for relative in _package_python_files()]
-        + [
-            PACKAGE_ROOT + "/blender_manifest.toml",
-            PACKAGE_ROOT + "/LICENSE",
-            PACKAGE_ROOT + "/NOTICE",
-        ]
-    )
-
-
 def test_zip_manifest_has_package_root_and_all_python_files():
     assert ZIP_PATH.is_file(), "run scripts/build-addon.mjs first"
     with zipfile.ZipFile(ZIP_PATH) as archive:
@@ -47,19 +35,10 @@ def test_zip_manifest_has_package_root_and_all_python_files():
         assert not any("__pycache__" in name or name.endswith(".pyc") for name in names)
         assert not any(name.lower() == PACKAGE_ROOT + ".py" for name in names)
         assert names == sorted(names)
-        assert names == _package_entries()
-        init_source = archive.read(PACKAGE_ROOT + "/__init__.py").decode("utf-8")
-        assert "bl_info" not in init_source
-        assert archive.read(PACKAGE_ROOT + "/gateway_schema.py").decode("utf-8").find("ADDON_PROTOCOL_VERSION = 12") != -1
-        manifest = archive.read(PACKAGE_ROOT + "/blender_manifest.toml").decode("utf-8")
-        assert 'schema_version = "1.0.0"' in manifest
-        assert 'id = "dsh_blender_bridge"' in manifest
-        assert 'version = "2.0.0"' in manifest
-        assert 'license = ["SPDX:GPL-3.0-or-later"]' in manifest
-        assert "GNU GENERAL PUBLIC LICENSE" in archive.read(PACKAGE_ROOT + "/LICENSE").decode("utf-8")
-        notice = archive.read(PACKAGE_ROOT + "/NOTICE").decode("utf-8")
-        assert "github.com/ahujasid/blender-mcp" in notice
-        assert "MIT License" in notice
+        expected = [PACKAGE_ROOT + "/" + relative for relative in _package_python_files()]
+        assert names == expected
+        assert archive.read(PACKAGE_ROOT + "/__init__.py").decode("utf-8").find('"version": (1, 11)') != -1
+        assert archive.read(PACKAGE_ROOT + "/protocol.py").decode("utf-8").find("ADDON_PROTOCOL_VERSION = 11") != -1
 
 
 def test_zip_installs_as_package_and_registers_from_any_cwd(tmp_path, monkeypatch):
@@ -77,12 +56,12 @@ def test_zip_installs_as_package_and_registers_from_any_cwd(tmp_path, monkeypatc
     package = importlib.import_module(PACKAGE_ROOT)
     try:
         assert Path(package.__file__).resolve() == package_init.resolve()
-        assert package.ADDON_VERSION == (2, 0, 0)
-        assert not hasattr(package, "bl_info")
-        assert package.ADDON_PROTOCOL_VERSION == 12
+        assert package.bl_info["version"] == (1, 11)
+        assert package.ADDON_PROTOCOL_VERSION == 11
 
         package.register()
         assert bpy.utils.registered, "register() did not register any classes"
+        assert bpy.types.Scene.dshbb_port is not None
         assert bpy.types.Scene.dshbb_ai_paused is not None
         assert bpy.types.Scene.dshbb_use_polyhaven is not None
         assert bpy.types.Scene.dshbb_use_hunyuan3d is not None
@@ -111,11 +90,11 @@ def test_zip_installs_as_package_and_registers_from_any_cwd(tmp_path, monkeypatc
 def test_zip_contains_the_whole_module_package_without_the_old_single_file():
     with zipfile.ZipFile(ZIP_PATH) as archive:
         names = archive.namelist()
-    expected = _package_entries()
-    assert len(expected) == 76
+    expected = [PACKAGE_ROOT + "/" + relative for relative in _package_python_files()]
+    assert len(expected) == 69
     assert names == expected
     assert PACKAGE_ROOT + ".py" not in names
-    assert PACKAGE_ROOT + "/blender_manifest.toml" in names
+    assert not any(name.endswith("blender_manifest.toml") for name in names)
     assert not any(name.endswith(".pyc") for name in names)
 
 
@@ -138,6 +117,7 @@ def test_register_unregister_leaves_no_residue_and_can_run_twice(tmp_path, monke
         for _round_index in (1, 2):
             package.register()
             assert bpy.utils.registered, "register() did not register any classes"
+            assert bpy.types.Scene.dshbb_port is not None
             assert bpy.types.Scene.dshbb_ai_paused is not None
             config = importlib.import_module(PACKAGE_ROOT + ".config")
             assert config._dshbb_load_post in bpy.app.handlers.load_post

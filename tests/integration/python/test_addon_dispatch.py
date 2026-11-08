@@ -1,13 +1,16 @@
 """Dispatch-level integration tests for the split add-on package.
 
-Uses a bpy stub and calls the server's command executor directly. This checks
-the 25-name dispatch table and pause gate without a Gateway connection.
+Uses a bpy stub and calls the socket server's command executor directly. This
+checks the 38-name dispatch table and pause gate without opening a socket.
 """
 
 from __future__ import annotations
 
 import importlib
 import json
+import socket
+import threading
+import time
 
 import bpy_stub
 
@@ -20,23 +23,24 @@ command_registry = importlib.import_module("addon.dsh_blender_bridge.command_reg
 BASE_COMMANDS = [
     "get_scene_info", "get_world_state_snapshot", "get_addon_info", "get_object_info",
     "get_viewport_screenshot", "execute_code", "describe_node_type", "bpy_api_lookup",
-    "get_activity_state", "get_selection", "send_selection_to_dsh",
-    "get_collections", "send_collection_to_dsh",
+    "drain_human_activity", "get_activity_state", "get_selection", "send_selection_to_dsh",
+    "get_collections", "send_collection_to_dsh", "get_telemetry_consent", "set_telemetry_consent",
     "get_polyhaven_status", "get_hyper3d_status", "get_sketchfab_status", "get_polypizza_status",
-    "get_hunyuan3d_status",
+    "get_hunyuan3d_status", "export_scene",
 ]
 GATED_COMMANDS = [
-    "get_polyhaven_categories", "search_polyhaven_assets",
-    "poll_rodin_job_status",
-    "search_sketchfab_models", "get_sketchfab_model_preview",
-    "search_polypizza_models",
-    "poll_hunyuan_job_status",
+    "get_polyhaven_categories", "search_polyhaven_assets", "download_polyhaven_asset",
+    "get_polyhaven_asset_preview", "set_texture",
+    "create_rodin_job", "poll_rodin_job_status", "import_generated_asset",
+    "search_sketchfab_models", "get_sketchfab_model_preview", "download_sketchfab_model",
+    "search_polypizza_models", "download_polypizza_model",
+    "create_hunyuan_job", "poll_hunyuan_job_status", "import_generated_asset_hunyuan",
 ]
 ALL_COMMANDS = BASE_COMMANDS + GATED_COMMANDS
 
 
 def _server(monkeypatch):
-    return server_module.DSHBlenderBridgeServer()
+    return server_module.DSHBlenderBridgeServer(port=0)
 
 
 def _patch_dispatch_targets(server):
@@ -45,19 +49,19 @@ def _patch_dispatch_targets(server):
 
 
 def test_real_get_addon_info_contract():
-    server = server_module.DSHBlenderBridgeServer()
+    server = server_module.DSHBlenderBridgeServer(port=0)
     info = server.get_addon_info()
     assert info["name"] == "DSH Blender Bridge"
-    assert info["addon_version"] == [2, 0, 0]
-    assert info["protocol_version"] == 12
+    assert info["addon_version"] == [1, 11]
+    assert info["protocol_version"] == 11
     assert info["blender_version"] == "4.2.10"
     # the handshake derives capabilities from the registry, so it is the full
-    # registered command set (25) instead of the old hardcoded 16-name subset.
+    # registered command set (38) instead of the old hardcoded 16-name subset.
     assert info["capabilities"] == sorted(command_registry.COMMAND_NAMES)
-    assert len(info["capabilities"]) == 25
+    assert len(info["capabilities"]) == 38
 
 
-def test_all_25_contract_commands_dispatch(monkeypatch):
+def test_all_38_contract_commands_dispatch(monkeypatch):
     server = _server(monkeypatch)
     _patch_dispatch_targets(server)
     for name in ("dshbb_use_polyhaven", "dshbb_use_hyper3d", "dshbb_use_sketchfab",
@@ -72,7 +76,7 @@ def test_all_25_contract_commands_dispatch(monkeypatch):
         else:
             assert response["result"] == {"handled": name}, name
 
-    assert len(ALL_COMMANDS) == len(command_registry.COMMAND_NAMES) == 25
+    assert len(ALL_COMMANDS) == len(command_registry.COMMAND_NAMES) == 38
 
 
 def test_unknown_command_and_handler_exception_shapes(monkeypatch):
@@ -108,47 +112,39 @@ def test_pause_gate_blocks_writes_but_allows_reads_and_ping(monkeypatch):
             "handled": "get_scene_info",
         }
         assert server.execute_command({"type": "get_polyhaven_status", "params": {}})["status"] == "success"
-        assert server.execute_command({"type": "send_selection_to_dsh", "params": {}})["error"] == "AI_PAUSED"
+        assert server.execute_command({"type": "set_texture", "params": {}})["error"] == "AI_PAUSED"
     finally:
         bpy.context.scene.dshbb_ai_paused = False
 
 
-def test_gateway_message_framing_and_dispatch(monkeypatch):
-    """A Gateway JSON frame becomes one queued command and one JSON response."""
+def test_socket_framing_and_dispatch(monkeypatch):
+    """The real socket handler frames JSON and the drain loop answers ping."""
     server = _server(monkeypatch)
     server.running = True
-    sent = []
+    client, peer = socket.socketpair()
+    thread = threading.Thread(target=server._handle_client, args=(client,), daemon=True)
+    thread.start()
     try:
-        server._handle_gateway_message(json.dumps({"type": "ping"}), sent.append)
-        assert server.command_queue.qsize() == 1
-        assert server._drain_command_queue() == 0.05
-        assert [json.loads(raw) for raw in sent] == [
-            {"status": "success", "result": {"pong": True}},
-        ]
-    finally:
-        server.running = False
-
-
-def test_gateway_request_id_is_echoed_on_the_response(monkeypatch):
-    server = _server(monkeypatch)
-    server.running = True
-    sent = []
-    try:
-        server._handle_gateway_message(
-            json.dumps({"type": "ping", "requestId": "req-42"}), sent.append)
+        peer.sendall(json.dumps({"type": "ping"}).encode("utf-8"))
+        deadline = time.time() + 2
+        while server.command_queue.empty() and time.time() < deadline:
+            time.sleep(0.01)
+        assert not server.command_queue.empty(), "socket handler did not frame the command"
         server._drain_command_queue()
-        assert json.loads(sent[0])["requestId"] == "req-42"
+        raw = peer.recv(65536)
+        assert json.loads(raw.decode("utf-8")) == {
+            "status": "success",
+            "result": {"pong": True},
+        }
     finally:
         server.running = False
-
-
-def test_malformed_gateway_messages_are_ignored(monkeypatch):
-    server = _server(monkeypatch)
-    sent = []
-    server._handle_gateway_message("not json", sent.append)
-    server._handle_gateway_message("[]", sent.append)
-    assert server.command_queue.empty()
-    assert sent == []
+        try:
+            peer.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        peer.close()
+        thread.join(timeout=2)
+    assert not thread.is_alive()
 
 
 def test_gated_commands_are_unknown_while_their_toggle_is_off(monkeypatch):

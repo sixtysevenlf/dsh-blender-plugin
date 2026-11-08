@@ -43,7 +43,7 @@ def _dv_export_gate(require_gate, force_gate, gate_reason, gate_spec, gate_prese
     gapi = getattr(K, "dsh_gate_api", None) if K is not None else None
     if gapi is None:
         return None, {"ok": False, "blocked": True, "error": "require_gate=true 但 K.dsh_gate_api 不存在",
-                      "hint": "headless 预热：preload=\"gate\"（或先跑 blender_op(op=\"gate_run\")）"}
+                      "hint": "headless 预热：preload=\"gate\"（或先跑 blender_rt_plan(op=\"gate_run\")）"}
     if force_gate and not str(gate_reason or "").strip():
         return None, {"ok": False, "blocked": True,
                       "error": "force_gate=true 必须给 gate_reason（写进回执）"}

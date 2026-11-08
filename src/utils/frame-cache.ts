@@ -6,7 +6,7 @@
  * （`038c7439`）、单帧 116,870 B。hash 相等 ⇒ 像素逐字节相同 ⇒ 跳过附件**不丢任何信息**。
  * 要强行重发（例如想再看一眼）传 `force:true`。
  *
- * 缓存按"通道"分键：默认视口帧 / 自定义视角（按视角签名）/ blender_py 的 see，互不干扰。
+ * 缓存按"通道"分键：默认视口帧 / 自定义视角（按视角签名）/ rt_do 的 see，互不干扰。
  */
 export const FRAME_CACHE = new Map<string, { hash: string; firstAt: number; repeats: number }>()
 

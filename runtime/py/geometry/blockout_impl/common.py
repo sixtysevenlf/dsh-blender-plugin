@@ -4,7 +4,7 @@
 现场问题：弱模型先手写几何再补比例，往往"看起来有件、量起来没数"；而参考图/装配/干涉检查
 都需要一个**尺寸可信、命名统一、集合隔离**的白模。本模块只做白模（不做成品细节）：
 
-ops（走 blender_op；模块尾部注册 K.dsh_blockout_api）：
+ops（走 blender_rt_plan；模块尾部注册 K.dsh_blockout_api）：
     base(name, template, units, anchor, parts, landmarks, collection, render, export, audit, reset,
          bevel_mm, template_scale, outdir)   # 建一件白模（bmesh 直建 primitive，mm→BU 换算）
     batch(models, outdir, export, collection, cleanup, render)  # 一次进程建 N 件，逐件 collection/清理

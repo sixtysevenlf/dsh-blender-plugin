@@ -1,9 +1,13 @@
-"""GUI Blender harness for native G-layer modules.
+"""GUI Blender harness: real window, Connect button, 9876+ socket round-trip.
 
-Runs one native E2E module inside a normal (non-background) Blender window so it
-can exercise real areas, viewports, timers, and operators. Unlike the headless
-layer this needs an interactive desktop session; when the run cannot open a
-window the test skips or fails honestly (never a fake pass).
+The probe runs inside a normal (non-background) Blender because the add-on
+refuses to start its socket server headless. It installs the committed zip,
+presses the real "Connect" operator, talks to the listening socket from a
+worker thread while Blender's main thread keeps servicing timers, then
+disconnects and removes the add-on.
+
+Unlike the headless layer this needs an interactive desktop session; when the
+run cannot open a window the test skips or fails honestly (never a fake pass).
 """
 
 from __future__ import annotations
@@ -17,6 +21,8 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+ZIP_PATH = REPO_ROOT / "addon" / "dsh_blender_bridge.zip"
+PROBE = Path(__file__).resolve().parent / "gui_connect_probe.py"
 
 DEFAULT_BLENDER_CANDIDATES = (
     "C:/Program Files/Blender Foundation/Blender 4.2/blender.exe",
@@ -120,6 +126,56 @@ def run_native_module(tmp_path: Path, executable: str, module, timeout=600):
         "work_dir": str(work_dir),
         "out_dir": str(out_dir),
         "report_path": str(report_path),
+    }
+
+
+def run_probe(tmp_path: Path, executable: str, timeout=240):
+    work_dir = Path(tmp_path) / "blender-gui"
+    temp_dir = work_dir / "tmp"
+    user_scripts = work_dir / "user_scripts"
+    results_path = work_dir / "gui-results.json"
+    for path in (work_dir, temp_dir, user_scripts):
+        path.mkdir(parents=True, exist_ok=True)
+    env = dict(os.environ)
+    env.update({
+        "TEMP": str(temp_dir),
+        "TMP": str(temp_dir),
+        "BLENDER_USER_SCRIPTS": str(user_scripts),
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONUTF8": "1",
+    })
+    command = [
+        executable,
+        "--factory-startup",
+        "--python-exit-code", "1",
+        "--python", str(PROBE),
+        "--", str(ZIP_PATH), str(results_path), str(work_dir),
+    ]
+    completed = subprocess.run(
+        command, cwd=str(REPO_ROOT), env=env, capture_output=True, text=True,
+        encoding="utf-8", errors="replace", timeout=timeout,
+    )
+    report = None
+    if results_path.is_file():
+        report = json.loads(results_path.read_text(encoding="utf-8"))
+    log_dir = os.environ.get("DSH_T10_E2E_LOG_DIR")
+    if log_dir:
+        destination = Path(log_dir)
+        destination.mkdir(parents=True, exist_ok=True)
+        (destination / "blender-gui.stdout.log").write_text(completed.stdout, encoding="utf-8")
+        (destination / "blender-gui.stderr.log").write_text(completed.stderr, encoding="utf-8")
+        (destination / "blender-gui.results.json").write_text(
+            json.dumps(report, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+        screenshot = work_dir / "gui-connect.png"
+        if screenshot.is_file():
+            (destination / "gui-connect.png").write_bytes(screenshot.read_bytes())
+    return {
+        "command": command,
+        "returncode": completed.returncode,
+        "stdout": completed.stdout,
+        "stderr": completed.stderr,
+        "report": report,
+        "work_dir": str(work_dir),
     }
 
 

@@ -65,47 +65,12 @@ describe('CI workflow hygiene', () => {
     }
   })
 
-  it('validates the addon package with a pinned Blender 4.2 LTS validator', () => {
-    expect(pr).toContain('blender-4.2.10-linux-x64.tar.xz')
-    expect(pr).toContain('key: blender-4.2.10-linux-x64')
-    expect(pr).toContain('--command extension validate addon/dsh_blender_bridge.zip')
-    expect(pr).toContain('Reject an invalid extension package')
-  })
-
-  it('copies exactly one extension artifact into the release assets', () => {
-    const copied = [...release.matchAll(/\bcp\s+(\S+\.zip)\s+release-assets\//g)].map((m) => m[1])
-    expect(copied).toEqual(['addon/dsh_blender_bridge.zip'])
-    expect(release).not.toMatch(/cp\s+\S*legacy\S*\.zip/)
-  })
-
   it('keeps manual CD inputs typed and gated', () => {
     expect(release).toContain('if: ${{ !inputs.dry_run }}')
     expect(release).toContain('if: ${{ !inputs.dry_run && inputs.publish_npm }}')
     expect(release).not.toContain('github.event.inputs')
     expect(release).toContain('name: release')
     expect(release).toContain('--draft')
-  })
-
-  it('gates the extension upload behind an explicit opt-in and a real token', () => {
-    expect(release).toContain('publish_extension:')
-    expect(release).toContain("description: 'Upload the extension zip to extensions.blender.org")
-    expect(release).toMatch(
-      /publish_extension:\n\s+description:.*\n\s+required: true\n\s+default: false/,
-    )
-    expect(release).toContain('if: ${{ !inputs.dry_run && inputs.publish_extension }}')
-    expect(release).toContain('BLENDER_EXTENSIONS_TOKEN is not configured')
-    expect(release).toContain('npm run publish:extension --')
-    expect(release).toContain('--notes-file release/extension-release-notes.md')
-    expect(release).toContain('submitted manually at https://extensions.blender.org/')
-  })
-
-  it('validates the addon manifest and protocol against one gateway schema', () => {
-    expect(release).toContain('const protocol = protocolSource.match')
-    expect(release).toContain('const addonVersion = manifest.match')
-    expect(release).toContain('addon protocol.py and config/gateway.json disagree')
-    expect(release).toContain('blender_manifest.toml and config/gateway.json disagree')
-    expect(release).not.toContain('addon protocol.py must keep protocol 11')
-    expect(release).not.toContain('addon protocol.py must keep addon version 1.11')
   })
 })
 

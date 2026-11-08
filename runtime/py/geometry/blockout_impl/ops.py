@@ -197,7 +197,7 @@ def blockout_base(name=None, template="none", units="mm", anchor="bottom", parts
         return result
     except Exception as e:
         return _err("%s: %s" % (type(e).__name__, str(e)[:280]),
-                    hint="建几何阶段失败；场景可能留下部分对象，可用 K.dsh_qc_api 或 blender_session 回退",
+                    hint="建几何阶段失败；场景可能留下部分对象，可用 K.dsh_qc_api 或 blender_rt_txn 回退",
                     op="base", name=name)
 
 

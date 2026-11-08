@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { startBackend, type Backend } from '../../helpers/backend'
-import { startFakeWsAddon } from '../../helpers/fake-ws-addon.mjs'
+import { startFakeAddon } from '../../helpers/fake-addon.mjs'
 
 // GET /host/scene-items feeds the client-side @ mention list. The data comes from
 // a live addon; the failure path must be an explicit 502 with a readable error,
@@ -8,27 +8,25 @@ import { startFakeWsAddon } from '../../helpers/fake-ws-addon.mjs'
 // object/material/collection payloads are covered by the Blender E2E suite.
 
 let backend: Backend
-let addon: Awaited<ReturnType<typeof startFakeWsAddon>>
+let addon: Awaited<ReturnType<typeof startFakeAddon>>
 
 beforeAll(async () => {
-  backend = await startBackend()
-  addon = await startFakeWsAddon({
-    gatewayPort: backend.port,
+  addon = await startFakeAddon({
     behavior: (type: string) => {
       if (type === 'get_addon_info')
         return {
           status: 'success',
-          result: { name: 'fake', version: '2.0.0', protocol: 12, paused: false },
+          result: { name: 'fake', version: '1.8.0', protocol: 11, paused: false },
         }
       if (type === 'execute_code') return { status: 'error', message: 'scene items unavailable' }
       return { status: 'success', result: { type } }
     },
   })
-  await addon.ready
+  backend = await startBackend({ addonPort: addon.port })
 })
 afterAll(async () => {
-  await addon.close()
   await backend.stop()
+  await addon.close()
 })
 
 describe('host scene items failure path', () => {
@@ -42,7 +40,8 @@ describe('host scene items failure path', () => {
   })
 
   it('502s when no addon is reachable at all', async () => {
-    const offline = await startBackend()
+    const offlinePort = (addon.port % 60000) + 1
+    const offline = await startBackend({ addonPort: offlinePort })
     try {
       const response = await offline.get('/host/scene-items?q=Cu&limit=5')
       expect(response.status).toBe(502)

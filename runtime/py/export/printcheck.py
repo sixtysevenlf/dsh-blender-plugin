@@ -6,10 +6,10 @@
 用法线锥测悬垂 —— 结果可复算、可写进验收回执。
 
 ops：
-    blender_op(op="print_walls",    args={objects:["Body"], min_mm:1.2, max_samples:4000})   # 只读
-    blender_op(op="print_overhang", args={objects:["Body"], max_angle_deg:45})               # 只读
-    blender_op(op="print_report",   args={objects:["Body"], min_mm:1.2, max_angle_deg:45})   # 只读
-    blender_op(op="print_selftest")
+    blender_rt_plan(op="print_walls",    args={objects:["Body"], min_mm:1.2, max_samples:4000})   # 只读
+    blender_rt_plan(op="print_overhang", args={objects:["Body"], max_angle_deg:45})               # 只读
+    blender_rt_plan(op="print_report",   args={objects:["Body"], min_mm:1.2, max_angle_deg:45})   # 只读
+    blender_rt_plan(op="print_selftest")
 
 口径：1 Blender 单位 = 1 m（默认场景），mm = 单位 * scale_length * 1000；可用 mm_per_unit 覆盖。
 

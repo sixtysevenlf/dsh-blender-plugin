@@ -650,7 +650,7 @@ def t_help():
                          "edit_status": "edit_status() → pending（label/目标/开始时间/check 数）+ accepted/reverted + 剩余撤销额度"},
         "boundary": "对象级不含拓扑/UV/顶点改动；文件级是完整回滚但有写盘成本。"
                     "待定编辑协议：edit_begin 不做 .blend 快照 —— 拓扑类改动（Boolean/合并/删面/apply_transform）必须先 t_snapshot()",
-        "usage": "K.dsh_txn_api[...]；也可用工具 blender_session(action='txn', op=...)。典型：edit_begin → 改 → edit_check('qc', {...}) → edit_accept('iso 比对：方向对、进 12mm')",
+        "usage": "K.dsh_txn_api[...]；也可用工具 blender_rt_txn(op=...)。典型：edit_begin → 改 → edit_check('qc', {...}) → edit_accept('iso 比对：方向对、进 12mm')",
     })
 
 

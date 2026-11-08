@@ -9,19 +9,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const h = vi.hoisted(() => ({
   winKillPids: vi.fn((pids: number[]) => pids.map(String)),
   winSamePortHolders: vi.fn((_port: number) => [] as number[]),
-  winPortListenerPids: vi.fn((_port: number) => [] as number[]),
 }))
 vi.mock('../../../runtime/win_proc.js', () => ({
   winKillPids: h.winKillPids,
   winSamePortHolders: h.winSamePortHolders,
-  winPortListenerPids: h.winPortListenerPids,
 }))
 
 import {
   holderResponsive,
   killHolders,
   parsePortArg,
-  parseProcNetTcpListeners,
   readProcRows,
   samePortHolders,
   serverPidsFromProcRows,
@@ -59,24 +56,6 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-describe('parseProcNetTcpListeners', () => {
-  const header =
-    '  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode'
-  it('returns LISTEN inodes for the exact HEX port', () => {
-    const text = [
-      header,
-      '   0: 0100007F:9BBD 00000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 111 1',
-      '   1: 0100007F:9BBD 0100007F:1F90 01 00000000:00000000 00:00000000 00000000     0        0 222 1',
-      '   2: 0100007F:9BBE 00000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 333 1',
-    ].join('\n')
-    expect(parseProcNetTcpListeners(text, 39869)).toEqual([{ inode: 111 }])
-  })
-  it('ignores malformed rows and invalid ports', () => {
-    expect(parseProcNetTcpListeners(header + '\nnot a row', 1234)).toEqual([])
-    expect(parseProcNetTcpListeners(header, 0)).toEqual([])
-  })
-})
-
 describe('parsePortArg legacy semantics', () => {
   it('returns null only when the flag is absent', () => {
     expect(parsePortArg([])).toBeNull()
@@ -101,12 +80,12 @@ describe('parsePortArg legacy semantics', () => {
 describe('readProcRows over a fake /proc', () => {
   it('reads numeric pid cmdlines and skips its own pid / bad entries', () => {
     stubProc({
-      '101': ['node', '/opt/dsh/lib/runtime/gateway.js', '--port', '9877'],
+      '101': ['node', '/opt/dsh/lib/runtime/server.js', '--port', '9877'],
       abc: ['node', 'noise'],
-      [String(process.pid)]: ['node', '/opt/dsh/lib/runtime/gateway.js', '--port', '9877'],
+      [String(process.pid)]: ['node', '/opt/dsh/lib/runtime/server.js', '--port', '9877'],
     })
     expect(readProcRows()).toEqual([
-      { pid: 101, toks: ['node', '/opt/dsh/lib/runtime/gateway.js', '--port', '9877'] },
+      { pid: 101, toks: ['node', '/opt/dsh/lib/runtime/server.js', '--port', '9877'] },
     ])
   })
 
@@ -119,11 +98,11 @@ describe('readProcRows over a fake /proc', () => {
 describe('serverPidsFromProcRows exact matching', () => {
   it('matches only a real server argv with the exact port', () => {
     const rows = [
-      { pid: 101, toks: ['node', '/opt/dsh/lib/runtime/gateway.js', '--port', '9877'] },
-      { pid: 102, toks: ['node', '/old/runtime/gateway.mjs', '--port', '9877'] },
-      { pid: 103, toks: ['node', '/opt/dsh/lib/runtime/gateway.js', '--port', '98770'] },
-      { pid: 104, toks: ['bash', '-c', 'node /opt/dsh/lib/runtime/gateway.js --port 9877'] },
-      { pid: 105, toks: ['node', '/opt/dsh/lib/runtime/gateway.js', '--port', '9877'] },
+      { pid: 101, toks: ['node', '/opt/dsh/lib/runtime/server.js', '--port', '9877'] },
+      { pid: 102, toks: ['node', '/old/runtime/server.mjs', '--port', '9877'] },
+      { pid: 103, toks: ['node', '/opt/dsh/lib/runtime/server.js', '--port', '98770'] },
+      { pid: 104, toks: ['bash', '-c', 'node /opt/dsh/lib/runtime/server.js --port 9877'] },
+      { pid: 105, toks: ['node', '/opt/dsh/lib/runtime/server.js', '--port', '9877'] },
     ]
     expect(serverPidsFromProcRows(rows, 9877, 999).sort()).toEqual([101, 102, 105])
     expect(serverPidsFromProcRows(rows, 98770, 999)).toEqual([103])
@@ -134,7 +113,7 @@ describe('serverPidsFromProcRows exact matching', () => {
 describe('samePortHolders and killHolders', () => {
   it('uses the fake /proc holders and does not call the Windows fallback', () => {
     stubProc({
-      '201': ['node', '/opt/dsh/lib/runtime/gateway.js', '--port', '9877'],
+      '201': ['node', '/opt/dsh/lib/runtime/server.js', '--port', '9877'],
     })
     expect(samePortHolders(9877)).toEqual([201])
     expect(h.winSamePortHolders).not.toHaveBeenCalled()
@@ -155,7 +134,7 @@ describe('samePortHolders and killHolders', () => {
 
   it('sends SIGTERM to POSIX holders and delegates to winKillPids on win32', () => {
     stubProc({
-      '301': ['node', '/opt/dsh/lib/runtime/gateway.js', '--port', '9877'],
+      '301': ['node', '/opt/dsh/lib/runtime/server.js', '--port', '9877'],
     })
     const posixKill = vi.spyOn(process, 'kill').mockImplementation(() => true)
     const killed = killHolders(9877, 'SIGTERM')
@@ -172,7 +151,7 @@ describe('samePortHolders and killHolders', () => {
 
   it('returns [] when the platform kill fails', () => {
     stubProc({
-      '401': ['node', '/opt/dsh/lib/runtime/gateway.js', '--port', '9877'],
+      '401': ['node', '/opt/dsh/lib/runtime/server.js', '--port', '9877'],
     })
     if (process.platform === 'win32') {
       h.winKillPids.mockImplementation(() => {

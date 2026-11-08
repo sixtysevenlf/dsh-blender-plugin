@@ -1,10 +1,9 @@
 """Real-Blender 4.2 add-on E2E (T10, release machine only).
 
-One Blender process installs the committed extension zip into the user_default
-repository, enables it through the bl_ext namespace, exercises get_addon_info /
-execute_code / selection POST / pause gate / unknown command, then disables and
-removes the extension. The raw log is kept in the fixture so the evidence pack can
-save it unedited.
+One Blender process installs the committed zip, enables the add-on, exercises
+get_addon_info / execute_code / selection POST / pause gate / unknown command,
+then disables and removes it. The raw log is kept in the fixture so the evidence
+pack can save it unedited.
 
 Run: DSH_BLENDER_EXE=/path/to/blender pytest tests/e2e/blender -m blender -v
 """
@@ -53,27 +52,22 @@ def test_blender_process_exits_zero_and_reports_env(blender_run):
     failed = sorted(name for name, value in report["checks"].items() if not value["ok"])
     assert failed == [], _dump(blender_run)
     assert set(report["checks"]) == {
-        "install_extension", "enable_addon", "get_addon_info", "execute_bpy_command",
+        "install_zip", "enable_addon", "get_addon_info", "execute_bpy_command",
         "selection_send", "pause_gate", "unknown_command", "uninstall",
     }
 
 
-def test_extension_installs_and_enables_the_package(blender_run):
-    detail = harness.check(blender_run, "install_extension")["detail"]
+def test_zip_installs_and_enables_the_package(blender_run):
+    detail = harness.check(blender_run, "install_zip")["detail"]
     assert detail["installed"] is True
     assert detail["operator_result"] == ["FINISHED"]
-    package_dir = Path(detail["package_dir"])
-    assert package_dir.name == "dsh_blender_bridge"
-    assert package_dir.parent.name == "user_default"
-    assert detail["extension_dir"].replace("\\", "/").endswith("user_extensions/user_default")
 
     enabled = harness.check(blender_run, "enable_addon")["detail"]
-    assert enabled["module"] == "bl_ext.user_default.dsh_blender_bridge"
-    assert enabled["addon_version"] == [2, 0, 0]
-    assert enabled["protocol"] == 12
-    assert enabled["commands"] == 25
-    # The inbound listener port property is gone: the add-on dials the Gateway.
-    assert enabled["scene_prop"] is False
+    assert enabled["bl_info_version"] == [1, 11]
+    assert enabled["addon_version"] == [1, 11]
+    assert enabled["protocol"] == 11
+    assert enabled["commands"] == 38
+    assert enabled["scene_prop"] is True
     assert enabled["enabled_pair"] == [True, True], enabled
     assert enabled["module_file"].replace("\\", "/").endswith("dsh_blender_bridge/__init__.py")
 
@@ -84,11 +78,11 @@ def test_get_addon_info_contract(blender_run):
     assert response["status"] == "success"
     info = response["result"]
     assert info["name"] == "DSH Blender Bridge"
-    assert info["addon_version"] == [2, 0, 0]
-    assert info["protocol_version"] == 12
-    # 25 registered commands: the handshake capabilities derive from
+    assert info["addon_version"] == [1, 11]
+    assert info["protocol_version"] == 11
+    # 38 registered commands: the handshake capabilities derive from
     # command_registry.COMMAND_NAMES (D6) rather than a hardcoded 16-name list.
-    assert len(info["capabilities"]) == 25
+    assert len(info["capabilities"]) == 38
     assert info["blender_version"].startswith("4.2.")
 
 
@@ -150,9 +144,8 @@ def test_uninstall_leaves_no_scene_props_timers_or_files(blender_run):
     assert detail["timer_registered"] is False
     assert detail["package_dir_removed"] is True
     assert detail["still_enabled"] == [False, False]
-    if detail["uninstall_error"] is None:
-        assert detail["operator_result"] == ["FINISHED"]
-    else:
+    remove_error = detail["addon_remove_error"]
+    if remove_error is not None:
         # Documented background-mode limitation of Blender's UI operator, not an
-        # add-on defect; the extension directory is still removed in the report.
-        assert "tag_redraw" in detail["uninstall_error"] or "context" in detail["uninstall_error"]
+        # add-on defect; the GUI probe exercises the real Remove button.
+        assert "tag_redraw" in remove_error and "'NoneType' object has no attribute" in remove_error

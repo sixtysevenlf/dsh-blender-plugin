@@ -20,10 +20,10 @@ vs Manifold 1.77 s）。本插件是 bpy 原生路线，用户机器上两侧都
     这正是"可复现"的定义，但也意味着生成器里的代码不能依赖会话里的 K。
 
 入口（工具侧 op，前缀 generator_）
-    blender_op(op="generator_save", args={name, code, params, note, overwrite})
-    blender_op(op="generator_run",  args={name, args, expect, engine, use_cache, timeout_ms})
-    blender_op(op="generator_list") / generator_get / generator_diff / generator_help
-    blender_op(op="generator_selftest")
+    blender_rt_plan(op="generator_save", args={name, code, params, note, overwrite})
+    blender_rt_plan(op="generator_run",  args={name, args, expect, engine, use_cache, timeout_ms})
+    blender_rt_plan(op="generator_list") / generator_get / generator_diff / generator_help
+    blender_rt_plan(op="generator_selftest")
 
 程序契约（生成器脚本怎么写）
     * 变量 PARAMS：dict（来自 --args，run 时传什么就是什么）。

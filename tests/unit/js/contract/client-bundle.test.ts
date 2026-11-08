@@ -40,7 +40,7 @@ describe('client bundle contract', () => {
     })
     expect(exported.apply).toBeTypeOf('function')
     expect(exported.inject).toContain('slots')
-    expect(exported.__selftest.DEFAULT_BACKEND).toBe('http://127.0.0.1:39877')
+    expect(exported.__selftest.DEFAULT_BACKEND).toBe('http://127.0.0.1:9877')
     expect(exported.__selftest.splitRef('material:Oak')).toEqual({ kind: 'material', name: 'Oak' })
     expect(exported.__selftest.splitRef('Cube')).toEqual({ kind: 'object', name: 'Cube' })
     expect(

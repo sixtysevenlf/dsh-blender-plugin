@@ -19,7 +19,7 @@ Run: `npm run test:unit`, `npm run test:contract`, or `npm run test:python`.
 
 `tests/integration/js` and `tests/integration/python`.
 
-Integration tests may start the local backend (`lib/runtime/gateway.js`), the fake add-on socket, or a
+Integration tests may start the local backend (`lib/runtime/server.js`), the fake add-on socket, or a
 fake DSH host context, but never a real Blender GUI. Ports are ephemeral, every server is stopped
 in a fixture, and assertions are explicit (no retrying to hide flakes).
 
@@ -41,7 +41,6 @@ Current end-to-end shape:
 - B host-side backend test: `tests/e2e/gui/test_qc_backend.py` talks HTTP to a running backend,
   no Blender; skips with a reason when the backend is absent.
 - M manual probe: `node tools/gui-channel-probe.mjs` against a GUI Blender + add-on + backend.
-- E extension install/upgrade smoke: `node tests/e2e/addon_extension_install.mjs` (needs `DSH_BLENDER_EXE` and the `v3.0.6` tag for the legacy starting point; checks `bl_ext.*`, 2.0.0/protocol 12 and the Gateway handshake).
 
 The archived-case/wrapper intermediate was removed (see `MIGRATION.md`).
 

@@ -5,7 +5,7 @@
 计数与小目标识别也是 VLM 的已知弱项。**提高分辨率没用**；有效的是：把参考图**量成数字**、把要判的区域
 **裁出来放大**、把量到的东西**画回去**、把"像不像"变成**差分图 + IoU**。
 
-ops（都走 blender_op）：
+ops（都走 blender_rt_plan）：
     img_scan(path, rois=None, invert=False, top_lines=5, sample_points=None)   # 只读：轮廓/bbox/长宽比/主轴角/直线角/取色
     img_crop(path, x, y, w, h, scale=2.0, out=None)                            # ROI 裁剪 + 上采样（喂给看图工具）
     img_annotate(path, lines=[], boxes=[], crosses=[], grid=None, out=None)    # 把量到的坐标/比例线画回图

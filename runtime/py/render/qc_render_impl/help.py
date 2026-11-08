@@ -6,12 +6,12 @@ from .parts import PARTS_PALETTE
 def qc_render_help():
     return _j({
         "version": QC_RENDER_VERSION,
-        "entry": ["blender_op(op='qc_render_views', args={...})",
-                  "blender_op(op='qc_render_help')  # 本速查",
-                  "blender_op(op='qc_render_catalog')  # 视角目录（22 名 / 4 组 / 别名）",
-                  "blender_op(op='qc_render_device_info')  # 当前设备实测（不渲染）",
-                  "blender_op(op='qc_render_selftest', args={...})  # 自检：GUI 里会拒绝，走无头",
-                  "blender_run(kind='headless', file=..., preload='qc,qc_render', script=...)  # 长活/隔离"],
+        "entry": ["blender_rt_plan(op='qc_render_views', args={...})",
+                  "blender_rt_plan(op='qc_render_help')  # 本速查",
+                  "blender_rt_plan(op='qc_render_catalog')  # 视角目录（22 名 / 4 组 / 别名）",
+                  "blender_rt_plan(op='qc_render_device_info')  # 当前设备实测（不渲染）",
+                  "blender_rt_plan(op='qc_render_selftest', args={...})  # 自检：GUI 里会拒绝，走无头",
+                  "blender_rt_headless(file=..., preload='qc,qc_render', script=...)  # 长活/隔离"],
         "args": {"file": ".blend（GUI 需 allow_open_file）", "views": "具名/az+el/显式 from+look_at",
                  "res": "[w,h] 或单个数", "samples": "默认 64", "budget_s|thr": "累计渲染秒数上限",
                  "outdir": "默认 K.out_dir", "ref_path/ref_box/ref_search": "可选参考比对（qc.py compare）",

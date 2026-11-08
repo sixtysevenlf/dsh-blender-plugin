@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { ABORT_HINT, HERE, HOSTNAME } from '../../constants.js'
 import { asRecord } from '../../contracts/dynamic.js'
-import { callerHeaders, execSignal } from '../exec-context.js'
+import { execSignal } from '../exec-context.js'
 import { decideStart, probeHttp } from '../runtime-bridge.js'
 import { childAlive, killStaleChild, spawnChild } from './spawn.js'
 
@@ -13,11 +13,11 @@ export { killBackendByCmd } from './process-scan.js'
 
 /**
  * 端口解析（与 runtime/config.ts 同一套来源，避免两处配置漂移）：
- *   插件配置 port → DSH_BLENDER_GATEWAY_PORT / DSH_BLENDER_HTTP_PORT → $DSH_BLENDER_CONFIG
- *   → <包根>/dsh-blender.config.json → ~/.dsh/dsh-blender.config.json → 39877
+ *   插件配置 port → DSH_BLENDER_HTTP_PORT → $DSH_BLENDER_CONFIG → <包根>/dsh-blender.config.json
+ *   → ~/.dsh/dsh-blender.config.json → 9877
  */
 export function resolveHttpPort(): number {
-  const env = Number(process.env.DSH_BLENDER_GATEWAY_PORT || process.env.DSH_BLENDER_HTTP_PORT)
+  const env = Number(process.env.DSH_BLENDER_HTTP_PORT)
   if (Number.isFinite(env) && env > 0) return env
   const cands = [
     process.env.DSH_BLENDER_CONFIG,
@@ -27,13 +27,13 @@ export function resolveHttpPort(): number {
   for (const p of cands) {
     try {
       const j = asRecord(JSON.parse(readFileSync(p, 'utf8')))
-      const n = Number(j.gatewayPort ?? j.httpPort)
+      const n = Number(j.httpPort)
       if (Number.isFinite(n) && n > 0) return n
     } catch {
       /* 没这个文件或不是 JSON：跳过 */
     }
   }
-  return 39877
+  return 9877
 }
 
 /** 用户用 op=stop 显式停过 → 看护不再自动拉起（op=start 解除） */
@@ -70,15 +70,6 @@ export async function ensureBackend(port: number): Promise<boolean> {
   }
   for (let i = 0; i < 25; i++) {
     if (await probe(port)) return true
-    // A previous Gateway may still be releasing the port after dispose; retry the
-    // spawn once the OS has had a moment to free it instead of waiting for the watchdog.
-    if (i === 5 && !(await probe(port))) {
-      try {
-        await startBackend(port)
-      } catch {
-        /* keep probing */
-      }
-    }
     await sleep(300)
   }
   return false
@@ -121,9 +112,7 @@ export async function withTimeout(
   }, timeoutMs)
   const signal = ext ? AbortSignal.any([ext, ac.signal]) : ac.signal
   try {
-    const headers = new Headers((init && init.headers) || undefined)
-    for (const [name, value] of Object.entries(callerHeaders())) headers.set(name, value)
-    return await fetch(path, { ...(init || {}), headers, signal })
+    return await fetch(path, { ...(init || {}), signal })
   } catch (e: unknown) {
     if (!fired && ext && ext.aborted) throw new Error(ABORT_HINT, { cause: e })
     throw e

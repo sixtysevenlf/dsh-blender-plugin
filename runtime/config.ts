@@ -8,7 +8,7 @@
  *   1) 环境变量     DSH_BLENDER_*（见 docs/配置参考.md）
  *   2) 配置文件     $DSH_BLENDER_CONFIG → <包根>/dsh-blender.config.json → ~/.dsh/dsh-blender.config.json
  *   3) 自动探测     工作目录（Windows 用户临时区）/ Blender 安装路径 / PATH
- *   4) 内置默认     Gateway 127.0.0.1:39877 · 租约 TTL 600000 ms
+ *   4) 内置默认     addon 127.0.0.1:9876 · 后端 127.0.0.1:9877 · 租约 TTL 600000 ms
  */
 import fs from 'node:fs'
 import os from 'node:os'
@@ -18,8 +18,6 @@ import { fileURLToPath } from 'node:url'
 import { isRecord, readString } from './core/json.js'
 import { errorMessage } from './core/json.js'
 import { detectBlenderExe } from './blender-detect.js'
-import { GATEWAY_DEFAULT_PORT } from './transport/gateway-schema.generated.js'
-import { VIRTUAL_GUI_DEFAULT_MAX } from './display/limits.js'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 /**
@@ -43,7 +41,7 @@ export const IS_MAC = process.platform === 'darwin'
  * 为什么必须单独判：`wslToWin()` 原来只分了 Windows / macOS，**其余一律当成「Linux 宿主 ⇒ WSL +
  * Windows 上的 Blender」**，把宿主绝对路径映射成 `\\wsl.localhost\<distro>\…`。原生 Linux 上 Blender
  * 与宿主同机同 OS（跟 macOS 一样同构），这个映射会让 Blender 把该串当**相对路径**，产物落进一个字面量
- * 反斜杠目录，后端再按原路径读就 ENOENT ⇒ `blender_see` 恒报 `frame http 502`。
+ * 反斜杠目录，后端再按原路径读就 ENOENT ⇒ `blender_rt_see` 恒报 `frame http 502`。
  *
  * 判据：环境变量优先（交互式 WSL 一定有）；再退回 /proc/version —— dsh 跑在 systemd 服务里时**不继承**
  * `WSL_DISTRO_NAME`（issue #6 现场），但那台机器确实是 WSL，不能因此误判成原生 Linux。
@@ -275,16 +273,6 @@ function probeWritable(dir: string): ProbeResult {
   }
 }
 
-/**
- * 宿主（Node）自己的路径形态。Windows 原样；WSL 里把 Windows 盘符/UNC 转回 /mnt 或 /；
- * 其余 POSIX 路径原样。这样 workDir 的 .wsl 字段永远是 Node 真能 fopen 的那一个。
- */
-function hostPathOf(p: string): string {
-  if (IS_WIN) return p
-  if (/^[A-Za-z]:[\\/]/.test(p) || /^\\\\/.test(p)) return winToWsl(p)
-  return p
-}
-
 /** 原始候选（不探写）；回退逻辑在 resolveWorkDir() 里 */
 interface RawWorkDir {
   win: string
@@ -309,8 +297,8 @@ interface WorkDirInfo {
 function resolveWorkDirRaw(): RawWorkDir {
   const given = readString(process.env.DSH_BLENDER_WORKDIR) || readString(FILE.cfg.workDir)
   if (given) {
-    const host = hostPathOf(given)
-    return { win: blenderPath(host, BLENDER.exe), wsl: host, from: 'config' }
+    const win = /^[A-Za-z]:[\\/]/.test(given) ? given : wslToWin(given)
+    return { win: win, wsl: winToWsl(given), from: 'config' }
   }
   if (IS_MAC) {
     // macOS：用户级持久目录（不用 os.tmpdir()，它会被系统清理，帧/台账会丢）
@@ -319,11 +307,11 @@ function resolveWorkDirRaw(): RawWorkDir {
   }
   const lad = winLocalAppData()
   if (lad) {
-    const host = hostPathOf(path.win32.join(lad, 'dsh-blender-rt'))
-    return { win: blenderPath(host, BLENDER.exe), wsl: host, from: 'auto:localappdata' }
+    const win = path.win32.join(lad, 'dsh-blender-rt')
+    return { win: win, wsl: winToWsl(win), from: 'auto:localappdata' }
   }
-  const host = path.join(os.tmpdir(), 'dsh-blender-rt')
-  return { win: blenderPath(host, BLENDER.exe), wsl: host, from: 'auto:tmpdir' }
+  const t = path.join(os.tmpdir(), 'dsh-blender-rt')
+  return { win: t, wsl: t, from: 'auto:tmpdir' }
 }
 
 /**
@@ -344,10 +332,9 @@ function resolveWorkDir(): WorkDirInfo {
   for (const t of tries) {
     const p2 = probeWritable(t.dir)
     if (p2.ok) {
-      const host = hostPathOf(t.dir)
       return {
-        win: blenderPath(host, BLENDER.exe),
-        wsl: host,
+        win: wslToWin(t.dir),
+        wsl: t.dir,
         from: t.from,
         writable: true,
         fallback: {
@@ -376,30 +363,11 @@ function resolveWorkDir(): WorkDirInfo {
   })
 }
 
-const FEATURE_VIRTUAL_GUI = (() => {
-  const env = readString(process.env.DSH_BLENDER_VIRTUAL_GUI)
-  if (env) return { value: env, source: 'env:DSH_BLENDER_VIRTUAL_GUI' }
-  const features = isRecord(FILE.cfg.features) ? FILE.cfg.features : null
-  const file = features ? readString(features.virtualGui) : ''
-  if (file) return { value: file, source: 'file:' + String(FILE.from || 'config') }
-  return { value: '', source: 'default' }
-})()
-
-const FEATURE_VIRTUAL_GUI_MAX = (() => {
-  const env = readString(process.env.DSH_BLENDER_VIRTUAL_GUI_MAX)
-  if (env) return { value: env, source: 'env:DSH_BLENDER_VIRTUAL_GUI_MAX' }
-  const features = isRecord(FILE.cfg.features) ? FILE.cfg.features : null
-  const file = features ? String(features.virtualGuiMax ?? '') : ''
-  if (file) return { value: file, source: 'file:' + String(FILE.from || 'config') }
-  return { value: '', source: 'default' }
-})()
-
+const WORK = resolveWorkDir()
 /** blender.exe 探测在 runtime/blender-detect.ts（可注入依赖；Windows 含 Steam 库）。
  *  config.ts 不再转出 detectBlenderExe：需要探测结果的调用方直接 import blender-detect.js；
- *  这里只用一次（模块级 CFG），探测来源见 CFG.source.blenderExe。
- *  必须在 resolveWorkDir 之前：workDir 的 Blender 侧形态取决于 Blender 是 Windows 还是同机进程。 */
+ *  这里只用一次（模块级 CFG），探测来源见 CFG.source.blenderExe。 */
 const BLENDER = detectBlenderExe({ fileCfg: FILE.cfg })
-const WORK = resolveWorkDir()
 
 function num(v: unknown, d: number): number {
   const n = Number(v)
@@ -412,15 +380,7 @@ export const CFG = {
   addonHost:
     readString(process.env.DSH_BLENDER_ADDON_HOST) || readString(FILE.cfg.addonHost) || '127.0.0.1',
   addonPort: num(process.env.DSH_BLENDER_ADDON_PORT || readString(FILE.cfg.addonPort), 9876),
-  httpPort: num(
-    process.env.DSH_BLENDER_HTTP_PORT || readString(FILE.cfg.httpPort),
-    GATEWAY_DEFAULT_PORT,
-  ),
-  /** 3.1 Gateway 单端点端口；DSH_BLENDER_HTTP_PORT 仅作为显式兼容名保留。 */
-  gatewayPort: num(
-    process.env.DSH_BLENDER_GATEWAY_PORT || readString(FILE.cfg.gatewayPort),
-    GATEWAY_DEFAULT_PORT,
-  ),
+  httpPort: num(process.env.DSH_BLENDER_HTTP_PORT || readString(FILE.cfg.httpPort), 9877),
   /**
    * Windows 侧启动代理（默认 127.0.0.1:9878）。
    * WSL 走它拉起 GUI Blender ⇒ 本次启动 0 次互操作调用，回避 microsoft/WSL#41173
@@ -456,74 +416,31 @@ export const CFG = {
     readString(process.env.BLENDER_USER_SCRIPTS) ||
     readString(FILE.cfg.blenderUserScripts) ||
     null,
-  /** 热无头 worker 的本地端口（与 Gateway 39877 区分开） */
+  /** 热无头 worker 的本地端口（与 addon 9876 / 后端 9877 区分开） */
   workerPort: num(process.env.DSH_BLENDER_WORKER_PORT || readString(FILE.cfg.workerPort), 9879),
-  // 功能开关（3.1：virtual-gui 默认 off；Linux preview 需显式 on）
-  features: {
-    virtualGui: FEATURE_VIRTUAL_GUI.value,
-    source: FEATURE_VIRTUAL_GUI.source,
-    /** virtual-gui 并发上限（1–16）；低资源时由 runtime/display/limits.ts 降到 2。 */
-    virtualGuiMax: Number(FEATURE_VIRTUAL_GUI_MAX.value || VIRTUAL_GUI_DEFAULT_MAX),
-    virtualGuiMaxSource: FEATURE_VIRTUAL_GUI_MAX.source,
-  },
   // 溯源（doctor/日志/教程排查用）
   source: { configFile: FILE.from, workDir: WORK.from, blenderExe: BLENDER.from },
 }
 
 /**
- * Blender 进程是否使用 Windows 路径（而不是与宿主相同的 POSIX 路径）。
- *
- * 3.0 的规则是「Windows 宿主 / macOS 宿主 / 其余一律当 WSL+Windows Blender」。3.1 起
- * Linux（含 WSL 里的 Linux Blender）也能被 virtual-gui provider 拉起，因此 WSL 不再
- * 自动意味着 Blender 在 Windows 侧：只有配置的 Blender 可执行文件本身是 Windows 程序
- * 时才做 /mnt 与 UNC 映射，否则必须把宿主路径原样交给同机的 Linux Blender。
- *
- * 判据是纯函数，便于在任意平台对拍（tests/unit/js/platform-paths.test.ts）。
- */
-export function blenderUsesWindowsPaths(
-  platform: string,
-  isWsl: boolean,
-  blenderExe: unknown,
-): boolean {
-  if (platform === 'win32') return true
-  if (platform === 'darwin') return false
-  if (!isWsl) return false
-  const exe = String(blenderExe || '')
-  return /.exe$/i.test(exe) || /^[A-Za-z]:[\\/]/.test(exe)
-}
-
-/**
- * 宿主侧路径 → Blender 进程侧路径。
- *   Windows / WSL+Windows Blender → 反斜杠 / UNC
- *   原生 Linux、macOS、WSL+Linux Blender → 恒等
- */
-export function blenderPath(p: unknown, blenderExe: unknown = CFG.blenderExe): string {
-  const s = String(p || '')
-  if (blenderUsesWindowsPaths(process.platform, IS_WSL, blenderExe)) {
-    return IS_WIN ? s.replace(/\//g, '\\') : wslToWin(s)
-  }
-  return s
-}
-
-/**
  * 成对路径：`...Win` 给 Blender 进程用，`...Wsl` 给宿主 Node 用。
- * macOS / 原生 Linux / WSL+Linux Blender 上两者同构，不能再无脑 path.win32.join 或 UNC
- * 映射 —— 那会产出 \\Users\\... 或 \\wsl.localhost\\...，同机 Blender 打不开（取帧静默失败）。
+ * macOS 上两者同构，不能再无脑 path.win32.join —— 那会产出
+ * \\Users\\...\\dsh_live_viewport.png，Blender 在 mac 上打不开（取帧静默失败）。
  */
 function blenderSidePath(p: string, name: string): string {
-  return blenderPath(path.join(p, name))
+  if (IS_MAC) return path.join(p, name)
+  if (IS_WIN) return path.win32.join(p, name)
+  return wslToWin(path.join(p, name))
 }
 
 export const PATHS = {
-  // workDirWsl 是宿主真实路径；Blender 侧形态由 blenderPath 按 Blender 平台推导，
-  // 不再依赖 workDirWin 是否已被提前转换成 UNC（WSL 里的 Linux Blender 会因此 ENOENT）。
-  livePngWin: blenderSidePath(CFG.workDirWsl, 'dsh_live_viewport.png'),
+  livePngWin: blenderSidePath(CFG.workDirWin, 'dsh_live_viewport.png'),
   livePngWsl: path.join(CFG.workDirWsl, 'dsh_live_viewport.png'),
-  viewPngWin: blenderSidePath(CFG.workDirWsl, 'dsh_view_capture.png'),
+  viewPngWin: blenderSidePath(CFG.workDirWin, 'dsh_view_capture.png'),
   viewPngWsl: path.join(CFG.workDirWsl, 'dsh_view_capture.png'),
 }
 
-/** 配置摘要（自检/排错时打印；blender_run 缺 exe 时也用它给提示）
+/** 配置摘要（自检/排错时打印；blender_rt_headless 缺 exe 时也用它给提示）
  *  over.httpPort：后端实际监听的端口（命令行 --port 会覆盖配置值，摘要要跟着走） */
 export function describeConfig(over: { httpPort?: number | string } = {}) {
   const o = over || {}
@@ -533,7 +450,6 @@ export function describeConfig(over: { httpPort?: number | string } = {}) {
     distro: IS_WIN || IS_MAC ? null : IS_WSL ? DISTRO : linuxDistroName(),
     addon: CFG.addonHost + ':' + String(CFG.addonPort),
     http: '127.0.0.1:' + String(o.httpPort || CFG.httpPort),
-    gateway: '127.0.0.1:' + String(CFG.gatewayPort),
     workDir: {
       win: CFG.workDirWin,
       wsl: CFG.workDirWsl,

@@ -10,24 +10,22 @@ The plugin is a DeepSeek Harness host plugin, not a standalone Blender add-on.
 
     DSH host
       -> src/ tools
-      -> Gateway HTTP (127.0.0.1:39877)
+      -> backend HTTP (127.0.0.1:9877)
       -> engine dispatch
-      ^ WebSocket /addon (the addon dials out)
-      -> Blender addon
+      -> Blender addon (127.0.0.1:9876)
       -> bpy
 
-There are three logical processes and one inbound endpoint:
+There are two processes and one TCP bridge:
 
-- the DSH host and the Gateway run in Node (the Gateway may be embedded in the host);
-- the Blender addon runs inside Blender and dials the Gateway; it has no inbound listener;
+- the DSH host and backend run in Node;
+- the Blender addon runs inside Blender;
 - the addon is the only process that calls bpy;
-- the Gateway owns jobs, leases, sessions, receipts, and routing;
+- the backend owns jobs, leases, sessions, receipts, and routing;
 - the host owns the model-facing tools and the headless/fallback policy.
 
-The public model surface is 6 tools (blender_session, blender_op, blender_py, blender_see,
-blender_run, blender_inspect), 34 planning families, 228 operations, 25 addon commands
-(25 registered commands; the transport-only ping makes 26 wire commands), 29 HTTP routes, and
-protocol 12. These counts are facts, not goals; changing one requires updating the catalog, lock,
+The public model surface is 15 tools, 34 planning families, 228 operations, 38 addon commands
+(38 registered commands; the transport-only ping makes 39 wire commands), 29 HTTP routes, and
+protocol 11. These counts are facts, not goals; changing one requires updating the catalog, lock,
 tests, and migration notes in the same change.
 
 ## 2. Host plugin (src/)
@@ -38,8 +36,8 @@ helpers, and wires the host modules; it must not grow feature logic. Its export 
 [Public facades and the dual entry](#public-facades-and-the-dual-entry)). The rest of the tree is
 split by responsibility:
 
-- src/tools/: one model-facing tool per directory (registration, execution, presenter/receipt
-  pieces) plus a shared session helper;
+- src/tools/: one tool per directory with registration, execution, and presenter/receipt pieces;
+- src/plan/: plan state, render guard, external checks, shape search;
 - src/host/: backend lifecycle and HTTP client;
 - src/contracts/: typed contracts and schema helpers;
 - src/ui/ and src/tui/: DSH UI cards and terminal behavior;
@@ -58,14 +56,13 @@ Layout:
 
 - runtime/core/: dispatch, kernel, scripts, catalog, engine;
 - runtime/execution/: headless, jobs, workers, recovery;
-- runtime/http/: routes, lease, host views;
-- runtime/gateway/: the Gateway process, addon WebSocket channel, ownership, and lifecycle;
+- runtime/http/: server, routes, lease, host views;
 - runtime/transport/: frames, sockets, protocol helpers;
 - contract tables: `config/contracts.json` is the catalog <-> Python link layer (described in section 8); there is no separate runtime contract-table directory;
 - runtime/py/: the Blender-side Python library described below.
 
 The runtime build precedes the host build because host modules import boundary helpers from the built
-runtime. The Gateway entry used by GATEWAY_PATH is lib/runtime/gateway.js. Source maps are emitted so a
+runtime. The backend entry used by SERVER_PATH is lib/runtime/server.js. Source maps are emitted so a
 crash still points at a TypeScript line.
 
 ### Public facades and the dual entry
@@ -90,26 +87,12 @@ grep the consumers, update the registry and the facade together.
 
 Two entry paths share the same engine core. External scripts, tools, and tests import
 `lib/runtime/engine.js` (check-parity, install-smoke, sync_counts, GUI probes, unit and integration
-tests); `runtime/gateway/app.ts` imports the created engine and `engineProvenance` from source;
+tests); `runtime/server.ts` imports the created engine and `engineProvenance` from source;
 `runtime/catalog/logic.ts` runs the built facade in a child process to fingerprint it.
 `engineProvenance` hashes the facade file on disk, so facade edits are observable, and `check:build` /
 `ensure-build` keep `lib/runtime/engine.js` as a required artifact. check-parity declares public
 surface removals in `DECLARED_ENGINE_REMOVALS`: a declared name that is still present in the current
 facade fails, which is what makes the shrink auditable against the base commit.
-
-### GUI sessions and presence
-
-The Gateway keeps an in-memory session per attached GUI Blender instance: owner, caller agents,
-scope grants, human pause, human edits, and presence. A session is best-effort state, not scene
-data: it disappears on release or Gateway restart and is rebuilt from addon handshakes.
-
-Presence rows hold each caller's display name, colour, view pose, selected `session_uid`s, activity,
-and held scopes. On every view/selection update the Gateway pushes the current snapshot to the add-on
-over the existing internal `execute_code` transport. `addon/dsh_blender_bridge/presence_draw.py`
-installs `SpaceView3D` POST_VIEW/POST_PIXEL draw handlers that draw frusta, labels, and selection
-boxes; it never writes scene data, selection, the camera, or the frame, and it does not move the
-user's view. Session presence queries read the same rows from the Gateway, so a read-only query
-and the viewport overlay cannot disagree.
 
 ## 4. Python domain library (runtime/py/)
 
@@ -136,10 +119,9 @@ The addon is a package, not a single file. Its modules cover protocol, command r
 recorders, assets, integrations, and UI. The release artifact is a deterministic zip built from that
 package.
 
-The addon version is 2.0.0 and protocol is 12; it installs only as a Blender extension. A
-register/unregister round trip is part of the tests.
-`addon/dsh_blender_bridge/command_registry.py` is the only command truth: 25 registered commands
-plus the transport-only `ping` (26 wire commands). `get_addon_info` derives its handshake
+The addon version is 1.11 and protocol is 11. A register/unregister round trip is part of the tests.
+`addon/dsh_blender_bridge/command_registry.py` is the only command truth: 38 registered commands
+plus the transport-only `ping` (39 wire commands). `get_addon_info` derives its handshake
 capabilities from `command_registry.COMMAND_NAMES`, and the host catalog
 (`runtime/catalog/commands.ts`) is parity-checked in both directions against it.
 The launcher and plugin refuse an incompatible protocol and name the expected addon version. Existing
@@ -161,7 +143,7 @@ rendering a second editor.
 - npm pack produces the published tarball: lib/, runtime Python, addon package, skills, docs, and tests.
 - The addon zip is built from addon/dsh_blender_bridge/ and attached to the release.
 - npm run smoke:install installs the tarball into a clean directory and checks that the entry loads,
-  the Gateway starts from lib/runtime/gateway.js, and doctor returns kind=ok.
+  the backend starts from lib/runtime/server.js, and doctor returns kind=ok.
 - Release is a separate, human-owned gate: the foundation can be complete before release is approved.
 
 The package must never ship backend TypeScript sources, a committed lib/, a legacy single-file addon,
@@ -186,9 +168,9 @@ gate.
 
 These are the rules that protect the architecture:
 
-- 6 tools / 7 capabilities / 34 families / 228 ops / 25 addon commands / 29 routes / protocol 12 stay stable unless a
-  declared migration changes them. The 25 addon commands are the registered dispatch surface; the
-  transport-only ping is the 26th wire command.
+- 15 tools / 34 families / 228 ops / 38 addon commands / 29 routes / protocol 11 stay stable unless a
+  declared migration changes them. The 38 addon commands are the registered dispatch surface; the
+  transport-only ping is the 39th wire command.
 - src/index.ts stays entry-only; production files stay under the line budgets enforced by
   check:structure.
 - The public surface is two registered facades (`src/index.ts`, `runtime/engine.ts`) whose exports and
@@ -228,13 +210,13 @@ history.
 
 The op surface has two derived data sources; neither is hand-maintained inside the dispatch code:
 
-- `config/routing.json` is the single GUI routing table (op prefix or exact alias, strip length,
-  python api, preload, timeout, ensure hook). `scripts/gen-routes.mjs` renders
-  `runtime/core/dispatcher/routes.generated.ts`, which starts with an AUTO-GENERATED header plus the
-  source sha256. The host-side worker table was removed with the 3.1 worker plan channel: headless
-  work belongs to `blender_run(kind="headless")`. `npm run build` regenerates the table and
-  `npm run check:routes` fails when a generated file is missing, stale, or hand-edited. Generated
-  tables are excluded from the size scanners and validated by `check:routes`.
+- `config/routing.json` is the single routing table (op prefix or exact alias, strip length, python
+  api, GUI vs worker side, preload, timeout, ensure hook). `scripts/gen-routes.mjs` renders
+  `src/plan/routes.generated.ts` (headless worker) and
+  `runtime/core/dispatcher/routes.generated.ts` (GUI). Both files start with an AUTO-GENERATED header
+  plus the source sha256. `npm run build` regenerates them and `npm run check:routes` fails when a
+  generated file is missing, stale, or hand-edited. Generated tables are excluded from the size
+  scanners and validated by `check:routes`.
 - `config/contracts.json` is the catalog <-> Python link layer: family -> python api -> declared
   extraction of the literal dispatch table. `scripts/catalog_dispatch_keys.py` parses those tables
   with the Python ast module (no import, no bpy), and

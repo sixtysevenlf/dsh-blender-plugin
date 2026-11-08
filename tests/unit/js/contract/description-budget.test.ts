@@ -44,15 +44,16 @@ function walkToolSources(dir: string, out: string[] = []): string[] {
   }
   return out
 }
-const TOOL_SOURCES = walkToolSources(path.join('src', 'tools')).filter(
-  (rel) => rel !== path.join('src', 'tools', 'schema-diagnostic.ts'),
-)
+const TOOL_SOURCES = [
+  ...walkToolSources(path.join('src', 'tools')),
+  path.join('src', 'plan', 'tool.ts'),
+]
 
 function declaredTools(): Array<{ name: string; source: string }> {
   const found: Array<{ name: string; source: string }> = []
   for (const rel of TOOL_SOURCES) {
     const text = fs.readFileSync(pkgPath(rel), 'utf8')
-    for (const match of text.matchAll(/name: '(blender_[a-z_]+)'/g))
+    for (const match of text.matchAll(/name: '(blender_rt_[a-z_]+|blender_viewport)'/g))
       found.push({ name: match[1], source: rel })
   }
   return found
@@ -77,9 +78,9 @@ describe('tool description budget', () => {
   const declared = declaredTools()
   const names = [...new Set(declared.map((t) => t.name))]
 
-  it('registers exactly 6 distinct tools and no pick tool', () => {
-    expect(declared).toHaveLength(6)
-    expect(names).toHaveLength(6)
+  it('registers exactly 15 distinct tools and no pick tool', () => {
+    expect(declared).toHaveLength(16) // viewport is declared twice: real tool + fallback placeholder
+    expect(names).toHaveLength(15)
     expect(names).not.toContain('blender_rt_pick')
   })
 
@@ -91,19 +92,19 @@ describe('tool description budget', () => {
     expect(total).toBeLessThanOrEqual(12000)
     const worst = rows.slice().sort((a, b) => b[1] - a[1])[0]
     expect(worst[1]).toBeLessThan(1600)
-    expect((rows.find((row) => row[0] === 'blender_run') || [0, 1e9])[1]).toBeLessThan(1600)
+    expect((rows.find((row) => row[0] === 'blender_rt_headless') || [0, 1e9])[1]).toBeLessThan(1600)
   })
 
-  it('keeps the op description under 2000 characters and points at catalog', () => {
-    const source = fs.readFileSync(pkgPath('src', 'tools', 'op', 'index.ts'), 'utf8')
-    const start = source.indexOf("name: 'blender_op'")
+  it('keeps the plan description under 2000 characters and points at catalog', () => {
+    const source = fs.readFileSync(pkgPath('src', 'plan', 'tool.ts'), 'utf8')
+    const start = source.indexOf("name: 'blender_rt_plan'")
     const params = source.indexOf('parameters:', start)
     const block = source.slice(start, params)
     const chars = (block.match(/'((?:[^'\\]|\\.)*)'/g) || []).join('').length
     expect(chars).toBeLessThan(2000)
     expect(block).toContain('catalog')
-    expect(block).toContain(String(catalog.families.length) + ' family')
-    expect(block).toContain(String(catalog.ops_count) + ' op')
+    expect(block).toContain(String(catalog.families.length) + ' 个 family')
+    expect(block).toContain(String(catalog.ops_count) + ' 个 op')
   })
 
   it('keeps the catalog text scale per family', () => {
@@ -117,14 +118,14 @@ describe('tool description budget', () => {
     expect(payload({ family: 'sculpt' }).text.length).toBeLessThan(1500)
     expect(payload({ full: true }).detail).toHaveLength(text.families.length)
     expect(payload({ family: '__nope__' }).ok).toBe(false)
-    expect(payload({ tool: 'run' }).text).toContain('jobId')
+    expect(payload({ tool: 'rt_headless' }).text).toContain('as_job')
   })
 
   it('suggests the nearest plan op and corrects cross-channel calls', () => {
     expect(planOpSuggestion('audti_mesh')?.op).toBe('audit_mesh')
     expect(planOpSuggestion('sculpt_appli')?.op).toBe('sculpt_apply')
     expect(planOpSuggestion('zzzzzzzzzz')).toBeNull()
-    expect(planOpCrossChannelHint('audit_mesh')).toContain('blender_op(op="audit_mesh"')
+    expect(planOpCrossChannelHint('audit_mesh')).toContain('blender_rt_plan(op="audit_mesh"')
     expect(planOpCrossChannelHint('get_scene_info')).toBeNull()
     expect(planOpSuggestion('sweep_analyz')?.op).toBe('sweep_analyze')
     expect(planOpNames()).toHaveLength(catalog.ops_count)

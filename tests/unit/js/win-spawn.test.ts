@@ -103,11 +103,11 @@ describe('issue #51 static invariants', () => {
 
 describe('EADDRINUSE proc matcher', () => {
   const rows = [
-    { pid: 101, toks: ['node', '/opt/dsh/lib/runtime/gateway.js', '--port', '9877'] },
-    { pid: 102, toks: ['node', '/old/runtime/gateway.mjs', '--port', '9877'] },
-    { pid: 103, toks: ['node', '/opt/dsh/lib/runtime/gateway.js', '--port', '98770'] },
-    { pid: 104, toks: ['bash', '-c', 'node /opt/dsh/lib/runtime/gateway.js --port 9877'] },
-    { pid: 105, toks: ['node', '/opt/dsh/lib/runtime/gateway.js', '--port', '9877'] },
+    { pid: 101, toks: ['node', '/opt/dsh/lib/runtime/server.js', '--port', '9877'] },
+    { pid: 102, toks: ['node', '/old/runtime/server.mjs', '--port', '9877'] },
+    { pid: 103, toks: ['node', '/opt/dsh/lib/runtime/server.js', '--port', '98770'] },
+    { pid: 104, toks: ['bash', '-c', 'node /opt/dsh/lib/runtime/server.js --port 9877'] },
+    { pid: 105, toks: ['node', '/opt/dsh/lib/runtime/server.js', '--port', '9877'] },
   ]
 
   it('matches exact server argv and port, not shell wrappers', () => {

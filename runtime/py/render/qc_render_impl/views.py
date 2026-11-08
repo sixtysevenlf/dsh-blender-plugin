@@ -76,7 +76,7 @@ def _qv_open_file(st):
                 else:
                     return _j({"ok": False, "error": "GUI 进程里拒绝打开别的 .blend（会顶掉你当前的场景）",
                                "file": target, "current": cur,
-                               "hint": "长活请走 blender_run(kind='headless', file=..., preload=\"qc,qc_render\", as_job=true)；"
+                               "hint": "长活请走 blender_rt_headless(file=..., preload=\"qc,qc_render\", as_job=true)；"
                                        "确实要在 GUI 里换文件就传 allow_open_file=true"})
     finally:
         st.update((k, v) for k, v in locals().items() if k != "st")

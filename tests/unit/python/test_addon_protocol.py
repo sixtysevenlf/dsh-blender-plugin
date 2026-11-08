@@ -15,34 +15,37 @@ compat = importlib.import_module("addon.dsh_blender_bridge.compat")
 BASE_COMMANDS = [
     "get_scene_info", "get_world_state_snapshot", "get_addon_info", "get_object_info",
     "get_viewport_screenshot", "execute_code", "describe_node_type", "bpy_api_lookup",
-    "get_activity_state", "get_selection", "send_selection_to_dsh",
-    "get_collections", "send_collection_to_dsh",
+    "drain_human_activity", "get_activity_state", "get_selection", "send_selection_to_dsh",
+    "get_collections", "send_collection_to_dsh", "get_telemetry_consent", "set_telemetry_consent",
     "get_polyhaven_status", "get_hyper3d_status", "get_sketchfab_status", "get_polypizza_status",
-    "get_hunyuan3d_status",
+    "get_hunyuan3d_status", "export_scene",
 ]
 GATED_COMMANDS = [
-    "get_polyhaven_categories", "search_polyhaven_assets",
-    "poll_rodin_job_status",
-    "search_sketchfab_models", "get_sketchfab_model_preview",
-    "search_polypizza_models",
-    "poll_hunyuan_job_status",
+    "get_polyhaven_categories", "search_polyhaven_assets", "download_polyhaven_asset",
+    "get_polyhaven_asset_preview", "set_texture",
+    "create_rodin_job", "poll_rodin_job_status", "import_generated_asset",
+    "search_sketchfab_models", "get_sketchfab_model_preview", "download_sketchfab_model",
+    "search_polypizza_models", "download_polypizza_model",
+    "create_hunyuan_job", "poll_hunyuan_job_status", "import_generated_asset_hunyuan",
 ]
 ALL_COMMANDS = BASE_COMMANDS + GATED_COMMANDS
 GATED_GROUPS = {
-    "polyhaven": {"get_polyhaven_categories", "search_polyhaven_assets"},
-    "hyper3d": {"poll_rodin_job_status"},
-    "sketchfab": {"search_sketchfab_models", "get_sketchfab_model_preview"},
-    "polypizza": {"search_polypizza_models"},
-    "hunyuan": {"poll_hunyuan_job_status"},
+    "polyhaven": {"get_polyhaven_categories", "search_polyhaven_assets",
+                  "download_polyhaven_asset", "get_polyhaven_asset_preview", "set_texture"},
+    "hyper3d": {"create_rodin_job", "poll_rodin_job_status", "import_generated_asset"},
+    "sketchfab": {"search_sketchfab_models", "get_sketchfab_model_preview",
+                  "download_sketchfab_model"},
+    "polypizza": {"search_polypizza_models", "download_polypizza_model"},
+    "hunyuan": {"create_hunyuan_job", "poll_hunyuan_job_status", "import_generated_asset_hunyuan"},
 }
 
 
-def test_registry_has_exactly_25_ordered_unique_commands():
-    assert len(registry.COMMAND_NAMES) == 25
-    assert len(set(registry.COMMAND_NAMES)) == 25
+def test_registry_has_exactly_38_ordered_unique_commands():
+    assert len(registry.COMMAND_NAMES) == 38
+    assert len(set(registry.COMMAND_NAMES)) == 38
     assert list(registry.COMMAND_NAMES) == ALL_COMMANDS
     assert "ping" not in registry.COMMAND_NAMES
-    assert sum(len(names) for _group, names in registry.COMMAND_GROUPS) == 25
+    assert sum(len(names) for _group, names in registry.COMMAND_GROUPS) == 38
 
 
 def test_command_groups_are_base_plus_five_gates():
@@ -60,17 +63,20 @@ def test_command_groups_are_base_plus_five_gates():
 
 def test_pause_safe_commands_are_exactly_the_read_only_whitelist():
     assert protocol.PAUSE_SAFE_COMMANDS == frozenset({
-        "ping", "describe_node_type", "bpy_api_lookup",
+        "ping", "drain_human_activity", "describe_node_type", "bpy_api_lookup",
         "get_activity_state", "get_selection", "get_collections",
     })
     for name in ALL_COMMANDS:
         expected = name.startswith("get_") or name in protocol.PAUSE_SAFE_COMMANDS
         assert protocol.is_pause_safe_command(name) is expected, name
     assert protocol.is_pause_safe_command("ping") is True
+    assert protocol.is_pause_safe_command("drain_human_activity") is True
     assert protocol.is_pause_safe_command("describe_node_type") is True
     assert protocol.is_pause_safe_command("bpy_api_lookup") is True
     assert protocol.is_pause_safe_command("execute_code") is False
+    assert protocol.is_pause_safe_command("set_texture") is False
     assert protocol.is_pause_safe_command("send_selection_to_dsh") is False
+    assert protocol.is_pause_safe_command("export_scene") is False
     assert protocol.is_pause_safe_command(None) is False
     assert protocol.is_pause_safe_command("") is False
 

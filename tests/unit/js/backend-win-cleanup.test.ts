@@ -12,7 +12,7 @@ const h = vi.hoisted(() => ({
 }))
 vi.mock('../../../src/constants.js', () => ({
   IS_WIN: true,
-  GATEWAY_PATH: 'D:/fake/lib/runtime/gateway.js',
+  SERVER_PATH: 'D:/fake/lib/runtime/server.js',
 }))
 vi.mock('../../../src/host/runtime-bridge.js', () => ({
   winKillPids: h.winKillPids,

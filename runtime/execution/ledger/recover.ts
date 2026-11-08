@@ -298,7 +298,7 @@ export function reconcileLedger(
 }
 
 /**
- * v0.9.3：run（blender_run 的同步执行）与 job 同一份结构化回执形状 ——
+ * v0.9.3：run（blender_rt_headless 的同步执行）与 job 同一份结构化回执形状 ——
  * collect/status 收 run-… 与 job-… 都是同一套字段，调用方不必分辨两者。
  */
 function runSnapshot(r: Record<string, unknown>): Record<string, unknown> {
@@ -360,7 +360,7 @@ function runSnapshot(r: Record<string, unknown>): Record<string, unknown> {
     expect: r.expect || null,
     pluginVersion: PLUGIN_VERSION,
     hint:
-      '这是 blender_run 的运行台账（run 与 job 同一 id 空间）：产物在 outdir，日志见 logs；' +
+      '这是 blender_rt_headless 的运行台账（run 与 job 同一 id 空间）：产物在 outdir，日志见 logs；' +
       '结果在 resultJson / resultPath（运行中则用 stage / idleMs 看进展）',
   }
 }

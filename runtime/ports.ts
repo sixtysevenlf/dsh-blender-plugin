@@ -1,7 +1,7 @@
 // Port and process-owner primitives. Shared by the HTTP lifecycle,
 // the host process scan and tests; the Windows branch delegates to win_proc.
 import fs from 'node:fs'
-import { winKillPids, winPortListenerPids, winSamePortHolders } from './win_proc.js'
+import { winKillPids, winSamePortHolders } from './win_proc.js'
 
 export interface ProcRow {
   pid: number
@@ -33,7 +33,7 @@ export function serverPidsFromProcRows(
     let isShell = false
     for (let i = 0; i < r.toks.length; i++) {
       if (i === 0 && /(^|\/)(bash|sh|zsh|dash|fish|bwrap)$/.test(r.toks[i])) isShell = true
-      if (i >= 1 && /(^|\/)gateway\.(mjs|js)$/.test(r.toks[i])) isServer = true
+      if (i >= 1 && /(^|\/)server\.(mjs|js)$/.test(r.toks[i])) isServer = true
       if (r.toks[i] === '--port' && r.toks[i + 1] === wantPort) portOk = true
     }
     if (isServer && portOk && !isShell) out.push(r.pid)
@@ -96,90 +96,6 @@ export function killHolders(port: unknown, signal: NodeJS.Signals | number): num
     }
   }
   return killed
-}
-
-/** Pure parser for /proc/net/tcp{,6}: LISTEN rows with HEX local port -> socket inode. */
-export function parseProcNetTcpListeners(
-  text: string | null | undefined,
-  port: unknown,
-): Array<{ inode: number }> {
-  const want = Number(port)
-  const out: Array<{ inode: number }> = []
-  if (!Number.isInteger(want) || want <= 0) return out
-  for (const raw of String(text == null ? '' : text)
-    .split(/\r?\n/)
-    .slice(1)) {
-    const cols = raw.trim().split(/\s+/)
-    if (cols.length < 10) continue
-    const local = /^[0-9A-Fa-f]+:([0-9A-Fa-f]{4})$/.exec(cols[1] || '')
-    if (!local || parseInt(local[1], 16) !== want) continue
-    if ((cols[3] || '').toUpperCase() !== '0A') continue
-    const inode = Number(cols[9])
-    if (Number.isInteger(inode) && inode > 0) out.push({ inode })
-  }
-  return out
-}
-
-function linuxPortListenerPids(port: unknown): number[] {
-  let rows: Array<{ inode: number }> = []
-  for (const file of ['/proc/net/tcp', '/proc/net/tcp6']) {
-    try {
-      rows = rows.concat(parseProcNetTcpListeners(fs.readFileSync(file, 'utf8'), port))
-    } catch {
-      /* no rows */
-    }
-  }
-  const inodes = new Set(rows.map((row) => row.inode))
-  if (!inodes.size) return []
-  const pids: number[] = []
-  let entries: string[]
-  try {
-    entries = fs.readdirSync('/proc')
-  } catch {
-    return []
-  }
-  for (const dir of entries) {
-    if (!/^[0-9]+$/.test(dir)) continue
-    const pid = Number(dir)
-    if (pid === process.pid) continue
-    let fds: string[]
-    try {
-      fds = fs.readdirSync('/proc/' + dir + '/fd')
-    } catch {
-      continue
-    }
-    let hit = false
-    for (const fd of fds) {
-      try {
-        const target = fs.readlinkSync('/proc/' + dir + '/fd/' + fd)
-        const m = /^socket:\[(\d+)\]$/.exec(target)
-        if (m && inodes.has(Number(m[1]))) {
-          hit = true
-          break
-        }
-      } catch {
-        /* fd closed */
-      }
-    }
-    if (hit) pids.push(pid)
-  }
-  return [...new Set(pids)].sort((a, b) => a - b)
-}
-
-/** Any process listening on the port (not filtered to this plugin's family). */
-export function portListenerPids(port: unknown): number[] {
-  if (process.platform === 'win32') {
-    try {
-      return winPortListenerPids(port)
-    } catch {
-      /* fall through */
-    }
-  }
-  if (process.platform === 'linux') {
-    const found = linuxPortListenerPids(port)
-    if (found.length) return found
-  }
-  return samePortHolders(port)
 }
 
 /** True when the holder still answers /health (busy, not stale). */

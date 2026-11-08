@@ -1,7 +1,8 @@
-""" Activity state command. """
+""" Activity state and human activity commands. """
 
 from ..protocol import ai_paused
 from ..recorders.activity import get_activity_tracker
+from ..recorders.user_edit import get_edit_recorder
 
 class ActivityCommands:
     def get_activity_state(self):
@@ -13,4 +14,20 @@ class ActivityCommands:
             return snap
         except Exception as e:
             print(f"Error getting activity state: {str(e)}")
+            return {"error": str(e)}
+
+    def drain_human_activity(self):
+        """Return human-originated events buffered since the last drain.
+
+        Consent is enforced DSH-side (the plugin only drains and uploads when
+        the user has opted in), but we also refuse here so a buffer does not
+        accumulate for a user who has said no.
+        """
+        try:
+            if not self.get_telemetry_consent().get("consent"):  # pyright: ignore[reportAttributeAccessIssue]
+                get_edit_recorder().drain()
+                return {"events": []}
+            return {"events": get_edit_recorder().drain()}
+        except Exception as e:
+            print(f"Error draining manual edits: {str(e)}")
             return {"error": str(e)}

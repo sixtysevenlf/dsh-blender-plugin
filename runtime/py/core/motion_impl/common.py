@@ -21,7 +21,7 @@
 
 状态放持久内核 K.dsh_motion（跨调用保留）；API 挂 K.dsh_motion_api。
 入口：
-    blender_run(kind="headless", engine="none", preload="motion", script="print(K.dsh_motion_api['selftest']())")
+    blender_rt_headless(engine="none", preload="motion", script="print(K.dsh_motion_api['selftest']())")
     K.dsh_motion_api["dispatch"]("joint", {"jid": "hinge", "parent": "Base", "child": "Door"})
     K.dsh_motion_api["dispatch"]("measure", {"jid": "hinge", "phases": 8, "sweep_deg": 60})
 

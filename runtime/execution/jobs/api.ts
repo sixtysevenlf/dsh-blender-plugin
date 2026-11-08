@@ -77,7 +77,7 @@ export function jobCollect(ctx: JobsCtx, id: unknown, tail = 4000): Record<strin
       const t = tailFile(seP, tail)
       if (t !== null) snap.stderrTail = t
     }
-    snap.hint = 'run 与 job 同一 id 空间；本条目来自 blender_run 的同步执行'
+    snap.hint = 'run 与 job 同一 id 空间；本条目来自 blender_rt_headless 的同步执行'
     return snap
   }
   const led = ctx.ledger.ledgerList(200).find((x) => x.id === key)

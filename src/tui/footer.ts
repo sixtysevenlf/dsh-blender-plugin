@@ -14,7 +14,7 @@ export function footerField(
       detail:
         '后端未运行（127.0.0.1:' +
         String(port) +
-        '）· 让模型跑 blender_session action=status，或 /blender doctor',
+        '）· 让模型跑 blender_viewport(op="start")，或 /blender doctor',
     }
   }
   const ch = asRecord(st.channel)
