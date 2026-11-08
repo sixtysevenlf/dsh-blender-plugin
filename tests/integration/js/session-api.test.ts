@@ -74,6 +74,15 @@ describe('Gateway session API', () => {
     expect((who.json.sessions as unknown[]).length).toBe(1)
   })
 
+  it('issues a one-time consent token through the internal session action', async () => {
+    const { backend } = await setup()
+    const consent = await backend.post('/lease', { action: 'consent' }, main)
+    expect(consent.status).toBe(200)
+    expect(typeof consent.json.consentToken).toBe('string')
+    expect(String(consent.json.consentToken).length).toBeGreaterThan(20)
+    expect(Number(consent.json.expiresAt)).toBeGreaterThan(Date.now())
+  })
+
   it('refuses an unnamed attach when two instances are ready', async () => {
     const { backend } = await setup(['inst-1', 'inst-2'])
     const attach = await backend.post('/lease', { action: 'attach' }, main)

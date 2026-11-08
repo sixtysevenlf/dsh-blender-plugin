@@ -4,6 +4,11 @@ import {
   prerequisiteTable,
 } from '../../../runtime/display/prerequisites.js'
 import { resolveVirtualGuiFeature } from '../../../runtime/display/feature.js'
+import {
+  CONSENT_TTL_MS,
+  consumeConsentToken,
+  issueConsentToken,
+} from '../../../runtime/core/sessions/consent.js'
 import { providerCandidates, selectDisplayProvider } from '../../../runtime/display/provider.js'
 import { statusView } from '../../../runtime/core/engine-api/doctor.js'
 import type { EngineApiDeps } from '../../../runtime/core/engine-api/index.js'
@@ -212,13 +217,104 @@ describe('blender_session start pre-spawn gate', () => {
       checks: WIN_CHECKS,
       providerImplemented: true,
     })
-    const result = new SessionRegistry(
+    const registry = new SessionRegistry(
       () => [],
       () => cap,
-    ).start(caller)
+    )
+    const consent = registry.issueConsent(caller)
+    expect(consent.ok).toBe(true)
+    if (!consent.ok) return
+    const result = registry.start(caller, { consentToken: consent.consentToken })
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.stage).toBe('config')
     expect(result.code).toBe('provider_unavailable')
+  })
+
+  it('requires one-time human consent before a ready capability may start', () => {
+    const cap = buildDisplayCapabilities({
+      platform: 'win32',
+      configured: 'on',
+      checks: WIN_CHECKS,
+      providerImplemented: true,
+    })
+    const registry = new SessionRegistry(
+      () => [],
+      () => cap,
+    )
+    const denied = registry.start(caller)
+    expect(denied.ok).toBe(false)
+    if (denied.ok) return
+    expect(denied.code).toBe('consent_required')
+    expect(denied.stage).toBe('session')
+    expect(denied.evidence.reason).toBe('missing')
+    expect(denied.evidence.options).toHaveLength(2)
+
+    const consent = registry.issueConsent(caller)
+    if (!consent.ok) return
+    const allowed = registry.start(caller, { consentToken: consent.consentToken })
+    expect(allowed.ok).toBe(false)
+    if (allowed.ok) return
+    expect(allowed.code).toBe('provider_unavailable')
+
+    const replay = registry.start(caller, { consentToken: consent.consentToken })
+    expect(replay.ok).toBe(false)
+    if (replay.ok) return
+    expect(replay.code).toBe('consent_required')
+    expect(replay.evidence.reason).toBe('used')
+  })
+
+  it('refuses to start a virtual window when a ready user-gui session exists', () => {
+    const cap = buildDisplayCapabilities({
+      platform: 'win32',
+      configured: 'on',
+      checks: WIN_CHECKS,
+      providerImplemented: true,
+    })
+    const registry = new SessionRegistry(
+      () => [{ instanceId: 'gui-1', ready: true }],
+      () => cap,
+    )
+    const attached = registry.attach(caller)
+    expect(attached.ok).toBe(true)
+    if (!attached.ok) return
+    const consent = registry.issueConsent(caller)
+    if (!consent.ok) return
+    const result = registry.start(caller, { consentToken: consent.consentToken })
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.code).toBe('session_already_available')
+    expect(result.evidence.sessionId).toBe(attached.session.id)
+    expect(registry.listFor(caller)).toHaveLength(1)
+  })
+
+  it('binds consent tokens to the caller', () => {
+    const cap = buildDisplayCapabilities({
+      platform: 'win32',
+      configured: 'on',
+      checks: WIN_CHECKS,
+      providerImplemented: true,
+    })
+    const other = { hostId: 'h2', dshSessionId: 's', agentId: 'a', role: 'main' as const }
+    const registry = new SessionRegistry(
+      () => [],
+      () => cap,
+    )
+    const consent = registry.issueConsent(caller)
+    if (!consent.ok) return
+    const stolen = registry.start(other, { consentToken: consent.consentToken })
+    expect(stolen.ok).toBe(false)
+    if (stolen.ok) return
+    expect(stolen.evidence.reason).toBe('invalid')
+  })
+
+  it('expires consent tokens after the TTL', () => {
+    const token = issueConsentToken(caller, 1_000)
+    expect(consumeConsentToken(caller, token.consentToken, 1_000 + CONSENT_TTL_MS + 1)).toBe(
+      'expired',
+    )
+    expect(consumeConsentToken(caller, token.consentToken, 1_000 + CONSENT_TTL_MS + 2)).toBe(
+      'invalid',
+    )
   })
 })

@@ -1,4 +1,5 @@
 import { claimExisting, createSession, pickInstance } from './attach.js'
+import { issueConsentToken } from './consent.js'
 import { startVirtualGuiGate } from './display-gate.js'
 import { applyHumanPause } from './human.js'
 import { applyHumanEditsToSessions, markHumanRead } from './human-edits.js'
@@ -274,18 +275,17 @@ export class SessionRegistry {
     c: CallerIdentity,
     opts: { kind?: SessionKind; consentToken?: string } = {},
   ): SessionResult<Record<string, unknown>> {
-    const kind = opts.kind || 'virtual-gui'
-    if (kind !== 'virtual-gui')
-      return fail(
-        'invalid_params',
-        'session',
-        'start only applies to virtual-gui',
-        'use attach for a user-started Blender',
-        { kind },
-      )
-    return startVirtualGuiGate(this.display())
+    return startVirtualGuiGate({
+      caller: c,
+      kind: opts.kind,
+      consentToken: opts.consentToken,
+      capability: this.display(),
+      existing: this.findForCaller(c),
+    })
   }
-
+  issueConsent(c: CallerIdentity): SessionResult<{ consentToken: string; expiresAt: number }> {
+    return { ok: true, ...issueConsentToken(c) }
+  }
   stop(c: CallerIdentity, sessionId?: string): SessionResult<{ stopped: boolean }> {
     this.prune()
     const session = sessionId ? this.sessions.get(String(sessionId)) : this.findForCaller(c)

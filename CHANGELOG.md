@@ -50,7 +50,11 @@
 - 新增 `features.virtualGui` 能力门（env `DSH_BLENDER_VIRTUAL_GUI`）：Windows 在 V0 验收前默认 `off`、通过后默认 `auto`；Linux/macOS 默认 `off`，Linux 仅显式 `on` 进入 preview；非法值回退 `off` 并标记 `invalid`。`/status`、`doctor` 与 `blender_session start` 共用 capabilities（enabled/preview/ready/prerequisites/missing/reason/fix）。
 - 新增 DisplayProvider 契约与选择顺序（Windows hidden-desktop → IDD fallback；Linux Xvfb+VirtualGL preview；macOS 未实现）；当前构建不附带平台 provider，selection 永远返回 `provider_unavailable`。`blender_session start` 在 feature 关闭、依赖缺失或 provider 未实现时只返回 `stage=config`，不 spawn Blender/Xvfb，也不回落 headless。
 - 依赖表收敛到 `runtime/display/prerequisites.ts`（包名/检测/安装/是否 root/复检），VirtualGL 明确 Ubuntu 24.04 无 apt 包、须官方仓库安装。
-- 回归：`tests/unit/js/display-capabilities.test.ts` 14 项（feature 默认与非法值、三条负向启动、provider 顺序、status 暴露）。
+- 回归：`tests/unit/js/display-capabilities.test.ts` 18 项（feature 默认与非法值、三条负向启动、provider 顺序、status 暴露、consent 与已有 user-gui 拒绝）。
+
+### 3.1 virtual-gui 显式授权
+
+- `blender_session start kind=virtual-gui` 首次返回 `consent_required`（stage=session，evidence.options 给出 attach/start 两个显式选项）；只有 DSH host 在用户确认后通过内部 `session action=consent` 发放一次性 30s `consent_token`，模型 tool schema 不能自行设置。start 每次重新复检：已有 ready user-gui 时返回 `session_already_available` 且不创建会话；token 缺失/无效/过期/重放都继续要求决策，不自动降级到 headless 或 GUI。回归：`tests/unit/js/display-capabilities.test.ts`、`tests/integration/js/session-api.test.ts`。
 
 ### 3.1 human pause 与人改冲突
 

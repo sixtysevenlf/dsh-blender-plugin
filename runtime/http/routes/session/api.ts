@@ -77,6 +77,8 @@ function runSessionAction(
       return registry.status(caller, sessionId)
     case 'doctor':
       return registry.doctor(caller, sessionId)
+    case 'consent':
+      return registry.issueConsent(caller)
     case 'start':
       return registry.start(caller, {
         kind: payload.kind === undefined ? undefined : (String(payload.kind) as 'virtual-gui'),
@@ -120,7 +122,7 @@ function runSessionAction(
         code: 'invalid_params',
         stage: 'config',
         root_cause: 'unknown session action: ' + action,
-        fix: 'use list, attach, claim, detach, release, status, doctor, start, stop, grant, revoke, grants, pause, resume, mark_read, presence, heartbeat',
+        fix: 'use list, attach, claim, detach, release, status, doctor, consent, start, stop, grant, revoke, grants, pause, resume, mark_read, presence, heartbeat',
         fallback: { kind: 'unavailable', summary: 'the session action was not executed' },
         evidence: { action },
       }
