@@ -150,6 +150,7 @@
     "smoke:install": "node scripts/install-smoke.mjs",
     "test:e2e": "node scripts/test.mjs e2e",
     "test:e2e:win-helper": "node tests/e2e/win_hidden_desktop.mjs",
+    "test:e2e:win-provider": "node tests/e2e/win_hidden_desktop_provider.mjs",
     "test:e2e:gui": "node scripts/test.mjs e2e:gui",
     "test:matrix": "node scripts/check-behavior-matrix.mjs --release",
     "test:coverage": "node node_modules/vitest/vitest.mjs run --coverage --no-file-parallelism --coverage.reporter=text-summary --coverage.reporter=json-summary --coverage.reporter=lcov --coverage.reporter=cobertura",

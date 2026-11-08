@@ -48,9 +48,10 @@
 ### 3.1 virtual-gui 能力门
 
 - 新增 `features.virtualGui` 能力门（env `DSH_BLENDER_VIRTUAL_GUI`）：Windows 在 V0 验收前默认 `off`、通过后默认 `auto`；Linux/macOS 默认 `off`，Linux 仅显式 `on` 进入 preview；非法值回退 `off` 并标记 `invalid`。`/status`、`doctor` 与 `blender_session start` 共用 capabilities（enabled/preview/ready/prerequisites/missing/reason/fix）。
-- 新增 DisplayProvider 契约与选择顺序（Windows hidden-desktop → IDD fallback；Linux Xvfb+VirtualGL preview；macOS 未实现）；当前构建不附带平台 provider，selection 永远返回 `provider_unavailable`。`blender_session start` 在 feature 关闭、依赖缺失或 provider 未实现时只返回 `stage=config`，不 spawn Blender/Xvfb，也不回落 headless。
+- 新增 DisplayProvider 契约与选择顺序（Windows hidden-desktop → IDD fallback；Linux Xvfb+VirtualGL preview；macOS 未实现）。Windows 构建已带 W1 provider：helper 解析顺序为 env `DSH_HIDDEN_DESKTOP_HELPER` → `vendor/win-hidden-desktop` → `tools/win-hidden-desktop/out`；`blender_session start` 通过 helper 在私有 desktop 启动 Blender，代理 stdout/stderr/exit 并保留 tail，失败返回结构化 `helper_missing` / `blender_exe_missing` / `helper_exited` / `provider_timeout` 等错误，绝不回落默认 desktop；stop 由 job object 连带清理 Blender 且重复 stop 幂等。selection 只在 capabilities ready（feature 开启 + 依赖就绪）时返回 provider，否则仍 fail closed；`blender_session start` 在 feature 关闭、依赖缺失或 provider 未实现时只返回 `stage=config`，不 spawn Blender/Xvfb，也不回落 headless。
 - 依赖表收敛到 `runtime/display/prerequisites.ts`（包名/检测/安装/是否 root/复检），VirtualGL 明确 Ubuntu 24.04 无 apt 包、须官方仓库安装。
-- 回归：`tests/unit/js/display-capabilities.test.ts` 18 项（feature 默认与非法值、三条负向启动、provider 顺序、status 暴露、consent 与已有 user-gui 拒绝）。
+- 发布包新增 `vendor/win-hidden-desktop` helper（Windows CI 用 MSVC 构建；`npm run check:win-helper` 校验 version/commit/sourceSha256/sha256/protocol，`--packed` 断言 npm tarball 含 exe+build.json；仓库不提交二进制）。
+- 回归：`tests/unit/js/display-capabilities.test.ts` 19 项（feature 默认与非法值、三条负向启动、provider 顺序与 Windows 选择条件、status 暴露、consent 与已有 user-gui 拒绝）；`tests/unit/js/win-hidden-desktop.test.ts` 11 项（ready/error/早退/超时、缺 helper/缺 Blender 不 spawn、stop 幂等、输出继续代理、helper 解析顺序）；真机 `tests/e2e/win_hidden_desktop_provider.mjs` 12/12（GUI 非最小化、私有 desktop、双实例隔离、stop 无孤儿；`local-workspace/5.4-windows-provider.md`）。
 
 ### 3.1 virtual-gui 显式授权
 

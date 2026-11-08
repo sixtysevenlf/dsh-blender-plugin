@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { CFG } from '../config.js'
 import { resolveVirtualGuiFeature } from './feature.js'
+import { resolveHiddenDesktopHelper } from './helper-path.js'
 import type {
   DisplayCapabilities,
   DisplayPrerequisiteSpec,
@@ -135,12 +136,13 @@ function probeOne(
     return { ...spec, ok: gpu.ok, detail: gpu.detail }
   }
   if (spec.id === 'win-hidden-desktop-helper') {
-    // 5.2/5.3 add the bundled helper; until then this is the honest missing item.
-    const helper = onPath('dsh-blender-hidden-desktop', env)
+    // The packaged helper lives in vendor/; a development checkout may have it
+    // under tools/.../out. The resolver owns that order and the env override.
+    const helper = resolveHiddenDesktopHelper({ env })
     return {
       ...spec,
-      ok: Boolean(helper),
-      detail: helper || 'hidden-desktop helper not bundled yet',
+      ok: Boolean(helper.path),
+      detail: helper.detail,
     }
   }
   return {
@@ -222,9 +224,20 @@ export function buildDisplayCapabilities(
   }
 }
 
-export function displayCapabilities(): DisplayCapabilities {
+export interface DisplayCapabilitiesQuery {
+  platform?: string
+  env?: NodeJS.ProcessEnv
+}
+
+export function displayCapabilities(options: DisplayCapabilitiesQuery = {}): DisplayCapabilities {
+  const platform = options.platform || process.platform
   return buildDisplayCapabilities({
+    platform,
     configured: CFG.features.virtualGui,
     source: CFG.features.source,
+    env: options.env,
+    // The W1 implementation ships in the bundle; prerequisites decide whether
+    // this machine can actually use it. Linux/macOS still have no provider.
+    providerImplemented: platform === 'win32',
   })
 }

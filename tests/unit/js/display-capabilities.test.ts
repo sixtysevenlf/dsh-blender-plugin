@@ -33,11 +33,45 @@ describe('provider selection order', () => {
     ])
   })
 
-  it('never returns an unimplemented provider, even when capabilities are ready', () => {
-    const selection = selectDisplayProvider()
-    expect(selection.provider).toBeNull()
-    expect(selection.candidates.length).toBeGreaterThan(0)
-    expect(selection.reason).toBeTruthy()
+  it('returns the Windows provider only when the pre-spawn gate is ready', () => {
+    const ready = buildDisplayCapabilities({
+      platform: 'win32',
+      configured: 'on',
+      checks: WIN_CHECKS,
+      providerImplemented: true,
+    })
+    const selected = selectDisplayProvider({
+      platform: 'win32',
+      capabilities: ready,
+      helperPath: 'C:/dsh/dsh-blender-hidden-desktop.exe',
+    })
+    expect(selected.provider?.kind).toBe('win-hidden-desktop')
+    expect(selected.reason).toBeNull()
+
+    const disabled = buildDisplayCapabilities({
+      platform: 'win32',
+      configured: '',
+      checks: WIN_CHECKS,
+      providerImplemented: true,
+    })
+    const none = selectDisplayProvider({ platform: 'win32', capabilities: disabled })
+    expect(none.provider).toBeNull()
+    expect(none.reason).toBe('feature_disabled')
+  })
+
+  it('never selects a provider on Linux or macOS', () => {
+    const linux = buildDisplayCapabilities({
+      platform: 'linux',
+      configured: 'on',
+      providerImplemented: false,
+    })
+    expect(selectDisplayProvider({ platform: 'linux', capabilities: linux }).provider).toBeNull()
+    const mac = buildDisplayCapabilities({
+      platform: 'darwin',
+      configured: 'on',
+      providerImplemented: false,
+    })
+    expect(selectDisplayProvider({ platform: 'darwin', capabilities: mac }).provider).toBeNull()
   })
 })
 

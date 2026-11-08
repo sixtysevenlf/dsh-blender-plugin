@@ -1,10 +1,11 @@
 // Provider selection order for virtual-gui displays. 3.1 GA ships the Windows
-// W1 hidden-desktop provider; Windows W2 (IDD) is only a fallback when W1 fails
-// acceptance, Linux Xvfb+VirtualGL stays preview-only, and macOS has no
-// provider. Until a provider is installed, selection returns null so the
-// session layer fails closed instead of faking readiness.
+// W1 hidden-desktop provider; Windows W2 (IDD) stays a fallback only if W1
+// fails acceptance, Linux Xvfb+VirtualGL stays preview-only, and macOS has no
+// provider. Selection returns a provider only once capabilities are ready, so
+// the session layer fails closed instead of faking readiness.
 import type { DisplayCapabilities, DisplayProvider } from './types.js'
 import { displayCapabilities } from './prerequisites.js'
+import { WinHiddenDesktopProvider } from './win-hidden-desktop.js'
 
 export interface ProviderCandidate {
   kind: string
@@ -19,13 +20,22 @@ export interface ProviderSelection {
   reason: string | null
 }
 
+export interface SelectProviderOptions {
+  platform?: NodeJS.Platform | string
+  env?: NodeJS.ProcessEnv
+  /** Explicit helper path for tests; forwarded to the Windows provider. */
+  helperPath?: string | null
+  /** Capabilities to select against; defaults to the live machine capabilities. */
+  capabilities?: DisplayCapabilities
+}
+
 /** Ordered fallback list; the first implemented candidate wins. */
 export function providerCandidates(
   platform: NodeJS.Platform | string = process.platform,
 ): ProviderCandidate[] {
   if (platform === 'win32') {
     return [
-      { kind: 'win-hidden-desktop', preview: false, implemented: false },
+      { kind: 'win-hidden-desktop', preview: false, implemented: true },
       { kind: 'win-idd', preview: false, implemented: false },
     ]
   }
@@ -35,14 +45,29 @@ export function providerCandidates(
   return [{ kind: 'macos-provider', preview: false, implemented: false }]
 }
 
-export function selectDisplayProvider(): ProviderSelection {
-  const capabilities = displayCapabilities()
-  // No platform implementation is bundled yet, so selection never returns one.
-  // Candidates stay visible to doctor/capabilities without claiming readiness.
-  return {
-    provider: null,
-    candidates: providerCandidates(),
-    capabilities,
-    reason: capabilities.ready ? 'provider_unavailable' : capabilities.reason,
+export function selectDisplayProvider(options: SelectProviderOptions = {}): ProviderSelection {
+  const platform = options.platform || process.platform
+  const capabilities = options.capabilities || displayCapabilities()
+  const candidates = providerCandidates(platform)
+  const chosen = candidates.find((candidate) => candidate.implemented)
+  if (!capabilities.ready) {
+    return {
+      provider: null,
+      candidates,
+      capabilities,
+      reason: capabilities.reason || 'provider_unavailable',
+    }
   }
+  if (chosen && chosen.kind === 'win-hidden-desktop') {
+    return {
+      provider: new WinHiddenDesktopProvider({
+        env: options.env,
+        helperPath: options.helperPath,
+      }),
+      candidates,
+      capabilities,
+      reason: null,
+    }
+  }
+  return { provider: null, candidates, capabilities, reason: 'provider_unavailable' }
 }
