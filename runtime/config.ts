@@ -19,6 +19,7 @@ import { isRecord, readString } from './core/json.js'
 import { errorMessage } from './core/json.js'
 import { detectBlenderExe } from './blender-detect.js'
 import { GATEWAY_DEFAULT_PORT } from './transport/gateway-schema.generated.js'
+import { VIRTUAL_GUI_DEFAULT_MAX } from './display/limits.js'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 /**
@@ -373,6 +374,15 @@ const FEATURE_VIRTUAL_GUI = (() => {
   return { value: '', source: 'default' }
 })()
 
+const FEATURE_VIRTUAL_GUI_MAX = (() => {
+  const env = readString(process.env.DSH_BLENDER_VIRTUAL_GUI_MAX)
+  if (env) return { value: env, source: 'env:DSH_BLENDER_VIRTUAL_GUI_MAX' }
+  const features = isRecord(FILE.cfg.features) ? FILE.cfg.features : null
+  const file = features ? String(features.virtualGuiMax ?? '') : ''
+  if (file) return { value: file, source: 'file:' + String(FILE.from || 'config') }
+  return { value: '', source: 'default' }
+})()
+
 const WORK = resolveWorkDir()
 /** blender.exe 探测在 runtime/blender-detect.ts（可注入依赖；Windows 含 Steam 库）。
  *  config.ts 不再转出 detectBlenderExe：需要探测结果的调用方直接 import blender-detect.js；
@@ -440,6 +450,9 @@ export const CFG = {
   features: {
     virtualGui: FEATURE_VIRTUAL_GUI.value,
     source: FEATURE_VIRTUAL_GUI.source,
+    /** virtual-gui 并发上限（1–16）；低资源时由 runtime/display/limits.ts 降到 2。 */
+    virtualGuiMax: Number(FEATURE_VIRTUAL_GUI_MAX.value || VIRTUAL_GUI_DEFAULT_MAX),
+    virtualGuiMaxSource: FEATURE_VIRTUAL_GUI_MAX.source,
   },
   // 溯源（doctor/日志/教程排查用）
   source: { configFile: FILE.from, workDir: WORK.from, blenderExe: BLENDER.from },

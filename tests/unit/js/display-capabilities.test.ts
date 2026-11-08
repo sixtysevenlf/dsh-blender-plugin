@@ -211,18 +211,29 @@ describe('virtual-gui feature gate', () => {
 
 describe('blender_session start pre-spawn gate', () => {
   const caller = { hostId: 'h', dshSessionId: 's', agentId: 'a', role: 'main' as const }
+  const readyCap = () =>
+    buildDisplayCapabilities({
+      platform: 'win32',
+      configured: 'on',
+      checks: WIN_CHECKS,
+      providerImplemented: true,
+    })
+  const registry = (cap = readyCap(), over: Record<string, unknown> = {}) =>
+    new SessionRegistry(() => [], {
+      display: () => cap,
+      selectProvider: () => null,
+      waitForInstance: async () => false,
+      ...over,
+    })
 
-  it('returns stage=config when the feature is off', () => {
+  it('returns stage=config when the feature is off', async () => {
     const cap = buildDisplayCapabilities({
       platform: 'win32',
       configured: '',
       checks: WIN_CHECKS,
       providerImplemented: true,
     })
-    const result = new SessionRegistry(
-      () => [],
-      () => cap,
-    ).start(caller)
+    const result = await registry(cap).start(caller)
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.stage).toBe('config')
@@ -231,17 +242,14 @@ describe('blender_session start pre-spawn gate', () => {
     expect(result.fix).toContain('features.virtualGui')
   })
 
-  it('returns prerequisites_missing without spawning when the platform is incomplete', () => {
+  it('returns prerequisites_missing without spawning when the platform is incomplete', async () => {
     const cap = buildDisplayCapabilities({
       platform: 'linux',
       configured: 'on',
       env: { PATH: '' },
       providerImplemented: true,
     })
-    const result = new SessionRegistry(
-      () => [],
-      () => cap,
-    ).start(caller)
+    const result = await registry(cap).start(caller)
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.stage).toBe('config')
@@ -249,39 +257,22 @@ describe('blender_session start pre-spawn gate', () => {
     expect(result.evidence.missing).toEqual(expect.arrayContaining(['xvfb']))
   })
 
-  it('never pretends a ready capability is startable without a provider', () => {
-    const cap = buildDisplayCapabilities({
-      platform: 'win32',
-      configured: 'on',
-      checks: WIN_CHECKS,
-      providerImplemented: true,
-    })
-    const registry = new SessionRegistry(
-      () => [],
-      () => cap,
-    )
-    const consent = registry.issueConsent(caller)
+  it('reports provider_unavailable instead of starting without a selected provider', async () => {
+    const reg = registry()
+    const consent = reg.issueConsent(caller)
     expect(consent.ok).toBe(true)
     if (!consent.ok) return
-    const result = registry.start(caller, { consentToken: consent.consentToken })
+    const result = await reg.start(caller, { consentToken: consent.consentToken })
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.stage).toBe('config')
     expect(result.code).toBe('provider_unavailable')
+    expect(reg.listFor(caller)).toEqual([])
   })
 
-  it('requires one-time human consent before a ready capability may start', () => {
-    const cap = buildDisplayCapabilities({
-      platform: 'win32',
-      configured: 'on',
-      checks: WIN_CHECKS,
-      providerImplemented: true,
-    })
-    const registry = new SessionRegistry(
-      () => [],
-      () => cap,
-    )
-    const denied = registry.start(caller)
+  it('requires one-time human consent before a ready capability may start', async () => {
+    const reg = registry()
+    const denied = await reg.start(caller)
     expect(denied.ok).toBe(false)
     if (denied.ok) return
     expect(denied.code).toBe('consent_required')
@@ -289,59 +280,45 @@ describe('blender_session start pre-spawn gate', () => {
     expect(denied.evidence.reason).toBe('missing')
     expect(denied.evidence.options).toHaveLength(2)
 
-    const consent = registry.issueConsent(caller)
+    const consent = reg.issueConsent(caller)
     if (!consent.ok) return
-    const allowed = registry.start(caller, { consentToken: consent.consentToken })
+    const allowed = await reg.start(caller, { consentToken: consent.consentToken })
     expect(allowed.ok).toBe(false)
     if (allowed.ok) return
     expect(allowed.code).toBe('provider_unavailable')
 
-    const replay = registry.start(caller, { consentToken: consent.consentToken })
+    const replay = await reg.start(caller, { consentToken: consent.consentToken })
     expect(replay.ok).toBe(false)
     if (replay.ok) return
     expect(replay.code).toBe('consent_required')
     expect(replay.evidence.reason).toBe('used')
   })
 
-  it('refuses to start a virtual window when a ready user-gui session exists', () => {
-    const cap = buildDisplayCapabilities({
-      platform: 'win32',
-      configured: 'on',
-      checks: WIN_CHECKS,
-      providerImplemented: true,
+  it('refuses to start a virtual window when a ready user-gui session exists', async () => {
+    const reg = new SessionRegistry(() => [{ instanceId: 'gui-1', ready: true }], {
+      display: readyCap,
+      selectProvider: () => null,
+      waitForInstance: async () => false,
     })
-    const registry = new SessionRegistry(
-      () => [{ instanceId: 'gui-1', ready: true }],
-      () => cap,
-    )
-    const attached = registry.attach(caller)
+    const attached = reg.attach(caller)
     expect(attached.ok).toBe(true)
     if (!attached.ok) return
-    const consent = registry.issueConsent(caller)
+    const consent = reg.issueConsent(caller)
     if (!consent.ok) return
-    const result = registry.start(caller, { consentToken: consent.consentToken })
+    const result = await reg.start(caller, { consentToken: consent.consentToken })
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.code).toBe('session_already_available')
     expect(result.evidence.sessionId).toBe(attached.session.id)
-    expect(registry.listFor(caller)).toHaveLength(1)
+    expect(reg.listFor(caller)).toHaveLength(1)
   })
 
-  it('binds consent tokens to the caller', () => {
-    const cap = buildDisplayCapabilities({
-      platform: 'win32',
-      configured: 'on',
-      checks: WIN_CHECKS,
-      providerImplemented: true,
-    })
+  it('binds consent tokens to the caller', async () => {
     const other = { hostId: 'h2', dshSessionId: 's', agentId: 'a', role: 'main' as const }
-    const registry = new SessionRegistry(
-      () => [],
-      () => cap,
-    )
-    const consent = registry.issueConsent(caller)
+    const reg = registry()
+    const consent = reg.issueConsent(caller)
     if (!consent.ok) return
-    const stolen = registry.start(other, { consentToken: consent.consentToken })
+    const stolen = await reg.start(other, { consentToken: consent.consentToken })
     expect(stolen.ok).toBe(false)
     if (stolen.ok) return
     expect(stolen.evidence.reason).toBe('invalid')

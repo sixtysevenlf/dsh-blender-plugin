@@ -71,6 +71,8 @@ export function createSession(instance: InstanceRef, c: CallerIdentity): Session
     activePy: null,
     humanEdits: new Map(),
     humanModifiedAt: null,
+    display: null,
+    provider: null,
     createdAt: now,
     lastActivityAt: now,
   }

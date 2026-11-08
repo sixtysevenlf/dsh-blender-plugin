@@ -151,7 +151,7 @@ describe('architecture guide', () => {
       expect(text, ARCH + ' must contain ' + heading).toContain(heading)
     }
     for (const fact of [
-      '15 tools',
+      '6 tools',
       '34 planning families',
       '228 operations',
       '25 addon commands',

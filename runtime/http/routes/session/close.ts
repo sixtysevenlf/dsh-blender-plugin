@@ -20,7 +20,7 @@ export function createLeaseHandler(E: HttpRouteDeps) {
       payload = {}
     }
     if (typeof payload.action === 'string' && payload.action) {
-      const result = dispatchSessionAction(sessionRegistry, payload.action, payload)
+      const result = await dispatchSessionAction(sessionRegistry, payload.action, payload)
       json(res, result.status, result.body)
       return
     }

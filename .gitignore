@@ -47,3 +47,7 @@ coverage/
 
 # Local agent workspace (never committed or shipped)
 .dsh-ops/
+# pytest keeps its basetemp here when the environment points TMP inside the workspace
+pytest-of-*/
+pytest-*/
+

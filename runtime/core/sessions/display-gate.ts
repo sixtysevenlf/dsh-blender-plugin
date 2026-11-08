@@ -15,7 +15,7 @@ export interface VirtualGuiStartInput {
 
 export function startVirtualGuiGate(
   input: VirtualGuiStartInput,
-): SessionResult<Record<string, unknown>> {
+): SessionResult<{ capability: DisplayCapabilities }> {
   const { capability, existing } = input
   if ((input.kind || 'virtual-gui') !== 'virtual-gui')
     return fail(
@@ -66,12 +66,6 @@ export function startVirtualGuiGate(
       evidence,
     )
   const consent = consumeConsentToken(input.caller, input.consentToken)
-  if (consent !== 'ok') return consentFailure(consent)
-  return fail(
-    'provider_unavailable',
-    'config',
-    'virtual-gui provider is selected but this build has no startable provider',
-    'use user-gui or blender_run headless',
-    evidence,
-  )
+  if (consent !== 'ok') return consentFailure<{ capability: DisplayCapabilities }>(consent)
+  return { ok: true, capability }
 }

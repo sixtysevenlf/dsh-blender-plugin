@@ -8,6 +8,7 @@
 import { availabilityFailure } from '../availability.js'
 import type { AvailabilityFailure } from '../availability.js'
 import type { ScopeSpec } from './scopes.js'
+import type { DisplayInstance, DisplayProvider } from '../../display/types.js'
 
 export const OWNER_TTL_MS = 120_000
 export const OWNER_HEARTBEAT_MS = 30_000
@@ -102,6 +103,9 @@ export interface SessionRecord {
   activePy: { caller: CallerIdentity; startedAt: number } | null
   humanEdits: Map<string, HumanEdit>
   humanModifiedAt: number | null
+  /** Set for virtual-gui: the provider handle and the provider that owns it. */
+  display: DisplayInstance | null
+  provider: DisplayProvider | null
   createdAt: number
   lastActivityAt: number
 }
@@ -207,6 +211,14 @@ export function sessionView(s: SessionRecord): Record<string, unknown> {
     grants: [...s.grants.values()].map(grantView),
     activePy: s.activePy
       ? { holder: callerView(s.activePy.caller), startedAt: s.activePy.startedAt }
+      : null,
+    display: s.display
+      ? {
+          id: s.display.id,
+          provider: s.display.provider,
+          display: s.display.display,
+          pid: s.display.pid,
+        }
       : null,
     humanModified: s.humanEdits.size
       ? {

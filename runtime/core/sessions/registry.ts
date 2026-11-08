@@ -1,18 +1,20 @@
 import { claimExisting, createSession, pickInstance } from './attach.js'
 import { issueConsentToken } from './consent.js'
-import { startVirtualGuiGate } from './display-gate.js'
+import { CFG } from '../../config.js'
+import { selectDisplayProvider } from '../../display/provider.js'
+import { systemVirtualGuiLimits } from '../../display/limits.js'
+import type { VirtualGuiLimits } from '../../display/limits.js'
 import { applyHumanPause } from './human.js'
 import { applyHumanEditsToSessions, markHumanRead } from './human-edits.js'
 import type { HumanEditInput } from './human-edits.js'
 import { presenceRows, setSelection, setView, touchAgent } from './presence.js'
 import { pyTimeoutFailure, waitForPyLock } from './py-lock.js'
-import { resolveGrantContext } from './grants.js'
+import { grantTo, listGrants, revokeFrom } from './grant-ops.js'
+import type { GrantOpsHost } from './grant-ops.js'
 import { displayCapabilities } from '../../display/prerequisites.js'
-import type { DisplayCapabilities } from '../../display/types.js'
+import type { DisplayCapabilities, DisplayProvider } from '../../display/types.js'
 import { authorizeMainWrite, coveringGrant, evaluateWriteGate } from './write-gate.js'
 import {
-  GRANT_TTL_MS,
-  OWNER_TTL_MS,
   callerKey,
   callerView,
   fail,
@@ -22,15 +24,28 @@ import {
   ownerOf,
   sessionView,
 } from './types.js'
+import { findCallerSession, pruneSessions } from './lookup.js'
+import { VirtualGuiLifecycle, waitForAddonInstance } from './virtual-gui.js'
+import type { ProviderSelector } from './virtual-gui.js'
 import type {
   CallerIdentity,
-  GrantRecord,
   InstanceRef,
   SessionKind,
   SessionRecord,
   SessionResult,
   ViewPose,
 } from './types.js'
+
+export interface SessionRegistryOptions {
+  display?: () => DisplayCapabilities
+  selectProvider?: ProviderSelector
+  waitForInstance?: (instanceId: string, timeoutMs: number) => Promise<boolean>
+  limits?: () => VirtualGuiLimits
+}
+
+function defaultProviderSelector(capabilities: DisplayCapabilities): DisplayProvider | null {
+  return selectDisplayProvider({ capabilities }).provider
+}
 
 export class SessionRegistry {
   private sessions = new Map<string, SessionRecord>()
@@ -39,56 +54,38 @@ export class SessionRegistry {
 
   constructor(
     instances: () => InstanceRef[],
-    display: () => DisplayCapabilities = displayCapabilities,
+    options: (() => DisplayCapabilities) | SessionRegistryOptions = {},
   ) {
+    const opts = typeof options === 'function' ? { display: options } : options
     this.listInstances = instances
-    this.display = display
+    this.displayFn = opts.display || displayCapabilities
+    this.limitsFn = opts.limits || (() => systemVirtualGuiLimits(CFG.features.virtualGuiMax))
+    this.waitForInstanceFn =
+      opts.waitForInstance ||
+      ((instanceId, timeoutMs) =>
+        waitForAddonInstance(() => this.listInstances(), instanceId, timeoutMs))
+    this.lifecycle = new VirtualGuiLifecycle(this, opts.selectProvider || defaultProviderSelector)
   }
   private listInstances: () => InstanceRef[]
-  private display: () => DisplayCapabilities
+  private readonly displayFn: () => DisplayCapabilities
+  private readonly limitsFn: () => VirtualGuiLimits
+  private readonly waitForInstanceFn: (instanceId: string, timeoutMs: number) => Promise<boolean>
+  private readonly lifecycle: VirtualGuiLifecycle
+
+  display(): DisplayCapabilities {
+    return this.displayFn()
+  }
 
   refreshInstances(next: InstanceRef[]): void {
     this.instances = next
   }
 
   private prune(now = Date.now()): void {
-    const instances = this.listInstances()
-    this.instances = instances
-    for (const s of this.sessions.values()) {
-      if (s.owner && now - s.owner.heartbeatAt > OWNER_TTL_MS) {
-        s.owner = null
-        s.activePy = null
-        s.grants.clear()
-      }
-      for (const [id, g] of s.grants) {
-        if (g.expiresAt > now) continue
-        // An active blender_py holds its exclusive grant for the whole call;
-        // the 30s grant TTL must not expire under a long-running script.
-        if (s.activePy && callerKey(g.holder) === callerKey(s.activePy.caller)) continue
-        s.grants.delete(id)
-      }
-      if (s.kind === 'user-gui' && s.instanceId) {
-        const inst = instances.find((x) => x.instanceId === s.instanceId)
-        if (!inst || !inst.ready) {
-          // A disconnected user-gui instance releases ownership immediately; a
-          // reconnect claims fresh rather than inheriting a stale writer.
-          s.owner = null
-          s.agents.clear()
-          s.grants.clear()
-          s.activePy = null
-          s.paused = false
-          s.status = inst ? 'starting' : 'stopped'
-        }
-      }
-    }
+    this.instances = pruneSessions(this.sessions, this.listInstances, now)
   }
 
-  private findForCaller(c: CallerIdentity): SessionRecord | null {
-    for (const s of this.sessions.values()) {
-      if (ownerMatches(s.owner, c)) return s
-      if (s.agents.has(callerKey(c))) return s
-    }
-    return null
+  findForCaller(c: CallerIdentity): SessionRecord | null {
+    return findCallerSession(this.sessions, c)
   }
 
   private ensureAttached(
@@ -101,6 +98,26 @@ export class SessionRegistry {
     if (existing) return this.adopt(claimExisting(existing, c), c)
     const picked = pickInstance(this.listInstances(), opts)
     if (!('instance' in picked)) return picked
+    const knownVirtual = this.sessions.get('virtual-gui:' + picked.instance.instanceId)
+    if (knownVirtual) {
+      if (knownVirtual.status !== 'ready')
+        return fail(
+          'session_unavailable',
+          'session',
+          'the virtual-gui session is not ready yet',
+          'wait for the addon handshake, or check blender_session status',
+          { sessionId: knownVirtual.id },
+        )
+      if (!ownerMatches(knownVirtual.owner, c))
+        return fail(
+          'session_in_use',
+          'session',
+          'another DSH session owns this virtual-gui session',
+          'ask the owner to release it',
+          { sessionId: knownVirtual.id },
+        )
+      return this.adopt(claimExisting(knownVirtual, c), c)
+    }
     const known = this.sessions.get('user-gui:' + picked.instance.instanceId)
     if (known) return this.adopt(claimExisting(known, c), c)
     const created = createSession(picked.instance, c)
@@ -201,7 +218,7 @@ export class SessionRegistry {
     return { ok: true, released: true }
   }
 
-  private releaseSession(s: SessionRecord): void {
+  releaseSession(s: SessionRecord): void {
     s.owner = null
     s.agents.clear()
     s.grants.clear()
@@ -211,6 +228,49 @@ export class SessionRegistry {
     s.humanEdits.clear()
     s.humanModifiedAt = null
     s.status = 'stopped'
+    if (s.kind === 'virtual-gui') {
+      // Releasing the owner tears the provider down too; stop() awaits the same
+      // dispose path, while detach/release can stay synchronous at the API edge.
+      this.sessions.delete(s.id)
+      void this.lifecycle.disposeSession(s)
+    }
+  }
+
+  getSession(sessionId: string): SessionRecord | null {
+    return this.sessions.get(String(sessionId)) ?? null
+  }
+
+  virtualGuiCount(): number {
+    let count = 0
+    for (const s of this.sessions.values()) {
+      if (s.kind === 'virtual-gui' && (s.status === 'starting' || s.status === 'ready')) count++
+    }
+    return count
+  }
+
+  addSession(session: SessionRecord): void {
+    this.sessions.set(session.id, session)
+  }
+
+  removeSession(sessionId: string): void {
+    this.sessions.delete(sessionId)
+  }
+
+  /** The addon socket dropped: a virtual-gui session for it cannot outlive it. */
+  handleInstanceGone(instanceId: string): void {
+    const session = this.sessions.get('virtual-gui:' + String(instanceId))
+    if (!session) return
+    session.status = 'stopped'
+    this.sessions.delete(session.id)
+    void this.lifecycle.disposeSession(session)
+  }
+
+  limits(): VirtualGuiLimits {
+    return this.limitsFn()
+  }
+
+  waitForInstance(instanceId: string, timeoutMs: number): Promise<boolean> {
+    return this.waitForInstanceFn(instanceId, timeoutMs)
   }
 
   heartbeat(
@@ -271,45 +331,19 @@ export class SessionRegistry {
     }
   }
 
-  start(
+  async start(
     c: CallerIdentity,
     opts: { kind?: SessionKind; consentToken?: string } = {},
-  ): SessionResult<Record<string, unknown>> {
-    return startVirtualGuiGate({
-      caller: c,
-      kind: opts.kind,
-      consentToken: opts.consentToken,
-      capability: this.display(),
-      existing: this.findForCaller(c),
-    })
+  ): Promise<SessionResult<{ session: Record<string, unknown> }>> {
+    this.prune()
+    return this.lifecycle.start(c, opts)
   }
   issueConsent(c: CallerIdentity): SessionResult<{ consentToken: string; expiresAt: number }> {
     return { ok: true, ...issueConsentToken(c) }
   }
-  stop(c: CallerIdentity, sessionId?: string): SessionResult<{ stopped: boolean }> {
+  async stop(c: CallerIdentity, sessionId?: string): Promise<SessionResult<{ stopped: boolean }>> {
     this.prune()
-    const session = sessionId ? this.sessions.get(String(sessionId)) : this.findForCaller(c)
-    if (!session) return { ok: true, stopped: false }
-    if (session.kind !== 'virtual-gui') {
-      return fail(
-        'invalid_params',
-        'session',
-        'stop does not control a user-started Blender',
-        'close Blender yourself; stop only manages virtual-gui',
-        { sessionId: session.id },
-      )
-    }
-    if (!ownerMatches(session.owner, c)) {
-      return fail(
-        'session_in_use',
-        'session',
-        'only the owning DSH session can stop this virtual-gui session',
-        'ask the owner to stop it',
-        { sessionId: session.id },
-      )
-    }
-    this.releaseSession(session)
-    return { ok: true, stopped: true }
+    return this.lifecycle.stop(c, sessionId)
   }
 
   grant(
@@ -319,35 +353,7 @@ export class SessionRegistry {
     target?: CallerIdentity,
     ttlMs?: number,
   ): SessionResult<{ grant: Record<string, unknown> }> {
-    this.prune()
-    const session = this.sessions.get(String(sessionId))
-    if (!session)
-      return fail('session_not_found', 'session', 'the session does not exist', 'attach first', {})
-    const ctx = resolveGrantContext(session, c, scopes, target)
-    if (!('holder' in ctx)) return ctx
-    const { parsed, holder } = ctx
-    const now = Date.now()
-    const requestedTtl = Number(ttlMs)
-    const ttl =
-      Number.isFinite(requestedTtl) && requestedTtl > 0
-        ? Math.min(GRANT_TTL_MS, requestedTtl)
-        : GRANT_TTL_MS
-    const grant: GrantRecord = {
-      id: 'grant_' + Math.random().toString(16).slice(2, 10),
-      sessionId: session.id,
-      holder,
-      grantedBy: { ...c },
-      scopes: parsed,
-      createdAt: now,
-      heartbeatAt: now,
-      expiresAt: now + ttl,
-    }
-    for (const [existingId, existing] of session.grants) {
-      if (callerKey(existing.holder) === callerKey(holder)) session.grants.delete(existingId)
-    }
-    session.grants.set(grant.id, grant)
-    session.lastActivityAt = now
-    return { ok: true, grant: grantView(grant) }
+    return grantTo(this.grantHost(), c, sessionId, scopes, target, ttlMs)
   }
 
   revoke(
@@ -355,48 +361,22 @@ export class SessionRegistry {
     sessionId: string,
     grantId?: string,
   ): SessionResult<{ revoked: string[] }> {
-    this.prune()
-    const session = this.sessions.get(String(sessionId))
-    if (!session)
-      return fail('session_not_found', 'session', 'the session does not exist', 'attach first', {})
-    if (!isMain(session, c))
-      return fail(
-        'scope_forbidden',
-        'session',
-        'only the main agent may revoke scopes',
-        'ask the main agent to revoke',
-        {},
-      )
-    const revoked: string[] = []
-    for (const [id, g] of session.grants) {
-      if (grantId && id !== String(grantId)) continue
-      if (!grantId && callerKey(g.holder) === callerKey(c)) continue
-      session.grants.delete(id)
-      revoked.push(id)
-    }
-    return { ok: true, revoked }
+    return revokeFrom(this.grantHost(), c, sessionId, grantId)
   }
 
   grants(
     c: CallerIdentity,
     sessionId?: string,
   ): SessionResult<{ grants: Record<string, unknown>[] }> {
-    this.prune()
-    const session = sessionId ? this.sessions.get(String(sessionId)) : this.findForCaller(c)
-    if (!session) return { ok: true, grants: [] }
-    if (!ownerMatches(session.owner, c))
-      return fail(
-        'session_in_use',
-        'session',
-        'another DSH session owns this GUI session',
-        'wait for the owner to release it',
-        { sessionId: session.id },
-      )
-    const all = [...session.grants.values()]
-    const visible = isMain(session, c)
-      ? all
-      : all.filter((g) => callerKey(g.holder) === callerKey(c))
-    return { ok: true, grants: visible.map(grantView) }
+    return listGrants(this.grantHost(), c, sessionId)
+  }
+
+  private grantHost(): GrantOpsHost {
+    return {
+      sessions: this.sessions,
+      prune: () => this.prune(),
+      findForCaller: (caller) => this.findForCaller(caller),
+    }
   }
 
   pause(c: CallerIdentity, _sessionId?: string): SessionResult<{ paused: boolean }> {

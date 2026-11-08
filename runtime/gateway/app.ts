@@ -62,6 +62,9 @@ function addonEventSink(
         event.paused === true,
       )
     }
+    if (event.type === 'connection_closed' && registryRef.current) {
+      registryRef.current.handleInstanceGone(String(event.instanceId || ''))
+    }
     if (event.type === 'event' && event.name === 'human_edit' && registryRef.current) {
       registryRef.current.applyHumanEdits(
         event.instanceId === null ? undefined : String(event.instanceId),

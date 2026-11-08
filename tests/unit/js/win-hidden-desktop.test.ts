@@ -115,6 +115,7 @@ describe('WinHiddenDesktopProvider start', () => {
     ])
     expect(calls[0].args.slice(-3)).toEqual(['--', '--python', 'probe.py'])
     expect(calls[0].options.windowsHide).toBe(true)
+    expect(calls[0].options.env).toMatchObject({ DSHBB_SESSION_KIND: 'virtual-gui' })
     expect(lines.some((line) => line.includes('dsh-vgui-e2e-1-999'))).toBe(true)
     expect(provider.output(instance)?.stdout).toContain('blender relayed line')
     expect((await provider.health(instance)).ok).toBe(true)

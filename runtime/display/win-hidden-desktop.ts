@@ -260,8 +260,23 @@ export class WinHiddenDesktopProvider implements DisplayProvider {
     return {
       command: helper.path,
       args,
-      options: { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] },
+      options: {
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: this.spawnEnv(request),
+      },
     }
+  }
+
+  /** Blender inherits these: the addon dials this Gateway and reuses the expected identity. */
+  private spawnEnv(request: DisplayStartRequest): NodeJS.ProcessEnv {
+    const env: NodeJS.ProcessEnv = { ...process.env, ...(this.options.env || {}) }
+    env.DSHBB_GATEWAY_PORT = String(CFG.gatewayPort)
+    // The add-on reports this in its handshake: a provider-launched Blender is a
+    // virtual-gui instance, not a window the human opened.
+    env.DSHBB_SESSION_KIND = 'virtual-gui'
+    if (request.instanceId) env.DSHBB_INSTANCE_ID = String(request.instanceId)
+    return env
   }
 
   private onReadyLine(

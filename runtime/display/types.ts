@@ -37,6 +37,8 @@ export interface DisplayCapabilities {
 
 export interface DisplayStartRequest {
   sessionId: string
+  /** Deterministic addon instance id the launched Blender must hand shake with. */
+  instanceId?: string
   width?: number
   height?: number
   blenderArgs?: string[]

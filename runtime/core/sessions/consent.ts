@@ -51,7 +51,9 @@ export function consumeConsentToken(
   return 'ok'
 }
 
-export function consentFailure(reason: ConsentReason): SessionResult<Record<string, unknown>> {
+export function consentFailure<T = Record<string, unknown>>(
+  reason: ConsentReason,
+): SessionResult<T> {
   return fail(
     'consent_required',
     'session',
@@ -65,5 +67,5 @@ export function consentFailure(reason: ConsentReason): SessionResult<Record<stri
       ],
       ttl_ms: CONSENT_TTL_MS,
     },
-  )
+  ) as SessionResult<T>
 }

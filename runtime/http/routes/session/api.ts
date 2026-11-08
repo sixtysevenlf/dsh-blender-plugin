@@ -31,11 +31,11 @@ export interface SessionApiResult {
   body: Record<string, unknown>
 }
 
-export function dispatchSessionAction(
+export async function dispatchSessionAction(
   registry: SessionRegistry,
   action: string,
   payload: Record<string, unknown>,
-): SessionApiResult {
+): Promise<SessionApiResult> {
   const caller = currentCaller()
   if (!caller) {
     return {
@@ -47,18 +47,18 @@ export function dispatchSessionAction(
       },
     }
   }
-  const result = runSessionAction(registry, caller, action, payload)
+  const result = await runSessionAction(registry, caller, action, payload)
   if (!result.ok)
     return { status: statusFor(result), body: result as unknown as Record<string, unknown> }
   return { status: 200, body: result as unknown as Record<string, unknown> }
 }
 
-function runSessionAction(
+async function runSessionAction(
   registry: SessionRegistry,
   caller: CallerIdentity,
   action: string,
   payload: Record<string, unknown>,
-): SessionResult<Record<string, unknown>> {
+): Promise<SessionResult<Record<string, unknown>>> {
   const sessionId = payload.sessionId === undefined ? undefined : String(payload.sessionId)
   switch (action) {
     case 'list':
@@ -80,12 +80,12 @@ function runSessionAction(
     case 'consent':
       return registry.issueConsent(caller)
     case 'start':
-      return registry.start(caller, {
+      return await registry.start(caller, {
         kind: payload.kind === undefined ? undefined : (String(payload.kind) as 'virtual-gui'),
         consentToken: payload.consentToken === undefined ? undefined : String(payload.consentToken),
       })
     case 'stop':
-      return registry.stop(caller, sessionId)
+      return await registry.stop(caller, sessionId)
     case 'grant':
       return registry.grant(
         caller,
@@ -142,10 +142,10 @@ function runSessionAction(
   }
 }
 
-export function sessionAction(
+export async function sessionAction(
   res: ServerResponse,
   registry: SessionRegistry,
   payload: Record<string, unknown>,
-): SessionApiResult {
+): Promise<SessionApiResult> {
   return dispatchSessionAction(registry, String(payload.action || ''), payload)
 }

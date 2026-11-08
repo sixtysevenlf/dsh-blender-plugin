@@ -50,9 +50,27 @@ RETRY_MIN_SECONDS = 1.0
 RETRY_MAX_SECONDS = 10.0
 HANDSHAKE_MESSAGE_TYPES = frozenset({"handshake_ok", "handshake_error"})
 
-# Stable for the whole Blender process: the Gateway routes a reconnected add-on
-# back to the same instance, and an add-on reload must not mint a new identity.
-_INSTANCE_ID = uuid.uuid5(uuid.NAMESPACE_URL, "dshbb-addon-%d" % os.getpid()).hex
+def _instance_id():
+    """Stable for the whole Blender process.
+
+    The Gateway routes a reconnected add-on back to the same instance, and an
+    add-on reload must not mint a new identity. A virtual-gui launch sets
+    DSHBB_INSTANCE_ID so the Gateway can wait for the exact handshake it spawned;
+    in every other launch the identity stays derived from the Blender pid.
+    """
+    override = (os.getenv("DSHBB_INSTANCE_ID") or "").strip()
+    if override and len(override) <= 128 and all(ch.isalnum() or ch in "-_." for ch in override):
+        return override
+    return uuid.uuid5(uuid.NAMESPACE_URL, "dshbb-addon-%d" % os.getpid()).hex
+
+
+_INSTANCE_ID = _instance_id()
+
+
+def _session_kind():
+    """How this Blender process was started, as the Gateway handshake reports it."""
+    kind = (os.getenv("DSHBB_SESSION_KIND") or "").strip().lower()
+    return kind if kind in ("user-gui", "virtual-gui") else "user-gui"
 
 
 class DSHBlenderBridgeServer(*command_mixins()):
@@ -228,7 +246,7 @@ class DSHBlenderBridgeServer(*command_mixins()):
         handshake = {
             "type": "handshake",
             "instanceId": _INSTANCE_ID,
-            "kind": "user-gui",
+            "kind": _session_kind(),
             "version": ADDON_VERSION_TEXT,
             "protocol": ADDON_PROTOCOL_VERSION,
             "project": self._project,

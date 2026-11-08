@@ -53,6 +53,12 @@
 - 发布包新增 `vendor/win-hidden-desktop` helper（Windows CI 用 MSVC 构建；`npm run check:win-helper` 校验 version/commit/sourceSha256/sha256/protocol，`--packed` 断言 npm tarball 含 exe+build.json；仓库不提交二进制）。
 - 回归：`tests/unit/js/display-capabilities.test.ts` 19 项（feature 默认与非法值、三条负向启动、provider 顺序与 Windows 选择条件、status 暴露、consent 与已有 user-gui 拒绝）；`tests/unit/js/win-hidden-desktop.test.ts` 11 项（ready/error/早退/超时、缺 helper/缺 Blender 不 spawn、stop 幂等、输出继续代理、helper 解析顺序）；真机 `tests/e2e/win_hidden_desktop_provider.mjs` 12/12（GUI 非最小化、私有 desktop、双实例隔离、stop 无孤儿；`local-workspace/5.4-windows-provider.md`）。
 
+### 3.1 virtual-gui 会话生命周期与上限
+
+- `blender_session start` 成功后的会话 id 为 `virtual-gui:<instanceId>`；只有 Gateway 拉起的那个 Blender 以同一 `instanceId` 完成 addon 握手才标记 `ready`（provider 注入 `DSHBB_INSTANCE_ID` / `DSHBB_SESSION_KIND=virtual-gui`，addon 握手按该环境报告 kind），握手超时 30 秒。provider 启动失败或握手超时会先停 provider，不留 Blender 进程或半注册会话；`stop` 只接受会话所有者，进程/会话一起清理，重复 `stop` 幂等。
+- 新增 `features.virtualGuiMax`（env `DSH_BLENDER_VIRTUAL_GUI_MAX`）实例上限，默认 4、范围 1–16；总内存 <16 GiB 或空闲 <4 GiB 时自动降为 2。超限时 `start` 在 spawn 前返回 `stage=session` / `capacity`（evidence `used`/`limit`/`configured`/`low_resource`/`reason`），不排队、不 spawn。
+- 回归：`tests/unit/js/virtual-gui-lifecycle.test.ts` 7 项（握手前不可见、握手失败清理、provider 错误结构化透传、上限、stop 幂等、attach 归属、limits clamp/低内存）；真机 `tests/e2e/virtual_gui_session.mjs` 20/20（consent 拒绝、真实 helper 启动 GUI Blender、同 instanceId 握手、display/pid、stop 无孤儿、重复 stop、缺 helper fail closed）。
+
 ### 3.1 virtual-gui 显式授权
 
 - `blender_session start kind=virtual-gui` 首次返回 `consent_required`（stage=session，evidence.options 给出 attach/start 两个显式选项）；只有 DSH host 在用户确认后通过内部 `session action=consent` 发放一次性 30s `consent_token`，模型 tool schema 不能自行设置。start 每次重新复检：已有 ready user-gui 时返回 `session_already_available` 且不创建会话；token 缺失/无效/过期/重放都继续要求决策，不自动降级到 headless 或 GUI。回归：`tests/unit/js/display-capabilities.test.ts`、`tests/integration/js/session-api.test.ts`。
