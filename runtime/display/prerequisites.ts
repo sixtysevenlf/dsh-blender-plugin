@@ -3,7 +3,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { CFG } from '../config.js'
-import { resolveVirtualGuiFeature } from './feature.js'
+import { resolveVirtualGuiFeature, VIRTUAL_GUI_V0_RELEASED } from './feature.js'
 import { resolveHiddenDesktopHelper } from './helper-path.js'
 import type {
   DisplayCapabilities,
@@ -172,7 +172,7 @@ export function buildDisplayCapabilities(
     configured: options.configured,
     source: options.source,
     platform,
-    v0Released: false,
+    v0Released: VIRTUAL_GUI_V0_RELEASED,
   })
   const prerequisites = prerequisiteTable(platform).map((spec) =>
     probeOne(spec, platform, env, options.checks, options.blenderExe),

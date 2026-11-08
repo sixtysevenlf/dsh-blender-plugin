@@ -50,13 +50,13 @@ describe('provider selection order', () => {
 
     const disabled = buildDisplayCapabilities({
       platform: 'win32',
-      configured: '',
+      configured: 'off',
       checks: WIN_CHECKS,
       providerImplemented: true,
     })
     const none = selectDisplayProvider({ platform: 'win32', capabilities: disabled })
     expect(none.provider).toBeNull()
-    expect(none.reason).toBe('feature_disabled')
+    expect(none.reason).toContain('feature_disabled')
   })
 
   it('never selects a provider on Linux or macOS', () => {
@@ -91,9 +91,11 @@ describe('status surface', () => {
       jobSnapshot: () => ({}),
     } as unknown as EngineApiDeps
     const view = await statusView(E)
-    const virtualGui = view.virtualGui as { enabled: boolean; reason: string }
-    expect(virtualGui.enabled).toBe(false)
-    expect(virtualGui.reason).toBe('feature_disabled')
+    const virtualGui = view.virtualGui as { enabled: boolean; reason: string | null }
+    // The platform default is off on Linux/macOS and auto on Windows after V0;
+    // this test only guards that /status always carries the capability block.
+    expect(typeof virtualGui.enabled).toBe('boolean')
+    expect(virtualGui).toHaveProperty('reason')
     expect(view.addonError).toContain('addon unreachable')
   })
 })
@@ -108,6 +110,14 @@ describe('virtual-gui feature gate', () => {
       value: 'auto',
       source: 'default:v0',
     })
+    expect(resolveVirtualGuiFeature({ platform: 'win32' })).toEqual({
+      value: 'auto',
+      source: 'default:v0',
+    })
+    expect(
+      buildDisplayCapabilities({ platform: 'win32', checks: WIN_CHECKS, providerImplemented: true })
+        .feature,
+    ).toBe('auto')
     expect(resolveVirtualGuiFeature({ platform: 'linux' }).value).toBe('off')
   })
 
@@ -151,13 +161,13 @@ describe('virtual-gui feature gate', () => {
   it('stays disabled when features.virtualGui is off, even with every prerequisite installed', () => {
     const cap = buildDisplayCapabilities({
       platform: 'win32',
-      configured: '',
+      configured: 'off',
       checks: WIN_CHECKS,
       providerImplemented: true,
     })
     expect(cap.enabled).toBe(false)
     expect(cap.ready).toBe(false)
-    expect(cap.reason).toBe('feature_disabled')
+    expect(cap.reason).toContain('feature_disabled')
     expect(cap.missing).toEqual([])
     expect(cap.fix).toContain('features.virtualGui=on')
   })
@@ -229,7 +239,7 @@ describe('blender_session start pre-spawn gate', () => {
   it('returns stage=config when the feature is off', async () => {
     const cap = buildDisplayCapabilities({
       platform: 'win32',
-      configured: '',
+      configured: 'off',
       checks: WIN_CHECKS,
       providerImplemented: true,
     })

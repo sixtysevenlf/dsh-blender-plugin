@@ -58,6 +58,7 @@
 - `blender_session start` 成功后的会话 id 为 `virtual-gui:<instanceId>`；只有 Gateway 拉起的那个 Blender 以同一 `instanceId` 完成 addon 握手才标记 `ready`（provider 注入 `DSHBB_INSTANCE_ID` / `DSHBB_SESSION_KIND=virtual-gui`，addon 握手按该环境报告 kind），握手超时 30 秒。provider 启动失败或握手超时会先停 provider，不留 Blender 进程或半注册会话；`stop` 只接受会话所有者，进程/会话一起清理，重复 `stop` 幂等。
 - 新增 `features.virtualGuiMax`（env `DSH_BLENDER_VIRTUAL_GUI_MAX`）实例上限，默认 4、范围 1–16；总内存 <16 GiB 或空闲 <4 GiB 时自动降为 2。超限时 `start` 在 spawn 前返回 `stage=session` / `capacity`（evidence `used`/`limit`/`configured`/`low_resource`/`reason`），不排队、不 spawn。
 - 回归：`tests/unit/js/virtual-gui-lifecycle.test.ts` 7 项（握手前不可见、握手失败清理、provider 错误结构化透传、上限、stop 幂等、attach 归属、limits clamp/低内存）；真机 `tests/e2e/virtual_gui_session.mjs` 20/20（consent 拒绝、真实 helper 启动 GUI Blender、同 instanceId 握手、display/pid、stop 无孤儿、重复 stop、缺 helper fail closed）。
+- Windows virtual-gui V0 通过 GA 验收（5.5），默认值由 `off` 翻为 `auto`：`tests/e2e/windows_ga_v0.mjs` 走默认 feature 的产品路径启动 2 个并发实例，32/32 通过（NVIDIA 硬件 GL、GPUOffScreen 800x447 截图、红/蓝材质与私有 desktop 互不串、stop 无 Blender/helper 残留、二次 stop 幂等、非管理员会话）；锁屏/RDP 作为未执行场景记录。验收同时修复多实例路由缺陷：engine 的 `addon.send` 指标包装丢弃第 4 个 `opts` 参数，导致第二个 addon 连接后带 `instanceId` 的调用报 ambiguous，现转发 opts 并加单测。
 
 ### 3.1 virtual-gui 显式授权
 

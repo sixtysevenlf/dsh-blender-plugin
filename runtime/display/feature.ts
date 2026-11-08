@@ -1,10 +1,11 @@
-// The virtual-gui feature gate. 3.1 ships V0 behind an explicit feature flag:
-// Windows stays off until the hidden-desktop provider passes the GA checklist,
-// Linux is preview-only and must be switched on explicitly.
+// The virtual-gui feature gate. Windows V0 passed the GA checklist (task 5.5,
+// 2026-11-08: hardware GL, GPUOffScreen capture, two isolated instances, clean
+// stop), so Windows now defaults to auto. Linux is preview-only and must be
+// switched on explicitly.
 import type { VirtualGuiFeature } from './types.js'
 
-/** Flipped only by the V0 acceptance task (5.5); tests pin both sides. */
-export const VIRTUAL_GUI_V0_RELEASED = false
+/** Flipped by the V0 acceptance task (5.5); tests pin both sides. */
+export const VIRTUAL_GUI_V0_RELEASED = true
 
 export interface FeatureResolution {
   value: VirtualGuiFeature
@@ -34,7 +35,7 @@ export function resolveVirtualGuiFeature(input: {
   v0Released?: boolean
 }): FeatureResolution {
   const platform = input.platform || process.platform
-  const v0 = input.v0Released === true
+  const v0 = input.v0Released === undefined ? VIRTUAL_GUI_V0_RELEASED : input.v0Released === true
   const configured = input.configured
   const parsed = parseVirtualGuiFeature(configured)
   if (configured !== undefined && configured !== null && String(configured).trim() !== '') {
