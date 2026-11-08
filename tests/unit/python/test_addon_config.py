@@ -9,8 +9,8 @@ import bpy_stub
 
 bpy = bpy_stub.install()
 
-config = importlib.import_module("addon.dsh_blender_bridge.config")
-server_module = importlib.import_module("addon.dsh_blender_bridge.server")
+config = importlib.import_module("extension.dsh_blender_bridge.config")
+server_module = importlib.import_module("extension.dsh_blender_bridge.server")
 
 
 def test_read_env_var_prefers_new_name_then_legacy(monkeypatch):
@@ -177,7 +177,7 @@ def test_ensure_server_running_starts_a_gateway_connection(monkeypatch):
 
 
 def test_stop_server_operator_sets_the_shared_auto_start_flag():
-    ui_operators = importlib.import_module("addon.dsh_blender_bridge.ui.operators")
+    ui_operators = importlib.import_module("extension.dsh_blender_bridge.ui.operators")
     previous = config._user_stopped_server
     previous_flag = bpy.context.scene.dshbb_server_running
     try:

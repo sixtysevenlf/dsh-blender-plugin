@@ -363,5 +363,5 @@ def uninstall():
     for name in list(sys.modules):
         if name == "bpy" or name.startswith("bpy.") or name == "mathutils":
             del sys.modules[name]
-        if name == "addon.dsh_blender_bridge" or name.startswith("addon.dsh_blender_bridge."):
+        if name == "extension.dsh_blender_bridge" or name.startswith("extension.dsh_blender_bridge."):
             del sys.modules[name]

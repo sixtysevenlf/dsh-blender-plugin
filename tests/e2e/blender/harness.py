@@ -21,7 +21,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-ZIP_PATH = REPO_ROOT / "addon" / "dsh_blender_bridge.zip"
+ZIP_PATH = REPO_ROOT / "extension" / "dsh_blender_bridge.zip"
 RUNNER = Path(__file__).resolve().parent / "runner.py"
 NATIVE_RUNNER = Path(__file__).resolve().parent / "native_runner.py"
 

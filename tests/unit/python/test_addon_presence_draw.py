@@ -9,7 +9,7 @@ import bpy_stub
 
 bpy_stub.install()
 
-presence_draw = importlib.import_module("addon.dsh_blender_bridge.presence_draw")
+presence_draw = importlib.import_module("extension.dsh_blender_bridge.presence_draw")
 
 
 def tearDown_function():

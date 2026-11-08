@@ -30,7 +30,7 @@ DSH × Blender 把 DeepSeek Harness 接到 Blender，让 AI 能在真实 Blender
 
 ## 快速开始
 
-**先做这一步：安装随包 addon。** 用本仓库提供的 **addon/dsh_blender_bridge.zip**，它必须是你唯一的 Blender 侧 agent 桥：不要安装或启用 `MCP for Blender`、`blender_mcp` 或任何自带 socket 服务的同类 addon（旧 MCP 桥仍监听 127.0.0.1:9876；3.1 本仓 addon 只主动外连，不占入站端口，但两个 Blender 侧 agent 桥会互相干扰）。无关的普通 addon（建模、材质、渲染、资产库）不受影响。请先在 Blender 里安装并启用它，再做后面的步骤。如果按下面安装后仍然用不了，先回来检查是不是这个 addon、有没有启用、有没有 Connect。
+**先做这一步：安装随包 addon。** 用本仓库提供的 **extension/dsh_blender_bridge.zip**，它必须是你唯一的 Blender 侧 agent 桥：不要安装或启用 `MCP for Blender`、`blender_mcp` 或任何自带 socket 服务的同类 addon（旧 MCP 桥仍监听 127.0.0.1:9876；3.1 本仓 addon 只主动外连，不占入站端口，但两个 Blender 侧 agent 桥会互相干扰）。无关的普通 addon（建模、材质、渲染、资产库）不受影响。请先在 Blender 里安装并启用它，再做后面的步骤。如果按下面安装后仍然用不了，先回来检查是不是这个 addon、有没有启用、有没有 Connect。
 
 ### 前置条件
 
@@ -94,7 +94,7 @@ addon 仍然是唯一支持的 Blender 侧 agent 桥。其他 Blender 侧 agent 
 
 1. **先安装随包 addon。**
 
-   从本仓库的 addon/ 目录下载 **addon/dsh_blender_bridge.zip**。打开 Blender，进入 Edit > Preferences > Extensions > Install from Disk...，选择该 zip，启用 DSH Blender Bridge；在 3D 视图按 N 打开面板，点 Connect。addon 会在 Connect 后主动连接 DSH Gateway（默认 127.0.0.1:39877），不监听端口；升级/替换 addon 后必须重启 Blender（无热重载，旧 3.0.x addon 的 9876 listener 不会自动释放）。如果之前装过单文件 `dsh_blender_bridge.py`，请先停用并移除：3.1 只通过 Blender Extensions 安装这个扩展包。
+   从本仓库的 extension/ 目录下载 **extension/dsh_blender_bridge.zip**。打开 Blender，进入 Edit > Preferences > Extensions > Install from Disk...，选择该 zip，启用 DSH Blender Bridge；在 3D 视图按 N 打开面板，点 Connect。addon 会在 Connect 后主动连接 DSH Gateway（默认 127.0.0.1:39877），不监听端口；升级/替换 addon 后必须重启 Blender（无热重载，旧 3.0.x addon 的 9876 listener 不会自动释放）。如果之前装过单文件 `dsh_blender_bridge.py`，请先停用并移除：3.1 只通过 Blender Extensions 安装这个扩展包。
 
    只能用这个 addon 作为 agent 桥。若已启用 `MCP for Blender` / `blender_mcp`（或其他 Blender 侧 agent 桥），停用它即可，不必卸载；其他 addon 可以留着。如果后面的安装用不了，先回来检查这一步。
 
@@ -185,7 +185,7 @@ Windows 与 Linux 上 Gateway 可以为 agent 拉起一个隔离的 Blender GUI�
 | 另一个会话正在写同一个场景 | 用 `blender_session(action="grant", scopes=...)` 声明写作用域，或 attach 另一个 GUI 会话；并行作业走 `blender_run` 即可。 |
 | 还在启用旧 MCP for Blender / blender_mcp | 停用它（不必卸载），改用随包的 DSH Blender Bridge addon；3.1 桥主动外连不占端口，但两个 agent 桥会互相干扰；旧 MCP 桥仍监听 127.0.0.1:9876。 |
 | 图生成了但没附上 | 升级到最新构建（已包含 Windows 路径修复）；仍不行就直接打开返回的路径。 |
-| 按下面步骤装完还是用不了 | 先检查 addon：只支持 addon/dsh_blender_bridge.zip，并且必须启用、必须 Connect。 |
+| 按下面步骤装完还是用不了 | 先检查 addon：只支持 extension/dsh_blender_bridge.zip，并且必须启用、必须 Connect。 |
 
 ## 开发
 
@@ -209,4 +209,8 @@ Windows 与 Linux 上 Gateway 可以为 agent 拉起一个隔离的 Blender GUI�
 
 ## 许可
 
-插件本体为 BSD-3-Clause。随包建模 skill 为 MIT；见 skills/blender-modeling/LICENSE 与 NOTICE.md。Blender 是 Blender Foundation 的商标。
+DSH 宿主插件本体为 BSD-3-Clause（见仓库根 [LICENSE](../../LICENSE)）。随包的 Blender 扩展位于
+[`extension/`](../../extension/)，按 GPL-3.0-or-later 分发（见 [extension/LICENSE](../../extension/LICENSE)），
+并包含源自 [ahujasid/blender-mcp](https://github.com/ahujasid/blender-mcp) 的 MIT 代码；其版权与 MIT 声明保留在
+[extension/NOTICE](../../extension/NOTICE)。随包建模 skill 为 MIT；见 skills/blender-modeling/LICENSE 与 NOTICE.md。
+Blender 是 Blender Foundation 的商标。

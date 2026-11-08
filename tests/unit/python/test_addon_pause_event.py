@@ -14,7 +14,7 @@ import bpy_stub
 
 bpy = bpy_stub.install()
 
-server_module = importlib.import_module("addon.dsh_blender_bridge.server")
+server_module = importlib.import_module("extension.dsh_blender_bridge.server")
 
 
 class _Connection:

@@ -8,7 +8,7 @@
  * version, handshake fields, instance kinds and WebSocket path. This generator
  * renders both sides from the single JSON source:
  *   - runtime/transport/gateway-schema.generated.ts
- *   - addon/dsh_blender_bridge/gateway_schema.py
+ *   - extension/dsh_blender_bridge/gateway_schema.py
  *
  * scripts/check-gateway-schema.mjs (npm run check:gateway-schema) fails when a
  * generated file is missing, stale, or hand-edited.
@@ -23,7 +23,7 @@ export const DEFAULT_ROOT = path.resolve(HERE, '..')
 export const SCHEMA_FILE = 'config/gateway.json'
 export const GENERATED_FILES = [
   'runtime/transport/gateway-schema.generated.ts',
-  'addon/dsh_blender_bridge/gateway_schema.py',
+  'extension/dsh_blender_bridge/gateway_schema.py',
 ]
 
 const fail = (message) => {

@@ -25,7 +25,7 @@ const option = (name) => {
   const index = argv.indexOf(name)
   return index >= 0 ? argv[index + 1] : ''
 }
-const zip = path.join(root, 'addon', 'dsh_blender_bridge.zip')
+const zip = path.join(root, 'extension', 'dsh_blender_bridge.zip')
 const exe = path.resolve(
   option('--blender') ||
     process.env.DSH_BLENDER_EXE ||
@@ -54,7 +54,7 @@ if (!existsSync(exe)) {
   process.exit(0)
 }
 if (!existsSync(zip)) {
-  console.log('SKIP virtual-gui session E2E: add-on zip missing (run npm run build:addon)')
+  console.log('SKIP virtual-gui session E2E: add-on zip missing (run npm run build:extension)')
   process.exit(0)
 }
 

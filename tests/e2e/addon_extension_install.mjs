@@ -22,7 +22,7 @@ import { ensureBuild } from '../../scripts/ensure-build.mjs'
 const root = path.resolve(import.meta.dirname, '..', '..')
 const workDir =
   process.env.DSH_BLENDER_WORKDIR || path.join(root, '.dsh-ops', 'extension-install-e2e')
-const zip = path.join(root, 'addon', 'dsh_blender_bridge.zip')
+const zip = path.join(root, 'extension', 'dsh_blender_bridge.zip')
 const userScripts = path.join(workDir, 'user_scripts')
 const userExtensions = path.join(workDir, 'user_extensions')
 const userConfig = path.join(workDir, 'user_config')
@@ -49,7 +49,7 @@ if (!exe || !existsSync(exe)) {
   process.exit(0)
 }
 if (!existsSync(zip)) {
-  console.log('SKIP extension-install E2E: addon zip missing (run npm run build:addon)')
+  console.log('SKIP extension-install E2E: extension zip missing (run npm run build:extension)')
   process.exit(0)
 }
 
@@ -82,7 +82,7 @@ function blender(args) {
 /** Read one of the pre-4.2 legacy release zips from git history. */
 function legacyZipFromTag(tag) {
   try {
-    const data = execFileSync('git', ['show', tag + ':addon/dsh_blender_bridge.zip'], {
+    const data = execFileSync('git', ['show', tag + ':extension/dsh_blender_bridge.zip'], {
       cwd: root,
       maxBuffer: 32 * 1024 * 1024,
     })
@@ -398,7 +398,7 @@ const report = {
   gatewayPort,
   blenderExe: exe,
   blenderPid,
-  legacyZip: hasLegacy ? 'v3.0.6:addon/dsh_blender_bridge.zip' : null,
+  legacyZip: hasLegacy ? 'v3.0.6:extension/dsh_blender_bridge.zip' : null,
   extensionZip: zip,
   gatewayLogTail: gatewayLog.slice(-4000),
   blenderLogTail: blenderLog.slice(-4000),

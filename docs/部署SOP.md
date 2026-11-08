@@ -46,7 +46,7 @@ dsh --profile <profile> --dump-config | grep -A3 dsh-blender-plugin
 
 ## 3. 连接 Blender addon（人工一步）
 
-1. Blender 里 `Edit ▸ Preferences ▸ Extensions ▸ Install from Disk...` 选 `addon/dsh_blender_bridge.zip`，安装并启用本仓 **DSH Blender Bridge** addon（**v2.0.0+** / protocol 12）。旧单文件 `dsh_blender_bridge.py` 与旧 `MCP for Blender` 均不再支持，如已安装请先停用并移除（见 [../MIGRATIONS.md](../MIGRATIONS.md)）；
+1. Blender 里 `Edit ▸ Preferences ▸ Extensions ▸ Install from Disk...` 选 `extension/dsh_blender_bridge.zip`，安装并启用本仓 **DSH Blender Bridge** addon（**v2.0.0+** / protocol 12）。旧单文件 `dsh_blender_bridge.py` 与旧 `MCP for Blender` 均不再支持，如已安装请先停用并移除（见 [../MIGRATIONS.md](../MIGRATIONS.md)）；
 2. 3D 视口按 `N` → **DSH Blender Bridge** 面板 → **Connect**（addon 主动连接 Gateway，默认 39877）；
 3. 回到 DSH 跑 `blender_session(action="doctor")` 复核；
 4. Gateway 由 DSH 宿主启动；模型面没有 launch/restart 工具，Blender 由用户自己打开并 Connect。

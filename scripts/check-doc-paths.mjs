@@ -24,7 +24,7 @@ const PATH_ROOTS = [
   'tests',
   'config',
   'docs',
-  'addon',
+  'extension',
   'skills',
   'coverage',
   'lib',

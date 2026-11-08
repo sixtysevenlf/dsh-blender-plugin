@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Emit function line counts for runtime/py and addon (JSON on stdout)."""
+"""Emit function line counts for runtime/py and extension (JSON on stdout)."""
 import ast
 import json
 import os
@@ -9,7 +9,7 @@ import sys
 def main():
     root = sys.argv[1]
     out = []
-    for base in (os.path.join(root, "runtime", "py"), os.path.join(root, "addon")):
+    for base in (os.path.join(root, "runtime", "py"), os.path.join(root, "extension")):
         if not os.path.isdir(base):
             continue
         for dirpath, dirnames, filenames in os.walk(base):

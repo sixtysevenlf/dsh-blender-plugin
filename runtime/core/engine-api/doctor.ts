@@ -23,7 +23,7 @@ import { buildInstallPlans } from '../../display/install.js'
 /**
  * /status 的 bpy 往返（REGION_CODE）预算：2.5s。
  *
- * addon/bpy 的硬超时 <=3s，首调失败的第 95 百分位 <=3s；Gateway 路径的传输诊断是
+ * extension/bpy 的硬超时 <=3s，首调失败的第 95 百分位 <=3s；Gateway 路径的传输诊断是
  * 同步的实例表判定（不再串 legacy 9876 的 ~2.5s diagnose），所以半开 addon 的
  * /status 稳态 = 2.5s + 路由开销，落在预算内。
  */
@@ -37,7 +37,7 @@ export const ADDON_INTEGRATION_TIMEOUT_MS = 1500
 
 const TIMEOUT_RE = /timeout|timed out|aborted|abort/i
 
-/** 是否"等不到 addon 回包"类错误（超时/被 abort）：把失败归因到 addon/bpy 而不是后端进程。 */
+/** 是否"等不到 addon 回包"类错误（超时/被 abort）：把失败归因到 extension/bpy 而不是后端进程。 */
 export function isAddonTimeout(e: unknown): boolean {
   return TIMEOUT_RE.test(errorMessage(e))
 }
@@ -195,7 +195,7 @@ function noAddonDiagnosis(instances: AddonInstanceView[]): Record<string, unknow
     summary:
       'Gateway 在，但没有 Blender addon 连接到 Gateway —— Blender 未启动、DSH Blender Bridge 扩展未启用/未连接，或仍在握手。',
     fix: '启动 Blender 4.2.10 LTS，在 3D 视图 N 面板启用「DSH Blender Bridge」2.0.0（protocol 12），确认扩展显示已连接 Gateway；纯渲染/批处理改用 blender_run。',
-    hint: 'Gateway /health 只证明 Gateway 进程存活，不代表 addon/bpy 可用。',
+    hint: 'Gateway /health 只证明 Gateway 进程存活，不代表 extension/bpy 可用。',
     error: 'no addon connected to Gateway',
   }
 }
@@ -248,7 +248,7 @@ function gatewayFailure(
         String(ADDON_DOCTOR_STATUS_TIMEOUT_MS) +
         'ms 内没回 bpy 往返（execute_code 超时）—— addon 线程卡住 / Blender 主线程被占。',
       fix: '先确认 Blender 在运行且「DSH Blender Bridge」已 Connect；再把 Blender 从渲染/模态操作里放出来，必要时重载 addon（N 面板 Disconnect → Connect）。op=start 只管 Gateway 进程，不修这条通道。',
-      hint: 'addon 控制连接通 + Gateway 在，但 bpy 往返超时 → 问题在 addon/bpy，不在 Gateway 进程。',
+      hint: 'addon 控制连接通 + Gateway 在，但 bpy 往返超时 → 问题在 extension/bpy，不在 Gateway 进程。',
     },
     metrics: metricsView(E),
     error: err,

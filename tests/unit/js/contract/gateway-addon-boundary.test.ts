@@ -13,7 +13,7 @@ const handshake = {
 
 describe('3.1 addon Gateway boundary', () => {
   it('keeps the addon free of inbound listeners', async () => {
-    const source = await readFile(new URL('addon/dsh_blender_bridge/server.py', root), 'utf8')
+    const source = await readFile(new URL('extension/dsh_blender_bridge/server.py', root), 'utf8')
     expect(source).not.toMatch(/\bsocket\.socket\s*\(/)
     expect(source).not.toMatch(/\.bind\s*\(/)
     expect(source).not.toMatch(/\.listen\s*\(/)

@@ -80,7 +80,7 @@ export const T = {
  * 同时要明显小于 T.viewport（60s），保证工具自身仍有界。
  */
 /**
- * op=start：/health 通后再探 /status，判定 addon/bpy 是否可用。
+ * op=start：/health 通后再探 /status，判定 extension/bpy 是否可用。
  * 修复后 backend 侧 /status 的 addon 预算 5s；transport 超时后 lifecycle 还会串一次 diagnose()（~2.5s），
  * 半开 addon 稳态 ≈7.5s；启动探测不再占串行队列，首调只多一次冷启动开销。预算取 12s 覆盖首调，
  * 仍远小于 T.viewport 60s。

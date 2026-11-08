@@ -44,7 +44,7 @@ function run(command, args, label) {
 
 const ruff = run(
   PYTHON,
-  ['-m', 'ruff', 'check', 'runtime/py', 'tests', 'addon/dsh_blender_bridge', '--no-cache'],
+  ['-m', 'ruff', 'check', 'runtime/py', 'tests', 'extension/dsh_blender_bridge', '--no-cache'],
   'ruff',
 )
 if (ruff.status !== 0) {

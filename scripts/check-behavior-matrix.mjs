@@ -15,7 +15,7 @@
  * Live source of truth compared against both matrices:
  *   - model tools: every vTool registration under src (the schema-diagnostic duplicate
  *     is not a model-facing tool and is skipped)
- *   - addon commands: addon/dsh_blender_bridge/command_registry.py (25 registered + ping
+ *   - addon commands: extension/dsh_blender_bridge/command_registry.py (25 registered + ping
  *     = 26 wire) and lib/runtime/catalog/index.js COMMAND_CATALOG (25 model-facing entries)
  *   - plan ops: lib/runtime/catalog/index.js PLAN_CATALOG (one row per op entry)
  *   - HTTP routes: CONTRACT_ROUTES from lib/runtime/http/routes/index.js
@@ -228,7 +228,7 @@ async function loadCatalogs() {
   const routes = Array.isArray(routesModule.CONTRACT_ROUTES) ? routesModule.CONTRACT_ROUTES : []
   if (routes.length === 0) fail('cannot find CONTRACT_ROUTES in lib/runtime/http/routes/index.js')
 
-  const addonSource = readTree('addon/dsh_blender_bridge', '.py')
+  const addonSource = readTree('extension/dsh_blender_bridge', '.py')
     .map((full) => readFileSync(full, 'utf8'))
     .join('\n')
   const protocolMatch = addonSource.match(/ADDON_PROTOCOL_VERSION\s*=\s*(\d+)/)
@@ -369,7 +369,7 @@ function checkAddonCommands(catalogs) {
   // _command("name" entries instead of the old server-side dict literals.
   for (const name of Object.keys(catalogs.commandCatalog)) {
     if (!catalogs.addonSource.includes('_command("' + name + '"')) {
-      fail('COMMAND_CATALOG command ' + name + ' has no handler in addon/dsh_blender_bridge/')
+      fail('COMMAND_CATALOG command ' + name + ' has no handler in extension/dsh_blender_bridge/')
     }
   }
   if (!catalogs.addonSource.includes('_command("ping"')) {
@@ -535,7 +535,7 @@ const SOURCE_PATH = new RegExp(
 const LINE_SUFFIX = /^\d+(?:-\d+)?$/
 const SYMBOL_SUFFIX = /^[A-Za-z_$][A-Za-z0-9_$]*$/
 const ROOT_PATH =
-  /^(src|runtime|addon|tests|scripts|docs|config|package.json|AGENTS.md|MIGRATIONS.md|CHANGELOG.md|README.md|pyproject.toml)/
+  /^(src|runtime|extension|tests|scripts|docs|config|package.json|AGENTS.md|MIGRATIONS.md|CHANGELOG.md|README.md|pyproject.toml)/
 
 function checkSourceText(label, text) {
   const seen = new Set()
@@ -810,7 +810,10 @@ function checkCommandMatrix(section, catalogs) {
     if (typeof row.pause_safe !== 'boolean') {
       fail(label + ' row needs a boolean pause_safe: ' + String(row.command))
     }
-    if (typeof row.handler !== 'string' || !row.handler.startsWith('addon.dsh_blender_bridge.')) {
+    if (
+      typeof row.handler !== 'string' ||
+      !row.handler.startsWith('extension.dsh_blender_bridge.')
+    ) {
       fail(label + ' row needs an addon handler path: ' + String(row.command))
     }
     if (typeof row.envelope !== 'string' || row.envelope.trim() === '') {
@@ -1106,7 +1109,7 @@ async function main() {
     schema: MATRIX_JSON_SCHEMA,
     sources: {
       tools: 'src/**/*.ts vTool registrations',
-      commands: 'addon/dsh_blender_bridge/command_registry.py + runtime/catalog/commands.ts',
+      commands: 'extension/dsh_blender_bridge/command_registry.py + runtime/catalog/commands.ts',
       ops: 'runtime/catalog/data.ts PLAN_CATALOG',
       routes: 'runtime/http/routes/index.ts CONTRACT_ROUTES',
     },

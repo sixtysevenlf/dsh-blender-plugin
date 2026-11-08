@@ -30,7 +30,7 @@ const engineSource = [
   readTree(pkgPath('runtime', 'execution', 'workers'), '.ts'),
   readTree(pkgPath('runtime', 'core', 'engine'), '.ts'),
 ].join('\n')
-const addonSource = readTree(pkgPath('addon', 'dsh_blender_bridge'), '.py')
+const addonSource = readTree(pkgPath('extension', 'dsh_blender_bridge'), '.py')
 const gatewayLifecycleSource = readTree(pkgPath('runtime', 'gateway'), '.ts')
 
 describe('backend start decision table', () => {

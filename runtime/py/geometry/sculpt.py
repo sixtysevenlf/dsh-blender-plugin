@@ -42,7 +42,7 @@ from mathutils import Vector
 
 SCULPT_VERSION = 1
 
-# 与 blend-ai 同口径的体素预算上限（思路来自其 addon/handlers/sculpting.py:137；实现为本插件自有代码）
+# 与 blend-ai 同口径的体素预算上限（思路来自其 extension/handlers/sculpting.py:137；实现为本插件自有代码）
 MAX_VOXEL_CELLS = 40_000_000
 BRUSHES = ("draw", "inflate", "pinch", "flatten", "smooth", "crease")
 FALLOFFS = ("smooth", "linear", "sphere", "constant", "sharp")

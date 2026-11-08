@@ -26,7 +26,7 @@ export const SCHEMA_FILE = 'config/availability.json'
 export const GENERATED_FILES = [
   'src/contracts/availability.generated.ts',
   'runtime/core/availability-schema.generated.ts',
-  'addon/dsh_blender_bridge/availability_schema.py',
+  'extension/dsh_blender_bridge/availability_schema.py',
 ]
 
 const EXPECTED_STAGES = [

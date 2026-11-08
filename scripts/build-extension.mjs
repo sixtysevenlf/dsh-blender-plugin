@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Build the Blender extension package addon/dsh_blender_bridge.zip.
+ * Build the Blender extension package extension/dsh_blender_bridge.zip.
  *
  * The zip has a single package root (dsh_blender_bridge/) containing
  * blender_manifest.toml, the license/notice files and every .py module, so
@@ -9,7 +9,7 @@
  * .pyc files are included.
  *
  * Usage:
- *   node scripts/build-addon.mjs [--check]
+ *   node scripts/build-extension.mjs [--check]
  *
  * --check only verifies the existing zip manifest and embedded versions.
  */
@@ -20,14 +20,20 @@ import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const PACKAGE_DIR = join(ROOT, 'addon', 'dsh_blender_bridge')
-const ZIP_PATH = join(ROOT, 'addon', 'dsh_blender_bridge.zip')
+const EXTENSION_DIR = join(ROOT, 'extension')
+const PACKAGE_DIR = join(EXTENSION_DIR, 'dsh_blender_bridge')
+const ZIP_PATH = join(EXTENSION_DIR, 'dsh_blender_bridge.zip')
 const PACKAGE_ROOT = 'dsh_blender_bridge'
 const CHECK_ONLY = process.argv.includes('--check')
-const EXTRA_FILES = new Set(['blender_manifest.toml', 'LICENSE', 'NOTICE'])
+// The manifest ships inside the extension package; the license files are declared
+// at the extension folder root and copied into the package root by the build.
+const ROOT_EXTRAS = [
+  { name: 'LICENSE', path: join(EXTENSION_DIR, 'LICENSE') },
+  { name: 'NOTICE', path: join(EXTENSION_DIR, 'NOTICE') },
+]
 
 function fail(message) {
-  console.error('build-addon: ' + message)
+  console.error('build-extension: ' + message)
   process.exit(1)
 }
 
@@ -39,7 +45,7 @@ function walk(dir) {
     if (stat.isDirectory()) {
       if (name === '__pycache__') continue
       out.push(...walk(path))
-    } else if (stat.isFile() && (name.endsWith('.py') || EXTRA_FILES.has(name))) {
+    } else if (stat.isFile() && name.endsWith('.py')) {
       out.push(path)
     }
   }
@@ -48,6 +54,10 @@ function walk(dir) {
 
 function zipName(path) {
   return PACKAGE_ROOT + '/' + relative(PACKAGE_DIR, path).split(sep).join('/')
+}
+
+function manifestPath() {
+  return join(PACKAGE_DIR, 'blender_manifest.toml')
 }
 
 function readVersions() {
@@ -261,22 +271,25 @@ function main() {
 
   const files = walk(PACKAGE_DIR)
   if (files.length === 0) fail('package contains no Python files')
-  if (!files.some((path) => zipName(path) === PACKAGE_ROOT + '/__init__.py')) {
-    fail('package root __init__.py is missing')
-  }
-  if (!files.some((path) => zipName(path) === PACKAGE_ROOT + '/blender_manifest.toml')) {
-    fail('package root blender_manifest.toml is missing')
-  }
-  for (const extra of ['LICENSE', 'NOTICE']) {
-    if (!files.some((path) => zipName(path) === PACKAGE_ROOT + '/' + extra)) {
-      fail('package root ' + extra + ' is missing')
-    }
+  const sources = [
+    ...files.map((path) => ({ name: zipName(path), path })),
+    { name: PACKAGE_ROOT + '/blender_manifest.toml', path: manifestPath() },
+    ...ROOT_EXTRAS.map((extra) => ({ name: PACKAGE_ROOT + '/' + extra.name, path: extra.path })),
+  ].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+  for (const required of [
+    PACKAGE_ROOT + '/__init__.py',
+    PACKAGE_ROOT + '/blender_manifest.toml',
+    PACKAGE_ROOT + '/LICENSE',
+    PACKAGE_ROOT + '/NOTICE',
+  ]) {
+    if (!sources.some((source) => source.name === required))
+      fail('package root ' + required + ' is missing')
   }
   // Normalize line endings so the committed zip is reproducible across checkouts
   // (Git may materialize the Python sources with CRLF on Windows).
-  const entries = files.map((path) => ({
-    name: zipName(path),
-    data: Buffer.from(readFileSync(path, 'utf8').replace(/\r\n/g, '\n'), 'utf8'),
+  const entries = sources.map((source) => ({
+    name: source.name,
+    data: Buffer.from(readFileSync(source.path, 'utf8').replace(/\r\n/g, '\n'), 'utf8'),
   }))
   const zip = buildZip(entries)
   writeFileSync(ZIP_PATH, zip)

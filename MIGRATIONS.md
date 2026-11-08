@@ -14,7 +14,7 @@
 ## 0.1 最短路径（任何旧版 → v3.0.0）
 
 1. 更新 DSH 插件包到 **v3.0.0**：`dsh plugin --profile <profile> add dsh-blender-plugin@3.0.0` → **重启 DSH**；旧「Blender 视口」tab / 点击进消息在 v2.3 已删除，这是预期。
-2. Blender 里停用并移除旧 addon（含旧的单文件 `dsh_blender_bridge.py`）→ 安装本仓 `addon/dsh_blender_bridge.zip`（**v2.0.0**）→ 启用 → N → Connect。
+2. Blender 里停用并移除旧 addon（含旧的单文件 `dsh_blender_bridge.py`）→ 安装本仓 `extension/dsh_blender_bridge.zip`（**v2.0.0**）→ 启用 → N → Connect。
 3. `blender_inspect(command="get_addon_info")` → `addon_version=[2,0,0]`、`protocol=12`；
    GUI 路线 `curl http://127.0.0.1:39877/doctor` → `kind=ok`（纯无头路线用 `blender_run(action="submit", kind="headless", …)` + `wait`/`collect` 取产物自证）；
    `blender_op(op="catalog")` → **34 family / 228 op**。
@@ -69,7 +69,7 @@ v2.3 的原生选中 / 集合 / activity 依赖本仓 addon 的 5 条命令与 N
 3.1 addon 主动连接 Gateway，不再监听 `127.0.0.1:9876`；旧 `MCP for Blender` 仍可能占用该端口，两者不要同时启用。
 
 1. `Edit ▸ Preferences ▸ Add-ons` → 停用旧条目（`MCP for Blender` / `blender_mcp` / `blender_mcp_addon`）。
-2. `Extensions ▸ Install from Disk...` → 选本仓 [`addon/dsh_blender_bridge.zip`](addon/dsh_blender_bridge.zip) → 勾选启用 **DSH Blender Bridge**（v2.0.0 / protocol 12）。v3.0 起不再支持单文件安装。
+2. `Extensions ▸ Install from Disk...` → 选本仓 [`extension/dsh_blender_bridge.zip`](extension/dsh_blender_bridge.zip) → 勾选启用 **DSH Blender Bridge**（v2.0.0 / protocol 12）。v3.0 起不再支持单文件安装。
 3. 3D 视图按 `N` →「DSH Blender Bridge」→ **Connect**（addon 主动连接 Gateway，默认 `39877`）；Gateway/Blender 生命周期由宿主管理，不再有模型侧启动工具。
 4. `blender_inspect(command="get_addon_info")` → `addon_version` 应为 `[2,0,0]`、`protocol=12`，capabilities 含
    `get_activity_state` / `get_selection` / `get_collections` / `send_*_to_dsh`。

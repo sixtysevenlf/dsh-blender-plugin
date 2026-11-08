@@ -18,8 +18,8 @@ import zipfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-ZIP_PATH = REPO_ROOT / "addon" / "dsh_blender_bridge.zip"
-PACKAGE_DIR = REPO_ROOT / "addon" / "dsh_blender_bridge"
+ZIP_PATH = REPO_ROOT / "extension" / "dsh_blender_bridge.zip"
+PACKAGE_DIR = REPO_ROOT / "extension" / "dsh_blender_bridge"
 PACKAGE_ROOT = "dsh_blender_bridge"
 
 

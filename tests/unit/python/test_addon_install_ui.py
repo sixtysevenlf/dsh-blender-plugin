@@ -14,7 +14,7 @@ import bpy_stub
 
 bpy = bpy_stub.install()
 
-install = importlib.import_module("addon.dsh_blender_bridge.ui.install")
+install = importlib.import_module("extension.dsh_blender_bridge.ui.install")
 
 
 def doctor(*plans, ready=False, missing=None):

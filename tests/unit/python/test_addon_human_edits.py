@@ -8,8 +8,8 @@ import bpy_stub
 
 bpy = bpy_stub.install()
 
-activity = importlib.import_module("addon.dsh_blender_bridge.recorders.activity")
-user_edit = importlib.import_module("addon.dsh_blender_bridge.recorders.user_edit")
+activity = importlib.import_module("extension.dsh_blender_bridge.recorders.activity")
+user_edit = importlib.import_module("extension.dsh_blender_bridge.recorders.user_edit")
 
 
 class _Object(bpy.types.Object):

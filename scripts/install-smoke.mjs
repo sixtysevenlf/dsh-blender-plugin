@@ -205,13 +205,13 @@ try {
     'lib/index.js',
     'lib/runtime/gateway.js',
     'lib/runtime/catalog/index.js',
-    'addon/dsh_blender_bridge.zip',
+    'extension/dsh_blender_bridge.zip',
     'tests/helpers/fake-ws-addon.mjs',
   ]) {
     if (!files.includes(required)) throw new Error('tarball missing ' + required)
   }
   const zips = files.filter((file) => file.endsWith('.zip'))
-  if (zips.length !== 1 || zips[0] !== 'addon/dsh_blender_bridge.zip') {
+  if (zips.length !== 1 || zips[0] !== 'extension/dsh_blender_bridge.zip') {
     throw new Error('tarball must ship exactly one extension zip: ' + JSON.stringify(zips))
   }
   if (files.some((f) => f.startsWith('runtime/') && /\.(?:ts|mts)$/.test(f)))

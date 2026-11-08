@@ -25,7 +25,7 @@ function readTree(dir: string, ext: string): string {
     })
     .join('\n')
 }
-const addonRoot = pkgPath('addon', 'dsh_blender_bridge')
+const addonRoot = pkgPath('extension', 'dsh_blender_bridge')
 const addonSource = readTree(addonRoot, '.py')
 function listTree(dir: string, ext: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

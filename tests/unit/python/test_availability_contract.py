@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-ADDON = ROOT / "addon" / "dsh_blender_bridge"
+ADDON = ROOT / "extension" / "dsh_blender_bridge"
 sys.path.insert(0, str(ADDON))
 
 

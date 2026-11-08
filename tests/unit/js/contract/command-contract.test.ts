@@ -10,7 +10,7 @@ import { pkgPath } from '../../../helpers/pkg'
 // This contract test reads the tree rather than a fixed file list so the split
 // into commands/<domain>/ does not make the source scan silently empty.
 
-const addonDir = pkgPath('addon', 'dsh_blender_bridge')
+const addonDir = pkgPath('extension', 'dsh_blender_bridge')
 const readAddon = (...parts: string[]) => fs.readFileSync(path.join(addonDir, ...parts), 'utf8')
 function readTree(dir: string): string {
   return fs

@@ -17,7 +17,7 @@ import { pathToFileURL } from 'node:url'
 
 export const DEFAULT_API_URL = 'https://extensions.blender.org'
 export const DEFAULT_EXTENSION_ID = 'dsh_blender_bridge'
-export const DEFAULT_MANIFEST = 'addon/dsh_blender_bridge/blender_manifest.toml'
+export const DEFAULT_MANIFEST = 'extension/dsh_blender_bridge/blender_manifest.toml'
 
 /** Build the documented upload URL without a double slash. */
 export function extensionUploadUrl(apiUrl, extensionId) {

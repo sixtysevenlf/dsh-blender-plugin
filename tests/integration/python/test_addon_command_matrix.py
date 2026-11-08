@@ -24,9 +24,9 @@ import bpy_stub
 
 bpy = bpy_stub.install()
 
-server_module = importlib.import_module("addon.dsh_blender_bridge.server")
-protocol = importlib.import_module("addon.dsh_blender_bridge.protocol")
-command_registry = importlib.import_module("addon.dsh_blender_bridge.command_registry")
+server_module = importlib.import_module("extension.dsh_blender_bridge.server")
+protocol = importlib.import_module("extension.dsh_blender_bridge.protocol")
+command_registry = importlib.import_module("extension.dsh_blender_bridge.command_registry")
 
 ROOT = Path(__file__).resolve().parents[3]
 CATALOG_PATH = ROOT / "runtime" / "catalog" / "commands.ts"
@@ -199,7 +199,7 @@ def test_matrix_covers_the_25_protocol_commands_in_order():
 
 def test_matrix_handlers_are_real_and_unique_sources():
     assert all(row["handler"] for row in MATRIX)
-    assert all("addon.dsh_blender_bridge." in row["handler"] for row in MATRIX)
+    assert all("extension.dsh_blender_bridge." in row["handler"] for row in MATRIX)
     unique = {row["handler"] for row in MATRIX}
     assert len(unique) == 25
 

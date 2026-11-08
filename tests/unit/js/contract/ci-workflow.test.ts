@@ -68,13 +68,13 @@ describe('CI workflow hygiene', () => {
   it('validates the addon package with a pinned Blender 4.2 LTS validator', () => {
     expect(pr).toContain('blender-4.2.10-linux-x64.tar.xz')
     expect(pr).toContain('key: blender-4.2.10-linux-x64')
-    expect(pr).toContain('--command extension validate addon/dsh_blender_bridge.zip')
+    expect(pr).toContain('--command extension validate extension/dsh_blender_bridge.zip')
     expect(pr).toContain('Reject an invalid extension package')
   })
 
   it('copies exactly one extension artifact into the release assets', () => {
     const copied = [...release.matchAll(/\bcp\s+(\S+\.zip)\s+release-assets\//g)].map((m) => m[1])
-    expect(copied).toEqual(['addon/dsh_blender_bridge.zip'])
+    expect(copied).toEqual(['extension/dsh_blender_bridge.zip'])
     expect(release).not.toMatch(/cp\s+\S*legacy\S*\.zip/)
   })
 

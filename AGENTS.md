@@ -17,9 +17,9 @@ Every other document links here instead of repeating commands.
 |---|---|
 | Install dependencies | `npm run setup:dev` (npm ci + fake-bpy stubs + venv; bare `npm ci --legacy-peer-deps` is the CI minimal path) |
 | Build `runtime/` + `src/` → `lib/` | `npm run build` (optional `DSH_CHECKOUT` links DSH host packages) |
-| Build / verify the addon extension | `npm run build:addon` / `npm run check:addon` |
-| Typecheck | `npm run typecheck`; addon typed-core `npm run typecheck:addon` |
-| Unit tests | `npm run test:unit`; addon unit `npm run test:addon-unit` |
+| Build / verify the addon extension | `npm run build:extension` / `npm run check:extension` |
+| Typecheck | `npm run typecheck`; addon typed-core `npm run typecheck:extension` |
+| Unit tests | `npm run test:unit`; addon unit `npm run test:extension-unit` |
 | Integration tests | `npm run test:integration` |
 | Contract tests | `npm run test:contract` |
 | Full suite (Vitest + pytest) | `npm test` |
@@ -30,7 +30,7 @@ Every other document links here instead of repeating commands.
 | Refresh counts after catalog edits | `node scripts/sync_counts.mjs` then update `tests/fixtures/capability.lock.json` ([tests/MIGRATION.md](tests/MIGRATION.md)) |
 
 Addon typing: install `requirements-typecheck.txt` (fake-bpy stubs + NumPy for legacy imports; type-only; behavior is real-Blender E2E).
-Addon IDE: root `pyrightconfig.json` = whole-addon editor config; it ignores legacy `tests/e2e/blender/native` and `runtime/py` diagnostics. `pyrightconfig.addon.json` = typed-core gate; `pyrightconfig.python.json` = pure-logic runtime scope; `pyproject.toml` = pytest/Ruff configuration.
+Addon IDE: root `pyrightconfig.json` = whole-addon editor config; it ignores legacy `tests/e2e/blender/native` and `runtime/py` diagnostics. `pyrightconfig.extension.json` = typed-core gate; `pyrightconfig.python.json` = pure-logic runtime scope; `pyproject.toml` = pytest/Ruff configuration.
 
 Node **24.9** is the minimum supported version; CI runs on Node 24. Python tests need a venv with `pytest`, selected through
 `PYTHON` (`PYTHONIOENCODING=utf-8`, `PYTHONUTF8=1` on Windows); layers and fixtures:
@@ -48,7 +48,7 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
 | Backend engine | `runtime/core/*` (dispatch, kernel, scripts), `runtime/execution/*` (headless, jobs, workers), `runtime/transport/*` |
 | Backend language | `runtime/**/*.ts` compiled to `lib/runtime/**/*.js`; `lib/` is never committed |
 | Python domains | `runtime/py/{core,geometry,assembly,render,export}` (registry `runtime/py/modules.json`; no flat `runtime/*.py` after the v3 domain split) |
-| Blender addon | `addon/dsh_blender_bridge/` package and the committed `addon/dsh_blender_bridge.zip` |
+| Blender addon | `extension/dsh_blender_bridge/` package and the committed `extension/dsh_blender_bridge.zip` |
 | Built output | `lib/` built by `prepack`; source maps carry inline sources |
 
 ## 3. Hard rules
@@ -57,7 +57,7 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
   `blender_run(kind="headless")` submit + `wait`/`collect` returns outputs. Never report success otherwise.
 - **Install, config, and troubleshooting facts** live in [docs/操作教程.md](docs/操作教程.md) and
   [docs/配置参考.md](docs/配置参考.md). Read them before advising.
-- **Only the bundled addon is supported** (`addon/dsh_blender_bridge.zip`, v2.0.0 / protocol 12).
+- **Only the bundled addon is supported** (`extension/dsh_blender_bridge.zip`, v2.0.0 / protocol 12).
   MCP for Blender is unsupported since v2.3; migration is in [MIGRATIONS.md](MIGRATIONS.md).
 - **Tool and op names come from the catalog**: `blender_op(op="catalog")`; fix from `did_you_mean`.
 - **Not installed / not covered**: landmark and face (no cv2 or MediaPipe), OCR, DXF,
@@ -78,7 +78,7 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
 | Use the plugin or model a scene | [skills/blender-modeling/SKILL.md](skills/blender-modeling/SKILL.md) → [docs/操作教程.md](docs/操作教程.md) |
 | Host side (`src/`) | [src/index.ts](src/index.ts) → [tests/README.md](tests/README.md) → [architecture](docs/architecture.md) |
 | Backend (`runtime/`) | [runtime/engine.ts](runtime/engine.ts) · [runtime/gateway.ts](runtime/gateway.ts) → [tests/README.md](tests/README.md) |
-| Blender addon | [addon/README.md](addon/README.md) → [docs/宿主集成-接口契约-v2.3增补.md](docs/宿主集成-接口契约-v2.3增补.md) |
+| Blender addon | [extension/README.md](extension/README.md) → [docs/宿主集成-接口契约-v2.3增补.md](docs/宿主集成-接口契约-v2.3增补.md) |
 | Catalog, op, or route change | section 1 count-sync commands → [tests/README.md](tests/README.md) contract tests |
 | Tests, CI, coverage | [tests/README.md](tests/README.md) |
 | Architecture and invariants | [docs/architecture.md](docs/architecture.md): read the relevant section first |
@@ -88,7 +88,7 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
 - Typecheck and the tests for the touched layer pass; contract counts stay 6 tools / 34 families /
   228 ops / 25 addon commands / 29 routes / protocol 12 unless the change declares a new count.
   The addon count is 25 **registered** commands; the transport-only `ping` makes 26 wire commands.
-  The single truth is `addon/dsh_blender_bridge/command_registry.py` (see architecture §5).
+  The single truth is `extension/dsh_blender_bridge/command_registry.py` (see architecture §5).
 - New behavior has a failing test first. No `skip`, no retry, and no relaxed assertion to hide a failure.
 - Docs are updated in the same change, and both language versions stay in sync.
 - No secrets, no build artifacts, no `node_modules` or venv; `lib/` is regenerated, never hand-edited.

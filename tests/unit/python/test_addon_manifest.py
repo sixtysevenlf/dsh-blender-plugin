@@ -13,9 +13,9 @@ import bpy_stub
 
 bpy = bpy_stub.install()
 
-pkg = importlib.import_module("addon.dsh_blender_bridge")
-protocol = importlib.import_module("addon.dsh_blender_bridge.protocol")
-registration = importlib.import_module("addon.dsh_blender_bridge.registration")
+pkg = importlib.import_module("extension.dsh_blender_bridge")
+protocol = importlib.import_module("extension.dsh_blender_bridge.protocol")
+registration = importlib.import_module("extension.dsh_blender_bridge.registration")
 
 
 EXPECTED_PACKAGE_FILES = [

@@ -8,7 +8,7 @@
  *   node scripts/test.mjs python     # pytest only
  *   node scripts/test.mjs unit       # Vitest unit only
  *   node scripts/test.mjs integration  # Vitest integration only
- *   node scripts/test.mjs addon-unit    # pytest: Blender addon unit tests only
+ *   node scripts/test.mjs extension-unit    # pytest: Blender addon unit tests only
  *   node scripts/test.mjs python-static # ruff + pure-logic pyright gate
  *
  * Legacy selftest scripts are retired; see tests/MIGRATION.md for the mapping.
@@ -28,7 +28,7 @@ const VALID = new Set([
   'unit',
   'integration',
   'contract',
-  'addon-unit',
+  'extension-unit',
   'python-static',
   'e2e',
   'e2e:gui',
@@ -89,7 +89,7 @@ function runPython() {
   if (probe.status !== 0) {
     fail('pytest is not available via "' + py + ' -m pytest"; install -r requirements-dev.txt')
   }
-  if (mode === 'addon-unit') {
+  if (mode === 'extension-unit') {
     run(
       py,
       ['-m', 'pytest', 'tests/unit/python', '-k', 'addon'],

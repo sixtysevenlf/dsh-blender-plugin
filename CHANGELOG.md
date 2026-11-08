@@ -7,6 +7,12 @@
 - 行为修复（addon 快照）：`get_world_state_snapshot` 的动画段在 Blender 4.4+ 的分层（layered / slotted）action 上会静默丢数据 —— `_snapshot_animation` 直接遍历 `action.fcurves`，而 5.2 已删除该属性，外层 `except Exception` 把 `AttributeError` 吞成 `{}`，`channels` / `keyframe_count` / `frame_range` 全部消失且不报错。现改走 channelbag 入口（优先 `bpy_extras.anim_utils.action_get_channelbag_for_slot`，缺失或抛错时回退 `layers → strips → channelbag(slot)` 手工遍历），按 `obj.animation_data.action_slot` 取该对象自己的曲线；去重键用 `fcurve.as_pointer()` 而不是 `(data_path, array_index)`（多对象共用一个 action 的多 slot 场景按路径去重会把两份动画并成一份）。Blender 4.3 及更早的 `Action.fcurves` 路径不变。回归：`tests/unit/python/test_addon_world_snapshot.py`（10 例，修复前全部失败）；文档侧（SKILL.md 的 A.6.5.6 / A.6.5.6a）已由 #84 合入。
 - 上述两条修复本身不改变 API / 协议 / 工具计数；3.1 的协议与计数变化见下方「3.1 addon 命令面收缩与零遥测（breaking）」等小节。
 
+### 3.1 extension 目录、双语 README 与双许可声明
+
+- 目录与脚本统一改名：仓库 `addon/` → `extension/`；npm scripts 改为 `build:extension` / `check:extension` / `typecheck:extension` / `test:extension-unit`，构建脚本改为 `scripts/build-extension.mjs`，typed-core pyright 配置改为 `pyrightconfig.extension.json`；CI（PR/release workflow）、契约测试、覆盖率/函数预算/例外配置、E2E 与文档路径全部同步。扩展 zip 仍为单包根 `dsh_blender_bridge/`，重建后 76 entries / sha256 `52737662cc99e59f0fbc4cbc9c9908bc7456ac15329187cbd6a6aa4b8e84d579`；命令、协议与工具计数不变（25 registered / 26 wire、protocol 12、6 tools）。
+- 双语 README：新增 `extension/README.md`（English，安装前必读：Install from Disk、许可证、构建与验证）与 `extension/README.zh.md`（中文，原 addon/README 内容迁移并更新为 extension 口径）；两份互相链接，安装命令统一为 `Edit ▸ Preferences ▸ Extensions ▸ Install from Disk`。
+- 双许可落仓库：DSH 宿主插件为 BSD-3-Clause（根 `LICENSE`）；随包 Blender 扩展为 GPL-3.0-or-later（`extension/LICENSE`），并保留上游 ahujasid/blender-mcp 的 MIT 归属（`extension/NOTICE`）。GPL 全文与 NOTICE 从包内移到 extension 根目录声明，构建脚本仍把两者复制进扩展 zip 的包根；`blender_manifest.toml` 的 `license = ["SPDX:GPL-3.0-or-later"]` 不变。README、docs/zh/README、CONTRIBUTING、docs/zh/CONTRIBUTING 均写明两项许可及 upstream MIT 归属。
+
 ### 治理
 
 - 例外有主化：addon 8 个命令模块对 `integrations/*_client.py` 私有 helper 的 41 处跨包导入登记为 `python-private-import`（`config/exceptions.json`，owner `addon-integrations`，reviewBy 2027-06-30），并由纯 ast 契约测试逐对校验；`config/doc-links-baseline.json` 的 7 条冻结失效引用补 `review {owner, reviewBy, reason}`，`check:doc-paths -- --enforce` 拒绝无主/过期的 baseline。

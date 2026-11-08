@@ -4,7 +4,7 @@
   "generatedAt": "2026-11-08T02:15:18.963Z",
   "functions": [
     {
-      "file": "addon/dsh_blender_bridge/commands/core/bpy_lookup.py",
+      "file": "extension/dsh_blender_bridge/commands/core/bpy_lookup.py",
       "name": "bpy_api_lookup",
       "lines": 115,
       "classification": "integration-io",
@@ -13,7 +13,7 @@
       "reviewBy": "2027-06-30"
     },
     {
-      "file": "addon/dsh_blender_bridge/commands/core/describe.py",
+      "file": "extension/dsh_blender_bridge/commands/core/describe.py",
       "name": "describe_node_type",
       "lines": 119,
       "classification": "integration-io",
@@ -22,7 +22,7 @@
       "reviewBy": "2027-06-30"
     },
     {
-      "file": "addon/dsh_blender_bridge/commands/core/screenshot.py",
+      "file": "extension/dsh_blender_bridge/commands/core/screenshot.py",
       "name": "get_viewport_screenshot",
       "lines": 92,
       "classification": "integration-io",
@@ -31,7 +31,7 @@
       "reviewBy": "2027-06-30"
     },
     {
-      "file": "addon/dsh_blender_bridge/commands/material.py",
+      "file": "extension/dsh_blender_bridge/commands/material.py",
       "name": "set_texture",
       "lines": 86,
       "classification": "integration-io",
@@ -40,7 +40,7 @@
       "reviewBy": "2027-06-30"
     },
     {
-      "file": "addon/dsh_blender_bridge/commands/polyhaven/hdri.py",
+      "file": "extension/dsh_blender_bridge/commands/polyhaven/hdri.py",
       "name": "_polyhaven_import_hdri",
       "lines": 88,
       "classification": "integration-io",
@@ -49,7 +49,7 @@
       "reviewBy": "2027-06-30"
     },
     {
-      "file": "addon/dsh_blender_bridge/commands/polyhaven/material.py",
+      "file": "extension/dsh_blender_bridge/commands/polyhaven/material.py",
       "name": "_polyhaven_build_material",
       "lines": 84,
       "classification": "integration-io",
@@ -58,7 +58,7 @@
       "reviewBy": "2027-06-30"
     },
     {
-      "file": "addon/dsh_blender_bridge/commands/polyhaven/model.py",
+      "file": "extension/dsh_blender_bridge/commands/polyhaven/model.py",
       "name": "_polyhaven_import_model",
       "lines": 107,
       "classification": "integration-io",
@@ -67,7 +67,7 @@
       "reviewBy": "2027-06-30"
     },
     {
-      "file": "addon/dsh_blender_bridge/commands/sketchfab/client.py",
+      "file": "extension/dsh_blender_bridge/commands/sketchfab/client.py",
       "name": "get_sketchfab_model_preview",
       "lines": 82,
       "classification": "integration-io",

@@ -16,7 +16,7 @@ The addon SHALL ship as exactly one Blender Extension zip using a single top-lev
 
 #### Scenario: Legacy artifact is gone
 - **WHEN** the release is packaged
-- **THEN** no legacy addon zip or legacy install instruction remains in the shipped files
+- **THEN** no legacy extension zip or legacy install instruction remains in the shipped files
 
 ### Requirement: The extension manifest is valid
 

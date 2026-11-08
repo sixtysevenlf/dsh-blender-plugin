@@ -105,7 +105,7 @@ export const COMMAND_CATALOG: Record<string, CommandCatalogEntry> = {
 
 // Wire-only addon commands that are deliberately not model-facing. Declared here
 // so the host catalog <-> addon registry parity is checkable in both directions;
-// addon/dsh_blender_bridge/command_registry.py COMMAND_NAMES stays the only
+// extension/dsh_blender_bridge/command_registry.py COMMAND_NAMES stays the only
 // command truth. Consumed by tests/unit/js/contract/command-contract.test.ts and
 // tests/integration/python/test_addon_command_matrix.py.
 export const COMMAND_CATALOG_OMISSIONS: readonly string[] = []

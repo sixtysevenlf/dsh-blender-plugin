@@ -37,7 +37,7 @@ export default defineConfig([
     'runtime/ext/**',
     'skills/**',
     'docs/**',
-    'addon/**',
+    'extension/**',
     '**/*.d.ts',
   ]),
   {

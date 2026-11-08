@@ -286,7 +286,7 @@ function walkSource(dir, out, exts) {
 const rawBudgetFiles = []
 walkSource(path.join(ROOT, 'src'), rawBudgetFiles, ['.ts'])
 walkSource(path.join(ROOT, 'runtime'), rawBudgetFiles, ['.ts'])
-walkSource(path.join(ROOT, 'addon'), rawBudgetFiles, ['.py'])
+walkSource(path.join(ROOT, 'extension'), rawBudgetFiles, ['.py'])
 // 生成文件（头行声明 AUTO-GENERATED）是 config/routing.json 的派生产物，由
 // check:routes 校验新鲜度；它们不是手工生产源码，不参与行预算，否则每次扩表
 // 都要改一次脚本白名单。

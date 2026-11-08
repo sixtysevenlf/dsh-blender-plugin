@@ -134,7 +134,7 @@ async function main() {
     }
   }
 
-  // half-open: half-open addon -> addon/bpy timeout, no nested retry.
+  // half-open: half-open addon -> extension/bpy timeout, no nested retry.
   let addon = await startFakeWsAddon({ gatewayPort: port, behavior: () => ({ action: 'hang' }) })
   await addon.ready
   {
