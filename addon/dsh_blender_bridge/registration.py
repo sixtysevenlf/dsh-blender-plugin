@@ -216,6 +216,12 @@ def register():
 
 def unregister():
     try:
+        from .presence_draw import clear_presence
+
+        clear_presence()
+    except Exception:
+        pass
+    try:
         bpy.app.timers.unregister(dshbb_ui_list_timer)
     except Exception:
         pass

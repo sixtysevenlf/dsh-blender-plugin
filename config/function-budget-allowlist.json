@@ -184,6 +184,15 @@
       "reviewBy": "2027-06-30"
     },
     {
+      "file": "runtime/http/routes/session/api.ts",
+      "name": "runSessionAction",
+      "lines": 88,
+      "classification": "dispatch-table",
+      "reason": "Session action dispatcher: one case per wire action (attach, grant, presence, human-edit readback, consent, virtual-gui start).",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
       "file": "runtime/http/routes/health.ts",
       "name": "createHealthRoutes",
       "lines": 98,

@@ -4,6 +4,7 @@
 // selection, activity and held scopes. Nothing here touches bpy; the add-on
 // draws the frusta from the same payload.
 
+import { publishPresence } from './presence-publish.js'
 import type { AgentPresence, CallerIdentity, SessionRecord, ViewPose } from './types.js'
 import { callerKey, callerView, colourFor } from './types.js'
 
@@ -20,7 +21,7 @@ export function touchAgent(s: SessionRecord, c: CallerIdentity): AgentPresence {
       selected: [],
       activity: 'idle',
       color: String(c.color || colourFor(key)),
-      displayName: String(c.displayName || 'agent-' + c.agentId),
+      displayName: String(c.displayName || c.agentId || 'agent'),
     }
     s.agents.set(key, agent)
   } else {
@@ -38,7 +39,9 @@ export function setView(
 ): Record<string, unknown>[] {
   const agent = touchAgent(s, c)
   agent.view = { ...view, updatedAt: Date.now() }
-  return presenceRows(s)
+  const rows = presenceRows(s)
+  publishPresence(s, rows)
+  return rows
 }
 
 export function setSelection(
@@ -50,7 +53,9 @@ export function setSelection(
   const agent = touchAgent(s, c)
   agent.selected = selected.map(String).slice(0, 256)
   if (activity) agent.activity = String(activity)
-  return presenceRows(s)
+  const rows = presenceRows(s)
+  publishPresence(s, rows)
+  return rows
 }
 
 export function presenceRows(s: SessionRecord): Record<string, unknown>[] {

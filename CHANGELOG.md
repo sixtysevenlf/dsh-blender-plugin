@@ -61,6 +61,12 @@
 - addon 现在在非 agent 窗口内记录人类改过的 Object/Collection（内存 revision，不落盘、不上传），通过 event 通道发 `human_edit`；Gateway 将其映射为 session 的 humanModified 记录。
 - 写门在 `human_modified` 时拒绝并让 agent 重读：object/collection/prefix/exclusive 按声明 scope 匹配；`blender_session mark_read` 只清除已重读的 scope，再次人改会重新阻塞。human 始终可编辑，pause 只阻止 agent 写，不自动合并、不做 per-actor undo。
 
+### 3.1 多 agent presence 与视口叠加
+
+- Gateway 保存每个 caller 的 display name、颜色、view pose、选中 session_uid、activity；视图/选中更新时通过既有内部 `execute_code` 通道把快照推给 addon，不新增工具或路由。
+- addon 新增 `presence_draw.py`：用 `SpaceView3D` 的 POST_VIEW/POST_PIXEL 绘制视锥、标签和选中包围盒；只画视口，不写场景、不改选择、不动相机/帧/用户视角；断开或卸载时静默清除 handler。
+- 回归：`tests/unit/js/presence-push.test.ts` 3 项、`tests/unit/python/test_addon_presence_draw.py` 5 项、`tests/integration/js/session-api.test.ts` 的 update_view/update_selection 推送；真机 GUI E2E `tests/e2e/addon_presence_draw.mjs` 14 项（两个 agent 独立颜色/机位、view matrix 与对象/选择不变、清除后 handler 归零）。
+
 ### 开发环境
 
 - 新增 `npm run setup:dev`：自动发现 Python（`PYTHON` → `python` → `python3` → Windows `py -3`，含坏 Store alias 的兜底）、创建/复用 `.venv`、安装 `requirements-dev.txt` + `requirements-typecheck.txt`、仅在缺失时执行 `npm ci --legacy-peer-deps`，支持 `--check` / `--force`，幂等可重复执行；`.github/workflows/pr.yml` 与 `release.yml` 复用同一脚本，不再各自内联 venv 步骤。

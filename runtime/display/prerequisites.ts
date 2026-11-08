@@ -40,7 +40,7 @@ const LINUX: DisplayPrerequisiteSpec[] = [
     label: 'VirtualGL (vglrun)',
     check: 'vglrun is on PATH',
     install:
-      'install VirtualGL from the official repository; Ubuntu 24.04 has no virtualgl package, so apt install virtualgl is not a valid step',
+      'add the official VirtualGL APT repository (github.com/VirtualGL/repo), run apt update, then sudo apt install virtualgl; Ubuntu 22.04/24.04 and Debian 12 package archives have no virtualgl package, so apt install virtualgl without that repository is not a valid step',
     needsRoot: true,
   },
   {

@@ -107,6 +107,11 @@ describe('virtual-gui feature gate', () => {
     expect(prerequisiteTable('linux').map((row) => row.id)).toContain('xvfb')
     expect(prerequisiteTable('linux').map((row) => row.id)).toContain('virtualgl')
     expect(prerequisiteTable('linux').map((row) => row.id)).toContain('gpu-device')
+    const virtualgl = prerequisiteTable('linux').find((row) => row.id === 'virtualgl')
+    expect(virtualgl?.install).toContain('official VirtualGL APT repository')
+    expect(virtualgl?.install).toContain('Ubuntu 22.04/24.04')
+    expect(virtualgl?.install).toContain('Debian 12')
+    expect(virtualgl?.install).toContain('not a valid step')
   })
 
   it('stays disabled when features.virtualGui is off, even with every prerequisite installed', () => {
@@ -153,7 +158,7 @@ describe('virtual-gui feature gate', () => {
     )
     expect(cap.fix).toContain('install the missing prerequisites')
     expect(cap.fix).toContain('apt install xvfb')
-    expect(cap.fix).not.toContain('sudo apt install virtualgl')
+    expect(cap.fix).toContain('official VirtualGL APT repository')
     expect(cap.fix).toContain('not a valid step')
   })
 

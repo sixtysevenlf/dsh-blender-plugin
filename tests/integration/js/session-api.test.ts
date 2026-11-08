@@ -39,6 +39,7 @@ async function setup(instanceIds: string[] = ['inst-1']) {
   const addons: Array<{
     close: () => Promise<void> | void
     sendEvent: (name: string, payload?: Record<string, unknown>) => void
+    requests: Array<{ type: string; params: Record<string, unknown> }>
   }> = []
   for (const instanceId of instanceIds) {
     const addon = await startFakeWsAddon({ gatewayPort: backend.port, instanceId })
@@ -214,5 +215,38 @@ describe('Gateway session API', () => {
     expect((await backend.post('/lease', { action: 'attach' }, sub)).status).toBe(200)
     const presence = await backend.get('/who', main)
     expect(presence.json.sessions[0].agents.length).toBe(2)
+  })
+
+  it('publishes a presence snapshot to the attached add-on', async () => {
+    const { backend, addons } = await setup()
+    const attached = await backend.post('/lease', { action: 'attach' }, main)
+    const sessionId = String(attached.json.session.id)
+    const view = await backend.post(
+      '/lease',
+      {
+        action: 'update_view',
+        sessionId,
+        view: { viewpoint: 'viewport', from: [4, -4, 3], lookAt: [0, 0, 0] },
+      },
+      main,
+    )
+    expect(view.status).toBe(200)
+    expect(view.json.presence[0].view.from).toEqual([4, -4, 3])
+    const selection = await backend.post(
+      '/lease',
+      { action: 'update_selection', sessionId, selected: ['object:Cube'], activity: 'modeling' },
+      main,
+    )
+    expect(selection.status).toBe(200)
+    expect(selection.json.presence[0].selected).toContain('object:Cube')
+    await waitFor(async () =>
+      addons[0]!.requests.some(
+        (request) =>
+          request.type === 'execute_code' &&
+          String(request.params.code || '').includes('set_presence'),
+      ),
+    )
+    const push = addons[0]!.requests.find((request) => request.type === 'execute_code')!
+    expect(String(push.params.code)).toContain('presence_draw')
   })
 })

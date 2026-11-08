@@ -96,6 +96,20 @@ tests); `runtime/gateway/app.ts` imports the created engine and `engineProvenanc
 surface removals in `DECLARED_ENGINE_REMOVALS`: a declared name that is still present in the current
 facade fails, which is what makes the shrink auditable against the base commit.
 
+### GUI sessions and presence
+
+The Gateway keeps an in-memory session per attached GUI Blender instance: owner, caller agents,
+scope grants, human pause, human edits, and presence. A session is best-effort state, not scene
+data: it disappears on release or Gateway restart and is rebuilt from addon handshakes.
+
+Presence rows hold each caller's display name, colour, view pose, selected `session_uid`s, activity,
+and held scopes. On every view/selection update the Gateway pushes the current snapshot to the add-on
+over the existing internal `execute_code` transport. `addon/dsh_blender_bridge/presence_draw.py`
+installs `SpaceView3D` POST_VIEW/POST_PIXEL draw handlers that draw frusta, labels, and selection
+boxes; it never writes scene data, selection, the camera, or the frame, and it does not move the
+user's view. Session presence queries read the same rows from the Gateway, so a read-only query
+and the viewport overlay cannot disagree.
+
 ## 4. Python domain library (runtime/py/)
 
 Python code is grouped by domain, not by a flat file list:

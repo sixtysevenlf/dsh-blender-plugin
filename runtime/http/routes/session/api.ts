@@ -8,7 +8,7 @@ import type { ServerResponse } from 'node:http'
 import { currentCaller } from '../../caller.js'
 import type { AvailabilityFailure } from '../../../core/availability.js'
 import type { SessionRegistry } from '../../../core/sessions/registry.js'
-import type { CallerIdentity, SessionResult } from '../../../core/sessions/types.js'
+import type { CallerIdentity, SessionResult, ViewPose } from '../../../core/sessions/types.js'
 
 function statusFor(result: AvailabilityFailure): number {
   if (result.code === 'invalid_params') return 400
@@ -112,6 +112,19 @@ function runSessionAction(
         sessionId,
         payload.scopes === undefined ? payload.scope : payload.scopes,
       )
+    case 'update_view':
+      return registry.updateView(
+        caller,
+        String(sessionId || ''),
+        (payload.view || {}) as unknown as Omit<ViewPose, 'updatedAt'>,
+      )
+    case 'update_selection':
+      return registry.updateSelection(
+        caller,
+        String(sessionId || ''),
+        Array.isArray(payload.selected) ? payload.selected.map(String) : [],
+        payload.activity === undefined ? undefined : String(payload.activity),
+      )
     case 'presence':
       return registry.presence(caller, sessionId)
     case 'heartbeat':
@@ -122,7 +135,7 @@ function runSessionAction(
         code: 'invalid_params',
         stage: 'config',
         root_cause: 'unknown session action: ' + action,
-        fix: 'use list, attach, claim, detach, release, status, doctor, consent, start, stop, grant, revoke, grants, pause, resume, mark_read, presence, heartbeat',
+        fix: 'use list, attach, claim, detach, release, status, doctor, consent, start, stop, grant, revoke, grants, pause, resume, mark_read, presence, update_view, update_selection, heartbeat',
         fallback: { kind: 'unavailable', summary: 'the session action was not executed' },
         evidence: { action },
       }

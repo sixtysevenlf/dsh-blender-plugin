@@ -20,6 +20,7 @@ import { SessionRegistry } from '../core/sessions/registry.js'
 import { JobQueue } from '../core/queue/manager.js'
 import { SpawnJobExecutor } from '../core/queue/spawn-executor.js'
 import { setSessionRegistry } from '../http/session-gate.js'
+import { installPresencePublisher } from './presence-push.js'
 import { gatewayInstances } from '../transport/addon-handshake.js'
 import { createRouter } from '../http/router.js'
 import { createRoutes, CONTRACT_ROUTES } from '../http/routes/index.js'
@@ -81,6 +82,7 @@ export function createGatewayApp(opts: GatewayAppOptions = {}): GatewayApp {
   const registryRef: { current: SessionRegistry | null } = { current: null }
   const addonGateway = new AddonGateway({ ...opts, onEvent: addonEventSink(opts, registryRef) })
   const addonClient = new GatewayAddonClient(addonGateway)
+  installPresencePublisher(addonClient)
   const engine = createEngine({ addonClient: addonClient as unknown as AddonClient })
   const selectionStore = createSelectionStore()
   const sessionRegistry = new SessionRegistry(() =>
