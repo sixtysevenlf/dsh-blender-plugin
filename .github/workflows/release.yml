@@ -142,9 +142,43 @@ jobs:
           name: coverage
           path: coverage/
 
+  windows-helper:
+    name: Build the Windows hidden-desktop helper
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+      - name: Build and self-test the helper
+        run: npm run build:win-helper
+      - name: Run the helper end-to-end checks
+        run: node tests/e2e/win_hidden_desktop.mjs --json win-helper-e2e.json
+      - name: Stage the helper as the packaged resource
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force vendor/win-hidden-desktop | Out-Null
+          Copy-Item tools/win-hidden-desktop/out/dsh-blender-hidden-desktop.exe vendor/win-hidden-desktop/
+          Copy-Item tools/win-hidden-desktop/out/build.json vendor/win-hidden-desktop/build.json
+      - name: Verify version, source, and tarball inclusion
+        run: npm run check:win-helper -- --packed
+      - name: Upload the packaged helper
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: win-hidden-desktop
+          path: vendor/win-hidden-desktop/
+
   package:
     name: Build release assets
-    needs: verify
+    needs:
+      - verify
+      - windows-helper
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -158,6 +192,13 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
+      - name: Download the Windows hidden-desktop helper
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: win-hidden-desktop
+          path: vendor/win-hidden-desktop
+      - name: Verify the packaged helper
+        run: npm run check:win-helper
       - name: Build and verify addon zip
         run: |
           npm run build:addon
@@ -169,6 +210,8 @@ jobs:
           cp addon/dsh_blender_bridge.zip release-assets/
           (cd release-assets && sha256sum * > SHA256SUMS)
           printf 'Release %s. See CHANGELOG.md for details.\n' "${{ inputs.version }}" > release-assets/extension-release-notes.md
+          tar -tzf release-assets/*.tgz | grep -E '^package/vendor/win-hidden-desktop/dsh-blender-hidden-desktop\.exe$'
+          tar -tzf release-assets/*.tgz | grep -E '^package/vendor/win-hidden-desktop/build\.json$'
           cat release-assets/SHA256SUMS
       - name: Upload release assets
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

@@ -141,6 +141,39 @@ jobs:
       - name: Validate the addon package
         run: .cache/blender-4.2.10/blender --command extension validate addon/dsh_blender_bridge.zip
 
+  windows-helper:
+    name: Windows hidden-desktop helper
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+      - name: Build and self-test the helper
+        run: npm run build:win-helper
+      - name: Run the helper end-to-end checks
+        run: node tests/e2e/win_hidden_desktop.mjs --json win-helper-e2e.json
+      - name: Stage the helper as the packaged resource
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force vendor/win-hidden-desktop | Out-Null
+          Copy-Item tools/win-hidden-desktop/out/dsh-blender-hidden-desktop.exe vendor/win-hidden-desktop/
+          Copy-Item tools/win-hidden-desktop/out/build.json vendor/win-hidden-desktop/build.json
+      - name: Verify the packaged helper and the tarball contents
+        run: npm run check:win-helper -- --packed
+      - name: Upload the helper end-to-end report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: win-hidden-desktop-e2e
+          path: win-helper-e2e.json
+
   coverage:
     name: Coverage ratchet
     runs-on: ubuntu-latest
