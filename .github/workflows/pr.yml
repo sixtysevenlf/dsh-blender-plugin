@@ -178,8 +178,6 @@ jobs:
     name: Linux preview virtual-gui and blender_see
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      TMPDIR: ${{ runner.temp }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -211,6 +209,8 @@ jobs:
           mkdir -p .cache/blender-4.2.10
           tar -xJf /tmp/blender-4.2.10.tar.xz -C .cache/blender-4.2.10 --strip-components=1
       - name: Run the Linux preview see end-to-end check
+        env:
+          TMPDIR: ${{ runner.temp }}
         run: node tests/e2e/linux_preview_see.mjs --blender "$PWD/.cache/blender-4.2.10/blender" --json linux-preview-see.json
       - name: Upload the Linux preview report
         if: always()
