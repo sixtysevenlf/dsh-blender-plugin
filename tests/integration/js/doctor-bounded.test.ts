@@ -72,7 +72,7 @@ describe('half-open addon: bounded status/doctor with honest diagnosis', () => {
     // 启动探测不再占串行队列头：改造前冷热差 ~3s，现在应接近 0。
     expect(coldMs - statusMs).toBeLessThan(2_000)
     expect(status.json.ok).toBe(true)
-    expect(status.json.plugin.version).toMatch(/^\d+\.\d+\.\d+$/)
+    expect(status.json.plugin.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/)
     expect(typeof status.json.addonError).toBe('string')
     expect(status.json.addonError).toContain('addon timeout')
     expect(status.json.region).toBeNull()

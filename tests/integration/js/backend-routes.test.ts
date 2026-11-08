@@ -117,7 +117,7 @@ describe('live HTTP route contract', () => {
 
     const status = (await (await fetch('http://127.0.0.1:' + port + '/status')).json()) as any
     expect(typeof status.ok).toBe('boolean')
-    expect(status.plugin.version).toMatch(/^\d+\.\d+\.\d+$/)
+    expect(status.plugin.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/)
 
     const who = (await (await fetch('http://127.0.0.1:' + port + '/who')).json()) as any
     expect(who.lease.active).toBe(false)

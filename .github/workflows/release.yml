@@ -16,7 +16,7 @@ on:
       version:
         description: 'Release version; must match package.json and PLUGIN_VERSION'
         required: true
-        default: '3.1.0'
+        default: '3.1.0-alpha.1'
         type: string
       dry_run:
         description: 'Verify and package only; do not create a tag or release'
@@ -264,11 +264,11 @@ jobs:
           VERSION: ${{ inputs.version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "v${VERSION}" \
-            --draft \
-            --target "${GITHUB_SHA}" \
-            --title "v${VERSION}" \
-            --generate-notes \
+          ARGS=(--draft --target "${GITHUB_SHA}" --title "v${VERSION}" --generate-notes)
+          if [[ "${VERSION}" == *-* ]]; then
+            ARGS+=(--prerelease)
+          fi
+          gh release create "v${VERSION}" "${ARGS[@]}" \
             release/*.tgz release/*.zip release/SHA256SUMS
 
   publish-extension:
@@ -295,6 +295,11 @@ jobs:
         with:
           name: release-assets
           path: release
+      - name: Refuse a prerelease marketplace upload
+        if: contains(inputs.version, '-')
+        run: |
+          echo "::error::The Blender extension marketplace only accepts stable releases; use publish_extension=false for a prerelease."
+          exit 1
       - name: Require the extension upload token
         env:
           BLENDER_EXTENSIONS_TOKEN: ${{ secrets.BLENDER_EXTENSIONS_TOKEN }}
@@ -338,6 +343,13 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           registry-url: https://registry.npmjs.org
       - name: Publish tarball
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
           ls -l release
-          npm publish ./release/*.tgz --access public --provenance
+          if [[ "${VERSION}" == *-* ]]; then
+            NPM_TAG=alpha
+          else
+            NPM_TAG=latest
+          fi
+          npm publish ./release/*.tgz --access public --provenance --tag "${NPM_TAG}"

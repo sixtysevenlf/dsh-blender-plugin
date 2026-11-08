@@ -4,7 +4,7 @@
 > Humans: [README.md](README.md) (English) · [docs/zh/README.md](docs/zh/README.md) (Chinese).
 > Contribution entry: [CONTRIBUTING.md](CONTRIBUTING.md) · [docs/zh/CONTRIBUTING.md](docs/zh/CONTRIBUTING.md).
 
-This repository is the **DSH × Blender plugin** (v3.1.0): a DeepSeek Harness plugin that drives a live
+This repository is the **DSH × Blender plugin** (v3.1.0-alpha.1): a DeepSeek Harness plugin that drives a live
 Blender session over a loopback TCP bridge. Model surface: **6 tools** (`blender_session` / `blender_op` / `blender_py` / `blender_see` / `blender_run` / `blender_inspect`); planning surface:
 **34 families / 228 ops**; Blender addon **v2.0.0 / protocol 12** (Blender extension install); Gateway `127.0.0.1:39877`, addon dials the Gateway (no inbound port).
 Ports, config keys, and paths are facts of [docs/配置参考.md](docs/配置参考.md) — never invent them.

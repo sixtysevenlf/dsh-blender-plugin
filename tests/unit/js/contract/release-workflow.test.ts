@@ -11,7 +11,7 @@ describe('manual CD workflow', () => {
   })
 
   it('defaults to a dry run and keeps npm publishing opt-in', () => {
-    expect(workflow).toContain("default: '3.1.0'")
+    expect(workflow).toContain("default: '3.1.0-alpha.1'")
     expect(workflow).toMatch(/dry_run:[\s\S]*?default: true/)
     expect(workflow).toMatch(/publish_npm:[\s\S]*?default: false/)
     expect(workflow).toContain('if: ${{ !inputs.dry_run }}')
@@ -23,11 +23,15 @@ describe('manual CD workflow', () => {
     expect(workflow).toContain('name: release')
     expect(workflow).toContain('--draft')
     expect(workflow).toContain('--target')
+    expect(workflow).toContain('--prerelease')
     expect(workflow).toContain('gh release create')
+    expect(workflow).toContain('Refuse a prerelease marketplace upload')
   })
 
   it('publishes npm from the packed tarball with OIDC provenance', () => {
     expect(workflow).toContain('npm publish ./release/*.tgz --access public --provenance')
+    expect(workflow).toContain('NPM_TAG=alpha')
+    expect(workflow).toContain('--tag "${NPM_TAG}"')
     expect(workflow).toContain('id-token: write')
     expect(workflow).not.toContain('NPM_TOKEN')
     expect(workflow).not.toContain('NODE_AUTH_TOKEN')

@@ -3,7 +3,7 @@
 > 格式借鉴 lurenjia-l/dsh-blender-stylized-shading 的 AI_DEPLOY.md：**目标与完成标准 → 环境探测 → 安装 → 连接 → 自检 → 汇报 → 排障**。
 > 原则：**先探测，别猜**；每一步都要有可验证的判据；失败给出明确的下一步而不是笼统报错。
 
-> **当前版本口径（2026-11-08）**：插件 **v3.1.0** · **6 个模型工具** · plan catalog **34 family / 228 op** ·
+> **当前版本口径（2026-11-08）**：插件 **v3.1.0-alpha.1** · **6 个模型工具** · plan catalog **34 family / 228 op** ·
 > addon **v2.0.0**（protocol **12**）· Gateway `127.0.0.1:39877` · addon 主动连接（无入站端口）。
 > 验收判据：**GUI 路线 = `doctor` 回 `kind=ok`**；**纯无头路线**（不装 addon）= `blender_run(action="submit", kind="headless")` 出产物自证
 > （doctor 的 bpy 往返不可达属预期）。**默认先开 GUI**；无 GUI 时用后台无头作业独立建模，它是备用路径。
@@ -37,7 +37,7 @@ plan catalog 应能列出 **34 family / 228 op**。
 普通用户从 npm 安装（不需要 clone 或构建）：
 
 ~~~bash
-dsh plugin --profile <profile> add dsh-blender-plugin@3.1.0
+dsh plugin --profile <profile> add dsh-blender-plugin@3.1.0-alpha.1
 dsh --profile <profile> --dump-config | grep -A3 dsh-blender-plugin
 # 然后重启 DSH
 ~~~
@@ -75,7 +75,7 @@ blender_run(action="wait", id="<jobId>")           # 收日志与产物（无头
 |---|---|---|
 | 工具报"后端不可用" | 是否 `blender.exe` 在跑 / Gateway 39877 是否在 | Blender 没启动；或 addon 没 Connect；或 Gateway 没起来（重启 DSH 宿主） |
 | `doctor` 报 `main-thread-busy` | 是不是刚跑过重活 | 主线程被占；重活改走 `blender_run(kind="headless")` / `blender_run(kind="render")` |
-| 工具数不是 6、catalog 不是 34/228 | 插件版本 / 是否重启 | 安装 v3.1.0 后**重启 DSH**；`--dump-config` 确认 profile bundle 已加载 |
+| 工具数不是 6、catalog 不是 34/228 | 插件版本 / 是否重启 | 安装 v3.1.0-alpha.1 后**重启 DSH**；`--dump-config` 确认 profile bundle 已加载 |
 | `blender_py`/`blender_see` 连不上但无头可用 | 是否有 GUI | 纯无头：用 `blender_run(kind="headless")` 提交后台作业 |
 | 渲染暗部纯黑 | `docs/EEVEE-工作要点.md` §2 | `Shader to RGB` 只含直接光；用双 Background + Is Camera Ray 或加环境灯 |
 | 渲染很慢 | 是否冷启动 | EEVEE 首帧着色器编译约 16 s → 用同一个 GUI 会话（`blender_py`）热迭代 |

@@ -1,6 +1,6 @@
 # MIGRATIONS —— 从旧版本迁到 v3.1
 
-> **当前版本（2026-11-08）**：插件 **v3.1.0** · **6 个模型工具** · plan catalog **34 family / 228 op** ·
+> **当前版本（2026-11-08）**：插件 **v3.1.0-alpha.1** · **6 个模型工具** · plan catalog **34 family / 228 op** ·
 > addon command **25**（+ping = 26 wire）· addon **v2.0.0**（protocol **12**）· Gateway `127.0.0.1:39877` · addon 主动连接 Gateway（无入站监听）。
 > **旧 `MCP for Blender` 自 v2.3 起不再支持**；v3.0 是工程重构 + addon 安装方式 breaking，按下文 §0/§1 迁。
 
