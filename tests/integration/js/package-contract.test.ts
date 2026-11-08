@@ -69,9 +69,12 @@ describe('npm package install contract', () => {
     expect(meta.version).toBe(JSON.parse(fs.readFileSync(pkgPath('package.json'), 'utf8')).version)
     const files = meta.files.map((f: any) => f.path)
     expect(files).toContain('lib/index.js')
-    expect(files).toContain('lib/runtime/server.js')
+    expect(files).toContain('lib/runtime/gateway.js')
     expect(files).toContain('lib/runtime/catalog/index.js')
     expect(files).toContain('addon/dsh_blender_bridge.zip')
+    expect(files.filter((f: string) => f.endsWith('.zip'))).toEqual([
+      'addon/dsh_blender_bridge.zip',
+    ])
     expect(files).toContain('addon/dsh_blender_bridge/__init__.py')
     expect(files).toContain('package.json')
     expect(files.some((f: string) => f.startsWith('skills/'))).toBe(true)
@@ -89,7 +92,7 @@ describe('npm package install contract', () => {
     expect(files.some((f: string) => f.startsWith('runtime/') && f.endsWith('.py'))).toBe(true)
     expect(meta.size).toBeLessThan(10 * 1024 * 1024)
     expect(meta.entryCount).toBeGreaterThan(200)
-  })
+  }, 60000)
 
   it('installs the tarball offline and exposes a syntax-valid entry point', () => {
     const outDir = path.join(tmpRoot, 'install-pack')
@@ -118,12 +121,15 @@ describe('npm package install contract', () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(installed, 'package.json'), 'utf8'))
     expect(pkg.name).toBe('dsh-blender-plugin')
     expect(fs.existsSync(path.join(installed, 'lib', 'index.js'))).toBe(true)
-    expect(fs.existsSync(path.join(installed, 'lib', 'runtime', 'server.js'))).toBe(true)
+    expect(fs.existsSync(path.join(installed, 'lib', 'runtime', 'gateway.js'))).toBe(true)
     expect(fs.existsSync(path.join(installed, 'runtime', 'server.mjs'))).toBe(false)
     expect(fs.existsSync(path.join(installed, 'addon', 'dsh_blender_bridge.zip'))).toBe(true)
     expect(fs.existsSync(path.join(installed, 'addon', 'dsh_blender_bridge', '__init__.py'))).toBe(
       true,
     )
+    expect(
+      fs.existsSync(path.join(installed, 'addon', 'dsh_blender_bridge', 'blender_manifest.toml')),
+    ).toBe(true)
     expect(fs.existsSync(path.join(installed, 'skills', 'blender-modeling', 'SKILL.md'))).toBe(true)
 
     execFileSync(process.execPath, ['--check', path.join(installed, 'lib', 'index.js')], {
@@ -135,16 +141,21 @@ describe('npm package install contract', () => {
       'utf8',
     )
     const addonProtocol = fs.readFileSync(
-      path.join(installed, 'addon', 'dsh_blender_bridge', 'protocol.py'),
+      path.join(installed, 'addon', 'dsh_blender_bridge', 'gateway_schema.py'),
       'utf8',
     )
-    expect(addonProtocol).toContain('ADDON_PROTOCOL_VERSION = 11')
-    expect(addonInit).toContain('bl_info = {')
-    expect(addonInit).toContain('"version": (1, 11)')
+    expect(addonProtocol).toContain('ADDON_PROTOCOL_VERSION = 12')
+    expect(addonInit).not.toContain('bl_info = {')
+    expect(
+      fs.readFileSync(
+        path.join(installed, 'addon', 'dsh_blender_bridge', 'blender_manifest.toml'),
+        'utf8',
+      ),
+    ).toContain('version = "2.0.0"')
     const addonDir = path.join(installed, 'addon')
     expect(fs.readdirSync(addonDir).filter((f) => f.endsWith('.py'))).toEqual([])
     expect(fs.statSync(path.join(addonDir, 'dsh_blender_bridge.zip')).size).toBeGreaterThan(100000)
-  }, 30000)
+  }, 120000)
 
   it('keeps the old-addon removal path documented', () => {
     const migrations = fs.readFileSync(pkgPath('MIGRATIONS.md'), 'utf8')

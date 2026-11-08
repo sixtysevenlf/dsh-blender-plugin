@@ -20,7 +20,7 @@ registration = importlib.import_module("addon.dsh_blender_bridge.registration")
 
 EXPECTED_PACKAGE_FILES = [
     "__init__.py", "assets/__init__.py", "assets/geometry.py",
-    "assets/io.py", "command_registry.py", "commands/__init__.py",
+    "assets/io.py", "availability.py", "availability_schema.py", "command_registry.py", "commands/__init__.py",
     "commands/activity.py", "commands/assets_polyhaven.py", "commands/core/__init__.py",
     "commands/core/bpy_lookup.py", "commands/core/describe.py", "commands/core/screenshot.py",
     "commands/hunyuan/__init__.py", "commands/hunyuan/client.py", "commands/hunyuan/importing.py",
@@ -32,43 +32,54 @@ EXPECTED_PACKAGE_FILES = [
     "commands/polypizza/download.py", "commands/polypizza/importer.py", "commands/scene/__init__.py",
     "commands/scene/export.py", "commands/scene/world.py", "commands/selection.py",
     "commands/sketchfab/__init__.py", "commands/sketchfab/client.py", "commands/sketchfab/download.py",
-    "commands/sketchfab/importer.py", "commands/telemetry.py", "compat.py",
-    "config.py", "integrations/__init__.py", "integrations/hunyuan_client.py",
+    "commands/sketchfab/importer.py", "compat.py",
+    "config.py", "gateway_schema.py", "integrations/__init__.py", "integrations/hunyuan_client.py",
     "integrations/hyper3d_client.py", "integrations/polyhaven_client.py", "integrations/polyhaven_spec.py",
     "integrations/polypizza_client.py", "integrations/sketchfab_client.py", "protocol.py",
-    "recorders/__init__.py", "recorders/activity.py", "recorders/edit_capture.py",
+    "presence_draw.py", "recorders/__init__.py", "recorders/activity.py",
     "recorders/user_edit.py", "registration.py", "selection/__init__.py",
     "selection/caps.py", "selection/payload.py", "server.py",
-    "ui/__init__.py", "ui/lists.py", "ui/operators.py",
+    "transport.py", "ui/__init__.py", "ui/install.py", "ui/lists.py", "ui/operators.py",
     "ui/panels/__init__.py", "ui/panels/api.py", "ui/panels/env.py",
     "ui/panels/index.py", "ui/panels/model.py", "ui/preferences.py",
 ]
 
 
-def test_bl_info_and_protocol_versions_are_frozen():
-    assert pkg.bl_info == {
-        "name": "DSH Blender Bridge",
-        "author": "Siddharth Ahuja",
-        "version": (1, 11),
-        "blender": (4, 2, 0),
-        "location": "View3D > Sidebar > DSH Blender Bridge",
-        "description": "Connect Blender to DSH via a local TCP bridge",
-        "doc_url": "https://github.com/sixtysevenlf/dsh-blender-plugin",
-        "category": "Interface",
-    }
-    assert pkg.ADDON_VERSION == (1, 11) == pkg.bl_info["version"]
-    assert pkg.ADDON_PROTOCOL_VERSION == 11
+def test_versions_and_names_are_frozen():
+    assert not hasattr(pkg, "bl_info"), "the extension manifest replaced bl_info"
+    assert pkg.ADDON_VERSION == (2, 0, 0)
+    assert pkg.ADDON_PROTOCOL_VERSION == 12
     assert protocol.ADDON_NAME == "DSH Blender Bridge"
     assert protocol.ADDON_VERSION == pkg.ADDON_VERSION
     assert protocol.ADDON_PROTOCOL_VERSION == pkg.ADDON_PROTOCOL_VERSION
-    assert pkg.bl_info["name"] == protocol.ADDON_NAME
+
+
+def test_extension_manifest_matches_gateway_schema():
+    import tomllib
+
+    root = Path(pkg.__file__).resolve().parent
+    manifest = tomllib.loads((root / "blender_manifest.toml").read_text(encoding="utf-8"))
+    assert manifest["schema_version"] == "1.0.0"
+    assert manifest["id"] == "dsh_blender_bridge"
+    assert manifest["version"] == "2.0.0"
+    assert tuple(int(part) for part in manifest["version"].split(".")) == pkg.ADDON_VERSION
+    assert manifest["type"] == "add-on"
+    assert manifest["blender_version_min"] == "4.2.0"
+    assert manifest["license"] == ["SPDX:GPL-3.0-or-later"]
+    assert manifest["permissions"]["network"]
+    assert manifest["permissions"]["files"]
+    assert len(manifest["permissions"]["network"]) <= 64
+    assert len(manifest["permissions"]["files"]) <= 64
+    assert 'ADDON_PROTOCOL_VERSION = 12' in (
+        root / "gateway_schema.py"
+    ).read_text(encoding="utf-8")
 
 
 def test_package_layout_is_exactly_the_two_level_split():
     root = Path(pkg.__file__).resolve().parent
     actual = sorted(path.relative_to(root).as_posix() for path in root.rglob("*.py"))
     assert actual == sorted(EXPECTED_PACKAGE_FILES)
-    assert len(actual) == 69
+    assert len(actual) == 73
     assert not (root.parent / "dsh_blender_bridge.py").exists(), "single-file install entry must be gone"
     assert not (root / "__pycache__").exists() or (root / "__pycache__").is_dir()
 

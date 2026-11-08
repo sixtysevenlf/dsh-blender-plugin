@@ -8,8 +8,8 @@
  *   - NaN / ±Infinity（stringify 变 null）· -0（stringify 变 0，符号丢失）
  *   - Date / Map / Set / 类实例 / 函数 / Symbol / 循环引用 / 带符号或非枚举键的对象
  * 实测后果：v0.9.3 的 envelope 里一个 promoted: undefined 让
- * blender_rt_headless **每次都失败**（任务其实跑完了、结果也在磁盘上，只是回执被拒），
- * rt_job 的 status/collect/wait 同病 —— 即"任务能交出去但收不回来"。
+ * blender_run **每次都失败**（任务其实跑完了、结果也在磁盘上，只是回执被拒），
+ * blender_run 的 status/collect/wait 同病 —— 即"任务能交出去但收不回来"。
  *
  * 消毒口径（**不静默**：每一处改动都记进 fixes，回执文本里点名）：
  *   undefined → 丢键（数组元素 → null，长度不塌）· 非有限数 → null · -0 → 0

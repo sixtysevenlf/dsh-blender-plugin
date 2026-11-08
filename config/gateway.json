@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "generated": [
+    "runtime/transport/gateway-schema.generated.ts",
+    "addon/dsh_blender_bridge/gateway_schema.py"
+  ],
+  "addon": {
+    "protocol": 12,
+    "version": "2.0.0",
+    "kinds": ["user-gui", "virtual-gui"],
+    "wsPath": "/addon",
+    "heartbeatMs": 15000,
+    "deadMs": 45000,
+    "maxMessageBytes": 16777216
+  },
+  "gateway": {
+    "defaultPort": 39877
+  },
+  "handshake": {
+    "requiredFields": ["instanceId", "kind", "version", "protocol", "project", "capabilities"],
+    "instanceId": "stable per Blender process",
+    "project": "bpy.data.filepath or empty string"
+  }
+}

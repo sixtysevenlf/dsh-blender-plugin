@@ -6,8 +6,9 @@ whether the command stays available while AI operations are paused.
 
 Counts are deliberately explicit and stable:
 
-* 38 registered commands - the commands the host catalog knows about.
-* 39 wire commands - the same 38 plus the transport-level "ping" liveness
+* 25 registered commands - 21 read-only commands the model-facing surface
+  can inspect plus 4 internal transport commands.
+* 26 wire commands - the same 25 plus the transport-level "ping" liveness
   probe, which is not part of the catalog.
 
 The registry is pure data (no bpy import) so tests and tooling can read it
@@ -17,9 +18,9 @@ mixins / recorders lazily to keep this module free of import cycles.
 
 from typing import NamedTuple, Optional
 
-# Registered commands = 38. Wire commands = these 38 + ping (39).
-REGISTERED_COMMAND_COUNT = 38
-WIRE_COMMAND_COUNT = 39
+# Registered commands = 25. Wire commands = these 25 + ping (26).
+REGISTERED_COMMAND_COUNT = 25
+WIRE_COMMAND_COUNT = 26
 
 GROUP_ORDER = ("base", "polyhaven", "hyper3d", "sketchfab", "polypizza", "hunyuan")
 
@@ -37,7 +38,6 @@ GATE_PROPERTIES = {
 # protocol.is_pause_safe_command(); write commands are never pause-safe.
 PAUSE_SAFE_EXTRA = frozenset({
     "ping",
-    "drain_human_activity",
     "describe_node_type",
     "bpy_api_lookup",
     "get_activity_state",
@@ -54,19 +54,21 @@ class CommandSpec(NamedTuple):
     handler: str
     gate: Optional[str]  # None for base commands, else a key of GATE_PROPERTIES
     pause_safe: bool
+    network: bool = False  # requires Blender's online access / an external API
 
 
-def _command(name, params=(), gate=None, pause_safe=None, handler=None):
+def _command(name, params=(), gate=None, pause_safe=None, handler=None, network=False):
     return CommandSpec(
         name=name,
         params=tuple(params),
         handler=handler or name,
         gate=gate,
         pause_safe=(name in PAUSE_SAFE_EXTRA) if pause_safe is None else bool(pause_safe),
+        network=network,
     )
 
 
-# The 38 registered commands, in protocol order (22 base + 16 gated).
+# The 25 registered commands, in protocol order (18 base + 7 gated).
 REGISTERED_COMMANDS = (
     # -- base: always registered -------------------------------------------
     _command("get_scene_info"),
@@ -77,49 +79,33 @@ REGISTERED_COMMANDS = (
     _command("execute_code", ("code",)),
     _command("describe_node_type", ("bl_idname", "property_overrides")),
     _command("bpy_api_lookup", ("query",)),
-    _command("drain_human_activity"),
     _command("get_activity_state"),
     _command("get_selection"),
     _command("send_selection_to_dsh", ("timeout",)),
     _command("get_collections", ("limit",)),
     _command("send_collection_to_dsh", ("collection", "timeout")),
-    _command("get_telemetry_consent"),
-    _command("set_telemetry_consent", ("consent",)),
     _command("get_polyhaven_status"),
     _command("get_hyper3d_status"),
     _command("get_sketchfab_status"),
     _command("get_polypizza_status"),
     _command("get_hunyuan3d_status"),
-    _command("export_scene", ("filepath", "format", "object_names", "selection_only", "apply_modifiers")),
     # -- polyhaven gate ----------------------------------------------------
     _command("get_polyhaven_categories", ("asset_type",), gate="polyhaven"),
     _command("search_polyhaven_assets",
              ("asset_type", "category", "attributes", "query", "limit", "min_size_m"),
-             gate="polyhaven"),
-    _command("download_polyhaven_asset",
-             ("asset_id", "asset_type", "resolution", "file_format"), gate="polyhaven"),
-    _command("get_polyhaven_asset_preview", ("asset_id",), gate="polyhaven"),
-    _command("set_texture", ("object_name", "texture_id"), gate="polyhaven"),
+             gate="polyhaven", network=True),
     # -- hyper3d gate ------------------------------------------------------
-    # The three wrappers dispatch on *args/**kwargs to main-site / fal.ai paths.
-    _command("create_rodin_job", (), gate="hyper3d"),
-    _command("poll_rodin_job_status", (), gate="hyper3d"),
-    _command("import_generated_asset", (), gate="hyper3d"),
+    _command("poll_rodin_job_status", (), gate="hyper3d", network=True),
     # -- sketchfab gate ----------------------------------------------------
     _command("search_sketchfab_models", ("query", "categories", "count", "downloadable"),
-             gate="sketchfab"),
-    _command("get_sketchfab_model_preview", ("uid",), gate="sketchfab"),
-    _command("download_sketchfab_model", ("uid", "normalize_size", "target_size"),
-             gate="sketchfab"),
+             gate="sketchfab", network=True),
+    _command("get_sketchfab_model_preview", ("uid",), gate="sketchfab", network=True),
     # -- polypizza gate ----------------------------------------------------
     _command("search_polypizza_models",
-             ("query", "category", "licence", "animated", "limit", "page"), gate="polypizza"),
-    _command("download_polypizza_model", ("model_id", "normalize_size", "target_size"),
-             gate="polypizza"),
+             ("query", "category", "licence", "animated", "limit", "page"), gate="polypizza",
+             network=True),
     # -- hunyuan gate ------------------------------------------------------
-    _command("create_hunyuan_job", (), gate="hunyuan"),
-    _command("poll_hunyuan_job_status", (), gate="hunyuan"),
-    _command("import_generated_asset_hunyuan", (), gate="hunyuan"),
+    _command("poll_hunyuan_job_status", (), gate="hunyuan", network=True),
 )
 
 # Transport liveness probe, not a catalog command, but part of the wire surface.
@@ -156,6 +142,25 @@ if len(WIRE_COMMANDS) != WIRE_COMMAND_COUNT:
     )
 
 
+def wire_spec_rows():
+    """Wire-level spec rows for the model-facing inspect help surface.
+
+    Pure data, no bpy: the Gateway merges these with the host catalog so
+    blender_inspect can list name / args / gate / pause_safe per command
+    without a second hardcoded table.
+    """
+    return [
+        {
+            "name": spec.name,
+            "params": list(spec.params),
+            "gate": spec.gate,
+            "pause_safe": spec.pause_safe,
+            "network": spec.network,
+        }
+        for spec in WIRE_COMMANDS
+    ]
+
+
 def command_spec(name):
     """Return the CommandSpec for a wire command, or None."""
     return WIRE_SPECS.get(name)
@@ -164,6 +169,12 @@ def command_spec(name):
 def gate_property(spec):
     """Scene property that gates a command (None for base commands)."""
     return GATE_PROPERTIES.get(spec.gate) if spec and spec.gate else None
+
+
+def command_requires_network(name):
+    """True when a wire command calls an external API and needs online access."""
+    spec = WIRE_SPECS.get(name)
+    return bool(spec and spec.network)
 
 
 # ---------------------------------------------------------------------------
@@ -182,7 +193,6 @@ def command_mixins():
     from .commands.material import MaterialCommands
     from .commands.scene import SceneCommands
     from .commands.selection import SelectionCommands
-    from .commands.telemetry import TelemetryCommands
 
     return (
         CoreCommands,
@@ -190,7 +200,6 @@ def command_mixins():
         SelectionCommands,
         ActivityCommands,
         MaterialCommands,
-        TelemetryCommands,
         PolyHavenCommands,
         SketchfabCommands,
         PolypizzaCommands,
@@ -200,20 +209,16 @@ def command_mixins():
 
 
 def start_runtime_handlers():
-    """Install the edit-capture and activity handlers (main thread)."""
+    """Install the local activity handlers (main thread)."""
     from .recorders.activity import register_activity_handlers
-    from .recorders.edit_capture import register_edit_capture_handlers
 
-    register_edit_capture_handlers()
     register_activity_handlers()
 
 
 def stop_runtime_handlers():
     """Remove the runtime handlers installed by start_runtime_handlers()."""
     from .recorders.activity import unregister_activity_handlers
-    from .recorders.edit_capture import unregister_edit_capture_handlers
 
-    unregister_edit_capture_handlers()
     unregister_activity_handlers()
 
 
@@ -222,6 +227,13 @@ def tick_activity():
     from .recorders.activity import get_activity_tracker
 
     get_activity_tracker().tick()
+
+
+def drain_human_edits():
+    """Return the human edit records collected since the last drain."""
+    from .recorders.activity import get_activity_tracker
+
+    return get_activity_tracker().drain_human_edits()
 
 
 def begin_agent_command():
@@ -238,10 +250,3 @@ def end_agent_command():
     tracker = get_activity_tracker()
     tracker.note_agent_end()
     tracker._resync()
-
-
-def drain_edit_recorder():
-    """Drop buffered human-edit events."""
-    from .recorders.user_edit import get_edit_recorder
-
-    get_edit_recorder().drain()

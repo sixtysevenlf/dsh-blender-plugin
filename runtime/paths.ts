@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { CFG, PATHS, IS_WIN, IS_MAC, wslToWin } from './config.js'
+import { CFG, PATHS, IS_WIN, IS_MAC, blenderPath } from './config.js'
 
 /** 与 engine.mjs 同目录（runtime/） */
 export const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -32,9 +32,7 @@ export const LIVE_PNG_WSL = PATHS.livePngWsl
  * 统一收到这里，避免以后再漏。
  */
 export function blenderJoin(...parts: string[]): string {
-  if (IS_MAC) return path.join(...parts)
-  if (IS_WIN) return path.win32.join(...parts)
-  return wslToWin(path.join(...parts))
+  return blenderPath(path.join(...parts))
 }
 /**
  * Python 领域包布局。真实实现在 runtime/py/<domain>/，**公开模块名不变**
@@ -121,7 +119,7 @@ export const QC_RENDER_PATH = pyModuleFile('qc_render')
 /** 配方库（v0.8.2）：参数组合的保存 / 套用 / 导出 */
 export const PRESET_PATH = pyModuleFile('presets')
 /** 网格体检（v0.9.0 接通）：audit_* 前缀 op 走这里。
- *  此前 audit.py 只存在于 preload 通道，docs 里文档化的 blender_rt_plan(op="audit_mesh") 其实没有路由。 */
+ *  此前 audit.py 只存在于 preload 通道，docs 里文档化的 blender_op(op="audit_mesh") 其实没有路由。 */
 export const AUDIT_PATH = pyModuleFile('audit')
 /** 拼图（v0.9.0 接通）：montage op 走这里（证据分级 L2：裁切拼图给眼看的少数格） */
 export const MONTAGE_PATH = pyModuleFile('montage')
@@ -189,7 +187,7 @@ export const USER_SCRIPTS_WIN = process.env.BLENDER_USER_SCRIPTS || CFG.blenderU
  * 为什么默认换 EEVEE：① 它本来就是纯 GPU 渲染，走图形后端（本机 OPENGL / RTX 4060），
  *   **不依赖 compute_device_type 这类"偏好"** → 无头里不会像 Cycles 那样静默回落 CPU；
  * ② 实测（360 对象 / 350 网格 / 512×512 / 64 采样）：EEVEE+RT 预热帧 **1.35 s** vs Cycles GPU **3.13 s**（2.3×）；
- * ③ 代价：首帧着色器编译 ~16 s → 迭代请配 blender_rt_worker 热会话（编译一次，此后每帧 1.35 s）。
+ * ③ 代价：首帧着色器编译 ~16 s → 迭代请配 blender_run 热会话（编译一次，此后每帧 1.35 s）。
  * 回执标记沿用 DSH_GPU（兼容），内含 engine / backend / renderer / rt 状态。
  */
 export const GPU_PRELUDE = [
@@ -406,7 +404,7 @@ const PATH_HELPERS_TEMPLATE = [
   '    return {"purged": purged, "count": len(purged), "prefixes": pre, "root": root_abs}',
   'def _dsh_stage_emit(name, **extra):',
   '    """v0.9.3：阶段心跳 —— print("DSH_STAGE {单行 JSON}") 且 flush=True。',
-  '    插件侧在 blender_rt_job(op="status").stage / stdout 日志里读最后一条。',
+  '    插件侧在 blender_run(action=""status").stage / stdout 日志里读最后一条。',
   '    用法：dsh_stage("building") / K.progress("render", i=3, total=12)。"""',
   '    import json as _stj, time as _stt, os as _sto',
   '    _d = {"name": str(name), "t": round(_stt.time(), 3), "run": _sto.environ.get("DSH_RUN_ID")}',
@@ -475,7 +473,7 @@ export const ACT_WRAPPER = (src: string): string =>
     '    return _j.dumps(_dsh_epoch(), ensure_ascii=False)',
     'try:',
     '    with _dsh_ctx.redirect_stdout(_dsh_o), _dsh_ctx.redirect_stderr(_dsh_e):',
-    '        exec(compile(_dsh_src, "<rt_do>", "exec"), globals())',
+    '        exec(compile(_dsh_src, "<blender_py>", "exec"), globals())',
     'except BaseException as _dsh_exc:',
     '    print("DSH_ACT_ERR " + _dsh_json.dumps({"error": "%s: %s" % (type(_dsh_exc).__name__, _dsh_exc), "traceback": _dsh_tb.format_exc()[-6000:], "stdout": _dsh_o.getvalue()[-16000:], "stderr": _dsh_e.getvalue()[-8000:], "epoch": _dsh_epoch()}, ensure_ascii=False))',
     'else:',

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { footerField } from '../../../src/tui/index'
 import { startBackend, type Backend } from '../../helpers/backend'
-import { startFakeAddon } from '../../helpers/fake-addon.mjs'
+import { startFakeWsAddon } from '../../helpers/fake-ws-addon.mjs'
 import { startFakeHost, type FakeHost } from '../../helpers/fake-http'
 
 // dsh-TUI footer field (contract v2.3 addendum section). The field is a pure
@@ -18,7 +18,7 @@ describe('footer field matrix', () => {
     expect(down.text).toBe('Blender ○')
     expect(down.tone).toBe('dim')
     expect(down.detail).toContain(String(PORT))
-    expect(down.detail).toContain('blender_viewport')
+    expect(down.detail).toContain('blender_session')
 
     const notConnected = footerField(
       {
@@ -160,27 +160,29 @@ describe('footer field matrix', () => {
 
 describe('footer against a real backend and a fake addon', () => {
   let backend: Backend
-  let addon: Awaited<ReturnType<typeof startFakeAddon>>
+  let addon: Awaited<ReturnType<typeof startFakeWsAddon>>
   let paused = true
 
   beforeAll(async () => {
-    addon = await startFakeAddon({
+    backend = await startBackend({ env: { DSH_BLENDER_HOLDER: HOLDER } })
+    addon = await startFakeWsAddon({
+      gatewayPort: backend.port,
       behavior: (type: string) => {
         if (type === 'get_addon_info')
           return {
             status: 'success',
-            result: { name: 'fake', version: '1.8.0', protocol: 11, paused: paused },
+            result: { name: 'fake', version: '2.0.0', protocol: 12, paused: paused },
           }
         if (paused) return { status: 'error', message: 'AI 操作已暂停（fake addon）' }
         return { status: 'success', result: { type } }
       },
     })
-    backend = await startBackend({ addonPort: addon.port, env: { DSH_BLENDER_HOLDER: HOLDER } })
+    await addon.ready
     await backend.post('/lease', { holder: HOLDER, ttlMs: 60000 })
   })
   afterAll(async () => {
-    await backend.stop()
     await addon.close()
+    await backend.stop()
   })
 
   const state = async () => (await backend.get('/host/state')).json

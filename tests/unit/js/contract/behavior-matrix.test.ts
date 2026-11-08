@@ -41,7 +41,7 @@ describe('behavior matrix release gate', () => {
       [pkgPath('scripts/check-behavior-matrix.mjs'), '--release'],
       { cwd: PKG_ROOT, encoding: 'utf8', timeout: 20000 },
     ).trim()
-    expect(output).toContain('OK behavior matrix: 346 rows (344 covered, 0 planned, 2 exempt)')
+    expect(output).toContain('OK behavior matrix: 324 rows (322 covered, 0 planned, 2 exempt)')
   })
 
   it('exits nonzero when a planned row survives the release gate', () => {
@@ -51,7 +51,7 @@ describe('behavior matrix release gate', () => {
       const lines = readFileSync(pkgPath('tests/BEHAVIOR_MATRIX.md'), 'utf8')
         .replace(/\r\n/g, '\n')
         .split('\n')
-      const index = lines.findIndex((line) => line.startsWith('| CMD-ping |'))
+      const index = lines.findIndex((line) => line.startsWith('| CMD-get_scene_info |'))
       expect(index).toBeGreaterThan(0)
       const cells = lines[index].split('|')
       cells[8] = ' planned '

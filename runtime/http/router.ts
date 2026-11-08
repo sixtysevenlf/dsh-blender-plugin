@@ -3,6 +3,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { json } from './response.js'
 import { errorDetail } from '../core/json.js'
+import { callerFromRequest, runWithCaller } from './caller.js'
 
 export interface RouteDef {
   method?: string | null
@@ -30,7 +31,7 @@ export function createRouter(E: RouterDeps) {
           ? r.paths.indexOf(p) >= 0
           : p === r.exact || (r.prefix && p.startsWith(r.prefix))
         if (!matched) continue
-        await r.fn(req, res, url, p)
+        await runWithCaller(callerFromRequest(req), () => r.fn(req, res, url, p))
         return
       }
       json(res, 404, { ok: false, error: 'not found', path: p })

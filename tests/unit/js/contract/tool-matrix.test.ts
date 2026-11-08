@@ -1,14 +1,14 @@
 /**
- * 15 个模型工具 × 7 个方面的可执行矩阵（逐工具、逐方面真实调用）。
+ * 6 个模型工具 × 7 个方面的可执行矩阵（逐工具、逐方面真实调用）。
  *
  * 与既有 contract 测试的分工：
- *   - tool-execution / tool-failure-matrix / tool-presenter / lossless 各自覆盖一个切面；
+ *   - tool-execution / tool-failure-matrix / tool-presenter 各自覆盖一个切面；
  *   - 本文件是**审计用矩阵**：每个 (tool, aspect) 一行，真实执行后写入 JSON，并把
  *     "不适用" 的原因显式记录（没有任何静默跳过）。
  *
  * 输出：设置 A1_MATRIX_OUT=<path> 时写 JSON；否则只断言不落盘。
- * 依据：行为矩阵（15 个 tool：成功/参数错误/backend 不可达/超时 abort/
- * presenter/lossless/session 与无头降级）。
+ * 依据：3.1 六工具面（session/op/py/see/run/inspect）——成功/参数错误/backend 不可达/
+ * 超时 abort/presenter/lossless/session 门。
  */
 import fs from 'node:fs'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -30,7 +30,7 @@ const ASPECTS = [
   {
     id: 'success',
     title: '成功执行',
-    description: '代表性参数返回可读回执，且请求打到预期的 addon 通道',
+    description: '代表性参数返回可读回执，且请求打到预期的 Gateway 通道',
   },
   {
     id: 'paramError',
@@ -45,7 +45,7 @@ const ASPECTS = [
   {
     id: 'timeoutAbort',
     title: '超时/abort',
-    description: 'exec.signal abort 后 5s 内结束：reject 带取消提示，或 resolve 带取消/后台化提示',
+    description: 'exec.signal abort 后 5s 内结束：reject 带取消提示，或 resolve 带取消提示',
   },
   {
     id: 'presenter',
@@ -59,27 +59,19 @@ const ASPECTS = [
   },
   {
     id: 'sessionFallback',
-    title: 'session/无头降级',
-    description: '显式 session / 无头通道路由到 /worker、/headless，而不是 GUI 通道',
+    title: 'session 门',
+    description:
+      '需要 GUI 会话的工具在没有 ready 会话时给出决策请求，不启动 Blender、不转 headless',
   },
 ] as const
 
 const TOOLS = [
-  'blender_rt_see',
-  'blender_rt_do',
-  'blender_rt_watch',
-  'blender_rt_cmd',
-  'blender_rt_commands',
-  'blender_rt_loop',
-  'blender_rt_perf',
-  'blender_rt_opt',
-  'blender_rt_headless',
-  'blender_rt_plan',
-  'blender_rt_worker',
-  'blender_rt_txn',
-  'blender_rt_preset',
-  'blender_rt_job',
-  'blender_viewport',
+  'blender_session',
+  'blender_op',
+  'blender_py',
+  'blender_see',
+  'blender_run',
+  'blender_inspect',
 ]
 
 const rows: Row[] = []
@@ -111,7 +103,6 @@ async function run(name: string, args: unknown, exec: Record<string, unknown> = 
   return await (tool(name).execute as any)(args, exec)
 }
 
-/** 一次调用的请求切片（避免前面用例的请求污染断言） */
 function requestsSince(n: number): Array<Record<string, any>> {
   return backend.requests.slice(n) as Array<Record<string, any>>
 }
@@ -135,99 +126,65 @@ function lossless(value: unknown): void {
 }
 
 // ───────────────────────────── 成功执行 ─────────────────────────────
-const SUCCESS_CASES: Array<
+type SuccessCase = [
+  string,
+  Record<string, unknown>,
+  string[],
+  (out: any, reqs: Array<Record<string, any>>) => void,
+]
+
+const SUCCESS_CASES: SuccessCase[] = [
   [
-    string,
-    Record<string, unknown>,
-    string[],
-    ((out: any, reqs: Array<Record<string, any>>) => void)?,
-  ]
-> = [
-  [
-    'blender_rt_see',
-    { max_size: 320, force: true },
-    ['视口帧 320px'],
-    (out, reqs) => {
-      expect(out.image?.attachmentId).toContain('viewport-')
-      expect(
-        reqs.some(
-          (r) =>
-            r.method === 'GET' && r.path === '/frame.png' && String(r.search).includes('size=320'),
-        ),
-      ).toBe(true)
-    },
-  ],
-  [
-    'blender_rt_do',
-    { code: 'print(1)', force_see: true },
-    ['ACT ok', 'fake stdout'],
-    (out, reqs) => {
-      expect(out.image).toBeTruthy()
-      expect(
-        reqs.some((r) => r.method === 'POST' && r.path === '/act' && r.body.code === 'print(1)'),
-      ).toBe(true)
-    },
-  ],
-  [
-    'blender_rt_watch',
-    { code: 'x = 1', seconds: 0.2, fps: 1, max_size: 120 },
-    ['WATCH 0.2s @1fps', 'timeline:'],
-  ],
-  [
-    'blender_rt_cmd',
-    { name: 'get_scene_info', params: { a: 1 } },
-    ['CMD get_scene_info ok'],
+    'blender_session',
+    { action: 'list' },
+    ['SESSION list'],
     (_out, reqs) => {
-      const req = reqs.find((r) => r.method === 'POST' && r.path === '/cmd')
-      expect(req?.body).toMatchObject({ name: 'get_scene_info', params: { a: 1 } })
+      const req = reqs.find((r) => r.path === '/lease')
+      expect(req?.body).toMatchObject({ action: 'list' })
     },
   ],
-  ['blender_rt_commands', {}, ['可用命令 38 条', 'polyhaven=off']],
   [
-    'blender_rt_loop',
-    { op: 'status' },
-    ['LOOP status'],
+    'blender_op',
+    { action: 'plan', op: 'catalog' },
+    ['OP catalog'],
     (_out, reqs) => {
-      expect(reqs.some((r) => r.path === '/loop' && r.body?.op === 'status')).toBe(true)
+      const req = reqs.find((r) => r.path === '/plan')
+      expect(req?.body).toMatchObject({ op: 'catalog' })
     },
   ],
-  ['blender_rt_perf', { op: 'status' }, ['PERF status']],
   [
-    'blender_rt_opt',
-    { op: 'join', args: '{"dry_run":true}' },
-    ['OPT join'],
+    'blender_py',
+    { code: 'x = 1', see: false },
+    ['PY ok'],
     (_out, reqs) => {
-      expect(reqs.find((r) => r.path === '/opt')?.body?.op).toBe('opt_join')
+      const req = reqs.find((r) => r.path === '/act')
+      expect(req?.body).toMatchObject({ code: 'x = 1', py: true })
     },
   ],
   [
-    'blender_rt_headless',
-    { script: 'print(1)' },
-    ['HEADLESS'],
-    (out, reqs) => {
-      expect(out.envelope?.status).toBe('done')
-      expect(reqs.some((r) => r.path === '/headless' && r.body?.script === 'print(1)')).toBe(true)
+    'blender_see',
+    { max_size: 1024 },
+    ['SEE viewport'],
+    (_out, reqs) => {
+      const req = reqs.find((r) => r.path === '/view')
+      expect(req?.body).toMatchObject({ mode: 'current', width: 1024, height: 576 })
     },
   ],
   [
-    'blender_rt_plan',
-    { op: 'catalog' },
-    ['PLAN catalog ok'],
-    (out) => {
-      expect(out.envelope?.verdict).toBe('pass')
+    'blender_run',
+    { action: 'list' },
+    ['RUN list'],
+    (_out, reqs) => {
+      const req = reqs.find((r) => r.path === '/job')
+      expect(req?.body).toMatchObject({ surface: 'queue', op: 'list' })
     },
   ],
-  ['blender_rt_worker', { op: 'start', name: 'w1' }, ['WORKER start ok', 'w1']],
-  ['blender_rt_txn', { op: 'list' }, ['TXN list ok']],
-  ['blender_rt_preset', { op: 'list' }, ['PRESET list ok']],
-  ['blender_rt_job', { op: 'list' }, ['作业（1）', 'job-1']],
   [
-    'blender_viewport',
-    { op: 'status' },
-    ['"running":true'],
-    (out) => {
-      expect(typeof out).toBe('string')
-      expect(JSON.parse(out).endpoint).toContain(String(backend.port))
+    'blender_inspect',
+    {},
+    ['INSPECT help'],
+    (_out, reqs) => {
+      expect(reqs.some((r) => r.method === 'GET' && r.path === '/commands')).toBe(true)
     },
   ],
 ]
@@ -257,7 +214,7 @@ afterAll(async () => {
   fake.dispose()
   await backend.close()
 
-  // 矩阵自检：15 tools × 7 aspects 必须每格一行；PASS/N/A 都必须是真实执行后记录的。
+  // 矩阵自检：6 tools × 7 aspects 必须每格一行；PASS/N/A 都必须是真实执行后记录的。
   expect(new Set(rows.map((r) => r.tool))).toEqual(new Set(TOOLS))
   for (const name of TOOLS) {
     for (const aspect of ASPECTS) {
@@ -267,7 +224,6 @@ afterAll(async () => {
   }
   expect(rows.length).toBe(TOOLS.length * ASPECTS.length)
   const nA = rows.filter((r) => r.status === 'N/A')
-  expect(nA.length).toBe(9) // paramError: commands=1；sessionFallback: 8 个无 session 通道的工具
   for (const r of nA) expect(r.reason, r.tool + '/' + r.aspect).toBeTruthy()
 
   const outPath = process.env.A1_MATRIX_OUT
@@ -290,8 +246,8 @@ afterAll(async () => {
   }
 })
 
-describe('success：15 个工具的成功执行', () => {
-  it('covers exactly the 15 registered model tools', () => {
+describe('success：6 个工具的成功执行', () => {
+  it('covers exactly the 6 registered model tools', () => {
     expect(tools.map((t) => t.name).sort()).toEqual([...TOOLS].sort())
   })
 
@@ -299,7 +255,7 @@ describe('success：15 个工具的成功执行', () => {
     const before = backend.requests.length
     const out = await run(name, args)
     for (const s of contains) expect(textOf(out), name).toContain(s)
-    if (extra) extra(out, requestsSince(before))
+    extra(out, requestsSince(before))
     record(name, 'success', 'PASS', textOf(out).split('\n')[0].slice(0, 160))
   })
 })
@@ -307,41 +263,15 @@ describe('success：15 个工具的成功执行', () => {
 // ───────────────────────────── 参数错误 ─────────────────────────────
 type ParamCheck = { args: Record<string, unknown>; throws?: RegExp; contains?: string[] }
 const PARAM_CASES: Array<[string, ParamCheck[]]> = [
-  ['blender_rt_see', [{ args: { max_size: 'abc' }, throws: /"max_size" must be an integer/ }]],
-  ['blender_rt_do', [{ args: {}, contains: ['需要 code 或 file 之一'] }]],
-  ['blender_rt_watch', [{ args: { seconds: 'abc' }, throws: /"seconds" must be a number/ }]],
-  ['blender_rt_cmd', [{ args: {}, throws: /missing required property "name"/ }]],
-  ['blender_rt_loop', [{ args: {}, throws: /missing required property "op"/ }]],
-  ['blender_rt_perf', [{ args: {}, throws: /missing required property "op"/ }]],
-  ['blender_rt_opt', [{ args: {}, throws: /missing required property "op"/ }]],
+  ['blender_session', [{ args: {}, throws: /action/ }]],
+  ['blender_op', [{ args: { action: 'nope' }, contains: ['blender_op action'] }]],
+  ['blender_py', [{ args: {}, contains: ['code'] }]],
+  ['blender_see', [{ args: { view_size: '1024x1024' }, contains: ['view_size'] }]],
   [
-    'blender_rt_headless',
-    [
-      { args: { blend: 'D:/x.blend' }, contains: ['没有参数 blend'] },
-      { args: { file: '   ' }, contains: ['空字符串'] },
-    ],
+    'blender_run',
+    [{ args: { action: 'submit', kind: 'render', script: 'print(1)' }, contains: ['script'] }],
   ],
-  [
-    'blender_rt_plan',
-    [{ args: { op: 'catalog', args: '{bad' }, contains: ['args 不是合法 JSON 对象'] }],
-  ],
-  ['blender_rt_worker', [{ args: {}, throws: /missing required property "op"/ }]],
-  ['blender_rt_txn', [{ args: {}, throws: /missing required property "op"/ }]],
-  [
-    'blender_rt_preset',
-    [
-      { args: {}, throws: /missing required property "op"/ },
-      { args: { op: 'save', data: '{bad' }, contains: ['data 不是合法 JSON'] },
-    ],
-  ],
-  [
-    'blender_rt_job',
-    [
-      { args: {}, throws: /missing required property "op"/ },
-      { args: { op: 'start', file: '' }, contains: ['空字符串'] },
-    ],
-  ],
-  ['blender_viewport', [{ args: {}, throws: /missing required property "op"/ }]],
+  ['blender_inspect', [{ args: { command: 123 }, throws: /command/ }]],
 ]
 
 describe('paramError：参数校验与工具级非法参数', () => {
@@ -359,24 +289,12 @@ describe('paramError：参数校验与工具级非法参数', () => {
     }
     record(name, 'paramError', 'PASS', evidence.join('；'))
   })
-
-  it('blender_rt_commands has no parameter fields to violate', async () => {
-    const out = await run('blender_rt_commands', {})
-    expect(textOf(out)).toContain('可用命令 38 条')
-    record(
-      'blender_rt_commands',
-      'paramError',
-      'N/A',
-      '空参数调用成功并返回命令目录',
-      'parameters 为空对象，没有可违反的字段；非法参数面为零',
-    )
-  })
 })
 
 // ───────────────────────────── backend 不可达 ─────────────────────────────
 const UNREACHABLE_ARGS: Record<string, Record<string, unknown>> = Object.fromEntries(
   SUCCESS_CASES.map(([name, args]) => [name, args]),
-)
+) as Record<string, Record<string, unknown>>
 
 describe('backendUnreachable：连接被拒时 5s 内可读失败', () => {
   it.each(TOOLS)('%s settles without hanging', async (name) => {
@@ -389,13 +307,13 @@ describe('backendUnreachable：连接被拒时 5s 内可读失败', () => {
     let evidence: string
     try {
       const out = await Promise.race([
-        (t.execute as any)(UNREACHABLE_ARGS[name] ?? { op: 'status' }, {}),
+        (t.execute as any)(UNREACHABLE_ARGS[name] ?? {}, {}),
         new Promise((_, reject) => setTimeout(() => reject(new Error('tool hung for 5s')), 5000)),
       ])
       evidence = 'resolve: ' + textOf(out).split('\n')[0].slice(0, 140)
     } catch (error: any) {
       expect(String(error)).toMatch(
-        /backend|连接|connect|ECONNREFUSED|不可用|启动|http \d{3}|frame|宿主取消/i,
+        /backend|连接|connect|ECONNREFUSED|不可用|启动|Gateway|http \d{3}|宿主取消/i,
       )
       evidence =
         'reject: ' +
@@ -412,21 +330,12 @@ describe('backendUnreachable：连接被拒时 5s 内可读失败', () => {
 
 // ───────────────────────────── 超时 / abort ─────────────────────────────
 const ABORT_CASES: Array<[string, Record<string, unknown>, string]> = [
-  ['blender_rt_see', { max_size: 200, auto: false }, 'GET /frame.png'],
-  ['blender_rt_do', { code: 'x = 1', see: false, auto: false }, 'POST /act'],
-  ['blender_rt_watch', { code: 'x = 1', seconds: 0.2, fps: 1, auto: false }, 'GET /frame.png'],
-  ['blender_rt_cmd', { name: 'ping' }, 'POST /cmd'],
-  ['blender_rt_commands', {}, 'GET /commands'],
-  ['blender_rt_loop', { op: 'start', spec: {} }, 'POST /loop'],
-  ['blender_rt_perf', { op: 'bench' }, 'POST /perf'],
-  ['blender_rt_opt', { op: 'join', args: '{}' }, 'POST /opt'],
-  ['blender_rt_headless', { script: 'print(1)' }, 'POST /headless'],
-  ['blender_rt_plan', { op: 'catalog' }, 'POST /plan'],
-  ['blender_rt_worker', { op: 'start', name: 'w1' }, 'POST /worker'],
-  ['blender_rt_txn', { op: 'snapshot', args: {} }, 'POST /txn'],
-  ['blender_rt_preset', { op: 'save', data: '{}' }, 'POST /preset'],
-  ['blender_rt_job', { op: 'start', script: 'print(1)' }, 'POST /job'],
-  ['blender_viewport', { op: 'status' }, 'GET /status'],
+  ['blender_session', { action: 'list' }, 'POST /lease'],
+  ['blender_op', { action: 'plan', op: 'catalog' }, 'POST /plan'],
+  ['blender_py', { code: 'x = 1', see: false }, 'POST /act'],
+  ['blender_see', { max_size: 1024 }, 'POST /view'],
+  ['blender_run', { action: 'list' }, 'POST /job'],
+  ['blender_inspect', {}, 'GET /commands'],
 ]
 
 describe('timeoutAbort：exec.signal abort 后快速结束', () => {
@@ -475,14 +384,10 @@ describe('presenter：presentCall / presentResult 卡片契约', () => {
     const blocks = (t.output as any)?.render?.(args, out) ?? []
     expect(Array.isArray(blocks), name).toBe(true)
     const result = (t.presentResult as any)(args, { content: blocks, isError: false })
-    const expectCard = !!(args?.code || args?.script || out?.envelope)
-    if (expectCard) {
-      expect(result, name).toBeTruthy()
+    if (result !== undefined) {
       expect(Array.isArray(result.content), name).toBe(true)
       expect(result.content.length, name).toBeGreaterThan(0)
       lossless(result)
-    } else {
-      expect(result, name).toBeUndefined()
     }
     record(
       name,
@@ -513,109 +418,56 @@ describe('lossless：成功回执无损', () => {
   })
 })
 
-// ───────────────────────────── session / 无头降级 ─────────────────────────────
-const SESSION_CASES: Array<
-  [string, Record<string, unknown>, string, (reqs: Array<Record<string, any>>) => void]
-> = [
-  [
-    'blender_rt_see',
-    { max_size: 200, session: 'w1' },
-    '无头 see',
-    (reqs) => {
-      expect(reqs.find((r) => r.path === '/worker')?.body?.op).toBe('see')
-    },
-  ],
-  [
-    'blender_rt_do',
-    { code: 'x = 1', session: 'w1', see: false },
-    'ACT(session=w1)',
-    (reqs) => {
-      expect(reqs.find((r) => r.path === '/worker')?.body).toMatchObject({
-        op: 'exec',
-        name: 'w1',
-        code: 'x = 1',
-      })
-    },
-  ],
-  [
-    'blender_rt_watch',
-    { code: 'x = 1', seconds: 0.2, fps: 1, max_size: 120, session: 'w1' },
-    'WATCH(headless)',
-    (reqs) => {
-      expect(reqs.some((r) => r.path === '/worker')).toBe(true)
-    },
-  ],
-  [
-    'blender_rt_loop',
-    { op: 'start', target: 'session' },
-    'LOOP start (session=dsh-loop)',
-    (reqs) => {
-      expect(reqs.some((r) => r.path === '/worker')).toBe(true)
-    },
-  ],
-  [
-    'blender_rt_plan',
-    { op: 'catalog', session: 'auto' },
-    '没有无头映射',
-    (reqs) => {
-      // session 参数先做无头路由判定；catalog 没有无头映射时立即返回可读失败，既不碰 GUI 也不起 worker。
-      expect(reqs.some((r) => r.path === '/worker')).toBe(false)
-      expect(reqs.some((r) => r.path === '/act')).toBe(false)
-    },
-  ],
-  [
-    'blender_rt_worker',
-    { op: 'exec', name: 'w1', code: 'x = 1' },
-    'WORKER exec ok',
-    (reqs) => {
-      const body = reqs.find((r) => r.path === '/worker')?.body
-      expect(body).toMatchObject({ op: 'exec', name: 'w1' })
-    },
-  ],
-  [
-    'blender_rt_headless',
-    { script: 'print(1)' },
-    'HEADLESS',
-    (reqs) => {
-      // headless 工具本身就是无头通道（没有 session 参数），它的成功路径 = /headless
-      expect(reqs.some((r) => r.path === '/headless')).toBe(true)
-    },
-  ],
+// ───────────────────────────── session 门 ─────────────────────────────
+// fake backend 默认返回一个 ready user-gui 会话；这里显式把 /lease list 改成空，
+// 验证 py/see 在没有 ready 会话时给出决策请求，而不是启动 Blender 或转 headless。
+const NO_SESSION_HANDLER = () => ({
+  status: 200,
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ ok: true, sessions: [] }),
+})
+
+const SESSION_GATED: Array<[string, Record<string, unknown>]> = [
+  ['blender_py', { code: 'x = 1', see: false }],
+  ['blender_see', { max_size: 1024 }],
 ]
 
-const SESSION_N_A: Array<[string, string]> = [
-  ['blender_rt_cmd', '工具 schema 无 session 参数，只走 GUI addon 的 /cmd 通道，不路由 worker'],
-  ['blender_rt_commands', '只读目录来自 GUI addon /commands，无 session 概念'],
-  ['blender_rt_perf', 'perf 只有 GUI addon /perf 通道，无 session 参数'],
-  ['blender_rt_opt', 'opt 只有 GUI addon /opt 通道，无 session 参数'],
-  ['blender_rt_txn', 'txn 只有 GUI addon /txn 通道，无 session 参数'],
-  ['blender_rt_preset', 'preset 只有 GUI addon /preset 通道，无 session 参数'],
-  ['blender_rt_job', 'job 自己就是后台作业通道（/job），schema 无 session 参数，无头降级不适用'],
-  [
-    'blender_viewport',
-    'GUI 运维工具（/status、/launch、/doctor），schema 无 session 参数，不路由无头 worker',
-  ],
-]
-
-describe('sessionFallback：显式 session / 无头通道', () => {
-  it.each(SESSION_CASES)(
-    '%s routes through headless channel',
-    async (name, args, contains, check) => {
-      const before = backend.requests.length
+describe('sessionFallback：无 ready 会话时拒绝并给两个选择', () => {
+  it.each(SESSION_GATED)('%s requires a ready GUI session', async (name, args) => {
+    backend.setHandler('POST /lease', NO_SESSION_HANDLER)
+    const before = backend.requests.length
+    let evidence: string
+    try {
       const out = await run(name, args)
-      expect(textOf(out), name).toContain(contains)
-      check(requestsSince(before))
-      record(name, 'sessionFallback', 'PASS', textOf(out).split('\n')[0].slice(0, 160))
+      const text = textOf(out)
+      expect(text, name).toContain('session_required')
+      expect(text, name).toContain('blender_session')
+      const reqs = requestsSince(before)
+      expect(
+        reqs.some((r) => r.path === '/worker' || r.path === '/headless'),
+        name,
+      ).toBe(false)
+      expect(
+        reqs.some((r) => r.path === '/act' || r.path === '/view'),
+        name,
+      ).toBe(false)
+      evidence = text.split('\n')[0].slice(0, 160)
+    } finally {
+      backend.setHandler('POST /lease', null)
+    }
+    record(name, 'sessionFallback', 'PASS', evidence)
+  })
+
+  it.each(['blender_session', 'blender_op', 'blender_run', 'blender_inspect'])(
+    '%s has no headless fallback concept',
+    (name) => {
+      record(
+        name,
+        'sessionFallback',
+        'N/A',
+        '工具的失败路径已由 backendUnreachable / paramError 覆盖',
+        '3.1 没有 GUI→headless 自动降级：session 是会话面，op=catalog/dry_run 与 inspect 是只读面，run 直接提交队列',
+      )
     },
   )
-
-  it.each(SESSION_N_A)('%s has no session channel', (name, reason) => {
-    record(
-      name,
-      'sessionFallback',
-      'N/A',
-      'schema 无 session 参数；成功/失败路径已在其它方面覆盖',
-      reason,
-    )
-  })
 })

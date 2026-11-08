@@ -39,7 +39,7 @@ export async function startJobThenMaybeWait(
     return toolError(
       'backend_error',
       'HEADLESS 转作业层失败 · ' + text(jr.error || jr.raw || 'unknown'),
-      '检查后端 /headless 路由；或改用 blender_rt_job op=list 查看是否已建作业',
+      '检查 Gateway /job 路由；或改用 blender_run action=list 查看是否已建作业',
     ) as unknown as Record<string, unknown>
   // 后端 /headless 的回包是 {ok, ms, result:<引擎回执>} —— jobId 在 result 里
   const inner = isRecord(jr.result) ? jr.result : jr
@@ -233,7 +233,7 @@ export function promotedReceipt(job: unknown, jobId: string, why: string): ToolR
     inputFile: j.inputFile || null,
     pathWarnings: j.pathWarnings || [],
     hint:
-      '用 blender_rt_job(op="wait", id="' +
+      '用 blender_run(action="wait", id="' +
       jobId +
       '") 阻塞等结果，或 op="collect" 看进展（stage/idleMs）；op="list" 看全部作业',
     notes: [why],
@@ -258,7 +258,7 @@ export function promotedReceipt(job: unknown, jobId: string, why: string): ToolR
   }
   if (env.stdoutTail) parts.push('--- stdout 尾 ---' + NLx + text(env.stdoutTail).slice(-1500))
   parts.push(
-    '收结果：blender_rt_job(op="wait", id="' +
+    '收结果：blender_run(action="wait", id="' +
       jobId +
       '", timeout_ms=120000) —— 阻塞到完成或超时（不要连发 status 轮询，会撞重复调用检测）；' +
       '也可 op="collect"（随时看，未完成时也能看到 stage/日志尾），op="kill" 中止。' +

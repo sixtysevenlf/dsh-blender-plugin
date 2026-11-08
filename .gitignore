@@ -14,6 +14,7 @@ dsh-blender.config.json
 venv/
 runtime/ext/venv/
 .venv/
+.venv.broken-*/
 
 # Ruff editor cache
 .ruff_cache/
@@ -37,3 +38,16 @@ coverage/
 # Local PR-review workspace (never committed or shipped)
 /.review-tmp/
 .vscode/
+
+# Windows hidden-desktop helper build output (scripts/build-win-helper.mjs)
+/tools/win-hidden-desktop/out/
+
+# Windows hidden-desktop helper staged for the npm tarball (release pipeline only)
+/vendor/
+
+# Local agent workspace (never committed or shipped)
+.dsh-ops/
+# pytest keeps its basetemp here when the environment points TMP inside the workspace
+pytest-of-*/
+pytest-*/
+

@@ -4,8 +4,10 @@
   "blenderExe": "C:\\Program Files\\Blender Foundation\\Blender 5.2\\blender.exe",
   "addonHost": "127.0.0.1",
   "addonPort": 9876,
-  "httpPort": 9877,
+  "httpPort": 39877,
+  "gatewayPort": 39877,
   "holder": "my-session",
   "leaseTtlMs": 600000,
+  "_legacy_note": "addonHost/addonPort 仅 3.0.x addon 监听模式使用；3.1 addon 主动连接 Gateway，无需配置。",
   "_WSL_note": "WSL 里跑 DSH、Blender 在 Windows 时：blenderExe 写 /mnt/d/.../blender.exe，workDir 写 Windows 盘符路径（会自动映射到 /mnt/d/...）"
 }

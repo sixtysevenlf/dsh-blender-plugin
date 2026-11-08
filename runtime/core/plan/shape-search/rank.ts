@@ -72,11 +72,11 @@ export function buildNextSteps(
   const nextSteps: string[] = []
   if (best)
     nextSteps.push(
-      '换另一条通路复核（内环只优化你写的 score）：blender_rt_plan(op="qc_render_views", args={views:[…], ref_path:"…"}) + op="audit_measure" + blender_rt_see',
+      '换另一条通路复核（内环只优化你写的 score）：blender_op(op="qc_render_views", args={views:[…], ref_path:"…"}) + op="audit_measure" + blender_see',
     )
   if (!p.export)
     nextSteps.push(
-      '要落可复现脚本：本 op 加 export:"D:/out/best_fit.py"（或 blender_rt_loop(op="export", path=…)）',
+      '要落可复现脚本：本 op 加 export:"D:/out/best_fit.py"（或 blender_op(op="export", path=…)）',
     )
   if (objective === 'aabb_err')
     nextSteps.push(

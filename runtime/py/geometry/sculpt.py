@@ -19,18 +19,18 @@ foreach_set。实测 1986 顶点单笔 257 顶点受影响 / 6 ms；天然支持
 不依赖 sculpt 模式、不改全局模式、无头可跑、结果可 diff —— 与 generator_*（程序即形状）同源。
 
 API 挂 K.dsh_sculpt_api；入口：
-    blender_rt_plan(op="sculpt_scan",   args={objects:["Head"]})
-    blender_rt_plan(op="sculpt_setup",  args={object:"Head", mode:"VOXEL", voxel_size:"auto"})
-    blender_rt_plan(op="sculpt_apply",  args={object:"Head", strokes:[
+    blender_op(op="sculpt_scan",   args={objects:["Head"]})
+    blender_op(op="sculpt_setup",  args={object:"Head", mode:"VOXEL", voxel_size:"auto"})
+    blender_op(op="sculpt_apply",  args={object:"Head", strokes:[
         {brush:"draw",   points:[[0,0,1.2],[0.1,0,1.3]], radius:0.35, strength:0.6},
         {brush:"crease", points:[[0.6,0,0.8]], radius:0.12, strength:0.8, symmetry:["x"]}]})
-    blender_rt_plan(op="sculpt_filter", args={objects:["Head"], type:"SMOOTH", strength:0.4})
-    blender_rt_plan(op="sculpt_mask",   args={objects:["Head"], mode:"sphere", center:[0,0,1], radius:0.5})
-    blender_rt_plan(op="sculpt_remesh", args={objects:["Head"], mode:"VOXEL", voxel_size:"auto"})
+    blender_op(op="sculpt_filter", args={objects:["Head"], type:"SMOOTH", strength:0.4})
+    blender_op(op="sculpt_mask",   args={objects:["Head"], mode:"sphere", center:[0,0,1], radius:0.5})
+    blender_op(op="sculpt_remesh", args={objects:["Head"], mode:"VOXEL", voxel_size:"auto"})
 
 **硬规则**：0 个 mesh ⇒ ok=false；NaN/Inf 参数一律拒绝（会写坏 .blend）；体素重构先算预算
 （cells = Π(dim/v)，超 max_cells 就报错并给出可用尺寸，而不是让 Blender 卡到超时）。
-雕刻改拓扑后对象级 mark/revert 回不去 —— 要回退请用 blender_rt_txn(op="snapshot")。
+雕刻改拓扑后对象级 mark/revert 回不去 —— 要回退请用 blender_session(action="txn", op="snapshot")。
 """
 import json
 import math
@@ -413,7 +413,7 @@ def sculpt_scan(objects=None, scope="ACTIVE"):
                "capability": {"scriptable_free": ["draw", "inflate", "pinch", "flatten", "smooth", "crease"],
                               "scriptable_gui_only": ["mesh_filter", "mask_from_cavity", "face_sets_init"],
                               "not_scriptable": ["sculpt.brush_stroke（5.2 RNA 拒绝 dict / 无法实例化 stroke 元素）"]},
-               "note": "雕刻改拓扑后对象级 mark/revert 回不去；改前用 blender_rt_txn(op=\"snapshot\")"})
+               "note": "雕刻改拓扑后对象级 mark/revert 回不去；改前用 blender_session(action='txn', op='snapshot')"})
 
 
 def sculpt_setup(object=None, objects=None, mode="KEEP", voxel_size=None, levels=2, detail_size=12.0,
@@ -735,7 +735,7 @@ def sculpt_help():
                      "audit_mesh/audit_drift 前后对比 + qc_render_views 出图验收"],
         "hard_rules": ["0 个 mesh ⇒ ok=false", "NaN/Inf 参数一律拒绝",
                        "体素重构先算预算，超限报错并给可用尺寸",
-                       "雕刻改拓扑 ⇒ 对象级 mark/revert 回不去，要回退用 blender_rt_txn(op=\"snapshot\")"],
+                       "雕刻改拓扑 ⇒ 对象级 mark/revert 回不去，要回退用 blender_session(action='txn', op='snapshot')"],
         "limits": {"brush_stroke": "Blender 5.2 上 Python 无法构造 stroke 集合（RNA 拒绝 dict；元素无法实例化）；"
                                    "上下文本身没问题（temp_override 后 poll()=True）",
                    "multires_sculpt": "位移写在基础网格上；multires 层上的雕刻需 GUI 手势，脚本暂不支持",

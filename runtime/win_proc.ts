@@ -4,10 +4,10 @@
  * 背景：残留后端的清理原先只认 POSIX —— Linux 读 /proc，macOS 走 `ps -ax`。
  * Windows 两样都没有，于是 `killBackendByCmd`（host 侧 stop/restart）与
  * `samePortHolders`（后端 EADDRINUSE 自愈）在 win32 上**静默返回 []**：
- * op=stop / op=restart 之后，僵尸后端仍占着 9877（或自定义端口），谁都不清。
+ * op=stop / op=restart 之后，僵尸后端仍占着 39877（或自定义端口），谁都不清。
  *
  * 这里给三条判据，**按可靠性排序**（调用方也按这个顺序用）：
- *   ① 命令行归属（CIM / Win32_Process）：命令行里含 `server.js` 且 `--port <n>` 精确匹配
+ *   ① 命令行归属（CIM / Win32_Process）：命令行里含 `gateway.js` 且 `--port <n>` 精确匹配
  *      —— 唯一不会误杀的判据，也是 kill 前必须通过的判据；
  *   ② 端口监听者（`netstat -ano`）：拿到占端口的 PID，但**必须**再按映像名过滤；
  *   ③ 进程映像名（`tasklist`）：给 ② 做归属过滤 —— 只认与当前进程**同名**的可执行体
@@ -34,12 +34,12 @@ function timeoutOption(value: unknown, fallback: number, min: number, max: numbe
  * 解析 `netstat -ano -p TCP` 的 LISTENING 行，返回占着目标端口的 PID（去重、升序）。
  *
  * 真实输出（Windows 10/11，列分隔为若干空格）：
- *   TCP    0.0.0.0:9877     0.0.0.0:0      LISTENING     1234
- *   TCP    [::]:9877        [::]:0         LISTENING     5678
- *   TCP    127.0.0.1:9877   127.0.0.1:5013 ESTABLISHED   1234   ← 不是监听，忽略
+ *   TCP    0.0.0.0:39877     0.0.0.0:0      LISTENING     1234
+ *   TCP    [::]:39877        [::]:0         LISTENING     5678
+ *   TCP    127.0.0.1:39877   127.0.0.1:5013 ESTABLISHED   1234   ← 不是监听，忽略
  *
  * ★ 只认 LISTENING：ESTABLISHED 行同样带本地端口，拿它当"占用者"会把正常连接的服务端拉进来。
- * ★ 端口必须**精确**匹配：9877 不能命中 98770 / 19877。
+ * ★ 端口必须**精确**匹配：39877 不能命中 3398770 / 139877。
  */
 export function parseNetstatListeners(text: string | null | undefined, port: unknown): number[] {
   const want = Number(port)
@@ -50,7 +50,7 @@ export function parseNetstatListeners(text: string | null | undefined, port: unk
     if (cols.length < 5) continue
     if (!/^TCP$/i.test(cols[0])) continue
     if (!/^LISTENING$/i.test(cols[3])) continue
-    const m = /:(\d+)$/.exec(cols[1]) // 同时吃 "0.0.0.0:9877" 与 "[::]:9877"
+    const m = /:(\d+)$/.exec(cols[1]) // 同时吃 "0.0.0.0:39877" 与 "[::]:39877"
     if (!m || Number(m[1]) !== want) continue
     const pid = Number(cols[4])
     if (Number.isInteger(pid) && pid > 0 && pid !== process.pid) pids.add(pid)
@@ -88,7 +88,7 @@ export function tasklistImageName(pid: unknown, timeoutMs = 3000): string {
 
 /**
  * 判据 ①：按**命令行归属**扫出"本插件的后端进程"（CIM / Win32_Process）。
- * 命令行必须同时满足：独立 argv 里出现 `server.js` / `server.mjs`、且 `--port <port>` 精确匹配。
+ * 命令行必须同时满足：独立 argv 里出现 `gateway.js` / `gateway.mjs`、且 `--port <port>` 精确匹配。
  * 与 POSIX 侧同一条自伤教训保持一致（2026-09-29：子串匹配会把调用方自己的 shell 一起杀掉）。
  */
 export function winServerPidsByCmdline(port: unknown, opts: WinProcOptions = {}): number[] {
@@ -99,7 +99,7 @@ export function winServerPidsByCmdline(port: unknown, opts: WinProcOptions = {})
   const script = [
     '$ErrorActionPreference = "SilentlyContinue";',
     'Get-CimInstance Win32_Process |',
-    "Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -and $_.CommandLine -match '(server\\.(mjs|js))' -and $_.CommandLine -match '--port\\s+" +
+    "Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -and $_.CommandLine -match '(gateway\\.(mjs|js))' -and $_.CommandLine -match '--port\\s+" +
       p +
       "(\\s|$)' } |",
     'ForEach-Object { [string]$_.ProcessId }',
@@ -151,6 +151,23 @@ export function winPortHolderPids(port: unknown, opts: WinProcOptions = {}): num
     if (image && image === want) out.push(pid)
   }
   return out
+}
+
+/** 占端口的监听者（任意进程，不做映像名过滤）；用于失败归因，不用于 kill。 */
+export function winPortListenerPids(port: unknown, opts: WinProcOptions = {}): number[] {
+  if (!IS_WIN) return []
+  const timeoutMs = timeoutOption(opts.timeoutMs, 4000, 1000, 10000)
+  try {
+    const text = execFileSync('netstat.exe', ['-ano', '-p', 'TCP'], {
+      encoding: 'utf8',
+      timeout: timeoutMs,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    return parseNetstatListeners(text, port)
+  } catch {
+    return []
+  }
 }
 
 /** Windows 上"占着本端口的同族后端"：先按命令行归属，再按端口 + 同名映像兜底。 */

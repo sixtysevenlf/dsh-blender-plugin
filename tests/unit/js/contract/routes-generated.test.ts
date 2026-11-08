@@ -9,7 +9,7 @@ import { pkgPath } from '../../../helpers/pkg'
 const PACKAGE = pkgPath()
 const CHECK = path.join(PACKAGE, 'scripts', 'check-routes.mjs')
 const ROUTING = 'config/routing.json'
-const GENERATED = ['src/plan/routes.generated.ts', 'runtime/core/dispatcher/routes.generated.ts']
+const GENERATED = ['runtime/core/dispatcher/routes.generated.ts']
 const tmpRoots: string[] = []
 
 function fixture(): string {
@@ -60,7 +60,7 @@ describe('generated route tables', () => {
     expect(String(result.report?.source)).toBe(ROUTING)
   })
 
-  it('stamps the source hash into both generated headers', () => {
+  it('stamps the source hash into the generated header', () => {
     const source = fs.readFileSync(path.join(PACKAGE, ROUTING), 'utf8')
     const hash = crypto.createHash('sha256').update(source).digest('hex')
     for (const file of GENERATED) {
@@ -93,7 +93,7 @@ describe('generated route tables', () => {
 
   it('fails when a generated table is missing', () => {
     const root = fixture()
-    fs.rmSync(path.join(root, GENERATED[1]))
+    fs.rmSync(path.join(root, GENERATED[0]))
     const result = check(root)
     expect(result.status).toBe(1)
     expect(String(result.report?.failures)).toContain('is missing')

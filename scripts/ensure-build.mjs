@@ -4,7 +4,7 @@
  *
  * 为什么需要：runtime 现在只有 .ts 源码，Node 进程无法直接 import。
  *   · Vitest unit/integration 直接 import runtime TS（Vite 转译）；
- *   · integration 测试 spawn 的是 lib/runtime/server.js；
+ *   · integration 测试 spawn 的是 lib/runtime/gateway.js；
  *   · tests 下的 selftest / e2e 脚本 import lib/runtime 构建出的 .js；
  *   · scripts/check-*.mjs 是普通 Node 脚本，只能读 lib/runtime 构建产物。
  * 这些入口都先调用本模块：lib/ 缺失或比源码旧才重建，并发调用用原子锁目录串行化。
@@ -26,7 +26,7 @@ const LOCK = path.join(LIB, '.build.lock')
 const NEED = [
   'lib/index.js',
   'lib/client.js',
-  'lib/runtime/server.js',
+  'lib/runtime/gateway.js',
   'lib/runtime/engine.js',
   'lib/runtime/catalog/index.js',
   'lib/runtime/config.js',

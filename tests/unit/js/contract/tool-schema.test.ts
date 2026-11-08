@@ -20,7 +20,7 @@ beforeAll(() => {
 afterAll(() => fake.dispose())
 
 describe('tool schema contract', () => {
-  it('registers exactly the 15 frozen model-facing tools', () => {
+  it('registers exactly the 6 frozen model-facing tools', () => {
     expect(tools).toHaveLength(lock.tools_count)
     expect(tools.map((t) => t.name).sort()).toEqual([...lock.tools].sort())
     expect(new Set(tools.map((t) => t.name)).size).toBe(tools.length)
@@ -44,12 +44,19 @@ describe('tool schema contract', () => {
   })
 
   it('marks concurrency only where the tool authority allows it', () => {
+    const READ_ONLY = new Set(['blender_session', 'blender_see', 'blender_inspect'])
+    // The published signature is zero-argument; the registry wrapper (and the
+    // host dispatch) pass the validated argument object, so probe it that way.
+    const args: Record<string, unknown> = {
+      blender_session: { action: 'list' },
+      blender_see: {},
+      blender_inspect: {},
+    }
     for (const t of tools) {
-      if (t.name === 'blender_viewport') expect(t.isConcurrencySafe).toBeUndefined()
-      else {
-        const guard = t.isConcurrencySafe
-        expect(typeof guard, t.name).toBe('function')
-        if (typeof guard === 'function') expect(typeof guard(), t.name).toBe('boolean')
+      const guard = t.isConcurrencySafe as unknown as ((a?: unknown) => boolean) | undefined
+      expect(typeof guard, t.name).toBe('function')
+      if (typeof guard === 'function') {
+        expect(guard(args[t.name] ?? {}), t.name).toBe(READ_ONLY.has(t.name))
       }
     }
   })

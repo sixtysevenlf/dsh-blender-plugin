@@ -1,7 +1,12 @@
 import { afterAll, describe, expect, it } from 'vitest'
 import { createEngine } from '../../../runtime/engine.js'
 
-const engine = createEngine() as any
+const fakeAddon = {
+  send: async () => ({}),
+  close: () => {},
+  instances: [],
+}
+const engine = createEngine({ addonClient: fakeAddon as any }) as any
 afterAll(() => engine.stop())
 
 describe('engine assembly', () => {

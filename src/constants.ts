@@ -10,26 +10,26 @@ export const IS_WIN = process.platform === 'win32'
  * description 由**已加载的那份 lib** 生成 → 会话里一眼能看出自己跑的是哪一代，
  * 不会再出现「读的是新源码、跑的是旧 lib」那种排查事故（外部反馈 j20-build 的元教训）。
  */
-export const PLUGIN_VERSION = '3.0.6'
+export const PLUGIN_VERSION = '3.1.0'
 
 // 后端与 Blender 侧模块都放在插件包的 runtime/ 下 → 整个包可搬到任意目录（WSL 或 Windows）
 export const HERE = path.dirname(fileURLToPath(import.meta.url))
 /**
- * Runtime 源码是 TypeScript，运行时入口是构建产物 lib/runtime/server.js。
- * - 生产/打包布局：HERE = <pkg>/lib → <pkg>/lib/runtime/server.js
- * - 开发/测试布局：HERE = <pkg>/src → <pkg>/lib/runtime/server.js（先 build）
- * DSH_BLENDER_SERVER 覆盖仍然最高优先级（排障/自定义安装位置用）。
+ * Runtime 源码是 TypeScript，运行时入口是构建产物 lib/runtime/gateway.js。
+ * - 生产/打包布局：HERE = <pkg>/lib → <pkg>/lib/runtime/gateway.js
+ * - 开发/测试布局：HERE = <pkg>/src → <pkg>/lib/runtime/gateway.js（先 build）
+ * DSH_BLENDER_GATEWAY_ENTRY 覆盖仍然最高优先级（排障/自定义安装位置用）。
  */
-export function resolveServerPath(
+export function resolveGatewayPath(
   here: string = HERE,
   env: NodeJS.ProcessEnv = process.env,
   exists: (p: string) => boolean = existsSync,
 ): string {
-  const override = env.DSH_BLENDER_SERVER
+  const override = env.DSH_BLENDER_GATEWAY_ENTRY || env.DSH_BLENDER_SERVER
   if (override) return override
   const candidates = [
-    path.join(here, 'runtime', 'server.js'),
-    path.join(here, '..', 'lib', 'runtime', 'server.js'),
+    path.join(here, 'runtime', 'gateway.js'),
+    path.join(here, '..', 'lib', 'runtime', 'gateway.js'),
   ]
   for (const candidate of candidates) {
     if (exists(candidate)) return candidate
@@ -37,12 +37,12 @@ export function resolveServerPath(
   // 未构建时仍返回构建布局路径：错误信息指向真实缺失的产物，而不是已删除的旧 .mjs。
   return candidates[0]
 }
-export const SERVER_PATH = resolveServerPath()
+export const GATEWAY_PATH = resolveGatewayPath()
 export const HOSTNAME = '127.0.0.1'
 
 /** 后端未就绪时的统一提示（不假设任何本机路径） */
 export const BACKEND_HINT =
-  '先确认 Blender 在运行且本仓 addon（DSH Blender Bridge v1.10+）已 Connect；然后 blender_viewport op=start 拉起后端。' +
+  '先确认 Blender 在运行且本仓 addon（DSH Blender Bridge v2.0+）已连接 Gateway；Gateway 由宿主管理，重启 DSH 插件即可。' +
   '端口/工作目录/blender.exe 可用 DSH_BLENDER_* 环境变量或包根 dsh-blender.config.json 配置（见 docs/配置参考.md）。'
 
 /**
@@ -128,7 +128,7 @@ export const HOST_API = hostApiInfo()
 /** 宿主取消（exec.signal abort）时的统一措辞：只说"等待被取消"，不谎称任务失败 */
 export const ABORT_HINT =
   '宿主取消了本次等待（exec.signal 已 abort：用户打断或 per-tool 截止）。' +
-  '服务端任务可能仍在跑 —— 长任务请用 blender_rt_job 并按 runId 回收；' +
+  '服务端任务可能仍在跑 —— 长任务请用 blender_run（submit → wait/collect 按 jobId 回收）；' +
   '本插件的内部超时通常先于宿主截止触发，正常情况看到的是上面这类可读错误。'
 
 /** 本会话在写通道上的身份（租约 holder）；跨会话共用同一个后端时用它区分 */

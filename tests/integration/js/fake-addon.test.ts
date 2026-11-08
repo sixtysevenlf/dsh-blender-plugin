@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { AddonClient } from '../../../runtime/transport/probes.js'
+import { AddonClient } from '../../helpers/legacy-flat-addon-client.js'
 import { detectProtocol } from '../../../runtime/addon-protocol.js'
 import { startFakeAddon } from '../../helpers/fake-addon.mjs'
 
@@ -38,7 +38,7 @@ describe('addon channel against a fake addon', () => {
     const c = client(server)
     await expect(c.send('get_addon_info', {}, 1000)).resolves.toMatchObject({
       name: 'DSH Blender Bridge',
-      protocol: 11,
+      protocol: 12,
     })
     await expect(c.send('ping', {}, 1000)).resolves.toMatchObject({ pong: true })
   })

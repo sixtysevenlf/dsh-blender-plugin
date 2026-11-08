@@ -31,7 +31,7 @@ const engineSource = [
   readTree(pkgPath('runtime', 'core', 'engine'), '.ts'),
 ].join('\n')
 const addonSource = readTree(pkgPath('addon', 'dsh_blender_bridge'), '.py')
-const serverSource = readTree(pkgPath('runtime', 'http'), '.ts')
+const gatewayLifecycleSource = readTree(pkgPath('runtime', 'gateway'), '.ts')
 
 describe('backend start decision table', () => {
   it('prefers a listening port over a stale child handle', () => {
@@ -67,18 +67,43 @@ describe('configuration contract', () => {
     const d = describeConfig()
     expect(CFG.addonHost).toBe('127.0.0.1')
     expect(CFG.addonPort).toBe(9876)
-    expect(CFG.httpPort).toBe(9877)
+    expect(CFG.httpPort).toBe(39877)
+    expect(CFG.gatewayPort).toBe(39877)
     expect(CFG.leaseTtlMs).toBe(600000)
     expect(CFG.workerPort).toBe(9879)
     expect(d.addon).toBe('127.0.0.1:9876')
-    expect(d.http).toBe('127.0.0.1:9877')
+    expect(d.http).toBe('127.0.0.1:39877')
+    expect(d.gateway).toBe('127.0.0.1:39877')
     expect(d.leaseTtlMs).toBe(600000)
     expect(d.workerPort).toBe(9879)
   })
 
+  it('uses 9877 only when the Gateway port is explicitly configured', () => {
+    const code =
+      'import(' +
+      JSON.stringify(pathToFileURL(pkgPath('lib', 'runtime', 'config.js')).href) +
+      ').then(m => console.log(JSON.stringify({ gateway: m.CFG.gatewayPort })))'
+    const run = (extra: Record<string, string>) =>
+      JSON.parse(
+        execFileSync(process.execPath, ['--input-type=module', '-e', code], {
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            DSH_BLENDER_CONFIG: pkgPath('tmp', 'does-not-exist.json'),
+            ...extra,
+          },
+        })
+          .trim()
+          .split('\n')
+          .pop()!,
+      )
+    expect(run({}).gateway).toBe(39877)
+    expect(run({ DSH_BLENDER_GATEWAY_PORT: '9877' }).gateway).toBe(9877)
+  })
+
   it('lets the command-line port override the summary only', () => {
     expect(describeConfig({ httpPort: 19999 }).http).toBe('127.0.0.1:19999')
-    expect(describeConfig().http).toBe('127.0.0.1:9877')
+    expect(describeConfig().http).toBe('127.0.0.1:39877')
   })
 
   it('reads a config file when no environment override is present', () => {
@@ -119,7 +144,7 @@ describe('configuration contract', () => {
     })
     expect(JSON.parse(raw.trim().split('\n').pop()!)).toEqual({
       addon: 9876,
-      http: 9877,
+      http: 39877,
       ttl: 600000,
     })
   })
@@ -157,7 +182,7 @@ describe('configuration contract', () => {
 })
 
 describe('backend lifecycle operations', () => {
-  it('keeps v2.6.2 apply order: lifecycle effects before the 15 tools', () => {
+  it('keeps v2.6.2 apply order: lifecycle effects before the 6 tools', () => {
     const f = createFakeContext()
     plugin.apply(f.ctx, { autoStart: false, tui: false, port: 9898 })
     const watchdog = f.events.indexOf('effect:dsh-blender-plugin: watchdog')
@@ -169,29 +194,27 @@ describe('backend lifecycle operations', () => {
     f.dispose()
   })
 
-  it('re-registers all 15 tools after a host dispose and reload', () => {
+  it('re-registers all 6 tools after a host dispose and reload', () => {
     const first = createFakeContext()
     plugin.apply(first.ctx, { autoStart: false, tui: false, port: 9898 })
-    expect(first.tools).toHaveLength(15)
+    expect(first.tools).toHaveLength(6)
     first.dispose()
     const second = createFakeContext()
     plugin.apply(second.ctx, { autoStart: false, tui: false, port: 9898 })
-    expect(second.tools).toHaveLength(15)
+    expect(second.tools).toHaveLength(6)
     second.dispose()
   })
 
-  it('starts against an existing backend, pauses on stop, and restarts in place', async () => {
+  it('reports Gateway health through blender_session status and doctor', async () => {
     const backend = await startFakeBackend()
     const f = createFakeContext()
     plugin.apply(f.ctx, { autoStart: false, tui: false, port: backend.port })
-    const viewport = f.tools.find((t) => t.name === 'blender_viewport')!
+    const session = f.tools.find((t) => t.name === 'blender_session')!
     try {
-      const started = await (viewport.execute as any)({ op: 'start' }, {})
-      expect(started).toContain('后端已在运行')
-      const stopped = await (viewport.execute as any)({ op: 'stop' }, {})
-      expect(stopped).toContain('看护已暂停')
-      const restarted = await (viewport.execute as any)({ op: 'restart' }, {})
-      expect(restarted).toContain('后端已重启')
+      const status = await (session.execute as any)({ action: 'status' }, {})
+      expect(status.text).toContain('SESSION status')
+      const doctor = await (session.execute as any)({ action: 'doctor' }, {})
+      expect(doctor.text).toContain('SESSION doctor · ok=true')
     } finally {
       f.dispose()
       await backend.close()
@@ -200,11 +223,11 @@ describe('backend lifecycle operations', () => {
 })
 
 describe('lifecycle source contract', () => {
-  it('keeps the watchdog cadence, two-miss threshold, and lease heartbeat', () => {
+  it('keeps the watchdog cadence and two-miss threshold without a global lease renewal', () => {
     expect(indexSource).toContain('setInterval')
     expect(indexSource).toContain('15000')
     expect(indexSource).toContain('probeMisses >= 2')
-    expect(indexSource).toContain('renewOnly: true')
+    expect(indexSource).not.toContain('renewOnly')
     expect(indexSource).toContain('SIGKILL')
     expect(indexSource).toContain('backend')
   })
@@ -221,12 +244,11 @@ describe('lifecycle source contract', () => {
     expect(addonSource).toContain('unregister_activity_handlers()')
   })
 
-  it('reclaims a dead port and exits cleanly when the holder answers', () => {
-    expect(serverSource).toContain("code === 'EADDRINUSE'")
-    expect(serverSource).toContain('reclaimTries < 2')
-    expect(serverSource).toContain('process.exit(0)')
-    expect(serverSource).toContain('SIGTERM')
-    expect(serverSource).toContain('SIGKILL')
-    expect(serverSource).toContain("process.on('SIGTERM', shutdown)")
+  it('fails closed on an occupied Gateway port and cleans up on SIGTERM', () => {
+    expect(gatewayLifecycleSource).toContain("code === 'EADDRINUSE'")
+    expect(gatewayLifecycleSource).toContain('GATEWAY_IN_USE')
+    expect(gatewayLifecycleSource).toContain('port_conflict')
+    expect(gatewayLifecycleSource).toContain("process.once('SIGTERM', shutdown)")
+    expect(gatewayLifecycleSource).toContain('stopGateway(app)')
   })
 })

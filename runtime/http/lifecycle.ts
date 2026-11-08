@@ -63,7 +63,7 @@ export function startServer({ server, engine, port, host, routes }: StartServerO
         ? '端口 ' +
           port +
           ' 已被占用（EADDRINUSE）且自动夺回失败：多半是上一次的后端僵死。' +
-          '处置：blender_viewport op=restart，或 kill -9 掉 /proc 里 cmdline 含 "server.js --port ' +
+          '处置：blender_session op=restart，或 kill -9 掉 /proc 里 cmdline 含 "gateway.js --port ' +
           String(port) +
           '" 的进程。'
         : '监听失败：' + errorMessage(e)

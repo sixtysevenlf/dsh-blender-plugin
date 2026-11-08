@@ -5,12 +5,12 @@
 所以"用 socket 通道"= 必须 GUI、"用 headless"= 每次都冷启动。本 worker 两者都要：
     blender.exe -b --factory-startup --python worker.py -- --port 9879 --gpu auto
 它把 **阻塞 accept 循环跑在主线程**（无头下 bpy.app.timers 不触发，实测 0 次；主线程执行 bpy 调用才安全），
-复用持久内核 K（与 blender_rt_do 同一套语义），并提供 GPU 前导与结构化回执。
+复用持久内核 K（与 blender_py 同一套语义），并提供 GPU 前导与结构化回执。
 
 协议（换行分帧 JSON）：
     请求  {"id":1,"op":"ping"} | {"id":2,"op":"exec","code":"..."} | {"id":3,"op":"status"} | {"id":4,"op":"shutdown"}
     应答  {"id":2,"ok":true,"ms":12,"stdout":"...","stderr":"","result":{...}}
-约定：脚本里 print("HEADLESS {json}") （单行）会被解析成 result —— 与 blender_rt_headless 一致。
+约定：脚本里 print("HEADLESS {json}") （单行）会被解析成 result —— 与 blender_run 一致。
 串行语义：一次只处理一个请求；长代码会占住 worker（这是"热"的代价，也是安全的来源）。
 """
 

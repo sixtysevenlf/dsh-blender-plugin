@@ -37,7 +37,7 @@
       "id": "EXC-PRIVATE-IMPORT-POLYHAVEN-ASSETS",
       "kind": "python-private-import",
       "path": "addon/dsh_blender_bridge/commands/assets_polyhaven.py",
-      "detail": "from ..integrations.polyhaven_client import _polyhaven_api_get, _polyhaven_asset_record, _polyhaven_asset_url, _polyhaven_keyword_match, _polyhaven_preview_url, _polyhaven_search, _polyhaven_summarize_asset, _polyhaven_taxonomy, _polyhaven_valid_slug",
+      "detail": "from ..integrations.polyhaven_client import _polyhaven_api_get, _polyhaven_keyword_match, _polyhaven_search, _polyhaven_summarize_asset, _polyhaven_taxonomy",
       "reason": "Cross-package reuse of private helpers from integrations/*_client.py predates the addon package split. The names stay private until those modules are next touched; the pytest private-import contract ties this registry entry to the real import graph so the entry cannot go stale.",
       "owner": "addon-integrations",
       "reviewBy": "2027-06-30"

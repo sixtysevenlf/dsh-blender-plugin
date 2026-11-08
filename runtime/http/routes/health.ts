@@ -34,6 +34,7 @@ export function createHealthRoutes(E: HttpRouteDeps) {
             return { verdict: 'unknown', error: errorMessage(e) }
           }
         })(),
+        gateway: typeof E.gatewayOwner === 'function' ? (E.gatewayOwner as () => unknown)() : null,
         backend: {
           pid: process.pid,
           rssMB: Math.round(process.memoryUsage().rss / 1048576),
@@ -47,7 +48,7 @@ export function createHealthRoutes(E: HttpRouteDeps) {
         ok: false,
         error: 'gone',
         reason: '人肉视口面板（网页 UI + MJPEG 直播 + 输入注入）已移除',
-        hint: '请关闭此标签页；Blender 交互改用 AI 通道：blender_rt_see / blender_rt_do / blender_rt_watch',
+        hint: '请关闭此标签页；Blender 交互改用 AI 通道：blender_see / blender_py / blender_see',
         removedAt: '2026-09-12',
       })
       return
@@ -62,6 +63,7 @@ export function createHealthRoutes(E: HttpRouteDeps) {
           // statusView 已经把 addon 失败收进 addonError；路由必须透出，否则
           // presenter 的 addonError / addon_unresponsive 判定在生产里是死代码。
           addonError: s.addonError || null,
+          readiness: s.readiness || null,
           plugin: s.plugin || null,
           runs: s.runs || [],
           jobs: s.jobs || [],

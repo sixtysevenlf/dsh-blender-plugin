@@ -23,12 +23,12 @@ def qc_render_device_info():
 def qc_render_dispatch(op, args=None):
     """op 两种拼写都认 —— engine 路由会把 `qc_render_<X>` 的前 3 个字符剥掉，于是收到的是 `render_<X>`：
 
-        blender_rt_plan(op="qc_render_views", args={...})     → dispatch("render_views")
-        blender_rt_plan(op="qc_render_help")                  → dispatch("render_help")
-        blender_rt_plan(op="qc_render_selftest", args={...})  → dispatch("render_selftest")
-        blender_rt_plan(op="qc_render_catalog")               → dispatch("render_catalog")
-        blender_rt_plan(op="qc_render_device_info")           → dispatch("render_device_info")
-        blender_rt_plan(op="qc_render_lock", args={...})      → dispatch("render_lock")   # v0.9.1 E1
+        blender_op(op="qc_render_views", args={...})     → dispatch("render_views")
+        blender_op(op="qc_render_help")                  → dispatch("render_help")
+        blender_op(op="qc_render_selftest", args={...})  → dispatch("render_selftest")
+        blender_op(op="qc_render_catalog")               → dispatch("render_catalog")
+        blender_op(op="qc_render_device_info")           → dispatch("render_device_info")
+        blender_op(op="qc_render_lock", args={...})      → dispatch("render_lock")   # v0.9.1 E1
 
     坑（v0.8.11 修）：老 dict 里只登记了 "render_views"，所以 docs/操作教程.md 里写的
     `op="qc_render_help"` 其实一直落到 unknown op（实际收到的是 "render_help"）—— 这里把

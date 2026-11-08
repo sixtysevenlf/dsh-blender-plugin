@@ -92,23 +92,11 @@ function cardBaseName(p: unknown): string {
   const parts = String(p == null ? '' : p).split(/[\\/]/)
   return parts[parts.length - 1] || ''
 }
-/** rt_cmd 的 params：对象列前 3 个键，字符串截一行 */
-function cardParams(p: unknown): string {
-  if (p && typeof p === 'object' && !Array.isArray(p)) {
-    const keys = Object.keys(p)
-    return keys.length
-      ? '{' + keys.slice(0, 3).join(', ') + (keys.length > 3 ? ', …' : '') + '}'
-      : ''
-  }
-  return typeof p === 'string' ? cardClip(p, 32) : ''
-}
 /** 「头 · 要点1 · 要点2」，空要点跳过 */
 function cardTitle(head: string, parts: unknown[]): string {
   const tail = parts.map((x) => cardClip(x)).filter(Boolean)
   return tail.length ? head + ' · ' + tail.join(' · ') : head
 }
-const cardSession = (a: Record<string, unknown>): string =>
-  a.session ? '无头 ' + cardClip(a.session, 24) : ''
 const cardPython = (code: unknown): { label: string; code: string } | null =>
   typeof code === 'string' && code.trim() ? { label: 'Python', code: code } : null
 
@@ -119,84 +107,60 @@ export interface CardSpec {
   code?: (a: Record<string, unknown>) => { label: string; code: string } | null
 }
 export const CARD_SPECS: Record<string, CardSpec> = {
-  blender_rt_see: {
+  blender_session: {
+    kind: 'other',
+    title: (a) =>
+      cardTitle('Blender 会话', [
+        a.action || 'list',
+        a.session_id ? cardClip(a.session_id, 24) : '',
+        a.instance_id ? 'instance ' + cardClip(a.instance_id, 16) : '',
+      ]),
+  },
+  blender_op: {
+    kind: 'other',
+    title: (a) =>
+      cardTitle('Blender 算子', [
+        a.action || 'plan',
+        a.op,
+        a.family || '',
+        a.kind ? String(a.kind) : '',
+      ]),
+  },
+  blender_py: {
+    kind: 'execute',
+    title: (a) =>
+      cardTitle('Blender 执行 Python', [a.code ? cardCodeHeadline(a.code) : cardBaseName(a.file)]),
+    code: (a) => cardPython(a.code),
+  },
+  blender_see: {
     kind: 'read',
     title: (a) =>
-      a.full
-        ? cardTitle('Blender 截窗口', ['区域 ' + String(a.area || 0)])
-        : cardTitle('Blender 看视口', [
-            a.from || a.look_at
-              ? '自定义视角 ' + cardClip(a.from || '?', 20) + ' → ' + cardClip(a.look_at || '?', 20)
-              : '',
-            a.shading,
-            String(a.max_size || 560) + 'px',
-            cardSession(a),
-          ]),
-  },
-  blender_rt_do: {
-    kind: 'execute',
-    title: (a) =>
-      cardTitle('Blender 执行 Python', [
-        a.code ? cardCodeHeadline(a.code) : cardBaseName(a.file),
-        cardSession(a),
+      cardTitle('Blender 看视口', [
+        a.viewpoint || (a.from || a.look_at ? 'custom' : 'viewport'),
+        a.mode || 'frame',
+        a.from ? cardClip(a.from, 20) + ' → ' + cardClip(a.look_at || '?', 20) : '',
+        a.aspect || '',
+        a.max_size ? String(a.max_size) + 'px' : '',
+        a.seconds ? String(a.seconds) + 's@' + String(a.fps || 4) + 'fps' : '',
       ]),
-    code: (a) => cardPython(a.code),
   },
-  blender_rt_watch: {
-    kind: 'execute',
-    title: (a) =>
-      cardTitle('Blender 连续观察', [
-        a.seconds ? String(a.seconds) + 's' : '',
-        a.fps ? String(a.fps) + 'fps' : '',
-        cardCodeHeadline(a.code),
-        cardSession(a),
-      ]),
-    code: (a) => cardPython(a.code),
-  },
-  blender_rt_cmd: {
-    kind: 'execute',
-    title: (a) => cardTitle('Blender 命令', [a.name, cardParams(a.params)]),
-  },
-  blender_rt_commands: { kind: 'search', title: () => 'Blender 命令清单' },
-  blender_rt_loop: {
-    kind: 'execute',
-    title: (a) =>
-      cardTitle('Blender 内环', [a.op, a.target, a.iterations ? String(a.iterations) + ' 次' : '']),
-  },
-  blender_rt_perf: { kind: 'other', title: (a) => cardTitle('Blender 性能', [a.op]) },
-  blender_rt_opt: { kind: 'edit', title: (a) => cardTitle('Blender 精简', [a.op]) },
-  blender_rt_headless: {
-    kind: 'execute',
-    title: (a) =>
-      cardTitle('Blender 无头', [
-        a.script_file ? cardBaseName(a.script_file) : cardCodeHeadline(a.script),
-        cardBaseName(a.file),
-        a.as_job ? '作业' : '',
-      ]),
-    code: (a) => cardPython(a.script),
-  },
-  blender_rt_plan: {
-    kind: 'other',
-    title: (a) => cardTitle('Blender 规划', [a.op, cardSession(a)]),
-  },
-  blender_rt_worker: {
-    kind: 'execute',
-    title: (a) => cardTitle('Blender 热会话', [a.op, a.name, cardCodeHeadline(a.code)]),
-    code: (a) => cardPython(a.code),
-  },
-  blender_rt_txn: { kind: 'other', title: (a) => cardTitle('Blender 事务', [a.op, a.label]) },
-  blender_rt_preset: { kind: 'other', title: (a) => cardTitle('Blender 配方', [a.op, a.name]) },
-  blender_rt_job: {
+  blender_run: {
     kind: 'execute',
     title: (a) =>
       cardTitle('Blender 作业', [
-        a.op,
+        a.action || (a.kind ? 'submit' : 'list'),
+        a.kind,
         a.id,
         a.script_file ? cardBaseName(a.script_file) : cardCodeHeadline(a.script),
+        cardBaseName(a.file),
       ]),
     code: (a) => cardPython(a.script),
   },
-  blender_viewport: { kind: 'other', title: (a) => cardTitle('Blender 通道', [a.op || 'status']) },
+  blender_inspect: {
+    kind: 'search',
+    title: (a) =>
+      cardTitle('Blender 只读检查', [a.command && a.command !== 'help' ? a.command : '命令目录']),
+  },
 }
 
 /** 卡片正文里的代码段：一行标签 + 原样代码（过长时保留头尾） */

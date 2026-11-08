@@ -687,7 +687,7 @@ def qc_render_selftest(args=None):
     """渲染 harness 自检（v0.9.1 扩展）：投影对拍（老内容）+ Procedura 融合（v0.8.11）+ 93 反馈 A1/A2/E1/B1-B2。
 
     **必须在无头隔离进程里跑**（会临时建对象、覆盖材质槽、出图；虽然全部还原，但你在看着的场景不该被碰）：
-        blender_rt_headless(preload="qc,qc_render", engine="eevee", factory_startup=True, timeout_ms=300000,
+        blender_run(kind="headless", preload="qc,qc_render", engine="eevee", factory_startup=True, timeout_ms=300000,
                             script="import json;print('HEADLESS ' + K.dsh_qc_render_api['selftest']())")
     GUI 里默认拒绝；确实要跑传 {"allow_gui": true}（自检自己建的对象会删干净，但你的场景会被渲几张）。
 
@@ -729,7 +729,7 @@ def qc_render_selftest(args=None):
     if not bool(getattr(bpy.app, "background", False)) and not a.get("allow_gui"):
         return _j({"ok": False, "version": QC_RENDER_VERSION, "kind": "qc_render_selftest",
                    "error": "GUI 进程里默认不跑自检（会临时改当前场景的材质槽并渲几张）",
-                   "hint": "无头隔离跑：blender_rt_headless(preload=\"qc,qc_render\", engine=\"eevee\", "
+                   "hint": "无头隔离跑：blender_run(kind='headless', preload=\"qc,qc_render\", engine=\"eevee\", "
                            "factory_startup=True, timeout_ms=300000, "
                            "script=\"import json;print('HEADLESS ' + K.dsh_qc_render_api['selftest']())\")；"
                            "确要在 GUI 跑就传 {\"allow_gui\": true}"})

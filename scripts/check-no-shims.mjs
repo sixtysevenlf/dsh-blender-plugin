@@ -244,6 +244,33 @@ for (const file of sources) {
   )
 }
 
+// ---------- 5. 已迁移的 server 入口不得在运行代码/脚本/配置里复活 ----------
+const forbiddenTopology = [
+  ['runtime/server.ts', 'runtime/server'],
+  ['runtime/server.js', 'lib/runtime/server.js'],
+  ['SERVER_PATH', 'SERVER_PATH'],
+  ['resolveServerPath', 'resolveServerPath'],
+]
+for (const [needle, label] of forbiddenTopology) {
+  for (const file of sources) {
+    if (file.endsWith('.d.ts') || /\.generated\.ts$/.test(file)) continue
+    if (readFileSync(file, 'utf8').includes(needle)) {
+      failures.push('已退役的 server 入口引用（' + label + '）：' + rel(file))
+    }
+  }
+}
+for (const extra of [
+  'scripts/check-build.mjs',
+  'scripts/ensure-build.mjs',
+  'scripts/install-smoke.mjs',
+  'package.json',
+]) {
+  if (!existsSync(full(extra))) continue
+  if (readFileSync(full(extra), 'utf8').includes('runtime/server')) {
+    failures.push('已退役的 server 入口引用：' + extra)
+  }
+}
+
 if (failures.length) {
   console.error('check-no-shims: FAIL')
   for (const failure of failures) console.error('  x ' + failure)

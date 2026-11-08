@@ -26,17 +26,17 @@ description: 假设驱动建模方法论：当你需要「证据不足时明确�
 
 | 要做的事 | 工具 / API | 产出 |
 |---|---|---|
-| 记录假设与行为区间 | `blender_rt_plan(op="register_connection")`（candidates / params.range / forbidden / evidence_required） | 连接契约 |
+| 记录假设与行为区间 | `blender_op(op="register_connection")`（candidates / params.range / forbidden / evidence_required） | 连接契约 |
 | 只读校验（不动物体） | `op="check_envelope" / "check_interference" / "check_interface"` | 越界/干涉/间隙结果 |
 | 破坏性门控 | `op="destructive_guard"` | 允许/拦截 + 阻塞明细 |
-| 区间内自动搜索 | `blender_rt_loop`（setup/step/measure + penalize/anneal/board） | 候选表 + 最优参数 |
-| 判据（客观比对） | `blender_rt_plan(op="qc_compare" / "qc_self_check" / "qc_robustness_check")` | IoU/Dice/缺多面积/边界距离 + 对照图 |
+| 区间内自动搜索 | `blender_op(action="loop")`（setup/step/measure + penalize/anneal/board；GUI 会话内环） | 候选表 + 最优参数 |
+| 判据（客观比对） | `blender_op(op="qc_compare" / "qc_self_check" / "qc_robustness_check")` | IoU/Dice/缺多面积/边界距离 + 对照图 |
 | 判据出图（多视角） | `op="qc_render_views", args={views:[…], res, samples, budget_s, outdir, ref_path?}` | N 张 PNG + `render_views.jsonl`（每行 {view, ms, bytes, hash}）+ within_budget |
 | 翻转与判定 | `op="verify" / "flip"` | supported/refuted/unresolved + 历史 |
 | 证据与报告 | `op="evidence" / "ledger" / "report"` | 出图 + md5 + provenance 报告 |
-| 可回退实验 | `blender_rt_txn`（mark/revert；大改前 snapshot） | 回滚点 |
-| 跑长脚本 / 批量 | `blender_rt_do(file=…)` / `rt_headless` / `rt_worker` | 产物 + 日志 |
-| 看画面（不动场景） | `blender_rt_see({from, look_at, shading})` | 帧 + hash |
+| 可回退实验 | `blender_session(action="txn", op="mark"\|"revert")`（大改前 `op="snapshot"`） | 回滚点 |
+| 跑长脚本 / 批量 | GUI 会话里 `blender_py(file=…)`；不占 GUI 用后台作业 `blender_run(action="submit", kind="headless", file=…)` | 产物 + 日志 |
+| 看画面（不动场景） | `blender_see(from=…, look_at=…, shading=…)` | 帧 + hash |
 
 **怎么算过关**：所有判定由程序给出（含 unresolved），不靠叙述。
 
@@ -45,11 +45,11 @@ description: 假设驱动建模方法论：当你需要「证据不足时明确�
 **何时用**：收尾、交接、或要给用户一个可信结论时。
 
 1. **目标与完成标准**先写下来（做到什么算完，用什么量测）；
-2. **环境探测**（先做别猜）：`blender_viewport(op="doctor")` 通道体检、`rt_commands` 集成状态、`rt_perf(op="status")` 引擎与采样；
+2. **环境探测**（先做别猜）：`blender_session(action="doctor")` 通道体检、`blender_inspect()` 集成状态、`blender_run(action="tune", op="status")` 引擎与采样；
 3. **执行**：按层 2 的原语做，过程出图/日志留档；
 4. **自查**：`qc_self_check`（算法自检）+ `qc_robustness_check`（扰动鲁棒性）+ 关键结论的 md5 证据；
 5. **汇报**：给结论 + 判据数字 + 未判明项（unresolved 要显式列出，并写清需要什么探针）；
-6. **归档与排障**：成品进 `D:\Blender\<项目>\`，QC/探针留在工作区；排障先看 `rt_perf status` / `rt_worker status` / 日志路径。
+6. **归档与排障**：成品进 `D:\Blender\<项目>\`，QC/探针留在工作区；排障先看 `blender_run(action="tune", op="status")` / `blender_run(action="list")` / 作业日志路径。
 
 **怎么算过关**：写者 ≠ 验者（独立验证）；每个数字可复现；未判明项没有被"平均掉"。
 
@@ -57,7 +57,9 @@ description: 假设驱动建模方法论：当你需要「证据不足时明确�
 # 假设驱动建模 Cookbook（S0）
 
 > 目的：把「模型直接开建 → 最后只看到结果」换成**假设 → 行为区间 → 程序搜索 → 证据判定 → 假设翻转**的可审计闭环。
-> 来源：本仓库 issue #3（白盒化 + 规划器建议）的第一阶段落地物；配套可复现实验见 `docs/examples/chair-backrest/`。
+> 来源：本仓库 issue #3（白盒化 + 规划器建议）的第一阶段落地物；配套可复现实验见
+> [docs/examples/chair-backrest/results.md](examples/chair-backrest/results.md)。读图与证据分级纪律见
+> [证据分级与读图纪律.md](证据分级与读图纪律.md)（"致命判断来自脚本，不来自看图"）。
 > 适用：任何"被遮挡/证据不足/有不可逆操作风险"的建模任务。**简单任务请走轻量模式**（见 §1）。
 
 ---
@@ -66,7 +68,7 @@ description: 假设驱动建模方法论：当你需要「证据不足时明确�
 
 | 情形 | 走哪条 |
 |---|---|
-| 无遮挡、单物体、可逆（改尺寸/位置） | **轻量模式**：直接 `blender_rt_do` + `blender_rt_see`，不写假设 |
+| 无遮挡、单物体、可逆（改尺寸/位置） | **轻量模式**：直接 `blender_py` + `blender_see`，不写假设 |
 | 有遮挡 / 证据不足（"看不清但必须决定"） | **本 cookbook**：显式假设 + 区间 + 探针计划 |
 | 涉及 Boolean / 焊接 / 合并 / apply transform | **必须先过契约**（§6 禁止项）：判别清楚前一律不做这些操作 |
 | 多组件装配、接口约定多、多人/多 agent 并行 | 契约层（S1）+ 对象图（S3） |
@@ -112,17 +114,17 @@ description: 假设驱动建模方法论：当你需要「证据不足时明确�
 **① GUI 会话：用内环（不花模型回合）**
 
 ```text
-blender_rt_loop(op="start", spec={
+blender_op(action="loop", op="start", spec={
   "setup":   "<只跑一次：建场景 / 取参考>",
   "step":    "<在区间内采样参数：ns['params'] = {...}>",
   "measure": "<候选与参考比：ns['score']=轮廓误差；ns['metrics']={...}；ns['violations']={...}>",
   "iterations": 5000, "budget_ms": 30000, "measure_every": 1, "top_k": 20, "interval": 0
 })
-blender_rt_loop(op="board")                        # 候选表：哪些参数组合、各自误差
-blender_rt_loop(op="export", path="<宿主路径>")     # 落成可复用脚本
+blender_op(action="loop", op="board")                         # 候选表：哪些参数组合、各自误差
+blender_op(action="loop", op="export", path="<宿主路径>")    # 落成可复用脚本
 ```
 
-**② 无头进程：有界阻塞搜索（`blender_rt_headless`）**
+**② 无头作业：有界阻塞搜索（`blender_run(kind="headless")`）**
 
 > ⚠️ 实测：`bpy.app.timers` 在 `blender -b` 下**不会触发**（本仓库实测 1.2 s 内 0 次）→
 > 无头里别用内环，直接在脚本里循环；本仓库示例 `run.py` 就是这么跑的，3 s 出全部结果。
@@ -253,13 +255,13 @@ best_err <= tol 但关键参数不可辨识 → unresolved + 「需要什么探�
 
 | 工具 | 该用 | 别用（实测出来的现实） |
 |---|---|---|
-| blender_rt_job | 长任务（大于 5 分钟）、渲染一整晚、批量出图 | 短活（小于 5 分钟）—— 用 headless 直接拿结果更省事 |
-| blender_rt_txn | 大场景 / 不可重生成 / 长构建管线（回滚比重建便宜时） | 重建成本远小于回滚时（实测：整机重建 9–20 s 比快照回滚更干净） |
-| blender_rt_loop | 目标可标量化（尺寸 / 轮廓 IoU / 剖面差）且手工调参要很多轮 | 设计驱动任务（参考图 → 反推尺寸 → 参数化生成）—— 契约层与内环没有触发条件 |
-| 看图（rt_see） | 即时反馈（55–100 ms/帧，改一步看一眼） | 需要可存档 / 可复核 / 高保真的图 —— 用 headless 或 worker 渲染到文件再读图；频繁调用会挤主线程 |
-| blender_rt_plan（契约层） | 证据不足下的假设搜索、需要 unresolved 判定、需要 provenance | 纯设计驱动、结构已确定的任务 |
+| blender_run（作业面） | 长任务（大于 5 分钟）、渲染一整晚、批量出图（submit 回 jobId，wait/collect 收） | 短活（小于 5 分钟）—— GUI 里直接做更快 |
+| blender_session(action="txn") | 大场景 / 不可重生成 / 长构建管线（回滚比重建便宜时） | 重建成本远小于回滚时（实测：整机重建 9–20 s 比快照回滚更干净） |
+| blender_op(action="loop") | 目标可标量化（尺寸 / 轮廓 IoU / 剖面差）且手工调参要很多轮 | 设计驱动任务（参考图 → 反推尺寸 → 参数化生成）—— 契约层与内环没有触发条件 |
+| 看图（blender_see） | 即时反馈（55–100 ms/帧，改一步看一眼） | 需要可存档 / 可复核 / 高保真的图 —— 用 blender_run(kind="render") 渲染到文件再读图；频繁调用会挤主线程 |
+| blender_op（契约层） | 证据不足下的假设搜索、需要 unresolved 判定、需要 provenance | 纯设计驱动、结构已确定的任务 |
 
-无窗口是特性不是缺陷：worker 是 blender -b，GUI 型 bpy.ops 不可靠 → 推荐姿势：走 bmesh 与数据 API（确定性、可复现、零 context 报错）。
+无窗口是特性不是缺陷：后台无头作业跑的是 blender -b，GUI 型 bpy.ops 不可靠 → 推荐姿势：走 bmesh 与数据 API（确定性、可复现、零 context 报错）。
 
 silhouette-fit 一键配方（把手工对齐若干比值变成一次内环搜索）：
 
@@ -273,21 +275,21 @@ spec = {
   'measure': 'ns[score] = K.dsh_measure[silhouette_iou](ns[cam], ref, box)',
   'iterations': 200, 'budget_ms': 60000, 'top_k': 5,
 }
-# blender_rt_loop(op=start, spec=spec) → op=board 取最优 → op=export 导出脚本
+# blender_op(action="loop", op="start", spec=spec) → op="board" 取最优 → op="export" 导出脚本
 ```
 
 环境与路径三处澄清（依本机实测）：
 
 1. UNC 写入不是会静默失败：实测 Blender 写 UNC 路径的文本文件成功，且 WSL 侧可见（9 B）；结论依环境（Windows 版本/权限/9p 实现），不要绝对化。
 2. 双斜杠在 Blender 里是相对当前 .blend 的前缀：形如双斜杠加 wsl.localhost 的路径会被解析成 blend 目录下的子路径（读不到）。UNC 要写反斜杠形式；v0.8.4 起 K.win_path() 会自动把正斜杠 UNC 归一化，K.stage() 可做兜底拷贝。
-3. WSL 环境变量不会传进 Windows 的 blender.exe：别用 env 传参（实测会丢），改用命令行 args、模式文件或 blender_rt_preset 这类 JSON 入参。
+3. WSL 环境变量不会传进 Windows 的 blender.exe：别用 env 传参（实测会丢），改用命令行 args、模式文件或 `blender_op(action="preset")` 这类 JSON 入参。
 
 ## 附：Blender 语义坑两条（来自外部反馈 #4，各烧过一轮迭代）
 
 1. **`bpy.data.libraries.write` 写出的是「无场景的库文件」** —— 用 `blender -b file.blend` 打不开、也渲不了。**分件导出应改用** `bpy.ops.wm.save_as_mainfile(filepath=..., copy=True)`（`copy=True` 不会改动当前 filepath）。
 2. **`transform_apply` 不会缩放 Bevel 修改器的宽度** —— 做「等比归一」时必须**先把修改器烘进网格**（`bpy.ops.object.modifier_apply(modifier=...)`）再 `transform_apply`，否则倒角宽度不随缩放变化，成品尺寸对不上。
 
-## 附：rt_loop 建模用 measure 模板（外部反馈 #4 的第二项建议）
+## 附：blender_op(action="loop") 建模用 measure 模板（外部反馈 #4 的第二项建议）
 
 目标：把「结构相似度」变成可标量化的 score，从而让内环能自动搜参数。现成 measure（`K.dsh_measure`）：
 
@@ -308,7 +310,7 @@ spec = {
   "measure": measure,
   "iterations": 200, "budget_ms": 60000, "top_k": 5,
 }
-# blender_rt_loop(op="start", spec=spec) → op="board" 取最优 → op="export" 导出可复用脚本
+# blender_op(action="loop", op="start", spec=spec) → op="board" 取最优 → op="export" 导出可复用脚本
 ```
 
-配合纪律：**判据**用 `blender_rt_plan(op="qc_compare")` 复核（注意口径：`iou` 是固定对齐）；**试错前**留回退点 `blender_rt_txn(op="mark")`；**长活**走 `blender_rt_job`（或 `headless(as_job=true)` 自动转作业）。
+配合纪律：**判据**用 `blender_op(op="qc_compare")` 复核（注意口径：`iou` 是固定对齐）；**试错前**留回退点 `blender_session(action="txn", op="mark")`；**长活**走 `blender_run(action="submit")`，再 `wait`/`collect` 收产物。

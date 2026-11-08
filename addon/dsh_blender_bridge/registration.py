@@ -1,14 +1,12 @@
 """ Registration entry point for the add-on (split from __init__). """
 
 import bpy
-from bpy.props import IntProperty
 
 from .commands.selection import on_selection_mode_update
 from .config import register_auto_start, unregister_auto_start
 from .recorders.activity import unregister_activity_handlers
-from .recorders.edit_capture import unregister_edit_capture_handlers
 from .ui.lists import DSHBB_SelectionItem, DSHBB_UL_ObjectList, dshbb_ui_list_timer, on_show_collection_list_update, on_show_selection_list_update
-from .ui.operators import DSHBB_OT_ListRowsDec, DSHBB_OT_ListRowsInc, DSHBB_OT_OpenTerms, DSHBB_OT_SendCollectionToDSH, DSHBB_OT_SendSelectionToDSH, DSHBB_OT_SetFreeTrialHyper3DAPIKey, DSHBB_OT_StartServer, DSHBB_OT_StopServer, DSHBB_OT_ToggleAIPause, DSHBB_OT_UseSelectionCollection
+from .ui.operators import DSHBB_OT_InstallVirtualDisplayDeps, DSHBB_OT_ListRowsDec, DSHBB_OT_ListRowsInc, DSHBB_OT_SendCollectionToDSH, DSHBB_OT_SendSelectionToDSH, DSHBB_OT_SetFreeTrialHyper3DAPIKey, DSHBB_OT_StartServer, DSHBB_OT_StopServer, DSHBB_OT_ToggleAIPause, DSHBB_OT_UseSelectionCollection
 from .ui.panels import DSHBB_PT_EnvGen, DSHBB_PT_EnvModelAPI, DSHBB_PT_ModelGen, DSHBB_PT_Panel
 from .ui.preferences import DSHBB_AddonPreferences
 
@@ -24,14 +22,6 @@ def _register_ui_lists():
 
 
 def _register_connection_properties():
-    bpy.types.Scene.dshbb_port = IntProperty(
-        name="Port",
-        description="Port for the DSH Blender Bridge server",
-        default=9876,
-        min=1024,
-        max=65535
-    )
-
     bpy.types.Scene.dshbb_server_running = bpy.props.BoolProperty(
         name="Server Running",
         default=False
@@ -45,7 +35,7 @@ def _register_connection_properties():
 
     bpy.types.Scene.dshbb_backend_url = bpy.props.StringProperty(
         name="DSH Backend URL",
-        description="DSH 插件后端地址（默认 http://127.0.0.1:9877；留空用默认 / 环境变量 DSH_BLENDER_BACKEND_URL）",
+        description="Gateway 地址（默认 http://127.0.0.1:39877；留空用默认 / 环境变量 DSH_BLENDER_BACKEND_URL）",
         default=""
     )
 
@@ -210,8 +200,8 @@ def _register_classes():
     bpy.utils.register_class(DSHBB_OT_ListRowsDec)
     bpy.utils.register_class(DSHBB_OT_UseSelectionCollection)
     bpy.utils.register_class(DSHBB_OT_StopServer)
-    bpy.utils.register_class(DSHBB_OT_OpenTerms)
-
+    bpy.utils.register_class(DSHBB_OT_InstallVirtualDisplayDeps)
+    
 
 def register():
     _register_ui_lists()
@@ -227,13 +217,17 @@ def register():
 
 def unregister():
     try:
+        from .presence_draw import clear_presence
+
+        clear_presence()
+    except Exception:
+        pass
+    try:
         bpy.app.timers.unregister(dshbb_ui_list_timer)
     except Exception:
         pass
     # 先删属性，再注销类（顺序反过来会留下悬空属性）
     unregister_auto_start()
-
-    unregister_edit_capture_handlers()
     unregister_activity_handlers()
 
     # Stop the server if it's running
@@ -256,10 +250,9 @@ def unregister():
     bpy.utils.unregister_class(DSHBB_OT_ListRowsDec)
     bpy.utils.unregister_class(DSHBB_OT_UseSelectionCollection)
     bpy.utils.unregister_class(DSHBB_OT_StopServer)
-    bpy.utils.unregister_class(DSHBB_OT_OpenTerms)
+    bpy.utils.unregister_class(DSHBB_OT_InstallVirtualDisplayDeps)
     bpy.utils.unregister_class(DSHBB_AddonPreferences)
 
-    del bpy.types.Scene.dshbb_port
     del bpy.types.Scene.dshbb_server_running
     del bpy.types.Scene.dshbb_auto_start_server
     del bpy.types.Scene.dshbb_backend_url

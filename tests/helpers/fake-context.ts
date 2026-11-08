@@ -25,6 +25,7 @@ export interface CapturedTool {
 
 export function createFakeContext() {
   const tools: CapturedTool[] = []
+  const guards: Array<(exec: { name?: unknown }) => string | undefined> = []
   const disposers: Array<() => void> = []
   const logs: string[] = []
   /** Ordered effect keys and tool names, for registration-order contracts. */
@@ -36,6 +37,14 @@ export function createFakeContext() {
         tools.push(tool)
         events.push('tool:' + tool.name)
         return tool
+      },
+      guard(fn: (exec: { name?: unknown }) => string | undefined) {
+        guards.push(fn)
+        events.push('guard')
+        return () => {
+          const at = guards.indexOf(fn)
+          if (at >= 0) guards.splice(at, 1)
+        }
       },
     },
     effect(fn: () => unknown, key?: string) {
@@ -64,6 +73,7 @@ export function createFakeContext() {
   return {
     ctx,
     tools,
+    guards,
     logs,
     events,
     dispose() {

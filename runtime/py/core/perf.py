@@ -1,6 +1,6 @@
 """DSH Blender 渲染性能助手 —— 本会话所有优化的固化版（perf + 对象精简）。
 
-通过 blender_rt_perf / blender_rt_opt 调用；API 挂在 K.dsh_perf_api。
+通过 blender_run / blender_op 调用；API 挂在 K.dsh_perf_api。
 
 包含：
   dsh_perf_analyze()   实测 sync / 每采样 GPU 成本（1 spp 与 4 spp 差分）
@@ -433,7 +433,7 @@ def _dsh_perf_apply_eevee(args=None):
 # ---- 注册 K.dsh_perf_api（v1.0.1 修）----------------------------------------
 # 起因：这里原本只有一段「把**已存在**的 K.dsh_perf_api 包成 Api」的 shim，
 # 但全文件没有任何地方真正创建过它；而引擎按 `K.dsh_perf_api[op](…)` 调用
-# ⇒ blender_rt_perf / blender_rt_opt 的**每一个 op** 都报
+# ⇒ blender_run / blender_op 的**每一个 op** 都报
 #     AttributeError: module 'dsh_rt_kernel' has no attribute 'dsh_perf_api'
 # （内核里只剩引擎写的 dsh_perf_api_fp 内容指纹，看着像"注册过"，实际没有。）
 # 改为按 kit.py 的统一约定注册（与 qc / clearance / pipeline 同形）。

@@ -229,7 +229,7 @@ def pipe_help():
                     {"api": "vehicle", "op": "loft", "args": {"stations": "@sec.stations", "section_shape": "@sec.section_shape"}, "out": "@shell"}],
         "limits": ["@引用只在 pipe_run 内解析（单发 plan op 不会自动解引用）",
                    "工件存活于当前 Blender 会话（K 跨后端重启保留，但 Blender 重启即清空）",
-                   "步骤按序同步执行；长任务仍应用 rt_job/headless 那条路"],
+                   "步骤按序同步执行；长任务仍应用 blender_run/headless 那条路"],
     })
 
 

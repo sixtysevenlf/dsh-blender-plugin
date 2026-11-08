@@ -3,6 +3,12 @@ name: Manual CD
 # Manual release pipeline. workflow_dispatch only; the button requires this file on
 # the repository's default branch. dry_run=true is the default; actual releases
 # create a draft GitHub Release and never push main or a tag.
+#
+# The extension upload is opt-in (publish_extension, default false). The first
+# version is submitted manually at https://extensions.blender.org/ with a
+# Blender ID; later versions use the official API with the repository secret
+# BLENDER_EXTENSIONS_TOKEN. A missing token fails closed instead of reporting a
+# published version.
 
 on:
   workflow_dispatch:
@@ -10,7 +16,7 @@ on:
       version:
         description: 'Release version; must match package.json and PLUGIN_VERSION'
         required: true
-        default: '3.0.6'
+        default: '3.1.0'
         type: string
       dry_run:
         description: 'Verify and package only; do not create a tag or release'
@@ -19,6 +25,11 @@ on:
         type: boolean
       publish_npm:
         description: 'After the draft release exists, publish the tarball to npm'
+        required: true
+        default: false
+        type: boolean
+      publish_extension:
+        description: 'Upload the extension zip to extensions.blender.org (requires BLENDER_EXTENSIONS_TOKEN)'
         required: true
         default: false
         type: boolean
@@ -74,20 +85,27 @@ jobs:
           }
           const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
           const constants = fs.readFileSync('src/constants.ts', 'utf8')
-          const protocol = fs.readFileSync('addon/dsh_blender_bridge/protocol.py', 'utf8')
+          const protocolSource = fs.readFileSync('addon/dsh_blender_bridge/protocol.py', 'utf8')
+          const manifest = fs.readFileSync('addon/dsh_blender_bridge/blender_manifest.toml', 'utf8')
+          const gateway = JSON.parse(fs.readFileSync('config/gateway.json', 'utf8'))
           if (pkg.version !== version) {
             throw new Error('package.json is ' + pkg.version + ', input is ' + version)
           }
           if (!constants.includes("PLUGIN_VERSION = '" + version + "'")) {
             throw new Error('PLUGIN_VERSION in src/constants.ts is not ' + version)
           }
-          if (!/ADDON_PROTOCOL_VERSION\s*=\s*11/.test(protocol)) {
-            throw new Error('addon protocol.py must keep protocol 11')
+          const protocol = protocolSource.match(/ADDON_PROTOCOL_VERSION\s*=\s*(\d+)/)
+          const addonVersion = manifest.match(/^version\s*=\s*"([^"]+)"/m)
+          if (!protocol || !addonVersion) {
+            throw new Error('addon manifest/protocol constants are missing')
           }
-          if (!/ADDON_VERSION\s*=\s*\(1,\s*11\)/.test(protocol)) {
-            throw new Error('addon protocol.py must keep addon version 1.11')
+          if (Number(protocol[1]) !== gateway.addon.protocol) {
+            throw new Error('addon protocol.py and config/gateway.json disagree')
           }
-          console.log('VERSION OK ' + version)
+          if (addonVersion[1] !== gateway.addon.version) {
+            throw new Error('blender_manifest.toml and config/gateway.json disagree')
+          }
+          console.log('VERSION OK ' + version + ' (addon ' + addonVersion[1] + ', protocol ' + protocol[1] + ')')
           NODE
       - name: Static checks
         run: |
@@ -124,9 +142,43 @@ jobs:
           name: coverage
           path: coverage/
 
+  windows-helper:
+    name: Build the Windows hidden-desktop helper
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+      - name: Build and self-test the helper
+        run: npm run build:win-helper
+      - name: Run the helper end-to-end checks
+        run: node tests/e2e/win_hidden_desktop.mjs --json win-helper-e2e.json
+      - name: Stage the helper as the packaged resource
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force vendor/win-hidden-desktop | Out-Null
+          Copy-Item tools/win-hidden-desktop/out/dsh-blender-hidden-desktop.exe vendor/win-hidden-desktop/
+          Copy-Item tools/win-hidden-desktop/out/build.json vendor/win-hidden-desktop/build.json
+      - name: Verify version, source, and tarball inclusion
+        run: npm run check:win-helper -- --packed
+      - name: Upload the packaged helper
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: win-hidden-desktop
+          path: vendor/win-hidden-desktop/
+
   package:
     name: Build release assets
-    needs: verify
+    needs:
+      - verify
+      - windows-helper
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -140,6 +192,13 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
+      - name: Download the Windows hidden-desktop helper
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: win-hidden-desktop
+          path: vendor/win-hidden-desktop
+      - name: Verify the packaged helper
+        run: npm run check:win-helper
       - name: Build and verify addon zip
         run: |
           npm run build:addon
@@ -150,6 +209,9 @@ jobs:
           npm pack --json --pack-destination release-assets
           cp addon/dsh_blender_bridge.zip release-assets/
           (cd release-assets && sha256sum * > SHA256SUMS)
+          printf 'Release %s. See CHANGELOG.md for details.\n' "${{ inputs.version }}" > release-assets/extension-release-notes.md
+          tar -tzf release-assets/*.tgz | grep -E '^package/vendor/win-hidden-desktop/dsh-blender-hidden-desktop\.exe$'
+          tar -tzf release-assets/*.tgz | grep -E '^package/vendor/win-hidden-desktop/build\.json$'
           cat release-assets/SHA256SUMS
       - name: Upload release assets
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -208,6 +270,48 @@ jobs:
             --title "v${VERSION}" \
             --generate-notes \
             release/*.tgz release/*.zip release/SHA256SUMS
+
+  publish-extension:
+    name: Publish Blender extension
+    needs: package
+    if: ${{ !inputs.dry_run && inputs.publish_extension }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: release
+      url: https://extensions.blender.org/
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Download release assets
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-assets
+          path: release
+      - name: Require the extension upload token
+        env:
+          BLENDER_EXTENSIONS_TOKEN: ${{ secrets.BLENDER_EXTENSIONS_TOKEN }}
+        run: |
+          if [ -z "$BLENDER_EXTENSIONS_TOKEN" ]; then
+            echo "::error::BLENDER_EXTENSIONS_TOKEN is not configured. Add the repository secret, or submit the first version manually at https://extensions.blender.org/ and rerun with publish_extension=true."
+            exit 1
+          fi
+      - name: Upload extension version
+        env:
+          BLENDER_EXTENSIONS_TOKEN: ${{ secrets.BLENDER_EXTENSIONS_TOKEN }}
+        run: |
+          npm run publish:extension -- \
+            --zip release/dsh_blender_bridge.zip \
+            --notes-file release/extension-release-notes.md \
+            --extension-id dsh_blender_bridge \
+            --manifest addon/dsh_blender_bridge/blender_manifest.toml
 
   publish-npm:
     name: Publish npm package

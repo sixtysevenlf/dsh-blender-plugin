@@ -13,23 +13,6 @@ config = importlib.import_module("addon.dsh_blender_bridge.config")
 server_module = importlib.import_module("addon.dsh_blender_bridge.server")
 
 
-class _FakeProbeSocket:
-    def __init__(self, connect_result):
-        self.connect_result = connect_result
-        self.timeout = None
-        self.closed = False
-
-    def settimeout(self, value):
-        self.timeout = value
-
-    def connect_ex(self, address):
-        self.address = address
-        return self.connect_result
-
-    def close(self):
-        self.closed = True
-
-
 def test_read_env_var_prefers_new_name_then_legacy(monkeypatch):
     monkeypatch.setenv("DSHBB_HYPER3D_API_KEY", "new-value")
     monkeypatch.setenv("BLENDERMCP_HYPER3D_API_KEY", "old-value")
@@ -54,8 +37,8 @@ def test_backend_url_defaults_and_strips_trailing_slash():
     previous = bpy.context.scene.dshbb_backend_url
     try:
         bpy.context.scene.dshbb_backend_url = ""
-        assert config.DEFAULT_DSH_BACKEND == "http://127.0.0.1:9877"
-        assert config.dshbb_backend_url() == "http://127.0.0.1:9877"
+        assert config.DEFAULT_DSH_BACKEND == "http://127.0.0.1:39877"
+        assert config.dshbb_backend_url() == "http://127.0.0.1:39877"
         bpy.context.scene.dshbb_backend_url = "http://127.0.0.1:9999/"
         assert config.dshbb_backend_url() == "http://127.0.0.1:9999"
         bpy.context.scene.dshbb_backend_url = "http://127.0.0.1:9999///"
@@ -65,7 +48,7 @@ def test_backend_url_defaults_and_strips_trailing_slash():
 
 
 def test_addon_preferences_are_read_from_the_module_entry():
-    preferences = SimpleNamespace(telemetry_consent=True)
+    preferences = SimpleNamespace(gateway_port=39877)
     context = SimpleNamespace(
         preferences=SimpleNamespace(
             addons={config.ADDON_MODULE: SimpleNamespace(preferences=preferences)},
@@ -77,30 +60,27 @@ def test_addon_preferences_are_read_from_the_module_entry():
     assert config.get_dshbb_addon_preferences() is None
 
 
-def test_port_listener_probe_closes_the_socket(monkeypatch):
-    created = []
+def test_gateway_port_prefers_env_then_preference_then_default(monkeypatch):
+    monkeypatch.delenv("DSHBB_GATEWAY_PORT", raising=False)
+    preferences = SimpleNamespace(gateway_port=40001)
+    monkeypatch.setattr(config, "get_dshbb_addon_preferences", lambda context=None: preferences)
+    assert config.get_gateway_port() == 40001
 
-    def make_socket(family, kind):
-        probe = _FakeProbeSocket(0)
-        created.append(probe)
-        return probe
+    monkeypatch.setenv("DSHBB_GATEWAY_PORT", "40100")
+    assert config.get_gateway_port() == 40100
 
-    monkeypatch.setattr(config.socket, "socket", make_socket)
-    assert config._dshbb_port_has_listener("localhost", 9876) is True
-    assert created[0].timeout == 0.15
-    assert created[0].address == ("localhost", 9876)
-    assert created[0].closed is True
+    monkeypatch.setenv("DSHBB_GATEWAY_PORT", "not-a-port")
+    assert config.get_gateway_port() == 40001
 
-    created.clear()
+    preferences.gateway_port = 0
+    monkeypatch.setenv("DSHBB_GATEWAY_PORT", "70000")
+    assert config.get_gateway_port() == config.GATEWAY_DEFAULT_PORT == 39877
 
-    def make_busy(family, kind):
-        probe = _FakeProbeSocket(111)
-        created.append(probe)
-        return probe
 
-    monkeypatch.setattr(config.socket, "socket", make_busy)
-    assert config._dshbb_port_has_listener("localhost", 9876) is False
-    assert created[0].closed is True
+def test_gateway_url_uses_the_resolved_port():
+    assert config.get_gateway_host() == "127.0.0.1"
+    assert config.gateway_url() == "ws://127.0.0.1:%d/addon" % config.get_gateway_port()
+    assert config.gateway_url(41234) == "ws://127.0.0.1:41234/addon"
 
 
 def test_auto_start_registers_one_persistent_timer_and_handler(monkeypatch):
@@ -164,56 +144,31 @@ def test_ensure_server_running_respects_the_auto_start_switch(monkeypatch):
             del bpy.types.dshbb_server
 
 
-def test_ensure_server_running_starts_a_server_on_the_scene_port(monkeypatch):
+def test_ensure_server_running_starts_a_gateway_connection(monkeypatch):
     monkeypatch.setattr(bpy.app, "background", False)
-    monkeypatch.setattr(config, "_dshbb_port_has_listener", lambda host, port: False)
     previous_auto = bpy.context.scene.dshbb_auto_start_server
-    previous_port = bpy.context.scene.dshbb_port
     previous_stopped = config._user_stopped_server
     started = {}
 
     class FakeServer:
-        def __init__(self, port=9876):
-            self.port = port
+        def __init__(self):
             self.running = False
-            started["created"] = port
+            started["created"] = True
 
         def start(self):
             self.running = True
-            started["started"] = self.port
+            started["started"] = True
 
     monkeypatch.setattr(server_module, "DSHBlenderBridgeServer", FakeServer)
     try:
         if hasattr(bpy.types, "dshbb_server"):
             del bpy.types.dshbb_server
         bpy.context.scene.dshbb_auto_start_server = True
-        bpy.context.scene.dshbb_port = 19999
         config._user_stopped_server = False
         assert config._dshbb_ensure_server_running() is None
-        assert started == {"created": 19999, "started": 19999}
+        assert started == {"created": True, "started": True}
         assert isinstance(bpy.types.dshbb_server, FakeServer)
         assert bpy.context.scene.dshbb_server_running is True
-    finally:
-        bpy.context.scene.dshbb_auto_start_server = previous_auto
-        bpy.context.scene.dshbb_port = previous_port
-        config._user_stopped_server = previous_stopped
-        if hasattr(bpy.types, "dshbb_server"):
-            del bpy.types.dshbb_server
-
-
-def test_ensure_server_running_skips_when_port_is_already_taken(monkeypatch):
-    monkeypatch.setattr(bpy.app, "background", False)
-    monkeypatch.setattr(config, "_dshbb_port_has_listener", lambda host, port: True)
-    previous_auto = bpy.context.scene.dshbb_auto_start_server
-    previous_stopped = config._user_stopped_server
-    try:
-        if hasattr(bpy.types, "dshbb_server"):
-            del bpy.types.dshbb_server
-        bpy.context.scene.dshbb_auto_start_server = True
-        config._user_stopped_server = False
-        assert config._dshbb_ensure_server_running() is None
-        assert bpy.context.scene.dshbb_server_running is False
-        assert not hasattr(bpy.types, "dshbb_server")
     finally:
         bpy.context.scene.dshbb_auto_start_server = previous_auto
         config._user_stopped_server = previous_stopped

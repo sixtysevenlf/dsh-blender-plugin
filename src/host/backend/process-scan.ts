@@ -13,7 +13,7 @@ export function killBackendByCmd(port: number, signal: NodeJS.Signals = 'SIGTERM
   const killed: string[] = []
   // issue #51（win32）：下面两条候选链（/proc、ps -ax）在 Windows 上都不存在 —— 原先一路
   // 静默 catch 后返回 []，于是 op=stop / op=restart 之后僵尸后端仍占着端口，永远清不掉。
-  // 改走 win_proc：先按命令行归属（server.js + --port 精确匹配），再按"端口监听者 ∩ 同名映像"兜底。
+  // 改走 win_proc：先按命令行归属（gateway.js + --port 精确匹配），再按"端口监听者 ∩ 同名映像"兜底。
   if (IS_WIN) {
     try {
       return winKillPids(winSamePortHolders(port))

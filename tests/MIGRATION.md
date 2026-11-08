@@ -72,7 +72,7 @@ in T11b.9. The final layers are:
 - B host-side backend test: tests/e2e/gui/test_qc_backend.py talks HTTP to a running
   backend and never starts Blender; skips with a reason when no backend is listening.
 - M manual probe: tools/gui-channel-probe.mjs, not collected by pytest.
-- Existing native E2E: test_addon_e2e.py, test_gui_connect.py, blender_42_headless.mjs.
+- Existing native E2E: test_addon_e2e.py, addon_extension_install.mjs, addon_reverse_connect.mjs, blender_42_headless.mjs.
 
 Commands: npm run test:e2e (H + addon; 76 passed on Blender 4.2.10) and
 npm run test:e2e:gui (G + B; 9 passed / 1 skipped without a backend, 10 passed with a

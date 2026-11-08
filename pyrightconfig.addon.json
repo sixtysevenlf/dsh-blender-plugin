@@ -10,14 +10,12 @@
     "addon/dsh_blender_bridge/selection/payload.py",
     "addon/dsh_blender_bridge/recorders/activity.py",
     "addon/dsh_blender_bridge/recorders/user_edit.py",
-    "addon/dsh_blender_bridge/recorders/edit_capture.py",
     "addon/dsh_blender_bridge/integrations/hunyuan_client.py",
     "addon/dsh_blender_bridge/integrations/polyhaven_client.py",
     "addon/dsh_blender_bridge/integrations/sketchfab_client.py",
     "addon/dsh_blender_bridge/integrations/polypizza_client.py",
     "addon/dsh_blender_bridge/commands/selection.py",
-    "addon/dsh_blender_bridge/commands/activity.py",
-    "addon/dsh_blender_bridge/commands/telemetry.py"
+    "addon/dsh_blender_bridge/commands/activity.py"
   ],
   "exclude": ["**/__pycache__"],
   "typeCheckingMode": "basic",

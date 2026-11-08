@@ -20,13 +20,13 @@ server_module = importlib.import_module("addon.dsh_blender_bridge.server")
 
 
 def test_command_counts_are_frozen():
-    assert registry.REGISTERED_COMMAND_COUNT == 38
-    assert registry.WIRE_COMMAND_COUNT == 39
-    assert len(registry.REGISTERED_COMMANDS) == 38
-    assert len(registry.WIRE_COMMANDS) == 39
-    assert len(registry.COMMAND_NAMES) == 38
-    assert len(set(registry.COMMAND_NAMES)) == 38
-    assert len(registry.WIRE_SPECS) == 39
+    assert registry.REGISTERED_COMMAND_COUNT == 25
+    assert registry.WIRE_COMMAND_COUNT == 26
+    assert len(registry.REGISTERED_COMMANDS) == 25
+    assert len(registry.WIRE_COMMANDS) == 26
+    assert len(registry.COMMAND_NAMES) == 25
+    assert len(set(registry.COMMAND_NAMES)) == 25
+    assert len(registry.WIRE_SPECS) == 26
     assert set(registry.COMMAND_SPECS) == set(registry.COMMAND_NAMES)
 
 
@@ -42,7 +42,7 @@ def test_ping_is_wire_only():
 
 def test_dispatch_table_is_derived_from_the_registry(monkeypatch):
     """The server resolves commands through registry.WIRE_SPECS, not its own table."""
-    server = server_module.DSHBlenderBridgeServer(port=0)
+    server = server_module.DSHBlenderBridgeServer()
     scene = bpy.context.scene
     previous = {}
     for gate in registry.GATE_PROPERTIES.values():
@@ -70,16 +70,31 @@ def test_protocol_no_longer_reexports_the_command_registry():
         assert not hasattr(protocol, name), name
 
 
+def test_network_commands_are_declared_with_their_policy():
+    expected = {
+        "search_polyhaven_assets",
+        "poll_rodin_job_status",
+        "search_sketchfab_models",
+        "get_sketchfab_model_preview",
+        "search_polypizza_models",
+        "poll_hunyuan_job_status",
+    }
+    assert {spec.name for spec in registry.REGISTERED_COMMANDS if spec.network} == expected
+    assert registry.command_requires_network("search_polyhaven_assets") is True
+    assert registry.command_requires_network("get_scene_info") is False
+    assert registry.command_requires_network("not_a_command") is False
+
+
 def test_groups_cover_every_command_once():
     assert registry.GROUP_ORDER == (
         "base", "polyhaven", "hyper3d", "sketchfab", "polypizza", "hunyuan")
     flattened = [name for _group, names in registry.COMMAND_GROUPS for name in names]
     assert flattened == list(registry.COMMAND_NAMES)
-    assert len(flattened) == len(set(flattened)) == 38
+    assert len(flattened) == len(set(flattened)) == 25
     groups = dict(registry.COMMAND_GROUPS)
-    assert groups["base"] == tuple(name for name in registry.COMMAND_NAMES)[:22]
-    assert sum(len(names) for names in groups.values()) == 38
-    assert sum(len(names) for group, names in groups.items() if group != "base") == 16
+    assert groups["base"] == tuple(name for name in registry.COMMAND_NAMES)[:18]
+    assert sum(len(names) for names in groups.values()) == 25
+    assert sum(len(names) for group, names in groups.items() if group != "base") == 7
     assert registry.GATED_COMMAND_GROUPS == frozenset(registry.GROUP_ORDER[1:])
     assert set(registry.GATE_PROPERTIES) == set(registry.GATED_COMMAND_GROUPS)
 
@@ -108,17 +123,11 @@ def test_pause_policy_is_derived_from_names_and_extras():
     assert flagged == set(registry.PAUSE_SAFE_EXTRA)
     assert set(registry.PAUSE_SAFE_COMMANDS) == set(registry.PAUSE_SAFE_EXTRA) == flagged
     # Write commands must never be pause-safe.
-    for name in (
-        "execute_code", "export_scene", "send_selection_to_dsh", "send_collection_to_dsh",
-        "set_texture", "set_telemetry_consent", "download_polyhaven_asset",
-        "download_sketchfab_model", "download_polypizza_model", "create_rodin_job",
-        "poll_rodin_job_status", "import_generated_asset", "create_hunyuan_job",
-        "poll_hunyuan_job_status", "import_generated_asset_hunyuan",
-    ):
+    for name in ("execute_code", "send_selection_to_dsh", "send_collection_to_dsh"):
         assert registry.WIRE_SPECS[name].pause_safe is False, name
     for name in ("get_scene_info", "get_selection", "get_polyhaven_status", "ping"):
         assert protocol.is_pause_safe_command(name) is True, name
-    for name in ("execute_code", "export_scene", "download_sketchfab_model"):
+    for name in ("execute_code", "send_selection_to_dsh"):
         assert protocol.is_pause_safe_command(name) is False, name
 
 
@@ -153,7 +162,7 @@ def test_every_wire_handler_exists_on_the_server():
         assert _handler_function(spec.handler) is not None
     # Handler names are unique across the wire surface.
     handlers = [spec.handler for spec in registry.WIRE_COMMANDS]
-    assert len(handlers) == len(set(handlers)) == 39
+    assert len(handlers) == len(set(handlers)) == 26
 
 
 def test_fixed_parameter_lists_match_handler_signatures():
@@ -178,8 +187,8 @@ def test_fixed_parameter_lists_match_handler_signatures():
 
 def test_mixin_composition_is_complete_and_acyclic():
     mixins = registry.command_mixins()
-    assert len(mixins) == 11
-    assert len(set(mixins)) == 11
+    assert len(mixins) == 10
+    assert len(set(mixins)) == 10
     assert all(inspect.isclass(mixin) for mixin in mixins)
     for mixin in mixins:
         assert mixin.__mro__[-1] is object
@@ -201,3 +210,39 @@ def test_mixin_composition_is_complete_and_acyclic():
 def test_ping_handler_returns_pong_without_extra_parameters():
     response = server_module.DSHBlenderBridgeServer.ping_response(object(), unexpected=True)
     assert response == {"pong": True}
+
+
+REMOVED_COMMANDS = {
+    "export_scene",
+    "set_texture",
+    "download_polyhaven_asset",
+    "get_polyhaven_asset_preview",
+    "create_rodin_job",
+    "import_generated_asset",
+    "download_sketchfab_model",
+    "download_polypizza_model",
+    "create_hunyuan_job",
+    "import_generated_asset_hunyuan",
+    "get_telemetry_consent",
+    "set_telemetry_consent",
+    "drain_human_activity",
+}
+
+
+def test_removed_commands_are_absent_from_the_command_surface():
+    assert not (REMOVED_COMMANDS & set(registry.COMMAND_NAMES))
+    assert not (REMOVED_COMMANDS & set(registry.WIRE_SPECS))
+    for name in REMOVED_COMMANDS:
+        assert registry.command_spec(name) is None, name
+
+
+def test_addon_has_no_telemetry_or_community_entry_points():
+    from pathlib import Path
+
+    root = Path(registry.__file__).resolve().parent
+    tree = "\n".join(
+        path.read_text(encoding="utf-8") for path in root.rglob("*.py")
+    ).lower()
+    for token in ("telemetry", "drain_human_activity", "discord", "open_terms",
+                  "stay updated", "edit_capture"):
+        assert token not in tree, token

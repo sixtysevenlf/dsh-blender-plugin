@@ -1,15 +1,15 @@
 # DSH × Blender 直连实时插件
 
-> DSH（DeepSeek Harness）插件：让 AI 模型通过一条 TCP 直连通道驱动 **GUI Blender** —— 看视口 / 改场景 / 连续观察 / 内环搜索 / 渲染性能 / 对象精简 / 无头跑重活 / 事务回滚 / 契约层与规划器，共 15 个工具（v2.3 删除视口面板与 `blender_rt_pick`）。
-> 本包**附带且只支持** Blender addon 包 `addon/dsh_blender_bridge.zip`（v1.11 / protocol 11）；旧单文件 `dsh_blender_bridge.py` 与旧 `MCP for Blender` 均不再支持（迁移见 MIGRATIONS.md）。
-> 当前版本 **v3.0.6**：15 tools / 34 family / 228 op / addon 38 command / protocol 11；addon v1.11（zip）；runtime TypeScript；src + runtime 显式 any = 0。
+> DSH（DeepSeek Harness）插件：让 AI 模型通过一条 TCP 直连通道驱动 **GUI Blender** —— 看视口 / 改场景 / 连续观察 / 内环搜索 / 渲染性能 / 对象精简 / 无头跑重活 / 事务回滚 / 契约层与规划器，共 6 个模型工具（`blender_session` / `blender_op` / `blender_py` / `blender_see` / `blender_run` / `blender_inspect`；v2.3 已删除视口面板与 pick 工具）。
+> 本包**附带且只支持** Blender addon 包 `addon/dsh_blender_bridge.zip`（v2.0.0 / protocol 12）；旧单文件 `dsh_blender_bridge.py` 与旧 `MCP for Blender` 均不再支持（迁移见 MIGRATIONS.md）。
+> 当前版本 **v3.1.0**：6 model tools / 34 family / 228 op / addon 25 command（+ping=26 wire）/ protocol 12；addon v2.0.0（Blender 4.2 extension）；runtime TypeScript；src + runtime 显式 any = 0。
 
 ## Blender 原生选中 → DSH（v2.3）
 
 - 在 Blender 视口里原生选中 → `N` ›「DSH Blender Bridge」› **Selection → DSH** ›「发送选中到 DSH」；
   选中会进 **DSH 当前会话草稿**（不自动发送）。N 面板两种模式：**多选** / **集合**（大装配体整组发）。
-  v2.3 已删除 DSH 侧视口面板与 `blender_rt_pick`；`@` 提及保留。
-- addon 新命令（常驻，总命令 38 = 22 常驻 + 16 集成门控）：
+  v2.3 已删除 DSH 侧视口面板与模型点选工具；`@` 提及保留。
+- addon 只读命令（总命令 25 = 18 常驻 + 7 集成门控；另 4 条内部传输；写/下载/遥测命令已在 3.1 删除）：
   `get_activity_state`（`idle/human/agent/both`，查询自身不计入 agent）· `get_selection` · `send_selection_to_dsh` ·
   `get_collections`（集合列表+件数）· `send_collection_to_dsh`（整组发送，大装配体免逐个选）。
 - 后端新路由（零 Blender 往返）：`POST /host/selection` · `GET /host/selection/latest` · `POST /host/selection/consume`；
@@ -32,8 +32,8 @@
 
 ## 验收判据（没到就是没装好）
 
-- `curl -sS http://127.0.0.1:9877/doctor` → `kind=ok`
-- `blender_viewport(op="doctor")` → `kind=ok`；`blender_rt_see(max_size=560)` → 能回一帧图
+- `curl -sS http://127.0.0.1:39877/doctor` → `kind=ok`
+- `blender_session(action="doctor")` → `kind=ok`；`blender_see(max_size=560)` → 能回一帧图
 
 ## 文档
 

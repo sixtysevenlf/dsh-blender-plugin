@@ -236,7 +236,7 @@ def _post_selection_payload(payload, timeout=3.0):
         return result
     except Exception as exc:
         result["error"] = str(exc)
-        result["hint"] = ("后端未运行或端口不同：确认 DSH 插件已加载且 127.0.0.1:9877 在监听；"
+        result["hint"] = ("Gateway 未运行或端口不同：确认 DSH 插件已加载且 127.0.0.1:39877 在监听；"
                           "可用 DSH_BLENDER_BACKEND_URL 或场景属性 dshbb_backend_url 覆盖")
         return result
 

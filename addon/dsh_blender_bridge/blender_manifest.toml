@@ -1,0 +1,15 @@
+# Blender 4.2 extension manifest.
+# This manifest is the install metadata for Blender's Extensions platform.
+schema_version = "1.0.0"
+id = "dsh_blender_bridge"
+version = "2.0.0"
+name = "DSH Blender Bridge"
+tagline = "Drive Blender from DeepSeek Harness"
+maintainer = "sixtysevenlf <sixtysevenlf@users.noreply.github.com>"
+type = "add-on"
+blender_version_min = "4.2.0"
+license = ["SPDX:GPL-3.0-or-later"]
+
+[permissions]
+network = "Connect to the local DSH Gateway over loopback"
+files = "Read local asset paths and write render outputs"

@@ -1,6 +1,6 @@
 """DSH Blender 自定义视角捕获 —— 不动物体、不动场景相机，按给定相机参数出图。
 
-通过 blender_rt_see {from, look_at, ...} 调用；API 挂在 K.dsh_view_api。
+通过 blender_see {from, look_at, ...} 调用；API 挂在 K.dsh_view_api。
 
 解决什么：
   get_viewport_screenshot 只能出"当前用户视口"那一个角度（要换角度就得改用户视口）。
@@ -12,11 +12,13 @@
   proj:  AUTO 时 sensor 贴长边；
          hx = sensor/2（长边为宽时），hy = hx*h/w
          p00 = lens/hx, p11 = lens/hy
-         这套与 bpy.types.Camera.calc_matrix_camera() 输出逐元素一致。
+         这套与 Object.calc_matrix_camera() 输出逐元素一致。
   正交同理：p00 = 2/x_extent, p11 = 2/y_extent。
 
-两种模式：
-  viewport（默认）  GPUOffScreen.draw_view3d —— 就是用户视口渲染出来的样子（含着色/覆盖物设置），零场景改动
+四种模式：
+  viewport（默认）  GPUOffScreen.draw_view3d —— 指定机位（from/look_at）下的视口观感，零场景改动
+  current          取用户当前视口朝向/镜头，按目标宽高重算投影（保水平视野、不拉伸、不动视口）
+  camera           当前帧 evaluated 相机（含约束/驱动器）的视角；不改 scene.camera/帧/选择，输出渲染比例
   render           临时相机 + bpy.ops.render.opengl（Workbench/EEVEE 快渲），用完彻底还原
 """
 import bpy, json, time, os, struct, zlib, tempfile
@@ -64,7 +66,7 @@ def make_view_matrix(frm, look_at, up=(0.0, 0.0, 1.0)):
 
 def make_proj_matrix(w, h, lens=50.0, sensor=36.0, clip_start=0.1, clip_end=1000.0,
                      sensor_fit="AUTO", ortho=False, ortho_scale=1.0, shift_x=0.0, shift_y=0.0):
-    """与 bpy.types.Camera.calc_matrix_camera() 逐元素一致（landscape/portrait/ortho 均已对拍）。"""
+    """与 Object.calc_matrix_camera() 逐元素一致（landscape/portrait/ortho 均已对拍）。"""
     from mathutils import Matrix
     w = float(max(1, w)); h = float(max(1, h))
     fit = ("H" if w >= h else "V") if str(sensor_fit).upper().startswith("AUTO") else str(sensor_fit)[0].upper()
@@ -161,6 +163,8 @@ def _spec(spec):
         "width": max(16, min(4096, w)),
         "height": max(16, min(4096, h)),
         "mode": str(s.get("mode", "viewport")),
+        "camera": s.get("camera"),
+        "max_size": int(s.get("max_size") or 0),
         "engine": str(s.get("engine", "BLENDER_WORKBENCH")),
         "shading": s.get("shading"),
         "overlays": s.get("overlays"),
@@ -213,16 +217,20 @@ def targets():
 
 # ---------------------------------------------------------------- 捕获
 
-def _capture_viewport(s):
+def _capture_viewport(s, vm=None, pm=None, width=None, height=None):
+    """GPUOffScreen 离屏绘制；vm/pm 省略时按 s 的相机参数自建（current/camera 模式传入现成矩阵）。"""
     import gpu
     win, area, reg, space = _find_view3d(s.get("area"))
     try:
         gpu.init()  # 后台/未初始化时必需；GUI 下已初始化，抛错忽略
     except Exception:
         pass
-    vm = make_view_matrix(s["from"], s["look_at"])
-    pm = make_proj_matrix(s["width"], s["height"], s["lens"], s["sensor"], s["clip_start"], s["clip_end"],
-                          s["sensor_fit"], s["ortho"], s["ortho_scale"], s["shift_x"], s["shift_y"])
+    w = int(width or s["width"]); h = int(height or s["height"])
+    if vm is None:
+        vm = make_view_matrix(s["from"], s["look_at"])
+    if pm is None:
+        pm = make_proj_matrix(s["width"], s["height"], s["lens"], s["sensor"], s["clip_start"], s["clip_end"],
+                              s["sensor_fit"], s["ortho"], s["ortho_scale"], s["shift_x"], s["shift_y"])
     old_shading = None
     old_overlays = None
     try:
@@ -232,7 +240,7 @@ def _capture_viewport(s):
         if s["overlays"] is not None:
             old_overlays = space.overlay.show_overlays
             space.overlay.show_overlays = bool(s["overlays"])
-        off = gpu.types.GPUOffScreen(s["width"], s["height"])
+        off = gpu.types.GPUOffScreen(w, h)
         try:
             with off.bind():
                 fb = gpu.state.active_framebuffer_get()
@@ -263,6 +271,49 @@ def _capture_viewport(s):
                 pass
     return rgba, {"region": [reg.x, reg.y, reg.width, reg.height], "area": [area.x, area.y, area.width, area.height],
                   "shading_used": space.shading.type}
+
+
+def _current_matrices(space, reg, w, h):
+    """mode=current：用户当前视口朝向 + 同一镜头参数，按目标宽高重算投影（不拉伸、不动视口）。"""
+    r3d = space.region_3d
+    if r3d is None:
+        raise RuntimeError("当前 3D 视口没有 region_3d")
+    vm = r3d.view_matrix.copy()
+    cam = bpy.context.scene.camera
+    if r3d.view_perspective == "CAMERA" and cam is not None:
+        cd = cam.data
+        return vm, make_proj_matrix(w, h, cd.lens, cd.sensor_width, 0.1, 1000.0, cd.sensor_fit,
+                                    cd.type == "ORTHO", cd.ortho_scale, cd.shift_x, cd.shift_y)
+    sensor = 36.0
+    if getattr(space, "camera", None) is not None and getattr(space.camera, "data", None) is not None:
+        sensor = float(space.camera.data.sensor_width)
+    return vm, make_proj_matrix(w, h, float(getattr(space, "lens", 50.0)), sensor, 0.1, 1000.0, "AUTO",
+                                r3d.is_perspective is False, float(r3d.view_distance), 0.0, 0.0)
+
+
+def _camera_matrices(s, scene, cam):
+    """mode=camera：当前帧 evaluated 相机（约束/驱动器已算好）→ 矩阵 + 渲染比例尺寸。"""
+    from mathutils import Vector
+    ctype = str(getattr(cam.data, "type", "") or "").upper()
+    if ctype == "PANO":
+        raise RuntimeError("unsupported: 全景相机（PANO）不支持 camera 捕获，请用 blender_run(kind=render)")
+    dg = bpy.context.evaluated_depsgraph_get()
+    ce = cam.evaluated_get(dg)
+    r = scene.render
+    ax = (float(r.resolution_x) * float(getattr(r, "pixel_aspect_x", 1.0))) / max(
+        1.0, float(r.resolution_y) * float(getattr(r, "pixel_aspect_y", 1.0)))
+    m = int(s.get("max_size") or 1024)
+    w = m if ax >= 1.0 else max(16, int(round(m * ax)))
+    h = max(16, int(round(m / ax))) if ax >= 1.0 else m
+    loc = ce.matrix_world.translation
+    fwd = ce.matrix_world.to_quaternion() @ Vector((0.0, 0.0, -1.0))
+    s["from"] = [float(loc.x), float(loc.y), float(loc.z)]
+    s["look_at"] = [float(loc.x + fwd.x), float(loc.y + fwd.y), float(loc.z + fwd.z)]
+    s["lens"] = float(ce.data.lens)
+    return ce.matrix_world.inverted(), ce.calc_matrix_camera(dg, x=w, y=h), w, h, {
+        "camera": str(cam.name), "frame": int(scene.frame_current), "pixel_aspect": round(float(ax), 6),
+        "preview_only": True, "dof_ignored": bool(getattr(cam.data.dof, "use_dof", False)),
+        "motion_blur_ignored": bool(getattr(r, "use_motion_blur", False))}
 
 
 def _capture_render(s):
@@ -390,14 +441,16 @@ def _coverage(rgba, w, h, clear=None, stride=4):
             return 0.0
 
 
-def _objects_in_frame(s):
+def _objects_in_frame(s, vm=None, pm=None):
     """按相机矩阵把每个可见对象的 bbox 投到画面里：返回 (in_frame_names, min_margin_px)。
     比"数非底色像素"可靠 —— background=true 时世界底色也算像素，纯覆盖率判不出"瞄空"。
     注意：mathutils.Matrix 只能跟 mathutils.Vector 乘（跟 numpy 数组会 TypeError，自检抓到过）。"""
     from mathutils import Vector
-    vm = make_view_matrix(s["from"], s["look_at"])
-    pm = make_proj_matrix(s["width"], s["height"], s["lens"], s["sensor"], s["clip_start"], s["clip_end"],
-                          s["sensor_fit"], s["ortho"], s["ortho_scale"], s["shift_x"], s["shift_y"])
+    if vm is None:
+        vm = make_view_matrix(s["from"], s["look_at"])
+    if pm is None:
+        pm = make_proj_matrix(s["width"], s["height"], s["lens"], s["sensor"], s["clip_start"], s["clip_end"],
+                              s["sensor_fit"], s["ortho"], s["ortho_scale"], s["shift_x"], s["shift_y"])
     vpm = pm @ vm
     w, h = float(s["width"]), float(s["height"])
     names, best = [], None
@@ -445,7 +498,7 @@ def _empty_frame_note(cov, bbox, s, in_frame=None):
 
 
 def gui_frame(object=None, area=None, all=False):
-    """GUI 原语（93-D1）：在真 UI 上下文里框选对象/全场景（rt_do 里 bpy.context.screen 为 None，做不到这件事）。"""
+    """GUI 原语（93-D1）：在真 UI 上下文里框选对象/全场景（blender_py 里 bpy.context.screen 为 None，做不到这件事）。"""
     win, ar, reg, space = _find_view3d(area)
     prev_sel = [o.name for o in bpy.context.selected_objects][:20]
     got = None
@@ -509,7 +562,7 @@ def gui_help():
                "ops": {"gui_frame": "object=<名>|省略=全场景（真 UI 上下文 view_selected / view_all）",
                        "gui_shading": "mode=WIREFRAME|SOLID|MATERIAL|RENDERED，color_type 可选",
                        "gui_open": "path=<.blend>（⚠ 替换当前文件，旧引用失效）"},
-               "why": "rt_do 的 execute_code 上下文没有 screen/area（实测 bpy.context.screen is None）→ 这三条由插件侧在真 UI 上下文执行",
+               "why": "blender_py 的 execute_code 上下文没有 screen/area（实测 bpy.context.screen is None）→ 这三条由插件侧在真 UI 上下文执行",
                "read_only_note": "gui_frame / gui_shading 只动视口显示；gui_open 会换文件，属写操作"})
 
 
@@ -541,7 +594,7 @@ def host_capture(spec_json):
     """抓**当前 GUI 视口**那一帧（矩阵直接取 region_3d），返回 PNG + 矩阵 + origin 信息。
 
     与 capture() 的分工：
-      capture()      = "从任意位置看一眼"（自建矩阵，不动用户视口）—— 模型侧 rt_see 用
+      capture()      = "从任意位置看一眼"（自建矩阵，不动用户视口）—— 模型侧 blender_see 用
       host_capture() = "用户现在看到的就是这一帧"（region_3d 自己的 view/window 矩阵）—— 宿主面板用
     零场景改动、零视口改动（不改 shading/overlays/选择/相机），只读 GPU 离屏缓冲。
 
@@ -732,7 +785,34 @@ def capture(spec_json):
     rgba = None
     mode = s["mode"].lower()
     err = None
-    if mode == "viewport":
+    vm = pm = None
+    extra = {}
+    if mode == "camera":
+        raw_cam = s.get("camera")
+        wanted = str(raw_cam).strip() if raw_cam is not None else ""
+        if wanted and wanted.lower() != "true":
+            cam = bpy.data.objects.get(wanted)
+            if cam is None or getattr(cam, "type", "") != "CAMERA":
+                return _j({"ok": False, "mode": mode,
+                           "error": "unsupported: 没有名为 %s 的相机对象" % wanted})
+        else:
+            cam = bpy.context.scene.camera
+        if cam is None:
+            return _j({"ok": False, "mode": mode, "error": "unsupported: 场景没有活动相机（scene.camera 为空）"})
+        try:
+            vm, pm, w, h, extra = _camera_matrices(s, bpy.context.scene, cam)
+            s["width"], s["height"] = w, h
+            rgba, meta = _capture_viewport(s, vm, pm, w, h)
+        except Exception as e:
+            return _j({"ok": False, "mode": mode, "error": "%s: %s" % (type(e).__name__, e)})
+    elif mode == "current":
+        try:
+            win, area, reg, space = _find_view3d(s.get("area"))
+            vm, pm = _current_matrices(space, reg, s["width"], s["height"])
+            rgba, meta = _capture_viewport(s, vm, pm)
+        except Exception as e:
+            return _j({"ok": False, "mode": mode, "error": "%s: %s" % (type(e).__name__, e)})
+    elif mode == "viewport":
         try:
             rgba, meta = _capture_viewport(s)
         except Exception as e:
@@ -744,8 +824,7 @@ def capture(spec_json):
         if not os.path.isfile(path):
             return _j({"ok": False, "error": err or "出图失败（viewport 与 render 两条路都没产出）", "mode": mode})
         size = os.path.getsize(path)
-        # v0.9.4：原实现这里**连着调了两次** _scene_bbox()（每次 O(物体数)，403 物体 ~18 ms×2）；
-        #   现在只算一次，且同样只在"显式要诊断"或"近空帧"时才算。
+        # 近空帧/显式 diagnostics 才补跑诊断（原实现这里连调两次 _scene_bbox，403 物体 ~18 ms×2）。
         need_diag_r = bool(s.get("diagnostics")) or int(size) < EMPTY_PNG_BYTES
         bbox_r = _scene_bbox() if need_diag_r else None
         return _j({"ok": True, "mode": mode, "path": path, "bytes": size,
@@ -759,32 +838,31 @@ def capture(spec_json):
                                   s["sensor_fit"], s["ortho"], s["ortho_scale"], s["shift_x"], s["shift_y"])]},
                    "meta": meta, "ms": int((time.perf_counter() - t0) * 1000), "spec": s})
     n = write_png(path, s["width"], s["height"], rgba)
-    # ── 诊断三项：默认不跑，近空帧自动补跑（v0.9.4）────────────────────────
-    # v0.9.1（93-D2）的自诊断（coverage_estimate / scene_bbox / objects_in_frame + frame_looks_empty）
-    # 语义**不变**，只是不再每次都付：正常帧省 45–490 ms，近空帧（PNG < EMPTY_PNG_BYTES）
-    # 或调用方显式 diagnostics=true 时照旧跑全。缓冲区已经在手里，补跑不需要重新绘制。
     need_diag = bool(s.get("diagnostics")) or int(n) < EMPTY_PNG_BYTES
     if need_diag:
         cov = _coverage(rgba, s["width"], s["height"], None)   # 底色取众数（background=true 时世界底色也算像素）
         bbox = _scene_bbox()
         try:
-            in_frame, margin_px = _objects_in_frame(s)
+            in_frame, margin_px = _objects_in_frame(s, vm, pm)
         except Exception:
             in_frame, margin_px = None, None
         warn = _empty_frame_note(cov, bbox, s, in_frame)
     else:
         cov = bbox = in_frame = margin_px = warn = None
-    return _j({"ok": True, "mode": "viewport", "path": path, "bytes": n,
-               "diagnostics": need_diag,
-               "width": s["width"], "height": s["height"], "fallback_from": err,
-               "coverage_estimate": (None if cov is None else round(float(cov), 6)), "scene_bbox": bbox,
-               "objects_in_frame": in_frame, "min_margin_px": margin_px, "warning": warn,
-               "matrix": {"view": [[round(v, 6) for v in r] for r in make_view_matrix(s["from"], s["look_at"])],
-                          "proj": [[round(v, 6) for v in r] for r in make_proj_matrix(
-                              s["width"], s["height"], s["lens"], s["sensor"], s["clip_start"], s["clip_end"],
-                              s["sensor_fit"], s["ortho"], s["ortho_scale"], s["shift_x"], s["shift_y"])]},
-               "meta": meta, "ms": int((time.perf_counter() - t0) * 1000), "spec": s})
-
+    out = {"ok": True, "mode": mode, "path": path, "bytes": n,
+           "diagnostics": need_diag,
+           "width": s["width"], "height": s["height"], "fallback_from": err,
+           "coverage_estimate": (None if cov is None else round(float(cov), 6)), "scene_bbox": bbox,
+           "objects_in_frame": in_frame, "min_margin_px": margin_px, "warning": warn,
+           "matrix": {"view": [[round(v, 6) for v in r] for r in
+                               (vm if vm is not None else make_view_matrix(s["from"], s["look_at"]))],
+                      "proj": [[round(v, 6) for v in r] for r in
+                               (pm if pm is not None else make_proj_matrix(
+                                   s["width"], s["height"], s["lens"], s["sensor"], s["clip_start"], s["clip_end"],
+                                   s["sensor_fit"], s["ortho"], s["ortho_scale"], s["shift_x"], s["shift_y"]))]},
+           "meta": meta, "ms": int((time.perf_counter() - t0) * 1000), "spec": s}
+    out.update(extra)
+    return _j(out)
 
 def selftest():
     """无需 GUI 的自检：GPUOffScreen 清屏 → 读回 → 直写 PNG → 校验字节（后台 -b 也能跑）。"""
@@ -851,13 +929,16 @@ def help():
             "width / height": "出图分辨率（16..4096）",
             "shading": "WIREFRAME/SOLID/MATERIAL/RENDERED —— 临时切换视口着色，出图后还原",
             "overlays": "true/false 临时开关覆盖物（网格/坐标轴/gizmo），出图后还原",
-            "mode": "viewport（默认，零场景改动）/ render（临时相机 + render.opengl）",
+            "mode": "viewport（默认，指定机位零场景改动）/ current（用户视口朝向，按目标宽高重算投影）"
+                    " / camera（当前帧 evaluated 相机；不改 scene.camera/帧/选择；输出渲染比例）/ render（临时相机 + render.opengl）",
+            "camera": "mode=camera 时的相机：true=scene.camera，或对象名（data 必须是 CAMERA）",
+            "max_size": "mode=camera 时最长边像素（默认 1024；按渲染比例算另一条边）",
             "color_management": "默认 true（出图带色彩管理，所见即所得）",
             "background": "默认 true（画世界背景）",
             "path": "输出 PNG 的路径（Blender 侧可见；默认取配置的工作目录，兜底用系统临时目录）",
         },
         "others": {"matrices": "只算矩阵不出图", "targets": "列出可用的 3D 视口", "selftest": "无 GUI 自检",
-                   "gui_frame": "GUI 原语：框选对象/全场景（rt_do 里 screen 为 None 做不到）",
+                   "gui_frame": "GUI 原语：框选对象/全场景（blender_py 里 screen 为 None 做不到）",
                    "gui_shading": "GUI 原语：切视口着色 WIREFRAME/SOLID/MATERIAL/RENDERED",
                    "gui_open": "GUI 原语：打开 .blend（⚠ 替换当前文件）", "gui_help": "GUI 原语速查",
                    "host_capture": "宿主面板：抓当前 GUI 视口帧（region_3d 矩阵 + PNG；零视口改动）",

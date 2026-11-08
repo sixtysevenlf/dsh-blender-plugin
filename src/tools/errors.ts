@@ -7,11 +7,12 @@
  * survive the DSH lossless-JSON gate (vTool sanitizes every return value).
  */
 import { isRecord } from '../contracts/dynamic.js'
+import { availabilityFailure, stageForFailureCode } from '../contracts/availability.js'
+import type { AvailabilityFailure, AvailabilityStage } from '../contracts/availability.js'
 
 export interface ToolFailure {
   text: string
-  envelope: {
-    ok: false
+  envelope: AvailabilityFailure & {
     error: {
       code: string
       message: string
@@ -68,15 +69,34 @@ export function toolError(
   message: string,
   nextAction: string,
   detail?: unknown,
+  stage?: AvailabilityStage,
 ): ToolFailure {
   const msg = redactSecrets(message).slice(0, 500)
   const next =
-    String(nextAction || '').trim() || 'blender_viewport op=status / op=doctor 查看后端与环境'
+    String(nextAction || '').trim() ||
+    'blender_session action=status / action=doctor 查看 Gateway 与环境'
+  const availability = availabilityFailure({
+    stage: stage || stageForFailureCode(code),
+    code,
+    rootCause: msg,
+    fix: next,
+    fallback: {
+      kind: 'unavailable',
+      summary: '该操作不可用；按 fix 处理后重试，不会自动降级到未验证的通道。',
+    },
+    evidence: { code },
+  })
   const out: ToolFailure = {
     text: msg + '\ncode: ' + code + '\nnext_action: ' + next,
-    envelope: { ok: false, error: { code, message: msg, next_action: next } },
+    envelope: {
+      ...availability,
+      error: { code, message: msg, next_action: next },
+    },
   }
-  if (detail !== undefined && detail !== null && String(detail).trim())
-    out.envelope.error.detail = redactSecrets(detail).slice(0, 400)
+  if (detail !== undefined && detail !== null && String(detail).trim()) {
+    const safeDetail = redactSecrets(detail).slice(0, 400)
+    out.envelope.error.detail = safeDetail
+    out.envelope.evidence.detail = safeDetail
+  }
   return out
 }

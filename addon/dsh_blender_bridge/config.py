@@ -1,12 +1,12 @@
 """ Configuration, environment variables, preferences and auto-start. """
 
 import bpy
-import socket
 import requests
 import os
 from bpy.app.handlers import persistent
 
 from .compat import ADDON_MODULE
+from .gateway_schema import ADDON_WS_PATH, GATEWAY_DEFAULT_PORT
 
 # 兼容回退（旧环境变量名）：先读新名，取不到再读改名前的旧名。
 # 旧名只出现在下面这张表里，用户已经设置的环境变量不会失效。
@@ -67,7 +67,6 @@ def get_credential(pref_attr, env_var):
 
 
 RODIN_FREE_TRIAL_KEY = "vibecoding"
-DISCORD_URL = "https://discord.gg/SNqPn4TcKQ"
 # Public site link shown by the N-panel; kept here so UI code does not import
 # the integration clients.
 POLYHAVEN_SITE = "https://polyhaven.com"
@@ -76,26 +75,72 @@ POLYHAVEN_SITE = "https://polyhaven.com"
 REQ_HEADERS = requests.utils.default_headers()
 REQ_HEADERS.update({"User-Agent": "dsh-blender-bridge"})
 
+# 3.1 network policy: asset integrations call external APIs. Blender exposes a
+# global online-access switch; keep local scene/bridge commands usable when it
+# is off, but refuse network commands with a structured policy error.
+def online_access_enabled():
+    try:
+        return bool(bpy.app.online_access)
+    except Exception:
+        return True
+
+
+def online_access_error():
+    return {
+        "status": "error",
+        "code": "network_policy",
+        "message": "Blender online access is disabled; this command needs network access.",
+        "fix": "Enable Edit > Preferences > System > Network > Allow Online Access, then retry. "
+               "Local scene and bridge commands keep working while it is off.",
+    }
+
+
 # Set when the user disconnects so opening another blend file does not restart
 # the server behind their back. A manual connect or add-on reload clears it.
 _user_stopped_server = False
 
 
-def _dshbb_port_has_listener(host, port):
-    """Return True when another process already owns the bridge endpoint."""
-    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    probe.settimeout(0.15)
-    try:
-        return probe.connect_ex((host, port)) == 0
-    finally:
-        probe.close()
+# ------------------------------------------------------------- gateway
+# 3.1: the add-on dials the DSH Gateway; it no longer listens on a port.
+# Resolution order: env DSHBB_GATEWAY_PORT -> add-on preference -> default.
+GATEWAY_HOST = "127.0.0.1"
+GATEWAY_PATH = ADDON_WS_PATH
+
+
+def get_gateway_host():
+    """Gateway host is fixed to loopback; the Gateway is always local."""
+    return GATEWAY_HOST
+
+
+def get_gateway_port():
+    """Resolve the Gateway port: env var, then add-on preference, then default."""
+    raw = read_env_var("DSHBB_GATEWAY_PORT")
+    if raw:
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            value = 0
+        if 1 <= value <= 65535:
+            return value
+        print(f"DSH Blender Bridge: ignoring invalid DSHBB_GATEWAY_PORT={raw!r}")
+
+    preferences = get_dshbb_addon_preferences()
+    preferred = int(getattr(preferences, "gateway_port", 0) or 0) if preferences else 0
+    if 1 <= preferred <= 65535:
+        return preferred
+    return GATEWAY_DEFAULT_PORT
+
+
+def gateway_url(port=None):
+    """WebSocket URL the add-on dials (for logs and the N-panel)."""
+    return "ws://%s:%d%s" % (GATEWAY_HOST, int(port or get_gateway_port()), GATEWAY_PATH)
 
 
 def _dshbb_ensure_server_running():
-    """Start the bridge after Blender's UI and scene context are ready.
+    """Start the Gateway connection after Blender's UI and scene context exist.
 
     Returning a delay asks Blender's timer system to retry when a launch-time
-    socket or context race prevented the first attempt.
+    context race prevented the first attempt.
     """
     if bpy.app.background:
         return None
@@ -109,21 +154,13 @@ def _dshbb_ensure_server_running():
         scene.dshbb_server_running = bool(server is not None and server.running)
         return None
 
-    port = scene.dshbb_port
     if server is None:
         from .server import DSHBlenderBridgeServer
 
-        if _dshbb_port_has_listener("localhost", port):
-            scene.dshbb_server_running = False
-            print(f"DSH Blender Bridge: port {port} is already in use; auto-start skipped.")
-            return None
-        server = DSHBlenderBridgeServer(port=port)
+        server = DSHBlenderBridgeServer()
         bpy.types.dshbb_server = server  # pyright: ignore[reportAttributeAccessIssue]
 
     if not server.running:
-        # Safe while stopped and necessary when a newly loaded scene selects a
-        # different port. Never retarget an active connection.
-        server.port = port
         server.start()
 
     scene.dshbb_server_running = server.running
@@ -172,7 +209,7 @@ def get_dshbb_addon_preferences(context=None):
     return addon.preferences if addon else None
 
 
-DEFAULT_DSH_BACKEND = "http://127.0.0.1:9877"
+DEFAULT_DSH_BACKEND = "http://127.0.0.1:39877"
 
 
 def dshbb_backend_url():

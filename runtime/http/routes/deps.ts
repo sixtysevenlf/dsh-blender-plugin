@@ -4,6 +4,8 @@ import type { EngineSurface } from '../../core/engine/index.js'
 import type { HttpStats } from '../config.js'
 import type { LeaseRec, LeaseView } from '../lease.js'
 import type { SelectionStoreView } from '../host/index.js'
+import type { SessionRegistry } from '../../core/sessions/registry.js'
+import type { JobQueue } from '../../core/queue/manager.js'
 
 export type JsonFn = (res: ServerResponse, code: number, obj: unknown) => void
 export type HostJsonFn = (res: ServerResponse, code: number, obj: unknown, origin?: unknown) => void
@@ -25,11 +27,13 @@ export type LeaseAcquireFn = (
 ) =>
   { denied: true; holder: string | null; expiresInMs: number } | { granted: true; lease: LeaseView }
 
-/** 路由工厂共同依赖（server.ts 组装的 E 对象）。 */
+/** 路由工厂共同依赖（gateway/app.ts 组装的 E 对象）。 */
 export interface HttpRouteDeps {
   [k: string]: unknown
   engine: EngineSurface
   selectionStore: SelectionStoreView
+  sessionRegistry: SessionRegistry
+  jobQueue: JobQueue
   json: JsonFn
   hostJson: HostJsonFn
   hostErrText: (e: unknown) => string

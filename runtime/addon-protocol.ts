@@ -38,7 +38,8 @@ export interface AddonProtocol {
 export const PROTOCOLS: Record<string, AddonProtocol> = {
   flat: {
     id: 'flat',
-    label: '直连 addon · 扁平协议（无分帧；实测 v1.7/v1.8 都通 —— 活版本看 rt_cmd get_addon_info）',
+    label:
+      '直连 addon · 扁平协议（无分帧；实测 v1.7/v1.8 都通 —— 活版本看 blender_inspect get_addon_info）',
     framing: 'none',
     panelHint: '「DSH Blender Bridge」面板 → Connect',
     plan(type: string, params?: Record<string, unknown>): ProtocolPlan {

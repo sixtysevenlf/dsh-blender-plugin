@@ -14,7 +14,7 @@
   render_cancel   → 删（cleared_by="cancel"）
   load_post       → 删（换文件/崩溃恢复，避免陈标记把通道永久挡住）
 
-后端据此：① 渲染中把主线程写命令**秒回 busy**（并建议渲染完再发 / 或改用 blender_rt_job）；
+后端据此：① 渲染中把主线程写命令**秒回 busy**（并建议渲染完再发 / 或改用 blender_run）；
 ② render_state/render_wait/render_reset 三个 op；③ 陈标记（默认 >15 min）自动判 stale 并放行。
 
 API 挂 K.dsh_render_guard；install() 幂等（重复调用不会重复注册 handler）。

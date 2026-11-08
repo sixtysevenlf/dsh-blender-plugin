@@ -22,17 +22,17 @@
 
 | 面 | 说明 |
 |---|---|
-| Blender 侧 Python | `blender_rt_do` / `blender_rt_headless` / `blender_rt_worker` / `blender_rt_plan` 等会把调用方给的 Python 交给 Blender 的 `bpy` 执行；`K` 是跨调用保留的持久内核 |
-| 本地进程 | 会 spawn 后端 `node lib/runtime/server.js`（先 `npm run build`）、无头 `blender -b`、以及 `runtime/ext/` 下的外部校验器（glTF-Validator / open3d）；必要时用 `SIGTERM` -> `SIGKILL` 清残留后端 |
-| 本地网络 | 后端只监听 `127.0.0.1`（默认 9877）；与 Blender addon 走 `127.0.0.1:9876` 的 TCP。插件本身**没有**外呼遥测 |
+| Blender 侧 Python | `blender_py`（GUI 会话）与 `blender_run(kind="headless")` 会把调用方给的 Python 交给 Blender 的 `bpy` 执行；`K` 是 GUI 会话内跨调用保留的持久内核 |
+| 本地进程 | 会 spawn 后端 `node lib/runtime/gateway.js`（先 `npm run build`）、无头 `blender -b`、以及 `runtime/ext/` 下的外部校验器（glTF-Validator / open3d）；必要时用 `SIGTERM` -> `SIGKILL` 清残留后端 |
+| 本地网络 | Gateway 只监听 `127.0.0.1`（默认 39877）；Blender addon 主动连接 Gateway 的 WebSocket，不开放入站端口。除这条本地控制通道外，插件**没有**遥测 |
 | 文件读写 | 默认工作目录 `~/.dsh-blender-rt`（可用 `DSH_BLENDER_*` 环境变量或包根 `dsh-blender.config.json` 覆盖）：渲染产物、日志、作业台账 |
 | gate 表达式 | `gate_run` 的 `pass_if` / `degrade_if` 是**受限表达式**：先过 `runtime/py/core/gate.py` 的 `_check_ast` 语法白名单，再由 `_eval_node` 逐节点求值（**不调用 `eval` / `exec`**）；禁用下划线属性，函数仅限 `min` / `max` / `len` / `abs` / `round` / `all` / `any` / `sum` / `float` / `int` / `str` |
 | 凭据 | 宿主插件**不读取、不存储、不传输**任何 API key / token / 凭据文件。随包 addon 提供可选的资产集成凭据（Hyper3D、Sketchfab、Poly Pizza、Hunyuan3D），以密码字段形式保存在 Blender 的 add-on preferences 中；也可通过 `DSHBB_*` 环境变量提供（旧的 `BLENDERMCP_*` 名称仍兼容），且只发送给你主动调用的对应第三方 API |
-| 遥测 | 默认关闭。只有勾选 addon 的 telemetry consent 后，addon 才会采集人工编辑事件并通过 `drain_human_activity` 交给 DSH 宿主；插件本身不向机器外发送遥测 |
+| 遥测 | 没有。随包 addon 不含遥测、统计、同意偏好或人工编辑事件缓冲；活动状态只在内存中计算，不落盘也不外发 |
 
 ## 第三方依赖 / Blender 侧 addon
 
-- Blender 侧需要本仓附带的 addon（`DSH Blender Bridge` v1.11 / protocol 11，以 `addon/dsh_blender_bridge.zip`
+- Blender 侧需要本仓附带的 addon（`DSH Blender Bridge` v2.0.0 / protocol 12，以 `addon/dsh_blender_bridge.zip`
   分发，源码在 `addon/dsh_blender_bridge/`）。旧 `MCP for Blender` / category-action 实现**不在本仓库**，
   自 v2.3 起不再支持；不要为它安装或授予信任。
 - 发布包由 `npm pack` 生成，只含 `package.json` 的 `files` 白名单内容；

@@ -70,7 +70,7 @@ export function buildHeadlessReceipt(r: HeadlessReceiptInput): Record<string, un
     session: r.session,
     failure_hint: r.failureHint,
     how_to_recover:
-      '客户端超时/断连不代表失败：这是独立子进程。用 blender_rt_job(op="status"|"collect"|"wait", id="' +
+      '客户端超时/断连不代表失败：这是独立子进程。用 blender_run(action=""status"|"collect"|"wait", id="' +
       r.runId +
       '") 按 runId 回收结果与产物（台账：' +
       r.ledgerWin +

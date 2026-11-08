@@ -4,29 +4,22 @@ import os from 'node:os'
 import path from 'node:path'
 import * as plugin from '../../../../src/index'
 import { createFakeContext } from '../../../helpers/fake-context'
-import { closedPort, startFakeBackend } from '../../../helpers/fake-backend.mjs'
+import { closedPort } from '../../../helpers/fake-backend.mjs'
 import { validateFileOpt } from '../../../../runtime/file_guard.js'
 import { setPaused } from '../../../../src/host/backend/index'
+import { validateAvailabilityEnvelope } from '../../../../src/contracts/availability'
+import { formatActText } from '../../../../src/tools/py/envelope.js'
 
 const { losslessSanitize, errorLine, redactSecrets, toolError, headlessReceipt } =
   plugin.__internals
 
 const CASES: Array<[string, Record<string, unknown>]> = [
-  ['blender_rt_see', { max_size: 320 }],
-  ['blender_rt_do', { code: 'x = 1', see: false }],
-  ['blender_rt_watch', { code: 'x = 1', seconds: 0.1, fps: 1, max_size: 120 }],
-  ['blender_rt_cmd', { name: 'ping' }],
-  ['blender_rt_commands', {}],
-  ['blender_rt_loop', { op: 'status' }],
-  ['blender_rt_perf', { op: 'status' }],
-  ['blender_rt_opt', { op: 'join', args: '{"dry_run":true}' }],
-  ['blender_rt_headless', { script: 'print(1)' }],
-  ['blender_rt_plan', { op: 'definitely-not-an-op' }],
-  ['blender_rt_worker', { op: 'start', name: 'w1' }],
-  ['blender_rt_txn', { op: 'list' }],
-  ['blender_rt_preset', { op: 'list' }],
-  ['blender_rt_job', { op: 'list' }],
-  ['blender_viewport', { op: 'status' }],
+  ['blender_session', { action: 'list' }],
+  ['blender_op', { action: 'plan', op: 'catalog' }],
+  ['blender_py', { code: 'x = 1', see: false }],
+  ['blender_see', {}],
+  ['blender_run', { action: 'list' }],
+  ['blender_inspect', {}],
 ]
 
 let fake: ReturnType<typeof createFakeContext>
@@ -79,6 +72,12 @@ describe('error, lossless and security contract', () => {
       message: 'missing name',
       next_action: 'pass name=ping',
     })
+    expect(failure.envelope.stage).toBe('config')
+    expect(failure.envelope.root_cause).toBe('missing name')
+    expect(failure.envelope.fix).toBe('pass name=ping')
+    expect(failure.envelope.fallback.kind).toBe('unavailable')
+    expect(failure.envelope.evidence).toEqual({ code: 'invalid_params' })
+    expect(validateAvailabilityEnvelope(failure.envelope)).toEqual([])
     expect(() => losslessSanitize(failure)).not.toThrow()
     expect(losslessSanitize(failure).fixes).toEqual([])
   })
@@ -108,53 +107,20 @@ describe('error, lossless and security contract', () => {
     }
   })
 
-  it('redacts online backend tracebacks and gives every failure a code', async () => {
+  it('redacts tracebacks and secrets in Python and headless receipts', () => {
     const RAW =
       'Traceback (most recent call last):\n  File "C:/secret.py", line 1\nsk-abcdefghijklmnop\nBearer abcdefghijkl'
-    const respond = (obj: unknown) => ({
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-      body: Buffer.from(JSON.stringify(obj)),
-    })
-    const srv = await startFakeBackend({
-      handlers: {
-        'POST /act': () => respond({ ok: false, error: 'ACT boom', traceback: RAW }),
-        'POST /worker': (body: any) =>
-          body && body.op === 'start'
-            ? respond({ ok: true, result: { ok: true } })
-            : respond({ ok: true, result: { ok: false, error: 'worker boom', traceback: RAW } }),
-      },
-    })
-    setPaused(false)
-    const own = createFakeContext()
-    plugin.apply(own.ctx, { autoStart: false, tui: false, port: srv.port })
-    try {
-      const doTool = own.tools.find((t) => t.name === 'blender_rt_do')!
-      const doOut: any = await (doTool.execute as any)(
-        { code: 'x = 1', see: false, auto: false },
-        {},
-      )
-      expect(doOut.envelope.error.code).toBe('backend_error')
-      expect(doOut.envelope.error.next_action).toBeTruthy()
-      expect(String(doOut.text)).not.toContain('Traceback')
-      expect(String(doOut.text)).not.toContain('sk-abcdefghijklmnop')
-
-      const worker = own.tools.find((t) => t.name === 'blender_rt_worker')!
-      const wOut: any = await (worker.execute as any)({ op: 'exec', name: 'w1', code: 'x = 1' }, {})
-      expect(wOut.envelope.error.code).toBe('backend_error')
-      expect(wOut.envelope.error.next_action).toBeTruthy()
-      expect(String(wOut.text)).not.toContain('Traceback')
-      expect(String(wOut.text)).not.toContain('sk-abcdefghijklmnop')
-
-      const receipt = headlessReceipt({ ok: false, error: 'boom', traceback: RAW }, {})
-      expect(String(receipt.text)).not.toContain('Traceback')
-      expect(String(receipt.text)).not.toContain('sk-abcdefghijklmnop')
-      expect(String(receipt.text)).not.toContain('Bearer abcdefghijkl')
-    } finally {
-      own.dispose()
-      await srv.close()
-      setPaused(true)
-    }
+    const act = formatActText({ ok: true, ms: 3, stdout: RAW, stderr: RAW }).join(
+      String.fromCharCode(10),
+    )
+    expect(act).toContain('PY ok')
+    expect(act).not.toContain('Traceback')
+    expect(act).not.toContain('sk-abcdefghijklmnop')
+    expect(act).not.toContain('Bearer abcdefghijkl')
+    const receipt = headlessReceipt({ ok: false, error: 'boom', traceback: RAW }, {})
+    expect(String(receipt.text)).not.toContain('Traceback')
+    expect(String(receipt.text)).not.toContain('sk-abcdefghijklmnop')
+    expect(String(receipt.text)).not.toContain('Bearer abcdefghijkl')
   })
 
   it('rejects symlinked file= paths', () => {

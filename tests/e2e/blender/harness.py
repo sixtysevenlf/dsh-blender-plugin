@@ -1,9 +1,10 @@
 """Real-Blender harness for the add-on E2E layer (T10).
 
 Spawns Blender 4.2 LTS with --background --factory-startup, points
-BLENDER_USER_SCRIPTS at a throw-away directory, installs the committed add-on
-zip, calls the runner inside Blender, and returns the JSON check report plus the
-raw stdout/stderr so the evidence pack can keep the real log.
+BLENDER_USER_EXTENSIONS / BLENDER_USER_CONFIG at a throw-away directory, installs
+the committed extension zip into the user_default repository, calls the runner
+inside Blender, and returns the JSON check report plus the raw stdout/stderr so
+the evidence pack can keep the real log.
 
 Blender is a release-machine dependency: tests skip (never fake a pass) when no
 executable is configured or discoverable.
@@ -60,13 +61,17 @@ def require_blender():
 def _env(work_dir: Path):
     temp_dir = work_dir / "tmp"
     user_scripts = work_dir / "user_scripts"
-    temp_dir.mkdir(parents=True, exist_ok=True)
-    user_scripts.mkdir(parents=True, exist_ok=True)
+    user_extensions = work_dir / "user_extensions"
+    user_config = work_dir / "user_config"
+    for path in (temp_dir, user_scripts, user_extensions, user_config):
+        path.mkdir(parents=True, exist_ok=True)
     env = dict(os.environ)
     env.update({
         "TEMP": str(temp_dir),
         "TMP": str(temp_dir),
         "BLENDER_USER_SCRIPTS": str(user_scripts),
+        "BLENDER_USER_EXTENSIONS": str(user_extensions),
+        "BLENDER_USER_CONFIG": str(user_config),
         "PYTHONIOENCODING": "utf-8",
         "PYTHONUTF8": "1",
     })

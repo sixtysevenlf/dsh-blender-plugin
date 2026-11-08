@@ -108,7 +108,7 @@ const engine: any = {
   status: async () =>
     ok('status', {
       region: { window: null, views: [] },
-      plugin: { version: '3.0.6' },
+      plugin: { version: '3.1.0' },
       runs: [],
       jobs: [],
       ledger: { writable: true },
@@ -134,7 +134,7 @@ const engine: any = {
     ok('commands', {
       scene: 'Scene',
       file: null,
-      total: 38,
+      total: 25,
       available: ['ping'],
       disabled: [],
       integrations: {},
@@ -458,8 +458,8 @@ const NORMAL: Array<[string, () => Promise<string>]> = [
     async () => {
       const j = expectJson(await call('/commands'), 200)
       expect(j.ok).toBe(true)
-      expect(j.total).toBe(38)
-      return '200 application/json · ok=true total=38'
+      expect(j.total).toBe(25)
+      return '200 application/json · ok=true total=25'
     },
   ],
   [

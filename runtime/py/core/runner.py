@@ -103,7 +103,7 @@ def _state():
     import sys
     K = sys.modules.get("dsh_rt_kernel")
     if K is None:
-        raise RuntimeError("内环 runner 需要持久内核 K（用 blender_rt_do / engine.act 通道）")
+        raise RuntimeError("内环 runner 需要持久内核 K（用 blender_py / engine.act 通道）")
     st = getattr(K, "dsh_loop", None)
     if st is None:
         st = {"running": False, "i": 0, "t0": 0.0, "spec": None, "ns": {}, "best": None,
@@ -388,7 +388,7 @@ def dsh_loop_export(path=None, top=1, include_variants=False, note=""):
     lines = [
         "# -*- coding: utf-8 -*-",
         "# 由 DSH 内环 runner v%d 导出的可复用脚本（最好成绩 + setup 源码 + 应用步骤）" % RUNNER_VERSION,
-        "# 用法：blender_rt_do(code=本文件内容) 或在 Blender 里 exec 本脚本 → 复现找到的参数",
+        "# 用法：blender_py(code=本文件内容) 或在 Blender 里 exec 本脚本 → 复现找到的参数",
         "import json",
         "BEST = json.loads(" + _py_lit(json.dumps(payload, ensure_ascii=False, indent=2)) + ")",
         "SETUP_SRC = json.loads(" + _py_lit(json.dumps(setup_src, ensure_ascii=False)) + ")",

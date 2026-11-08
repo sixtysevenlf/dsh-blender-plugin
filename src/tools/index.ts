@@ -1,39 +1,24 @@
-/** 15 个模型工具的注册聚合（顺序与 v2.6.2 apply 内原顺序一致；每个工具自带 ctx.effect 键）。 */
-import { registerSee } from './see/index.js'
-import { registerDo } from './do/index.js'
-import { registerWatch } from './watch/index.js'
-import { registerCmd } from './cmd.js'
-import { registerCommands } from './commands.js'
-import { registerLoop } from './loop/index.js'
-import { registerPerf } from './perf.js'
-import { registerOpt } from './opt.js'
-import { registerHeadless } from './headless/index.js'
-import { registerPlan } from '../plan/tool.js'
-import { registerWorker } from './worker/index.js'
-import { registerTxn } from './txn/index.js'
-import { registerPreset } from './preset/index.js'
-import { registerJob } from './job/index.js'
-import { registerViewport } from './viewport/index.js'
+/** 模型工具面（3.1）：恰好 6 个工具，一个工具一条产品边界。 */
 import type { HostContext } from '../host/context.js'
+import { registerSession } from './session/index.js'
+import { registerOp } from './op/index.js'
+import { registerPy } from './py/index.js'
+import { registerSee } from './see/index.js'
+import { registerRun } from './run/index.js'
+import { registerInspect } from './inspect/index.js'
+import { legacyToolHint } from './migration.js'
 
 export function registerTools(ctx: HostContext, port: number): void {
-  // ---------- A. AI 实时交互原语 ----------
+  // 会话 → 算子 → 执行 → 观察 → 作业 → 只读检查
+  registerSession(ctx, port)
+  registerOp(ctx, port)
+  registerPy(ctx, port)
   registerSee(ctx, port)
-  registerDo(ctx, port)
-  registerWatch(ctx, port)
-  registerCmd(ctx, port)
-  registerCommands(ctx, port)
-  registerLoop(ctx, port)
-  // ---------- 性能 / 重活 ----------
-  registerPerf(ctx, port)
-  registerOpt(ctx, port)
-  registerHeadless(ctx, port)
-  // ---------- 契约层 / 热会话 ----------
-  registerPlan(ctx, port)
-  registerWorker(ctx, port)
-  registerTxn(ctx, port)
-  registerPreset(ctx, port)
-  registerJob(ctx, port)
-  // ---------- 运维 ----------
-  registerViewport(ctx, port)
+  registerRun(ctx, port)
+  registerInspect(ctx, port)
+  // 旧工具名不再注册；预执行 guard 把 UNKNOWN_TOOL 变成「改用哪个工具」的提示。
+  ctx.effect(
+    () => ctx.tools.guard((exec) => legacyToolHint(exec.name)),
+    'dsh-blender-plugin: legacy-tool-migration-hint',
+  )
 }

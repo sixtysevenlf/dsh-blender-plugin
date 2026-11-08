@@ -25,6 +25,10 @@ class _Base:
     pass
 
 
+class _Object(_Base):
+    pass
+
+
 class _Scene(_Base):
     pass
 
@@ -56,7 +60,6 @@ class _Context:
         self.scene.name = "Scene"
         self.scene.dshbb_ai_paused = False
         self.scene.dshbb_backend_url = ""
-        self.scene.dshbb_port = 9876
         self.scene.dshbb_auto_start_server = False
         self.scene.dshbb_server_running = False
         self.scene.dshbb_selection_mode = "MULTI"
@@ -120,6 +123,7 @@ class _App:
         self.version = (4, 2, 10)
         self.version_string = "4.2.10"
         self.background = True
+        self.online_access = True
         self.tempdir = None
         self.binary_path = ""
         self.handlers = _Handlers()
@@ -173,6 +177,7 @@ def install():
         "WindowManager",
     ):
         setattr(types_mod, name, globals().get(name, _Base))
+    types_mod.Object = _Object
     types_mod.Collection = _Collection
     types_mod.Node = _Node
     types_mod.Scene = _Scene
@@ -202,6 +207,7 @@ def install():
     app_mod.version = app.version
     app_mod.version_string = app.version_string
     app_mod.background = app.background
+    app_mod.online_access = app.online_access
     app_mod.tempdir = app.tempdir
     app_mod.handlers = app.handlers
     app_mod.timers = app.timers

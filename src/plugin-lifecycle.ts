@@ -6,14 +6,20 @@ import {
   killChildHandle,
   probe,
   sleep,
-  startBackend,
 } from './host/backend/index.js'
-import { backendPost } from './host/http.js'
+import {
+  canRestartGateway,
+  noteGatewayRestartFailure,
+  noteGatewayRestartSuccess,
+} from './host/backend/restart.js'
 import type { HostContext } from './host/context.js'
 
 export function registerLifecycle(ctx: HostContext, port: number, autoStart: boolean): void {
   void (async () => {
-    if (autoStart && !isPaused()) await ensureBackend(port)
+    if (autoStart && !isPaused()) {
+      if (await ensureBackend(port)) noteGatewayRestartSuccess()
+      else noteGatewayRestartFailure()
+    }
   })()
 
   // 常驻看护：每 15s 探活一次，掉线自动拉起（宿主重启 / 进程被杀 / 端口被回收都能自愈）。
@@ -30,12 +36,9 @@ export function registerLifecycle(ctx: HostContext, port: number, autoStart: boo
           if (isPaused()) return
           if (await probe(port)) {
             probeMisses = 0
-            // 租约心跳：只在"本来就持有"时续期，空闲时不抢占别的会话
-            try {
-              await backendPost(port, '/lease', { renewOnly: true }, 5000)
-            } catch {
-              /* 后端可能刚挂，下一轮再试 */
-            }
+            noteGatewayRestartSuccess()
+            // 3.1: ownership/grant heartbeats travel with real calls; the watchdog
+            // only checks Gateway liveness and never renews a legacy write lease.
             return
           }
           probeMisses += 1
@@ -54,7 +57,11 @@ export function registerLifecycle(ctx: HostContext, port: number, autoStart: boo
               /* 忽略 */
             }
           }
-          await startBackend(port)
+          // Bounded auto-restart: exponential backoff up to 30 s, five failures.
+          // An explicit op=start resets the budget (see viewport/execute.ts).
+          if (!canRestartGateway()) return
+          if (await ensureBackend(port)) noteGatewayRestartSuccess()
+          else noteGatewayRestartFailure()
         } catch {
           /* 看护失败静默，下一轮再试 */
         }

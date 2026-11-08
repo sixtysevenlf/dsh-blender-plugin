@@ -3,12 +3,12 @@
 unwrap/smart_project = 0 命中。
 
 ops：
-    blender_rt_plan(op="uv_stats",        args={objects:["Body"]})                     # 只读
-    blender_rt_plan(op="uv_smart_project",args={objects:["Body"], angle_limit:66, island_margin:0.02})
-    blender_rt_plan(op="uv_unwrap",       args={objects:["Body"], method:"SLIM", margin:0.001})
-    blender_rt_plan(op="uv_project",      args={objects:["Body"], type:"CUBE"})
-    blender_rt_plan(op="uv_pack",         args={objects:["Body"], margin:0.002, rotate:true})
-    blender_rt_plan(op="uv_selftest")
+    blender_op(op="uv_stats",        args={objects:["Body"]})                     # 只读
+    blender_op(op="uv_smart_project",args={objects:["Body"], angle_limit:66, island_margin:0.02})
+    blender_op(op="uv_unwrap",       args={objects:["Body"], method:"SLIM", margin:0.001})
+    blender_op(op="uv_project",      args={objects:["Body"], type:"CUBE"})
+    blender_op(op="uv_pack",         args={objects:["Body"], margin:0.002, rotate:true})
+    blender_op(op="uv_selftest")
 
 **枚举不猜**：unwrap 的 method / pack 的 shape_method 都从算子的 RNA 枚举里取候选，传错值时报
 "允许值 [..]"，而不是让 Blender 抛一句看不懂的错。

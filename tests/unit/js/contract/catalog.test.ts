@@ -30,9 +30,10 @@ describe('catalog contract', () => {
     expect(family.ok).toBe(true)
     expect(family.text).toContain('fit')
     expect(family.text).toContain('M3')
-    const tool = catalogPayload({ tool: 'rt_plan' })
+    const tool = catalogPayload({ tool: 'op' })
     expect(tool.ok).toBe(true)
     expect(typeof tool.text).toBe('string')
+    expect(tool.text).toContain('blender_op')
     expect(catalogPayload({ family: '__nope__' }).ok).toBe(false)
   })
 

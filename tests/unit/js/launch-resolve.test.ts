@@ -20,7 +20,7 @@ function jsonResponse(body: unknown, ok = true): Response {
   return { ok, json: async () => body } as unknown as Response
 }
 
-const base = { ok: true, addonPort: 9876 }
+const base = { ok: true }
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -46,8 +46,18 @@ describe('addon name hints', () => {
     expect(JSON.parse((line as string).slice('_HINTS = '.length))).toEqual(ADDON_NAME_HINTS)
     expect(LAUNCH_BOOT_PY).toContain('def _name_hit(name):')
     expect(LAUNCH_BOOT_PY).toContain('return any(k in n for k in _HINTS)')
+    expect(LAUNCH_BOOT_PY).toContain('"addon_module": None')
     expect(LAUNCH_BOOT_PY).toContain('"addon_version": None')
-    expect(LAUNCH_BOOT_PY).toContain('protocol == 11')
+    expect(LAUNCH_BOOT_PY).toContain('"addon_issue": None')
+    expect(LAUNCH_BOOT_PY).toContain('def _set_issue(code, detail, fix):')
+    expect(LAUNCH_BOOT_PY).toContain('addon_not_installed')
+    expect(LAUNCH_BOOT_PY).toContain('addon_disabled')
+    expect(LAUNCH_BOOT_PY).toContain('addon_version_mismatch')
+    expect(LAUNCH_BOOT_PY).toContain('addon_single_file')
+    expect(LAUNCH_BOOT_PY).toContain('getattr(mod, "ADDON_VERSION", None)')
+    expect(LAUNCH_BOOT_PY).toContain('bpy.context.preferences.addons.keys()')
+    expect(LAUNCH_BOOT_PY).toContain('bl_ext.*.dsh_blender_bridge')
+    expect(LAUNCH_BOOT_PY).toContain('protocol == 12')
   })
 })
 
@@ -56,9 +66,9 @@ describe('tryLaunchAgent (windows launch agent handshake)', () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
     const steps: string[] = []
-    await expect(tryLaunchAgent({}, 9876, steps, base)).resolves.toBeNull()
+    await expect(tryLaunchAgent({}, steps, base)).resolves.toBeNull()
     h.cfg.launchAgentUrl = 'off'
-    await expect(tryLaunchAgent({}, 9876, steps, base)).resolves.toBeNull()
+    await expect(tryLaunchAgent({}, steps, base)).resolves.toBeNull()
     expect(fetchMock).not.toHaveBeenCalled()
     expect(steps).toEqual([])
   })
@@ -68,7 +78,7 @@ describe('tryLaunchAgent (windows launch agent handshake)', () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
     const steps: string[] = []
-    await expect(tryLaunchAgent({ interop: true }, 9876, steps, base)).resolves.toBeNull()
+    await expect(tryLaunchAgent({ interop: true }, steps, base)).resolves.toBeNull()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -79,14 +89,14 @@ describe('tryLaunchAgent (windows launch agent handshake)', () => {
       'fetch',
       vi.fn(async () => jsonResponse({}, false)),
     )
-    await expect(tryLaunchAgent({}, 9876, steps, base)).resolves.toBeNull()
+    await expect(tryLaunchAgent({}, steps, base)).resolves.toBeNull()
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => {
         throw new Error('ECONNREFUSED')
       }),
     )
-    await expect(tryLaunchAgent({}, 9876, steps, base)).resolves.toBeNull()
+    await expect(tryLaunchAgent({}, steps, base)).resolves.toBeNull()
     expect(steps).toEqual([])
   })
 
@@ -105,13 +115,11 @@ describe('tryLaunchAgent (windows launch agent handshake)', () => {
     const steps: string[] = []
     const out = await tryLaunchAgent(
       { file: 'D:/x.blend', force: 1, exe: 'D:/blender.exe' },
-      9876,
       steps,
       base,
     )
     expect(out).toMatchObject({
       ok: true,
-      addonPort: 9876,
       already: false,
       dispatched: true,
       via: 'windows-agent',
@@ -122,7 +130,6 @@ describe('tryLaunchAgent (windows launch agent handshake)', () => {
     ])
     expect(calls[1].init?.method).toBe('POST')
     expect(JSON.parse(String(calls[1].init?.body))).toEqual({
-      addonPort: 9876,
       file: 'D:/x.blend',
       force: true,
       blenderExe: 'D:/blender.exe',
@@ -141,7 +148,7 @@ describe('tryLaunchAgent (windows launch agent handshake)', () => {
       }),
     )
     const steps: string[] = []
-    const out = await tryLaunchAgent({ file: null }, 9876, steps, base)
+    const out = await tryLaunchAgent({ file: null }, steps, base)
     expect(out).toMatchObject({
       ok: false,
       dispatched: true,

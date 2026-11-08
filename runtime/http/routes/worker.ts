@@ -1,6 +1,32 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { HttpRouteDeps } from './deps.js'
 import { errorMessage, errorField } from '../../core/json.js'
+
+/** 失败信封：只透出插件约定的 code，并为已知配置错误补齐四问字段。 */
+function workerFailureBody(e: unknown, op: string): Record<string, unknown> {
+  const error = errorMessage(e)
+  const code = errorField(e, 'code')
+  const known = code === 'blender_exe_missing'
+  return {
+    ok: false,
+    op: op,
+    error: error,
+    hint: errorField(e, 'hint') || null,
+    // Node 内部错误码（ERR_INVALID_ARG_TYPE 等）不该变成模型可见的结构化错误码。
+    code: known ? code : null,
+    // 安全 fallback：已知配置错误必须带齐四问字段，不能只给一句错误文本。
+    ...(known
+      ? {
+          stage: errorField(e, 'stage') || 'config',
+          root_cause: error,
+          fix: errorField(e, 'fix') || errorField(e, 'hint') || null,
+          fallback: errorField(e, 'fallback') || null,
+          evidence: errorField(e, 'evidence') || {},
+        }
+      : {}),
+  }
+}
+
 // HTTP 路由 /worker：热无头会话
 export function createWorkerRoutes(E: HttpRouteDeps) {
   const { engine, isReadOnly, json, leaseGate, readBody, stats, streamJson } = E
@@ -97,16 +123,7 @@ export function createWorkerRoutes(E: HttpRouteDeps) {
           }
         } catch (e) {
           stats.lastError = errorMessage(e)
-          const code = errorField(e, 'code')
-          return {
-            ok: false,
-            op: op,
-            error: stats.lastError,
-            hint: errorField(e, 'hint') || null,
-            // 只透出本插件约定、工具层认识的 code：Node 内部错误码（ERR_INVALID_ARG_TYPE 等）
-            // 不该变成模型可见的「结构化错误码」。
-            code: code === 'blender_exe_missing' ? code : null,
-          }
+          return workerFailureBody(e, op)
         }
       })
       return

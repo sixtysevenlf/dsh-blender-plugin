@@ -7,6 +7,7 @@ from .. import config
 from ..config import RODIN_FREE_TRIAL_KEY, get_dshbb_addon_preferences, set_session_credential
 from ..protocol import redraw_view3d_panels
 from ..server import DSHBlenderBridgeServer
+from .install import format_plan, install_missing
 
 class DSHBB_OT_ToggleAIPause(bpy.types.Operator):
     """暂停 / 继续 AI 操作（拒绝 DSH 发来的 Blender 写操作）"""
@@ -194,13 +195,15 @@ class DSHBB_OT_StartServer(bpy.types.Operator):
         config._user_stopped_server = False
         scene = context.scene
 
-        # Create a new server instance
-        if not hasattr(bpy.types, "dshbb_server") or not bpy.types.dshbb_server:
-            bpy.types.dshbb_server = DSHBlenderBridgeServer(port=scene.dshbb_port)
+        # A stopped server re-reads its Gateway endpoint on start(), so replace
+        # it instead of pinning the port captured when it was first created.
+        server = getattr(bpy.types, "dshbb_server", None)
+        if server is None or not server.running:
+            server = DSHBlenderBridgeServer()
+            bpy.types.dshbb_server = server
 
-        # Start the server
-        bpy.types.dshbb_server.start()
-        scene.dshbb_server_running = bpy.types.dshbb_server.running
+        server.start()
+        scene.dshbb_server_running = server.running
 
         return {'FINISHED'}
 
@@ -223,20 +226,34 @@ class DSHBB_OT_StopServer(bpy.types.Operator):
 
         return {'FINISHED'}
 
-# Operator to open Terms and Conditions
-class DSHBB_OT_OpenTerms(bpy.types.Operator):
-    bl_idname = "dshbb.open_terms"
-    bl_label = "View Terms and Conditions"
-    bl_description = "Open the Terms and Conditions document"
+
+
+class DSHBB_OT_InstallVirtualDisplayDeps(bpy.types.Operator):
+    """安装 virtual-gui 缺失的系统前提（一键命令来自 Gateway /doctor，经系统认证执行）"""
+    bl_idname = "dshbb.install_virtual_display_deps"
+    bl_label = "Install virtual-gui prerequisites"
+    bl_description = (
+        "读取 Gateway /doctor 的同一份安装计划：只执行支持 pkexec 的一键命令，"
+        "其余显示手动命令；安装后复检 capabilities，失败保留 stderr"
+    )
 
     def execute(self, context):
-        # Open the Terms and Conditions on GitHub
-        terms_url = "https://github.com/ahujasid/blender-mcp/blob/main/TERMS_AND_CONDITIONS.md"
         try:
-            import webbrowser
-            webbrowser.open(terms_url)
-            self.report({'INFO'}, "Terms and Conditions opened in browser")
-        except Exception as e:
-            self.report({'ERROR'}, f"Could not open Terms and Conditions: {str(e)}")
-
-        return {'FINISHED'}
+            result = install_missing()
+        except Exception as error:  # noqa: BLE001 - operator report
+            self.report({'ERROR'}, "读取安装计划失败：%s" % error)
+            return {'CANCELLED'}
+        manual = result.get("manual") or []
+        if result.get("ok"):
+            installed = ", ".join(result.get("installed") or []) or "无"
+            self.report({'INFO'}, "virtual-gui 前提已就绪（本次安装：%s）" % installed)
+            return {'FINISHED'}
+        if manual:
+            lines = " | ".join(format_plan(plan) for plan in manual)
+            self.report({'WARNING'}, "以下前提需要手动安装：%s" % lines)
+        detail = str(result.get("message") or "安装未完成")
+        stderr = str(result.get("stderr") or "").strip().splitlines()
+        if stderr:
+            detail += " · " + stderr[-1]
+        self.report({'ERROR'}, detail)
+        return {'CANCELLED'}

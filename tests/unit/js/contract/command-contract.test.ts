@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { COMMAND_CATALOG, COMMAND_CATALOG_OMISSIONS } from '../../../../runtime/catalog/index.js'
-import { AddonClient } from '../../../../runtime/transport/probes.js'
+import { AddonClient } from '../../../helpers/legacy-flat-addon-client.js'
 import { startFakeAddon } from '../../../helpers/fake-addon.mjs'
 import { pkgPath } from '../../../helpers/pkg'
 
@@ -29,6 +29,7 @@ const addonSource = readTree(addonDir)
 const registrySource = readAddon('command_registry.py')
 const protocolSource = readAddon('protocol.py')
 const serverSource = readAddon('server.py')
+const schemaSource = readAddon('gateway_schema.py')
 const coreInfo = readAddon('commands', 'core', '__init__.py')
 
 function registryCommands(): string[] {
@@ -38,14 +39,14 @@ function registryCommands(): string[] {
 describe('addon command surface', () => {
   const registered = registryCommands()
 
-  it('publishes 38 catalog commands and 39 wire commands', () => {
-    expect(Object.keys(COMMAND_CATALOG)).toHaveLength(38)
-    expect(registrySource).toContain('REGISTERED_COMMAND_COUNT = 38')
-    expect(registrySource).toContain('WIRE_COMMAND_COUNT = 39')
-    expect(registered).toHaveLength(39)
-    expect(new Set(registered).size).toBe(39)
+  it('publishes 25 catalog commands and 26 wire commands', () => {
+    expect(Object.keys(COMMAND_CATALOG)).toHaveLength(25)
+    expect(registrySource).toContain('REGISTERED_COMMAND_COUNT = 25')
+    expect(registrySource).toContain('WIRE_COMMAND_COUNT = 26')
+    expect(registered).toHaveLength(26)
+    expect(new Set(registered).size).toBe(26)
     expect(registered).toContain('ping')
-    expect(registered.filter((n) => n !== 'ping')).toHaveLength(38)
+    expect(registered.filter((n) => n !== 'ping')).toHaveLength(25)
   })
 
   it('keeps the host catalog and the addon registry aligned in both directions', () => {
@@ -78,34 +79,34 @@ describe('addon command surface', () => {
     expect(registrySource).toContain('"sketchfab"')
     expect(registrySource).toContain('"polypizza"')
     expect(registrySource).toContain('"hunyuan"')
-    expect(COMMAND_CATALOG.ping).toBeDefined()
+    expect(COMMAND_CATALOG.ping).toBeUndefined()
     expect(COMMAND_CATALOG.get_polyhaven_asset_preview).toBeUndefined()
     expect(serverSource).toContain('WIRE_SPECS')
     expect(serverSource).toContain('gate_property')
   })
 
-  it('gates every write command through the registry gate metadata', () => {
+  it('gates every network command through the registry gate metadata', () => {
     const gated = [
       'get_polyhaven_categories',
       'search_polyhaven_assets',
-      'download_polyhaven_asset',
-      'download_sketchfab_model',
-      'download_polypizza_model',
-      'create_hunyuan_job',
-      'create_rodin_job',
+      'poll_rodin_job_status',
+      'search_sketchfab_models',
+      'get_sketchfab_model_preview',
+      'search_polypizza_models',
+      'poll_hunyuan_job_status',
     ]
     expect(gated).toHaveLength(7)
     for (const name of gated) expect(registrySource, name).toContain('"' + name + '"')
     for (const name of gated) expect(COMMAND_CATALOG[name]?.gate, name).toBeTruthy()
-    // The catalog also gates read/download commands; the 7 above are the write
-    // subset. Both counts are pinned so a lost/renamed gate cannot pass silently.
+    // All seven gated commands are read-only network queries; the count is
+    // pinned so a lost or renamed gate cannot pass silently.
     const allGated = Object.keys(COMMAND_CATALOG).filter((n) => COMMAND_CATALOG[n]?.gate)
-    expect(allGated).toHaveLength(15)
+    expect(allGated).toHaveLength(7)
     for (const name of gated) expect(allGated, name).toContain(name)
   })
 
   it('pauses every non-read command and keeps read-only ones safe', () => {
-    expect(protocolSource).toContain('ADDON_PROTOCOL_VERSION = 11')
+    expect(schemaSource).toContain('ADDON_PROTOCOL_VERSION = 12')
     expect(protocolSource).toContain('is_pause_safe_command')
     expect(registrySource).toContain('PAUSE_SAFE_EXTRA')
     expect(registrySource).toContain('"ping"')
@@ -113,8 +114,8 @@ describe('addon command surface', () => {
     expect(serverSource).toContain('is_pause_safe_command')
   })
 
-  it('advertises protocol 11 with capabilities derived from the command registry', () => {
-    expect(protocolSource).toMatch(/ADDON_PROTOCOL_VERSION\s*=\s*11/)
+  it('advertises protocol 12 with capabilities derived from the command registry', () => {
+    expect(schemaSource).toMatch(/ADDON_PROTOCOL_VERSION\s*=\s*12/)
     expect(coreInfo).toContain('"protocol_version": ADDON_PROTOCOL_VERSION')
     // the handshake must not drift back to a hardcoded capability list.
     expect(coreInfo).toMatch(/"capabilities":\s*sorted\(COMMAND_NAMES\)/)
@@ -136,7 +137,7 @@ describe('addon client command round-trip', () => {
     addon = await startFakeAddon()
     client = new AddonClient({ host: '127.0.0.1', port: addon.port })
     const info = await client.send('get_addon_info', {}, 3000)
-    expect(info.protocol).toBe(11)
+    expect(info.protocol).toBe(12)
     const pong = await client.send('ping', {}, 3000)
     expect(pong).toMatchObject({ pong: true, server: 'fake-addon' })
   })

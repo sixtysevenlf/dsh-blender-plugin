@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { ADDON_NAME_HINTS, LAUNCH_BOOT_PY, addonNameHit } from '../../../runtime/launch/index.js'
-import { startBackend, freePort, type Backend } from '../../helpers/backend'
-import { startFakeAddon } from '../../helpers/fake-addon.mjs'
+import { startBackend, type Backend } from '../../helpers/backend'
+import { startFakeWsAddon } from '../../helpers/fake-ws-addon.mjs'
 
 // launch: the addon name hints must only match this repo's bridge (no MCP
 // for Blender compatibility), the injected boot script must wire the addon and
@@ -27,6 +27,8 @@ describe('launch name hints and boot script', () => {
       'addon_utils.enable',
       'spec_from_file_location',
       'DSH_BLENDER_LAUNCH_STATUS',
+      'addon_issue',
+      '_installed_addon_names',
       'dsh_blender_bridge',
       '_report',
     ]) {
@@ -38,12 +40,9 @@ describe('launch name hints and boot script', () => {
 
 describe('launch through a real backend', () => {
   let backend: Backend
-  let addonPort: number
 
   beforeAll(async () => {
-    addonPort = await freePort()
     backend = await startBackend({
-      addonPort,
       env: { DSH_BLENDER_LAUNCH_AGENT_URL: 'off', DSH_BLENDER_LAUNCH_WAIT_MS: '2500' },
     })
   })
@@ -51,21 +50,17 @@ describe('launch through a real backend', () => {
     await backend.stop()
   })
 
-  it('is idempotent when the addon is already listening', async () => {
-    const addon = await startFakeAddon()
-    const second = await startBackend({
-      addonPort: addon.port,
-      env: { DSH_BLENDER_LAUNCH_AGENT_URL: 'off', DSH_BLENDER_LAUNCH_WAIT_MS: '2500' },
-    })
+  it('is idempotent when the Gateway already has a ready addon instance', async () => {
+    const addon = await startFakeWsAddon({ gatewayPort: backend.port })
+    await addon.ready
     try {
-      const response = await second.post('/launch', {})
+      const response = await backend.post('/launch', {})
       expect(response.json.ok).toBe(true)
       expect(response.json.already).toBe(true)
       expect(response.json.launched).toBe(false)
-      expect(response.json.addonPort).toBe(addon.port)
-      expect(String(response.json.hint)).toContain('无需启动')
+      expect(response.json.instances).toBe(1)
+      expect(String(response.json.hint)).toContain('Gateway 已有')
     } finally {
-      await second.stop()
       await addon.close()
     }
   })

@@ -17,7 +17,7 @@ export function enrichError(msg: unknown, tb: unknown): string {
   if (/Cannot render, no camera/i.test(both)) {
     return (
       s +
-      '  ← 提示：场景没有相机（可能被清理/灯光重建循环删掉）。无头渲染前先设 scene.camera，或用 blender_rt_see 的自定义视角出图。'
+      '  ← 提示：场景没有相机（可能被清理/灯光重建循环删掉）。无头渲染前先设 scene.camera，或用 blender_see 的自定义视角出图。'
     )
   }
   // v0.8.9（外部会话反馈）：open_mainfile 之后旧引用全失效 + GUI 上下文指针失效
@@ -30,7 +30,7 @@ export function enrichError(msg: unknown, tb: unknown): string {
   if (/context is incorrect/i.test(both)) {
     return (
       s +
-      '  ← 提示：bpy.ops 的上下文不满足。换过文件/换过模式后：先 bpy.context.view_layer.objects.active = obj、obj.select_set(True)，再调 op；仍报错就用 with bpy.context.temp_override(view_layer=vl, active_object=obj, selected_objects=[obj]): bpy.ops....（实测 open 后 temp_override 可正常 join）；实在不行拆成两次 rt_do 调用（每次调用都是新命名空间 = 重新取上下文）。'
+      '  ← 提示：bpy.ops 的上下文不满足。换过文件/换过模式后：先 bpy.context.view_layer.objects.active = obj、obj.select_set(True)，再调 op；仍报错就用 with bpy.context.temp_override(view_layer=vl, active_object=obj, selected_objects=[obj]): bpy.ops....（实测 open 后 temp_override 可正常 join）；实在不行拆成两次 blender_py 调用（每次调用都是新命名空间 = 重新取上下文）。'
     )
   }
   if (

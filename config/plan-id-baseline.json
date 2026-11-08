@@ -1,11 +1,11 @@
 {
   "version": 1,
   "tool": "check-plan-ids",
-  "generatedAt": "2026-11-04T23:24:07.182Z",
+  "generatedAt": "2026-11-08T02:26:15.177Z",
   "mode": "warn",
   "totals": {
-    "all": 1433,
-    "exempt": 1433,
+    "all": 1379,
+    "exempt": 1379,
     "residual": 0
   },
   "byPrefix": {},
@@ -62,8 +62,8 @@
       "residual": 0
     },
     "docs/操作教程.md": {
-      "count": 17,
-      "exempt": 17,
+      "count": 15,
+      "exempt": 15,
       "residual": 0
     },
     "docs/证据分级与读图纪律.md": {
@@ -196,14 +196,9 @@
       "exempt": 2,
       "residual": 0
     },
-    "tests/BEHAVIOR_MATRIX.json": {
-      "count": 22,
-      "exempt": 22,
-      "residual": 0
-    },
     "tests/BEHAVIOR_MATRIX.md": {
-      "count": 336,
-      "exempt": 336,
+      "count": 306,
+      "exempt": 306,
       "residual": 0
     },
     "tests/MIGRATION.md": {

@@ -64,32 +64,30 @@ afterEach(() => {
 })
 
 describe('spawnChild spawn options (issue #51)', () => {
-  it('spawns process.execPath with the built server path and the port', () => {
+  it('spawns process.execPath with the built Gateway path and the port', () => {
     const out = spawnChild(9877)
     expect(out).toBe('spawned pid=4321')
     expect(h.spawn).toHaveBeenCalledTimes(1)
     const [file, args, opts] = h.spawn.mock.calls[0] as [string, string[], any]
     expect(file).toBe(process.execPath)
-    expect(args.slice(0, 2)).toEqual([expect.stringMatching(/server\.(mjs|js)$/), '--port'])
+    expect(args.slice(0, 2)).toEqual([expect.stringMatching(/gateway\.(mjs|js)$/), '--port'])
     expect(args[2]).toBe('9877')
     expect(opts.env.ELECTRON_RUN_AS_NODE).toBe('1')
     expect(opts.env.PATH).toBe(process.env.PATH)
-    expect(opts.stdio).toBe('ignore')
-    expect(opts.detached).toBe(true)
+    expect(Array.isArray(opts.stdio)).toBe(true)
+    expect(opts.stdio[0]).toBe('ignore')
+    expect(typeof opts.stdio[1]).toBe('number')
+    expect(opts.detached).toBe(false)
     expect(opts.windowsHide).toBe(true)
     expect(getChild()).toBe(h.child)
     expect(childAlive()).toBe(true)
   })
 
-  it('attaches error/exit listeners before unref', () => {
+  it('attaches error/exit listeners and keeps the Gateway in the host process group', () => {
     spawnChild(9877)
-    const errIdx = h.events.indexOf('on:error')
-    const exitIdx = h.events.indexOf('on:exit')
-    const unrefIdx = h.events.indexOf('unref')
-    expect(errIdx).toBeGreaterThanOrEqual(0)
-    expect(exitIdx).toBeGreaterThanOrEqual(0)
-    expect(errIdx).toBeLessThan(unrefIdx)
-    expect(exitIdx).toBeLessThan(unrefIdx)
+    expect(h.events.indexOf('on:error')).toBeGreaterThanOrEqual(0)
+    expect(h.events.indexOf('on:exit')).toBeGreaterThanOrEqual(0)
+    expect(h.child.unref).not.toHaveBeenCalled()
   })
 
   it('turns an asynchronous spawn error into a degraded handle, not a host crash', () => {
@@ -98,7 +96,7 @@ describe('spawnChild spawn options (issue #51)', () => {
     expect(() => emit('error')).not.toThrow()
     expect(getChild()).toBeNull()
     expect(childAlive()).toBe(false)
-    expect(errSpy).toHaveBeenCalledWith(expect.stringContaining('后端子进程启动失败'))
+    expect(errSpy).toHaveBeenCalledWith(expect.stringContaining('Gateway 子进程启动失败'))
   })
 
   it('clears the handle when the child exits', () => {

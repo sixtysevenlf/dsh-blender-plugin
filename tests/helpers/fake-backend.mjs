@@ -41,26 +41,68 @@ function defaults(key, body) {
     }
   }
   if (key === 'POST /view') {
+    const meta =
+      body.mode === 'camera'
+        ? {
+            mode: 'camera',
+            width: body.max_size || 1024,
+            height: Math.round((body.max_size || 1024) * 0.5625),
+            camera: 'Camera',
+            frame: 1,
+            view_matrix: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+          }
+        : { mode: body.mode || 'viewport', width: body.width || 560, height: body.height || 315 }
     return {
       status: 200,
       headers: {
         'content-type': 'image/png',
-        'x-dsh-view': encodeURIComponent(
-          JSON.stringify({ mode: 'viewport', width: 560, height: 315 }),
-        ),
+        'x-dsh-view': encodeURIComponent(JSON.stringify(meta)),
       },
       body: TINY_PNG,
     }
   }
   if (key === 'GET /commands') {
+    const commands = [
+      {
+        name: 'get_scene_info',
+        description: 'scene info',
+        access: 'read',
+        gate: null,
+        enabled: true,
+        pause_safe: true,
+        network: false,
+        args: [],
+      },
+      {
+        name: 'get_viewport_screenshot',
+        description: 'screenshot',
+        access: 'internal',
+        gate: null,
+        enabled: true,
+        pause_safe: false,
+        network: false,
+        args: [],
+      },
+      {
+        name: 'search_polyhaven_assets',
+        description: 'polyhaven search',
+        access: 'read',
+        gate: 'polyhaven',
+        enabled: false,
+        pause_safe: true,
+        network: true,
+        args: ['asset_type'],
+      },
+    ]
     return json({
       ok: true,
       scene: 'Scene',
       file: null,
-      total: 38,
+      total: 25,
       disabled: ['search_polyhaven_assets'],
       integrations: { polyhaven: { enabled: false, message: 'off' }, sketchfab: { enabled: true } },
       available: ['ping', 'get_scene_info'],
+      commands,
     })
   }
   if (key === 'POST /cmd') return json({ ok: true, ms: 4, result: { command: body.name } })
@@ -118,6 +160,27 @@ function defaults(key, body) {
   if (key === 'GET /who')
     return json({ ok: true, lease: { active: false }, metrics: {}, stats: {} })
   if (key === 'POST /lease') {
+    if (typeof body.action === 'string') {
+      if (body.action === 'list')
+        return json({
+          ok: true,
+          sessions: [
+            {
+              id: 'sess-1',
+              kind: 'user-gui',
+              status: 'ready',
+              instanceId: 'inst-1',
+              owner: { hostId: 'host-1', dshSessionId: 'ds-1', agentId: 'main' },
+              agents: [],
+              grants: [],
+              paused: false,
+            },
+          ],
+        })
+      if (body.action === 'consent')
+        return json({ ok: true, consentToken: 'tok-1', expiresAt: Date.now() + 30000 })
+      return json({ ok: true, action: body.action, session: { id: 'sess-1', status: 'ready' } })
+    }
     return json({
       ok: true,
       lease: { active: true, holder: body.holder, expiresInMs: 600000, renewals: 0 },

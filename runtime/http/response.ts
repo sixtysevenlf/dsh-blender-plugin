@@ -1,9 +1,10 @@
 import type { ServerResponse, IncomingMessage } from 'node:http'
 import { errorMessage, errorField } from '../core/json.js'
+import { normalizeAvailability } from '../core/availability.js'
 // HTTP 响应原语：JSON / ndjson 流式 / 请求体读取 / 宿主 CORS。
 // 状态码、content-type、cache-control、心跳间隔（15 s）、body 上限（4 MiB）全部不变。
 function json(res: ServerResponse, code: number, obj: unknown): void {
-  const body = JSON.stringify(obj)
+  const body = JSON.stringify(normalizeAvailability(obj))
   res.writeHead(code, {
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store',
@@ -38,7 +39,11 @@ async function streamJson(
   try {
     obj = await producer()
   } catch (e) {
-    obj = { ok: false, error: errorMessage(e), diagnosis: errorField(e, 'diagnosis') || null }
+    obj = normalizeAvailability({
+      ok: false,
+      error: errorMessage(e),
+      diagnosis: errorField(e, 'diagnosis') || null,
+    })
   }
   done = true
   clearInterval(hb)

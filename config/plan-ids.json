@@ -27,9 +27,13 @@
       "local-workspace",
       ".review-tmp",
       "openspec",
-      "runtime/ext"
+      "runtime/ext",
+      ".dsh-ops"
     ],
-    "skipFiles": ["package-lock.json", "package.json"]
+    "skipFiles": [
+      "package-lock.json",
+      "package.json"
+    ]
   },
   "prefixes": [
     {
@@ -104,12 +108,16 @@
     },
     {
       "path": "tests/BEHAVIOR_MATRIX.md",
-      "prefixes": ["C"],
+      "prefixes": [
+        "C"
+      ],
       "reason": "行为矩阵：C 编号是机器校验的 aspect 代码；T14/F4.2 仍计入残留。"
     },
     {
       "path": "tests/BEHAVIOR_MATRIX.json",
-      "prefixes": ["S"],
+      "prefixes": [
+        "S"
+      ],
       "reason": "行为矩阵生成数据：S 编号是宿主集成契约的章节引用（§S1）。"
     },
     {
@@ -142,37 +150,58 @@
     },
     {
       "path": "docs/操作教程.md",
-      "prefixes": ["D", "P", "M", "S"],
+      "prefixes": [
+        "D",
+        "P",
+        "M",
+        "S"
+      ],
       "reason": "操作教程面向用户：D/P/M/S 是缺陷类型、优先级、里程碑与契约层词汇；F/E 残留。"
     },
     {
       "path": "docs/AI-安装提示词.md",
-      "prefixes": ["M", "P"],
+      "prefixes": [
+        "M",
+        "P"
+      ],
       "reason": "安装提示词面向用户：M0-M5 是曲面建模阶段，P0-P2 是能力优先级。"
     },
     {
       "path": "docs/假设驱动建模-cookbook.md",
-      "prefixes": ["S"],
+      "prefixes": [
+        "S"
+      ],
       "reason": "Cookbook 方法层：S0-S3 表示假设生命周期/契约层阶段，是领域词汇。"
     },
     {
       "path": "docs/Procedura-融合分析.md",
-      "prefixes": ["P"],
+      "prefixes": [
+        "P"
+      ],
       "reason": "历史融合分析：P0-P2 是优先级分组，不是计划任务。"
     },
     {
       "path": "docs/证据分级与读图纪律.md",
-      "prefixes": ["E"],
+      "prefixes": [
+        "E"
+      ],
       "reason": "证据分级文档：E1/E2 是文中定义的读图规则编号。"
     },
     {
       "path": "runtime/catalog/data.ts",
-      "prefixes": ["S", "D", "M", "P"],
+      "prefixes": [
+        "S",
+        "D",
+        "M",
+        "P"
+      ],
       "reason": "catalog 数据表：S/D/M/P 是建模阶段、缺陷类型、里程碑与优先级等用户可见词汇；F1.1 来源注记仍计入残留。"
     },
     {
       "path": "runtime/classes.ts",
-      "prefixes": ["S"],
+      "prefixes": [
+        "S"
+      ],
       "reason": "建模类型指引：S0/S3/S6 是建模阶段/步骤标签，属于用户方法词汇。"
     },
     {
@@ -181,27 +210,37 @@
     },
     {
       "path": "runtime/py/core/motion_impl/measure.py",
-      "prefixes": ["F"],
+      "prefixes": [
+        "F"
+      ],
       "reason": "运动测量实现：F0 是面索引数组（faces）的局部变量名，不是功能 ID。"
     },
     {
       "path": "runtime/py/geometry/blockout_impl/present.py",
-      "prefixes": ["F"],
+      "prefixes": [
+        "F"
+      ],
       "reason": "present 实现：F12 是 Blender 渲染快捷键，不是功能 ID。"
     },
     {
       "path": "tests/unit/python/test_surface_fit_contract.py",
-      "prefixes": ["M"],
+      "prefixes": [
+        "M"
+      ],
       "reason": "曲面拟合合同：M3 是建模里程碑/拟合阶段名（reported stage 值），断言必须保留该领域值。"
     },
     {
       "path": "tests/unit/js/contract/surface-fit.test.ts",
-      "prefixes": ["M"],
+      "prefixes": [
+        "M"
+      ],
       "reason": "曲面拟合合同：M3 是建模里程碑/拟合阶段名，断言必须保留该领域值。"
     },
     {
       "path": "tests/unit/js/contract/catalog.test.ts",
-      "prefixes": ["M"],
+      "prefixes": [
+        "M"
+      ],
       "reason": "catalog 详情断言：surface 族的 M3 是拟合阶段领域词（与 runtime/catalog/data.ts 一致）。"
     }
   ]

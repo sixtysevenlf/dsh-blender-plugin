@@ -3,9 +3,12 @@
 import bpy
 
 from .command_registry import PAUSE_SAFE_COMMANDS
+from .gateway_schema import ADDON_PROTOCOL_VERSION as ADDON_PROTOCOL_VERSION
+from .gateway_schema import ADDON_VERSION as ADDON_VERSION_TEXT
 
-# The host probe in runtime/launch/resolve.ts requires protocol 11.
-ADDON_PROTOCOL_VERSION = 11
+# Generated from config/gateway.json (scripts/gen-gateway-schema.mjs); never
+# hard-code the handshake version here.
+ADDON_VERSION = tuple(int(part) for part in ADDON_VERSION_TEXT.split("."))
 
 # Per-snapshot object cap for get_world_state_snapshot.
 MAX_SNAPSHOT_OBJECTS = 4000
@@ -43,4 +46,3 @@ def redraw_view3d_panels():
 
 
 ADDON_NAME = "DSH Blender Bridge"
-ADDON_VERSION = (1, 11)
