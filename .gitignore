@@ -39,5 +39,8 @@ coverage/
 /.review-tmp/
 .vscode/
 
+# Windows hidden-desktop helper build output (scripts/build-win-helper.mjs)
+/tools/win-hidden-desktop/out/
+
 # Local agent workspace (never committed or shipped)
 .dsh-ops/
