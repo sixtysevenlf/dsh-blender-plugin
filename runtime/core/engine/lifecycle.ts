@@ -123,7 +123,12 @@ export function installAddonSend(
   readRenderFlag: () => RenderFlagView,
 ): void {
   const rawSend = addon.send.bind(addon)
-  addon.send = async (type: string, params: Record<string, unknown> = {}, timeoutMs?: number) => {
+  addon.send = async (
+    type: string,
+    params: Record<string, unknown> = {},
+    timeoutMs?: number,
+    opts?: { instanceId?: string; noMark?: boolean },
+  ) => {
     if (MAIN_THREAD_CMDS.has(String(type))) {
       const g = readRenderFlag()
       if (g.present && !g.stale) throw renderBusyError(g, metrics)
@@ -133,7 +138,7 @@ export function installAddonSend(
     metrics.lastCmd = type
     metrics.lastCmdAt = Date.now()
     try {
-      const r = await rawSend(type, params, timeoutMs)
+      const r = await rawSend(type, params, timeoutMs, opts)
       metrics.lastOkAt = Date.now()
       metrics.lastDiagnosis = null
       metrics.aiPausedAt = null
