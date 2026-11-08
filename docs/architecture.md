@@ -186,7 +186,7 @@ gate.
 
 These are the rules that protect the architecture:
 
-- 15 tools / 34 families / 228 ops / 25 addon commands / 29 routes / protocol 12 stay stable unless a
+- 6 tools / 7 capabilities / 34 families / 228 ops / 25 addon commands / 29 routes / protocol 12 stay stable unless a
   declared migration changes them. The 25 addon commands are the registered dispatch surface; the
   transport-only ping is the 26th wire command.
 - src/index.ts stays entry-only; production files stay under the line budgets enforced by
