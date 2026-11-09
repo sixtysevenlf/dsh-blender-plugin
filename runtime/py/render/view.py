@@ -343,6 +343,24 @@ def _capture_viewport(s, vm=None, pm=None, width=None, height=None):
                   "shading_used": space.shading.type}
 
 
+def _pose_from_view_matrix(view_matrix):
+    """Return (from, look_at) for a world->view matrix.
+
+    The viewport/camera metadata must describe the frozen pose even after the
+    user moves the viewport.  Inverting the view matrix gives the eye; the
+    camera looks down its local -Z axis, which is the negated third column of
+    the camera->world matrix.  No mathutils type is required here, so the
+    helper stays unit-testable without Blender.
+    """
+    world = view_matrix.inverted()
+    loc = world.translation
+    fwd = (-float(world[0][2]), -float(world[1][2]), -float(world[2][2]))
+    return (
+        [float(loc.x), float(loc.y), float(loc.z)],
+        [float(loc.x + fwd[0]), float(loc.y + fwd[1]), float(loc.z + fwd[2])],
+    )
+
+
 def _current_matrices(space, reg, w, h):
     """mode=current：用户当前视口朝向 + 同一镜头参数，按目标宽高重算投影（不拉伸、不动视口）。"""
     r3d = space.region_3d
@@ -353,12 +371,21 @@ def _current_matrices(space, reg, w, h):
     if r3d.view_perspective == "CAMERA" and cam is not None:
         cd = cam.data
         return vm, make_proj_matrix(w, h, cd.lens, cd.sensor_width, 0.1, 1000.0, cd.sensor_fit,
-                                    cd.type == "ORTHO", cd.ortho_scale, cd.shift_x, cd.shift_y)
+                                    cd.type == "ORTHO", cd.ortho_scale, cd.shift_x, cd.shift_y), {
+            "lens": float(cd.lens),
+            "ortho": bool(cd.type == "ORTHO"),
+            "ortho_scale": float(cd.ortho_scale),
+        }
     sensor = 36.0
     if getattr(space, "camera", None) is not None and getattr(space.camera, "data", None) is not None:
         sensor = float(space.camera.data.sensor_width)
-    return vm, make_proj_matrix(w, h, float(getattr(space, "lens", 50.0)), sensor, 0.1, 1000.0, "AUTO",
-                                r3d.is_perspective is False, float(r3d.view_distance), 0.0, 0.0)
+    lens = float(getattr(space, "lens", 50.0))
+    return vm, make_proj_matrix(w, h, lens, sensor, 0.1, 1000.0, "AUTO",
+                                r3d.is_perspective is False, float(r3d.view_distance), 0.0, 0.0), {
+        "lens": lens,
+        "ortho": bool(r3d.is_perspective is False),
+        "ortho_scale": float(r3d.view_distance),
+    }
 
 
 def _camera_matrices(s, scene, cam):
@@ -878,7 +905,9 @@ def capture(spec_json):
     elif mode == "current":
         try:
             win, area, reg, space = _find_view3d(s.get("area"))
-            vm, pm = _current_matrices(space, reg, s["width"], s["height"])
+            vm, pm, pose = _current_matrices(space, reg, s["width"], s["height"])
+            s["from"], s["look_at"] = _pose_from_view_matrix(vm)
+            s.update(pose)
             rgba, meta = _capture_viewport(s, vm, pm)
         except Exception as e:
             return _j({"ok": False, "mode": mode, "error": "%s: %s" % (type(e).__name__, e)})

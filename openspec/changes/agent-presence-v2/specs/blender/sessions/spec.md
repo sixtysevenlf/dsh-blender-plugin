@@ -14,7 +14,7 @@ When `see` uses `from`/`look_at` or `viewpoint=camera`, it SHALL capture offscre
 - **WHEN** a custom-view see succeeds
 - **THEN** the caller presence pose includes the projection and pixel dimensions and the user can see the agent frustum
 
-#### Scenario: Viewport observation is frozen at capture time
+#### Scenario: Viewport observation pose
 - **WHEN** see is called without from/look_at and the user later changes the viewport
 - **THEN** the caller presence pose remains the captured view matrix and projection, and the user can see a stationary agent frustum
 
@@ -51,3 +51,15 @@ A user-gui session SHALL accept a transient presence notice independent of obser
 #### Scenario: Notice appears and expires
 - **WHEN** a full-window capture publishes a notice
 - **THEN** the status bar shows the notice briefly and later redraws do not show it again
+
+### Requirement: Attached owner agents keep write access after lease expiry
+
+The session registry SHALL treat an attached caller as a legitimate writer when the owning DSH session's lease has expired. It MUST reclaim ownership for that caller on the next write instead of returning `session_in_use`; a caller that is not attached MUST still be rejected.
+
+#### Scenario: Attached caller reclaims writes after TTL
+- **WHEN** the owner lease has expired but the caller is still in the session's agent set
+- **THEN** its write acquires ownership and proceeds without `session_in_use`
+
+#### Scenario: Unattached caller is still rejected
+- **WHEN** the owner lease has expired and the caller is not in the session's agent set
+- **THEN** the write fails with `session_in_use`

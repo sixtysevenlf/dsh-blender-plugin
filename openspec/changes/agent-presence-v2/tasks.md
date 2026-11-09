@@ -35,6 +35,7 @@
 - [x] 5.3 Track kernel module injection per instance and pass the instance to `ensureView`; verify with kernel unit tests using two instance keys.
 - [x] 5.4 Verify an ambiguous request still fails closed when no instance is available; verify with transport tests.
 - [x] 5.5 Host session selection is explicit: `blender_py` / `blender_see` accept `session_id`; more than one ready session without it fails `session_ambiguous` instead of silently using the first; verify with contract tests for ambiguity and explicit instance forwarding.
+- [x] 5.6 Keep attached owner agents writable after the owner lease expires: `authorizeWrite` reclaims ownership for an attached caller instead of returning `session_in_use`; verify with the "attached caller reclaim writes after owner TTL" unit test and an E2E `blender_py` call after the lease TTL. — 2026-11-09: verified on Blender 4.2.23 and 4.5.15 after >120s, then camera see refreshed presence.
 
 ## 6. Integration and documentation
 

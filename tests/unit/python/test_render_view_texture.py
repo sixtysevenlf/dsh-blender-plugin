@@ -113,6 +113,35 @@ def test_spec_accepts_csv_coordinates_of_custom_views():
     assert spec["look_at"] == [0.0, 0.0, 0.0]
 
 
+def test_current_view_pose_uses_the_frozen_view_matrix():
+    module = _load_view()
+
+    class Row:
+        def __init__(self, values):
+            self.values = values
+
+        def __getitem__(self, index):
+            return self.values[index]
+
+    class Matrix:
+        def __init__(self, rows, translation):
+            self.rows = [Row(row) for row in rows]
+            self.translation = types.SimpleNamespace(x=translation[0], y=translation[1], z=translation[2])
+
+        def __getitem__(self, index):
+            return self.rows[index]
+
+        def inverted(self):
+            return self
+
+    world = Matrix(
+        [[1, 0, 0, 4], [0, 1, 0, -4], [0, 0, 1, 3], [0, 0, 0, 1]],
+        (4, -4, 3),
+    )
+    view = types.SimpleNamespace(inverted=lambda: world)
+    assert module._pose_from_view_matrix(view) == ([4.0, -4.0, 3.0], [4.0, -4.0, 2.0])
+
+
 def test_spec_rejects_incomplete_coordinates():
     module = _load_view()
     for bad in ("6,-6", "a,b,c", [1, 2]):
