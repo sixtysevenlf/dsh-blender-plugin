@@ -242,6 +242,13 @@
         "M"
       ],
       "reason": "catalog 详情断言：surface 族的 M3 是拟合阶段领域词（与 runtime/catalog/data.ts 一致）。"
+    },
+    {
+      "path": "extension/dsh_blender_bridge/presence_draw.py",
+      "prefixes": [
+        "F"
+      ],
+      "reason": "GPU 绘制：F32 是 Blender gpu.types.GPUVertFormat 的顶点分量类型常量，不是计划 feature ID。"
     }
   ]
 }

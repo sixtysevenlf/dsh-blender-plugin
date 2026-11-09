@@ -11,6 +11,7 @@ import { dedupeNote, frameDedupe } from '../../utils/frame-cache.js'
 import { toAttachment } from '../../utils/image.js'
 import { toolError } from '../errors.js'
 import { publishView } from '../shared/session.js'
+import { vec3 } from './pose.js'
 import { appendEmptyFrameWarning, formatViewText, pngSize, type ViewLike } from './presenter.js'
 import type { FramePlan } from './validate.js'
 
@@ -73,6 +74,9 @@ export async function captureCamera(
       viewMatrix: mt.view_matrix,
       camera: text(mt.camera) || plan.camera || '',
       frame: mt.frame,
+      from: vec3(mt.from),
+      lookAt: vec3(mt.look_at),
+      lens: typeof mt.lens === 'number' ? mt.lens : undefined,
     })
   return out
 }
@@ -142,8 +146,8 @@ async function publishPlanView(port: number, sessionId: string, plan: FramePlan)
   if (plan.viewpoint === 'custom')
     await publishView(port, sessionId, {
       viewpoint: 'custom',
-      from: plan.from,
-      lookAt: plan.lookAt,
+      from: vec3(plan.from),
+      lookAt: vec3(plan.lookAt),
       lens: plan.lens,
       ortho: plan.ortho,
       orthoScale: plan.orthoScale,

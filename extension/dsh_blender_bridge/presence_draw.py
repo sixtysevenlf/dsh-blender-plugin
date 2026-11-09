@@ -19,6 +19,8 @@ _MAX_SELECTED = 32
 
 _STATE = {"agents": [], "paused": False, "instanceId": None}
 _HANDLES = []
+# 绘制错误只提示一次，避免每帧刷屏，同时不让 GPU API 变更再次无声失败。
+_DRAW_ERROR_REPORTED = [False]
 
 
 def set_presence(payload):
@@ -100,33 +102,83 @@ def _color(value, fallback=(0.3, 0.55, 1.0)):
     return fallback + (1.0,)
 
 
-def _rotation(view):
-    matrix = view.get("viewMatrix") if isinstance(view, dict) else None
-    if isinstance(matrix, list) and len(matrix) == 16:
-        try:
-            return Matrix(matrix)
-        except Exception:
-            pass
-    origin = view.get("from")
-    target = view.get("lookAt")
-    if not (isinstance(origin, list) and isinstance(target, list)):
+def _vec3(value):
+    """Normalize a 3-component vector: [x, y, z], (x, y, z) or "x,y,z"."""
+    if isinstance(value, str):
+        parts = value.replace(" ", "").split(",")
+    elif isinstance(value, (list, tuple)):
+        parts = list(value)
+    else:
+        return None
+    if len(parts) != 3:
         return None
     try:
-        direction = Vector(target) - Vector(origin)
-        if direction.length < 1e-6:
-            return None
-        return direction.to_track_quat("-Z", "Y").to_matrix().to_4x4()
+        return [float(part) for part in parts]
+    except (TypeError, ValueError):
+        return None
+
+
+def _matrix4(value):
+    """4x4 rows or 16 flat floats -> Matrix; any other shape gives None."""
+    if not isinstance(value, (list, tuple)):
+        return None
+    try:
+        if len(value) == 16 and all(isinstance(item, (int, float)) for item in value):
+            return Matrix([list(value[index * 4:index * 4 + 4]) for index in range(4)])
+        if len(value) == 4 and all(
+            isinstance(row, (list, tuple)) and len(row) == 4 for row in value
+        ):
+            return Matrix([list(row) for row in value])
+    except Exception:
+        return None
+    return None
+
+
+def _camera_world(view):
+    """Camera->world matrix for one presence pose.
+
+    viewMatrix wins when present: the Gateway publishes it as Blender's
+    matrix_world.inverted() (world->view), so inverting gives the exact pose
+    including roll, while from/lookAt can only reconstruct a roll-free track
+    orientation. from/lookAt remain the fallback for poses without a matrix.
+    A 4x4 matrix is accepted as nested rows or as 16 flat floats.
+    """
+    matrix = _matrix4(view.get("viewMatrix"))
+    if matrix is not None:
+        try:
+            return matrix.inverted()
+        except Exception:
+            pass
+    origin = _vec3(view.get("from"))
+    target = _vec3(view.get("lookAt"))
+    if origin is not None and target is not None:
+        try:
+            direction = Vector(target) - Vector(origin)
+            if direction.length >= 1e-6:
+                matrix = direction.to_track_quat("-Z", "Y").to_matrix().to_4x4()
+                matrix.translation = Vector(origin)
+                return matrix
+        except Exception:
+            pass
+    return None
+
+
+def _rotation(world):
+    if world is None:
+        return None
+    try:
+        return world.to_3x3().to_4x4()
     except Exception:
         return None
 
 
 def _frustum(view, color):
-    rot = _rotation(view)
-    origin = view.get("from") if isinstance(view, dict) else None
-    if rot is None or not isinstance(origin, list):
+    world = _camera_world(view)
+    rot = _rotation(world)
+    if world is None or rot is None:
         return
     try:
-        apex = Vector(origin)
+        apex = world.translation.copy()
         depth = 2.0
         lens = float(view.get("lens") or 50.0)
         half_h = depth * 18.0 / max(lens, 1.0)
@@ -175,21 +227,40 @@ def _tuple(vector):
     return (float(vector.x), float(vector.y), float(vector.z))
 
 
+
 def _draw_lines(vertices, color):
     if not vertices:
         return
     try:
         import gpu
-        from gpu.types import GPUBatch, GPUVertBuf
+        from gpu.types import GPUBatch, GPUVertBuf, GPUVertFormat
 
-        buffer = GPUVertBuf(len=len(vertices), format="3f")
+        # 4.2-5.2: GPUVertBuf takes a GPUVertFormat, never a format string
+        # (a string raises TypeError and used to be swallowed below).
+        fmt = GPUVertFormat()
+        fmt.attr_add(id="pos", comp_type="F32", len=3, fetch_mode="FLOAT")
+        buffer = GPUVertBuf(len=len(vertices), format=fmt)
         buffer.attr_fill(0, vertices)
         batch = GPUBatch(type="LINES", buf=buffer)
         shader = gpu.shader.from_builtin("UNIFORM_COLOR")
         shader.bind()
         shader.uniform_float("color", color)
-        batch.draw(shader)
-    except Exception:
+        gpu.state.depth_test_set("NONE")
+        wide = tuple(bpy.app.version) < (5, 0, 0)
+        try:
+            if wide:
+                gpu.state.line_width_set(2.0)
+            batch.draw(shader)
+        finally:
+            if wide:
+                gpu.state.line_width_set(1.0)
+            gpu.state.depth_test_set("LESS_EQUAL")
+    except Exception as exc:
+        # 只报一次：绘制每帧都会重试，反复打印会刷爆控制台；但完全静默会让
+        # GPU API 变更再次变成"视锥永远不出现"的无声故障（v3.1 前的教训）。
+        if not _DRAW_ERROR_REPORTED[0]:
+            _DRAW_ERROR_REPORTED[0] = True
+            print("[presence] draw disabled after error: %r" % (exc,))
         return
 
 
@@ -247,8 +318,9 @@ def _draw_text():
             view = row.get("view") if isinstance(row, dict) else None
             if not isinstance(view, dict):
                 continue
-            origin = view.get("from")
-            if not isinstance(origin, list):
+            world = _camera_world(view)
+            origin = None if world is None else world.translation
+            if origin is None:
                 continue
             label = str(row.get("displayName") or "agent")
             if _STATE["paused"]:

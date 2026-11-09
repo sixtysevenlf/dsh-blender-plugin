@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 行为修复（agent presence 视锥从不显示）：`presence_draw._draw_lines` 一直用 `GPUVertBuf(len=…, format="3f")`，而 4.2 / 4.5 / 5.2 的签名都要求 `GPUVertFormat`，抛出的 `TypeError` 又被外层 `except Exception: return` 吞掉，于是视锥与选中包围盒从未被真正绘制。现改为 `GPUVertFormat() + attr_add(id="pos", comp_type=…, len=3, fetch_mode="FLOAT")`，并在 4.2 GUI 实机确认视口出现 agent 视锥。同一处还补齐了两条数据通路：`_camera_world()` 能从 host 发布的 world→view 4x4 `viewMatrix` 反解相机位姿（camera 视图原本没有 from/lookAt，`_frustum` 直接 return），`_rotation()` 接受 4x4 矩阵；绘制失败不再完全静默（每个进程只提示一次 `[presence] draw disabled after error`）；host 侧 `see` 的 camera 发布补上 `from/lookAt/lens`，custom 发布把 `"x,y,z"` 字符串归一化为三元数组（后端 `_spec()` 同步归一化，顺带修掉 custom `blender_see` 的 `could not convert string to float: ','` 502）。回归：`tests/unit/python/test_addon_presence_draw.py`（8 例）、新增 `tests/unit/js/see-pose.test.ts`（3 例）、`tests/e2e/addon_presence_draw.mjs` 新增 camera 4x4 姿态快照断言。
+- 行为修复（`blender_see viewpoint="camera"` 返回整张均匀灰图）：`GPUTexture.read()` 返回的 `Buffer` 在 4.2 / 4.5 上 strides 非 C 连续（例如 shape `[64,64,4]`、strides `[1,64,4096]`），`bytes(memoryview(buf))` 展平出来是全 255 的错误字节；5.2 的 memoryview 连续所以不坏，这也解释了为什么只有部分版本出灰图。现新增 `_texture_rgba()`：memoryview 连续且长度匹配时直接 `bytes()`（5.2 的快路径，不付 `to_list()` 的开销），非连续时用 `to_list()` 做与布局无关的深度展平（`_flatten_ints()`），两条都不符则抛 `RuntimeError` 而不是静默输出坏帧；`_capture_viewport` / `host_capture` / `selftest` 三处统一走它。4.2 GUI 实测 camera 捕获恢复为真实场景（`_probe/v42_camera_fixed.png`），红屏读回 `[255,0,0,255]`。
+
 ## v3.1.0-alpha.1（2026-11-09）
 
 - 首个 3.1 预发布：Gateway 单端点与 addon 反向连接、virtual-gui、作业队列、六工具面与 extension 包进入 alpha；最终 3.1.0 仍待 vision/OpenCV/资产库等后续 change 完成。

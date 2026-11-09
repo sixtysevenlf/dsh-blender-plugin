@@ -47,7 +47,7 @@ export interface ViewPose {
   orthoScale?: number
   camera?: string
   frame?: number
-  viewMatrix?: number[]
+  viewMatrix?: number[] | number[][]
   followUser?: boolean
   updatedAt: number
 }
