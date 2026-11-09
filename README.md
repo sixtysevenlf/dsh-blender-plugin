@@ -26,7 +26,7 @@ DSH × Blender connects DeepSeek Harness to Blender so an agent can build, inspe
 - **Visual acceptance and delivery gates.** Compare renders against references from the same camera, report defects with crops and measurements, run defect-injection evaluation, and block delivery when the gate is not pass.
 - **Automation and long jobs.** `blender_run` submits render or headless work and returns a job id immediately; parameter searches and batch validation run inside the GUI session through `blender_op`. Neither occupies the GUI for the whole run.
 - **Native selection.** Select objects or collections in Blender and send them into the current DSH draft.
-- **Works in dsh-TUI too.** In dsh-TUI, a Blender selection is attached to your next message as a context chip; the footer shows the Blender channel state (connected / AI paused / rendering / jobs); `@` mentions scene objects, materials, and collections; and `/blender status|doctor|jobs` checks the channel without going through the model. Each part needs the matching dsh-TUI seam and stays off when the seam is missing.
+- **Works in dsh-TUI too.** In dsh-TUI, a Blender selection is attached to your next message as a context chip; the footer shows the Blender channel state (connected / AI paused / rendering / jobs); `@` mentions scene objects, materials, and collections; and `/blender status|doctor|jobs|presence` checks the channel or lists which agents observed Blender, without going through the model. Each part needs the matching dsh-TUI seam and stays off when the seam is missing.
 
 ## Quick start
 

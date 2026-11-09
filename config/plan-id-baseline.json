@@ -1,19 +1,19 @@
 {
   "version": 1,
   "tool": "check-plan-ids",
-  "generatedAt": "2026-11-09T12:28:07.684Z",
+  "generatedAt": "2026-11-09T18:44:08.459Z",
   "mode": "warn",
   "totals": {
-    "all": 1383,
-    "exempt": 1383,
+    "all": 1387,
+    "exempt": 1387,
     "residual": 0
   },
   "byPrefix": {},
   "byKind": {},
   "files": {
     "CHANGELOG.md": {
-      "count": 215,
-      "exempt": 215,
+      "count": 216,
+      "exempt": 216,
       "residual": 0
     },
     "MIGRATIONS.md": {
@@ -57,8 +57,8 @@
       "residual": 0
     },
     "docs/宿主集成-接口契约-v2.3增补.md": {
-      "count": 52,
-      "exempt": 52,
+      "count": 53,
+      "exempt": 53,
       "residual": 0
     },
     "docs/操作教程.md": {
@@ -437,6 +437,11 @@
       "residual": 0
     },
     "tests/fixtures/README.md": {
+      "count": 2,
+      "exempt": 2,
+      "residual": 0
+    },
+    "tests/integration/js/tui-commands.test.ts": {
       "count": 2,
       "exempt": 2,
       "residual": 0

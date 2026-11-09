@@ -13,7 +13,7 @@ The result is that the user cannot answer the basic question: "which agent looke
 - Each agent gets a stable opaque ID and a human-facing short ID. Short IDs and labels are shown by default; color-coding of agents is available but off by default.
 - The default presence color is blue, configurable in Blender preferences and from the Blender sidebar. The sidebar lists each agent, its short ID, last activity, and a per-row visibility toggle.
 - A full-window screenshot does not change the recorded pose; it shows a transient status-bar notice instead of drawing a frustum.
-- The DSH web client exposes the presence list in its own right-sidebar tab, opened by `/blender-presence`.
+- The DSH web client exposes the presence list in its own right-sidebar tab, opened by `/blender-presence`. The DSH TUI exposes the same data through the explicit `/blender presence` command as a text table; it never auto-injects the list into the conversation.
 - Session-bound `/act`, `/view`, and `/frame` requests carry the session's `instanceId`, and view-module injection is tracked per instance. Ambiguity remains only for callers that genuinely omit an instance while several are connected.
 
 ## Capabilities

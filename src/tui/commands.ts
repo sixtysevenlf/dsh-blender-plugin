@@ -14,12 +14,72 @@ export const SUBCOMMANDS = [
     description: '体检 GUI 通道（真跑一次 bpy 往返；--fix 引导安装 virtual-gui 前提）',
   },
   { name: 'jobs', description: 'headless 作业列表' },
+  { name: 'presence', description: 'agent 观察位姿列表（哪个 agent 在 see Blender）' },
 ]
 
-function ago(ms: unknown): string {
-  if (ms == null) return '从未'
-  const s = Math.round(Number(ms) / 1000)
-  return s < 60 ? String(s) + ' s 前' : String(Math.round(s / 60)) + ' min 前'
+function ago(value: unknown): string {
+  if (value == null) return '从未'
+  const raw = Number(value)
+  if (!Number.isFinite(raw) || raw <= 0) return '从未'
+  // Presence rows carry epoch milliseconds; status fields carry already-elapsed
+  // milliseconds. Accept both so /blender presence does not print a date as age.
+  const ageMs = raw > 1e12 ? Date.now() - raw : raw
+  const s = Math.max(0, Math.round(ageMs / 1000))
+  if (s < 60) return String(s) + ' s 前'
+  if (s < 3600) return String(Math.round(s / 60)) + ' min 前'
+  if (s < 86400) return String(Math.round(s / 3600)) + ' h 前'
+  return String(Math.round(s / 86400)) + ' d 前'
+}
+
+function short(value: unknown, max = 28): string {
+  const s = text(value)
+  return s.length > max ? s.slice(0, max - 1) + '…' : s
+}
+
+/** /host/state → 人类可读的 agent presence 表格；纯函数，导出给自检。 */
+export function presenceText(state: unknown): string {
+  const presence = asRecord(asRecord(state).presence)
+  const rows: Array<{
+    shortId: string
+    name: string
+    where: string
+    at: number | null
+    instance: string
+  }> = []
+  for (const rawSession of asArray(presence.sessions)) {
+    const session = asRecord(rawSession)
+    const instance = text(session.instanceId) || text(session.id)
+    const tail = instance.split(/[:/]/).filter(Boolean).pop() || ''
+    const instanceLabel = (text(session.kind) || 'gui') + ':' + (tail.slice(0, 8) || '-')
+    for (const rawAgent of asArray(session.agents)) {
+      const agent = asRecord(rawAgent)
+      const view = asRecord(agent.view)
+      const at = Number(agent.lastActivityAt || agent.lastSeen || 0) || null
+      rows.push({
+        shortId: text(agent.shortId) || 'A?',
+        name: short(agent.displayName) || text(agent.id).slice(0, 8) || 'agent',
+        where: text(view.viewpoint) || text(agent.activity) || 'attached',
+        at,
+        instance: instanceLabel,
+      })
+    }
+  }
+  if (!rows.length) return 'Blender Presence · 0 agents' + NL + '没有 agent 观察过 Blender'
+  rows.sort((a, b) => (b.at || 0) - (a.at || 0))
+  const lines = ['Blender Presence · ' + rows.length + ' agent' + (rows.length === 1 ? '' : 's')]
+  for (const row of rows)
+    lines.push(
+      row.shortId +
+        ' · ' +
+        row.name +
+        ' · ' +
+        row.where +
+        ' · ' +
+        (row.at ? ago(row.at) : '从未') +
+        ' · ' +
+        row.instance,
+    )
+  return lines.join(NL)
 }
 
 /** '/blender <sub>' → 文本。导出给自检。 */
@@ -102,6 +162,15 @@ export async function blenderCommand(
       )
     }
     return { kind: 'success', text: lines.join(NL) }
+  }
+  if (sub === 'presence') {
+    const st = await getJson(port, '/host/state', signal)
+    if (!st || st.ok !== true)
+      return {
+        kind: 'error',
+        text: '取 presence 失败：后端不可达（127.0.0.1:' + String(port) + '）',
+      }
+    return { kind: 'success', text: presenceText(st) }
   }
   return {
     kind: 'error',

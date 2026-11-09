@@ -36,8 +36,8 @@ export function registerCommandSurface(host: TuiContext, opts: TuiHostOptions, t
       wired.commands = true
       const dispose = commands.register({
         name: 'blender',
-        description: 'Blender 通道：status / doctor / jobs',
-        input: { hint: 'status | doctor | jobs' },
+        description: 'Blender 通道：status / doctor / jobs / presence',
+        input: { hint: 'status | doctor | jobs | presence' },
         handler: (inv) => blenderCommand(inv.rawInput ?? '', opts, inv.signal),
       })
       return () => {

@@ -26,6 +26,7 @@
 
 - [x] 4.1 Register the `blender-presence` right-sidebar tab type (with a guide entry), keyed `sidebar.right.pane.tab` body, and polling of `/host/state` presence; verify with a client build and a manual right-sidebar check. — 2026-11-09: user confirmed the right-sidebar panel opens and lists 2 agents.
 - [ ] 4.2 Register the `/blender-presence` action to open the right-sidebar tab without submitting a message; verify with the client self-test and a manual command check.
+- [x] 4.4 Add `/blender presence` to the dsh-TUI host half: read `/host/state`, render short ID, display name, observation kind, last activity, and session instance as a text table, and show a zero-agent empty state; verify with `tests/integration/js/tui-commands.test.ts`. — 2026-11-10: 13 command tests, full unit/contract/integration, typecheck, lint, and format gates pass; plugin installed into the `dsh-tui` profile.
 - [x] 4.3 Handle empty, error, and multiple-session states in the panel; verify with a client unit or self-test assertion.
 
 ## 5. Session-instance routing

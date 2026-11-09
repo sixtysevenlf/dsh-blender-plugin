@@ -244,6 +244,13 @@
       "reason": "catalog 详情断言：surface 族的 M3 是拟合阶段领域词（与 runtime/catalog/data.ts 一致）。"
     },
     {
+      "path": "tests/integration/js/tui-commands.test.ts",
+      "prefixes": [
+        "A"
+      ],
+      "reason": "TUI presence 命令测试：A1/A2 是 agent 短号展示契约的固定 fixture，不是计划验收 ID。"
+    },
+    {
       "path": "extension/dsh_blender_bridge/presence_draw.py",
       "prefixes": [
         "F"

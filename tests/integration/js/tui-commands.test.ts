@@ -28,6 +28,33 @@ const STATE = {
   jobs: { running: 1 },
   render: { busy: false, ageMs: null },
   backend: { pid: 42, uptimeMs: 1000 },
+  presence: {
+    sessions: [
+      {
+        id: 'user-gui:eea5d6a856555553a8ba2cbdb7cf3e47',
+        kind: 'user-gui',
+        instanceId: 'eea5d6a856555553a8ba2cbdb7cf3e47',
+        status: 'ready',
+        lastActivityAt: Date.now() - 1200,
+        agents: [
+          {
+            id: 'a1b2c3d4e5f6',
+            shortId: 'A1',
+            displayName: 'probe-agent',
+            view: { viewpoint: 'camera' },
+            lastActivityAt: Date.now() - 1200,
+          },
+          {
+            id: 'f91dc2ae04c2',
+            shortId: 'A2',
+            displayName: 'session-f91dc2ae-c25d-4b8f-9c7a-1b2c3d4e5f60',
+            view: { viewpoint: 'viewport' },
+            lastActivityAt: Date.now() - 65000,
+          },
+        ],
+      },
+    ],
+  },
 }
 
 let host: FakeHost
@@ -118,6 +145,28 @@ describe('/blender command', () => {
     expect(out.text).toContain('job-1 · running · 42 s · bake.py')
   })
 
+  it('lists the agents observing Blender', async () => {
+    const out = await blenderCommand('presence', Object.assign({}, OPTS, { port: host.port }))
+    expect(out.kind).toBe('success')
+    expect(out.text).toContain('Blender Presence · 2 agents')
+    expect(out.text).toMatch(/A1 · probe-agent · camera · \d+ s 前 · user-gui:eea5d6a8/)
+    expect(out.text).toMatch(/A2 · .* · viewport · \d+ min 前/)
+    expect(out.text).toContain('user-gui:eea5d6a8')
+  })
+
+  it('shows an empty presence state', async () => {
+    const previous = STATE.presence.sessions
+    STATE.presence.sessions = []
+    try {
+      const out = await blenderCommand('presence', Object.assign({}, OPTS, { port: host.port }))
+      expect(out.kind).toBe('success')
+      expect(out.text).toContain('Blender Presence · 0 agents')
+      expect(out.text).toContain('没有 agent 观察过 Blender')
+    } finally {
+      STATE.presence.sessions = previous
+    }
+  })
+
   it('explains doctor', async () => {
     const out = await blenderCommand('doctor', Object.assign({}, OPTS, { port: host.port }))
     expect(out.kind).toBe('success')
@@ -158,6 +207,9 @@ describe('/blender command', () => {
     expect(doctor.kind).toBe('error')
     const jobs = await blenderCommand('jobs', Object.assign({}, OPTS, { port: 1 }))
     expect(jobs.kind).toBe('error')
+    const presence = await blenderCommand('presence', Object.assign({}, OPTS, { port: 1 }))
+    expect(presence.kind).toBe('error')
+    expect(presence.text).toContain('取 presence 失败')
   })
 })
 
@@ -250,12 +302,14 @@ describe('registerTuiHost wiring', () => {
       registerTuiHost(f.ctx, Object.assign({}, OPTS, { port: host.port }))
       expect(commands[0]).toMatchObject({ name: 'blender' })
       expect(commands[0].input.hint).toContain('status')
+      expect(commands[0].input.hint).toContain('presence')
       expect(commands[0].description).toContain('Blender 通道')
       expect(trees[0].root).toBe('blender')
       expect(trees[0].children(['blender']).map((c: any) => c.name)).toEqual([
         'status',
         'doctor',
         'jobs',
+        'presence',
       ])
       expect(trees[0].children(['blender', 'status'])).toEqual([])
       expect(mentions[0]).toMatchObject({ id: 'blender', title: 'Blender' })
@@ -321,6 +375,7 @@ describe('registerTuiHost wiring', () => {
       'status',
       'doctor',
       'jobs',
+      'presence',
     ])
     expect(typeof __tuiHostInternals.wired).toBe('object')
     expect(typeof __tuiHostInternals.bridge).toBe('object')

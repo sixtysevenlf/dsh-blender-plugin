@@ -9,13 +9,15 @@ The session record already carries the addon `instanceId` that the user-gui atta
 ## Goals / Non-Goals
 
 **Goals**
+
 - Turn every successful observation into a durable, drawable pose without moving the user's view or camera.
 - Make the frustum shape derive from the same projection used for capture.
 - Give users identity, visibility, and color controls that survive normal redraws.
-- Expose the same presence data in the DSH sidebar without adding a model-facing tool.
+- Expose the same presence data in the DSH sidebar and through an explicit TUI command without adding a model-facing tool.
 - Remove avoidable ambiguity from session-bound routing.
 
 **Non-Goals**
+
 - No new scene objects, markers, or baked geometry for presence.
 - No persistent presence history; each agent keeps only its latest observation.
 - No per-agent color persistence across sessions.
@@ -51,9 +53,9 @@ Visibility is an addon-local set keyed by opaque ID. The sidebar and preferences
 
 The host reads `instanceId` from the session row and adds it to `/act`, `/view`, and `/frame` requests. Engine methods accept an optional instance and pass it to `addon.send`; routes forward it. Kernel injection tracks `(instanceId, module)` pairs, and `ensureView` takes the instance. The same rule applies one layer up: `blender_py` and `blender_see` take an optional `session_id`, and a call without one fails `session_ambiguous` when several ready sessions exist instead of silently selecting the first row. Rationale: transport already supports an explicit instance and already fails closed on ambiguity; the missing link is the host/runtime plumbing. Alternative rejected: infer the instance from the caller's session inside Gateway; Gateway has no DSH session identity on these routes and inference would violate the "never choose silently" rule.
 
-### 8. DSH panel is read-only and polling-based
+### 8. DSH presence surfaces are read-only and polling-based
 
-The web client registers a `sidebar.panellist` entry, a main panel keyed `blender-presence`, and a `/blender-presence` action that selects the panel. The panel polls `/host/state` (extended with a `presence` field) while visible. Rationale: no new HTTP route or contract count, and the existing client already has a backend base URL. Alternative rejected: push over a websocket; the client has no general push channel for plugin panels and polling is adequate for a human-readable list.
+The web client registers a `sidebar.panellist` entry, a main panel keyed `blender-presence`, and a `/blender-presence` action that selects the panel. The panel polls `/host/state` (extended with a `presence` field) while visible. The dsh-TUI host half registers `/blender presence` as an explicit command: it fetches the same `/host/state` once per invocation and prints a text table. It deliberately does not register a TUI side panel; terminal width is scarce and the command is the low-friction surface for an occasional check. Presence data is never auto-injected into the TUI conversation. Rationale: no new HTTP route or contract count, and the existing client already has a backend base URL. Alternative rejected: push over a websocket; the client has no general push channel for plugin panels and polling is adequate for a human-readable list.
 
 ## Risks / Trade-offs
 
