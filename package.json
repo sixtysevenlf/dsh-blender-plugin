@@ -33,6 +33,7 @@
     "!runtime/**/*.ts",
     "!runtime/**/*.mts",
     "!runtime/**/*.d.ts",
+    "!runtime/tsconfig.json",
     "!lib/.build.lock",
     "!lib/.build-ok",
     "!runtime/*.bak-*",

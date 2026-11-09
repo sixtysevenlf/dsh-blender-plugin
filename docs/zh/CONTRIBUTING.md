@@ -51,6 +51,14 @@ AGENTS.md 说明各层怎么拼在一起、什么算“装好了”，以及命�
 定义一次。请使用那里的命令，不要从更旧的文档里抄变体。正常 clone 已不再携带 `lib/`，本地跑后端前
 需要先构建。
 
+### 编辑器与 TypeScript 工程配置
+
+编辑器只认文件名恰好是 `tsconfig.json` 的配置，所以需要在编辑器里做类型检查的代码范围，都要在源码旁放
+一个：仓库根的 `tsconfig.json` 覆盖 `src/`，`runtime/tsconfig.json` 是只 `extends` 构建配置
+`tsconfig.runtime.json` 的两行适配文件。构建和 CI 从不读这个适配文件：`npm run typecheck` 和
+`scripts/build.mjs` 都显式传构建配置。新增只给编辑器用的配置时，保持它是纯 `extends`，不要加入构建
+配置没有的选项。
+
 Blender 侧：从 release 的 zip 安装 addon，启用并点 **Connect**。只有 `doctor` 返回 `kind=ok`
 （GUI 路线），或 worker 加 `see` 能返回一帧图（纯无头路线），才算装好。
 
