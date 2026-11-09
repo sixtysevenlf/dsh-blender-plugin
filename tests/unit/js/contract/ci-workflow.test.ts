@@ -102,7 +102,7 @@ describe('CI workflow hygiene', () => {
   it('validates the addon manifest and protocol against one gateway schema', () => {
     expect(release).toContain('const protocol = protocolSource.match')
     expect(release).toContain('const addonVersion = manifest.match')
-    expect(release).toContain('addon protocol.py and config/gateway.json disagree')
+    expect(release).toContain('addon gateway_schema.py and config/gateway.json disagree')
     expect(release).toContain('blender_manifest.toml and config/gateway.json disagree')
     expect(release).not.toContain('addon protocol.py must keep protocol 11')
     expect(release).not.toContain('addon protocol.py must keep addon version 1.11')

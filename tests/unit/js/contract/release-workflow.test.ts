@@ -28,6 +28,15 @@ describe('manual CD workflow', () => {
     expect(workflow).toContain('Refuse a prerelease marketplace upload')
   })
 
+  it('validates the generated gateway schema rather than the retired protocol constant', () => {
+    expect(workflow).toContain(
+      "fs.readFileSync('extension/dsh_blender_bridge/gateway_schema.py', 'utf8')",
+    )
+    expect(workflow).not.toContain(
+      "fs.readFileSync('extension/dsh_blender_bridge/protocol.py', 'utf8')",
+    )
+  })
+
   it('publishes npm from the packed tarball with OIDC provenance', () => {
     expect(workflow).toContain('npm publish ./release/*.tgz --access public --provenance')
     expect(workflow).toContain('NPM_TAG=alpha')

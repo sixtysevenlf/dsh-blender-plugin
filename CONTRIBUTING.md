@@ -56,6 +56,15 @@ The build, typecheck, test, lint, and package commands are defined once in
 [AGENTS.md §1](AGENTS.md#1-commands-single-source). Use those commands; do not copy variants from older
 documents. A normal clone no longer ships `lib/`: build it before running the backend locally.
 
+### Editor and TypeScript project configuration
+
+Editors discover TypeScript projects by the file name `tsconfig.json`, so each scope that should be
+type-checked in the editor has one next to its sources: the root `tsconfig.json` covers `src/`, and
+`runtime/tsconfig.json` is a two-line adapter that only extends the build configuration,
+`tsconfig.runtime.json`. The build and CI never read the adapter; `npm run typecheck` and
+`scripts/build.mjs` always pass the build configurations explicitly. If you add an editor-only config,
+keep it a pure `extends`: it must not add options the build does not have.
+
 Blender side: install the addon package from the release zip, enable it, and click **Connect**. The
 installation is good only when `doctor` returns `kind=ok` (GUI route), or the worker plus `see` returns
 a frame (headless-only route).
