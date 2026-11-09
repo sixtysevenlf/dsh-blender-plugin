@@ -48,19 +48,33 @@ export interface ViewPose {
   camera?: string
   frame?: number
   viewMatrix?: number[] | number[][]
+  projection?: number[] | number[][]
+  width?: number
+  height?: number
   followUser?: boolean
   updatedAt: number
 }
 
 export interface AgentPresence {
   caller: CallerIdentity
+  id: string
+  shortId: string
   attachedAt: number
   lastSeen: number
   view: ViewPose | null
   selected: string[]
   activity: string
+  lastActivityAt: number
+  lastActivity: string
   color: string
   displayName: string
+}
+
+/** A short-lived status hint, independent of observation poses. */
+export interface PresenceNotice {
+  seq: number
+  text: string
+  at: number
 }
 
 /** One object/collection the human changed since the last mark_read. */
@@ -103,6 +117,7 @@ export interface SessionRecord {
   activePy: { caller: CallerIdentity; startedAt: number } | null
   humanEdits: Map<string, HumanEdit>
   humanModifiedAt: number | null
+  notice: PresenceNotice | null
   /** Set for virtual-gui: the provider handle and the provider that owns it. */
   display: DisplayInstance | null
   provider: DisplayProvider | null
@@ -112,7 +127,7 @@ export interface SessionRecord {
 
 export type SessionResult<T> = ({ ok: true } & T) | AvailabilityFailure
 
-export const COLORS = ['#4C8DFF', '#FF6B6B', '#2FBF71', '#F5A623', '#9B59B6', '#20B2AA']
+export const COLORS = ['#4C8DFF', '#2F7FF9', '#5AA9FF', '#7B61FF', '#00A6ED', '#2FBF71']
 
 export function fail(
   code: string,
@@ -201,12 +216,16 @@ export function sessionView(s: SessionRecord): Record<string, unknown> {
     agents: [...s.agents.values()].map((a) => ({
       agent: callerView(a.caller),
       displayName: a.displayName,
+      id: a.id,
+      shortId: a.shortId,
       color: a.color,
       attachedAt: a.attachedAt,
       lastSeen: a.lastSeen,
       view: a.view,
       selected: a.selected,
       activity: a.activity,
+      lastActivityAt: a.lastActivityAt,
+      lastActivity: a.lastActivity,
     })),
     grants: [...s.grants.values()].map(grantView),
     activePy: s.activePy
@@ -231,6 +250,7 @@ export function sessionView(s: SessionRecord): Record<string, unknown> {
             .map((edit) => ({ name: edit.name, revision: edit.revision })),
         }
       : null,
+    notice: s.notice,
     createdAt: s.createdAt,
     lastActivityAt: s.lastActivityAt,
   }

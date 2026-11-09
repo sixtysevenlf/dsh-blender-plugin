@@ -91,3 +91,87 @@ def test_camera_world_inverts_the_published_world_to_view_matrix(monkeypatch):
     nested = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [4, -6, 3, 1]]
     assert presence_draw._camera_world({"viewMatrix": nested}) == {"inverted": nested}
     assert presence_draw._camera_world({}) is None
+
+def test_presence_rows_expose_identity_activity_and_hidden_state():
+    payload = {
+        "instanceId": "inst-1",
+        "agents": [
+            {
+                "id": "a1b2c3d4e5f6",
+                "shortId": "A" + "1",
+                "displayName": "agent-main",
+                "color": "#4C8DFF",
+                "lastActivity": "see:viewport",
+                "lastActivityAt": 1760000000000,
+                "view": {"viewpoint": "viewport"},
+            }
+        ],
+    }
+    presence_draw.set_presence(payload)
+    rows = presence_draw.presence_rows()
+    assert rows == [
+        {
+            "id": "a1b2c3d4e5f6",
+            "shortId": "A" + "1",
+            "displayName": "agent-main",
+            "color": "#4C8DFF",
+            "lastActivity": "see:viewport",
+            "lastActivityAt": 1760000000000.0,
+            "activity": "",
+            "hidden": False,
+        }
+    ]
+    assert presence_draw.toggle_agent("a1b2c3d4e5f6") is True
+    assert presence_draw.presence_rows()[0]["hidden"] is True
+    presence_draw.set_presence(payload)
+    assert presence_draw.presence_rows()[0]["hidden"] is True
+    assert presence_draw.toggle_agent("a1b2c3d4e5f6") is False
+    assert presence_draw.presence_rows()[0]["hidden"] is False
+    tearDown_function()
+
+
+def test_preferences_control_color_and_short_id(monkeypatch):
+    class FakePrefs:
+        presence_color = (0.10, 0.20, 0.30, 1.0)
+        presence_color_by_agent = False
+        presence_show_ids = True
+
+    monkeypatch.setattr(presence_draw, "_prefs", lambda: FakePrefs())
+    row = {"color": "#FF6B6B", "shortId": "A" + "1", "displayName": "agent-main"}
+    assert presence_draw._agent_color(row) == (0.10, 0.20, 0.30, 1.0)
+    assert presence_draw._short_label(row) == "A" + "1" + " \u00b7 agent-main"
+
+    FakePrefs.presence_color_by_agent = True
+    FakePrefs.presence_show_ids = False
+    assert presence_draw._agent_color(row) == (1.0, 107 / 255.0, 107 / 255.0, 1.0)
+    assert presence_draw._short_label(row) == "agent-main"
+
+def test_label_screen_projects_world_point(monkeypatch):
+    class Coords:
+        def __init__(self, x, y, w):
+            self.x = x
+            self.y = y
+            self.w = w
+
+    class FakeMatrix:
+        def __init__(self, w=1.0):
+            self.w = w
+
+        def __matmul__(self, vector):
+            assert len(vector) == 4 and vector[3] == 1.0
+            return Coords(0.5, 0.25, self.w)
+
+    class Region:
+        x = 10
+        y = 20
+        width = 200
+        height = 100
+
+    class Region3D:
+        perspective_matrix = FakeMatrix()
+
+    monkeypatch.setattr(presence_draw, "Vector", lambda values: tuple(values))
+    assert presence_draw._label_screen(Region(), Region3D(), (1.0, 2.0, 3.0)) == (160.0, 82.5)
+
+    Region3D.perspective_matrix = FakeMatrix(w=-1.0)
+    assert presence_draw._label_screen(Region(), Region3D(), (1.0, 2.0, 3.0)) is None

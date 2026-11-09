@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import * as plugin from '../../../../src/index'
 import { createFakeContext, type CapturedTool } from '../../../helpers/fake-context'
 import { startFakeBackend } from '../../../helpers/fake-backend.mjs'
@@ -70,6 +70,40 @@ afterAll(async () => {
   fake.dispose()
   await backend.close()
 })
+
+afterEach(() => {
+  backend.setHandler('POST /lease')
+})
+
+function twoReadySessions() {
+  return {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+    body: Buffer.from(
+      JSON.stringify({
+        ok: true,
+        sessions: [
+          {
+            id: 'sess-a',
+            kind: 'user-gui',
+            status: 'ready',
+            instanceId: 'inst-a',
+            owner: { hostId: 'host-1', dshSessionId: 'ds-1', agentId: 'main' },
+            agents: [],
+          },
+          {
+            id: 'sess-b',
+            kind: 'user-gui',
+            status: 'ready',
+            instanceId: 'inst-b',
+            owner: { hostId: 'host-1', dshSessionId: 'ds-1', agentId: 'main' },
+            agents: [],
+          },
+        ],
+      }),
+    ),
+  }
+}
 
 describe('model tool execution semantics (six-tool surface)', () => {
   it('blender_session lists sessions through the session route', async () => {
@@ -144,6 +178,27 @@ describe('model tool execution semantics (six-tool surface)', () => {
       false,
     )
     backend.setHandler('POST /lease')
+  })
+
+  it('blender_py refuses to pick one of several ready sessions', async () => {
+    backend.setHandler('POST /lease', twoReadySessions)
+    const mark = backend.requests.length
+    const out = await run('blender_py', { code: 'print(1)' })
+    expect(out.text).toContain('session_ambiguous')
+    expect(out.text).toContain('sess-a')
+    expect(out.text).toContain('sess-b')
+    expect(requestsSince(mark).some((r: any) => r.path === '/act')).toBe(false)
+  })
+
+  it('blender_py routes to an explicitly named session instance', async () => {
+    backend.setHandler('POST /lease', twoReadySessions)
+    const mark = backend.requests.length
+    const out = await run('blender_py', { code: 'print(1)', session_id: 'sess-b' })
+    expect(out.text).toContain('PY ok')
+    expect(requestSince(mark, 'POST', '/act')?.body).toMatchObject({
+      instanceId: 'inst-b',
+      sessionId: 'sess-b',
+    })
   })
 
   it('blender_see captures a viewport frame at a fixed tier', async () => {

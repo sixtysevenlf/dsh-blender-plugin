@@ -9,8 +9,8 @@ import type { EngineApiDeps } from './index.js'
 export function createViewApi(E: EngineApiDeps) {
   const { addon, ensureView, metrics } = E
   return {
-    async view(spec: Record<string, unknown> = {}) {
-      await ensureView()
+    async view(spec: Record<string, unknown> = {}, instanceId = '') {
+      await ensureView(instanceId || undefined)
       metrics.views++
       // 未指定输出路径时用配置里的工作目录（保证 Blender 与宿主两端都能访问）
       const spec2 = Object.assign({}, spec || {})
@@ -27,6 +27,7 @@ export function createViewApi(E: EngineApiDeps) {
           'execute_code',
           { code: KERNEL_BOOTSTRAP + '\n' + body },
           Math.max(30000, Number(spec.timeoutMs) || 120000),
+          instanceId ? { instanceId } : {},
         ),
         'VIEW',
       ) as Record<string, unknown> | null

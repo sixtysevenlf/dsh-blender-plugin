@@ -1,6 +1,7 @@
 // 宿主集成路由入口（拆分）
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { EngineSurface } from '../../core/engine/index.js'
+import type { SessionRegistry } from '../../core/sessions/registry.js'
 import { handleHost } from './routes.js'
 
 export interface SelectionStoreView {
@@ -13,6 +14,7 @@ export interface HostRoutesDeps {
   selectionStore: SelectionStoreView
   hostJson: (res: ServerResponse, code: number, obj: unknown, origin?: unknown) => void
   hostErrText: (e: unknown) => string
+  sessionRegistry?: SessionRegistry
 }
 
 export function createHostRoutes(E: HostRoutesDeps) {

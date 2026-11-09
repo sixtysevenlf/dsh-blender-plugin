@@ -79,8 +79,13 @@ export interface EngineSurface {
   protocol: () => Promise<unknown>
   doctor: () => Promise<unknown>
   status: () => Promise<unknown>
-  act: (code: unknown, timeoutMs?: number, file?: unknown) => Promise<unknown>
-  cmd: (name: unknown, params?: Record<string, unknown>, timeoutMs?: number) => Promise<unknown>
+  act: (code: unknown, timeoutMs?: number, file?: unknown, instanceId?: string) => Promise<unknown>
+  cmd: (
+    name: unknown,
+    params?: Record<string, unknown>,
+    timeoutMs?: number,
+    instanceId?: string,
+  ) => Promise<unknown>
   commands: () => Promise<unknown>
   loopStart: (spec: unknown) => Promise<unknown>
   loopStatus: (history?: number) => Promise<unknown>
@@ -89,11 +94,11 @@ export interface EngineSurface {
   loopBoard: (limit?: number, groups?: boolean) => Promise<unknown>
   loopExport: (opts?: Record<string, unknown>) => Promise<unknown>
   loopHelp: () => Promise<unknown>
-  frameArea: (areaIndex?: number) => Promise<unknown>
+  frameArea: (areaIndex?: number, instanceId?: string) => Promise<unknown>
   perf: (op: string, payload?: unknown) => Promise<unknown>
   opt: (op: string, payload?: unknown) => Promise<unknown>
-  frame: (maxSize?: number) => Promise<unknown>
-  view: (spec?: Record<string, unknown>) => Promise<unknown>
+  frame: (maxSize?: number, instanceId?: string) => Promise<unknown>
+  view: (spec?: Record<string, unknown>, instanceId?: string) => Promise<unknown>
   hostSceneItems: (spec?: Record<string, unknown>) => Promise<unknown>
 }
 

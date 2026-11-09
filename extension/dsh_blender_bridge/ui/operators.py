@@ -26,6 +26,27 @@ class DSHBB_OT_ToggleAIPause(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class DSHBB_OT_TogglePresence(bpy.types.Operator):
+    """隐藏 / 显示一个 agent 的视锥"""
+    bl_idname = "dshbb.toggle_presence"
+    bl_label = "隐藏 / 显示视锥"
+    bl_description = "只影响本机绘制，不改变 Gateway 的 presence 数据或 agent 的观察"
+    bl_options = {'REGISTER'}
+
+    agent_id: bpy.props.StringProperty(name="Agent ID", default="")
+
+    def execute(self, context):
+        from .. import presence_draw
+
+        hidden = presence_draw.toggle_agent(self.agent_id)
+        try:
+            redraw_view3d_panels()
+        except Exception:
+            pass
+        self.report({'INFO'}, "视锥已隐藏" if hidden else "视锥已显示")
+        return {'FINISHED'}
+
+
 # Operator to set Hyper3D API Key
 class DSHBB_OT_SetFreeTrialHyper3DAPIKey(bpy.types.Operator):
     bl_idname = "dshbb.set_hyper3d_free_trial_api_key"

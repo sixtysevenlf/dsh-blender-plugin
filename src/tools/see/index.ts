@@ -4,7 +4,7 @@ import type { HostContext } from '../../host/context.js'
 import { ANY_SCHEMA } from '../schema-diagnostic.js'
 import { T } from '../../constants.js'
 import { renderOne } from '../../ui/cards.js'
-import { requireReadySession, sessionRequiredFailure } from '../shared/session.js'
+import { requireReadySession } from '../shared/session.js'
 import { executeSee } from './execute.js'
 
 function buildSeeTool(ctx: HostContext, port: number) {
@@ -61,13 +61,17 @@ function buildSeeTool(ctx: HostContext, port: number) {
         description: '【sequence】采样频率，0.5–8，默认 4；帧数 round(seconds*fps) ≤32',
       },
       force: { type: 'boolean', description: '同画面默认不重复附图；true 强制重发' },
+      session_id: {
+        type: 'string',
+        description: '目标 GUI 会话 id；多实例必填，blender_session action=list 可看',
+      },
     },
     output: { schema: ANY_SCHEMA, render: renderOne },
     isConcurrencySafe: () => true,
     timeoutMs: T.see,
     async execute(args: Record<string, unknown>) {
-      const ready = await requireReadySession(port)
-      if (!ready.ok) return sessionRequiredFailure()
+      const ready = await requireReadySession(port, undefined, String(args.session_id || '').trim())
+      if (!ready.ok) return ready.failure
       return executeSee(ctx, port, args, ready.session)
     },
   })

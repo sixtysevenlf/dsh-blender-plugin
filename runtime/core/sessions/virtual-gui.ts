@@ -185,6 +185,7 @@ export class VirtualGuiLifecycle {
       activePy: null,
       humanEdits: new Map(),
       humanModifiedAt: null,
+      notice: null,
       display,
       provider,
       createdAt: now,

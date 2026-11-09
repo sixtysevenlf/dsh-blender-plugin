@@ -1,19 +1,19 @@
 {
   "version": 1,
   "tool": "check-plan-ids",
-  "generatedAt": "2026-11-09T05:19:02.947Z",
+  "generatedAt": "2026-11-09T12:28:07.684Z",
   "mode": "warn",
   "totals": {
-    "all": 1380,
-    "exempt": 1380,
+    "all": 1383,
+    "exempt": 1383,
     "residual": 0
   },
   "byPrefix": {},
   "byKind": {},
   "files": {
     "CHANGELOG.md": {
-      "count": 214,
-      "exempt": 214,
+      "count": 215,
+      "exempt": 215,
       "residual": 0
     },
     "MIGRATIONS.md": {
@@ -32,8 +32,8 @@
       "residual": 0
     },
     "docs/architecture.md": {
-      "count": 4,
-      "exempt": 4,
+      "count": 6,
+      "exempt": 6,
       "residual": 0
     },
     "docs/archive/headless优先-路线决定.md": {

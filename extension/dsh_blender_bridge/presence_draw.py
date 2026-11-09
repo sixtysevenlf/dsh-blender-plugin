@@ -1,30 +1,37 @@
 """Viewport-only presence drawing for attached DSH agents.
 
 The Gateway pushes a JSON snapshot of every attached caller (view pose, colour,
-selection, activity). This module draws frusta and selection boxes with the GPU
-draw handlers used by SpaceView3D; it never writes scene data, selection, the
-camera, the frame, or the user's view.
+selection, activity, stable id, notice). This module draws frusta and selection
+boxes with the GPU draw handlers used by SpaceView3D; it never writes scene
+data, selection, the camera, the frame, or the user's view.
 
 Drawing is deliberately best-effort: a Blender build without the GPU/blf API
 still accepts the snapshot and simply draws nothing.
 """
 
 import json
+import os
 
 import bpy
 from mathutils import Matrix, Vector
 
 _MAX_AGENTS = 8
 _MAX_SELECTED = 32
+_DEFAULT_COLOR = (0.30, 0.55, 1.0, 1.0)
 
 _STATE = {"agents": [], "paused": False, "instanceId": None}
 _HANDLES = []
+_HIDDEN = set()
+_LAST_NOTICE_SEQ = 0
+_NOTICE_TIMER = [None]
 # 绘制错误只提示一次，避免每帧刷屏，同时不让 GPU API 变更再次无声失败。
 _DRAW_ERROR_REPORTED = [False]
+_FONT = [None]
 
 
 def set_presence(payload):
     """Replace the snapshot and ensure the draw handlers exist."""
+    global _LAST_NOTICE_SEQ
     if isinstance(payload, str):
         try:
             payload = json.loads(payload)
@@ -36,6 +43,17 @@ def set_presence(payload):
     _STATE["agents"] = list(agents)[:_MAX_AGENTS] if isinstance(agents, list) else []
     _STATE["paused"] = bool(payload.get("paused"))
     _STATE["instanceId"] = payload.get("instanceId")
+    live = {str(row.get("id")) for row in _STATE["agents"] if isinstance(row, dict)}
+    _HIDDEN.intersection_update(live)
+    notice = payload.get("notice")
+    if isinstance(notice, dict):
+        try:
+            seq = int(notice.get("seq") or 0)
+        except (TypeError, ValueError):
+            seq = 0
+        if seq > _LAST_NOTICE_SEQ:
+            _LAST_NOTICE_SEQ = seq
+            _show_notice(str(notice.get("text") or ""))
     _ensure_handlers()
     _tag_redraw()
 
@@ -44,12 +62,64 @@ def clear_presence():
     _STATE["agents"] = []
     _STATE["paused"] = False
     _STATE["instanceId"] = None
+    _HIDDEN.clear()
     _remove_handlers()
     _tag_redraw()
 
 
 def get_presence():
     return {"agents": list(_STATE["agents"]), "paused": _STATE["paused"]}
+
+
+def presence_rows():
+    """Rows for the Blender sidebar; never mutates the pushed snapshot."""
+    rows = []
+    for row in _STATE["agents"]:
+        if not isinstance(row, dict):
+            continue
+        rows.append(
+            {
+                "id": str(row.get("id") or ""),
+                "shortId": str(row.get("shortId") or ""),
+                "displayName": str(row.get("displayName") or "agent"),
+                "color": str(row.get("color") or ""),
+                "lastActivity": str(row.get("lastActivity") or ""),
+                "lastActivityAt": float(row.get("lastActivityAt") or 0),
+                "activity": str(row.get("activity") or ""),
+                "hidden": _is_hidden(row),
+            }
+        )
+    return rows
+
+
+def toggle_agent(agent_id):
+    value = str(agent_id or "")
+    if not value:
+        return False
+    if value in _HIDDEN:
+        _HIDDEN.discard(value)
+        hidden = False
+    else:
+        _HIDDEN.add(value)
+        hidden = True
+    _tag_redraw()
+    return hidden
+
+
+def set_agent_hidden(agent_id, hidden):
+    value = str(agent_id or "")
+    if not value:
+        return
+    if hidden:
+        _HIDDEN.add(value)
+    else:
+        _HIDDEN.discard(value)
+    _tag_redraw()
+
+
+def _is_hidden(row):
+    agent_id = str(row.get("id") or "")
+    return bool(agent_id) and agent_id in _HIDDEN
 
 
 def _ensure_handlers():
@@ -87,7 +157,41 @@ def _tag_redraw():
         pass
 
 
-def _color(value, fallback=(0.3, 0.55, 1.0)):
+def _prefs():
+    try:
+        addon = bpy.context.preferences.addons.get(__package__)
+        return addon.preferences if addon is not None else None
+    except Exception:
+        return None
+
+
+def _pref_color():
+    prefs = _prefs()
+    value = getattr(prefs, "presence_color", None) if prefs is not None else None
+    if value is not None:
+        try:
+            vals = [float(v) for v in value]
+            if len(vals) >= 3:
+                return (vals[0], vals[1], vals[2], 1.0)
+        except Exception:
+            pass
+        hex_value = _color(value, None)
+        if hex_value is not None:
+            return hex_value
+    return _DEFAULT_COLOR
+
+
+def _pref_color_by_agent():
+    prefs = _prefs()
+    return bool(getattr(prefs, "presence_color_by_agent", False)) if prefs is not None else False
+
+
+def _pref_show_ids():
+    prefs = _prefs()
+    return bool(getattr(prefs, "presence_show_ids", True)) if prefs is not None else True
+
+
+def _color(value, fallback=_DEFAULT_COLOR):
     text = str(value or "")
     if len(text) == 7 and text[0] == "#":
         try:
@@ -99,7 +203,48 @@ def _color(value, fallback=(0.3, 0.55, 1.0)):
             )
         except Exception:
             pass
-    return fallback + (1.0,)
+    return fallback
+
+
+def _agent_color(row):
+    if _pref_color_by_agent():
+        return _color(row.get("color"), _pref_color())
+    return _pref_color()
+
+
+def _short_label(row):
+    name = str(row.get("displayName") or "agent")
+    short = str(row.get("shortId") or "")
+    if _pref_show_ids() and short:
+        return short + " \u00b7 " + name
+    return name
+
+
+def _show_notice(text):
+    if not text:
+        return
+    try:
+        workspace = getattr(bpy.context, "workspace", None)
+        if workspace is None:
+            return
+        workspace.status_text_set(text[:160])
+        try:
+            if _NOTICE_TIMER[0] is not None and bpy.app.timers.is_registered(_NOTICE_TIMER[0]):
+                bpy.app.timers.unregister(_NOTICE_TIMER[0])
+        except Exception:
+            pass
+
+        def _clear():
+            _NOTICE_TIMER[0] = None
+            try:
+                bpy.context.workspace.status_text_set(None)
+            except Exception:
+                pass
+            return None
+
+        _NOTICE_TIMER[0] = bpy.app.timers.register(_clear, first_interval=2.0)
+    except Exception:
+        pass
 
 
 def _vec3(value):
@@ -172,34 +317,114 @@ def _rotation(world):
         return None
 
 
-def _frustum(view, color):
-    world = _camera_world(view)
+def _aspect(view):
+    try:
+        width = float(view.get("width") or 0)
+        height = float(view.get("height") or 0)
+        if width > 0 and height > 0:
+            return width / height
+    except (TypeError, ValueError):
+        pass
+    return 16.0 / 9.0
+
+
+def _ndc_corner(proj_inv, x, y, z):
+    try:
+        point = proj_inv @ Vector((x, y, z, 1.0))
+        if abs(point.w) < 1e-9:
+            return None
+        return point / point.w
+    except Exception:
+        return None
+
+
+def _projected_frustum(view, world):
+    """World-space frustum lines from the capture projection, or None."""
+    projection = _matrix4(view.get("projection"))
+    if projection is None:
+        return None
+    try:
+        proj_inv = projection.inverted()
+    except Exception:
+        return None
+    apex = world.translation.copy()
     rot = _rotation(world)
-    if world is None or rot is None:
-        return
+    if rot is None:
+        return None
+    try:
+        if bool(view.get("ortho")):
+            near = []
+            far = []
+            for x, y in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+                a = _ndc_corner(proj_inv, x, y, -1.0)
+                b = _ndc_corner(proj_inv, x, y, 1.0)
+                if a is None or b is None:
+                    return None
+                near.append(apex + rot @ Vector((a.x, a.y, a.z)))
+                far.append(apex + rot @ Vector((b.x, b.y, b.z)))
+            lines = []
+            for i in range(4):
+                lines.extend([_tuple(near[i]), _tuple(near[(i + 1) % 4])])
+                lines.extend([_tuple(far[i]), _tuple(far[(i + 1) % 4])])
+                lines.extend([_tuple(near[i]), _tuple(far[i])])
+            return lines
+        corners = []
+        for x, y in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+            point = _ndc_corner(proj_inv, x, y, 0.0)
+            if point is None:
+                return None
+            depth = max(-point.z, 1e-6)
+            scaled = point * (2.0 / depth)
+            corners.append(apex + rot @ Vector((scaled.x, scaled.y, scaled.z)))
+        lines = []
+        for corner in corners:
+            lines.extend([_tuple(apex), _tuple(corner)])
+        for i in range(4):
+            lines.extend([_tuple(corners[i]), _tuple(corners[(i + 1) % 4])])
+        return lines
+    except Exception:
+        return None
+
+
+def _fallback_frustum(view, world):
+    rot = _rotation(world)
+    if rot is None:
+        return None
     try:
         apex = world.translation.copy()
         depth = 2.0
         lens = float(view.get("lens") or 50.0)
         half_h = depth * 18.0 / max(lens, 1.0)
-        half_w = half_h
+        half_w = half_h * _aspect(view)
         if view.get("ortho"):
-            half_w = half_h = max(float(view.get("orthoScale") or 10.0) * 0.25, 0.1)
+            half_h = max(float(view.get("orthoScale") or 10.0) * 0.25, 0.1)
+            half_w = half_h * _aspect(view)
         corners = [
             rot @ Vector((-half_w, -half_h, -depth)),
             rot @ Vector((half_w, -half_h, -depth)),
             rot @ Vector((half_w, half_h, -depth)),
             rot @ Vector((-half_w, half_h, -depth)),
         ]
-        world = [apex + corner for corner in corners]
+        world_corners = [apex + corner for corner in corners]
         lines = []
-        for corner in world:
+        for corner in world_corners:
             lines.extend([_tuple(apex), _tuple(corner)])
         for index in range(4):
-            lines.extend([_tuple(world[index]), _tuple(world[(index + 1) % 4])])
-        _draw_lines(lines, color)
+            lines.extend([_tuple(world_corners[index]), _tuple(world_corners[(index + 1) % 4])])
+        return lines
     except Exception:
+        return None
+
+
+def _frustum(view, color):
+    world = _camera_world(view)
+    if world is None:
         return
+    lines = _projected_frustum(view, world)
+    if lines is None:
+        lines = _fallback_frustum(view, world)
+    if lines:
+        _draw_lines(lines, color)
 
 
 def _selection(uid, color):
@@ -225,7 +450,6 @@ def _selection(uid, color):
 
 def _tuple(vector):
     return (float(vector.x), float(vector.y), float(vector.z))
-
 
 
 def _draw_lines(vertices, color):
@@ -272,17 +496,31 @@ def _draw_view():
         if space is None or getattr(space, "type", "") != "VIEW_3D":
             return
         for row in _STATE["agents"]:
-            view = row.get("view") if isinstance(row, dict) else None
+            if not isinstance(row, dict) or _is_hidden(row):
+                continue
+            view = row.get("view") if isinstance(row.get("view"), dict) else None
             if not isinstance(view, dict):
                 continue
-            color = _color(row.get("color"))
-            if view.get("viewpoint") != "viewport":
-                _frustum(view, color)
+            color = _agent_color(row)
+            _frustum(view, color)
             selected = row.get("selected") if isinstance(row.get("selected"), list) else []
             for uid in selected[:_MAX_SELECTED]:
                 _selection(uid, color)
     except Exception:
         return
+
+
+def _label_screen(region, region_3d, location):
+    """World point -> region pixel coordinate, or None when behind the view."""
+    try:
+        co = region_3d.perspective_matrix @ Vector((location[0], location[1], location[2], 1.0))
+        if co.w <= 0:
+            return None
+        x = region.x + (co.x / co.w + 1.0) * 0.5 * region.width
+        y = region.y + (co.y / co.w + 1.0) * 0.5 * region.height
+        return (x, y)
+    except Exception:
+        return None
 
 
 def _label(region, region_3d, location, text, color):
@@ -291,15 +529,21 @@ def _label(region, region_3d, location, text, color):
     try:
         import blf
 
-        if not hasattr(_label, "font"):
-            path = bpy.utils.system_resource("DATAFILES", path="fonts/bfont.pfb")
-            _label.font = blf.load(path)
-        co = region_3d.perspective_matrix @ Vector(location)
-        if co.w <= 0:
+        if _FONT[0] is None:
+            root = bpy.utils.system_resource("DATAFILES")
+            for name in ("fonts/Inter.woff2", "fonts/DejaVuSansMono.woff2", "fonts/bfont.pfb"):
+                path = os.path.join(root, name) if root else ""
+                if path and os.path.isfile(path):
+                    _FONT[0] = blf.load(path)
+                    if _FONT[0]:
+                        break
+        screen = _label_screen(region, region_3d, location)
+        if screen is None:
             return
-        x = region.x + (co.x / co.w + 1.0) * 0.5 * region.width
-        y = region.y + (co.y / co.w + 1.0) * 0.5 * region.height
-        font = _label.font
+        x, y = screen
+        font = _FONT[0]
+        if not font:
+            return
         blf.position(font, x + 6.0, y + 6.0, 0.0)
         blf.size(font, 12)
         blf.color(font, color[0], color[1], color[2], color[3])
@@ -315,16 +559,20 @@ def _draw_text():
         region = getattr(bpy.context, "region", None)
         region_3d = getattr(bpy.context, "region_data", None)
         for row in _STATE["agents"]:
-            view = row.get("view") if isinstance(row, dict) else None
+            if not isinstance(row, dict) or _is_hidden(row):
+                continue
+            view = row.get("view") if isinstance(row.get("view"), dict) else None
             if not isinstance(view, dict):
                 continue
             world = _camera_world(view)
             origin = None if world is None else world.translation
             if origin is None:
                 continue
-            label = str(row.get("displayName") or "agent")
+            label = _short_label(row)
+            if _matrix4(view.get("projection")) is None:
+                label += " (approx)"
             if _STATE["paused"]:
                 label += " (paused)"
-            _label(region, region_3d, origin, label, _color(row.get("color")))
+            _label(region, region_3d, origin, label, _agent_color(row))
     except Exception:
         return

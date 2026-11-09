@@ -200,10 +200,15 @@ export async function fetchFrame(
   size: number,
   full = false,
   area = 0,
+  instanceId = '',
 ): Promise<FrameResult> {
   const t0 = Date.now()
+  const suffix = instanceId ? '&instanceId=' + encodeURIComponent(instanceId) : ''
   const url =
-    base(port) + '/frame.png?' + (full ? 'full=1&area=' + String(area) : 'size=' + String(size))
+    base(port) +
+    '/frame.png?' +
+    (full ? 'full=1&area=' + String(area) : 'size=' + String(size)) +
+    suffix
   const r = await withTimeout(url, {}, 60000)
   if (!r.ok) throw new Error('frame http ' + String(r.status))
   const buf = new Uint8Array(await r.arrayBuffer())
@@ -219,14 +224,16 @@ export async function fetchView(
   port: number,
   spec: unknown,
   timeoutMs = 180000,
+  instanceId = '',
 ): Promise<ViewResult> {
   const t0 = Date.now()
+  const body = { ...asRecord(spec), ...(instanceId ? { instanceId } : {}) }
   const r = await withTimeout(
     base(port) + '/view',
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(asRecord(spec)),
+      body: JSON.stringify(body),
     },
     timeoutMs,
   )

@@ -136,24 +136,33 @@ export function preloadChunk(name: unknown): string {
     'globals().update({k: v for k, v in ' + ns + '.items() if not k.startswith("_")})',
   ].join(String.fromCharCode(10))
 }
+function injectionKey(file: string, instanceId?: string): string {
+  return instanceId ? instanceId + '|' + file : file
+}
+function moduleFingerprint(file: string): string {
+  try {
+    const st = fs.statSync(file)
+    return String(st.size) + '-' + String(Math.round(st.mtimeMs)) + '-k' + KIT_HASH
+  } catch (e) {
+    return 'missing-k' + KIT_HASH
+  }
+}
+
 export async function injectModule(
   deps: KernelIoDeps,
   file: string,
   marker: string,
   versionExpr = '1',
   prelude = '',
+  instanceId = '',
 ): Promise<boolean> {
+  const key = injectionKey(file, instanceId)
+  const sendOpts = { noMark: true, ...(instanceId ? { instanceId } : {}) }
   const attr = MODULE_ATTR[marker] || 'dsh_' + String(marker).toLowerCase() + '_api'
   const hashAttr = attr + '_fp'
   // 内容指纹（size + mtime）：模块文件一改，下次调用自动重新注入 —— 开发闭环必需。
   // 注意：K 跨后端重启保留，所以"只查 hasattr"会让改了文件却不生效（v0.7.0 修）。
-  let fp: string
-  try {
-    const st = fs.statSync(file)
-    fp = String(st.size) + '-' + String(Math.round(st.mtimeMs)) + '-k' + KIT_HASH
-  } catch (e) {
-    fp = 'missing-k' + KIT_HASH
-  }
+  const fp = moduleFingerprint(file)
   // K 才是真相：Blender 重启后 K 会清空，仅靠本地 Set 会误判"已注入"
   try {
     // noMark：加载 python 模块是纯 plumbing，不可能改场景 —— 不该参与 stale 判定
@@ -169,15 +178,15 @@ export async function injectModule(
           '", "none")))',
       },
       30000,
-      { noMark: true },
+      sendOpts,
     )
     const chkRec = chk !== null && typeof chk === 'object' ? (chk as Record<string, unknown>) : null
     const t = chkRec && typeof chkRec.result === 'string' ? chkRec.result : ''
     if (t.includes('HAVE True') && t.includes(fp)) {
-      deps.injected.add(file)
+      deps.injected.add(key)
       return true
     }
-    deps.injected.delete(file)
+    deps.injected.delete(key)
   } catch (e) {
     /* 探测失败 → 走重新注入 */
   }
@@ -205,13 +214,13 @@ export async function injectModule(
         tail,
     },
     60000,
-    { noMark: true },
+    sendOpts,
   )
   const outRec = out !== null && typeof out === 'object' ? (out as Record<string, unknown>) : null
   const txt = outRec && typeof outRec.result === 'string' ? outRec.result : ''
   if (!txt.includes(marker))
     throw new Error(path.basename(file) + ' 注入失败: ' + txt.slice(0, 200))
-  deps.injected.add(file)
+  deps.injected.add(key)
   return true
 }
 export function needFile(f: string, what: string): string {
@@ -223,7 +232,8 @@ export function needFile(f: string, what: string): string {
 const ensureRunner = (d: KernelIoDeps) =>
   injectModule(d, RUNNER_PATH, 'RUNNER_READY', 'RUNNER_VERSION')
 const ensurePerf = (d: KernelIoDeps) => injectModule(d, PERF_PATH, 'PERF_READY', 'PERF_VERSION')
-const ensureView = (d: KernelIoDeps) => injectModule(d, VIEW_PATH, 'VIEW_READY', 'VIEW_VERSION')
+const ensureView = (d: KernelIoDeps, instanceId = '') =>
+  injectModule(d, VIEW_PATH, 'VIEW_READY', 'VIEW_VERSION', '', instanceId)
 const ensureContract = (d: KernelIoDeps) =>
   injectModule(d, CONTRACT_PATH, 'CONTRACT_READY', 'CONTRACT_VERSION')
 const ensurePlanner = (d: KernelIoDeps) =>
@@ -356,7 +366,7 @@ const createEnsures = (
 ): Record<string, () => Promise<boolean>> => ({
   ensureRunner: () => ensureRunner(d),
   ensurePerf: () => ensurePerf(d),
-  ensureView: () => ensureView(d),
+  ensureView: (instanceId?: string) => ensureView(d, instanceId),
   ensureContract: () => ensureContract(d),
   ensurePlanner: () => ensurePlanner(d),
   ensureTxn: () => ensureTxn(d),
@@ -400,8 +410,13 @@ export function createKernelInternals(E: KernelDeps) {
     readModuleSource,
     readScriptPath,
     preloadChunk,
-    injectModule: (file: string, marker: string, versionExpr = '1', prelude = '') =>
-      injectModule(d, file, marker, versionExpr, prelude),
+    injectModule: (
+      file: string,
+      marker: string,
+      versionExpr = '1',
+      prelude = '',
+      instanceId = '',
+    ) => injectModule(d, file, marker, versionExpr, prelude, instanceId),
     needFile,
     ...createEnsures(d, renderFlagWin),
     sceneEpoch: () => sceneEpoch(d),

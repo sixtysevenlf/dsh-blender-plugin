@@ -46,6 +46,19 @@ describe('3.1 GUI session registry', () => {
     expect((r.session.agents as unknown[]).length).toBe(1)
   })
 
+  it('lists every session visible to one caller instead of only the first', () => {
+    const { registry } = setup([
+      { instanceId: 'inst-1', ready: true },
+      { instanceId: 'inst-2', ready: true },
+    ])
+    expect(registry.attach(main(), { instanceId: 'inst-1' }).ok).toBe(true)
+    expect(registry.attach(main(), { instanceId: 'inst-2' }).ok).toBe(true)
+    expect(registry.listFor(main()).map((s) => s.id)).toEqual([
+      'user-gui:inst-1',
+      'user-gui:inst-2',
+    ])
+  })
+
   it('refuses an unnamed attach when two instances are ready', () => {
     const { registry } = setup([
       { instanceId: 'inst-1', ready: true },
@@ -269,6 +282,19 @@ describe('3.1 GUI session registry', () => {
     expect(registry.attach(otherSession()).ok).toBe(false)
   })
 
+  it('lets an attached caller reclaim writes after the owner TTL', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-11-08T00:00:00Z'))
+    const { registry } = setup()
+    const attached = registry.attach(main())
+    expect(attached.ok).toBe(true)
+    if (!attached.ok) return
+    const sessionId = String(attached.session.id)
+    vi.advanceTimersByTime(121_000)
+    const write = registry.authorizeWrite(main(), sessionId, ['exclusive'])
+    expect(write.ok).toBe(true)
+  })
+
   it('records presence and view poses without touching the scene', () => {
     const { registry } = setup()
     const attached = registry.attach(main())
@@ -292,6 +318,69 @@ describe('3.1 GUI session registry', () => {
     )
     expect(subView).toBeTruthy()
     expect((subView?.view as Record<string, unknown>).viewpoint).toBe('custom')
+    expect(String(subView?.id)).toMatch(/^[0-9a-f]{12}$/)
+    expect(String(subView?.shortId)).toBe('A' + '2')
+    expect(String(subView?.lastActivity)).toBe('see:custom')
+    expect(Number(subView?.lastActivityAt)).toBeGreaterThan(0)
+  })
+
+  it('keeps presence updates after the owner TTL expires', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-11-08T00:00:00Z'))
+    const { registry } = setup()
+    const attached = registry.attach(main())
+    expect(attached.ok).toBe(true)
+    if (!attached.ok) return
+    const sessionId = String(attached.session.id)
+    expect(registry.attach(sub()).ok).toBe(true)
+    vi.advanceTimersByTime(121_000)
+    const view = registry.updateView(sub(), sessionId, {
+      viewpoint: 'camera',
+      from: [1, 2, 3],
+      lookAt: [0, 0, 0],
+    })
+    expect(view.ok).toBe(true)
+    if (!view.ok) return
+    expect(view.presence.length).toBe(2)
+    expect(registry.notice(sub(), sessionId, 'still here').ok).toBe(true)
+  })
+
+  it('refuses presence updates from an agent outside the session', () => {
+    const { registry } = setup()
+    const attached = registry.attach(main())
+    expect(attached.ok).toBe(true)
+    if (!attached.ok) return
+    const sessionId = String(attached.session.id)
+    const r = registry.updateView(otherSession(), sessionId, {
+      viewpoint: 'custom',
+      from: [1, 2, 3],
+      lookAt: [0, 0, 0],
+    })
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.code).toBe('session_in_use')
+  })
+
+  it('publishes a monotonically increasing transient notice', () => {
+    const { registry } = setup()
+    const attached = registry.attach(main())
+    expect(attached.ok).toBe(true)
+    if (!attached.ok) return
+    const sessionId = String(attached.session.id)
+    const first = registry.notice(main(), sessionId, 'SEE full · 整窗口截图，未记录观察位姿')
+    expect(first.ok).toBe(true)
+    const readNotice = () => {
+      const status = registry.status(main(), sessionId)
+      expect(status.ok).toBe(true)
+      if (!status.ok) return null
+      return status.session.notice as { seq: number; text: string } | null
+    }
+    expect(readNotice()).toMatchObject({
+      seq: 1,
+      text: 'SEE full · 整窗口截图，未记录观察位姿',
+    })
+    expect(registry.notice(main(), sessionId, 'second').ok).toBe(true)
+    expect(readNotice()).toMatchObject({ seq: 2, text: 'second' })
   })
 
   it('releases ownership when the instance disconnects', () => {

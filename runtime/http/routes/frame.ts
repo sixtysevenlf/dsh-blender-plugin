@@ -10,9 +10,14 @@ export function createFrameRoutes(E: HttpRouteDeps) {
       const size = Math.max(120, Math.min(1600, Number(url.searchParams.get('size') || 560)))
       const full = url.searchParams.get('full') === '1'
       const areaIndex = Number(url.searchParams.get('area') || 0)
+      const instanceId = url.searchParams.get('instanceId') || ''
       const t0 = Date.now()
       try {
-        const out = objArg(full ? await engine.frameArea(areaIndex) : await engine.frame(size))
+        const out = objArg(
+          full
+            ? await engine.frameArea(areaIndex, instanceId)
+            : await engine.frame(size, instanceId),
+        )
         stats.frames++
         stats.lastFrameMs = Date.now() - t0
         pushRtt('frame', stats.lastFrameMs)

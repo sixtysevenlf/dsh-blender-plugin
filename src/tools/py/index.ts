@@ -25,12 +25,16 @@ function buildPyTool(ctx: HostContext, port: number) {
         type: 'integer',
         description: '等待其它 py 释放的毫秒数（0–5000，默认 0；占用中返回 py_busy）',
       },
+      session_id: {
+        type: 'string',
+        description: '目标 GUI 会话 id；多实例必填，blender_session action=list 可看',
+      },
     },
     output: { schema: ANY_SCHEMA, render: renderOne },
     isConcurrencySafe: () => false,
     timeoutMs: T.act,
     async execute(args: Record<string, unknown>) {
-      const ready = await requireReadySession(port)
+      const ready = await requireReadySession(port, undefined, String(args.session_id || '').trim())
       if (!ready.ok) return ready.failure
       return executePy(ctx, port, args, ready.session)
     },

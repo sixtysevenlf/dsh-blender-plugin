@@ -10,7 +10,7 @@ import { fetchFrame, fetchView } from '../../host/http.js'
 import { dedupeNote, frameDedupe } from '../../utils/frame-cache.js'
 import { toAttachment } from '../../utils/image.js'
 import { toolError } from '../errors.js'
-import { publishView } from '../shared/session.js'
+import { publishNotice, publishView } from '../shared/session.js'
 import { vec3 } from './pose.js'
 import { appendEmptyFrameWarning, formatViewText, pngSize, type ViewLike } from './presenter.js'
 import type { FramePlan } from './validate.js'
@@ -20,6 +20,42 @@ const DEFAULT_HEIGHT = 576
 
 export function failureFromView(e: unknown): string {
   return e instanceof Error ? e.message : String(e)
+}
+
+function mat4(v: unknown): number[][] | undefined {
+  if (!Array.isArray(v)) return undefined
+  if (v.length === 16 && v.every((x) => typeof x === 'number')) {
+    const flat = v.map(Number)
+    return [0, 4, 8, 12].map((i) => flat.slice(i, i + 4))
+  }
+  if (v.length !== 4) return undefined
+  const rows: number[][] = []
+  for (const row of v) {
+    if (!Array.isArray(row) || row.length !== 4) return undefined
+    rows.push(row.map(Number))
+  }
+  return rows
+}
+
+function poseFromMeta(
+  mt: Record<string, unknown>,
+  viewpoint: string,
+  extra: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    viewpoint,
+    viewMatrix: mat4(mt.view_matrix),
+    projection: mat4(mt.proj_matrix),
+    width: Number(mt.width) || undefined,
+    height: Number(mt.height) || undefined,
+    from: vec3(mt.from),
+    lookAt: vec3(mt.look_at),
+    lens: typeof mt.lens === 'number' ? mt.lens : undefined,
+    ortho: mt.ortho === true,
+    orthoScale: typeof mt.ortho_scale === 'number' ? mt.ortho_scale : undefined,
+    followUser: false,
+    ...extra,
+  }
 }
 
 async function attach(
@@ -38,14 +74,20 @@ export async function captureCamera(
   plan: FramePlan,
   maxSize: unknown,
   sessionId?: string,
+  instanceId = '',
 ): Promise<unknown> {
   let fv
   try {
-    fv = await fetchView(port, {
-      mode: 'camera',
-      camera: plan.camera || '',
-      max_size: Number(maxSize) || DEFAULT_WIDTH,
-    })
+    fv = await fetchView(
+      port,
+      {
+        mode: 'camera',
+        camera: plan.camera || '',
+        max_size: Number(maxSize) || DEFAULT_WIDTH,
+      },
+      180000,
+      instanceId,
+    )
   } catch (e: unknown) {
     const msg = failureFromView(e)
     if (/unsupported|pano|panorama/i.test(msg))
@@ -69,15 +111,14 @@ export async function captureCamera(
     if (img) out.image = img.ref
   }
   if (sessionId)
-    await publishView(port, sessionId, {
-      viewpoint: 'camera',
-      viewMatrix: mt.view_matrix,
-      camera: text(mt.camera) || plan.camera || '',
-      frame: mt.frame,
-      from: vec3(mt.from),
-      lookAt: vec3(mt.look_at),
-      lens: typeof mt.lens === 'number' ? mt.lens : undefined,
-    })
+    await publishView(
+      port,
+      sessionId,
+      poseFromMeta(mt, 'camera', {
+        camera: text(mt.camera) || plan.camera || '',
+        frame: mt.frame,
+      }),
+    )
   return out
 }
 
@@ -87,11 +128,12 @@ export async function captureFull(
   port: number,
   plan: FramePlan,
   sessionId?: string,
+  instanceId = '',
 ): Promise<unknown> {
   const area = Number(plan.area) || 0
   let fr
   try {
-    fr = await fetchFrame(port, DEFAULT_WIDTH, true, area)
+    fr = await fetchFrame(port, DEFAULT_WIDTH, true, area, instanceId)
   } catch (e: unknown) {
     return toolError('backend_error', 'SEE full 失败 · ' + text(failureFromView(e)), BACKEND_HINT)
   }
@@ -114,7 +156,7 @@ export async function captureFull(
     const img = await attach(ctx, fr.png, 'see-full-' + String(Date.now()) + '.png')
     if (img) out.image = img.ref
   }
-  if (sessionId) await publishView(port, sessionId, { viewpoint: 'viewport', followUser: true })
+  if (sessionId) await publishNotice(port, sessionId, 'SEE full · 整窗口截图，未记录观察位姿')
   return out
 }
 
@@ -142,17 +184,13 @@ function viewSpec(plan: FramePlan): Record<string, unknown> {
   return { mode: 'current', width: dims.width, height: dims.height }
 }
 
-async function publishPlanView(port: number, sessionId: string, plan: FramePlan): Promise<void> {
-  if (plan.viewpoint === 'custom')
-    await publishView(port, sessionId, {
-      viewpoint: 'custom',
-      from: vec3(plan.from),
-      lookAt: vec3(plan.lookAt),
-      lens: plan.lens,
-      ortho: plan.ortho,
-      orthoScale: plan.orthoScale,
-    })
-  else await publishView(port, sessionId, { viewpoint: 'viewport', followUser: true })
+async function publishPlanView(
+  port: number,
+  sessionId: string,
+  plan: FramePlan,
+  mt: Record<string, unknown>,
+): Promise<void> {
+  await publishView(port, sessionId, poseFromMeta(mt, plan.viewpoint))
 }
 
 /** viewport（离屏当前视口）或 custom（离屏固定机位）。 */
@@ -161,11 +199,12 @@ export async function captureView(
   port: number,
   plan: FramePlan,
   sessionId?: string,
+  instanceId = '',
 ): Promise<unknown> {
   const spec = viewSpec(plan)
   let fv
   try {
-    fv = await fetchView(port, spec)
+    fv = await fetchView(port, spec, 180000, instanceId)
   } catch (e: unknown) {
     return toolError(
       'backend_error',
@@ -197,6 +236,6 @@ export async function captureView(
     )
     if (img) out.image = img.ref
   }
-  if (sessionId) await publishPlanView(port, sessionId, plan)
+  if (sessionId) await publishPlanView(port, sessionId, plan, mt)
   return out
 }

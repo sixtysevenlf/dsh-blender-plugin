@@ -127,6 +127,8 @@ async function runSessionAction(
       )
     case 'presence':
       return registry.presence(caller, sessionId)
+    case 'presence_notice':
+      return registry.notice(caller, String(sessionId || ''), String(payload.text || ''))
     case 'heartbeat':
       return registry.heartbeat(caller, sessionId)
     default:
@@ -135,7 +137,7 @@ async function runSessionAction(
         code: 'invalid_params',
         stage: 'config',
         root_cause: 'unknown session action: ' + action,
-        fix: 'use list, attach, claim, detach, release, status, doctor, consent, start, stop, grant, revoke, grants, pause, resume, mark_read, presence, update_view, update_selection, heartbeat',
+        fix: 'use list, attach, claim, detach, release, status, doctor, consent, start, stop, grant, revoke, grants, pause, resume, mark_read, presence, presence_notice, update_view, update_selection, heartbeat',
         fallback: { kind: 'unavailable', summary: 'the session action was not executed' },
         evidence: { action },
       }

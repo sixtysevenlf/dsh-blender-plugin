@@ -190,6 +190,7 @@ def install():
         "CollectionProperty",
         "EnumProperty",
         "FloatProperty",
+        "FloatVectorProperty",
         "IntProperty",
         "PointerProperty",
         "StringProperty",

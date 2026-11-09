@@ -45,8 +45,26 @@ export function hostStateView(E: HostRoutesDeps): Record<string, unknown> {
   } catch (e) {
     running = 0
   }
+  let presence: Record<string, unknown> = { sessions: [] }
+  try {
+    const rows = E.sessionRegistry ? E.sessionRegistry.list() : []
+    presence = {
+      sessions: rows.map((row) => ({
+        id: row.id,
+        kind: row.kind,
+        instanceId: row.instanceId,
+        status: row.status,
+        lastActivityAt: row.lastActivityAt,
+        notice: row.notice || null,
+        agents: Array.isArray(row.agents) ? row.agents : [],
+      })),
+    }
+  } catch (e) {
+    /* presence is a read-only extra; never fail /host/state over it */
+  }
   return {
     ok: true,
+    presence,
     channel: {
       lastOkAgeMs: age(m.lastOkAt),
       lastCmd: m.lastCmd || null,

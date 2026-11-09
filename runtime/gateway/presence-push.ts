@@ -10,6 +10,7 @@ export function presenceCode(push: PresencePush): string {
     instanceId: push.instanceId,
     paused: push.paused,
     agents: push.agents,
+    ...(push.notice ? { notice: push.notice } : {}),
   })
   return [
     'import sys, importlib, json',

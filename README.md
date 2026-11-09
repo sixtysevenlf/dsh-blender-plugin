@@ -162,6 +162,12 @@ The plugin exposes exactly 6 model-facing tools; all planning, audit, assembly, 
 
 Old 3.0 tool names are no longer registered; the migration table is in [MIGRATIONS.md](MIGRATIONS.md) §0.3.
 
+## Agent presence frusta
+
+After each successful `blender_see`, the Gateway freezes that observation's pose, projection matrix, and dimensions into presence. Moving the viewport later does not move the cone: it stays where the agent looked. Blender draws a blue frustum and a short-id label (A plus a number by default). The Agent Presence section of the N-panel can change the colour, switch to the Gateway's per-agent palette, show or hide short ids, and hide individual cones. Short ids are display-only; the backend identity is a stable hash.
+
+The DSH Web client provides a Blender Presence tab in the right sidebar (also reachable from its guide page), listing each agent's short id, latest activity, and observation mode. Running `/blender-presence` in the composer opens that tab without submitting a message. A `full=true` whole-window capture has no independent observation pose; it shows a transient status-bar notice and never overwrites the previous cone.
+
 ## Virtual display (virtual-gui)
 
 On Windows and Linux the Gateway can launch an isolated Blender GUI for the agent. It defaults to `auto` on Windows after the V0 acceptance and is opt-in preview on Linux. Missing prerequisites never start silently: `blender_session start kind=virtual-gui` returns `stage=config` with the exact command, and `/blender doctor --fix` (or the add-on preferences button) installs only the same plan. One-click is limited to `xvfb` on Ubuntu 22.04/24.04 and Debian 12 through `pkexec`; VirtualGL must come from its official repository, GPU drivers are detected but never installed, and unsupported platforms get the manual command. See [configuration §5.7](docs/配置参考.md).
