@@ -103,13 +103,31 @@ The Gateway keeps an in-memory session per attached GUI Blender instance: owner,
 scope grants, human pause, human edits, and presence. A session is best-effort state, not scene
 data: it disappears on release or Gateway restart and is rebuilt from addon handshakes.
 
-Presence rows hold each caller's display name, colour, view pose, selected `session_uid`s, activity,
-and held scopes. On every view/selection update the Gateway pushes the current snapshot to the add-on
-over the existing internal `execute_code` transport. `extension/dsh_blender_bridge/presence_draw.py`
-installs `SpaceView3D` POST_VIEW/POST_PIXEL draw handlers that draw frusta, labels, and selection
-boxes; it never writes scene data, selection, the camera, or the frame, and it does not move the
-user's view. Session presence queries read the same rows from the Gateway, so a read-only query
-and the viewport overlay cannot disagree.
+Presence rows hold each caller's display name, colour, stable id and short id, last activity,
+view pose, selected `session_uid`s, activity, and held scopes. On every view/selection update the
+Gateway pushes the current snapshot to the add-on over the existing internal `execute_code`
+transport. `extension/dsh_blender_bridge/presence_draw.py` installs `SpaceView3D`
+POST_VIEW/POST_PIXEL draw handlers that draw frusta, short-id labels, and selection boxes; it
+never writes scene data, selection, the camera, or the frame, and it does not move the user's view.
+
+A view pose is frozen when the capture succeeds, not re-read from the user's viewport on every
+draw. Each pose carries the view matrix, the projection matrix, and the captured width/height, so
+the add-on reconstructs the four frustum corners from the projection and reproduces the same lens,
+sensor fit, shift, aspect ratio (including 1:1), and orthographic scale as the capture. A
+`viewport` observation therefore remains visible after the user moves the viewport; a full-window
+`full=true` capture has no independent pose and publishes a transient status-bar notice instead.
+Poses without a projection fall back to the lens/aspect approximation and are labelled
+`(approx)`.
+
+Per-agent identity is stable across observations: the Gateway hashes the caller key for the
+backend id and assigns an `A1`..`A8` short id per GUI session. The add-on defaults to one blue
+colour, can use the Gateway's per-agent palette through a preference, can show or hide short ids,
+and keeps per-agent hide toggles local to that Blender instance. Its N-panel lists connected
+agents with their last activity and a per-row visibility button. The DSH Web client mirrors the
+same rows in a right-sidebar tab refreshed from `GET /host/state`; the tab type also contributes
+a right-sidebar guide entry, and `/blender-presence` opens the tab without submitting a prompt.
+Session presence queries read the same rows from the Gateway, so a read-only query and the
+viewport overlay cannot disagree.
 
 ## 4. Python domain library (runtime/py/)
 

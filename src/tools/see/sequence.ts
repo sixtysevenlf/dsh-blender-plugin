@@ -25,6 +25,7 @@ export interface SequenceOpts {
   orthoScale?: number
   shading?: string
   overlays?: boolean
+  instanceId?: string
 }
 
 function sleep(ms: number): Promise<void> {
@@ -59,7 +60,7 @@ export async function executeSequence(
   for (let i = 0; i < total; i++) {
     const t0 = Date.now()
     try {
-      const fv = await fetchView(port, spec)
+      const fv = await fetchView(port, spec, 180000, opts.instanceId || '')
       shots.push({ t: Date.now() - started, ms: fv.ms, hash: fv.hash, png: fv.png })
     } catch (e: unknown) {
       lastError = e instanceof Error ? e.message : String(e)

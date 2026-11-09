@@ -1,7 +1,7 @@
 """ Add-on preferences. """
 
 import bpy
-from bpy.props import IntProperty
+from bpy.props import BoolProperty, FloatVectorProperty, IntProperty
 
 from ..compat import ADDON_MODULE
 from ..gateway_schema import GATEWAY_DEFAULT_PORT
@@ -9,6 +9,25 @@ from ..gateway_schema import GATEWAY_DEFAULT_PORT
 class DSHBB_AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = ADDON_MODULE  # pyright: ignore[reportAssignmentType]
 
+    presence_color: FloatVectorProperty(
+        name="Presence Color",
+        description="Default color for agent presence frusta when per-agent colors are off",
+        subtype="COLOR_GAMMA",
+        size=4,
+        min=0.0,
+        max=1.0,
+        default=(0.30, 0.55, 1.0, 1.0),
+    )
+    presence_color_by_agent: BoolProperty(
+        name="Color Each Agent Differently",
+        description="Use the Gateway-assigned per-agent colors instead of one presence color",
+        default=False,
+    )
+    presence_show_ids: BoolProperty(
+        name="Show Agent Short IDs",
+        description="Prefix each frustum label with its session short ID",
+        default=True,
+    )
     gateway_port: IntProperty(
         name="Gateway Port",
         description="Port of the local DSH Gateway WebSocket endpoint (default "
@@ -60,6 +79,13 @@ class DSHBB_AddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="DSH Gateway:", icon='URL')
         connection_box = layout.box()
         connection_box.prop(self, "gateway_port", text="Gateway Port")
+
+        layout.separator()
+        layout.label(text="Agent Presence:", icon='CAMERA_DATA')
+        presence_box = layout.box()
+        presence_box.prop(self, "presence_color", text="Presence Color")
+        presence_box.prop(self, "presence_color_by_agent", text="Color Each Agent Differently")
+        presence_box.prop(self, "presence_show_ids", text="Show Agent Short IDs")
 
         layout.separator()
         layout.label(text="Virtual Display (virtual-gui):", icon='DISPLAY')

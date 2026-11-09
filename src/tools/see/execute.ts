@@ -14,7 +14,10 @@ import { captureCamera, captureFull, captureView } from './capture.js'
 import { executeSequence } from './sequence.js'
 import { validate, type FramePlan, type SequencePlan } from './validate.js'
 
-function sequenceOptions(plan: SequencePlan): Parameters<typeof executeSequence>[2] {
+function sequenceOptions(
+  plan: SequencePlan,
+  instanceId: string,
+): Parameters<typeof executeSequence>[2] {
   return {
     viewpoint: plan.viewpoint,
     from: plan.from,
@@ -29,6 +32,7 @@ function sequenceOptions(plan: SequencePlan): Parameters<typeof executeSequence>
     seconds: plan.seconds,
     fps: plan.fps,
     force: plan.force,
+    instanceId,
   }
 }
 
@@ -38,10 +42,12 @@ async function captureFrame(
   plan: FramePlan,
   args: Record<string, unknown>,
   sessionId?: string,
+  instanceId = '',
 ): Promise<unknown> {
-  if (plan.viewpoint === 'camera') return captureCamera(ctx, port, plan, args.max_size, sessionId)
-  if (plan.full) return captureFull(ctx, port, plan, sessionId)
-  return captureView(ctx, port, plan, sessionId)
+  if (plan.viewpoint === 'camera')
+    return captureCamera(ctx, port, plan, args.max_size, sessionId, instanceId)
+  if (plan.full) return captureFull(ctx, port, plan, sessionId, instanceId)
+  return captureView(ctx, port, plan, sessionId, instanceId)
 }
 
 export async function executeSee(
@@ -58,7 +64,8 @@ export async function executeSee(
     )
   const plan = validate(args)
   if ('text' in plan && 'envelope' in plan) return plan
+  const instanceId = String(session.instanceId || '')
   if (plan.kind === 'sequence')
-    return executeSequence(ctx, port, sequenceOptions(plan as SequencePlan))
-  return captureFrame(ctx, port, plan as FramePlan, args, sessionIdOf(session))
+    return executeSequence(ctx, port, sequenceOptions(plan as SequencePlan, instanceId))
+  return captureFrame(ctx, port, plan as FramePlan, args, sessionIdOf(session), instanceId)
 }

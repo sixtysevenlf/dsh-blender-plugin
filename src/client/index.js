@@ -11,10 +11,11 @@
  * 加载器语义（`dsh-client-modules/lib/types/client/manifest.d.ts:9-16`）：执行 bundle 只
  * **登记** factory；所有副作用在 materialization 时才跑。
  *
- * v2.3 仅保留两块功能（DSH 侧视口面板与 blender_rt_pick 已于 v2.3 删除）：
+ * 现保留三块功能（DSH 侧视口面板与 blender_rt_pick 已于 v2.3 删除）：
  *   ① `@` 提及源 —— `GET /host/scene-items?q=` 按 对象/材质/集合 分组；
  *   ② Blender 原生选中 → 草稿 —— 无头桥（`conversation.input.dock`）轮询
- *      `GET /host/selection/latest`，把 addon 推来的选中插入当前会话草稿（**不自动发送**）。
+ *      `GET /host/selection/latest`，把 addon 推来的选中插入当前会话草稿（**不自动发送**）；
+ *   ③ Agent presence —— 注册右侧栏 tab 类型与引导页入口，展示各 agent 最近观察位置。
  *
  * 纪律：
  *   - 不得 `import`/`export` 语法、不得顶层 `await`、不得引用 Node 内置模块；
@@ -36,7 +37,12 @@ window.__ModuleLoader__.load({
     var DEFAULT_BACKEND = 'http://127.0.0.1:39877'
     /** localStorage 覆盖键（最高优先级的用户侧覆盖）。 */
     var LS_BACKEND_KEY = 'dsh-blender-plugin:backend'
-    /** v2.3：Blender 原生选中轮询间隔（会话可见时才轮询）。 */
+    /** Presence panel identity: also the right-sidebar tab type id and keyed slot key. */
+    var PRESENCE_PANEL_ID = 'blender-presence'
+    /** Right-sidebar tab kind opened by the guide card and /blender-presence. */
+    var PRESENCE_TAB_KIND = 'blender-presence'
+    /** Presence panel refresh while it is visible (human list, not live telemetry). */
+    var PRESENCE_POLL_MS = 2000
     var SELECTION_POLL_MS = 100 // v2.6.1 性能实测：1200→100ms，端到端 p50 993→156ms（本机回环，见契约「选中轮询」）
     /** v2.3：草稿文本里最多列多少个对象名（几百个零件时收敛成摘要，别刷屏）。 */
     var SELECTION_DRAFT_NAME_LIMIT = 24
@@ -660,14 +666,204 @@ window.__ModuleLoader__.load({
       return out
     }
 
+    //#region Agent presence panel（三维视口外的人员/观察列表）
+    function formatPresenceTime(ms) {
+      var n = Number(ms || 0)
+      if (!n) return '—'
+      try {
+        return new Date(n).toLocaleTimeString()
+      } catch (e) {
+        return '—'
+      }
+    }
+
+    function presenceRowsFromState(body) {
+      var presence = body && typeof body === 'object' ? body.presence : null
+      var sessions = presence && Array.isArray(presence.sessions) ? presence.sessions : []
+      var rows = []
+      for (var i = 0; i < sessions.length; i++) {
+        var session = sessions[i]
+        if (!session || typeof session !== 'object') continue
+        var agents = Array.isArray(session.agents) ? session.agents : []
+        for (var j = 0; j < agents.length; j++) {
+          var agent = agents[j]
+          if (!agent || typeof agent !== 'object') continue
+          rows.push({
+            sessionId: String(session.id || ''),
+            sessionKind: String(session.kind || ''),
+            instanceId: String(session.instanceId || ''),
+            shortId: String(agent.shortId || ''),
+            id: String(agent.id || ''),
+            displayName: String(agent.displayName || 'agent'),
+            color: String(agent.color || '#4C8DFF'),
+            activity: String(agent.lastActivity || agent.activity || ''),
+            lastActivityAt: Number(agent.lastActivityAt || agent.lastSeen || 0),
+            viewpoint:
+              agent.view && typeof agent.view === 'object'
+                ? String(agent.view.viewpoint || '')
+                : '',
+          })
+        }
+      }
+      return rows
+    }
+
+    function PresenceDot(props) {
+      return React.createElement('span', {
+        style: {
+          display: 'inline-block',
+          width: 8,
+          height: 8,
+          marginRight: 8,
+          borderRadius: 999,
+          background: props.color || '#4C8DFF',
+          flex: '0 0 auto',
+        },
+      })
+    }
+
+    function PresencePanelIcon(props) {
+      var size = props && props.size ? props.size : 18
+      return React.createElement(
+        'svg',
+        { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', 'aria-hidden': 'true' },
+        React.createElement('path', {
+          d: 'M 4 8.5h3l1.4-2h7.2l1.4 2h3v9H4z',
+          stroke: 'currentColor',
+          strokeWidth: 1.8,
+          strokeLinejoin: 'round',
+        }),
+        React.createElement('circle', {
+          cx: 12,
+          cy: 13,
+          r: 3,
+          stroke: 'currentColor',
+          strokeWidth: 1.8,
+        }),
+      )
+    }
+
+    function BlenderPresencePanel() {
+      var state = React.useState({ loading: true, error: null, sessions: [] })
+      var view = state[0]
+      var setView = state[1]
+      React.useEffect(function () {
+        var alive = true
+        function load() {
+          fetchJSON(backend() + '/host/state', { cache: 'no-store' }).then(function (r) {
+            if (!alive) return
+            if (!r.ok || !r.body) {
+              setView({ loading: false, error: r.error || 'Gateway 不可达', sessions: [] })
+              return
+            }
+            setView({
+              loading: false,
+              error: null,
+              sessions: (r.body.presence && r.body.presence.sessions) || [],
+            })
+          })
+        }
+        load()
+        var timer = window.setInterval(load, PRESENCE_POLL_MS)
+        return function () {
+          alive = false
+          window.clearInterval(timer)
+        }
+      }, [])
+
+      var rows = presenceRowsFromState({ presence: { sessions: view.sessions } })
+      var children = []
+      children.push(
+        React.createElement(
+          'div',
+          {
+            key: 'header',
+            style: { display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12 },
+          },
+          React.createElement(
+            'h2',
+            { style: { margin: 0, fontSize: 15, fontWeight: 600 } },
+            'Blender Presence',
+          ),
+          React.createElement(
+            'span',
+            { style: { color: 'var(--dsh-text-secondary, #888)', fontSize: 12 } },
+            rows.length + ' 个 agent',
+          ),
+        ),
+      )
+      if (view.error) {
+        children.push(
+          React.createElement(
+            'div',
+            { key: 'error', style: { color: '#d33', fontSize: 13, marginBottom: 12 } },
+            '无法读取 Gateway：' + view.error,
+          ),
+        )
+      }
+      if (!rows.length && !view.loading) {
+        children.push(
+          React.createElement(
+            'div',
+            { key: 'empty', style: { color: 'var(--dsh-text-secondary, #888)', fontSize: 13 } },
+            '暂无 agent 观察记录。运行 blender_see 后，这里会显示它的位置和最近活动。',
+          ),
+        )
+      }
+      for (var i = 0; i < rows.length; i++) {
+        var row = rows[i]
+        children.push(
+          React.createElement(
+            'div',
+            {
+              key: row.id || row.sessionId + ':' + i,
+              style: {
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '10px 0',
+                borderBottom: '1px solid var(--dsh-border, rgba(127,127,127,.18))',
+              },
+            },
+            React.createElement(PresenceDot, { color: row.color }),
+            React.createElement(
+              'div',
+              { style: { minWidth: 0, flex: '1 1 auto' } },
+              React.createElement(
+                'div',
+                { style: { fontSize: 13, fontWeight: 500 } },
+                (row.shortId ? row.shortId + ' · ' : '') + row.displayName,
+              ),
+              React.createElement(
+                'div',
+                { style: { fontSize: 11, color: 'var(--dsh-text-secondary, #888)', marginTop: 2 } },
+                (row.viewpoint ? row.viewpoint + ' · ' : '') +
+                  row.activity +
+                  ' · ' +
+                  formatPresenceTime(row.lastActivityAt),
+              ),
+            ),
+            React.createElement(
+              'div',
+              { style: { fontSize: 11, color: 'var(--dsh-text-secondary, #888)' }, title: row.id },
+              row.sessionKind + (row.instanceId ? ' · ' + row.instanceId.slice(0, 8) : ''),
+            ),
+          ),
+        )
+      }
+      return React.createElement(
+        'div',
+        { style: { padding: '14px 16px', width: '100%', boxSizing: 'border-box', minWidth: 0 } },
+        children,
+      )
+    }
+    //#endregion
+
     /**
-     * cordis 插件入口。只 inject `slots`（面板必需，且是本机 coc-dice 验证过的写法）；
-     * `inputTriggers` 用 `ctx.inject([...])` **懒等**，避免"输入触发器没挂载 ⇒ 面板也一起消失"。
-     */
-    /**
-     * cordis 插件入口。只 inject `slots`；`inputTriggers` 用 `ctx.inject([...])` 懒等，
-     * 避免"输入触发器没挂载 ⇒ 连原生选中桥也一起消失"。
-     * v2.3：DSH 侧视口面板与 blender_rt_pick 已删除；这里只留 @ 提及源 + 原生选中桥。
+     * cordis 插件入口。`slots` 是两条 UI 通路（输入区 dock、右侧栏 tab body）的必需服务；
+     * 右侧栏 tab 还要 `sidebarRight`（打开 tab）和 `sidebarRightTabs`（注册 tab 类型 + 引导页）。
+     * `inputTriggers` 用 `ctx.inject([...])` 懒等，避免"输入触发器没挂载 ⇒ 连原生选中桥也一起消失"。
+     * v2.3：DSH 侧视口面板与 blender_rt_pick 已删除；这里留 @ 提及源、原生选中桥、agent presence。
      */
     function apply(ctx) {
       if (started) return
@@ -709,7 +905,66 @@ window.__ModuleLoader__.load({
         )
       })
 
-      // ③ 卸载时复位守卫（便于热重载 / 重新 apply）
+      // ③ Agent presence：右侧栏 tab 类型 + 引导页入口 + /blender-presence 命令
+      ctx.effect(function () {
+        return ctx.sidebarRightTabs.register({
+          id: PRESENCE_PANEL_ID,
+          kind: PRESENCE_TAB_KIND,
+          priority: 'extension',
+          title: function () {
+            return 'Blender Presence'
+          },
+          guide: [
+            {
+              id: 'presence',
+              order: 40,
+              title: function () {
+                return 'Blender Presence'
+              },
+              description: function () {
+                return '查看已连接的 Blender agent 与最近观察位置'
+              },
+              icon: PresencePanelIcon,
+            },
+          ],
+        })
+      }, 'dsh-blender-plugin: presence right tab type')
+      ctx.slots.inject('sidebar.right.pane.tab', function () {
+        return ctx.slots.register(
+          {
+            name: 'sidebar.right.pane.tab',
+            key: PRESENCE_PANEL_ID,
+          },
+          BlenderPresencePanel,
+        )
+      })
+      ctx.inject(['commandUi'], function (scope) {
+        var commandUi = typeof scope.get === 'function' ? scope.get('commandUi') : undefined
+        if (!commandUi || typeof commandUi.register !== 'function') return
+        scope.effect(function () {
+          return commandUi.register({
+            name: 'blender-presence',
+            label: function () {
+              return 'Blender Presence'
+            },
+            description: function () {
+              return '查看已连接的 Blender agent 与最近观察位置'
+            },
+            available: function () {
+              return true
+            },
+            ui: {
+              kind: 'action',
+              run: function () {
+                if (ctx.sidebarRight && typeof ctx.sidebarRight.openTab === 'function')
+                  ctx.sidebarRight.openTab(PRESENCE_TAB_KIND)
+              },
+            },
+          })
+        }, 'dsh-blender-plugin: /blender-presence')
+      })
+
+      // ④ 卸载时复位守卫（便于热重载 / 重新 apply）
       ctx.effect(function () {
         return function () {
           started = false
@@ -717,7 +972,7 @@ window.__ModuleLoader__.load({
       }, 'dsh-blender-plugin: reset apply guard')
     }
 
-    var inject = ['slots']
+    var inject = ['slots', 'sidebarRight', 'sidebarRightTabs']
 
     exports.apply = apply
     exports.inject = inject
@@ -739,6 +994,10 @@ window.__ModuleLoader__.load({
       applySelectionToDraft: applySelectionToDraft,
       notifyError: notifyError,
       makeSelectionBridge: makeSelectionBridge,
+      PRESENCE_PANEL_ID: PRESENCE_PANEL_ID,
+      PRESENCE_TAB_KIND: PRESENCE_TAB_KIND,
+      presenceRowsFromState: presenceRowsFromState,
+      formatPresenceTime: formatPresenceTime,
     }
     return module.exports
   },

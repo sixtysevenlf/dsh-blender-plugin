@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-11-09
+goal: Make every agent observation visible and identifiable in Blender and DSH,
+  and route session-bound calls to the right instance

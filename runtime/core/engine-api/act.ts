@@ -8,7 +8,7 @@ import type { EngineApiDeps } from './index.js'
 export function createActApi(E: EngineApiDeps) {
   const { addon } = E
   return {
-    async act(code: unknown, timeoutMs = 120000, file: unknown = null) {
+    async act(code: unknown, timeoutMs = 120000, file: unknown = null, instanceId = '') {
       const src = file
         ? 'K.run(' + JSON.stringify(String(file)) + ')'
         : code === undefined || code === null
@@ -16,7 +16,12 @@ export function createActApi(E: EngineApiDeps) {
           : String(code)
       const wrapped = KERNEL_BOOTSTRAP + '\n' + ACT_WRAPPER(src)
       const t0 = Date.now()
-      const res = await addon.send('execute_code', { code: wrapped }, timeoutMs)
+      const res = await addon.send(
+        'execute_code',
+        { code: wrapped },
+        timeoutMs,
+        instanceId ? { instanceId } : {},
+      )
       const resRec =
         res !== null && typeof res === 'object' ? (res as Record<string, unknown>) : null
       const raw = resRec && typeof resRec.result === 'string' ? resRec.result : ''
@@ -63,13 +68,18 @@ export function createActApi(E: EngineApiDeps) {
       }
     },
     /** 通用命令透传：任意 addon 命令名 + 参数（MCP 那层不暴露的也能调） */
-    async cmd(name: unknown, params: Record<string, unknown> = {}, timeoutMs = 120000) {
+    async cmd(
+      name: unknown,
+      params: Record<string, unknown> = {},
+      timeoutMs = 120000,
+      instanceId = '',
+    ) {
       if (!name || typeof name !== 'string') throw new Error('cmd: name required')
       // v0.9.6：把 plan op 当 addon 命令发是实测出现过的弯路（qc_render_catalog），
       // 这里在**本地**就纠正，不再浪费一次 Blender 往返。
       const hint = planOpCrossChannelHint(name)
       if (hint) return { status: 'error', result: 'CMD_HINT ' + hint, hint_shown: true }
-      return addon.send(name, params || {}, timeoutMs)
+      return addon.send(name, params || {}, timeoutMs, instanceId ? { instanceId } : {})
     },
     /** 命令清单：目录 + 当前可用性（受 scene 开关与其 API key 影响） */
   }

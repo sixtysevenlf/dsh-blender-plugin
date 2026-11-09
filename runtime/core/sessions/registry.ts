@@ -7,7 +7,7 @@ import type { VirtualGuiLimits } from '../../display/limits.js'
 import { applyHumanPause } from './human.js'
 import { applyHumanEditsToSessions, markHumanRead } from './human-edits.js'
 import type { HumanEditInput } from './human-edits.js'
-import { presenceRows, setSelection, setView, touchAgent } from './presence.js'
+import { presenceRows, setNotice, setSelection, setView, touchAgent } from './presence.js'
 import { pyTimeoutFailure, waitForPyLock } from './py-lock.js'
 import { grantTo, listGrants, revokeFrom } from './grant-ops.js'
 import type { GrantOpsHost } from './grant-ops.js'
@@ -142,8 +142,10 @@ export class SessionRegistry {
   }
 
   listFor(c: CallerIdentity): Record<string, unknown>[] {
-    const s = this.findForCaller(c)
-    return s ? [sessionView(s)] : []
+    this.prune()
+    return [...this.sessions.values()]
+      .filter((s) => ownerMatches(s.owner, c) || s.agents.has(callerKey(c)))
+      .map(sessionView)
   }
 
   status(
@@ -433,9 +435,19 @@ export class SessionRegistry {
     sessionId: string,
     view: Omit<ViewPose, 'updatedAt'>,
   ): SessionResult<{ presence: Record<string, unknown>[] }> {
-    const r = this.writableSession(c, sessionId)
+    const r = this.observableSession(c, sessionId)
     if (!('session' in r)) return r
     return { ok: true, presence: setView(r.session, c, view) }
+  }
+
+  notice(
+    c: CallerIdentity,
+    sessionId: string,
+    text: string,
+  ): SessionResult<{ presence: Record<string, unknown>[] }> {
+    const r = this.observableSession(c, sessionId)
+    if (!('session' in r)) return r
+    return { ok: true, presence: setNotice(r.session, text) }
   }
 
   updateSelection(
@@ -444,13 +456,17 @@ export class SessionRegistry {
     selected: string[],
     activity?: string,
   ): SessionResult<{ presence: Record<string, unknown>[] }> {
-    this.prune()
-    const r = this.writableSession(c, sessionId)
+    const r = this.observableSession(c, sessionId)
     if (!('session' in r)) return r
     return { ok: true, presence: setSelection(r.session, c, selected, activity) }
   }
 
-  private writableSession(
+  /**
+   * Presence is observational state, not a GUI write: it must keep working while
+   * another caller owns the session and after the owner heartbeat expires. Any
+   * agent already attached to the session may publish its own view/selection.
+   */
+  private observableSession(
     c: CallerIdentity,
     sessionId: string,
   ): SessionResult<{ session: SessionRecord }> {
@@ -458,12 +474,12 @@ export class SessionRegistry {
     const session = this.sessions.get(String(sessionId))
     if (!session)
       return fail('session_not_found', 'session', 'the session does not exist', 'attach first', {})
-    if (!ownerMatches(session.owner, c))
+    if (!session.agents.has(callerKey(c)))
       return fail(
         'session_in_use',
         'session',
-        'another DSH session owns this GUI session',
-        'wait for the owner to release it',
+        'the caller is not attached to this GUI session',
+        'attach this agent to the session first',
         {},
       )
     return { ok: true, session }
@@ -488,13 +504,21 @@ export class SessionRegistry {
       )
     }
     if (!ownerMatches(session.owner, c)) {
-      return fail(
-        'session_in_use',
-        'session',
-        'another DSH session owns this GUI session',
-        'wait for the owner to release it',
-        { sessionId: session.id, owner: session.owner },
-      )
+      // The owner heartbeat expires on a long idle gap (OWNER_TTL_MS). A caller
+      // already attached to this session may reclaim the free write lease
+      // instead of failing the first py/op call after the gap.
+      if (!session.owner && session.agents.has(callerKey(c))) {
+        session.owner = ownerOf(c)
+        touchAgent(session, c)
+      } else {
+        return fail(
+          'session_in_use',
+          'session',
+          'another DSH session owns this GUI session',
+          'wait for the owner to release it',
+          { sessionId: session.id, owner: session.owner },
+        )
+      }
     }
     const gate = evaluateWriteGate(session, c, scopes, opts)
     if (!('effective' in gate)) return gate

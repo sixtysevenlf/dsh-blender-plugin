@@ -43,6 +43,7 @@ export function createActRoutes(E: HttpRouteDeps) {
             payload.code || '',
             Number(payload.timeoutMs) || 120000,
             payload.file || null,
+            payload.instanceId === undefined ? '' : String(payload.instanceId),
           ),
         )
         stats.acts++

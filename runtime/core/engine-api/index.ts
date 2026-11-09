@@ -25,7 +25,7 @@ export interface EngineApiDeps {
   addon: AddonClient
   clearWorkerReaper: () => void
   ensureRunner: () => Promise<unknown>
-  ensureView: () => Promise<unknown>
+  ensureView: (instanceId?: string) => Promise<unknown>
   jobSnapshot: (j: JobRecord) => Record<string, unknown>
   jobs: Map<string, JobRecord>
   killWorkers: () => void

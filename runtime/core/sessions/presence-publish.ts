@@ -9,6 +9,7 @@ export interface PresencePush {
   instanceId: string
   agents: Record<string, unknown>[]
   paused: boolean
+  notice?: { seq: number; text: string; at: number } | null
 }
 
 export type PresencePublisher = (push: PresencePush) => void
@@ -25,5 +26,6 @@ export function publishPresence(session: SessionRecord, rows: Record<string, unk
     instanceId: session.instanceId,
     agents: rows,
     paused: session.paused,
+    notice: session.notice,
   })
 }

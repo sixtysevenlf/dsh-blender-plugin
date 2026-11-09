@@ -159,6 +159,12 @@ addon 仍然是唯一支持的 Blender 侧 agent 桥。其他 Blender 侧 agent 
 
 3.0 的旧工具名不再注册；迁移表见 [MIGRATIONS.md](../../MIGRATIONS.md) §0.3.
 
+## Agent 观察视锥
+
+每次 `blender_see` 成功后，Gateway 会把这次观察的位姿、投影矩阵和宽高冻结进 presence；用户之后移动视口，视锥仍停在 agent 当时看的位置。Blender 视口里画蓝色视锥和短号标签（默认用 A 加数字的短号），N 面板的 Agent Presence 区域可以改颜色、切换按 agent 配色、显示/隐藏短号，并逐行隐藏某个视锥。短号只用于显示，后端身份是稳定哈希。
+
+DSH Web 客户端在右侧栏提供 Blender Presence 标签页（右侧栏引导页也有入口），列出每个 agent 的短号、最近活动和观察方式；在输入框执行 `/blender-presence` 可打开该标签页，不会提交消息。`full=true` 的整窗口截图没有独立观察位姿，只在 Blender 状态栏短暂提示，不覆盖上一次视锥。
+
 ## 虚拟显示（virtual-gui）
 
 Windows 与 Linux 上 Gateway 可以为 agent 拉起一个隔离的 Blender GUI。Windows 在 V0 验收后默认 `auto`；Linux 是需要显式开启的 preview。缺依赖时绝不静默启动：`blender_session start kind=virtual-gui` 返回 `stage=config` 和确切安装命令，`/blender doctor --fix`（或 addon 偏好设置按钮）只执行同一份安装计划。一键安装仅限 Ubuntu 22.04/24.04 与 Debian 12 的 `xvfb`（走 `pkexec`）；VirtualGL 必须来自官方仓库，GPU 驱动只检测不安装，不支持的平台给手动命令。详见 [配置参考 §5.7](../配置参考.md)。

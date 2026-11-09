@@ -1,4 +1,6 @@
-""" Main N-panel: activity state, connection, selection and community links. """
+""" Main N-panel: activity state, connection, presence, selection and community links. """
+
+import time
 
 import bpy
 
@@ -40,6 +42,7 @@ class DSHBB_PT_Panel(bpy.types.Panel):
         activity = self._activity_snapshot()
         self._draw_activity(layout, activity)
         self._draw_connection(layout, scene, context)
+        self._draw_presence(layout, context)
         self._draw_selection(layout, scene, activity)
 
     @staticmethod
@@ -103,6 +106,47 @@ class DSHBB_PT_Panel(bpy.types.Panel):
             else:
                 col.label(text="Gateway port: %d" % port)
             col.operator("dshbb.start_server", text="Connect to DSH", icon="PLAY")
+
+    @staticmethod
+    def _draw_presence(layout, context):
+        from ... import presence_draw
+
+        layout.separator()
+        layout.label(text="Agent Presence", icon='CAMERA_STEREO')
+        box = layout.box()
+        prefs = get_dshbb_addon_preferences(context)
+        if prefs is not None:
+            settings = box.column(align=True)
+            settings.prop(prefs, "presence_color", text="颜色")
+            settings.prop(prefs, "presence_color_by_agent", text="按 agent 区分颜色")
+            settings.prop(prefs, "presence_show_ids", text="显示短号")
+        rows = presence_draw.presence_rows()
+        if not rows:
+            box.label(text="暂无 agent 观察记录", icon="INFO")
+            return
+        kinds = {
+            "see:viewport": "viewport 观察",
+            "see:camera": "camera 观察",
+            "see:custom": "custom 观察",
+            "selection": "选择",
+            "attached": "已连接",
+        }
+        for item in rows:
+            line = box.row(align=True)
+            short = item.get("shortId") or ""
+            name = item.get("displayName") or "agent"
+            line.label(text=(short + " · " if short else "") + name)
+            op = line.operator(
+                "dshbb.toggle_presence",
+                text="",
+                icon="HIDE_ON" if item.get("hidden") else "HIDE_OFF",
+                emboss=False,
+            )
+            op.agent_id = item.get("id") or ""
+            at = float(item.get("lastActivityAt") or 0)
+            when = time.strftime("%H:%M:%S", time.localtime(at / 1000.0)) if at > 0 else "?"
+            what = kinds.get(str(item.get("lastActivity") or ""), str(item.get("lastActivity") or "活动"))
+            box.label(text="最近：" + what + " · " + when, icon="TIME")
 
     def _draw_selection(self, layout, scene, activity):
         # v1.8 · Selection → DSH（在 Blender 原生选区里选，按按钮进 DSH 下一条消息）
@@ -257,4 +301,3 @@ class DSHBB_PT_Panel(bpy.types.Panel):
         if adv_open:
             sel_box.label(text="DSH 后端：" + dshbb_backend_url(), icon="URL")
             sel_box.prop(scene, "dshbb_backend_url", text="覆盖后端地址（可留空）")
-

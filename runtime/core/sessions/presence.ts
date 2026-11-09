@@ -4,9 +4,25 @@
 // selection, activity and held scopes. Nothing here touches bpy; the add-on
 // draws the frusta from the same payload.
 
+import { createHash } from 'node:crypto'
 import { publishPresence } from './presence-publish.js'
 import type { AgentPresence, CallerIdentity, SessionRecord, ViewPose } from './types.js'
 import { callerKey, callerView, colourFor } from './types.js'
+
+const MAX_AGENTS = 8
+
+export function presenceId(c: CallerIdentity): string {
+  return createHash('sha1').update(callerKey(c)).digest('hex').slice(0, 12)
+}
+
+function nextShortId(s: SessionRecord): string {
+  const used = new Set([...s.agents.values()].map((a) => a.shortId))
+  for (let i = 1; i <= MAX_AGENTS; i++) {
+    const id = 'A' + i
+    if (!used.has(id)) return id
+  }
+  return 'A' + (s.agents.size + 1)
+}
 
 export function touchAgent(s: SessionRecord, c: CallerIdentity): AgentPresence {
   const key = callerKey(c)
@@ -15,11 +31,15 @@ export function touchAgent(s: SessionRecord, c: CallerIdentity): AgentPresence {
   if (!agent) {
     agent = {
       caller: { ...c },
+      id: presenceId(c),
+      shortId: nextShortId(s),
       attachedAt: now,
       lastSeen: now,
       view: null,
       selected: [],
-      activity: 'idle',
+      activity: 'attached',
+      lastActivityAt: now,
+      lastActivity: 'attached',
       color: String(c.color || colourFor(key)),
       displayName: String(c.displayName || c.agentId || 'agent'),
     }
@@ -39,6 +59,9 @@ export function setView(
 ): Record<string, unknown>[] {
   const agent = touchAgent(s, c)
   agent.view = { ...view, updatedAt: Date.now() }
+  agent.activity = 'see:' + view.viewpoint
+  agent.lastActivityAt = agent.view.updatedAt
+  agent.lastActivity = agent.activity
   const rows = presenceRows(s)
   publishPresence(s, rows)
   return rows
@@ -52,7 +75,18 @@ export function setSelection(
 ): Record<string, unknown>[] {
   const agent = touchAgent(s, c)
   agent.selected = selected.map(String).slice(0, 256)
-  if (activity) agent.activity = String(activity)
+  agent.activity = activity ? String(activity) : 'selection'
+  agent.lastActivityAt = Date.now()
+  agent.lastActivity = agent.activity
+  const rows = presenceRows(s)
+  publishPresence(s, rows)
+  return rows
+}
+
+export function setNotice(s: SessionRecord, text: string): Record<string, unknown>[] {
+  const at = Date.now()
+  s.notice = { seq: (s.notice?.seq || 0) + 1, text: String(text).slice(0, 200), at }
+  s.lastActivityAt = at
   const rows = presenceRows(s)
   publishPresence(s, rows)
   return rows
@@ -61,6 +95,8 @@ export function setSelection(
 export function presenceRows(s: SessionRecord): Record<string, unknown>[] {
   return [...s.agents.values()].map((a) => ({
     agent: callerView(a.caller),
+    id: a.id,
+    shortId: a.shortId,
     displayName: a.displayName,
     color: a.color,
     attachedAt: a.attachedAt,
@@ -68,5 +104,7 @@ export function presenceRows(s: SessionRecord): Record<string, unknown>[] {
     view: a.view,
     selected: a.selected,
     activity: a.activity,
+    lastActivityAt: a.lastActivityAt,
+    lastActivity: a.lastActivity,
   }))
 }

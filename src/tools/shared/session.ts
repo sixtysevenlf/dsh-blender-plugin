@@ -71,16 +71,26 @@ export async function listSessions(port: number): Promise<SessionList | SessionL
   return { ok: true, sessions: rows.filter(isRecord).map(asRecord) }
 }
 
-/** A ready row with a connected addon instance; user-gui wins over virtual-gui. */
-export function readyRow(sessions: SessionRow[], kind?: string): SessionRow | null {
+/** Ready rows with a connected addon instance, optionally restricted to a kind. */
+export function readyRows(sessions: SessionRow[], kind?: string): SessionRow[] {
   const ready = sessions.filter(
     (s) => String(s.status || '') === 'ready' && !!String(s.instanceId || ''),
   )
-  const wanted = kind ? ready.filter((s) => String(s.kind || '') === kind) : ready
+  return kind ? ready.filter((s) => String(s.kind || '') === kind) : ready
+}
+
+/** One ready row, optionally the explicitly requested session id. */
+export function readyRow(
+  sessions: SessionRow[],
+  kind?: string,
+  sessionId?: string,
+): SessionRow | null {
+  const rows = readyRows(sessions, kind)
+  if (sessionId) return rows.find((s) => String(s.id || '') === sessionId) ?? null
   return (
-    wanted.find((s) => String(s.kind || '') === 'user-gui') ??
-    wanted.find((s) => String(s.kind || '') === 'virtual-gui') ??
-    wanted[0] ??
+    rows.find((s) => String(s.kind || '') === 'user-gui') ??
+    rows.find((s) => String(s.kind || '') === 'virtual-gui') ??
+    rows[0] ??
     null
   )
 }
@@ -124,15 +134,62 @@ export interface NoReadySession {
   failure: ToolFailure
 }
 
-/** Resolve the ready GUI session for a session-bound tool call. */
+function sessionChoice(row: SessionRow): string {
+  return text(row.id) + ' · ' + text(row.kind) + ' · instance=' + text(row.instanceId || '-')
+}
+
+/**
+ * Resolve the ready GUI session for a session-bound tool call.
+ *
+ * A caller that names a session gets exactly that session. Without a name,
+ * multiple ready sessions are an error rather than a silent first-row pick:
+ * the Gateway already refuses to guess between addon instances, and the host
+ * must not reintroduce that guess one layer up.
+ */
 export async function requireReadySession(
   port: number,
   kind?: string,
+  sessionId?: string,
 ): Promise<ReadySession | NoReadySession> {
   const listed = await listSessions(port)
   if (!listed.ok) return listed
-  const row = readyRow(listed.sessions, kind)
-  if (!row) return { ok: false, failure: sessionRequiredFailure() }
+  const rows = readyRows(listed.sessions, kind)
+  if (sessionId) {
+    const row = rows.find((s) => String(s.id || '') === sessionId)
+    if (row) return { ok: true, session: row, instanceId: String(row.instanceId || '') }
+    const any = listed.sessions.find((s) => String(s.id || '') === sessionId)
+    if (!any)
+      return {
+        ok: false,
+        failure: toolError(
+          'session_not_found',
+          '会话不存在：' + sessionId,
+          'blender_session action=list 查看当前会话 id，再用 session_id 指定；单实例可省略。',
+        ),
+      }
+    return {
+      ok: false,
+      failure: toolError(
+        'session_not_ready',
+        '会话未就绪：' + sessionChoice(any),
+        '在 Blender N 面板重新 Connect，或 blender_session action=status 确认实例已连接后重试。',
+      ),
+    }
+  }
+  if (!rows.length) return { ok: false, failure: sessionRequiredFailure() }
+  if (rows.length > 1)
+    return {
+      ok: false,
+      failure: toolError(
+        'session_ambiguous',
+        '有 ' +
+          String(rows.length) +
+          ' 个 ready 的 GUI 会话，必须用 session_id 明确选择：' +
+          rows.map(sessionChoice).join(' | '),
+        '先 blender_session action=list 查看会话 id，再在调用里传 session_id=<id>；单实例可省略。',
+      ),
+    }
+  const row = rows[0]
   return { ok: true, session: row, instanceId: String(row.instanceId || '') }
 }
 
@@ -155,5 +212,14 @@ export async function publishView(
     await sessionAction(port, 'update_view', { sessionId, view }, 5000)
   } catch {
     /* presence is observational */
+  }
+}
+/** Best-effort transient notice (full-window capture). Never throws. */
+export async function publishNotice(port: number, sessionId: string, text: string): Promise<void> {
+  if (!sessionId) return
+  try {
+    await sessionAction(port, 'presence_notice', { sessionId, text }, 5000)
+  } catch {
+    /* notice is observational */
   }
 }

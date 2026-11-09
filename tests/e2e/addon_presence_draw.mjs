@@ -340,6 +340,38 @@ check(
   JSON.stringify(mainAgent ? mainAgent.selected : null),
 )
 
+// A camera see publishes a 4x4 world->view matrix and no explicit from/lookAt;
+// the add-on must keep that matrix so it can rebuild the frustum from it.
+const cameraPose = [
+  [0.685921, 0.727676, 0.0, -7.358],
+  [-0.306434, 0.288765, -0.90691, 4.958],
+  [-0.659908, 0.621801, 0.42101, -6.29],
+  [0.0, 0.0, 0.0, 1.0],
+]
+const cameraView = await post(
+  '/lease',
+  {
+    action: 'update_view',
+    sessionId,
+    view: { viewpoint: 'camera', camera: 'Camera', frame: 1, viewMatrix: cameraPose },
+  },
+  subHeaders,
+)
+const withCamera = await waitFor(async () => {
+  const state = await readAddonState()
+  const agent = state.agents.find((row) => row.view && row.view.viewpoint === 'camera')
+  return agent ? state : null
+}, 10000)
+const cameraAgent = withCamera.agents.find((row) => row.view && row.view.viewpoint === 'camera')
+check(
+  'a camera view pose keeps its 4x4 view matrix for the frustum',
+  cameraView.status === 200 &&
+    !!cameraAgent &&
+    Array.isArray(cameraAgent.view.viewMatrix) &&
+    cameraAgent.view.viewMatrix.length === 4,
+  JSON.stringify(cameraAgent ? cameraAgent.view : null),
+)
+
 const cleared = await post(
   '/act',
   {

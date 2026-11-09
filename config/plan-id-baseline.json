@@ -1,19 +1,19 @@
 {
   "version": 1,
   "tool": "check-plan-ids",
-  "generatedAt": "2026-11-08T02:26:15.177Z",
+  "generatedAt": "2026-11-09T12:28:07.684Z",
   "mode": "warn",
   "totals": {
-    "all": 1379,
-    "exempt": 1379,
+    "all": 1383,
+    "exempt": 1383,
     "residual": 0
   },
   "byPrefix": {},
   "byKind": {},
   "files": {
     "CHANGELOG.md": {
-      "count": 214,
-      "exempt": 214,
+      "count": 215,
+      "exempt": 215,
       "residual": 0
     },
     "MIGRATIONS.md": {
@@ -32,8 +32,8 @@
       "residual": 0
     },
     "docs/architecture.md": {
-      "count": 4,
-      "exempt": 4,
+      "count": 6,
+      "exempt": 6,
       "residual": 0
     },
     "docs/archive/headless优先-路线决定.md": {
@@ -69,6 +69,11 @@
     "docs/证据分级与读图纪律.md": {
       "count": 5,
       "exempt": 5,
+      "residual": 0
+    },
+    "extension/dsh_blender_bridge/presence_draw.py": {
+      "count": 1,
+      "exempt": 1,
       "residual": 0
     },
     "runtime/catalog/data.ts": {

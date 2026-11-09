@@ -142,15 +142,36 @@ def _find_view3d(area_index=None):
     return win, area, reg, area.spaces.active
 
 
+def _vec3(value, fallback=None):
+    """Accept [x, y, z] or "x,y,z"; raise ValueError on anything else."""
+    if value is None or value == "":
+        if fallback is None:
+            raise ValueError("缺少坐标")
+        return [float(component) for component in fallback]
+    if isinstance(value, str):
+        parts = value.replace(" ", "").split(",")
+    else:
+        try:
+            parts = list(value)
+        except TypeError:
+            raise ValueError('坐标必须是三个数或 "x,y,z" 字符串：%r' % (value,))
+    if len(parts) != 3:
+        raise ValueError("坐标需要 3 个分量：%r" % (value,))
+    try:
+        return [float(part) for part in parts]
+    except (TypeError, ValueError):
+        raise ValueError("坐标需要三个数：%r" % (value,))
+
+
 def _spec(spec):
     s = dict(spec or {})
-    frm = s.get("from") or s.get("loc") or s.get("location") or [7.0, -7.0, 5.0]
-    look = s.get("look_at") or s.get("target") or s.get("to") or [0.0, 0.0, 1.0]
+    frm = s.get("from") or s.get("loc") or s.get("location")
+    look = s.get("look_at") or s.get("target") or s.get("to")
     w = int(s.get("width") or (s.get("resolution") or [960, 540])[0])
     h = int(s.get("height") or (s.get("resolution") or [960, 540])[1])
     return {
-        "from": [float(v) for v in frm],
-        "look_at": [float(v) for v in look],
+        "from": _vec3(frm, (7.0, -7.0, 5.0)),
+        "look_at": _vec3(look, (0.0, 0.0, 1.0)),
         "lens": float(s.get("lens", 50.0)),
         "sensor": float(s.get("sensor_width", s.get("sensor", 36.0))),
         "sensor_fit": str(s.get("sensor_fit", "AUTO")),
@@ -217,6 +238,56 @@ def targets():
 
 # ---------------------------------------------------------------- 捕获
 
+def _flatten_ints(source):
+    """Depth-agnostic flatten of Buffer.to_list() into a flat int list."""
+    flat = []
+    stack = [source]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, (list, tuple)):
+            stack.extend(reversed(item))
+        else:
+            flat.append(int(item))
+    return flat
+
+
+def _texture_rgba(buf, width, height):
+    """GPU 纹理读回 → 顶→底 RGBA8 字节流。
+
+    Blender 4.2/4.5 的 GPUTexture.read() 返回多维 Buffer，底层内存是通道平面 /
+    列主序（实测 shape (h, w, 4) 但 strides 反转）；bytes(memoryview(buf)) 直接
+    拷底层内存会得到通道错位的灰点阵。5.2 的 Buffer 是 C 连续的，同一段代码反而
+    是对的 —— 所以先走"连续内存直拷"快路径（5.2 不额外付 to_list 的时间），
+    非连续时才用与布局无关的 to_list() 铺平。
+    """
+    expected = int(width) * int(height) * 4
+    expected_shape = (int(height), int(width), 4)
+    try:
+        view = memoryview(buf)
+    except TypeError:
+        view = None
+    shape = getattr(view, "shape", None)
+    # C 连续还不够：布局若从 (h, w, 4) 变成别的形状，直拷同样会错位。
+    shape_ok = shape is None or len(shape) == 1 or tuple(shape) == expected_shape
+    if view is not None and view.c_contiguous and shape_ok:
+        raw = bytes(view)
+        if len(raw) == expected:
+            return raw
+    to_list = getattr(buf, "to_list", None)
+    if callable(to_list):
+        try:
+            flat = _flatten_ints(to_list())
+            if len(flat) == expected:
+                return bytes(flat)
+        except Exception:
+            pass
+    got = len(view) if view is not None else -1
+    raise RuntimeError(
+        "GPU 读回尺寸/布局不符：期望 %d 字节，得到 %d 字节（contiguous=%r）"
+        % (expected, got, None if view is None else bool(view.c_contiguous))
+    )
+
+
 def _capture_viewport(s, vm=None, pm=None, width=None, height=None):
     """GPUOffScreen 离屏绘制；vm/pm 省略时按 s 的相机参数自建（current/camera 模式传入现成矩阵）。"""
     import gpu
@@ -251,8 +322,7 @@ def _capture_viewport(s, vm=None, pm=None, width=None, height=None):
                 off.draw_view3d(scene, vl, space, reg, vm, pm,
                                 do_color_management=bool(s["color_management"]),
                                 draw_background=bool(s["background"]))
-                buf = off.texture_color.read()
-                rgba = bytes(memoryview(buf))
+                rgba = _texture_rgba(off.texture_color.read(), w, h)
         finally:
             try:
                 off.free()
@@ -273,6 +343,24 @@ def _capture_viewport(s, vm=None, pm=None, width=None, height=None):
                   "shading_used": space.shading.type}
 
 
+def _pose_from_view_matrix(view_matrix):
+    """Return (from, look_at) for a world->view matrix.
+
+    The viewport/camera metadata must describe the frozen pose even after the
+    user moves the viewport.  Inverting the view matrix gives the eye; the
+    camera looks down its local -Z axis, which is the negated third column of
+    the camera->world matrix.  No mathutils type is required here, so the
+    helper stays unit-testable without Blender.
+    """
+    world = view_matrix.inverted()
+    loc = world.translation
+    fwd = (-float(world[0][2]), -float(world[1][2]), -float(world[2][2]))
+    return (
+        [float(loc.x), float(loc.y), float(loc.z)],
+        [float(loc.x + fwd[0]), float(loc.y + fwd[1]), float(loc.z + fwd[2])],
+    )
+
+
 def _current_matrices(space, reg, w, h):
     """mode=current：用户当前视口朝向 + 同一镜头参数，按目标宽高重算投影（不拉伸、不动视口）。"""
     r3d = space.region_3d
@@ -283,12 +371,21 @@ def _current_matrices(space, reg, w, h):
     if r3d.view_perspective == "CAMERA" and cam is not None:
         cd = cam.data
         return vm, make_proj_matrix(w, h, cd.lens, cd.sensor_width, 0.1, 1000.0, cd.sensor_fit,
-                                    cd.type == "ORTHO", cd.ortho_scale, cd.shift_x, cd.shift_y)
+                                    cd.type == "ORTHO", cd.ortho_scale, cd.shift_x, cd.shift_y), {
+            "lens": float(cd.lens),
+            "ortho": bool(cd.type == "ORTHO"),
+            "ortho_scale": float(cd.ortho_scale),
+        }
     sensor = 36.0
     if getattr(space, "camera", None) is not None and getattr(space.camera, "data", None) is not None:
         sensor = float(space.camera.data.sensor_width)
-    return vm, make_proj_matrix(w, h, float(getattr(space, "lens", 50.0)), sensor, 0.1, 1000.0, "AUTO",
-                                r3d.is_perspective is False, float(r3d.view_distance), 0.0, 0.0)
+    lens = float(getattr(space, "lens", 50.0))
+    return vm, make_proj_matrix(w, h, lens, sensor, 0.1, 1000.0, "AUTO",
+                                r3d.is_perspective is False, float(r3d.view_distance), 0.0, 0.0), {
+        "lens": lens,
+        "ortho": bool(r3d.is_perspective is False),
+        "ortho_scale": float(r3d.view_distance),
+    }
 
 
 def _camera_matrices(s, scene, cam):
@@ -636,7 +733,7 @@ def host_capture(spec_json):
             # 画的就是用户视口的样子（do_color_management=True → write_png 直写字节，不做二次 gamma）
             off.draw_view3d(bpy.context.scene, bpy.context.view_layer, space, reg, vm, pm,
                             do_color_management=True, draw_background=True)
-            rgba = bytes(memoryview(off.texture_color.read()))
+            rgba = _texture_rgba(off.texture_color.read(), w, h)
     finally:
         try:
             off.free()
@@ -808,7 +905,9 @@ def capture(spec_json):
     elif mode == "current":
         try:
             win, area, reg, space = _find_view3d(s.get("area"))
-            vm, pm = _current_matrices(space, reg, s["width"], s["height"])
+            vm, pm, pose = _current_matrices(space, reg, s["width"], s["height"])
+            s["from"], s["look_at"] = _pose_from_view_matrix(vm)
+            s.update(pose)
             rgba, meta = _capture_viewport(s, vm, pm)
         except Exception as e:
             return _j({"ok": False, "mode": mode, "error": "%s: %s" % (type(e).__name__, e)})
@@ -906,7 +1005,7 @@ def selftest():
         with off.bind():
             fb = gpu.state.active_framebuffer_get()
             fb.clear(color=(25 / 255.0, 153 / 255.0, 51 / 255.0, 1.0), depth=1.0)
-            rgba = bytes(memoryview(off.texture_color.read()))
+            rgba = _texture_rgba(off.texture_color.read(), W, H)
     finally:
         off.free()
     p = os.path.join(os.path.dirname(WIN_DEFAULT), "dsh_view_selftest.png")
