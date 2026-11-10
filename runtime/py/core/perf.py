@@ -394,7 +394,7 @@ def _dsh_perf_apply_eevee(args=None):
               "samples": getattr(ee, "taa_render_samples", None)}
     applied = []
     try:
-        sc.render.engine = "BLENDER_EEVEE"
+        sc.render.engine = "BLENDER_EEVEE_NEXT" if bpy.app.version >= (4, 2, 0) else "BLENDER_EEVEE"
         if hasattr(ee, "use_raytracing"):
             ee.use_raytracing = True
             applied.append("use_raytracing=True")

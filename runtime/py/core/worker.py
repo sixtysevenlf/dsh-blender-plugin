@@ -99,7 +99,7 @@ def _engine_setup(gpu_mode, engine="eevee"):
         return info
     ee = getattr(sc, "eevee", None)
     try:
-        sc.render.engine = "BLENDER_EEVEE"
+        sc.render.engine = "BLENDER_EEVEE_NEXT" if bpy.app.version >= (4, 2, 0) else "BLENDER_EEVEE"
         if ee is not None:
             if hasattr(ee, "use_raytracing"):
                 ee.use_raytracing = True
