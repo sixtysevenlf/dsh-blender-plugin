@@ -39,14 +39,14 @@
 
 ## 5. 集成验证
 
-- [x] 5.1 全量门禁：`npm run lint`、`npm run check:python-static`、`npm run check:python-imports`、`npm run typecheck`、`npm run test:unit`、`npm run test:contract`、`npm run build && git diff --exit-code`（构建产物无意外变更）。验证：全部 exit 0，结果记录到 PR 描述。
+- [x] 5.1 全量门禁：`npm run lint`、`npm run check:python-static`、`npm run check:python-imports`、`npm run typecheck`、`npm run test:unit`、`npm run test:contract`、`npm run build && git diff --exit-code`（构建产物无意外变更）。验证：全部 exit 0，结果记录本节并随 feat 提交。
 
-> 实施记录（5.1）：以上命令全部 exit 0；`test:unit` 108 files / 906 passed / 2 skipped，`test:contract` 48 files / 430 passed；`check:python-static` 350 tracked files + ruff/pyright clean；`check:python-imports` 3 contracts kept；提交 `39febbb` 之后跑 `npm run build && git diff --exit-code` 为 exit 0（构建产物无 tracked 变更）。PR 描述待 5.2 创建时同步本节。
-- [ ] 5.2 变更卫生：`openspec validate boundary-governance` 通过；`npm pack --dry-run` 无新增文件；PR 按 `feature.md`/`refactor.md` 模板填写并加 `AI-Assisted: DeepSeek Harness (deepseek-flash)` trailer 与披露段落。验证：validate/打包命令 exit 0，PR 模板无空缺。
+> 实施记录（5.1）：以上命令全部 exit 0；`test:unit` 108 files / 906 passed / 2 skipped，`test:contract` 48 files / 430 passed；`check:python-static` 350 tracked files + ruff/pyright clean；`check:python-imports` 3 contracts kept；提交 `39febbb` 之后跑 `npm run build && git diff --exit-code` 为 exit 0（构建产物无 tracked 变更）。本变更不建 PR，结果记录在本节并随 feat 提交。
+- [x] 5.2 变更卫生：`openspec validate boundary-governance` 通过；`npm pack --dry-run` 无新增文件；按用户确认直接提交并推送 `feat/gateway-topology-3-1`（不建 PR），提交带 `AI-Assisted: DeepSeek Harness (deepseek-flash)` trailer。验证：validate/打包命令 exit 0，远端 feat 与本地一致。
 
-> 实施记录（5.2）：`openspec validate boundary-governance` 通过；`npm pack --dry-run` 共 1341 files，本变更新增的脚本/测试/openspec 文件均未进包（`lib/client.js` 仅内容更新，不是新路径）。PR 尚未创建，等确认是否推送/开 PR 后再勾选本节。
+> 实施记录（5.2）：`openspec validate boundary-governance` 通过；`npm pack --dry-run` 共 1341 files，本变更新增的脚本/测试/openspec 文件均未进包（`lib/client.js` 仅内容更新，不是新路径）。用户确认本变更直接交付 feat，不走 PR；远端与本地一致后本节成立。
 
 ## Workflow follow-up
 
-- 按项目 review 要求通过后归档：`openspec archive boundary-governance`。
+- 变更交付 feat 后归档：`openspec archive boundary-governance`。
 - 归档后确认 `openspec/changes/boundary-governance` 从 in-progress 列表消失，主 specs 未被本变更修改。
