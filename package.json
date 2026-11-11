@@ -51,6 +51,7 @@
     "MIGRATIONS.md",
     "!tests/**/*.ts",
     "!tests/**/*.mts",
+    "!tests/tsconfig.json",
     "!tests/BEHAVIOR_MATRIX.md",
     "!tests/BEHAVIOR_MATRIX.json"
   ],
