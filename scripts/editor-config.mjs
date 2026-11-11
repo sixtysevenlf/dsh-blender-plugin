@@ -6,13 +6,13 @@
  * function so the unit tests can cover every branch without touching a real editor.
  */
 
-export const EDITOR_SETTINGS_KEYS = ['typescript.tsdk', 'typescript.enablePromptUseWorkspaceTsdk']
+export const EDITOR_SETTINGS_KEYS = ['js/ts.tsdk.path', 'js/ts.tsdk.promptToUseWorkspaceVersion']
 
 export const EDITOR_SETTINGS_CONTENT =
   JSON.stringify(
     {
-      'typescript.tsdk': 'node_modules/typescript/lib',
-      'typescript.enablePromptUseWorkspaceTsdk': true,
+      'js/ts.tsdk.path': 'node_modules/typescript/lib',
+      'js/ts.tsdk.promptToUseWorkspaceVersion': true,
     },
     null,
     2,

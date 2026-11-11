@@ -59,18 +59,19 @@ AGENTS.md 说明各层怎么拼在一起、什么算“装好了”，以及命�
 同一批文件，不需要另维护一份只给编辑器用的配置。
 
 `npm run setup:dev` 提供一次性的编辑器引导：`.vscode/settings.json` 不存在时，写入
-`typescript.tsdk`（指向 `node_modules/typescript/lib`）和 `typescript.enablePromptUseWorkspaceTsdk`，
+`js/ts.tsdk.path`（指向 `node_modules/typescript/lib`）和 `js/ts.tsdk.promptToUseWorkspaceVersion`，
 让 VS Code 提示 "Use Workspace Version"。该文件被 gitignore，属于你本地：已存在的文件不会被解析或
 覆盖，`--force` 也不会动它。如果文件已存在但缺这两个键，请手动补：
 
 ```json
 {
-  "typescript.tsdk": "node_modules/typescript/lib",
-  "typescript.enablePromptUseWorkspaceTsdk": true
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true
 }
 ```
 
-然后在 VS Code 执行 **TypeScript: Select TypeScript Version** → **Use Workspace Version**，编辑器就会
+然后在 VS Code 执行 **TypeScript: 选择 TypeScript 版本...**（英文界面为 **TypeScript: Select TypeScript Version...**）
+→ **使用工作区版本**（Use Workspace Version），编辑器就会
 用和 `npm run typecheck` 相同的编译器版本。这是便利，不是仓库保证：其它编辑器、或跳过提示时，仍会
 回退到编辑器自带的 TypeScript。
 Blender 侧：从 release 的 zip 安装 addon，启用并点 **Connect**。只有 `doctor` 返回 `kind=ok`

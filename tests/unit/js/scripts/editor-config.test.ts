@@ -28,18 +28,18 @@ describe('editor settings plan', () => {
 
   it('accepts a settings file that already has both keys', () => {
     const settingsText = JSON.stringify({
-      'typescript.tsdk': 'node_modules/typescript/lib',
-      'typescript.enablePromptUseWorkspaceTsdk': true,
+      'js/ts.tsdk.path': 'node_modules/typescript/lib',
+      'js/ts.tsdk.promptToUseWorkspaceVersion': true,
     })
     const plan = planEditorConfig({ ...BASE, exists: true, settingsText, checkOnly: true })
     expect(plan.action).toBe('check-ok')
   })
 
   it('names the missing key when the existing file is partial', () => {
-    const settingsText = JSON.stringify({ 'typescript.tsdk': 'node_modules/typescript/lib' })
+    const settingsText = JSON.stringify({ 'js/ts.tsdk.path': 'node_modules/typescript/lib' })
     const plan = planEditorConfig({ ...BASE, exists: true, settingsText, checkOnly: true })
     expect(plan.action).toBe('check-partial')
-    expect(plan.message).toContain('typescript.enablePromptUseWorkspaceTsdk')
+    expect(plan.message).toContain('js/ts.tsdk.promptToUseWorkspaceVersion')
   })
 
   it('creates valid JSONC-safe content when the file does not exist', () => {
@@ -49,8 +49,10 @@ describe('editor settings plan', () => {
     expect(plan.content.endsWith('\n')).toBe(true)
     const parsed = JSON.parse(plan.content)
     expect(Object.keys(parsed).sort()).toEqual([...EDITOR_SETTINGS_KEYS].sort())
-    expect(parsed['typescript.tsdk']).toBe('node_modules/typescript/lib')
-    expect(parsed['typescript.enablePromptUseWorkspaceTsdk']).toBe(true)
+    expect(parsed['js/ts.tsdk.path']).toBe('node_modules/typescript/lib')
+    expect(parsed['js/ts.tsdk.promptToUseWorkspaceVersion']).toBe(true)
+    expect(plan.content).not.toContain('typescript.tsdk')
+    expect(plan.content).not.toContain('typescript.enablePromptUseWorkspaceTsdk')
   })
 
   it('never overwrites an existing file and points at the manual keys', () => {
@@ -61,7 +63,7 @@ describe('editor settings plan', () => {
     })
     expect(plan.action).toBe('manual')
     expect(plan.content).toBeUndefined()
-    expect(plan.message).toContain('typescript.tsdk')
-    expect(plan.message).toContain('typescript.enablePromptUseWorkspaceTsdk')
+    expect(plan.message).toContain('js/ts.tsdk.path')
+    expect(plan.message).toContain('js/ts.tsdk.promptToUseWorkspaceVersion')
   })
 })

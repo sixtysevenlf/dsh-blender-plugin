@@ -95,10 +95,12 @@ See `proposal.md` - Why。这里只记录影响实现方式的现状与约束。
 
 ```json
 {
-  "typescript.tsdk": "node_modules/typescript/lib",
-  "typescript.enablePromptUseWorkspaceTsdk": true
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true
 }
 ```
+
+这两个键名对应当前 VS Code；旧版 VS Code 只认已弃用的 `typescript.tsdk` / `typescript.enablePromptUseWorkspaceTsdk`，不在生成器里同时写，避免新版本出现弃用告警。
 
 - 分支行为：
 
@@ -106,9 +108,9 @@ See `proposal.md` - Why。这里只记录影响实现方式的现状与约束。
 |---|---|
 | `process.env.CI` | 跳过，打印 `CI: skip editor settings` |
 | `--check`，文件不存在 | 打印“可选，未创建”，exit 0（不写、不失败；编辑器配置不是环境正确性） |
-| `--check`，文件存在且有 `typescript.tsdk` | 打印 OK |
+| `--check`，文件存在且有 `js/ts.tsdk.path` | 打印 OK |
 | `--check`，文件存在但缺键 | 打印需要手动添加的键，exit 0 |
-| 非 `--check`，文件不存在 | 创建 `.vscode/` 并写三行 JSON；写失败只 warn 不中断 |
+| 非 `--check`，文件不存在 | 创建 `.vscode/` 并写 JSON；写失败只 warn 不中断 |
 | 非 `--check`，文件存在 | 不解析、不覆盖（JSONC 可能含注释）；缺键时打印 snippet，已有键时打印已配置 |
 | `--force` | 不覆盖 `.vscode/settings.json`（属于用户本地设置） |
 
@@ -131,7 +133,7 @@ See `proposal.md` - Why。这里只记录影响实现方式的现状与约束。
 
 ## Risks / Trade-offs
 
-- [编辑器仍用自带 TS] → 用户不点 “Use Workspace Version” 时提示会消失；缓解：D4 同时写 `typescript.tsdk` 与 `enablePromptUseWorkspaceTsdk`，CONTRIBUTING 给出 “TypeScript: Select TypeScript Version” 操作步骤，并明确这是便利而非仓库保证。
+- [编辑器仍用自带 TS] → 用户不点 “Use Workspace Version” 时提示会消失；缓解：D4 同时写 `js/ts.tsdk.path` 与 `js/ts.tsdk.promptToUseWorkspaceVersion`，CONTRIBUTING 给出 “TypeScript: Select TypeScript Version...” 操作步骤，并明确这是便利而非仓库保证。
 - [JSONC 被破坏] → 只创建不覆盖；已有文件只读文本检查键是否存在，不做 JSON.parse/重写。
 - [相对路径语义漂移] → 每个工程用 `--showConfig` 的 `fileNames` 集合对比旧配置；S1 额外用 `lib/runtime` sha256 逐字节对比。tests 的 `include` 必须显式覆盖，防止继承 `["src"]`。
 - [与 alpha 发布冲突] → 独立 worktree + 先 rebase；`package.json` 只改脚本键与 `files`，不重排/不格式化；`CHANGELOG.md` 只新增一条，冲突时取发布侧版本再追加剧。
