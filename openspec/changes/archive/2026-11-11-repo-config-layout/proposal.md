@@ -19,7 +19,7 @@
 - **每个受版本控制的 .ts 恰好属于一个可发现工程**（允许白名单，例如根上的 `vitest.config.ts`；白名单本身写进 checker 并说明理由），每个目录的编辑器工程与 CLI 工程是同一份配置。
 - **引用收敛**：`scripts/build.mjs`、`scripts/ensure-build.mjs`、`scripts/check-doc-paths.mjs`、`package.json` 的 typecheck 链、`tests/types/shims.d.ts`、`docs/architecture.md`、`scripts/README.md`、`CONTRIBUTING.md` 与 `docs/zh/CONTRIBUTING.md` 的工程说明改到新路径；CHANGELOG 等历史记录不改。
 - **新增布局检查器**（`scripts/` 下新脚本，名称在 design 定）：校验“每个 .ts 恰好一个工程”“配置引用无死路径”“根目录只剩白名单文件”，接入 lint/CI，并配负向 contract 测试（先红后绿）防止回潮。
-- **开发环境一键配置编辑器**：`scripts/setup-dev.mjs` 增加编辑器配置步骤——`.vscode/settings.json` 不存在时写入 `js/ts.tsdk.path: "node_modules/typescript/lib"` 与 `js/ts.tsdk.promptToUseWorkspaceVersion: true`；文件已存在时只打印需要手动添加的键，不解析/覆盖 JSONC；CI 跳过；`--check` 只验证不写。文档明确这只是便利，不是仓库保证（`.vscode/` 被 gitignore）。
+- **开发环境一键配置编辑器**：`scripts/setup-dev.mjs` 增加编辑器配置步骤——`.vscode/settings.json` 不存在时创建，写入 `js/ts.tsdk.path: "node_modules/typescript/lib"`、`js/ts.tsdk.promptToUseWorkspaceVersion: true` 与 `editor.defaultFormatter: "esbenp.prettier-vscode"`；文件已存在时只补缺失键，保留已有值与可识别的 JSONC 注释，已有键不覆盖；无法安全编辑时打印手动 snippet；CI 跳过；`--check` 只验证不写。formatter 键让编辑器默认格式化器与 `npm run format:check` 一致。文档明确这只是便利，不是仓库保证（`.vscode/` 被 gitignore）。
 - **发布卫生**：`package.json` 的 `files` 补齐 `!tests/tsconfig.json` 等排除（`runtime/tsconfig.json` 已有排除），并用 `npm pack --dry-run` 断言 tarball 里没有 tsconfig；`tests/` 仍在包内，因此必须显式排除。
 - **零行为变更**：不引入 project references、不移动 pyright 配置、不让 `.vscode/` 入库、不新增 `tsconfig.base.json`；构建产物 `lib/` 必须逐字节不变。
 

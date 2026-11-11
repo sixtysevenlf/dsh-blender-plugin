@@ -90,17 +90,18 @@ See `proposal.md` - Why。这里只记录影响实现方式的现状与约束。
 
 ### D4 — `setup-dev` 的编辑器配置步骤
 
-- 新增 `scripts/editor-config.mjs`，导出纯函数 `planEditorConfig({ settingsPath, settingsText, exists, checkOnly, ci })`，返回 `{ action: "skip-ci" | "check-ok" | "check-missing" | "check-partial" | "create" | "manual" , content?, message }`；IO（`mkdir`/写文件/打印）留在 `scripts/setup-dev.mjs` 的 `ensureEditorConfig()`，在 `main()` 里 `ensureNodeModules()` 之后、`printReady()` 之前调用。
-- 写入内容（仅当 `.vscode/settings.json` 不存在时创建）：
+- 新增 `scripts/editor-config.mjs`，导出纯函数 `planEditorConfig({ settingsPath, settingsText, exists, checkOnly, ci })`，返回 `{ action: "skip-ci" | "check-ok" | "check-missing" | "check-partial" | "create" | "merge" | "manual" , content?, message }`；IO（`mkdir`/写文件/打印）留在 `scripts/setup-dev.mjs` 的 `ensureEditorConfig()`，在 `main()` 里 `ensureNodeModules()` 之后、`printReady()` 之前调用。
+- 写入内容（文件不存在时创建；文件已存在时只补缺失键）：
 
 ```json
 {
   "js/ts.tsdk.path": "node_modules/typescript/lib",
-  "js/ts.tsdk.promptToUseWorkspaceVersion": true
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode"
 }
 ```
 
-这两个键名对应当前 VS Code；旧版 VS Code 只认已弃用的 `typescript.tsdk` / `typescript.enablePromptUseWorkspaceTsdk`，不在生成器里同时写，避免新版本出现弃用告警。
+前两个键名对应当前 VS Code；旧版 VS Code 只认已弃用的 `typescript.tsdk` / `typescript.enablePromptUseWorkspaceTsdk`，不在生成器里同时写，避免新版本出现弃用告警。`editor.defaultFormatter` 把 Prettier 设为默认格式化器，与 `npm run format:check` 一致；需要安装 Prettier 扩展。
 
 - 分支行为：
 
@@ -108,13 +109,14 @@ See `proposal.md` - Why。这里只记录影响实现方式的现状与约束。
 |---|---|
 | `process.env.CI` | 跳过，打印 `CI: skip editor settings` |
 | `--check`，文件不存在 | 打印“可选，未创建”，exit 0（不写、不失败；编辑器配置不是环境正确性） |
-| `--check`，文件存在且有 `js/ts.tsdk.path` | 打印 OK |
-| `--check`，文件存在但缺键 | 打印需要手动添加的键，exit 0 |
+| `--check`，文件存在且已有全部键 | 打印 OK |
+| `--check`，文件存在但缺键 | 列出缺失键，exit 0 |
 | 非 `--check`，文件不存在 | 创建 `.vscode/` 并写 JSON；写失败只 warn 不中断 |
-| 非 `--check`，文件存在 | 不解析、不覆盖（JSONC 可能含注释）；缺键时打印 snippet，已有键时打印已配置 |
-| `--force` | 不覆盖 `.vscode/settings.json`（属于用户本地设置） |
+| 非 `--check`，文件存在且 JSONC 可安全解析 | 只把缺失键插到第一个已有属性之前（或无属性时插到对象开头），保留注释与已有值；已有键不重复；写失败只 warn 不中断 |
+| 非 `--check`，文件存在但无法安全解析 | 不写，打印需要手动添加的键与 snippet |
+| `--force` | 不覆盖已有键/值；缺失键仍按 merge 补齐（属于用户本地设置） |
 
-- 验证：`tests/unit/js/scripts/editor-config.test.ts` 覆盖纯函数六个分支（CI、check 缺失/完整/缺键、create、manual）；写文件路径与 VS Code 实际生效由人工验证（见 Migration Plan 的 S4），因为编辑器 TS server 无法在 CI 里自动化。
+- 验证：`tests/unit/js/scripts/editor-config.test.ts` 覆盖纯函数七个分支（CI、check 缺失/完整/缺键、create、merge、manual），merge 子用例覆盖保留 JSONC 注释、单行对象与已有键不重复；写文件路径与 VS Code 实际生效由人工验证（见 Migration Plan 的 S4），因为编辑器 TS server 无法在 CI 里自动化。
 
 ### D5 — 发布卫生与强验证
 

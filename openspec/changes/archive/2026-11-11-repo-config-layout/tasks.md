@@ -28,13 +28,14 @@
 
 ## 5. S4 编辑器一键配置
 
-- [x] 5.1 新增 `scripts/editor-config.mjs`：导出纯函数 `planEditorConfig({ settingsPath, settingsText, exists, checkOnly, ci })` 与写入内容常量，覆盖 `skip-ci`/`check-ok`/`check-missing`/`check-partial`/`create`/`manual` 六个分支；验证 `node --check scripts/editor-config.mjs` 通过。
-- [x] 5.2 在 `scripts/setup-dev.mjs` 接入 `ensureEditorConfig()`：位置在 `ensureNodeModules()` 之后、`printReady()` 之前；CI 跳过、`--check` 只读不写、文件缺失才创建、已存在不解析不覆盖、写失败只 warn、`--force` 不覆盖 `.vscode/settings.json`；验证 `node scripts/setup-dev.mjs --help` 与 `--check` 输出符合 design D4 的行为表且 exit 0。
-- [x] 5.3 新增 `tests/unit/js/scripts/editor-config.test.ts` 覆盖六个分支（先写失败用例再实现）；验证 `npm run test:unit` 通过且无 skip。
-- [x] 5.4 重写 `CONTRIBUTING.md` 与 `docs/zh/CONTRIBUTING.md` 的编辑器段：就近 tsconfig 布局、`setup-dev` 写入 `js/ts.tsdk.path`/`js/ts.tsdk.promptToUseWorkspaceVersion`、VS Code 的 “TypeScript: Select TypeScript Version...” → “Use Workspace Version” 步骤、`.vscode/` 被 gitignore 的边界；验证中英两段语义一致且 `node scripts/check-doc-paths.mjs --enforce` exit 0。
+- [x] 5.1 新增 `scripts/editor-config.mjs`：导出纯函数 `planEditorConfig({ settingsPath, settingsText, exists, checkOnly, ci })` 与写入内容常量，覆盖 `skip-ci`/`check-ok`/`check-missing`/`check-partial`/`create`/`merge`/`manual` 七个分支；验证 `node --check scripts/editor-config.mjs` 通过。
+- [x] 5.2 在 `scripts/setup-dev.mjs` 接入 `ensureEditorConfig()`：位置在 `ensureNodeModules()` 之后、`printReady()` 之前；CI 跳过、`--check` 只读不写、文件缺失时创建、已存在时只补缺失键并保留已有值与可识别的 JSONC 注释、无法安全编辑时打印手动 snippet、写失败只 warn、`--force` 不覆盖已有键（缺失键仍补齐）；验证 `node scripts/setup-dev.mjs --help` 与 `--check` 输出符合 design D4 的行为表且 exit 0。
+- [x] 5.3 新增 `tests/unit/js/scripts/editor-config.test.ts` 覆盖七个分支（先写失败用例再实现），merge 子用例覆盖保留 JSONC 注释、单行对象与已有键不重复；验证 `npm run test:unit` 通过且无 skip。
+- [x] 5.4 重写 `CONTRIBUTING.md` 与 `docs/zh/CONTRIBUTING.md` 的编辑器段：就近 tsconfig 布局、`setup-dev` 创建或补缺失键的语义、写入 `js/ts.tsdk.path`/`js/ts.tsdk.promptToUseWorkspaceVersion`/`editor.defaultFormatter`、VS Code 的 “TypeScript: Select TypeScript Version...” → “Use Workspace Version” 步骤、`.vscode/` 被 gitignore 的边界；验证中英两段语义一致且 `node scripts/check-doc-paths.mjs --enforce` exit 0。
 - [x] 5.5 人工验证编辑器生效：备份本地 `.vscode/settings.json` 后临时移走，运行一次 `node scripts/setup-dev.mjs` 确认生成内容，再在 VS Code 执行 “Use Workspace Version” 并打开 `runtime/core/evidence.ts` 确认无 TS2591，最后恢复原设置文件；验证结果记录到 PR（该步骤无法在 CI 自动化，写明人工证据）。
   - 2026-11-11 人工验证：本机 `.vscode/settings.json` 原本不存在，`setup-dev` 创建后确认内容；中文界面执行 “TypeScript: 选择 TypeScript 版本...” → “使用工作区版本”，状态栏显示 “6.0.3 - TypeScript 版本” 与 `runtime/tsconfig.json`；打开 `runtime/core/evidence.ts` 无 error/warn。
   - 同日发现 VS Code 1.145.3 将旧的 `typescript.tsdk` / `typescript.enablePromptUseWorkspaceTsdk` 标记为已弃用（提示改用 `js/ts.tsdk.path` / `js/ts.tsdk.promptToUseWorkspaceVersion`）；生成器、测试、文档和本 change 的规划已同步改用新键。
+- [x] 5.6 把 `editor.defaultFormatter: "esbenp.prettier-vscode"` 纳入生成器，让 VS Code 默认格式化器与 `npm run format:check` 一致；已存在文件按 5.2 的 merge 语义补齐。本机对只有两个 TS 键的 `.vscode/settings.json` 运行 `node scripts/setup-dev.mjs`，确认保留原键并新增 formatter；`--check` 复查为 OK；验证 `tests/unit/js/scripts/editor-config.test.ts` 9 passed、`npm run format:check` 通过。
 
 ## 6. S5 布局检查器
 
@@ -48,7 +49,7 @@
 - [x] 7.1 `package.json` 的 `files` 增加 `"!tests/tsconfig.json"`（保留 `"!runtime/tsconfig.json"`）；用 `npm pack --dry-run --json --ignore-scripts`（`npm_config_cache` 指向工作区）验证输出中没有任何路径以 `tsconfig.json` 结尾。
 - [x] 7.2 `CHANGELOG.md` 新增迁移条目：根级 TS 工程配置 4→1、runtime/tests/scripts 就近配置、`setup-dev` 编辑器配置、布局 checker；验证条目位于 3.1.0 alpha/Unreleased 区、`prettier --check` 通过，且不覆盖发布侧已有条目。
 - [x] 7.3 `git fetch` 后 rebase 到发布侧最新基线，处理 `package.json`/`CHANGELOG.md` 冲突（保留双方语义：版本/描述取发布侧，脚本/`files` 取本 change）；验证 rebase 后 `npm run typecheck`、`npm run lint`、`npm run build`、`npm run check:build` 全绿。（实际：`origin/feat/gateway-topology-3-1` 仍等于 base `ba3f536`，无需 rebase；用户要求并入 feat 而非 main。）
-- [ ] 7.4 跑全量门禁：`npm test`、`npm run test:matrix`、`npm run check:finalization`、`npm run check:structure`、`node scripts/check-doc-paths.mjs --enforce`、`npm run format:check`、7.1 的包检查；验证全部 exit 0。（2026-11-11 实测：build / typecheck / lint / format / check:build / check:finalization / check:structure / test:matrix / doc-paths 全绿；`npm test` 仅 5 个 integration 文件失败，同一失败在 base `ba3f536` 的主检出上同样复现，属既有环境问题，见 PR 说明。）
+- [x] 7.4 跑全量门禁：`npm test`、`npm run test:matrix`、`npm run check:finalization`、`npm run check:structure`、`node scripts/check-doc-paths.mjs --enforce`、`npm run format:check`、7.1 的包检查；验证全部 exit 0。（2026-11-11 实测：`npm test` 全绿——Vitest 138 files / 1205 passed / 2 skipped，pytest 393 passed，Python static clean；`test:matrix` 324 rows、`check:finalization`、`check:structure`、doc-paths、`format:check`、typecheck 全绿。原 5 个 integration 失败已定性并修复：测试 helper 补 `DSH_HOST_ID`；`server-routes` 改用写命令验证租约、另断言 `ping` 作为只读命令放行；`session-api` / `session-multi-agent` 改为断言 3.1 的 `get_viewport_screenshot` presence 推送。）
 - [x] 7.5 复跑强验证：`runtime/tsconfig.json`、`tests/tsconfig.json`、`scripts/tsconfig.json` 的 `--showConfig` `fileNames` 与 1.2 基线集合相等；`lib/runtime/**` sha256 与 S1 前基线逐字节相同；验证比较脚本输出为空差异。
 - [x] 7.6 交付（模板 [.github/PULL_REQUEST_TEMPLATE/refactor.md](.github/PULL_REQUEST_TEMPLATE/refactor.md)）：说明切片、验证结果、人工编辑器检查、并发/rebase 处理、非目标（pyright 下沉、project references、`.vscode` 入库）；披露 AI 参与（assistant DeepSeek Harness、model deepseek-flash、写明本 change 由 agent 编写与验证）；验证 CI 全绿。（按用户要求不开 PR：分支直接并入 `feat/gateway-topology-3-1`，merge commit `d89d692` 已推送；AI 披露写在 commit trailer。）
 
