@@ -11,10 +11,10 @@ import type { ScopeSpec } from './scopes.js'
 import type { DisplayInstance, DisplayProvider } from '../../display/types.js'
 
 export const OWNER_TTL_MS = 120_000
-export const OWNER_HEARTBEAT_MS = 30_000
 export const GRANT_TTL_MS = 30_000
-export const GRANT_HEARTBEAT_MS = 10_000
 export const PY_WAIT_MAX_MS = 5_000
+/** A status notice is a transient hint, never durable presence state. */
+export const NOTICE_TTL_MS = 15_000
 
 export type SessionKind = 'user-gui' | 'virtual-gui'
 export type SessionStatus = 'starting' | 'ready' | 'stopping' | 'stopped' | 'failed'
@@ -165,7 +165,25 @@ export function ownerMatches(owner: Owner | null, c: CallerIdentity): boolean {
 }
 
 export function isMain(session: SessionRecord, c: CallerIdentity): boolean {
-  return !!session.owner && session.owner.agentId === c.agentId && ownerMatches(session.owner, c)
+  // Role is host-injected (never a model parameter). A subagent must not become
+  // the main writer merely by claiming first or by inheriting the owner agentId.
+  return (
+    c.role === 'main' &&
+    !!session.owner &&
+    session.owner.agentId === c.agentId &&
+    ownerMatches(session.owner, c)
+  )
+}
+
+/** Refresh ownership only for a call from the owning main agent. */
+export function heartbeatOwner(
+  session: SessionRecord,
+  c: CallerIdentity,
+  now = Date.now(),
+): boolean {
+  if (!isMain(session, c)) return false
+  if (session.owner) session.owner.heartbeatAt = now
+  return true
 }
 
 export function colourFor(key: string): string {

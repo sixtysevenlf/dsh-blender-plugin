@@ -200,21 +200,7 @@ try {
     'provider=' + String(capability.provider) + ' missing=' + JSON.stringify(capability.missing),
   )
 
-  const noConsent = await registry.start(caller)
-  record(
-    'start without a consent token is refused before spawning',
-    noConsent.ok === false && noConsent.code === 'consent_required',
-    String(noConsent.code || ''),
-  )
-
-  const consent = registry.issueConsent(caller)
-  record(
-    'the Gateway issued a one-time consent token',
-    consent.ok === true,
-    String(consent.expiresAt || ''),
-  )
-
-  const started = await registry.start(caller, { consentToken: consent.consentToken })
+  const started = await registry.start(caller)
   record(
     'virtual-gui start returned a ready session',
     started.ok === true && !!started.session,
@@ -297,8 +283,7 @@ try {
       free_mem_bytes: 0,
     }),
   })
-  const badConsent = badRegistry.issueConsent(caller)
-  const badStart = await badRegistry.start(caller, { consentToken: badConsent.consentToken })
+  const badStart = await badRegistry.start(caller)
   record(
     'a missing helper fails closed as helper_missing',
     badStart.ok === false && String(badStart.code) === 'helper_missing',

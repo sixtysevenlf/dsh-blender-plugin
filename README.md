@@ -170,7 +170,7 @@ The DSH Web client provides a Blender Presence tab in the right sidebar (also re
 
 ## Virtual display (virtual-gui)
 
-On Windows and Linux the Gateway can launch an isolated Blender GUI for the agent. It defaults to `auto` on Windows after the V0 acceptance and is opt-in preview on Linux. Missing prerequisites never start silently: `blender_session start kind=virtual-gui` returns `stage=config` with the exact command, and `/blender doctor --fix` (or the add-on preferences button) installs only the same plan. One-click is limited to `xvfb` on Ubuntu 22.04/24.04 and Debian 12 through `pkexec`; VirtualGL must come from its official repository, GPU drivers are detected but never installed, and unsupported platforms get the manual command. See [configuration §5.7](docs/配置参考.md).
+On Windows and Linux the Gateway can launch an isolated Blender GUI for the agent. It defaults to `auto` on Windows after the V0 acceptance and is opt-in preview on Linux. Agent starts are still denied by default: the plugin config `allowVirtualGui` defaults to `false`, and a human must enable the switch in the DSH Blender Presence tab (the switch is runtime-only and resets on reload). The tab also shows how many user-started Blender windows are connected. Missing prerequisites never start silently: `blender_session start kind=virtual-gui` returns `stage=config` with the exact command, and `/blender doctor --fix` (or the add-on preferences button) installs only the same plan. One-click is limited to `xvfb` on Ubuntu 22.04/24.04 and Debian 12 through `pkexec`; VirtualGL must come from its official repository, GPU drivers are detected but never installed, and unsupported platforms get the manual command. See [configuration §5.7](docs/配置参考.md).
 
 ## Documentation
 

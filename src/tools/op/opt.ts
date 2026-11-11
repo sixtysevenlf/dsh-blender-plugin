@@ -1,11 +1,15 @@
 /** blender_op action=opt：对象精简（analyze / join），会话门由 dispatcher 先做。 */
-import { BACKEND_HINT } from '../../constants.js'
+import { BACKEND_HINT, T } from '../../constants.js'
 import { ensureBackend } from '../../host/backend/index.js'
 import { backendPost, jsonPayload, leasedText } from '../../host/http.js'
 import { text } from '../../contracts/dynamic.js'
 import { toolError } from '../errors.js'
 
-export async function executeOpt(port: number, args: Record<string, unknown>): Promise<unknown> {
+export async function executeOpt(
+  port: number,
+  args: Record<string, unknown>,
+  routed: { sessionId?: string; instanceId?: string } = {},
+): Promise<unknown> {
   if (!(await ensureBackend(port)))
     return toolError(
       'gateway_unreachable',
@@ -14,15 +18,14 @@ export async function executeOpt(port: number, args: Record<string, unknown>): P
     )
   const op = text(args.op) || 'analyze'
   const oargs = jsonPayload(args.args)
-  const r = await backendPost(
-    port,
-    '/opt',
-    {
-      op: op === 'join' ? 'opt_join' : 'opt_analyze',
-      args: Object.keys(oargs).length ? oargs : undefined,
-    },
-    600000,
-  )
+  const body: Record<string, unknown> = {
+    op: op === 'join' ? 'opt_join' : 'opt_analyze',
+    args: Object.keys(oargs).length ? oargs : undefined,
+    write_scope: text(args.write_scope).trim() || 'exclusive',
+  }
+  if (routed.sessionId) body.sessionId = routed.sessionId
+  if (routed.instanceId) body.instanceId = routed.instanceId
+  const r = await backendPost(port, '/opt', body, T.opt)
   const lt = leasedText(r)
   if (lt) return { text: lt }
   if (!r || r.ok !== true)

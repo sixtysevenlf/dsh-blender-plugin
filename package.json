@@ -50,7 +50,9 @@
     "CHANGELOG.md",
     "MIGRATIONS.md",
     "!tests/**/*.ts",
-    "!tests/**/*.mts"
+    "!tests/**/*.mts",
+    "!tests/BEHAVIOR_MATRIX.md",
+    "!tests/BEHAVIOR_MATRIX.json"
   ],
   "license": "BSD-3-Clause",
   "dsh": {
@@ -166,7 +168,7 @@
     "check:import-boundaries": "node scripts/check-import-boundaries.mjs",
     "check:doc-paths": "node scripts/check-doc-paths.mjs",
     "check:plan-ids": "node scripts/check-plan-ids.mjs",
-    "check:finalization": "npm run check:function-budget && npm run check:no-shims && npm run check:runtime-layout && npm run check:import-boundaries && npm run check:doc-paths && npm run check:gateway-schema && npm run check:availability && npm run typecheck:scripts"
+    "check:finalization": "npm run check:structure && npm run check:routes && npm run check:function-budget && npm run check:no-shims && npm run check:runtime-layout && npm run check:import-boundaries && npm run check:doc-paths && npm run check:gateway-schema && npm run check:availability && npm run typecheck:scripts"
   },
   "exports": {
     ".": {

@@ -12,6 +12,7 @@ export interface HostInstallPlan {
   supported: boolean
   oneClick: string[] | null
   command: string | null
+  steps?: Array<{ description: string; command: string }>
   reason?: string
 }
 
@@ -23,7 +24,10 @@ export interface HostInstallResult {
 const OUTPUT_LIMIT = 4096
 const TIMEOUT_MS = 10 * 60 * 1000
 
-export function runHostInstall(plan: HostInstallPlan): Promise<HostInstallResult> {
+export function runHostInstall(
+  plan: HostInstallPlan,
+  onLine?: (chunk: string) => void,
+): Promise<HostInstallResult> {
   return new Promise((resolve) => {
     const argv = plan.oneClick
     if (!argv || argv.length === 0) {
@@ -54,9 +58,11 @@ export function runHostInstall(plan: HostInstallPlan): Promise<HostInstallResult
     }
     child.stdout?.on('data', (chunk) => {
       stdout = append(stdout, chunk)
+      onLine?.(chunk.toString())
     })
     child.stderr?.on('data', (chunk) => {
       stderr = append(stderr, chunk)
+      onLine?.(chunk.toString())
     })
     child.on('error', (e) => finish({ ok: false, detail: e.message }))
     child.on('exit', (code) => {

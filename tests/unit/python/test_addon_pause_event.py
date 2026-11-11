@@ -58,9 +58,19 @@ def test_reports_only_pause_changes(monkeypatch):
     assert len(connection.messages) == 2
 
 
-def test_skips_reporting_while_disconnected(monkeypatch):
+def test_retries_a_pause_change_that_happened_while_disconnected(monkeypatch):
     server, connection = _server(monkeypatch, True)
+    server._reported_pause = False
     server.connected = False
     server._report_pause_change()
     assert connection.messages == []
+    # Nothing was written, so the state must stay unreported and be retried on
+    # the next tick / after the reconnect instead of being marked as delivered.
+    assert server._reported_pause is False
+
+    server.connected = True
+    server._report_pause_change()
+    assert [message["paused"] for message in connection.messages] == [True]
     assert server._reported_pause is True
+    server._report_pause_change()
+    assert len(connection.messages) == 1

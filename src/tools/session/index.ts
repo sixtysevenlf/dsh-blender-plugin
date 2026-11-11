@@ -33,7 +33,7 @@ function buildSessionTool(ctx: HostContext, port: number) {
     name: 'blender_session',
     description:
       '【会话 / 归属 / 权限】管理 GUI 会话：list/status/doctor 看状态；attach 附着到用户已打开的 Blender（多实例必须给 instance_id）；grant/revoke 把写 scope（exclusive | collection:名 | prefix:名 | object:名）授予子 agent；pause/resume 只有人类能操作（agent 调用返回 human_action_required）；mark_read 清掉 human_modified 冲突。' +
-      'start/stop 只作用 virtual-gui：start 第一次返回 consent_required，等用户授权后由宿主带一次性 token 重试；user-gui 永远由用户自己打开 Blender 并 Connect。' +
+      'start/stop 只作用 virtual-gui：start 需人类先在 Blender Presence 面板允许（默认不允许，插件配置 allowVirtualGui）；user-gui 永远由用户自己打开 Blender 并 Connect。' +
       'txn 子面：snapshot/restore/list/prune/mark/revert/marks/drop（restore/mark/revert 属写操作，需要 exclusive grant + 人类未暂停）。' +
       'Gateway 进程与 launch 运维不在模型面：Gateway 由宿主管理。旧 blender_viewport 的会话/健康动作迁移到这里；旧 blender_rt_txn 迁移到 action=txn。',
     parameters: {

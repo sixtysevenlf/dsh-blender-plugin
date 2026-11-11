@@ -150,9 +150,10 @@ describe('archive and lease security boundaries', () => {
   })
 
   it('keeps write routes behind the lease gate while read-only ops bypass it', () => {
-    expect(serverSource).toContain('function leaseGate(payload')
+    expect(serverSource).toContain('function leaseGate(')
     expect(serverSource).toContain("error: 'leased'")
-    expect(serverSource).toContain('const gate = leaseGate(payload)')
+    expect(serverSource).toContain('? leaseGate(payload, { readOnly: true })')
+    expect(serverSource).toContain('readOnlyCommand(name)')
     expect(serverSource).toContain(
       "const gate = isReadOnly('/loop', op) ? null : leaseGate(payload)",
     )

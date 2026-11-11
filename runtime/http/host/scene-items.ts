@@ -45,6 +45,34 @@ export function hostStateView(E: HostRoutesDeps): Record<string, unknown> {
   } catch (e) {
     running = 0
   }
+  let guiCounts = { total: 0, userGui: 0, virtualGui: 0 }
+  let virtualGuiCapabilities: Record<string, unknown> = {}
+  try {
+    if (E.sessionRegistry) {
+      const registry = E.sessionRegistry
+      guiCounts =
+        typeof registry.guiConnectionCounts === 'function'
+          ? registry.guiConnectionCounts()
+          : { total: registry.guiConnections(), userGui: registry.guiConnections(), virtualGui: 0 }
+      const capabilities = registry.display()
+      const prerequisites = Array.isArray(capabilities.prerequisites)
+        ? capabilities.prerequisites
+        : []
+      const missingRequired = prerequisites
+        .filter((row) => row && row.ok !== true && row.optional !== true)
+        .map((row) => row.id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0)
+      virtualGuiCapabilities = {
+        enabled: capabilities.enabled,
+        ready: capabilities.ready,
+        missing: capabilities.missing,
+        missingRequired,
+        reason: capabilities.reason,
+      }
+    }
+  } catch (e) {
+    /* read-only extras; never fail /host/state over them */
+  }
   let presence: Record<string, unknown> = { sessions: [] }
   try {
     const rows = E.sessionRegistry ? E.sessionRegistry.list() : []
@@ -65,6 +93,13 @@ export function hostStateView(E: HostRoutesDeps): Record<string, unknown> {
   return {
     ok: true,
     presence,
+    virtualGui: {
+      guiConnections: guiCounts.total,
+      total: guiCounts.total,
+      userGui: guiCounts.userGui,
+      virtualGui: guiCounts.virtualGui,
+      ...virtualGuiCapabilities,
+    },
     channel: {
       lastOkAgeMs: age(m.lastOkAt),
       lastCmd: m.lastCmd || null,

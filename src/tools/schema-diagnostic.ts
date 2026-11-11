@@ -10,7 +10,7 @@ export const HINT_KERNEL =
  * v1.0.1（issue #10）：schemastery 解析失败时的**降级出口**。
  * 目的不是"还能干活"，而是**让失败可读、可定位**：占位工具照样出现在工具列表里，
  * 一调它就直接给出试过的名字、每条通道的真实错误与修法 —— 而不是旧版那样
- * "模块载入期 throw → 15 个工具整体消失 + 宿主只回一句 failed to import"。
+ * "模块载入期 throw → 六个模型工具整体消失 + 宿主只回一句 failed to import"。
  */
 export function registerSchemaDiagnostic(ctx: HostContext): void {
   const text = [

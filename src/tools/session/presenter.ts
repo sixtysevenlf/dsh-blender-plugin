@@ -149,7 +149,7 @@ export function sessionHelp(): string {
     '  grant / revoke / grants（写权限 scope：exclusive | collection:名 | prefix:名 | object:名）',
     '  pause / resume（只有人类能暂停；agent 调用返回 human_action_required）',
     '  mark_read（清掉 human_modified 冲突）| presence | heartbeat',
-    '  start / stop（只作用 virtual-gui；首次 start 返回 consent_required，需要人类授权）',
+    '  start / stop（只作用 virtual-gui；start 需人类先在 Blender Presence 面板允许，默认不允许）',
     '  txn（子动作 op=snapshot|restore|list|prune|mark|revert|marks|drop|help；写快照/回滚需 exclusive grant）',
     '旧工具迁移：blender_viewport → blender_session（status/doctor）+ blender_see；blender_rt_txn → blender_session action=txn。',
   ].join(LF)

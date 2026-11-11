@@ -43,6 +43,10 @@ window.__ModuleLoader__.load({
     var PRESENCE_TAB_KIND = 'blender-presence'
     /** Presence panel refresh while it is visible (human list, not live telemetry). */
     var PRESENCE_POLL_MS = 2000
+    /** virtual-gui agent rows get one fixed color + tag; user-gui keeps its agent color. */
+    var VIRTUAL_GUI_COLOR = '#A855F7'
+    /** Plugins page item id for the Blender settings page. */
+    var PLUGIN_CONFIG_ID = 'blender'
     var SELECTION_POLL_MS = 100 // v2.6.1 性能实测：1200→100ms，端到端 p50 993→156ms（本机回环，见契约「选中轮询」）
     /** v2.3：草稿文本里最多列多少个对象名（几百个零件时收敛成摘要，别刷屏）。 */
     var SELECTION_DRAFT_NAME_LIMIT = 24
@@ -51,6 +55,8 @@ window.__ModuleLoader__.load({
 
     /** apply() 期间由 ctx 配置解析出的地址；backend() 在它之上叠 localStorage。 */
     var configuredBackend = DEFAULT_BACKEND
+    /** DSH 认证 RPC（仅人类浏览器可达）；未挂载时为 null，面板开关随之禁用。 */
+    var presenceRpc = null
     /** 幂等守卫：cordis 同一 fiber 只 apply 一次；卸载时复位（见 apply 里的 effect）。 */
     var started = false
 
@@ -691,6 +697,7 @@ window.__ModuleLoader__.load({
           rows.push({
             sessionId: String(session.id || ''),
             sessionKind: String(session.kind || ''),
+            isVirtualGui: String(session.kind || '') === 'virtual-gui',
             instanceId: String(session.instanceId || ''),
             shortId: String(agent.shortId || ''),
             id: String(agent.id || ''),
@@ -702,6 +709,7 @@ window.__ModuleLoader__.load({
               agent.view && typeof agent.view === 'object'
                 ? String(agent.view.viewpoint || '')
                 : '',
+            observation: agent.view ? 'current' : 'none',
           })
         }
       }
@@ -743,25 +751,1173 @@ window.__ModuleLoader__.load({
       )
     }
 
+    /** Read the GUI counts from /host/state; older Gateways only send guiConnections. */
+    function virtualGuiCounts(body) {
+      var vg = body && body.virtualGui && typeof body.virtualGui === 'object' ? body.virtualGui : {}
+      var userGui = Number(vg.userGui || 0)
+      var virtualGui = Number(vg.virtualGui || 0)
+      var total = Number(vg.total || vg.guiConnections || 0)
+      if (!total) total = userGui + virtualGui
+      // Older Gateways only counted user-gui connections under guiConnections.
+      if (total && !userGui && !virtualGui) userGui = total
+      return {
+        total: total,
+        userGui: userGui,
+        virtualGui: virtualGui,
+        enabled: vg.enabled !== false,
+        ready: vg.ready === true,
+        missing: Array.isArray(vg.missingRequired)
+          ? vg.missingRequired
+          : Array.isArray(vg.missing)
+            ? vg.missing
+            : [],
+        reason: vg.reason ? String(vg.reason) : '',
+      }
+    }
+
+    function planMissing(plan) {
+      return !!plan && plan.ok !== true
+    }
+
+    function requiredPlanIds(capability) {
+      var ids = []
+      var rows =
+        capability && Array.isArray(capability.prerequisites) ? capability.prerequisites : []
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i] && rows[i].optional !== true && rows[i].id) ids.push(String(rows[i].id))
+      }
+      return ids
+    }
+
+    function missingVirtualGuiPlans(capability, plans) {
+      var missing = []
+      var reported = capability && Array.isArray(capability.missing) ? capability.missing : []
+      var required = requiredPlanIds(capability)
+      for (var i = 0; i < (plans || []).length; i++) {
+        var plan = plans[i]
+        if (!planMissing(plan)) continue
+        var id = String(plan.id || '')
+        if (required.length) {
+          if (required.indexOf(id) >= 0) missing.push(plan)
+          continue
+        }
+        if (reported.length && reported.indexOf(id) >= 0) missing.push(plan)
+      }
+      return missing
+    }
+
+    function virtualGuiCapabilityText(capability) {
+      if (!capability) return ''
+      if (!capability.enabled)
+        return '后端能力门未开启（features.virtualGui=' + String(capability.feature || 'off') + '）'
+      if (capability.provider_implemented === false) return '当前平台还没有 virtual-gui provider'
+      if (capability.ready) return '依赖已就绪'
+      return capability.reason ? String(capability.reason) : '依赖尚未就绪'
+    }
+
+    function ConfigButton(props) {
+      return React.createElement(
+        'button',
+        {
+          type: 'button',
+          disabled: !!props.disabled,
+          onClick: props.onClick,
+          style: {
+            padding: '4px 10px',
+            borderRadius: 6,
+            border: '1px solid var(--dsh-border, rgba(127,127,127,.3))',
+            background: props.primary ? 'var(--dsh-accent, #4C8DFF)' : 'transparent',
+            color: props.primary ? '#fff' : 'var(--dsh-text, inherit)',
+            cursor: props.disabled ? 'default' : 'pointer',
+            opacity: props.disabled ? 0.55 : 1,
+            fontSize: 12,
+          },
+        },
+        props.children,
+      )
+    }
+
+    function ConfigNotice(props) {
+      var warning = props.kind === 'warning'
+      return React.createElement(
+        'div',
+        {
+          style: {
+            padding: '8px 10px',
+            margin: '8px 0',
+            borderRadius: 6,
+            fontSize: 12,
+            lineHeight: 1.5,
+            color: warning ? '#9a6700' : 'var(--dsh-text-secondary, #888)',
+            background: warning ? 'rgba(210,153,34,.12)' : 'rgba(127,127,127,.08)',
+            border: warning ? '1px solid rgba(210,153,34,.35)' : '1px solid rgba(127,127,127,.18)',
+          },
+        },
+        props.children,
+      )
+    }
+
+    function BlenderPluginConfigSummary() {
+      return React.createElement(
+        'div',
+        { style: { fontSize: 12, color: 'var(--dsh-text-secondary, #888)' } },
+        '管理 virtual-gui 的运行依赖与 agent 启动许可。',
+      )
+    }
+
+    function virtualGuiRpc(payload) {
+      if (!presenceRpc) {
+        return Promise.resolve({
+          ok: false,
+          error: { code: 'rpc_unavailable', message: 'DSH 连接服务不可用' },
+        })
+      }
+      return presenceRpc('/dsh-blender', 'virtual-gui', payload)
+    }
+
+    function applyVirtualGuiStatus(setView, value) {
+      if (!value) return
+      setView(function (prev) {
+        return Object.assign({}, prev, {
+          loading: false,
+          error: null,
+          permission: value.permission || prev.permission,
+          capability: value.capability || null,
+          plans: Array.isArray(value.plans) ? value.plans : [],
+          install: value.install || null,
+        })
+      })
+    }
+
+    function showVirtualGuiError(setView, message) {
+      setView(function (prev) {
+        return Object.assign({}, prev, { loading: false, error: String(message || '') })
+      })
+    }
+
+    function useVirtualGuiConfigCore() {
+      var initialPermission = { allowed: false, source: 'config', updatedAt: null }
+      var viewState = React.useState({
+        loading: true,
+        error: null,
+        permission: initialPermission,
+        capability: null,
+        plans: [],
+        install: null,
+      })
+      var view = viewState[0]
+      var setView = viewState[1]
+      var promptState = React.useState(null)
+      var prompt = promptState[0]
+      var setPrompt = promptState[1]
+      var busyState = React.useState(false)
+      var busy = busyState[0]
+      var setBusy = busyState[1]
+      var aliveRef = React.useRef(true)
+      var pendingEnableRef = React.useRef(false)
+
+      function writePermission(next) {
+        if (!presenceRpc) return Promise.reject(new Error('DSH 连接服务不可用'))
+        return presenceRpc('/dsh-blender', 'permission', { op: 'set', allow: next === true }).then(
+          function (res) {
+            if (!res || !res.ok || !res.value) {
+              throw new Error(
+                (res && res.error && res.error.message) || '无法更新 virtual-gui 权限',
+              )
+            }
+            setView(function (prev) {
+              return Object.assign({}, prev, { permission: res.value })
+            })
+            return res.value
+          },
+        )
+      }
+
+      function loadStatus() {
+        setView(function (prev) {
+          return Object.assign({}, prev, { loading: true, error: null })
+        })
+        return virtualGuiRpc({ op: 'status' })
+          .then(function (res) {
+            if (!aliveRef.current) return
+            if (!res || !res.ok || !res.value) {
+              showVirtualGuiError(
+                setView,
+                (res && res.error && res.error.message) || '无法读取 virtual-gui 状态',
+              )
+              return
+            }
+            applyVirtualGuiStatus(setView, res.value)
+          })
+          .catch(function (e) {
+            if (aliveRef.current) showVirtualGuiError(setView, errText(e))
+          })
+      }
+
+      React.useEffect(function () {
+        aliveRef.current = true
+        loadStatus()
+        return function () {
+          aliveRef.current = false
+        }
+      }, [])
+
+      return {
+        view: view,
+        setView: setView,
+        prompt: prompt,
+        setPrompt: setPrompt,
+        busy: busy,
+        setBusy: setBusy,
+        aliveRef: aliveRef,
+        pendingEnableRef: pendingEnableRef,
+        writePermission: writePermission,
+        loadStatus: loadStatus,
+      }
+    }
+
+    function syncVirtualGuiPermission(core, value, enableAfter) {
+      var capability = value && value.capability ? value.capability : null
+      var plans = value && Array.isArray(value.plans) ? value.plans : []
+      var missing = missingVirtualGuiPlans(capability, plans)
+      if (!capability || capability.ready !== true || missing.length) {
+        if (missing.length) {
+          core.setPrompt({
+            mode: 'missing',
+            plans: missing,
+            enableAfter: !!enableAfter,
+            title: '依赖仍未就绪',
+          })
+        } else {
+          showVirtualGuiError(
+            core.setView,
+            'virtual-gui 尚未就绪：' + virtualGuiCapabilityText(capability),
+          )
+        }
+        core.setBusy(false)
+        return false
+      }
+      if (enableAfter) {
+        core.pendingEnableRef.current = false
+        return core
+          .writePermission(true)
+          .then(function () {
+            core.setPrompt(null)
+            core.setBusy(false)
+            return true
+          })
+          .catch(function (e) {
+            showVirtualGuiError(core.setView, errText(e))
+            core.setBusy(false)
+            return false
+          })
+      }
+      core.setPrompt(null)
+      core.setBusy(false)
+      return true
+    }
+
+    function finishVirtualGuiInstall(core, next) {
+      if (!next || next.state === 'installing') return
+      if (next.state === 'failed') {
+        var failedPlan = null
+        for (var i = 0; i < core.view.plans.length; i++) {
+          if (core.view.plans[i] && core.view.plans[i].id === next.planId) {
+            failedPlan = core.view.plans[i]
+            break
+          }
+        }
+        core.setBusy(false)
+        core.setPrompt({
+          mode: 'failed',
+          plans: failedPlan ? [failedPlan] : [],
+          title: '安装失败',
+          detail: next.detail || '安装命令没有成功退出',
+          enableAfter: core.pendingEnableRef.current,
+        })
+        return
+      }
+      core.setBusy(true)
+      virtualGuiRpc({ op: 'status' })
+        .then(function (res) {
+          if (!core.aliveRef.current) return
+          if (!res || !res.ok || !res.value) {
+            showVirtualGuiError(
+              core.setView,
+              (res && res.error && res.error.message) || '安装后无法重新检测依赖',
+            )
+            core.setBusy(false)
+            return
+          }
+          applyVirtualGuiStatus(core.setView, res.value)
+          syncVirtualGuiPermission(core, res.value, core.pendingEnableRef.current)
+        })
+        .catch(function (e) {
+          if (core.aliveRef.current) showVirtualGuiError(core.setView, errText(e))
+          core.setBusy(false)
+        })
+    }
+
+    function requestVirtualGuiInstall(core, plan, enableAfter) {
+      if (!plan || !presenceRpc || core.busy) return
+      core.pendingEnableRef.current = enableAfter === true
+      core.setBusy(true)
+      core.setPrompt(null)
+      virtualGuiRpc({ op: 'install', planId: plan.id })
+        .then(function (res) {
+          if (!core.aliveRef.current) return
+          if (!res || !res.ok) {
+            var error = (res && res.error) || {}
+            if (error.code === 'manual_install_required') {
+              core.setPrompt({
+                mode: 'manual',
+                plans: [plan],
+                title: '需要手动安装',
+                detail: error.message || '',
+                command: (error.details && error.details.command) || plan.command || '',
+                steps: (error.details && error.details.steps) || plan.steps || [],
+                enableAfter: enableAfter === true,
+              })
+            } else {
+              showVirtualGuiError(core.setView, error.message || '无法启动安装')
+            }
+            core.setBusy(false)
+            return
+          }
+          core.setView(function (prev) {
+            return Object.assign({}, prev, {
+              install: (res.value && res.value.install) || null,
+            })
+          })
+          core.setBusy(false)
+        })
+        .catch(function (e) {
+          if (core.aliveRef.current) showVirtualGuiError(core.setView, errText(e))
+          core.setBusy(false)
+        })
+    }
+
+    function toggleVirtualGuiPermission(core, next) {
+      if (!presenceRpc || core.busy) return
+      if (!next) {
+        core.setBusy(true)
+        core
+          .writePermission(false)
+          .then(function () {
+            core.setPrompt(null)
+            core.setBusy(false)
+          })
+          .catch(function (e) {
+            showVirtualGuiError(core.setView, errText(e))
+            core.setBusy(false)
+          })
+        return
+      }
+      core.setBusy(true)
+      virtualGuiRpc({ op: 'status' })
+        .then(function (res) {
+          if (!core.aliveRef.current) return
+          if (!res || !res.ok || !res.value) {
+            showVirtualGuiError(
+              core.setView,
+              (res && res.error && res.error.message) || '无法检测依赖',
+            )
+            core.setBusy(false)
+            return
+          }
+          applyVirtualGuiStatus(core.setView, res.value)
+          var capability = res.value.capability || null
+          var plans = Array.isArray(res.value.plans) ? res.value.plans : []
+          var missing = missingVirtualGuiPlans(capability, plans)
+          if (missing.length) {
+            core.pendingEnableRef.current = true
+            core.setPrompt({
+              mode: 'missing',
+              plans: missing,
+              enableAfter: true,
+              title: '缺少 virtual-gui 依赖',
+            })
+            core.setBusy(false)
+            return
+          }
+          if (!capability || capability.ready !== true) {
+            showVirtualGuiError(
+              core.setView,
+              'virtual-gui 尚未就绪：' + virtualGuiCapabilityText(capability),
+            )
+            core.setBusy(false)
+            return
+          }
+          core.pendingEnableRef.current = false
+          core
+            .writePermission(true)
+            .then(function () {
+              core.setBusy(false)
+            })
+            .catch(function (e) {
+              showVirtualGuiError(core.setView, errText(e))
+              core.setBusy(false)
+            })
+        })
+        .catch(function (e) {
+          if (core.aliveRef.current) showVirtualGuiError(core.setView, errText(e))
+          core.setBusy(false)
+        })
+    }
+
+    function recheckVirtualGuiAfterManual(core) {
+      core.setBusy(true)
+      virtualGuiRpc({ op: 'status' })
+        .then(function (res) {
+          if (!core.aliveRef.current) return
+          if (!res || !res.ok || !res.value) {
+            showVirtualGuiError(
+              core.setView,
+              (res && res.error && res.error.message) || '无法重新检测依赖',
+            )
+            core.setBusy(false)
+            return
+          }
+          applyVirtualGuiStatus(core.setView, res.value)
+          syncVirtualGuiPermission(core, res.value, core.pendingEnableRef.current)
+        })
+        .catch(function (e) {
+          if (core.aliveRef.current) showVirtualGuiError(core.setView, errText(e))
+          core.setBusy(false)
+        })
+    }
+
+    function useVirtualGuiInstallPolling(core, installState) {
+      React.useEffect(
+        function () {
+          if (installState !== 'installing') return
+          var alive = true
+          var timer = window.setInterval(function () {
+            virtualGuiRpc({ op: 'install-status' })
+              .then(function (res) {
+                if (!alive || !res || !res.ok || !res.value || !res.value.install) return
+                var next = res.value.install
+                core.setView(function (prev) {
+                  return Object.assign({}, prev, { install: next })
+                })
+                if (next.state === 'done' || next.state === 'failed') {
+                  window.clearInterval(timer)
+                  finishVirtualGuiInstall(core, next)
+                }
+              })
+              .catch(function () {
+                /* transient RPC failure: keep polling until the page closes */
+              })
+          }, 1000)
+          return function () {
+            alive = false
+            window.clearInterval(timer)
+          }
+        },
+        [installState],
+      )
+    }
+
+    function ConfigHeader() {
+      return React.createElement(
+        'div',
+        { style: { marginBottom: 8 } },
+        React.createElement(
+          'div',
+          { style: { fontSize: 15, fontWeight: 600 } },
+          'Blender virtual-gui',
+        ),
+        React.createElement(
+          'div',
+          { style: { marginTop: 2, fontSize: 12, color: 'var(--dsh-text-secondary, #888)' } },
+          '启用时检测运行依赖；缺依赖先询问是否安装，安装期间保持显示进度。',
+        ),
+      )
+    }
+
+    function ConfigSwitch(props) {
+      var dev = props.busy || props.installState === 'installing'
+      return React.createElement(
+        'div',
+        null,
+        React.createElement(
+          'label',
+          {
+            style: {
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '10px 0',
+              fontSize: 13,
+              cursor: dev ? 'default' : 'pointer',
+            },
+          },
+          React.createElement('input', {
+            type: 'checkbox',
+            checked: props.permission.allowed === true,
+            disabled: !presenceRpc || dev,
+            onChange: function (e) {
+              props.onToggle(!!(e && e.target && e.target.checked))
+            },
+          }),
+          React.createElement('span', null, '允许 agent 启动 virtual-gui（本机虚拟 Blender 窗口）'),
+        ),
+        React.createElement(
+          'div',
+          {
+            style: {
+              marginLeft: 24,
+              marginBottom: 10,
+              fontSize: 11,
+              color: 'var(--dsh-text-secondary, #888)',
+            },
+          },
+          props.permission.allowed
+            ? '当前已允许；开关只影响当前 DSH 进程，插件重载后回到 allowVirtualGui 配置值。'
+            : '当前不允许；打开时先检测依赖，缺依赖会弹窗询问，拒绝安装则保持关闭。',
+        ),
+      )
+    }
+
+    function ConfigMissingBanner(props) {
+      var installable = null
+      for (var i = 0; i < props.missing.length; i++) {
+        if (props.missing[i].supported === true && props.missing[i].oneClick) {
+          installable = props.missing[i]
+          break
+        }
+      }
+      return React.createElement(
+        ConfigNotice,
+        { kind: 'warning' },
+        React.createElement(
+          'div',
+          null,
+          'virtual-gui 正开着，但依赖已缺失：' +
+            props.missing
+              .map(function (plan) {
+                return plan.label || plan.id
+              })
+              .join('、') +
+            '。',
+        ),
+        React.createElement(
+          'div',
+          { style: { display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' } },
+          installable
+            ? React.createElement(
+                ConfigButton,
+                {
+                  primary: true,
+                  onClick: function () {
+                    props.onInstall(installable, false)
+                  },
+                },
+                '安装缺失依赖',
+              )
+            : null,
+          React.createElement(ConfigButton, { onClick: props.onDisable }, '关闭 virtual-gui'),
+        ),
+      )
+    }
+
+    function ConfigCapabilityStatus(props) {
+      var capability = props.capability
+      if (!capability) return null
+      if (!capability.enabled || capability.provider_implemented === false) {
+        return React.createElement(
+          ConfigNotice,
+          { kind: 'warning' },
+          virtualGuiCapabilityText(capability),
+          capability.fix ? React.createElement('div', null, '修复：' + capability.fix) : null,
+        )
+      }
+      if (capability.ready) {
+        return React.createElement(
+          'div',
+          { style: { fontSize: 12, color: '#2da44e', margin: '8px 0' } },
+          '运行依赖已就绪。',
+        )
+      }
+      return React.createElement(
+        ConfigNotice,
+        { kind: 'warning' },
+        virtualGuiCapabilityText(capability),
+      )
+    }
+
+    function ConfigPrerequisiteRow(props) {
+      var prereq = props.prereq
+      var plan = props.plan
+      var ok = prereq.ok === true || (plan && plan.ok === true)
+      var optional = prereq.optional === true
+      return React.createElement(
+        'div',
+        {
+          style: {
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 8,
+            padding: '7px 0',
+            borderTop: '1px solid var(--dsh-border, rgba(127,127,127,.12))',
+            fontSize: 12,
+          },
+        },
+        React.createElement(
+          'div',
+          { style: { flex: '1 1 auto', minWidth: 0 } },
+          React.createElement(
+            'div',
+            { style: { fontWeight: 500 } },
+            String(prereq.label || prereq.id) + (optional ? '（可选）' : ''),
+          ),
+          React.createElement(
+            'div',
+            { style: { marginTop: 2, color: 'var(--dsh-text-secondary, #888)' } },
+            String(prereq.detail || prereq.check || ''),
+          ),
+          !ok && plan && plan.command
+            ? React.createElement(
+                'code',
+                {
+                  style: {
+                    display: 'block',
+                    marginTop: 4,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-all',
+                    fontSize: 11,
+                  },
+                },
+                plan.command,
+              )
+            : null,
+        ),
+        React.createElement(
+          'span',
+          {
+            style: {
+              flex: '0 0 auto',
+              color: ok ? '#2da44e' : optional ? '#9a6700' : '#d33',
+            },
+          },
+          ok ? '已就绪' : optional ? '可选缺失' : '缺失',
+        ),
+        !ok && plan && plan.supported && plan.oneClick
+          ? React.createElement(
+              ConfigButton,
+              {
+                onClick: function () {
+                  props.onInstall(plan, false)
+                },
+              },
+              '安装',
+            )
+          : null,
+      )
+    }
+
+    function ConfigPrerequisites(props) {
+      var capability = props.capability
+      var prerequisites = Array.isArray(capability.prerequisites) ? capability.prerequisites : []
+      if (!prerequisites.length) return null
+      var rows = []
+      for (var i = 0; i < prerequisites.length; i++) {
+        var prereq = prerequisites[i]
+        if (!prereq || !prereq.id) continue
+        var plan = null
+        for (var j = 0; j < props.plans.length; j++) {
+          if (props.plans[j] && props.plans[j].id === prereq.id) {
+            plan = props.plans[j]
+            break
+          }
+        }
+        rows.push(
+          React.createElement(ConfigPrerequisiteRow, {
+            key: 'prereq-' + prereq.id,
+            prereq: prereq,
+            plan: plan,
+            onInstall: props.onInstall,
+          }),
+        )
+      }
+      return React.createElement(
+        'div',
+        { style: { marginTop: 6 } },
+        React.createElement(
+          'div',
+          { style: { fontSize: 12, fontWeight: 600, marginBottom: 2 } },
+          '运行依赖',
+        ),
+        rows,
+      )
+    }
+
+    function ConfigActions(props) {
+      return React.createElement(
+        'div',
+        { style: { display: 'flex', gap: 8, marginTop: 12 } },
+        React.createElement(
+          ConfigButton,
+          {
+            disabled: props.busy || props.installState === 'installing',
+            onClick: props.onRecheck,
+          },
+          props.installState === 'installing' ? '安装中…' : '重新检测',
+        ),
+      )
+    }
+
+    function ConfigBody(props) {
+      var core = props.core
+      var view = core.view
+      var capability = view.capability
+      var children = [React.createElement(ConfigHeader, { key: 'header' })]
+      if (view.error) {
+        children.push(
+          React.createElement(
+            'div',
+            { key: 'error', style: { color: '#d33', fontSize: 12, margin: '8px 0' } },
+            view.error,
+          ),
+        )
+      }
+      children.push(
+        React.createElement(ConfigSwitch, {
+          key: 'switch',
+          permission: view.permission,
+          busy: core.busy,
+          installState: props.installState,
+          onToggle: props.onToggle,
+        }),
+      )
+      if (view.permission.allowed && props.missing.length) {
+        children.push(
+          React.createElement(ConfigMissingBanner, {
+            key: 'missing-banner',
+            missing: props.missing,
+            onInstall: props.onInstall,
+            onDisable: props.onDisable,
+          }),
+        )
+      }
+      if (capability) {
+        children.push(
+          React.createElement(ConfigCapabilityStatus, {
+            key: 'capability',
+            capability: capability,
+          }),
+        )
+        children.push(
+          React.createElement(ConfigPrerequisites, {
+            key: 'prerequisites',
+            capability: capability,
+            plans: view.plans,
+            onInstall: props.onInstall,
+          }),
+        )
+      }
+      children.push(
+        React.createElement(ConfigActions, {
+          key: 'actions',
+          busy: core.busy,
+          installState: props.installState,
+          onRecheck: core.loadStatus,
+        }),
+      )
+      return React.createElement('div', null, children)
+    }
+
+    function ConfigModalShell(props) {
+      return React.createElement(
+        'div',
+        {
+          style: {
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            background: 'rgba(0,0,0,.42)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          },
+        },
+        React.createElement(
+          'div',
+          {
+            style: {
+              width: 'min(520px, 100%)',
+              maxHeight: '80vh',
+              overflow: 'auto',
+              padding: 18,
+              borderRadius: 10,
+              background: 'var(--dsh-bg, #1f1f23)',
+              color: 'var(--dsh-text, inherit)',
+              boxShadow: '0 12px 40px rgba(0,0,0,.35)',
+              fontSize: 13,
+            },
+          },
+          props.children,
+        ),
+      )
+    }
+
+    function ConfigInstallModal(props) {
+      var install = props.install
+      var lines = Array.isArray(install.lines) ? install.lines : []
+      return React.createElement(
+        ConfigModalShell,
+        null,
+        React.createElement(
+          'div',
+          { style: { fontWeight: 600, marginBottom: 8 } },
+          '正在安装 ' + String(install.label || install.planId || ''),
+        ),
+        React.createElement(
+          'div',
+          { style: { color: 'var(--dsh-text-secondary, #888)', fontSize: 12 } },
+          '安装命令运行期间请保持此窗口打开；完成后会自动重新检测依赖。',
+        ),
+        React.createElement(
+          'pre',
+          {
+            style: {
+              marginTop: 10,
+              padding: 8,
+              maxHeight: 220,
+              overflow: 'auto',
+              borderRadius: 6,
+              background: 'rgba(127,127,127,.12)',
+              fontSize: 11,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+            },
+          },
+          lines.length ? lines.join('\n') : '等待安装命令输出…',
+        ),
+      )
+    }
+
+    function ConfigPromptDetails(props) {
+      var prompt = props.prompt
+      var children = []
+      if (prompt.detail)
+        children.push(
+          React.createElement(
+            'div',
+            {
+              key: 'detail',
+              style: { fontSize: 12, color: 'var(--dsh-text-secondary, #888)', marginBottom: 8 },
+            },
+            String(prompt.detail),
+          ),
+        )
+      if (prompt.mode === 'missing' || prompt.mode === 'manual') {
+        var labels = []
+        for (var i = 0; i < (prompt.plans || []).length; i++) {
+          var item = prompt.plans[i]
+          if (item)
+            labels.push((item.label || item.id || '') + (item.reason ? '：' + item.reason : ''))
+        }
+        children.push(
+          React.createElement(
+            'div',
+            { key: 'list', style: { fontSize: 12, marginBottom: 8 } },
+            labels.map(function (line, index) {
+              return React.createElement('div', { key: 'missing-' + index }, line)
+            }),
+          ),
+        )
+      }
+      if (prompt.command)
+        children.push(
+          React.createElement(
+            'pre',
+            {
+              key: 'command',
+              style: {
+                margin: '8px 0',
+                padding: 8,
+                borderRadius: 6,
+                background: 'rgba(127,127,127,.12)',
+                fontSize: 11,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-all',
+              },
+            },
+            String(prompt.command),
+          ),
+        )
+      if (Array.isArray(prompt.steps) && prompt.steps.length) {
+        children.push(
+          React.createElement(
+            'div',
+            { key: 'steps', style: { fontSize: 12, marginTop: 6 } },
+            prompt.steps.map(function (step, index) {
+              return React.createElement(
+                'div',
+                { key: 'step-' + index, style: { marginTop: 4 } },
+                String(step.description || '') + (step.command ? '：' + String(step.command) : ''),
+              )
+            }),
+          ),
+        )
+      }
+      return children
+    }
+
+    function ConfigPromptActions(props) {
+      var prompt = props.prompt
+      var actions = []
+      var firstPlan = prompt.plans && prompt.plans[0]
+      if (
+        (prompt.mode === 'missing' || prompt.mode === 'failed') &&
+        firstPlan &&
+        firstPlan.supported &&
+        firstPlan.oneClick
+      ) {
+        actions.push(
+          React.createElement(
+            ConfigButton,
+            {
+              key: 'install',
+              primary: true,
+              onClick: function () {
+                props.onInstall(firstPlan, prompt.enableAfter === true)
+              },
+            },
+            prompt.mode === 'failed'
+              ? '重试安装'
+              : prompt.enableAfter === true
+                ? '安装并开启'
+                : '安装',
+          ),
+        )
+      }
+      if (prompt.mode === 'manual') {
+        actions.push(
+          React.createElement(
+            ConfigButton,
+            { key: 'recheck', primary: true, onClick: props.onRecheck },
+            '我已安装，重新检测',
+          ),
+        )
+      }
+      actions.push(
+        React.createElement(ConfigButton, { key: 'cancel', onClick: props.onCancel }, '暂不安装'),
+      )
+      if (props.permission.allowed) {
+        actions.push(
+          React.createElement(
+            ConfigButton,
+            { key: 'disable', onClick: props.onDisable },
+            '关闭 virtual-gui',
+          ),
+        )
+      }
+      return React.createElement(
+        'div',
+        { style: { display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' } },
+        actions,
+      )
+    }
+
+    function ConfigPromptModal(props) {
+      return React.createElement(
+        ConfigModalShell,
+        null,
+        React.createElement(
+          'div',
+          { style: { fontWeight: 600, marginBottom: 8 } },
+          props.prompt.title || 'virtual-gui',
+        ),
+        React.createElement(ConfigPromptDetails, { prompt: props.prompt }),
+        React.createElement(ConfigPromptActions, props),
+      )
+    }
+
+    function BlenderPluginConfigPage() {
+      var core = useVirtualGuiConfigCore()
+      var installState = core.view.install && core.view.install.state
+      var missing = missingVirtualGuiPlans(core.view.capability, core.view.plans)
+      useVirtualGuiInstallPolling(core, installState)
+      if (installState === 'installing') {
+        return React.createElement(
+          'div',
+          { style: { padding: '4px 0', width: '100%', boxSizing: 'border-box' } },
+          React.createElement(ConfigBody, {
+            core: core,
+            missing: missing,
+            installState: installState,
+            onToggle: function (next) {
+              toggleVirtualGuiPermission(core, next)
+            },
+            onInstall: function (plan, enableAfter) {
+              requestVirtualGuiInstall(core, plan, enableAfter)
+            },
+            onDisable: function () {
+              toggleVirtualGuiPermission(core, false)
+            },
+          }),
+          React.createElement(ConfigInstallModal, { install: core.view.install }),
+        )
+      }
+      if (core.prompt) {
+        return React.createElement(
+          'div',
+          { style: { padding: '4px 0', width: '100%', boxSizing: 'border-box' } },
+          React.createElement(ConfigBody, {
+            core: core,
+            missing: missing,
+            installState: installState,
+            onToggle: function (next) {
+              toggleVirtualGuiPermission(core, next)
+            },
+            onInstall: function (plan, enableAfter) {
+              requestVirtualGuiInstall(core, plan, enableAfter)
+            },
+            onDisable: function () {
+              toggleVirtualGuiPermission(core, false)
+            },
+          }),
+          React.createElement(ConfigPromptModal, {
+            prompt: core.prompt,
+            permission: core.view.permission,
+            onInstall: function (plan, enableAfter) {
+              requestVirtualGuiInstall(core, plan, enableAfter)
+            },
+            onRecheck: function () {
+              recheckVirtualGuiAfterManual(core)
+            },
+            onCancel: function () {
+              core.setPrompt(null)
+              core.pendingEnableRef.current = false
+            },
+            onDisable: function () {
+              core.setPrompt(null)
+              toggleVirtualGuiPermission(core, false)
+            },
+          }),
+        )
+      }
+      return React.createElement(
+        'div',
+        { style: { padding: '4px 0', width: '100%', boxSizing: 'border-box' } },
+        React.createElement(ConfigBody, {
+          core: core,
+          missing: missing,
+          installState: installState,
+          onToggle: function (next) {
+            toggleVirtualGuiPermission(core, next)
+          },
+          onInstall: function (plan, enableAfter) {
+            requestVirtualGuiInstall(core, plan, enableAfter)
+          },
+          onDisable: function () {
+            toggleVirtualGuiPermission(core, false)
+          },
+        }),
+      )
+    }
+
+    function BlenderPluginConfigPanel(props) {
+      if (props && props.view === 'summary') return React.createElement(BlenderPluginConfigSummary)
+      return React.createElement(BlenderPluginConfigPage)
+    }
+
     function BlenderPresencePanel() {
-      var state = React.useState({ loading: true, error: null, sessions: [] })
+      var state = React.useState({
+        loading: true,
+        error: null,
+        sessions: [],
+        virtualGui: {
+          total: 0,
+          userGui: 0,
+          virtualGui: 0,
+          enabled: true,
+          ready: false,
+          missing: [],
+          reason: '',
+        },
+      })
       var view = state[0]
       var setView = state[1]
+      var permissionState = React.useState({
+        loaded: false,
+        allowed: false,
+        source: 'config',
+        saving: false,
+        error: null,
+      })
+      var permission = permissionState[0]
+      var setPermission = permissionState[1]
+
+      function readPermission(alive) {
+        if (!presenceRpc) {
+          setPermission(function (prev) {
+            return Object.assign({}, prev, { loaded: true, error: 'DSH 连接服务不可用' })
+          })
+          return
+        }
+        presenceRpc('/dsh-blender', 'permission', { op: 'status' })
+          .then(function (res) {
+            if (!alive) return
+            if (res && res.ok && res.value) {
+              setPermission(function (prev) {
+                if (prev.saving) return prev
+                return {
+                  loaded: true,
+                  allowed: res.value.allowed === true,
+                  source: String(res.value.source || 'config'),
+                  saving: false,
+                  error: null,
+                }
+              })
+              return
+            }
+            setPermission(function (prev) {
+              if (prev.saving) return prev
+              return Object.assign({}, prev, {
+                loaded: true,
+                saving: false,
+                error: (res && res.error && res.error.message) || '无法读取 virtual-gui 授权状态',
+              })
+            })
+          })
+          .catch(function (e) {
+            if (!alive) return
+            setPermission(function (prev) {
+              return Object.assign({}, prev, {
+                loaded: true,
+                saving: false,
+                error: errText(e),
+              })
+            })
+          })
+      }
+
       React.useEffect(function () {
         var alive = true
         function load() {
           fetchJSON(backend() + '/host/state', { cache: 'no-store' }).then(function (r) {
             if (!alive) return
             if (!r.ok || !r.body) {
-              setView({ loading: false, error: r.error || 'Gateway 不可达', sessions: [] })
+              setView({
+                loading: false,
+                error: r.error || 'Gateway 不可达',
+                sessions: [],
+                virtualGui: virtualGuiCounts(null),
+              })
               return
             }
             setView({
               loading: false,
               error: null,
               sessions: (r.body.presence && r.body.presence.sessions) || [],
+              virtualGui: virtualGuiCounts(r.body),
             })
           })
+          readPermission(alive)
         }
         load()
         var timer = window.setInterval(load, PRESENCE_POLL_MS)
@@ -770,6 +1926,33 @@ window.__ModuleLoader__.load({
           window.clearInterval(timer)
         }
       }, [])
+
+      function togglePermission(next) {
+        if (!presenceRpc || permission.saving) return
+        setPermission(Object.assign({}, permission, { saving: true, error: null }))
+        presenceRpc('/dsh-blender', 'permission', { op: 'set', allow: next })
+          .then(function (res) {
+            if (res && res.ok && res.value) {
+              setPermission({
+                loaded: true,
+                allowed: res.value.allowed === true,
+                source: String(res.value.source || 'runtime'),
+                saving: false,
+                error: null,
+              })
+              return
+            }
+            setPermission(
+              Object.assign({}, permission, {
+                saving: false,
+                error: (res && res.error && res.error.message) || '无法更新 virtual-gui 授权',
+              }),
+            )
+          })
+          .catch(function (e) {
+            setPermission(Object.assign({}, permission, { saving: false, error: errText(e) }))
+          })
+      }
 
       var rows = presenceRowsFromState({ presence: { sessions: view.sessions } })
       var children = []
@@ -788,10 +1971,101 @@ window.__ModuleLoader__.load({
           React.createElement(
             'span',
             { style: { color: 'var(--dsh-text-secondary, #888)', fontSize: 12 } },
-            rows.length + ' 个 agent',
+            rows.length +
+              ' 个 agent · ' +
+              view.virtualGui.total +
+              ' 个 GUI Blender' +
+              (view.virtualGui.total
+                ? '（user-gui ' +
+                  view.virtualGui.userGui +
+                  ' · virtual-gui ' +
+                  view.virtualGui.virtualGui +
+                  '）'
+                : ''),
           ),
         ),
       )
+      children.push(
+        React.createElement(
+          'div',
+          {
+            key: 'permission',
+            style: {
+              padding: '10px 0 12px',
+              marginBottom: 6,
+              borderBottom: '1px solid var(--dsh-border, rgba(127,127,127,.18))',
+            },
+          },
+          React.createElement(
+            'label',
+            {
+              key: 'toggle',
+              style: {
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: 13,
+                cursor: 'pointer',
+              },
+            },
+            React.createElement('input', {
+              key: 'checkbox',
+              type: 'checkbox',
+              checked: permission.allowed,
+              disabled: !presenceRpc || permission.saving,
+              onChange: function (e) {
+                togglePermission(!!(e && e.target && e.target.checked))
+              },
+            }),
+            React.createElement(
+              'span',
+              { key: 'label' },
+              '允许 agent 启动 virtual-gui（本机虚拟 Blender 窗口）',
+            ),
+          ),
+          React.createElement(
+            'div',
+            {
+              key: 'hint',
+              style: {
+                marginTop: 4,
+                marginLeft: 24,
+                fontSize: 11,
+                color: permission.error ? '#d33' : 'var(--dsh-text-secondary, #888)',
+              },
+            },
+            permission.error
+              ? permission.error
+              : permission.saving
+                ? '正在更新…'
+                : presenceRpc
+                  ? '默认由插件配置 allowVirtualGui 决定；此开关只影响当前 DSH 进程。'
+                  : 'DSH 连接服务不可用，开关禁用；默认不允许。',
+          ),
+        ),
+      )
+      if (view.permission.allowed && view.virtualGui.missing.length) {
+        children.push(
+          React.createElement(
+            'div',
+            {
+              key: 'missing-deps',
+              style: {
+                color: '#9a6700',
+                background: 'rgba(210,153,34,.12)',
+                border: '1px solid rgba(210,153,34,.35)',
+                borderRadius: 6,
+                padding: '8px 10px',
+                fontSize: 12,
+                marginBottom: 12,
+              },
+            },
+            'virtual-gui 缺少依赖：' +
+              view.virtualGui.missing.join('、') +
+              '。到 DSH Plugins → Blender 配置页安装，或关闭 virtual-gui。',
+          ),
+        )
+      }
       if (view.error) {
         children.push(
           React.createElement(
@@ -825,7 +2099,9 @@ window.__ModuleLoader__.load({
                 borderBottom: '1px solid var(--dsh-border, rgba(127,127,127,.18))',
               },
             },
-            React.createElement(PresenceDot, { color: row.color }),
+            React.createElement(PresenceDot, {
+              color: row.isVirtualGui ? VIRTUAL_GUI_COLOR : row.color,
+            }),
             React.createElement(
               'div',
               { style: { minWidth: 0, flex: '1 1 auto' } },
@@ -838,6 +2114,7 @@ window.__ModuleLoader__.load({
                 'div',
                 { style: { fontSize: 11, color: 'var(--dsh-text-secondary, #888)', marginTop: 2 } },
                 (row.viewpoint ? row.viewpoint + ' · ' : '') +
+                  (row.observation === 'current' ? 'observation current · ' : 'no observation · ') +
                   row.activity +
                   ' · ' +
                   formatPresenceTime(row.lastActivityAt),
@@ -846,7 +2123,28 @@ window.__ModuleLoader__.load({
             React.createElement(
               'div',
               { style: { fontSize: 11, color: 'var(--dsh-text-secondary, #888)' }, title: row.id },
-              row.sessionKind + (row.instanceId ? ' · ' + row.instanceId.slice(0, 8) : ''),
+              row.isVirtualGui
+                ? React.createElement(
+                    'span',
+                    {
+                      style: {
+                        display: 'inline-block',
+                        padding: '1px 6px',
+                        marginBottom: 2,
+                        borderRadius: 999,
+                        color: '#fff',
+                        background: VIRTUAL_GUI_COLOR,
+                        fontSize: 10,
+                      },
+                    },
+                    'virtual-gui',
+                  )
+                : null,
+              React.createElement(
+                'div',
+                null,
+                row.sessionKind + (row.instanceId ? ' · ' + row.instanceId.slice(0, 8) : ''),
+              ),
             ),
           ),
         )
@@ -869,6 +2167,20 @@ window.__ModuleLoader__.load({
       if (started) return
       started = true
       configuredBackend = resolveConfiguredBackend(ctx)
+
+      // Blender Presence 的 virtual-gui 授权开关走 DSH 认证 RPC：只有人类浏览器
+      // 能调到这个端点，Blender 内的 Python 拿不到浏览器 cookie。
+      ctx.inject(['connection'], function (scope) {
+        var connection = serviceOf(scope, 'connection')
+        if (!connection || !connection.rpc || typeof connection.rpc.call !== 'function') return
+        var call = function (channel, endpoint, payload) {
+          return connection.rpc.call(channel, endpoint, payload)
+        }
+        presenceRpc = call
+        scope.effect(function () {
+          if (presenceRpc === call) presenceRpc = null
+        }, 'dsh-blender-plugin: virtual-gui permission RPC')
+      })
 
       var SelectionBridge = makeSelectionBridge()
 
@@ -938,6 +2250,20 @@ window.__ModuleLoader__.load({
           BlenderPresencePanel,
         )
       })
+      // ④ DSH Plugins 页的 Blender 配置卡（依赖检测/安装询问/安装进度）
+      ctx.slots.inject('plugins.item', function () {
+        return ctx.slots.register(
+          {
+            name: 'plugins.item',
+            id: PLUGIN_CONFIG_ID,
+            order: 60,
+            label: function () {
+              return 'Blender'
+            },
+          },
+          BlenderPluginConfigPanel,
+        )
+      })
       ctx.inject(['commandUi'], function (scope) {
         var commandUi = typeof scope.get === 'function' ? scope.get('commandUi') : undefined
         if (!commandUi || typeof commandUi.register !== 'function') return
@@ -998,6 +2324,8 @@ window.__ModuleLoader__.load({
       PRESENCE_TAB_KIND: PRESENCE_TAB_KIND,
       presenceRowsFromState: presenceRowsFromState,
       formatPresenceTime: formatPresenceTime,
+      missingVirtualGuiPlans: missingVirtualGuiPlans,
+      virtualGuiCounts: virtualGuiCounts,
     }
     return module.exports
   },

@@ -26,6 +26,10 @@ const READY_TIMEOUT_MS = 15_000
 const READY_GRACE_MS = 750
 const STOP_TIMEOUT_MS = 10_000
 const LOG_LINES = 80
+// Provider instances are created per virtual-gui start, so a reservation must be
+// process-wide: two concurrent starts must not pick the same :N before either
+// Xvfb has created its socket (the per-instance usedDisplays set cannot see them).
+const RESERVED_DISPLAYS = new Set<number>()
 const XVFB_FIX =
   'Ubuntu/Debian: sudo apt install xvfb; Fedora: sudo dnf install xorg-x11-server-Xvfb'
 const BLENDER_FIX = 'set DSH_BLENDER_EXE or install Blender 4.2.10 LTS'
@@ -340,13 +344,20 @@ export class LinuxXvfbVirtualGlProvider implements DisplayProvider {
   private pickDisplay(): number {
     let number = this.options.displayBase || 90
     while (
+      RESERVED_DISPLAYS.has(number) ||
       this.usedDisplays.has(number) ||
       this.exists(lockPath(number)) ||
       this.exists(displayPath(number))
     )
       number += 1
+    RESERVED_DISPLAYS.add(number)
     this.usedDisplays.add(number)
     return number
+  }
+
+  private releaseDisplay(number: number): void {
+    this.usedDisplays.delete(number)
+    RESERVED_DISPLAYS.delete(number)
   }
 
   private displayReady(display: string, xvfb: ChildProcess): Promise<boolean> {
@@ -419,7 +430,13 @@ export class LinuxXvfbVirtualGlProvider implements DisplayProvider {
       this.options.spawnImpl || ((command, args, options) => spawn(command, args, options))
     const stdout: string[] = []
     const stderr: string[] = []
-    const xvfb = spawnFn(spec.xvfb.command, spec.xvfb.args, spec.xvfb.options)
+    let xvfb: ChildProcess
+    try {
+      xvfb = spawnFn(spec.xvfb.command, spec.xvfb.args, spec.xvfb.options)
+    } catch (error) {
+      this.releaseDisplay(Number(spec.display.slice(1)))
+      throw error
+    }
     attachLines(xvfb, (line, stream) => {
       if (line) pushTail(stream === 'stdout' ? stdout : stderr, '[xvfb] ' + line)
       this.options.onOutput?.(line, stream)
@@ -428,10 +445,17 @@ export class LinuxXvfbVirtualGlProvider implements DisplayProvider {
       await this.displayReady(spec.display, xvfb)
     } catch (error) {
       signalTree(xvfb, 'SIGKILL', this.options.signalGroup)
-      this.usedDisplays.delete(Number(spec.display.slice(1)))
+      this.releaseDisplay(Number(spec.display.slice(1)))
       throw error
     }
-    const blender = spawnFn(spec.blender.command, spec.blender.args, spec.blender.options)
+    let blender: ChildProcess
+    try {
+      blender = spawnFn(spec.blender.command, spec.blender.args, spec.blender.options)
+    } catch (error) {
+      signalTree(xvfb, 'SIGKILL', this.options.signalGroup)
+      this.releaseDisplay(Number(spec.display.slice(1)))
+      throw error
+    }
     attachLines(blender, (line, stream) => {
       if (line) pushTail(stream === 'stdout' ? stdout : stderr, line)
       this.options.onOutput?.(line, stream)
@@ -441,7 +465,7 @@ export class LinuxXvfbVirtualGlProvider implements DisplayProvider {
     } catch (error) {
       signalTree(blender, 'SIGKILL', this.options.signalGroup)
       signalTree(xvfb, 'SIGKILL', this.options.signalGroup)
-      this.usedDisplays.delete(Number(spec.display.slice(1)))
+      this.releaseDisplay(Number(spec.display.slice(1)))
       throw error
     }
     const id = 'display_' + ++this.counter
@@ -471,8 +495,17 @@ export class LinuxXvfbVirtualGlProvider implements DisplayProvider {
     return handle
   }
 
-  private cleanupDisplay(number: number): void {
-    this.usedDisplays.delete(number)
+  private cleanupDisplay(number: number, xvfbPid: number | null | undefined): void {
+    this.releaseDisplay(number)
+    // Never unlink another Xvfb's socket/lock: only clean files whose lock pid is ours.
+    let lockPid: number | null
+    try {
+      const parsed = Number.parseInt(fs.readFileSync(lockPath(number), 'utf8').trim(), 10)
+      lockPid = Number.isFinite(parsed) ? parsed : null
+    } catch (e) {
+      lockPid = null
+    }
+    if (lockPid !== null && lockPid !== (xvfbPid || -1)) return
     for (const file of [displayPath(number), lockPath(number)]) {
       try {
         if (fs.existsSync(file)) fs.unlinkSync(file)
@@ -496,7 +529,7 @@ export class LinuxXvfbVirtualGlProvider implements DisplayProvider {
     if (!blenderExit) signalTree(record.blender, 'SIGKILL', this.options.signalGroup)
     if (!xvfbExit) signalTree(record.xvfb, 'SIGKILL', this.options.signalGroup)
     await Promise.all([waitExit(record.blender, 1000), waitExit(record.xvfb, 1000)])
-    this.cleanupDisplay(record.number)
+    this.cleanupDisplay(record.number, record.xvfb.pid)
   }
 
   async health(instance: DisplayInstance): Promise<DisplayHealth> {

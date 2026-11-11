@@ -53,6 +53,19 @@ describe('view route metadata header', () => {
     expect(out.frame).toBe(1)
   })
 
+  it('labels a custom capture as custom while camera keeps its mode', () => {
+    const custom = decode(
+      viewHeader({
+        mode: 'current',
+        matrix: {},
+        spec: { mode: 'viewport', from: [1, 2, 3], look_at: [0, 0, 0] },
+      }),
+    )
+    expect(custom.viewpoint).toBe('custom')
+    const camera = decode(viewHeader({ mode: 'camera', matrix: {}, spec: { mode: 'camera' } }))
+    expect(camera.viewpoint).toBe('camera')
+  })
+
   it('keeps the encoded header bounded', () => {
     const long = 'x'.repeat(9000)
     const header = viewHeader({ mode: long, warning: long })

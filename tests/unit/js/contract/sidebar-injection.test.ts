@@ -9,7 +9,9 @@ import { pkgPath } from '../../../helpers/pkg'
 // `slots`, `sidebarRight` and `sidebarRightTabs` are hard dependencies;
 // inputTriggers and commandUi stay optional.
 
-const BUNDLE = pkgPath('lib', 'client.js')
+// The client bundle is a verbatim copy of the hand-written source; test the
+// source so the suite does not depend on a stale build artifact under lib/.
+const BUNDLE = pkgPath('src', 'client', 'index.js')
 
 function loadModule() {
   let entry: any
@@ -28,7 +30,7 @@ function loadModule() {
   })
 }
 
-function makeHost(withTriggers: boolean, withCommandUi = false) {
+function makeHost(withTriggers: boolean, withCommandUi = false, connection?: any) {
   const panels: Array<{ slot: string; options: any; component: any }> = []
   const sources: any[] = []
   const effects: Array<{ callback: () => any; name?: string }> = []
@@ -89,12 +91,24 @@ function makeHost(withTriggers: boolean, withCommandUi = false) {
         })
         return
       }
+      if (name === 'connection') {
+        if (!connection) return
+        callback({
+          get: (key: string) => (key === 'connection' ? connection : undefined),
+          effect(callback: () => any) {
+            return callback()
+          },
+        })
+        return
+      }
       assert.fail('unexpected optional service: ' + name)
     },
     slots: {
       inject(name: string, callback: () => any) {
         assert.ok(
-          name === 'conversation.input.dock' || name === 'sidebar.right.pane.tab',
+          name === 'conversation.input.dock' ||
+            name === 'sidebar.right.pane.tab' ||
+            name === 'plugins.item',
           'unexpected slot: ' + name,
         )
         return callback()
@@ -143,6 +157,12 @@ describe('optional client services', () => {
     expect(body).toBeTruthy()
     expect(body!.options.key).toBe('blender-presence')
     expect(body!.component).toBeTruthy()
+
+    const config = host.panels.find((panel) => panel.slot === 'plugins.item')
+    expect(config).toBeTruthy()
+    expect(config!.options.id).toBe('blender')
+    expect(config!.options.order).toBe(60)
+    expect(config!.component).toBeTruthy()
     expect(host.panels.some((panel) => panel.slot === 'main')).toBe(false)
     expect(host.panels.some((panel) => panel.slot === 'sidebar.panellist')).toBe(false)
 
@@ -163,6 +183,20 @@ describe('optional client services', () => {
     expect(definition.guide[0]).toMatchObject({ id: 'presence', order: 40 })
     expect(definition.guide[0].icon).toBeTypeOf('function')
     expect(host.sources).toEqual([])
+  })
+
+  it('accepts the authenticated connection service used by the virtual-gui switch', () => {
+    const mod = loadModule()
+    const connection = {
+      rpc: {
+        call: async () => ({
+          ok: true,
+          value: { allowed: false, source: 'config', updatedAt: null },
+        }),
+      },
+    }
+    const host = makeHost(false, false, connection)
+    expect(() => mod.apply(host.ctx)).not.toThrow()
   })
 
   it('registers the @ mention source when inputTriggers arrives', () => {
@@ -221,6 +255,52 @@ describe('optional client services', () => {
       displayName: 'agent-main',
       activity: 'see:viewport',
       viewpoint: 'viewport',
+      observation: 'current',
+      isVirtualGui: false,
+    })
+    const virtualGuiRows = mod.__selftest.presenceRowsFromState({
+      presence: {
+        sessions: [
+          {
+            id: 'virtual-gui:inst-2',
+            kind: 'virtual-gui',
+            instanceId: 'inst-2',
+            agents: [{ id: 'vg', shortId: 'A' + '2', displayName: 'vg-agent' }],
+          },
+        ],
+      },
+    })
+    expect(virtualGuiRows[0].isVirtualGui).toBe(true)
+    const noObservation = mod.__selftest.presenceRowsFromState({
+      presence: { sessions: [{ id: 's', kind: 'user-gui', agents: [{ id: 'a' }] }] },
+    })
+    expect(noObservation[0]).toMatchObject({ observation: 'none' })
+    const requiredMissing = mod.__selftest.missingVirtualGuiPlans(
+      {
+        missing: ['xvfb', 'virtualgl'],
+        prerequisites: [{ id: 'xvfb' }, { id: 'virtualgl', optional: true }],
+      },
+      [
+        { id: 'xvfb', ok: false },
+        { id: 'virtualgl', ok: false },
+      ],
+    )
+    expect(requiredMissing.map((plan: any) => plan.id)).toEqual(['xvfb'])
+    expect(
+      mod.__selftest.virtualGuiCounts({
+        virtualGui: {
+          total: 2,
+          userGui: 1,
+          virtualGui: 1,
+          missing: ['virtualgl'],
+          missingRequired: [],
+        },
+      }).missing,
+    ).toEqual([])
+    expect(mod.__selftest.virtualGuiCounts({ virtualGui: { guiConnections: 2 } })).toMatchObject({
+      total: 2,
+      userGui: 2,
+      virtualGui: 0,
     })
     expect(mod.__selftest.formatPresenceTime(0)).toBe('—')
     expect(mod.__selftest.formatPresenceTime(1760000000000)).not.toBe('—')
@@ -231,11 +311,11 @@ describe('optional client services', () => {
     const host = makeHost(false)
     mod.apply(host.ctx)
     mod.apply(host.ctx)
-    expect(host.panels).toHaveLength(2)
+    expect(host.panels).toHaveLength(3)
     const reset = host.effects.find((effect) => String(effect.name).includes('reset apply guard'))
     expect(reset).toBeTruthy()
     reset!.callback()()
     mod.apply(host.ctx)
-    expect(host.panels).toHaveLength(4)
+    expect(host.panels).toHaveLength(6)
   })
 })

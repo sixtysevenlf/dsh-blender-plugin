@@ -37,7 +37,7 @@ function mat4(v: unknown): number[][] | undefined {
   return rows
 }
 
-function poseFromMeta(
+export function poseFromMeta(
   mt: Record<string, unknown>,
   viewpoint: string,
   extra: Record<string, unknown> = {},
@@ -87,6 +87,7 @@ export async function captureCamera(
       },
       180000,
       instanceId,
+      sessionId,
     )
   } catch (e: unknown) {
     const msg = failureFromView(e)
@@ -133,7 +134,7 @@ export async function captureFull(
   const area = Number(plan.area) || 0
   let fr
   try {
-    fr = await fetchFrame(port, DEFAULT_WIDTH, true, area, instanceId)
+    fr = await fetchFrame(port, DEFAULT_WIDTH, true, area, instanceId, sessionId)
   } catch (e: unknown) {
     return toolError('backend_error', 'SEE full 失败 · ' + text(failureFromView(e)), BACKEND_HINT)
   }
@@ -204,7 +205,7 @@ export async function captureView(
   const spec = viewSpec(plan)
   let fv
   try {
-    fv = await fetchView(port, spec, 180000, instanceId)
+    fv = await fetchView(port, spec, 180000, instanceId, sessionId)
   } catch (e: unknown) {
     return toolError(
       'backend_error',

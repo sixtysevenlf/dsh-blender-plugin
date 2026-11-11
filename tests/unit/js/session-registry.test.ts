@@ -46,6 +46,16 @@ describe('3.1 GUI session registry', () => {
     expect((r.session.agents as unknown[]).length).toBe(1)
   })
 
+  it('counts every ready GUI Blender window, split by kind', () => {
+    const { registry } = setup([
+      { instanceId: 'gui-1', kind: 'user-gui', ready: true },
+      { instanceId: 'gui-2', kind: 'user-gui', ready: false },
+      { instanceId: 'vgui-1', kind: 'virtual-gui', ready: true },
+    ])
+    expect(registry.guiConnectionCounts()).toEqual({ total: 2, userGui: 1, virtualGui: 1 })
+    expect(registry.guiConnections()).toBe(2)
+  })
+
   it('lists every session visible to one caller instead of only the first', () => {
     const { registry } = setup([
       { instanceId: 'inst-1', ready: true },
@@ -282,6 +292,37 @@ describe('3.1 GUI session registry', () => {
     expect(registry.attach(otherSession()).ok).toBe(false)
   })
 
+  it('does not let a subagent heartbeat or extend the owner lease', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-11-08T00:00:00Z'))
+    const { registry } = setup()
+    expect(registry.attach(main()).ok).toBe(true)
+    expect(registry.attach(sub()).ok).toBe(true)
+    const attached = registry.attach(main())
+    if (!attached.ok) return
+    const sessionId = String(attached.session.id)
+    vi.advanceTimersByTime(60_000)
+    const beat = registry.heartbeat(sub())
+    expect(beat.ok).toBe(false)
+    if (beat.ok) return
+    expect(beat.code).toBe('session_in_use')
+    // A status call from the subagent must not refresh the main owner's lease.
+    expect(registry.status(sub(), sessionId).ok).toBe(true)
+    vi.advanceTimersByTime(61_000)
+    expect(registry.attach(otherSession()).ok).toBe(true)
+  })
+
+  it('does not refresh the owner lease when a subagent attaches', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-11-08T00:00:00Z'))
+    const { registry } = setup()
+    expect(registry.attach(main()).ok).toBe(true)
+    vi.advanceTimersByTime(60_000)
+    expect(registry.attach(sub()).ok).toBe(true)
+    vi.advanceTimersByTime(61_000)
+    expect(registry.attach(otherSession()).ok).toBe(true)
+  })
+
   it('lets an attached caller reclaim writes after the owner TTL', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-11-08T00:00:00Z'))
@@ -401,5 +442,93 @@ describe('3.1 GUI session registry', () => {
     expect(doctor.ok).toBe(true)
     if (!doctor.ok) return
     expect(doctor.readiness.ready).toBe(false)
+  })
+
+  it('refuses to make a subagent the owner when it claims first', () => {
+    const { registry } = setup()
+    const r = registry.attach(sub())
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.code).toBe('owner_required')
+    expect(registry.list()).toEqual([])
+  })
+
+  it('refreshes the owner heartbeat on a status call', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-11-08T00:00:00Z'))
+    const { registry } = setup()
+    expect(registry.attach(main()).ok).toBe(true)
+    vi.advanceTimersByTime(60_000)
+    expect(registry.status(main()).ok).toBe(true)
+    vi.advanceTimersByTime(90_000)
+    expect(registry.attach(otherSession()).ok).toBe(false)
+  })
+
+  it('refreshes a grant TTL on an authorized write', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-11-08T00:00:00Z'))
+    const { registry } = setup()
+    const attached = registry.attach(main())
+    expect(attached.ok).toBe(true)
+    if (!attached.ok) return
+    const sessionId = String(attached.session.id)
+    expect(registry.attach(sub()).ok).toBe(true)
+    expect(registry.grant(main(), sessionId, ['collection:COL_A'], sub()).ok).toBe(true)
+    vi.advanceTimersByTime(20_000)
+    expect(registry.authorizeWrite(sub(), sessionId, ['collection:COL_A']).ok).toBe(true)
+    vi.advanceTimersByTime(20_000)
+    // 20s since the last write: a 30s grant that was not refreshed would have
+    // expired at t=30s. The write above must have renewed it.
+    expect(registry.authorizeWrite(sub(), sessionId, ['collection:COL_A']).ok).toBe(true)
+  })
+
+  it('keeps the Python lock when the owner heartbeat expires', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-11-08T00:00:00Z'))
+    const { registry } = setup()
+    const attached = registry.attach(main())
+    expect(attached.ok).toBe(true)
+    if (!attached.ok) return
+    const sessionId = String(attached.session.id)
+    expect(registry.attach(sub()).ok).toBe(true)
+    expect((await registry.beginPy(main(), sessionId)).ok).toBe(true)
+    vi.advanceTimersByTime(121_000)
+    const status = registry.status(main(), sessionId)
+    expect(status.ok).toBe(true)
+    if (!status.ok) return
+    expect(status.session.activePy).not.toBeNull()
+    const timeout = registry.timeoutPy(main(), sessionId)
+    expect(timeout.ok).toBe(false)
+    if (timeout.ok) return
+    expect(timeout.code).toBe('py_still_running')
+  })
+
+  it('expires a transient notice after its bounded lifetime', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-11-08T00:00:00Z'))
+    const { registry } = setup()
+    const attached = registry.attach(main())
+    expect(attached.ok).toBe(true)
+    if (!attached.ok) return
+    const sessionId = String(attached.session.id)
+    expect(registry.notice(main(), sessionId, 'full capture').ok).toBe(true)
+    vi.advanceTimersByTime(16_000)
+    const status = registry.status(main(), sessionId)
+    expect(status.ok).toBe(true)
+    if (!status.ok) return
+    expect(status.session.notice).toBeNull()
+  })
+
+  it('does not let a subagent grant or revoke scopes', () => {
+    const { registry } = setup()
+    const attached = registry.attach(main())
+    expect(attached.ok).toBe(true)
+    if (!attached.ok) return
+    const sessionId = String(attached.session.id)
+    expect(registry.attach(sub()).ok).toBe(true)
+    const denied = registry.grant(sub(), sessionId, ['exclusive'])
+    expect(denied.ok).toBe(false)
+    if (denied.ok) return
+    expect(denied.code).toBe('scope_forbidden')
   })
 })

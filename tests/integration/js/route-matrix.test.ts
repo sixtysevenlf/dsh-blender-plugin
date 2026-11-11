@@ -1174,7 +1174,7 @@ const LEASE_SPECS: Record<string, LeaseSpec> = {
   '/frame.png': { kind: 'exempt', method: 'GET', expected: 200 },
   '/act': { kind: 'gated', write: { code: 'x = 1' } },
   '/commands': { kind: 'exempt', method: 'GET', expected: 200 },
-  '/cmd': { kind: 'gated', write: { name: 'ping' } },
+  '/cmd': { kind: 'gated', write: { name: 'execute_code' } },
   '/loop': { kind: 'gated', write: { op: 'start' }, read: { op: 'status' } },
   '/perf': { kind: 'gated', write: { op: 'bench' }, read: { op: 'status' } },
   '/opt': { kind: 'gated', write: { op: 'join' }, read: { op: 'opt_analyze' } },

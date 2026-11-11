@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 新功能（virtual-gui 配置页与依赖安装）：DSH Plugins 页新增 Blender 配置卡（`plugins.item`），集中管理 virtual-gui 许可与运行依赖。打开开关时先读 `/doctor` 的 `virtualGui` 能力；缺必需依赖就弹窗询问是否安装，拒绝则保持关闭；一键计划显示“正在安装”并轮询安装进度与输出，手动计划给出命令与步骤并要求“我已安装，重新检测”；安装成功后复检、就绪才写入许可。功能已开启但依赖后来缺失时，配置页与 Blender Presence 面板都显示缺依赖警告，提供“安装缺失依赖 / 关闭 virtual-gui”，不静默。安装命令仍只来自 Gateway 的 `installPlans`，宿主只执行展示过的一键 argv。Blender Presence 的 GUI 计数改为 user-gui + virtual-gui 全部 ready 连接（排除 headless），并按类型拆分；presence 行里的 virtual-gui agent 用紫色圆点与 `virtual-gui` 标签。回归：`tests/unit/js/virtual-gui-panel.test.ts`、`virtual-gui-permission.test.ts`、`contract/sidebar-injection.test.ts`、`session-registry.test.ts`。
 - 新功能（dsh-TUI presence 列表）：TUI 新增 `/blender presence`，读 `/host/state` 输出 agent 短号、显示名、观察类型（camera / viewport / custom 等）、最近活动和 session 实例，无 agent 时输出空状态；不注册 TUI 侧栏、不自动注入对话。同步把 `agent-presence-v2` 规格中「MUST NOT be rendered inline in the TUI conversation」改为「不得自动注入，允许用户显式命令输出」，并更新 README、契约 §S6 与任务 4.4。回归：`tests/integration/js/tui-commands.test.ts` 新增 presence 表格、空列表、后端不可达三个用例。
 - 新功能（agent presence v2）：每次 `blender_see` 成功后冻结观察位姿，viewport 观察也会留下蓝色视锥（用户之后移动视口不会跟着动）；视锥由捕获时的 projection 矩阵反投影生成，1:1 / 16:9、透视 / 正交、lens / sensor fit 与截图一致。Gateway 为每个 agent 分配稳定 id（sha1 前 12 位）和 A1..A8 短号；Blender 偏好可改默认色，按颜色/按 ID 区分默认分别为关/开。Blender N 面板新增 presence 列表（短号、名称、最近活动、逐行隐藏开关），DSH 右侧栏新增 `Blender Presence` tab（引导页有入口）和 `/blender-presence` 命令；`full=true` 只在状态栏提示、不覆盖既有位姿。另修复 `instanceId` 未透传到 `/act`、`/view`、`/frame` 与 kernel 注入缓存按实例分键，多个 Blender 实例同时连接时不再一律报 ambiguity。
 - 行为修复（agent presence 视锥从不显示）：`presence_draw._draw_lines` 一直用 `GPUVertBuf(len=…, format="3f")`，而 4.2 / 4.5 / 5.2 的签名都要求 `GPUVertFormat`，抛出的 `TypeError` 又被外层 `except Exception: return` 吞掉，于是视锥与选中包围盒从未被真正绘制。现改为 `GPUVertFormat() + attr_add(id="pos", comp_type=…, len=3, fetch_mode="FLOAT")`，并在 4.2 GUI 实机确认视口出现 agent 视锥。同一处还补齐了两条数据通路：`_camera_world()` 能从 host 发布的 world→view 4x4 `viewMatrix` 反解相机位姿（camera 视图原本没有 from/lookAt，`_frustum` 直接 return），`_rotation()` 接受 4x4 矩阵；绘制失败不再完全静默（每个进程只提示一次 `[presence] draw disabled after error`）；host 侧 `see` 的 camera 发布补上 `from/lookAt/lens`，custom 发布把 `"x,y,z"` 字符串归一化为三元数组（后端 `_spec()` 同步归一化，顺带修掉 custom `blender_see` 的 `could not convert string to float: ','` 502）。回归：`tests/unit/python/test_addon_presence_draw.py`（8 例）、新增 `tests/unit/js/see-pose.test.ts`（3 例）、`tests/e2e/addon_presence_draw.mjs` 新增 camera 4x4 姿态快照断言。
@@ -19,7 +20,7 @@
 
 ### 3.1 extension 目录、双语 README 与双许可声明
 
-- 目录与脚本统一改名：仓库 `addon/` → `extension/`；npm scripts 改为 `build:extension` / `check:extension` / `typecheck:extension` / `test:extension-unit`，构建脚本改为 `scripts/build-extension.mjs`，typed-core pyright 配置改为 `pyrightconfig.extension.json`；CI（PR/release workflow）、契约测试、覆盖率/函数预算/例外配置、E2E 与文档路径全部同步。扩展 zip 仍为单包根 `dsh_blender_bridge/`，重建后 76 entries / sha256 `52737662cc99e59f0fbc4cbc9c9908bc7456ac15329187cbd6a6aa4b8e84d579`；命令、协议与工具计数不变（25 registered / 26 wire、protocol 12、6 tools）。
+- 目录与脚本统一改名：仓库 `addon/` → `extension/`；npm scripts 改为 `build:extension` / `check:extension` / `typecheck:extension` / `test:extension-unit`，构建脚本改为 `scripts/build-extension.mjs`，typed-core pyright 配置改为 `pyrightconfig.extension.json`；CI（PR/release workflow）、契约测试、覆盖率/函数预算/例外配置、E2E 与文档路径全部同步。扩展 zip 仍为单包根 `dsh_blender_bridge/`，presence 几何拆分（`presence_frustum.py`）与 pause-safe 只读取景后重建为 77 entries / sha256 `fc17ce2145e9efc81ad6ee8d1da538b8545f22bf3db2125ea8e1516fda15c3f8`；命令、协议与工具计数不变（25 registered / 26 wire、protocol 12、6 tools）。
 - 双语 README：新增 `extension/README.md`（English，安装前必读：Install from Disk、许可证、构建与验证）与 `extension/README.zh.md`（中文，原 addon/README 内容迁移并更新为 extension 口径）；两份互相链接，安装命令统一为 `Edit ▸ Preferences ▸ Extensions ▸ Install from Disk`。
 - 双许可落仓库：DSH 宿主插件为 BSD-3-Clause（根 `LICENSE`）；随包 Blender 扩展为 GPL-3.0-or-later（`extension/LICENSE`），并保留上游 ahujasid/blender-mcp 的 MIT 归属（`extension/NOTICE`）。GPL 全文与 NOTICE 从包内移到 extension 根目录声明，构建脚本仍把两者复制进扩展 zip 的包根；`blender_manifest.toml` 的 `license = ["SPDX:GPL-3.0-or-later"]` 不变。README、docs/zh/README、CONTRIBUTING、docs/zh/CONTRIBUTING 均写明两项许可及 upstream MIT 归属。
 
@@ -68,13 +69,13 @@
 - 新增 DisplayProvider 契约与选择顺序（Windows hidden-desktop → IDD fallback；Linux Xvfb+VirtualGL preview；macOS 未实现）。Windows 构建已带 W1 provider：helper 解析顺序为 env `DSH_HIDDEN_DESKTOP_HELPER` → `vendor/win-hidden-desktop` → `tools/win-hidden-desktop/out`；`blender_session start` 通过 helper 在私有 desktop 启动 Blender，代理 stdout/stderr/exit 并保留 tail，失败返回结构化 `helper_missing` / `blender_exe_missing` / `helper_exited` / `provider_timeout` 等错误，绝不回落默认 desktop；stop 由 job object 连带清理 Blender 且重复 stop 幂等。selection 只在 capabilities ready（feature 开启 + 依赖就绪）时返回 provider，否则仍 fail closed；`blender_session start` 在 feature 关闭、依赖缺失或 provider 未实现时只返回 `stage=config`，不 spawn Blender/Xvfb，也不回落 headless。
 - 依赖表收敛到 `runtime/display/prerequisites.ts`（包名/检测/安装/是否 root/复检），VirtualGL 明确 Ubuntu 24.04 无 apt 包、须官方仓库安装。
 - 发布包新增 `vendor/win-hidden-desktop` helper（Windows CI 用 MSVC 构建；`npm run check:win-helper` 校验 version/commit/sourceSha256/sha256/protocol，`--packed` 断言 npm tarball 含 exe+build.json；仓库不提交二进制）。
-- 回归：`tests/unit/js/display-capabilities.test.ts` 19 项（feature 默认与非法值、三条负向启动、provider 顺序与 Windows 选择条件、status 暴露、consent 与已有 user-gui 拒绝）；`tests/unit/js/win-hidden-desktop.test.ts` 11 项（ready/error/早退/超时、缺 helper/缺 Blender 不 spawn、stop 幂等、输出继续代理、helper 解析顺序）；真机 `tests/e2e/win_hidden_desktop_provider.mjs` 12/12（GUI 非最小化、私有 desktop、双实例隔离、stop 无孤儿；`local-workspace/5.4-windows-provider.md`）。
+- 回归：`tests/unit/js/display-capabilities.test.ts` 19 项（feature 默认与非法值、三条负向启动、provider 顺序与 Windows 选择条件、status 暴露、已有 user-gui 拒绝）；`tests/unit/js/win-hidden-desktop.test.ts` 11 项（ready/error/早退/超时、缺 helper/缺 Blender 不 spawn、stop 幂等、输出继续代理、helper 解析顺序）；真机 `tests/e2e/win_hidden_desktop_provider.mjs` 12/12（GUI 非最小化、私有 desktop、双实例隔离、stop 无孤儿；`local-workspace/5.4-windows-provider.md`）。
 
 ### 3.1 virtual-gui 会话生命周期与上限
 
 - `blender_session start` 成功后的会话 id 为 `virtual-gui:<instanceId>`；只有 Gateway 拉起的那个 Blender 以同一 `instanceId` 完成 addon 握手才标记 `ready`（provider 注入 `DSHBB_INSTANCE_ID` / `DSHBB_SESSION_KIND=virtual-gui`，addon 握手按该环境报告 kind），握手超时 30 秒。provider 启动失败或握手超时会先停 provider，不留 Blender 进程或半注册会话；`stop` 只接受会话所有者，进程/会话一起清理，重复 `stop` 幂等。
 - 新增 `features.virtualGuiMax`（env `DSH_BLENDER_VIRTUAL_GUI_MAX`）实例上限，默认 4、范围 1–16；总内存 <16 GiB 或空闲 <4 GiB 时自动降为 2。超限时 `start` 在 spawn 前返回 `stage=session` / `capacity`（evidence `used`/`limit`/`configured`/`low_resource`/`reason`），不排队、不 spawn。
-- 回归：`tests/unit/js/virtual-gui-lifecycle.test.ts` 7 项（握手前不可见、握手失败清理、provider 错误结构化透传、上限、stop 幂等、attach 归属、limits clamp/低内存）；真机 `tests/e2e/virtual_gui_session.mjs` 20/20（consent 拒绝、真实 helper 启动 GUI Blender、同 instanceId 握手、display/pid、stop 无孤儿、重复 stop、缺 helper fail closed）。
+- 回归：`tests/unit/js/virtual-gui-lifecycle.test.ts` 7 项（握手前不可见、握手失败清理、provider 错误结构化透传、上限、stop 幂等、attach 归属、limits clamp/低内存）；真机 `tests/e2e/virtual_gui_session.mjs`（真实 helper 启动 GUI Blender、同 instanceId 握手、display/pid、stop 无孤儿、重复 stop、缺 helper fail closed）。
 - Windows virtual-gui V0 通过 GA 验收（5.5），默认值由 `off` 翻为 `auto`：`tests/e2e/windows_ga_v0.mjs` 走默认 feature 的产品路径启动 2 个并发实例，32/32 通过（NVIDIA 硬件 GL、GPUOffScreen 800x447 截图、红/蓝材质与私有 desktop 互不串、stop 无 Blender/helper 残留、二次 stop 幂等、非管理员会话）；锁屏/RDP 作为未执行场景记录。验收同时修复多实例路由缺陷：engine 的 `addon.send` 指标包装丢弃第 4 个 `opts` 参数，导致第二个 addon 连接后带 `instanceId` 的调用报 ambiguous，现转发 opts 并加单测。
 
 ### 3.1 Linux preview（Xvfb + VirtualGL）与 Blender 平台路径
@@ -89,9 +90,9 @@
 - 两个入口共用同一份计划：TUI `/blender doctor --fix` 执行支持的 one-click 后重新拉取 `/doctor` 复检，未 ready 明确返回 error；addon Preferences 的 “Install missing prerequisites” 按钮通过 `ui/install.py` 执行 Gateway 展示的 argv，失败保留 stderr 并停止，装后同样复检 `ready`。不装依赖时 `blender_session start` 仍返回 `stage=config`，不启动、不回落 headless。
 - 安全边界变化：addon 唯一新增的进程执行点是审计过的 `addon/dsh_blender_bridge/ui/install.py`，只执行 list argv、无 shell；契约测试 `tests/unit/js/contract/security.test.ts` 改为按文件断言其余模块不含 `subprocess`，并保留 `os.system` / `shell=True` 禁用。回归：`tests/unit/js/install-plans.test.ts` 11 项、`tests/integration/js/tui-commands.test.ts` 的 `doctor --fix` 用例、`tests/unit/python/test_addon_install_ui.py` 9 项。
 
-### 3.1 virtual-gui 显式授权
+### 3.1 virtual-gui 显式授权（宿主开关）
 
-- `blender_session start kind=virtual-gui` 首次返回 `consent_required`（stage=session，evidence.options 给出 attach/start 两个显式选项）；只有 DSH host 在用户确认后通过内部 `session action=consent` 发放一次性 30s `consent_token`，模型 tool schema 不能自行设置。start 每次重新复检：已有 ready user-gui 时返回 `session_already_available` 且不创建会话；token 缺失/无效/过期/重放都继续要求决策，不自动降级到 headless 或 GUI。回归：`tests/unit/js/display-capabilities.test.ts`、`tests/integration/js/session-api.test.ts`。
+- `blender_session start kind=virtual-gui` 受宿主许可门控制：插件配置 `allowVirtualGui` 默认 `false`，人类可在 DSH 右侧栏 Blender Presence 面板打开“允许 agent 启动 virtual-gui”；未获许可时工具在探测/拉起 Gateway 之前返回 `stage=session` / `virtual_gui_not_allowed`，不创建会话，也不自动降级到 headless 或 GUI。许可状态只存在 DSH host 进程，经浏览器认证 RPC `/dsh-blender` 的 `permission` 端点读写（只有 `peer.principal.kind=owner` 可改）；运行时开关不持久化，插件重载回到配置默认值。面板同时显示已连接到 Gateway 的 `user-gui` Blender 数量。start 每次重新复检：已有 ready user-gui 时返回 `session_already_available` 且不创建会话。回归：`tests/unit/js/virtual-gui-permission.test.ts`、`tests/unit/js/contract/tool-execution.test.ts`、`tests/unit/js/display-capabilities.test.ts`、`tests/integration/js/session-api.test.ts`。
 
 ### 3.1 human pause 与人改冲突
 
@@ -100,7 +101,7 @@
 
 ### 3.1 多 agent presence 与视口叠加
 
-- Gateway 保存每个 caller 的 display name、颜色、view pose、选中 session_uid、activity；视图/选中更新时通过既有内部 `execute_code` 通道把快照推给 addon，不新增工具或路由。
+- Gateway 保存每个 caller 的 display name、颜色、view pose、选中 session_uid、activity；视图/选中更新时通过 pause-safe 的内部只读命令 `get_viewport_screenshot`（presence 载荷）把快照推给 addon，不新增工具或路由。
 - addon 新增 `presence_draw.py`：用 `SpaceView3D` 的 POST_VIEW/POST_PIXEL 绘制视锥、标签和选中包围盒；只画视口，不写场景、不改选择、不动相机/帧/用户视角；断开或卸载时静默清除 handler。
 - 回归：`tests/unit/js/presence-push.test.ts` 3 项、`tests/unit/python/test_addon_presence_draw.py` 5 项、`tests/integration/js/session-api.test.ts` 的 update_view/update_selection 推送，以及 `tests/integration/js/session-multi-agent.test.ts` 的多 agent 并发/隔离；真机 GUI E2E `tests/e2e/addon_presence_draw.mjs` 15 项（两个 agent 独立颜色/机位、view matrix 与对象/选择不变、两个 agent 并发截帧、清除后 handler 归零）。
 

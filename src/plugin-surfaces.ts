@@ -1,4 +1,4 @@
-/** 插件对外接缝装配：dsh-TUI 宿主半边与 15 个模型工具。 */
+/** 插件对外接缝装配：dsh-TUI 宿主半边与六个模型工具。 */
 import { HOLDER } from './constants.js'
 import type { HostContext } from './host/context.js'
 import { registerTools } from './tools/index.js'
@@ -14,6 +14,6 @@ export function registerTuiSurface(
 }
 
 export function registerToolSurface(ctx: HostContext, port: number): void {
-  // ---------- 工具面：15 个工具按 v2.6.2 原顺序注册（各工具的 ctx.effect 键不变） ----------
+  // ---------- 工具面：六个模型工具按固定顺序注册（各工具的 ctx.effect 键不变） ----------
   registerTools(ctx, port)
 }

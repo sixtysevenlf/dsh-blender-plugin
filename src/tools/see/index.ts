@@ -23,7 +23,7 @@ function buildSeeTool(ctx: HostContext, port: number) {
       },
       mode: { type: 'string', description: 'frame（默认，单帧）| sequence（固定机位序列帧）' },
       camera: {
-        type: 'string',
+        oneOf: [{ type: 'boolean' }, { type: 'string' }],
         description:
           'viewpoint=camera 时可选相机名；省略或 true = scene.camera。其他 viewpoint 不接受',
       },
@@ -68,7 +68,7 @@ function buildSeeTool(ctx: HostContext, port: number) {
     },
     output: { schema: ANY_SCHEMA, render: renderOne },
     isConcurrencySafe: () => true,
-    timeoutMs: T.see,
+    timeoutMs: T.watch,
     async execute(args: Record<string, unknown>) {
       const ready = await requireReadySession(port, undefined, String(args.session_id || '').trim())
       if (!ready.ok) return ready.failure

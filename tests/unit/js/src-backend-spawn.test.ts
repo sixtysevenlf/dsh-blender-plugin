@@ -42,6 +42,7 @@ import {
   killStaleChild,
   spawnChild,
 } from '../../../src/host/backend/spawn.js'
+import { hostIdentity } from '../../../src/host/backend/host-id.js'
 import { winKillPids } from '../../../src/host/runtime-bridge.js'
 
 function emit(ev: string): void {
@@ -73,6 +74,9 @@ describe('spawnChild spawn options (issue #51)', () => {
     expect(args.slice(0, 2)).toEqual([expect.stringMatching(/gateway\.(mjs|js)$/), '--port'])
     expect(args[2]).toBe('9877')
     expect(opts.env.ELECTRON_RUN_AS_NODE).toBe('1')
+    // 3.1: the Gateway owner hostId must equal the host-side identity so
+    // ensureBackend can distinguish same-host attach from GATEWAY_IN_USE.
+    expect(opts.env.DSH_HOST_ID).toBe(hostIdentity())
     expect(opts.env.PATH).toBe(process.env.PATH)
     expect(Array.isArray(opts.stdio)).toBe(true)
     expect(opts.stdio[0]).toBe('ignore')

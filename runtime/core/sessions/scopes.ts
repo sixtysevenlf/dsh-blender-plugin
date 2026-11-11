@@ -54,13 +54,11 @@ export function parseScopes(value: unknown): ScopeSpec[] {
 /** True when two scope declarations may touch the same scene state. */
 export function scopesOverlap(left: ScopeSpec, right: ScopeSpec): boolean {
   if (left.kind === 'exclusive' || right.kind === 'exclusive') return true
-  if (left.kind !== right.kind) {
-    // collection/object/prefix target different identity spaces; only an exact
-    // textual match is treated as overlap across kinds.
-    return !!left.value && left.value === right.value
-  }
   const a = String(left.value || '')
   const b = String(right.value || '')
+  if (left.kind === 'prefix' && right.kind === 'object') return b.startsWith(a)
+  if (left.kind === 'object' && right.kind === 'prefix') return a.startsWith(b)
+  if (left.kind !== right.kind) return false
   if (left.kind === 'prefix') return a.startsWith(b) || b.startsWith(a)
   return a === b
 }
@@ -74,9 +72,13 @@ export function anyOverlap(left: ScopeSpec[], right: ScopeSpec[]): boolean {
 export function scopeCovers(grant: ScopeSpec, write: ScopeSpec): boolean {
   if (grant.kind === 'exclusive') return true
   if (write.kind === 'exclusive') return false
-  if (grant.kind !== write.kind) return false
   const a = String(grant.value || '')
   const b = String(write.value || '')
+  // A prefix grant covers object scopes whose stable name starts with it, e.g.
+  // prefix:LGT- covers object:LGT-1. Different identity spaces (collection vs
+  // object) never cover each other.
+  if (grant.kind === 'prefix' && write.kind === 'object') return b.startsWith(a)
+  if (grant.kind !== write.kind) return false
   if (grant.kind === 'prefix') return b.startsWith(a)
   return a === b
 }

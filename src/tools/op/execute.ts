@@ -45,10 +45,23 @@ function dryRun(raw: unknown): boolean {
   return asRecord(jsonPayload(raw)).dry_run === true
 }
 
-async function gate(port: number, needsSession: boolean): Promise<unknown | null> {
-  if (!needsSession) return null
-  const ready = await requireReadySession(port)
-  return ready.ok ? null : ready.failure
+export interface RoutedOp {
+  sessionId: string
+  instanceId: string
+}
+
+type GateResult = ({ ok: true } & RoutedOp) | { ok: false; failure: unknown }
+
+/** Resolve the session named by session_id (or the only ready one). */
+async function gate(port: number, needsSession: boolean, sessionId?: string): Promise<GateResult> {
+  if (!needsSession) return { ok: true, sessionId: '', instanceId: '' }
+  const ready = await requireReadySession(port, undefined, sessionId)
+  if (!ready.ok) return { ok: false, failure: ready.failure }
+  return {
+    ok: true,
+    sessionId: String(ready.session.id || ''),
+    instanceId: String(ready.session.instanceId || ''),
+  }
 }
 
 export async function executeOp(
@@ -72,9 +85,13 @@ export async function executeOp(
         'OP ' + op + ' 失败 · args 不是合法 JSON 对象：' + text(args.args).slice(0, 200),
         'args 传 JSON 对象，例如 {"family":"audit"}',
       )
-    const blocked = await gate(port, !READ_ONLY.has(op) && !dryRun(args.args))
-    if (blocked) return blocked
-    return executePlan(ctx, port, args)
+    const routed = await gate(
+      port,
+      !READ_ONLY.has(op) && !dryRun(args.args),
+      text(args.session_id).trim(),
+    )
+    if (!routed.ok) return routed.failure
+    return executePlan(ctx, port, args, routed)
   }
   if (action === 'loop') {
     const target = text(args.target).trim() || 'gui'
@@ -84,19 +101,19 @@ export async function executeOp(
         'loop target 只能是 gui 或 session',
         'target=session 走持久无头 worker',
       )
-    const blocked = await gate(port, target !== 'session')
-    if (blocked) return blocked
-    return executeLoop(port, args)
+    const routed = await gate(port, target !== 'session', text(args.session_id).trim())
+    if (!routed.ok) return routed.failure
+    return executeLoop(port, args, routed)
   }
   if (action === 'opt') {
-    const blocked = await gate(port, true)
-    if (blocked) return blocked
-    return executeOpt(port, args)
+    const routed = await gate(port, true, text(args.session_id).trim())
+    if (!routed.ok) return routed.failure
+    return executeOpt(port, args, routed)
   }
   if (action === 'preset') {
-    const blocked = await gate(port, true)
-    if (blocked) return blocked
-    return executePreset(port, args)
+    const routed = await gate(port, true, text(args.session_id).trim())
+    if (!routed.ok) return routed.failure
+    return executePreset(port, args, routed)
   }
   return toolError(
     'invalid_params',

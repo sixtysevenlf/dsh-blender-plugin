@@ -388,6 +388,24 @@ def _current_matrices(space, reg, w, h):
     }
 
 
+CAMERA_MAX_SIZES = (544, 768, 1024, 1280)
+
+
+def _camera_max_size(s):
+    """camera max_size: default 1024, only the 544/768/1024/1280 tiers."""
+    raw = s.get("max_size")
+    if raw in (None, 0, "0", ""):
+        return 1024
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        raise RuntimeError("invalid_params: camera max_size 只接受 544 / 768 / 1024 / 1280")
+    if value not in CAMERA_MAX_SIZES:
+        raise RuntimeError(
+            "invalid_params: camera max_size 只接受 544 / 768 / 1024 / 1280（收到 %r）" % (raw,))
+    return value
+
+
 def _camera_matrices(s, scene, cam):
     """mode=camera：当前帧 evaluated 相机（约束/驱动器已算好）→ 矩阵 + 渲染比例尺寸。"""
     from mathutils import Vector
@@ -399,14 +417,28 @@ def _camera_matrices(s, scene, cam):
     r = scene.render
     ax = (float(r.resolution_x) * float(getattr(r, "pixel_aspect_x", 1.0))) / max(
         1.0, float(r.resolution_y) * float(getattr(r, "pixel_aspect_y", 1.0)))
-    m = int(s.get("max_size") or 1024)
+    m = _camera_max_size(s)
     w = m if ax >= 1.0 else max(16, int(round(m * ax)))
     h = max(16, int(round(m / ax))) if ax >= 1.0 else m
     loc = ce.matrix_world.translation
     fwd = ce.matrix_world.to_quaternion() @ Vector((0.0, 0.0, -1.0))
+    data = ce.data
+    etype = str(getattr(data, "type", ctype) or "").upper()
+    if etype == "PANO":
+        raise RuntimeError("unsupported: 全景相机（PANO）不支持 camera 捕获，请用 blender_run(kind=render)")
+    # Publish the evaluated optics so the /view header and the presence frustum
+    # use the projection that was actually captured (ortho must not draw a cone).
     s["from"] = [float(loc.x), float(loc.y), float(loc.z)]
     s["look_at"] = [float(loc.x + fwd.x), float(loc.y + fwd.y), float(loc.z + fwd.z)]
-    s["lens"] = float(ce.data.lens)
+    s["lens"] = float(data.lens)
+    s["sensor"] = float(data.sensor_width)
+    s["sensor_fit"] = str(data.sensor_fit)
+    s["clip_start"] = float(data.clip_start)
+    s["clip_end"] = float(data.clip_end)
+    s["ortho"] = etype == "ORTHO"
+    s["ortho_scale"] = float(data.ortho_scale)
+    s["shift_x"] = float(getattr(data, "shift_x", 0.0))
+    s["shift_y"] = float(getattr(data, "shift_y", 0.0))
     return ce.matrix_world.inverted(), ce.calc_matrix_camera(dg, x=w, y=h), w, h, {
         "camera": str(cam.name), "frame": int(scene.frame_current), "pixel_aspect": round(float(ax), 6),
         "preview_only": True, "dof_ignored": bool(getattr(cam.data.dof, "use_dof", False)),
@@ -439,7 +471,8 @@ def _capture_render(s):
         r = scene.render
         saved = {"camera": scene.camera, "engine": r.engine, "rx": r.resolution_x, "ry": r.resolution_y,
                  "pct": r.resolution_percentage, "fp": r.filepath, "fmt": r.image_settings.file_format,
-                 "color_mode": r.image_settings.color_mode}
+                 "color_mode": r.image_settings.color_mode,
+                 "display_shading": scene.display.shading.type}
         scene.camera = cam
         r.engine = s["engine"]
         r.resolution_x = s["width"]; r.resolution_y = s["height"]; r.resolution_percentage = 100
@@ -463,6 +496,7 @@ def _capture_render(s):
                 scene.render.filepath = saved["fp"]
                 scene.render.image_settings.file_format = saved["fmt"]
                 scene.render.image_settings.color_mode = saved["color_mode"]
+                scene.display.shading.type = saved["display_shading"]
         except Exception:
             pass
         try:
@@ -663,213 +697,6 @@ def gui_help():
                "read_only_note": "gui_frame / gui_shading 只动视口显示；gui_open 会换文件，属写操作"})
 
 
-# ---------------------------------------------------------------- 宿主集成（/host/*）
-#
-# 这三条是**用户侧**能力（人点视口 → 进自己的消息），不是模型工具：
-# 不进 /plan 的 op 目录、不改 addon（契约 §0）。数学复用本文件已有的
-# make_view_matrix / make_proj_matrix / write_png，不另写一套。
-
-# 点击兜底半径（按**出图**像素算）：灯光/相机/空物体没有可命中的表面，
-# ray_cast 打不到，只能按"它在画面上的位置离点击点多近"兜底（对齐上游 addon.py 的 _PICK_RADIUS_PX）。
-HOST_PICK_RADIUS_PX = 22.0
-
-
-def _host_obj_brief(o):
-    """pick 命中回执里的对象摘要。键固定 name/type/detail/location（契约 §1.5 的示例形状）。"""
-    detail = str(o.type)
-    if o.type == "MESH" and getattr(o, "data", None) is not None:
-        try:
-            detail = "MESH %dv/%df" % (len(o.data.vertices), len(o.data.polygons))
-        except Exception:
-            pass
-    loc = o.matrix_world.translation
-    return {"name": str(o.name), "type": str(o.type), "detail": detail,
-            "location": [round(float(loc.x), 6), round(float(loc.y), 6), round(float(loc.z), 6)]}
-
-
-def host_capture(spec_json):
-    """抓**当前 GUI 视口**那一帧（矩阵直接取 region_3d），返回 PNG + 矩阵 + origin 信息。
-
-    与 capture() 的分工：
-      capture()      = "从任意位置看一眼"（自建矩阵，不动用户视口）—— 模型侧 blender_see 用
-      host_capture() = "用户现在看到的就是这一帧"（region_3d 自己的 view/window 矩阵）—— 宿主面板用
-    零场景改动、零视口改动（不改 shading/overlays/选择/相机），只读 GPU 离屏缓冲。
-
-    ⚠ 拿不到矩阵就 **ok=false**（让上层把 pickable 置 false），绝不编一组矩阵冒充能点选。
-    """
-    s = json.loads(spec_json) if isinstance(spec_json, str) else dict(spec_json or {})
-    try:
-        max_size = int(s.get("max_size") or 1000)
-    except Exception:
-        max_size = 1000
-    max_size = max(200, min(2000, max_size))
-    path = str(s.get("path") or WIN_DEFAULT)
-    d = os.path.dirname(path)
-    if d and not os.path.isdir(d):
-        os.makedirs(d, exist_ok=True)
-    t0 = time.perf_counter()
-    win, area, reg, space = _find_view3d(s.get("area"))
-    r3d = getattr(space, "region_3d", None)
-    if r3d is None:
-        return _j({"ok": False, "error": "视口没有 region_3d：拿不到相机矩阵，不能假装能点选"})
-    src_w, src_h = int(reg.width), int(reg.height)
-    if max(src_w, src_h) > max_size:
-        k = float(max_size) / float(max(src_w, src_h))
-        w, h = max(1, int(src_w * k)), max(1, int(src_h * k))
-    else:
-        w, h = src_w, src_h
-    vm = r3d.view_matrix.copy()
-    pm = r3d.window_matrix.copy()
-    import gpu
-    try:
-        gpu.init()          # 后台/未初始化时必需；GUI 下已初始化，抛错忽略
-    except Exception:
-        pass
-    off = gpu.types.GPUOffScreen(w, h)
-    try:
-        with off.bind():
-            fb = gpu.state.active_framebuffer_get()
-            fb.clear(color=(0.05, 0.05, 0.05, 1.0), depth=1.0)
-            # 画的就是用户视口的样子（do_color_management=True → write_png 直写字节，不做二次 gamma）
-            off.draw_view3d(bpy.context.scene, bpy.context.view_layer, space, reg, vm, pm,
-                            do_color_management=True, draw_background=True)
-            rgba = _texture_rgba(off.texture_color.read(), w, h)
-    finally:
-        try:
-            off.free()
-        except Exception:
-            pass
-    n = write_png(path, w, h, rgba)
-    return _j({"ok": True, "path": path, "bytes": int(n), "width": int(w), "height": int(h),
-               "view_matrix": [[round(float(v), 9) for v in row] for row in vm],
-               "window_matrix": [[round(float(v), 9) for v in row] for row in pm],
-               "file": str(bpy.data.filepath or ""), "scene": str(bpy.context.scene.name),
-               "scene_count": int(len(bpy.data.scenes)),
-               "region": [int(reg.x), int(reg.y), int(reg.width), int(reg.height)],
-               "perspective": bool(r3d.is_perspective), "method": "region_3d/offscreen",
-               "ms": int((time.perf_counter() - t0) * 1000)})
-
-
-def host_pick(spec_json):
-    """点击反投影：归一化点击坐标（0..1，左上原点、y 向下）→ 世界射线 → ray_cast 命中对象。
-
-    **纪律（契约 §1.5）**：先校验 file/scene 错配，错配就回 `*_mismatch`；
-    绝不把点击"投到当前场景"—— 那是把用户的一次点击变成一次误操作。
-    """
-    s = json.loads(spec_json) if isinstance(spec_json, str) else dict(spec_json or {})
-    from mathutils import Matrix, Vector
-    try:
-        x = min(1.0, max(0.0, float(s.get("x", 0.5))))
-        y = min(1.0, max(0.0, float(s.get("y", 0.5))))
-    except Exception:
-        x, y = 0.5, 0.5
-    exp_file = "" if s.get("file") is None else str(s.get("file"))
-    exp_scene = "" if s.get("scene") is None else str(s.get("scene"))
-    cur_file = str(bpy.data.filepath or "")
-    cur_scene = str(bpy.context.scene.name)
-    if exp_file != cur_file:
-        return _j({"ok": False, "error": "file_mismatch",
-                   "expected": (exp_file or None), "current": (cur_file or None)})
-    if exp_scene != cur_scene:
-        return _j({"ok": False, "error": "scene_mismatch",
-                   "expected": (exp_scene or None), "current": (cur_scene or None)})
-    try:
-        vm = Matrix([[float(v) for v in row] for row in s["view_matrix"]])
-        pm = Matrix([[float(v) for v in row] for row in s["window_matrix"]])
-    except Exception as e:
-        return _j({"ok": False, "error": "unknown_seq", "why": "矩阵不可用: %s" % str(e)[:120]})
-    try:
-        w = float(s.get("width") or 0.0)
-        h = float(s.get("height") or 0.0)
-    except Exception:
-        w = h = 0.0
-    if w <= 0 or h <= 0:
-        return _j({"ok": False, "error": "unknown_seq", "why": "缺 width/height"})
-    vpm = pm @ vm
-    try:
-        inv = vpm.inverted()
-    except Exception:
-        return _j({"ok": False, "error": "unknown_seq", "why": "view@proj 不可逆"})
-    ndc_x = 2.0 * x - 1.0
-    ndc_y = 1.0 - 2.0 * y              # 图像 y 向下 → NDC y 向上
-    p0 = inv @ Vector((ndc_x, ndc_y, -1.0, 1.0))
-    p1 = inv @ Vector((ndc_x, ndc_y, 1.0, 1.0))
-    if abs(p0.w) < 1e-12 or abs(p1.w) < 1e-12:
-        return _j({"ok": False, "error": "unknown_seq", "why": "齐次 w≈0"})
-    p0 = p0 / p0.w
-    p1 = p1 / p1.w
-    origin = Vector((p0.x, p0.y, p0.z))
-    direction = Vector((p1.x - p0.x, p1.y - p0.y, p1.z - p0.z))
-    if direction.length < 1e-12:
-        return _j({"ok": False, "error": "unknown_seq", "why": "射线方向退化"})
-    direction.normalize()
-    scene = bpy.context.scene
-    dg = bpy.context.evaluated_depsgraph_get()
-    hit, loc, nrm, idx, obj, mtx = scene.ray_cast(dg, origin, direction)
-    if hit and obj is not None:
-        try:                              # 视口里看不见的东西不该被点到
-            if obj.hide_viewport or not obj.visible_get():
-                obj = None
-        except Exception:
-            pass
-    if obj is not None:
-        return _j({"ok": True, "object": _host_obj_brief(obj)})
-    # 兜底：灯光/相机/空物体没有表面可命中，按屏幕距离取最近的一个
-    best, best_d = None, None
-    for o in scene.objects:
-        if o.type not in ("LIGHT", "CAMERA", "EMPTY", "SPEAKER", "LIGHT_PROBE"):
-            continue
-        try:
-            if o.hide_viewport or not o.visible_get():
-                continue
-        except Exception:
-            pass
-        p = o.matrix_world.translation
-        clip = vpm @ Vector((p.x, p.y, p.z, 1.0))
-        if clip.w <= 1e-9:
-            continue
-        sx = (clip.x / clip.w + 1.0) * 0.5 * w
-        sy = (1.0 - clip.y / clip.w) * 0.5 * h
-        dd = ((sx - x * w) ** 2 + (sy - y * h) ** 2) ** 0.5
-        if dd <= HOST_PICK_RADIUS_PX and (best_d is None or dd < best_d):
-            best, best_d = o, dd
-    if best is not None:
-        return _j({"ok": True, "object": _host_obj_brief(best)})
-    return _j({"ok": True, "object": None})
-
-
-def host_scene_items(spec_json):
-    """`@` 提及的数据源（契约 §1.6）：objects / materials / collections，按 name 升序（稳定）。
-
-    q 大小写不敏感子串过滤（空 = 全部）；limit **每类**各取这么多（默认 200、夹到 [1,1000]）。
-    对象取 `bpy.data.objects`（不是 scene.objects）—— 契约要求"名字在 bpy.data.objects 里可直接用"。
-    """
-    s = json.loads(spec_json) if isinstance(spec_json, str) else dict(spec_json or {})
-    q = str(s.get("q") or "").lower()
-    # 口径与 Node 侧 clampItemsLimit 一致：缺省/非数 → 200；给了数 → 夹进 [1,1000]
-    # （显式 limit=0 → 1，不是 200；契约 §1.6 写的是"夹到 [1,1000]"）
-    lim = s.get("limit")
-    if lim is None or lim == "":
-        limit = 200
-    else:
-        try:
-            limit = int(lim)
-        except Exception:
-            limit = 200
-    limit = max(1, min(1000, limit))
-
-    def hit(name):
-        return (q == "") or (q in str(name).lower())
-
-    objects = sorted([{"name": str(o.name), "type": str(o.type)} for o in bpy.data.objects if hit(o.name)],
-                     key=lambda r: r["name"])[:limit]
-    materials = sorted([{"name": str(m.name)} for m in bpy.data.materials if hit(m.name)],
-                       key=lambda r: r["name"])[:limit]
-    collections = sorted([{"name": str(c.name)} for c in bpy.data.collections if hit(c.name)],
-                         key=lambda r: r["name"])[:limit]
-    return _j({"ok": True, "objects": objects, "materials": materials, "collections": collections})
-
-
 def capture(spec_json):
     """出图主入口：按 spec 出一帧 PNG，返回 JSON（含路径/尺寸/矩阵/耗时）。"""
     t0 = time.perf_counter()
@@ -1053,6 +880,22 @@ def help():
         },
         "notes": "viewport 模式完全不改场景（物体/相机/选择都不动）；render 模式临时加相机，结束即删并逐项还原渲染设置",
     })
+
+
+# ---------------------------------------------------------------- 宿主集成装载
+# 三条 /host/* 能力的实现已拆到 render/view_host_impl（单文件行预算）；
+# 这里绑定本文件已有的 JSON 编码、视口查找、GPU 读回与 PNG 直写，避免第二套实现。
+import importlib as _importlib
+_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+if _ROOT not in _sys_kit.path:
+    _sys_kit.path.insert(0, _ROOT)
+_HOST = _importlib.import_module("runtime.py.render.view_host_impl")
+_HOST.bind(dumps=_j, default_path=WIN_DEFAULT, find_view3d=_find_view3d,
+           texture_rgba=_texture_rgba, write_png=write_png)
+host_capture = _HOST.host_capture
+host_pick = _HOST.host_pick
+host_scene_items = _HOST.host_scene_items
+HOST_PICK_RADIUS_PX = _HOST.HOST_PICK_RADIUS_PX
 
 
 import sys as _sys

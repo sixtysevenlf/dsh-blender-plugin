@@ -20,10 +20,14 @@ function buildInspectTool(ctx: HostContext, port: number) {
         description: '只读命令名；省略=help（列目录）。参数见 help 的 name(args)',
       },
       args: { type: 'json', description: '命令参数对象，例如 {"name":"Cube"}（可选）' },
+      session_id: {
+        type: 'string',
+        description: '目标 GUI 会话 id；多实例必填（action=list 可看）',
+      },
     },
     output: { schema: ANY_SCHEMA, render: renderOne },
     isConcurrencySafe: () => true,
-    timeoutMs: T.commands,
+    timeoutMs: T.cmd,
     async execute(args: Record<string, unknown>) {
       return executeInspect(port, args)
     },

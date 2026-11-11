@@ -42,9 +42,9 @@ Session-bound calls (`op` executing, `py`, `see`) SHALL NOT run without a ready 
 - **WHEN** `op` is called with a catalog or dry-run only
 - **THEN** it returns the catalog or validation result without requiring a session, starting Blender, or returning `stage=session`
 
-#### Scenario: virtual-gui start requires a consent token
-- **WHEN** an agent calls `session start kind=virtual-gui` without a consent token
-- **THEN** it returns `consent_required`; the DSH host obtains the user confirmation, issues a one-time short-TTL `consent_token`, and only then does start create the session
+#### Scenario: virtual-gui start requires host permission
+- **WHEN** an agent calls `session start kind=virtual-gui` while the host permission switch is off
+- **THEN** it returns `virtual_gui_not_allowed` with `stage=session` and creates no session; a human enables the switch in the DSH Plugins → Blender configuration card (or the Blender Presence panel) after the dependency check; declining the install keeps the switch off, and the next start may create the session
 
 #### Scenario: Refusal is not a fallback
 - **WHEN** the user declines virtual-gui
@@ -52,15 +52,15 @@ Session-bound calls (`op` executing, `py`, `see`) SHALL NOT run without a ready 
 
 ### Requirement: Session management has pre-session exceptions
 
-`session` SHALL allow `list`, `status`, `doctor`, `start`, and `stop` without a ready GUI session. The first three are read-only; `start`/`stop` manage virtual-gui, and the first virtual-gui start still requires a consent token.
+`session` SHALL allow `list`, `status`, `doctor`, `start`, and `stop` without a ready GUI session. The first three are read-only; `start`/`stop` manage virtual-gui, and a virtual-gui start still requires the host permission switch to be on.
 
 #### Scenario: Pre-session query works without Blender
 - **WHEN** an agent calls `session list`, `status`, or `doctor` before any Blender is attached
 - **THEN** the call returns its read-only result instead of a session decision request
 
-#### Scenario: Virtual-gui start still needs consent
-- **WHEN** an agent calls `session start kind=virtual-gui` without a consent token
-- **THEN** the call returns `consent_required` and creates no session
+#### Scenario: Virtual-gui start still needs host permission
+- **WHEN** an agent calls `session start kind=virtual-gui` while host permission is off
+- **THEN** the call returns `virtual_gui_not_allowed` and creates no session
 
 ### Requirement: A user-gui session is owned by one DSH session
 

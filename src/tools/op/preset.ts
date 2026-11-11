@@ -1,11 +1,16 @@
 /** preset 执行层：参数收敛（含 data JSON 解析）→ POST /preset → 文本渲染。 */
+import { T } from '../../constants.js'
 import { ensureBackend } from '../../host/backend/index.js'
 import { backendPost, leasedText } from '../../host/http.js'
 import { asRecord, text } from '../../contracts/dynamic.js'
 import { redactSecrets, toolError } from '../errors.js'
 import { formatPreset } from './preset-response.js'
 
-export async function executePreset(port: number, args: Record<string, unknown>): Promise<unknown> {
+export async function executePreset(
+  port: number,
+  args: Record<string, unknown>,
+  routed: { sessionId?: string; instanceId?: string } = {},
+): Promise<unknown> {
   if (!(await ensureBackend(port)))
     return toolError(
       'backend_unreachable',
@@ -15,7 +20,14 @@ export async function executePreset(port: number, args: Record<string, unknown>)
   const op = text(args.op) || 'list'
   const built = buildPresetArgs(args)
   if ('error' in built) return built.error
-  const r = await backendPost(port, '/preset', { op: op, args: built.args }, 300000)
+  const body: Record<string, unknown> = {
+    op: op,
+    args: built.args,
+    write_scope: text(args.write_scope).trim() || 'exclusive',
+  }
+  if (routed.sessionId) body.sessionId = routed.sessionId
+  if (routed.instanceId) body.instanceId = routed.instanceId
+  const r = await backendPost(port, '/preset', body, T.preset)
   const lt = leasedText(r)
   if (lt) return { text: lt }
   if (!r || r.ok !== true)

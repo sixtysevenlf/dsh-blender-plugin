@@ -6,6 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { GATEWAY_PATH } from '../../constants.js'
 import { winKillPids } from '../runtime-bridge.js'
+import { hostIdentity } from './host-id.js'
 
 let child: ChildProcess | null = null
 
@@ -39,7 +40,9 @@ export function spawnChild(port: number): string {
   //   ③ detached=false：Gateway 生命周期归 host/plugin；不 detach、不 unref，host 退出由插件清理。
   const logFd = openGatewayLog()
   const spawned = spawn(process.execPath, [GATEWAY_PATH, '--port', String(port)], {
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+    // DSH_HOST_ID makes the Gateway owner record agree with the caller's
+    // x-dsh-host-id, so a reload is the same host and another host fails closed.
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', DSH_HOST_ID: hostIdentity() },
     stdio: logFd === null ? 'ignore' : ['ignore', logFd, logFd],
     detached: false,
     windowsHide: true,

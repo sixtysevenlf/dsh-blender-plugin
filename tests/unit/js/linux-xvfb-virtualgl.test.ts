@@ -179,6 +179,7 @@ describe('LinuxXvfbVirtualGlProvider start', () => {
       gl_transport: 'xvfb software GL (preview-only)',
     })
     expect((await provider.health(instance)).ok).toBe(true)
+    await provider.stop(instance)
   })
 
   it('uses vglrun -d egl when VirtualGL and the GPU node are present', async () => {
@@ -195,6 +196,7 @@ describe('LinuxXvfbVirtualGlProvider start', () => {
       hardware_gl: true,
       gl_transport: 'vglrun -d egl',
     })
+    await provider.stop(instance)
   })
 
   it('gives every instance its own display and reuses numbers after stop', async () => {
@@ -228,5 +230,40 @@ describe('LinuxXvfbVirtualGlProvider start', () => {
     expect(provider.output(instance)).toBeNull()
     expect((await provider.health(instance)).ok).toBe(false)
     await provider.stop(instance)
+  })
+
+  it('reserves a distinct display for concurrent provider instances', async () => {
+    const children = [
+      new FakeChild(4150),
+      new FakeChild(4151),
+      new FakeChild(4152),
+      new FakeChild(4153),
+    ]
+    const first = providerWith(children.slice(0, 2), { displayBase: 140 })
+    const second = providerWith(children.slice(2, 4), { displayBase: 140 })
+    const [a, b] = await Promise.all([
+      first.provider.start({ sessionId: 's1' }),
+      second.provider.start({ sessionId: 's2' }),
+    ])
+    expect(a.display).toBe(':140')
+    expect(b.display).toBe(':141')
+    await Promise.all([first.provider.stop(a), second.provider.stop(b)])
+  })
+
+  it('releases the reservation when startup fails before the display is ready', async () => {
+    const children = [new FakeChild(4160), new FakeChild(4161), new FakeChild(4162)]
+    const failing = providerWith(children.slice(0, 1), {
+      displayBase: 150,
+      displayReady: async () => {
+        throw new Error('display readiness failed')
+      },
+    })
+    await expect(failing.provider.start({ sessionId: 's1' })).rejects.toThrow(
+      'display readiness failed',
+    )
+    const retry = providerWith(children.slice(1), { displayBase: 150 })
+    const instance = await retry.provider.start({ sessionId: 's2' })
+    expect(instance.display).toBe(':150')
+    await retry.provider.stop(instance)
   })
 })

@@ -62,7 +62,6 @@ export interface SequencePlan {
   overlays?: boolean
   seconds: number
   fps: number
-  force: boolean
 }
 
 export type Plan = FramePlan | SequencePlan
@@ -141,6 +140,8 @@ function sequenceRejections(args: Record<string, unknown>): Failure | null {
     )
   if (has(args.camera))
     return invalidParams('sequence 不支持 camera', '见 blender_run(kind=render)')
+  if (args.force === true)
+    return invalidParams('sequence 不支持 force', '每一帧都会按 hash 去重后附图，无需 force')
   return null
 }
 
@@ -184,7 +185,6 @@ function buildSequence(
     overlays: args.overlays === undefined ? undefined : !!args.overlays,
     seconds: window.seconds,
     fps: window.fps,
-    force: !!args.force,
   }
 }
 
@@ -209,6 +209,11 @@ function cameraFrame(args: Record<string, unknown>): FramePlan | Failure {
 function viewportFrame(args: Record<string, unknown>): FramePlan | Failure {
   if (has(args.camera))
     return invalidParams('viewpoint=viewport 不接受 camera', '要跟场景相机请用 viewpoint=camera')
+  if (has(args.from) || has(args.look_at))
+    return invalidParams(
+      'viewpoint=viewport 不接受 from/look_at',
+      '要指定机位请用 viewpoint=custom + from/look_at',
+    )
   const rejected = rejectCustomOnly('viewport', args)
   if (rejected) return rejected
   if (has(args.aspect) && args.full === true)
@@ -285,6 +290,11 @@ export function validate(args: Record<string, unknown>): Plan | Failure {
     return invalidParams(
       'mode 只能是 frame 或 sequence',
       'mode=frame 取单帧，mode=sequence 取序列帧',
+    )
+  if (mode === 'sequence' && !rawView)
+    return invalidParams(
+      'sequence 必须显式给 viewpoint=viewport 或 custom',
+      'sequence 不从 from/look_at 推断机位；相机动画请用 blender_run(kind=render)',
     )
   const viewpoint = rawView || (hasAngles ? 'custom' : 'viewport')
   if (viewpoint !== 'viewport' && viewpoint !== 'custom' && viewpoint !== 'camera')

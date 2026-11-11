@@ -59,7 +59,14 @@ export async function executePy(
     const size = Math.max(120, Math.min(1600, Number(args.max_size || 560)))
     let f
     try {
-      f = await fetchFrame(port, size, false, 0, String(session.instanceId || ''))
+      f = await fetchFrame(
+        port,
+        size,
+        false,
+        0,
+        String(session.instanceId || ''),
+        String(session.id || ''),
+      )
     } catch {
       return out
     }

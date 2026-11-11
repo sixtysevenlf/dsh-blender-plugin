@@ -1,7 +1,7 @@
 /**
  * dsh-blender-plugin —— host 侧生命周期与工具面装配。
  *
- * 这里只做装配：配置 schema / 看护 / 15 个工具注册 / 测试接缝。
+ * 这里只做装配：配置 schema / 看护 / 六个模型工具注册 / 测试接缝。
  * 具体实现按层拆在 contracts/ host/ tools/ plan/ headless/ utils/ ui/。
  */
 import { PLUGIN_VERSION } from './constants.js'
@@ -12,6 +12,10 @@ import { resolveHttpPort } from './host/backend/index.js'
 import { registerSchemaDiagnostic } from './tools/schema-diagnostic.js'
 import { registerLifecycle } from './plugin-lifecycle.js'
 import { registerToolSurface, registerTuiSurface } from './plugin-surfaces.js'
+import {
+  configureVirtualGuiPermission,
+  registerVirtualGuiPermissionRpc,
+} from './host/virtual-gui-permission.js'
 import { errorLine, redactSecrets, toolError } from './tools/errors.js'
 import {
   BUNDLED_SKILL_DIR,
@@ -40,6 +44,8 @@ export interface Config {
   autoStart: boolean
   /** v2.6.1：dsh-TUI 宿主半边（选中 chip / 页脚字段 / @ 提及 / /blender 命令）；只在有对应接缝的宿主生效 */
   tui: boolean
+  /** 3.1：默认是否允许 agent 启动 virtual-gui；运行时可在 Plugins → Blender 配置卡或 Presence 面板开关 */
+  allowVirtualGui?: boolean
 }
 
 // v1.0.1：z 不可用时（降级模式）不给 schema —— 宿主不会因为这里再抛一次而整体失败。
@@ -48,6 +54,7 @@ export const Config = z
       port: z.natural().default(resolveHttpPort()),
       autoStart: z.boolean().default(true),
       tui: z.boolean().default(true),
+      allowVirtualGui: z.boolean().default(false),
     })
   : undefined
 
@@ -69,8 +76,11 @@ export function apply(ctx: HostContext, config: Config): void {
       ? Number(cfgIn.port)
       : resolveHttpPort()
   const autoStart = cfgIn.autoStart === undefined ? true : !!cfgIn.autoStart
+  // 3.1：virtual-gui 默认不允许；面板会话内开关优先，插件重载回到配置默认。
+  configureVirtualGuiPermission(cfgIn.allowVirtualGui === true)
+  registerVirtualGuiPermissionRpc(ctx, port)
 
-  // 注册顺序必须保持 v2.6.2：TUI → 看护/后端 effects → 15 个工具。
+  // 注册顺序：TUI → 看护/后端 effects → 六个模型工具。
   // Cordis 逆序释放 effects，先注册 TUI/生命周期、后注册工具，卸载时才会先释放工具再杀后端。
   registerTuiSurface(ctx, port, cfgIn)
   registerLifecycle(ctx, port, autoStart)

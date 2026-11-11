@@ -15,7 +15,7 @@ export const TOOL_DETAIL: Record<string, string> = {
     LF +
     'attach：用户已打开 Blender 后在 N 面板点 Connect；多实例必须给 instance_id（status 里能看到）。' +
     LF +
-    'start/stop 只作用 virtual-gui；第一次 start 返回 consent_required，等用户授权后由宿主带一次性 token 重试。' +
+    'start/stop 只作用 virtual-gui；start 需人类先在 Blender Presence 面板允许（默认不允许，插件配置 allowVirtualGui）。' +
     LF +
     '写到别的 agent 的场景区域需要 grant scope：exclusive | collection:名 | prefix:名 | object:名；' +
     LF +

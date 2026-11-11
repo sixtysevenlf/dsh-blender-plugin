@@ -332,14 +332,7 @@ try {
       JSON.stringify(capability.missing),
   )
 
-  const noConsent = await registry.start(caller)
-  record(
-    'start without a consent token is refused before spawning',
-    noConsent.ok === false && noConsent.code === 'consent_required',
-    String(noConsent.code || ''),
-  )
-  const consent = registry.issueConsent(caller)
-  const started = await registry.start(caller, { consentToken: consent.consentToken })
+  const started = await registry.start(caller)
   record(
     'virtual-gui start returned a ready Linux session',
     started.ok === true && !!started.session,

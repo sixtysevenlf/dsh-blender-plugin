@@ -75,7 +75,8 @@ REGISTERED_COMMANDS = (
     _command("get_world_state_snapshot"),
     _command("get_addon_info"),
     _command("get_object_info", ("name",)),
-    _command("get_viewport_screenshot", ("max_size", "filepath", "format")),
+    _command("get_viewport_screenshot",
+             ("max_size", "filepath", "format", "spec", "presence", "area")),
     _command("execute_code", ("code",)),
     _command("describe_node_type", ("bl_idname", "property_overrides")),
     _command("bpy_api_lookup", ("query",)),
@@ -234,6 +235,13 @@ def drain_human_edits():
     from .recorders.activity import get_activity_tracker
 
     return get_activity_tracker().drain_human_edits()
+
+
+def restore_human_edits(edits):
+    """Re-queue drained human edit records whose Gateway send failed."""
+    from .recorders.activity import get_activity_tracker
+
+    get_activity_tracker().restore_human_edits(edits)
 
 
 def begin_agent_command():

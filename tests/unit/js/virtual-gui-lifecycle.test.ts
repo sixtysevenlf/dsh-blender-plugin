@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildDisplayCapabilities } from '../../../runtime/display/prerequisites.js'
 import {
   clampVirtualGuiLimit,
@@ -75,10 +75,12 @@ function makeRegistry(opts: {
 }
 
 async function startWithConsent(reg: SessionRegistry, caller = MAIN) {
-  const consent = reg.issueConsent(caller)
-  if (!consent.ok) throw new Error('consent failed')
-  return reg.start(caller, { consentToken: consent.consentToken })
+  return reg.start(caller)
 }
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 describe('virtual-gui lifecycle', () => {
   it('registers a ready session only after the addon handshake', async () => {
@@ -176,6 +178,22 @@ describe('virtual-gui lifecycle', () => {
     expect(reg.getSession(id)).toBeNull()
     const again = await reg.stop(MAIN, id)
     expect(again).toEqual({ ok: true, stopped: false })
+  })
+
+  it('keeps the creator attached so it can write and stop after the owner TTL', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-11-08T00:00:00Z'))
+    const { provider } = fakeProvider()
+    const reg = makeRegistry({ provider })
+    const started = await startWithConsent(reg)
+    if (!started.ok) throw new Error('start failed')
+    const id = String(started.session.id)
+    vi.advanceTimersByTime(121_000)
+    const write = reg.authorizeWrite(MAIN, id, ['exclusive'])
+    expect(write.ok).toBe(true)
+    const stopped = await reg.stop(MAIN, id)
+    expect(stopped).toMatchObject({ ok: true, stopped: true })
+    expect(reg.getSession(id)).toBeNull()
   })
 
   it('refuses an attach from another DSH session on a virtual instance', async () => {

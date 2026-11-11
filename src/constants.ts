@@ -53,11 +53,9 @@ export const BACKEND_HINT =
  * 声明 timeoutMs 时才设截止**；不声明 = 上游一旦给默认值，Blender 还在跑而工具已被判超时。
  */
 export const T = {
-  see: 300000, // 内部 max(/view 180s, /frame.png 60s) + 余量
   act: 300000, // /act 180s + 回帧 60s + 余量
-  watch: 600000, // /act 180s + 最多 32 帧（每帧最长 60s）
+  watch: 600000, // see 单帧 180s；sequence 最多 32 帧、每帧最长 180s 的采集窗口
   cmd: 360000, // /cmd 内部 300s
-  commands: 60000, // 只读清单
   loop: 360000, // /loop 内部 300s（内环预算在 spec.budget_ms 里另算）
   perf: 660000, // /perf 内部 600s
   opt: 660000, // /opt 内部 600s
@@ -65,35 +63,15 @@ export const T = {
   // promoted 回执（jobId），服务端子进程继续跑。静态截止留大余量即可（自定义大窗口的用户也不会被判超时）。
   headless: 1200000,
   plan: 360000, // /plan 内部 300s
-  worker: 1920000, // exec timeout_ms 由调用方给；静态上限取 32min
   txn: 360000, // /txn 内部 300s
   preset: 360000, // /preset 内部 300s
-  // v0.9.3：job 新增 op=wait（服务端单次上限 600 s）→ 静态截止要盖住它
-  job: 660000,
-  viewport: 60000, // status/doctor/lease + start/restart 的重试窗口
-  // v1.2：等用户点选 —— 后端 TTL 默认 120 s（夹 [5,600]），静态截止留余量盖住最长 600 s + 收尾
 }
-
-/**
- * （status/doctor 说真话）：host 侧有界探测预算。
- * 外层的超时必须**大于** backend 内部预算，否则模型先拿到 host 的 aborted，看不到 addonError 诊断；
- * 同时要明显小于 T.viewport（60s），保证工具自身仍有界。
- */
-/**
- * op=start：/health 通后再探 /status，判定 extension/bpy 是否可用。
- * 修复后 backend 侧 /status 的 addon 预算 5s；transport 超时后 lifecycle 还会串一次 diagnose()（~2.5s），
- * 半开 addon 稳态 ≈7.5s；启动探测不再占串行队列，首调只多一次冷启动开销。预算取 12s 覆盖首调，
- * 仍远小于 T.viewport 60s。
- */
-export const VIEWPORT_START_STATUS_TIMEOUT_MS = 12000
-/** op=doctor catch：先探 /health 区分「后端在」与「后端没起」。 */
-export const VIEWPORT_DOCTOR_HEALTH_TIMEOUT_MS = 800
 
 /**
  * v0.9.2（R2 自证）：插件 import 到的 @deepseek-ai/dsh-tools 是哪一份、哪一版。
  * 本机解析链：插件 node_modules → ~/dsh-harness（fake checkout）→ /usr/lib/node_modules
  * 的**全局安装**。DSH 一升级，这里就是升级后那份；而全局安装位置一变，插件会在载入期
- * ERR_MODULE_NOT_FOUND（15 个工具整体消失）。doctor/status 带上它，用来一眼区分
+ * ERR_MODULE_NOT_FOUND（六个模型工具整体消失）。doctor/status 带上它，用来一眼区分
  * "插件/宿主 API 坏了"与"Blender 没起"。
  */
 function hostApiInfo(): string {

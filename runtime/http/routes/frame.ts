@@ -4,13 +4,22 @@ import type { HttpRouteDeps } from './deps.js'
 import { errorMessage, errorField } from '../../core/json.js'
 // HTTP 路由 /frame：单帧 PNG
 export function createFrameRoutes(E: HttpRouteDeps) {
-  const { engine, json, pushRtt, stats } = E
+  const { engine, json, leaseGate, pushRtt, stats } = E
   return {
     async frame(req: IncomingMessage, res: ServerResponse, url: URL, _p: string): Promise<void> {
       const size = Math.max(120, Math.min(1600, Number(url.searchParams.get('size') || 560)))
       const full = url.searchParams.get('full') === '1'
       const areaIndex = Number(url.searchParams.get('area') || 0)
       const instanceId = url.searchParams.get('instanceId') || ''
+      const sessionId = url.searchParams.get('sessionId') || ''
+      const gate = leaseGate(
+        sessionId || instanceId ? { ...(sessionId ? { sessionId } : {}), instanceId } : {},
+        { readOnly: true },
+      )
+      if (gate) {
+        json(res, 409, gate)
+        return
+      }
       const t0 = Date.now()
       try {
         const out = objArg(

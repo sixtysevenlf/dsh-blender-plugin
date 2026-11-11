@@ -1,7 +1,13 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { objArg } from './deps.js'
 import type { HttpRouteDeps } from './deps.js'
+import { COMMAND_CATALOG } from '../../catalog/commands.js'
 import { errorMessage, errorField } from '../../core/json.js'
+
+/** /cmd names that are safe to run without a write grant (read + wire ping). */
+export function readOnlyCommand(name: string): boolean {
+  return name === 'ping' || COMMAND_CATALOG[name]?.access === 'read'
+}
 // HTTP 路由 /commands：命令清单 / 透传
 export function createCommandsRoutes(E: HttpRouteDeps) {
   const { engine, json, leaseGate, readBody, stats } = E
@@ -32,7 +38,10 @@ export function createCommandsRoutes(E: HttpRouteDeps) {
       } catch (e) {
         payload = {}
       }
-      const gate = leaseGate(payload)
+      const name = String(payload.name || '')
+      const gate = readOnlyCommand(name)
+        ? leaseGate(payload, { readOnly: true })
+        : leaseGate(payload)
       if (gate) {
         json(res, 409, gate)
         return
@@ -41,9 +50,10 @@ export function createCommandsRoutes(E: HttpRouteDeps) {
       stats.cmds++
       try {
         const out = await engine.cmd(
-          String(payload.name || ''),
+          name,
           objArg(payload.params),
           Number(payload.timeoutMs) || 120000,
+          String(payload.instanceId || ''),
         )
         json(res, 200, { ok: true, ms: Date.now() - t0, result: out })
       } catch (e) {

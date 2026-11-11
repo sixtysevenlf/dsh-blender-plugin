@@ -15,6 +15,8 @@ import os
 import bpy
 from mathutils import Matrix, Vector
 
+from .presence_frustum import frustum_lines, tuple3 as _tuple
+
 _MAX_AGENTS = 8
 _MAX_SELECTED = 32
 _DEFAULT_COLOR = (0.30, 0.55, 1.0, 1.0)
@@ -308,133 +310,43 @@ def _camera_world(view):
     return None
 
 
-def _rotation(world):
-    if world is None:
-        return None
-    try:
-        return world.to_3x3().to_4x4()
-    except Exception:
-        return None
-
-
-def _aspect(view):
-    try:
-        width = float(view.get("width") or 0)
-        height = float(view.get("height") or 0)
-        if width > 0 and height > 0:
-            return width / height
-    except (TypeError, ValueError):
-        pass
-    return 16.0 / 9.0
-
-
-def _ndc_corner(proj_inv, x, y, z):
-    try:
-        point = proj_inv @ Vector((x, y, z, 1.0))
-        if abs(point.w) < 1e-9:
-            return None
-        return point / point.w
-    except Exception:
-        return None
-
-
-def _projected_frustum(view, world):
-    """World-space frustum lines from the capture projection, or None."""
-    projection = _matrix4(view.get("projection"))
-    if projection is None:
-        return None
-    try:
-        proj_inv = projection.inverted()
-    except Exception:
-        return None
-    apex = world.translation.copy()
-    rot = _rotation(world)
-    if rot is None:
-        return None
-    try:
-        if bool(view.get("ortho")):
-            near = []
-            far = []
-            for x, y in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
-                a = _ndc_corner(proj_inv, x, y, -1.0)
-                b = _ndc_corner(proj_inv, x, y, 1.0)
-                if a is None or b is None:
-                    return None
-                near.append(apex + rot @ Vector((a.x, a.y, a.z)))
-                far.append(apex + rot @ Vector((b.x, b.y, b.z)))
-            lines = []
-            for i in range(4):
-                lines.extend([_tuple(near[i]), _tuple(near[(i + 1) % 4])])
-                lines.extend([_tuple(far[i]), _tuple(far[(i + 1) % 4])])
-                lines.extend([_tuple(near[i]), _tuple(far[i])])
-            return lines
-        corners = []
-        for x, y in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
-            point = _ndc_corner(proj_inv, x, y, 0.0)
-            if point is None:
-                return None
-            depth = max(-point.z, 1e-6)
-            scaled = point * (2.0 / depth)
-            corners.append(apex + rot @ Vector((scaled.x, scaled.y, scaled.z)))
-        lines = []
-        for corner in corners:
-            lines.extend([_tuple(apex), _tuple(corner)])
-        for i in range(4):
-            lines.extend([_tuple(corners[i]), _tuple(corners[(i + 1) % 4])])
-        return lines
-    except Exception:
-        return None
-
-
-def _fallback_frustum(view, world):
-    rot = _rotation(world)
-    if rot is None:
-        return None
-    try:
-        apex = world.translation.copy()
-        depth = 2.0
-        lens = float(view.get("lens") or 50.0)
-        half_h = depth * 18.0 / max(lens, 1.0)
-        half_w = half_h * _aspect(view)
-        if view.get("ortho"):
-            half_h = max(float(view.get("orthoScale") or 10.0) * 0.25, 0.1)
-            half_w = half_h * _aspect(view)
-        corners = [
-            rot @ Vector((-half_w, -half_h, -depth)),
-            rot @ Vector((half_w, -half_h, -depth)),
-            rot @ Vector((half_w, half_h, -depth)),
-            rot @ Vector((-half_w, half_h, -depth)),
-        ]
-        world_corners = [apex + corner for corner in corners]
-        lines = []
-        for corner in world_corners:
-            lines.extend([_tuple(apex), _tuple(corner)])
-        for index in range(4):
-            lines.extend([_tuple(world_corners[index]), _tuple(world_corners[(index + 1) % 4])])
-        return lines
-    except Exception:
-        return None
-
-
 def _frustum(view, color):
     world = _camera_world(view)
     if world is None:
         return
-    lines = _projected_frustum(view, world)
-    if lines is None:
-        lines = _fallback_frustum(view, world)
+    lines = frustum_lines(view, world, _matrix4)
     if lines:
         _draw_lines(lines, color)
 
 
+def _selection_object(uid):
+    """Resolve an agent selection uid ("object:Cube" or a bare object name)."""
+    value = str(uid or "")
+    index = value.find(":")
+    if index > 0:
+        kind = value[:index]
+        name = value[index + 1:]
+    else:
+        kind = "object"
+        name = value
+    if kind != "object" or not name:
+        return None
+    return bpy.data.objects.get(name)
+
+
 def _selection(uid, color):
     try:
-        name = str(uid).split(":")[-2]
-        obj = bpy.data.objects.get(name)
-        if obj is None or obj.type != "MESH":
+        obj = _selection_object(uid)
+        if obj is None:
+            return
+        # Lights, cameras, empties and other non-MESH objects still get a
+        # selection box: the observer asked to show what the agent selected,
+        # not only renderable geometry.
+        bound = getattr(obj, "bound_box", None)
+        if not bound or len(bound) < 8:
             return
         matrix = obj.matrix_world
-        corners = [matrix @ Vector(corner) for corner in obj.bound_box]
+        corners = [matrix @ Vector(corner) for corner in bound]
         edges = [
             (0, 1), (1, 2), (2, 3), (3, 0),
             (4, 5), (5, 6), (6, 7), (7, 4),
@@ -446,10 +358,6 @@ def _selection(uid, color):
         _draw_lines(lines, color)
     except Exception:
         return
-
-
-def _tuple(vector):
-    return (float(vector.x), float(vector.y), float(vector.z))
 
 
 def _draw_lines(vertices, color):

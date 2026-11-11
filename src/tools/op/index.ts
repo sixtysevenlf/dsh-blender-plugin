@@ -62,10 +62,19 @@ function buildOpTool(ctx: HostContext, port: number) {
       targets: { type: 'string', description: 'preset apply：MAT:名 / OBJ:名 / SCENE（逗号分隔）' },
       data: { type: 'json', description: 'preset save：点路径 JSON，如 {"inputs.Roughness":0.4}' },
       overwrite: { type: 'boolean', description: 'preset save/import：是否覆盖同名（默认 true）' },
+      session_id: {
+        type: 'string',
+        description: '目标 GUI 会话 id；多实例必填',
+      },
+      write_scope: {
+        type: 'string',
+        description:
+          'exclusive（默认）| collection:<名> | prefix:<前缀> | object:<名>；只读 op 不需要',
+      },
     },
     output: { schema: ANY_SCHEMA, render: renderOne },
     isConcurrencySafe: () => false,
-    timeoutMs: T.plan,
+    timeoutMs: T.opt,
     async execute(args: Record<string, unknown>) {
       return executeOp(ctx, port, args)
     },

@@ -19,6 +19,7 @@ import { trimJob, clampIntParam } from '../http/jobs.js'
 import { SessionRegistry } from '../core/sessions/registry.js'
 import { JobQueue } from '../core/queue/manager.js'
 import { SpawnJobExecutor } from '../core/queue/spawn-executor.js'
+import type { JobExecutor } from '../core/queue/types.js'
 import { setSessionRegistry } from '../http/session-gate.js'
 import { installPresencePublisher } from './presence-push.js'
 import { gatewayInstances } from '../transport/addon-handshake.js'
@@ -78,6 +79,18 @@ function addonEventSink(
   }
 }
 
+/**
+ * Production wiring for the shared GPU ledger: every virtual-gui session reserves
+ * one GPU slot, so render admission waits instead of oversubscribing the device.
+ * Exported so a test can assert the wiring without spawning Blender.
+ */
+export function createGatewayJobQueue(
+  sessions: Pick<SessionRegistry, 'virtualGuiCount'>,
+  executor: JobExecutor = new SpawnJobExecutor(),
+): JobQueue {
+  return new JobQueue({ executor, reservedGpu: () => sessions.virtualGuiCount() })
+}
+
 /** Build the Gateway app without listening; tests and the process entry share it. */
 export function createGatewayApp(opts: GatewayAppOptions = {}): GatewayApp {
   const port = opts.port ?? GATEWAY_DEFAULT_PORT
@@ -98,7 +111,7 @@ export function createGatewayApp(opts: GatewayAppOptions = {}): GatewayApp {
   )
   registryRef.current = sessionRegistry
   setSessionRegistry(sessionRegistry)
-  const jobQueue = new JobQueue({ executor: new SpawnJobExecutor() })
+  const jobQueue = createGatewayJobQueue(sessionRegistry)
   const E: HttpRouteDeps = {
     sessionRegistry,
     jobQueue,
@@ -143,6 +156,13 @@ export function createGatewayApp(opts: GatewayAppOptions = {}): GatewayApp {
     routes: CONTRACT_ROUTES,
     owner: null,
     close: () => {
+      // Queue first: running Blender children must be killed before the process
+      // exits, and rows must be persisted as gateway_shutdown (never orphaned).
+      try {
+        jobQueue.close()
+      } catch (e) {
+        /* ignore */
+      }
       try {
         engine.stop()
       } catch (e) {

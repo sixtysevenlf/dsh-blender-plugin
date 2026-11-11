@@ -70,6 +70,8 @@ export interface JobRecord {
   logs: JobLogs
   error: AvailabilityFailure | null
   events: JobEvent[]
+  /** Temp working directory owned by the executor; removed on finish/restore. */
+  tempDir?: string | null
 }
 
 export interface JobExecutionResult {
@@ -86,6 +88,8 @@ export interface JobHandle {
   pid: number | null
   done: Promise<JobExecutionResult>
   cancel: () => void
+  /** Executor-owned temp directory (headless script staging); the queue cleans it on restore/close. */
+  tempDir?: string | null
 }
 
 export interface JobExecutor {

@@ -174,6 +174,7 @@ const TARGET_FILES = [
   'src/tools/see/capture.ts',
   'src/tools/see/validate.ts',
   'src/tools/see/sequence.ts',
+  'src/tools/see/pose.ts',
   'src/tools/see/presenter.ts',
   'src/tools/run/index.ts',
   'src/tools/run/execute.ts',

@@ -8,10 +8,13 @@
  * multipart body carrying version_file + release_notes.
  *
  * Dry-run never needs a token and never calls the network. A real publish
- * fails closed when BLENDER_EXTENSIONS_TOKEN is missing or the API rejects the
- * upload; it never reports a version that the server did not accept.
+ * fails closed when BLENDER_EXTENSIONS_TOKEN is missing, the API rejects the
+ * upload, or the server records a version other than the one submitted; it
+ * never reports a version that the server did not accept. Both modes report the
+ * zip sha256 so a release log identifies the exact artifact.
  */
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, readFileSync } from 'node:fs'
 import { basename } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -68,9 +71,17 @@ export async function publishExtension(options) {
     throw new Error('extension zip not found: ' + String(zipPath))
   if (typeof notes !== 'string' || notes.trim() === '')
     throw new Error('release notes are required')
-  const submittedVersion = version || readManifestVersion(manifestPath)
+  const manifestVersion = readManifestVersion(manifestPath)
+  const submittedVersion = version || manifestVersion
+  if (version && version !== manifestVersion) {
+    throw new Error(
+      '--version ' + version + ' disagrees with blender_manifest version ' + manifestVersion,
+    )
+  }
+  const zipBytes = readFileSync(zipPath)
+  const zipSha256 = createHash('sha256').update(zipBytes).digest('hex')
   const url = extensionUploadUrl(apiUrl, extensionId)
-  const bytes = statSync(zipPath).size
+  const bytes = zipBytes.length
   if (dryRun) {
     log(
       'DRY RUN extension=' +
@@ -79,12 +90,22 @@ export async function publishExtension(options) {
         submittedVersion +
         ' bytes=' +
         String(bytes) +
+        ' sha256=' +
+        zipSha256 +
         ' url=' +
         url +
         ' token=' +
         (token ? 'present' : 'missing'),
     )
-    return { published: false, dryRun: true, extensionId, submittedVersion, url }
+    return {
+      published: false,
+      dryRun: true,
+      extensionId,
+      submittedVersion,
+      manifestVersion,
+      zipSha256,
+      url,
+    }
   }
   if (!token) {
     throw new Error(
@@ -93,11 +114,7 @@ export async function publishExtension(options) {
     )
   }
   const form = new FormData()
-  form.append(
-    'version_file',
-    new Blob([readFileSync(zipPath)], { type: 'application/zip' }),
-    basename(zipPath),
-  )
+  form.append('version_file', new Blob([zipBytes], { type: 'application/zip' }), basename(zipPath))
   form.append('release_notes', notes)
   const response = await fetchImpl(url, {
     method: 'POST',
@@ -117,11 +134,22 @@ export async function publishExtension(options) {
     )
   }
   const serverVersion = responseVersion(body)
+  if (serverVersion && serverVersion !== submittedVersion) {
+    throw new Error(
+      'extensions.blender.org recorded version ' +
+        serverVersion +
+        ', expected ' +
+        submittedVersion +
+        '; do not report this upload as published',
+    )
+  }
   log(
     'PUBLISHED extension=' +
       extensionId +
       ' version=' +
       submittedVersion +
+      ' sha256=' +
+      zipSha256 +
       (serverVersion ? ' serverVersion=' + serverVersion : ''),
   )
   return {
@@ -129,7 +157,9 @@ export async function publishExtension(options) {
     dryRun: false,
     extensionId,
     submittedVersion,
+    manifestVersion,
     serverVersion,
+    zipSha256,
     url,
     response: body,
   }

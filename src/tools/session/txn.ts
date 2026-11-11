@@ -1,4 +1,5 @@
 /** txn 执行层：参数收敛 → POST /txn → 文本渲染。 */
+import { T } from '../../constants.js'
 import { ensureBackend } from '../../host/backend/index.js'
 import { backendPost, leasedText } from '../../host/http.js'
 import { asRecord, text } from '../../contracts/dynamic.js'
@@ -14,7 +15,10 @@ export async function executeTxn(port: number, args: Record<string, unknown>): P
     )
   const op = text(args.op) || 'list'
   const a = buildTxnArgs(args)
-  const r = await backendPost(port, '/txn', { op: op, args: a }, 300000)
+  const body: Record<string, unknown> = { op: op, args: a, write_scope: 'exclusive' }
+  const sessionId = text(args.session_id).trim()
+  if (sessionId) body.sessionId = sessionId
+  const r = await backendPost(port, '/txn', body, T.txn)
   const lt = leasedText(r)
   if (lt) return { text: lt }
   if (!r || r.ok !== true)

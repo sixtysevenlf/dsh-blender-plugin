@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
+import { createHash } from 'node:crypto'
+import fs from 'node:fs'
 import {
   DEFAULT_EXTENSION_ID,
   extensionUploadUrl,
@@ -10,6 +12,7 @@ import { repoPath } from '../../../helpers/docs'
 const zipPath = repoPath('extension', 'dsh_blender_bridge.zip')
 const manifestPath = repoPath('extension', 'dsh_blender_bridge', 'blender_manifest.toml')
 const notes = 'Release 3.1.0 extension package.'
+const zipSha256 = createHash('sha256').update(fs.readFileSync(zipPath)).digest('hex')
 
 describe('extension publish script', () => {
   it('builds the documented upload URL and reads the manifest version', () => {
@@ -31,10 +34,32 @@ describe('extension publish script', () => {
       fetchImpl,
       log,
     })
-    expect(result).toMatchObject({ published: false, dryRun: true, submittedVersion: '2.0.0' })
+    expect(result).toMatchObject({
+      published: false,
+      dryRun: true,
+      submittedVersion: '2.0.0',
+      manifestVersion: '2.0.0',
+      zipSha256,
+    })
     expect(fetchImpl).not.toHaveBeenCalled()
     expect(log.mock.calls[0][0]).toContain('DRY RUN')
     expect(log.mock.calls[0][0]).toContain('token=missing')
+    expect(log.mock.calls[0][0]).toContain('sha256=' + zipSha256)
+  })
+
+  it('rejects a requested version that disagrees with the manifest', async () => {
+    const fetchImpl = vi.fn()
+    await expect(
+      publishExtension({
+        zipPath,
+        notes,
+        manifestPath,
+        version: '9.9.9',
+        token: 'secret-token',
+        fetchImpl,
+      }),
+    ).rejects.toThrow(/9\.9\.9 disagrees with blender_manifest version 2\.0\.0/)
+    expect(fetchImpl).not.toHaveBeenCalled()
   })
 
   it('fails closed when a real publish has no token', async () => {
@@ -66,6 +91,7 @@ describe('extension publish script', () => {
       extensionId: 'dsh_blender_bridge',
       submittedVersion: '2.0.0',
       serverVersion: '2.0.0',
+      zipSha256,
     })
     expect(request).not.toBeNull()
     expect(request!.url).toBe(
@@ -82,6 +108,19 @@ describe('extension publish script', () => {
     expect(file).toBeInstanceOf(Blob)
     expect(file.name).toBe('dsh_blender_bridge.zip')
     expect(file.size).toBeGreaterThan(100000)
+  })
+
+  it('fails when the server records a different version than the one submitted', async () => {
+    const fetchImpl = vi.fn(async () => {
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ version: { version: '2.0.1' } }),
+      } as Response
+    })
+    await expect(
+      publishExtension({ zipPath, notes, manifestPath, token: 'secret-token', fetchImpl }),
+    ).rejects.toThrow(/recorded version 2\.0\.1, expected 2\.0\.0/)
   })
 
   it('throws on an HTTP rejection instead of reporting a version', async () => {

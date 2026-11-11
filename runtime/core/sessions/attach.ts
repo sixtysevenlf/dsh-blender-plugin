@@ -1,5 +1,5 @@
 import type { CallerIdentity, InstanceRef, SessionRecord, SessionResult } from './types.js'
-import { fail, ownerMatches, ownerOf } from './types.js'
+import { fail, isMain, ownerMatches, ownerOf } from './types.js'
 
 export function claimExisting(
   session: SessionRecord,
@@ -14,9 +14,24 @@ export function claimExisting(
       { sessionId: session.id, owner: session.owner },
     )
   }
-  if (!session.owner) session.owner = ownerOf(c)
+  if (!session.owner) {
+    // Only the host-injected main agent may create the owner record. A
+    // subagent may attach to an already-owned session but never claim first.
+    if (c.role !== 'main') {
+      return fail(
+        'owner_required',
+        'session',
+        'only the main agent may claim a GUI session',
+        'ask the main agent to call blender_session action=attach first',
+        { sessionId: session.id },
+      )
+    }
+    session.owner = ownerOf(c)
+  }
   session.status = 'ready'
-  session.owner.heartbeatAt = Date.now()
+  // Only the owning main agent refreshes the owner lease; a subagent merely
+  // attaching must not keep a stale owner alive.
+  if (isMain(session, c) && session.owner) session.owner.heartbeatAt = Date.now()
   return { ok: true, session }
 }
 

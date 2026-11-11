@@ -28,6 +28,7 @@ from .command_registry import (
     drain_human_edits,
     end_agent_command,
     gate_property,
+    restore_human_edits,
     start_runtime_handlers,
     stop_runtime_handlers,
     tick_activity,
@@ -216,6 +217,10 @@ class DSHBlenderBridgeServer(*command_mixins()):
 
                 self.connected = True
                 self.handshake_error = ""
+                # A new connection may belong to a restarted Gateway whose session
+                # mirror is empty; force one pause snapshot on the next timer tick
+                # so a pause toggled while we were offline is not left unreported.
+                self._reported_pause = None
                 backoff = RETRY_MIN_SECONDS
                 print("DSH Blender Bridge connected to the DSH Gateway (instance %s)" % _INSTANCE_ID)
                 self._serve(connection)
@@ -295,6 +300,11 @@ class DSHBlenderBridgeServer(*command_mixins()):
 
         Pause is human-owned: the Gateway mirrors this state onto the session so
         the write gate can answer before an agent command reaches Blender.
+
+        The state is only marked as reported after a frame was actually
+        written. A toggle that happens while the Gateway is offline (or while
+        the socket is closing) is therefore retried on the next tick instead of
+        being lost until the human toggles again.
         """
         try:
             paused = bool(ai_paused())
@@ -302,7 +312,6 @@ class DSHBlenderBridgeServer(*command_mixins()):
             return
         if paused == self._reported_pause:
             return
-        self._reported_pause = paused
         with self._connection_lock:
             connection = self._connection
         if connection is None or not self.connected:
@@ -316,6 +325,8 @@ class DSHBlenderBridgeServer(*command_mixins()):
             }, ensure_ascii=False))
         except Exception as exc:
             print("DSH Blender Bridge: failed to report the pause state: %s" % str(exc))
+            return
+        self._reported_pause = paused
 
     def _report_human_edits(self):
         """Tell the Gateway which objects/collections the human changed.
@@ -324,15 +335,17 @@ class DSHBlenderBridgeServer(*command_mixins()):
         the scene instead of overwriting a human edit. Records are only kept in
         memory and drained on the next main-thread tick.
         """
+        with self._connection_lock:
+            connection = self._connection
+        if connection is None or not self.connected:
+            # Do not drain while disconnected: the write gate must not lose a
+            # human edit just because there was no socket to carry it.
+            return
         try:
             edits = drain_human_edits()
         except Exception:
             return
         if not edits:
-            return
-        with self._connection_lock:
-            connection = self._connection
-        if connection is None or not self.connected:
             return
         try:
             connection.send_text(json.dumps({
@@ -343,6 +356,7 @@ class DSHBlenderBridgeServer(*command_mixins()):
                 "collections": [e for e in edits if e.get("kind") == "collection"],
             }, ensure_ascii=False))
         except Exception as exc:
+            restore_human_edits(edits)
             print("DSH Blender Bridge: failed to report human edits: %s" % str(exc))
 
     def _handle_gateway_message(self, text, send):

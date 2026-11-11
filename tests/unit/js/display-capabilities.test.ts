@@ -4,13 +4,8 @@ import {
   prerequisiteTable,
 } from '../../../runtime/display/prerequisites.js'
 import { resolveVirtualGuiFeature } from '../../../runtime/display/feature.js'
-import {
-  CONSENT_TTL_MS,
-  consumeConsentToken,
-  issueConsentToken,
-} from '../../../runtime/core/sessions/consent.js'
 import { providerCandidates, selectDisplayProvider } from '../../../runtime/display/provider.js'
-import { statusView } from '../../../runtime/core/engine-api/doctor.js'
+import { createDoctorApi, statusView } from '../../../runtime/core/engine-api/doctor.js'
 import type { EngineApiDeps } from '../../../runtime/core/engine-api/index.js'
 import { SessionRegistry } from '../../../runtime/core/sessions/registry.js'
 
@@ -115,6 +110,21 @@ describe('status surface', () => {
     expect(typeof virtualGui.enabled).toBe('boolean')
     expect(virtualGui).toHaveProperty('reason')
     expect(view.addonError).toContain('addon unreachable')
+  })
+
+  it('shares the same install plans through doctor regardless of the addon state', async () => {
+    const E = {
+      addon: { instances: [], send: async () => ({}) },
+      jobs: new Map(),
+      runs: new Map(),
+      ledgerList: () => [],
+      ledgerState: () => ({}),
+      runSnapshot: () => ({}),
+      jobSnapshot: () => ({}),
+      metrics: { lastCmdAt: 0 },
+    } as unknown as EngineApiDeps
+    const view = (await createDoctorApi(E).doctor()) as { virtualGui: Record<string, unknown> }
+    expect(Array.isArray(view.virtualGui.installPlans)).toBe(true)
   })
 })
 
@@ -287,39 +297,12 @@ describe('blender_session start pre-spawn gate', () => {
 
   it('reports provider_unavailable instead of starting without a selected provider', async () => {
     const reg = registry()
-    const consent = reg.issueConsent(caller)
-    expect(consent.ok).toBe(true)
-    if (!consent.ok) return
-    const result = await reg.start(caller, { consentToken: consent.consentToken })
+    const result = await reg.start(caller)
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.stage).toBe('config')
     expect(result.code).toBe('provider_unavailable')
     expect(reg.listFor(caller)).toEqual([])
-  })
-
-  it('requires one-time human consent before a ready capability may start', async () => {
-    const reg = registry()
-    const denied = await reg.start(caller)
-    expect(denied.ok).toBe(false)
-    if (denied.ok) return
-    expect(denied.code).toBe('consent_required')
-    expect(denied.stage).toBe('session')
-    expect(denied.evidence.reason).toBe('missing')
-    expect(denied.evidence.options).toHaveLength(2)
-
-    const consent = reg.issueConsent(caller)
-    if (!consent.ok) return
-    const allowed = await reg.start(caller, { consentToken: consent.consentToken })
-    expect(allowed.ok).toBe(false)
-    if (allowed.ok) return
-    expect(allowed.code).toBe('provider_unavailable')
-
-    const replay = await reg.start(caller, { consentToken: consent.consentToken })
-    expect(replay.ok).toBe(false)
-    if (replay.ok) return
-    expect(replay.code).toBe('consent_required')
-    expect(replay.evidence.reason).toBe('used')
   })
 
   it('refuses to start a virtual window when a ready user-gui session exists', async () => {
@@ -331,34 +314,11 @@ describe('blender_session start pre-spawn gate', () => {
     const attached = reg.attach(caller)
     expect(attached.ok).toBe(true)
     if (!attached.ok) return
-    const consent = reg.issueConsent(caller)
-    if (!consent.ok) return
-    const result = await reg.start(caller, { consentToken: consent.consentToken })
+    const result = await reg.start(caller)
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.code).toBe('session_already_available')
     expect(result.evidence.sessionId).toBe(attached.session.id)
     expect(reg.listFor(caller)).toHaveLength(1)
-  })
-
-  it('binds consent tokens to the caller', async () => {
-    const other = { hostId: 'h2', dshSessionId: 's', agentId: 'a', role: 'main' as const }
-    const reg = registry()
-    const consent = reg.issueConsent(caller)
-    if (!consent.ok) return
-    const stolen = await reg.start(other, { consentToken: consent.consentToken })
-    expect(stolen.ok).toBe(false)
-    if (stolen.ok) return
-    expect(stolen.evidence.reason).toBe('invalid')
-  })
-
-  it('expires consent tokens after the TTL', () => {
-    const token = issueConsentToken(caller, 1_000)
-    expect(consumeConsentToken(caller, token.consentToken, 1_000 + CONSENT_TTL_MS + 1)).toBe(
-      'expired',
-    )
-    expect(consumeConsentToken(caller, token.consentToken, 1_000 + CONSENT_TTL_MS + 2)).toBe(
-      'invalid',
-    )
   })
 })

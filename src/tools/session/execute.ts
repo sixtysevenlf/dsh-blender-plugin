@@ -5,7 +5,8 @@
  */
 import { BACKEND_HINT } from '../../constants.js'
 import { asRecord, text } from '../../contracts/dynamic.js'
-import { ensureBackend } from '../../host/backend/index.js'
+import { ensureBackend, getLastBackendFailure } from '../../host/backend/index.js'
+import { virtualGuiAllowed } from '../../host/virtual-gui-permission.js'
 import { backendJson } from '../../host/http.js'
 import { toolError } from '../errors.js'
 import { gatewayFailure, isFailureBody, listSessions, sessionAction } from '../shared/session.js'
@@ -63,11 +64,35 @@ function payloadFor(action: string, args: Record<string, unknown>): Record<strin
   if (scopes !== undefined) p.scopes = scopes
   if (action === 'start') {
     p.kind = present(args.kind) ? text(args.kind) : 'virtual-gui'
-    const token = args.__consent_token ?? args.consent_token
-    if (present(token)) p.consentToken = text(token)
+    // 许可在宿主工具面判定；Gateway 只负责 feature/provider/容量门。
   }
   return p
 }
+
+/** Model-callable actions only. Internal host actions (update_*,
+ * presence_notice) are deliberately absent: accepting an arbitrary action here
+ * bypassed the host-side checks. */
+const ACTIONS = new Set([
+  'list',
+  'status',
+  'doctor',
+  'attach',
+  'claim',
+  'detach',
+  'release',
+  'grant',
+  'revoke',
+  'grants',
+  'pause',
+  'resume',
+  'mark_read',
+  'presence',
+  'heartbeat',
+  'start',
+  'stop',
+  'txn',
+  'help',
+])
 
 const NEED_SESSION = [
   'detach',
@@ -94,6 +119,8 @@ function validate(action: string, args: Record<string, unknown>): string | null 
   if (action === 'grant' && parseScopes(args.scopes ?? args.scope) === undefined)
     return 'grant 需要 scopes（exclusive | collection:名 | prefix:名 | object:名）'
   if (action === 'revoke' && !present(args.grant_id)) return 'revoke 需要 grant_id'
+  if (action === 'mark_read' && parseScopes(args.scopes ?? args.scope) === undefined)
+    return 'mark_read 需要 scopes（exclusive | collection:名 | prefix:名 | object:名）'
   return null
 }
 
@@ -141,18 +168,41 @@ async function doctorOf(port: number): Promise<unknown> {
   return { text: formatDoctor(body) }
 }
 
+function notAllowed(): ReturnType<typeof toolError> {
+  return toolError(
+    'virtual_gui_not_allowed',
+    'virtual-gui 未获人类允许',
+    '在 DSH 侧栏 Plugins → Blender 配置卡（或右侧栏 Blender Presence 面板）打开“允许 agent 启动 virtual-gui”',
+    undefined,
+    'session',
+  )
+}
+
 export async function executeSession(
   port: number,
   args: Record<string, unknown>,
 ): Promise<unknown> {
-  if (!(await ensureBackend(port)))
+  const action = text(args.action).trim() || 'list'
+  if (!ACTIONS.has(action))
+    return toolError(
+      'invalid_params',
+      '未知的 session action：' + action,
+      'action=help 查看模型可用的动作',
+    )
+  const bad = validate(action, args)
+  if (bad) return toolError('invalid_params', bad, 'action=help 查看可用动作与参数')
+  // 宿主级许可门：默认拒绝，且先于后端探测/拉起 Gateway。
+  if (action === 'start' && !virtualGuiAllowed()) return notAllowed()
+  if (action === 'help') return { text: sessionHelp() }
+  if (!(await ensureBackend(port))) {
+    const failure = getLastBackendFailure()
+    if (failure) return toolError(failure.code, failure.root_cause, failure.fix)
     return toolError(
       'backend_unreachable',
       '后端不可用（127.0.0.1:' + String(port) + '）',
       BACKEND_HINT,
     )
-  const action = text(args.action).trim() || 'list'
-  if (action === 'help') return { text: sessionHelp() }
+  }
   if (action === 'txn') return executeTxn(port, args)
   if (action === 'status') return statusOf(port)
   if (action === 'doctor') return doctorOf(port)
@@ -161,8 +211,6 @@ export async function executeSession(
     if (!listed.ok) return listed.failure
     return { text: formatSessionList(listed.sessions) }
   }
-  const bad = validate(action, args)
-  if (bad) return toolError('invalid_params', bad, 'action=help 查看可用动作与参数')
   const body = await sessionAction(port, action, payloadFor(action, args))
   if (isFailureBody(body)) return gatewayFailure(body, 'SESSION ' + action)
   return { text: formatSessionResult(action, asRecord(body)) }

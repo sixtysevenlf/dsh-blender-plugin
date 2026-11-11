@@ -177,8 +177,6 @@ function defaults(key, body) {
             },
           ],
         })
-      if (body.action === 'consent')
-        return json({ ok: true, consentToken: 'tok-1', expiresAt: Date.now() + 30000 })
       return json({ ok: true, action: body.action, session: { id: 'sess-1', status: 'ready' } })
     }
     return json({

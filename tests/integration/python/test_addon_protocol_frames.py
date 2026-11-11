@@ -146,8 +146,13 @@ def _wait_for_command(server, timeout=3.0):
 
 def _drain_and_read(gateway, server):
     _wait_for_command(server)
-    server._drain_command_queue()
-    return gateway.read_json()
+    while True:
+        server._drain_command_queue()
+        message = gateway.read_json()
+        # The first tick after a (re)connect also publishes the pause snapshot
+        # Gateway needs; tests read the command response, so skip events.
+        if message.get("type") != "event":
+            return message
 
 
 def test_handshake_is_sent_before_serving_and_carries_the_31_contract():

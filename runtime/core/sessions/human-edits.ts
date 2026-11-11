@@ -115,11 +115,9 @@ export function conflictingHumanEdits(session: SessionRecord, scopes: ScopeSpec[
 
 /** Clear the edits covered by the scopes the caller just re-read. */
 export function clearHumanEdits(session: SessionRecord, scopes: ScopeSpec[]): number {
-  if (!scopes.some((scope) => scope.kind === 'exclusive') && !scopes.length) {
-    session.humanEdits.clear()
-    session.humanModifiedAt = null
-    return 0
-  }
+  // An empty scope list used to clear every human edit while reporting 0. A
+  // mark_read must name the scope it re-read; use exclusive to clear everything.
+  if (!scopes.length) return 0
   let cleared = 0
   for (const [key, edit] of session.humanEdits) {
     if (scopes.some((scope) => editOverlapsScope(edit, scope))) {

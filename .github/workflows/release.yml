@@ -113,9 +113,11 @@ jobs:
           npm run lint
           npm run format:check
           npm run build
+          git diff --exit-code
           npm run check:build
           npm run check:git-hygiene
           npm run check:structure
+          npm run check:finalization
           npm run test:parity
       - name: Unit, integration, contract and addon tests
         run: |
@@ -202,6 +204,7 @@ jobs:
       - name: Build and verify extension zip
         run: |
           npm run build:extension
+          git diff --exit-code
           npm run check:extension
       - name: Pack npm tarball and checksums
         run: |

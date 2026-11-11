@@ -13,6 +13,7 @@ import sys
 import types
 
 import bpy_stub
+import pytest
 
 bpy_stub.install()
 
@@ -150,3 +151,111 @@ def test_spec_rejects_incomplete_coordinates():
         except ValueError:
             continue
         raise AssertionError("bad coordinate %r must raise" % (bad,))
+
+
+def _camera_fixture(ctype="ORTHO"):
+    class Vec:
+        def __init__(self, x, y, z):
+            self.x, self.y, self.z = x, y, z
+
+    class Quaternion:
+        def __matmul__(self, value):
+            return Vec(0.0, 0.0, -1.0)
+
+    class World:
+        translation = Vec(1.0, 2.0, 3.0)
+
+        def to_quaternion(self):
+            return Quaternion()
+
+        def inverted(self):
+            return "view-matrix"
+
+    camera_data = types.SimpleNamespace(
+        type=ctype,
+        lens=35.0,
+        sensor_width=36.0,
+        sensor_fit="AUTO",
+        clip_start=0.1,
+        clip_end=1000.0,
+        ortho_scale=12.0,
+        shift_x=0.0,
+        shift_y=0.0,
+        dof=types.SimpleNamespace(use_dof=False),
+    )
+
+    class Evaluated:
+        matrix_world = World()
+        data = camera_data
+
+        def calc_matrix_camera(self, depsgraph, x=0, y=0):
+            return {"x": x, "y": y}
+
+    class Camera:
+        name = "Cam"
+        data = camera_data
+
+        def evaluated_get(self, depsgraph):
+            return Evaluated()
+
+    return Camera()
+
+
+def _camera_scene():
+    return types.SimpleNamespace(
+        frame_current=1,
+        render=types.SimpleNamespace(
+            resolution_x=1920,
+            resolution_y=1080,
+            pixel_aspect_x=1.0,
+            pixel_aspect_y=1.0,
+            use_motion_blur=False,
+        )
+    )
+
+
+def test_camera_capture_publishes_evaluated_ortho_metadata(monkeypatch):
+    module = _load_view()
+    monkeypatch.setattr(module.bpy, "context", types.SimpleNamespace(
+        evaluated_depsgraph_get=lambda: "depsgraph"))
+    spec = {"max_size": 544}
+
+    view, proj, width, height, extra = module._camera_matrices(
+        spec, _camera_scene(), _camera_fixture())
+
+    assert view == "view-matrix"
+    assert proj == {"x": 544, "y": 306}
+    assert (width, height) == (544, 306)
+    # The /view header and the presence frustum read these from spec: an
+    # orthographic camera must publish ortho + ortho_scale, never a perspective
+    # cone with the defaults.
+    assert spec["ortho"] is True
+    assert spec["ortho_scale"] == 12.0
+    assert spec["sensor"] == 36.0
+    assert spec["sensor_fit"] == "AUTO"
+    assert spec["clip_start"] == 0.1
+    assert spec["clip_end"] == 1000.0
+    assert spec["lens"] == 35.0
+    assert spec["from"] == [1.0, 2.0, 3.0]
+    assert spec["look_at"] == [1.0, 2.0, 2.0]
+    assert extra["camera"] == "Cam"
+    assert extra["preview_only"] is True
+
+
+@pytest.mark.parametrize("bad", [600, 1000, "big"])
+def test_camera_max_size_only_accepts_the_documented_tiers(monkeypatch, bad):
+    module = _load_view()
+    monkeypatch.setattr(module.bpy, "context", types.SimpleNamespace(
+        evaluated_depsgraph_get=lambda: "depsgraph"))
+    with pytest.raises(RuntimeError) as exc:
+        module._camera_matrices({"max_size": bad}, _camera_scene(), _camera_fixture())
+    assert "invalid_params" in str(exc.value)
+
+
+def test_pano_camera_is_rejected_before_any_capture(monkeypatch):
+    module = _load_view()
+    monkeypatch.setattr(module.bpy, "context", types.SimpleNamespace(
+        evaluated_depsgraph_get=lambda: "depsgraph"))
+    with pytest.raises(RuntimeError) as exc:
+        module._camera_matrices({}, _camera_scene(), _camera_fixture("PANO"))
+    assert "PANO" in str(exc.value)

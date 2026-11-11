@@ -114,6 +114,13 @@ describe('model tool execution semantics (six-tool surface)', () => {
     expect(requestSince(mark, 'POST', '/lease')?.body.action).toBe('list')
   })
 
+  it('refuses a virtual-gui start before touching the backend unless the host allowed it', async () => {
+    const mark = backend.requests.length
+    const out = await run('blender_session', { action: 'start', kind: 'virtual-gui' })
+    expect(out.envelope.error.code).toBe('virtual_gui_not_allowed')
+    expect(requestsSince(mark)).toEqual([])
+  })
+
   it('blender_session attaches with an explicit instance id', async () => {
     const mark = backend.requests.length
     const out = await run('blender_session', { action: 'attach', instance_id: 'inst-1' })
@@ -128,7 +135,9 @@ describe('model tool execution semantics (six-tool surface)', () => {
     const out = await run('blender_session', { action: 'txn', op: 'list' })
     expect(out.text).toContain('TXN list ok')
     expect(out.text).toContain('目录：/tmp/fake')
-    expect(requestSince(mark, 'POST', '/txn')?.body.op).toBe('list')
+    const body = requestSince(mark, 'POST', '/txn')?.body
+    expect(body.op).toBe('list')
+    expect(body.write_scope).toBe('exclusive')
   })
 
   it('blender_op plan catalog runs without a GUI session', async () => {
@@ -149,6 +158,32 @@ describe('model tool execution semantics (six-tool surface)', () => {
     expect(out.text).toContain('session_required')
     expect(out.envelope?.stage).toBe('session')
     backend.setHandler('POST /lease')
+  })
+
+  it('blender_op routes a write op to the named session with its declared scope', async () => {
+    backend.setHandler('POST /lease', twoReadySessions)
+    const mark = backend.requests.length
+    const out = await run('blender_op', {
+      action: 'plan',
+      op: 'gate_deliver',
+      args: { dry_run: false },
+      session_id: 'sess-b',
+      write_scope: 'collection:COL_Lights',
+    })
+    expect(out.text).toContain('OP gate_deliver ok')
+    expect(requestSince(mark, 'POST', '/plan')?.body).toMatchObject({
+      op: 'gate_deliver',
+      sessionId: 'sess-b',
+      write_scope: 'collection:COL_Lights',
+    })
+  })
+
+  it('blender_op never guesses between two ready sessions for a write op', async () => {
+    backend.setHandler('POST /lease', twoReadySessions)
+    const mark = backend.requests.length
+    const out = await run('blender_op', { action: 'plan', op: 'gate_deliver' })
+    expect(out.text).toContain('session_ambiguous')
+    expect(requestsSince(mark).some((r: any) => r.path === '/plan')).toBe(false)
   })
 
   it('blender_py executes code in the attached GUI session and returns a frame', async () => {
@@ -234,6 +269,58 @@ describe('model tool execution semantics (six-tool surface)', () => {
     expect(out.text).toContain('timeline')
   })
 
+  it('blender_see accepts camera=true as the current scene camera', async () => {
+    const mark = backend.requests.length
+    const out = await run('blender_see', { viewpoint: 'camera', camera: true })
+    expect(out.text).toContain('SEE camera')
+    expect(requestSince(mark, 'POST', '/view')?.body.mode).toBe('camera')
+  })
+
+  it('blender_see publishes the first sequence frame once as a fixed pose', async () => {
+    backend.setHandler('POST /lease', (body: any) => {
+      if (body.action === 'list')
+        return {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+          body: Buffer.from(
+            JSON.stringify({
+              ok: true,
+              sessions: [
+                {
+                  id: 'sess-1',
+                  kind: 'user-gui',
+                  status: 'ready',
+                  instanceId: 'inst-1',
+                  owner: null,
+                  agents: [],
+                },
+              ],
+            }),
+          ),
+        }
+      return {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        body: Buffer.from(JSON.stringify({ ok: true, action: body.action })),
+      }
+    })
+    const mark = backend.requests.length
+    const out = await run('blender_see', {
+      mode: 'sequence',
+      viewpoint: 'viewport',
+      seconds: 0.2,
+      fps: 5,
+    })
+    expect(out.text).toContain('SEE sequence(viewport)')
+    const published = requestsSince(mark).filter(
+      (r: any) => r.path === '/lease' && r.body?.action === 'update_view',
+    )
+    expect(published).toHaveLength(1)
+    expect(published[0].body.sessionId).toBe('sess-1')
+    expect(published[0].body.view).toMatchObject({ viewpoint: 'viewport' })
+    backend.setHandler('POST /lease')
+  })
+
   it('blender_see rejects removed and ambiguous parameters before capturing', async () => {
     const viewSize = await run('blender_see', { view_size: '1280x720' })
     expect(viewSize.text).toContain('view_size')
@@ -249,6 +336,27 @@ describe('model tool execution semantics (six-tool surface)', () => {
     })
     expect(seq.text).toContain('sequence 只支持 viewpoint=viewport 或 custom')
     expect(seq.text).toContain('invalid_params')
+    const inferred = await run('blender_see', {
+      mode: 'sequence',
+      from: '1,2,3',
+      look_at: '0,0,0',
+      seconds: 2,
+      fps: 4,
+    })
+    expect(inferred.text).toContain('必须显式给 viewpoint')
+    expect(inferred.text).toContain('invalid_params')
+    const viewportFrom = await run('blender_see', { viewpoint: 'viewport', from: '1,2,3' })
+    expect(viewportFrom.text).toContain('不接受 from/look_at')
+    expect(viewportFrom.text).toContain('invalid_params')
+    const seqForce = await run('blender_see', {
+      mode: 'sequence',
+      viewpoint: 'viewport',
+      force: true,
+      seconds: 2,
+      fps: 4,
+    })
+    expect(seqForce.text).toContain('sequence 不支持 force')
+    expect(seqForce.text).toContain('invalid_params')
   })
 
   it('blender_run submits a declarative render job to the queue', async () => {
@@ -316,6 +424,22 @@ describe('model tool execution semantics (six-tool surface)', () => {
     expect(requestSince(mark, 'POST', '/cmd')?.body).toMatchObject({
       name: 'get_scene_info',
       params: { a: 1 },
+      sessionId: 'sess-1',
+      instanceId: 'inst-1',
+    })
+  })
+
+  it('blender_inspect routes a read command to the named session instance', async () => {
+    backend.setHandler('POST /lease', twoReadySessions)
+    const mark = backend.requests.length
+    const out = await run('blender_inspect', {
+      command: 'get_scene_info',
+      session_id: 'sess-b',
+    })
+    expect(out.text).toContain('INSPECT get_scene_info ok')
+    expect(requestSince(mark, 'POST', '/cmd')?.body).toMatchObject({
+      sessionId: 'sess-b',
+      instanceId: 'inst-b',
     })
   })
 
@@ -347,6 +471,9 @@ describe('model tool execution semantics (six-tool surface)', () => {
     expect(requestSince(mark, 'POST', '/loop')?.body).toMatchObject({
       op: 'start',
       spec: { iterations: 3 },
+      sessionId: 'sess-1',
+      instanceId: 'inst-1',
+      write_scope: 'exclusive',
     })
   })
 
@@ -354,11 +481,24 @@ describe('model tool execution semantics (six-tool surface)', () => {
     let mark = backend.requests.length
     const opt = await run('blender_op', { action: 'opt', op: 'analyze' })
     expect(opt.text).toContain('OPT analyze')
-    expect(requestSince(mark, 'POST', '/opt')?.body).toMatchObject({ op: 'opt_analyze' })
+    expect(requestSince(mark, 'POST', '/opt')?.body).toMatchObject({
+      op: 'opt_analyze',
+      sessionId: 'sess-1',
+      write_scope: 'exclusive',
+    })
     mark = backend.requests.length
-    const preset = await run('blender_op', { action: 'preset', op: 'list' })
+    const preset = await run('blender_op', {
+      action: 'preset',
+      op: 'list',
+      session_id: 'sess-1',
+      write_scope: 'prefix:LGT-',
+    })
     expect(preset.text).toContain('PRESET list ok')
-    expect(requestSince(mark, 'POST', '/preset')?.body.op).toBe('list')
+    expect(requestSince(mark, 'POST', '/preset')?.body).toMatchObject({
+      op: 'list',
+      sessionId: 'sess-1',
+      write_scope: 'prefix:LGT-',
+    })
   })
 
   it('blender_run submit keeps kind=headless and returns a job id immediately', async () => {

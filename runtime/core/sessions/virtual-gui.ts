@@ -8,7 +8,8 @@ import { AVAILABILITY_STAGES, availabilityFailure } from '../availability.js'
 import type { AvailabilityFailure, AvailabilityStage } from '../availability.js'
 import { isRecord } from '../json.js'
 import { startVirtualGuiGate } from './display-gate.js'
-import { fail, ownerMatches, ownerOf, sessionView } from './types.js'
+import { callerKey, fail, ownerMatches, ownerOf, sessionView } from './types.js'
+import { touchAgent } from './presence.js'
 import type { CallerIdentity, InstanceRef, SessionRecord, SessionResult } from './types.js'
 import type { VirtualGuiLimits } from '../../display/limits.js'
 import type { DisplayCapabilities, DisplayInstance, DisplayProvider } from '../../display/types.js'
@@ -33,7 +34,6 @@ export type ProviderSelector = (capabilities: DisplayCapabilities) => DisplayPro
 
 export interface VirtualGuiStartOptions {
   kind?: string
-  consentToken?: string
 }
 
 function stageOf(value: unknown): AvailabilityStage {
@@ -142,7 +142,6 @@ export class VirtualGuiLifecycle {
     const gated = startVirtualGuiGate({
       caller,
       kind: opts.kind,
-      consentToken: opts.consentToken,
       capability,
       existing: this.host.findForCaller(caller),
     })
@@ -191,6 +190,10 @@ export class VirtualGuiLifecycle {
       createdAt: now,
       lastActivityAt: now,
     }
+    // The creator is an attached agent of the session it started: without this
+    // entry an owner-heartbeat expiry made the creator unable to write or stop
+    // the virtual-gui it owns (the session then stayed alive as an orphan).
+    touchAgent(session, caller)
     this.host.addSession(session)
     return { ok: true, session: sessionView(session) }
   }
@@ -212,34 +215,49 @@ export class VirtualGuiLifecycle {
         { sessionId: session.id },
       )
     }
-    if (!ownerMatches(session.owner, caller)) {
+    const attached = session.agents.has(callerKey(caller))
+    if (!ownerMatches(session.owner, caller) && !attached) {
       return fail(
         'session_in_use',
         'session',
-        'only the owning DSH session can stop this virtual-gui session',
+        'only an attached agent of the owning DSH session can stop this virtual-gui session',
         'ask the owner to stop it',
         { sessionId: session.id },
       )
     }
+    const stopped = await this.disposeSession(session)
+    if (stopped) return stopped
     this.host.removeSession(session.id)
-    await this.disposeSession(session)
     return { ok: true, stopped: true }
   }
 
-  /** Stop a virtual-gui session whose owner no longer exists (best effort). */
-  async disposeSession(session: SessionRecord): Promise<void> {
-    if (session.provider && session.display) await this.dispose(session.display, session.provider)
+  /**
+   * Stop a virtual-gui session and report provider cleanup failure instead of
+   * claiming success while an orphan Blender process may still be running.
+   */
+  async disposeSession(session: SessionRecord): Promise<AvailabilityFailure | null> {
+    const error =
+      session.provider && session.display
+        ? await this.dispose(session.display, session.provider)
+        : null
+    if (error) return providerFailure(error)
     session.display = null
     session.provider = null
     session.status = 'stopped'
+    return null
   }
 
-  private async dispose(display: DisplayInstance, provider: DisplayProvider): Promise<void> {
+  private async dispose(
+    display: DisplayInstance,
+    provider: DisplayProvider,
+  ): Promise<unknown | null> {
     try {
       await provider.stop(display)
+      return null
     } catch (error) {
-      // The failure path must still report the original start error; the stop
-      // attempt is recorded by the provider/helper logs instead.
+      // The caller decides whether a failed stop is fatal. Start's cleanup path
+      // still reports the original error; stop returns display_stop_failed.
+      return error
     }
   }
 }

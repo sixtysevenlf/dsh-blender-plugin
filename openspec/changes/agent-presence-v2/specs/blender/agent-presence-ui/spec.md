@@ -96,6 +96,52 @@ The DSH web client SHALL provide a right-sidebar tab listing connected Blender s
 - **WHEN** the panel is opened with no attached agents
 - **THEN** it shows an empty state rather than stale entries
 
+### Requirement: DSH web sidebar controls virtual-gui permission
+
+The Blender Presence tab and the DSH Plugins → Blender configuration card SHALL expose a `virtual-gui` permission switch, initialized from plugin config `allowVirtualGui` (default `false`). Only an authenticated human owner MAY change it through the DSH connection RPC; when the RPC is unavailable the switch MUST be disabled rather than fall back to unauthenticated HTTP. Turning it off MUST deny the next `session start kind=virtual-gui` before any Gateway probe or Blender process.
+
+#### Scenario: Default is denied
+
+- **WHEN** the plugin starts with the default configuration
+- **THEN** the switch is off and an agent's virtual-gui start returns `virtual_gui_not_allowed` without spawning Blender
+
+#### Scenario: Human enables and disables the switch
+
+- **WHEN** the human toggles the switch on and then off in the panel
+- **THEN** the first subsequent start may create a session, and the next start after turning it off is refused again
+
+### Requirement: DSH Plugins page gates virtual-gui on its prerequisites
+
+The DSH web client SHALL register a Blender card in the Plugins page (`plugins.item`) with the `virtual-gui` permission switch and prerequisite state. Turning the switch on SHALL first read `/doctor`'s `virtualGui` block through an authenticated host RPC. When a required prerequisite is missing, the card SHALL ask whether to install it and keep the switch off if the human declines.
+
+#### Scenario: Missing dependency prompts before enabling
+
+- **WHEN** the human turns the switch on while a required prerequisite is missing
+- **THEN** the card asks whether to install it, and declining leaves the switch off and starts no install command
+
+### Requirement: DSH Plugins page installs and reports missing prerequisites
+
+The card SHALL keep a supported one-click install open with progress, then re-check `/doctor` and enable only when every required prerequisite is ready. Manual prerequisites SHALL show their command and steps. If an enabled `virtual-gui` later loses a required dependency, the card and the Blender Presence tab SHALL show it with install or disable actions; the state MUST NOT be silently ignored.
+
+#### Scenario: Install stays visible and re-checks
+
+- **WHEN** the human accepts a supported one-click install
+- **THEN** the card remains open with the running install output, then re-checks `/doctor` and only enables the switch when every required prerequisite is ready
+
+#### Scenario: Dependency disappears while enabled
+
+- **WHEN** an enabled `virtual-gui` loses a required prerequisite
+- **THEN** the card and the Blender Presence tab show the missing dependency and offer install or disable actions
+
+### Requirement: DSH web sidebar reports connected GUI Blenders
+
+The Blender Presence tab SHALL show every ready GUI Blender connected to the Gateway, split into `user-gui` and `virtual-gui` counts, and MUST NOT count headless workers. Rows for `virtual-gui` agents SHALL use a distinct purple marker with a `virtual-gui` label; `user-gui` rows keep their agent color.
+
+#### Scenario: Panel shows connected GUI Blenders
+
+- **WHEN** one user-started Blender window and one virtual-gui window are connected to the Gateway
+- **THEN** the panel reports two GUI Blender connections as `user-gui 1 · virtual-gui 1` and the virtual-gui agent row is marked purple
+
 ### Requirement: DSH TUI exposes presence through an explicit command
 
 The DSH TUI SHALL provide `/blender presence` and render the presence rows as a text table only when the user explicitly runs that command. The table SHALL include each agent's short identifier, display name, last observation kind, last activity, and session instance. Presence data MUST NOT be auto-injected into the TUI conversation.

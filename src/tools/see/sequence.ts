@@ -4,11 +4,13 @@
  * 只做"采集"：不执行 caller 的 code、不改场景、不回落无头 worker。
  * 生成/分析归 blender_run / blender_op。
  */
-import { text } from '../../contracts/dynamic.js'
+import { asRecord, text } from '../../contracts/dynamic.js'
 import type { HostContext } from '../../host/context.js'
 import { fetchView } from '../../host/http.js'
 import { toAttachment } from '../../utils/image.js'
 import { toolError } from '../errors.js'
+import { publishView } from '../shared/session.js'
+import { poseFromMeta } from './capture.js'
 import { formatSequenceText } from './presenter.js'
 
 export interface SequenceOpts {
@@ -17,7 +19,7 @@ export interface SequenceOpts {
   height: number
   seconds: number
   fps: number
-  force: boolean
+  sessionId?: string
   from?: string
   lookAt?: string
   lens?: number
@@ -57,10 +59,12 @@ export async function executeSequence(
   const shots: Array<{ t: number; ms: number; hash: string; png: Uint8Array }> = []
   const started = Date.now()
   let lastError = ''
+  let firstMeta: Record<string, unknown> | null = null
   for (let i = 0; i < total; i++) {
     const t0 = Date.now()
     try {
-      const fv = await fetchView(port, spec, 180000, opts.instanceId || '')
+      const fv = await fetchView(port, spec, 180000, opts.instanceId || '', opts.sessionId || '')
+      if (!firstMeta) firstMeta = asRecord(fv.meta)
       shots.push({ t: Date.now() - started, ms: fv.ms, hash: fv.hash, png: fv.png })
     } catch (e: unknown) {
       lastError = e instanceof Error ? e.message : String(e)
@@ -74,6 +78,9 @@ export async function executeSequence(
       'SEE sequence 失败 · 全部帧采集失败 · ' + text(lastError || 'unknown'),
       '先 blender_session action=status 看 Gateway/addon 状态；sequence 只走 GUI，不会降级 headless',
     )
+  // presence：sequence 只发布第一帧的固定 pose（spec），不随后续帧漂移。
+  if (firstMeta && opts.sessionId)
+    await publishView(port, opts.sessionId, poseFromMeta(firstMeta, opts.viewpoint))
   const seen = new Set<string>()
   const images: string[] = []
   for (const shot of shots) {

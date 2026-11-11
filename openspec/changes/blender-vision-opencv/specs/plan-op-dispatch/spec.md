@@ -4,7 +4,7 @@
 
 ### Requirement: Host-local vision ops bypass the session and addon
 
-catalog 新增的 `vision` 家族及其七个 op 必须（SHALL）在 Gateway/host 侧完成分派：`blender_op` 不得为它们要求 GUI 会话，`planCall` 不得把它们发送到 addon 的 Python dispatch，worker/headless 入口也不得把它们当作 Blender 端 op。缺少视觉运行时必须返回视觉自身的结构化失败，而不是 `stage=session` 或 `unknown op`。
+catalog 新增的 `vision` 家族及其七个 op 必须（SHALL）在 Gateway/host 侧完成分派：`blender_op` 不得为它们要求 GUI 会话，`planCall` 不得把它们发送到 addon 的 Python dispatch，worker/headless 入口也不得把它们当作 Blender 端 op。缺少视觉运行时，或 `vision_detect` 遇到 `features.dnn` 关闭/没有可用模型时，必须返回视觉自身的结构化失败，而不是 `stage=session` 或 `unknown op`。
 
 #### Scenario: No session required
 - **WHEN** 没有已连接的 Blender，调用 `blender_op(op="vision_compare", args={ref:"a.png", candidate:"b.png"})`
@@ -13,6 +13,10 @@ catalog 新增的 `vision` 家族及其七个 op 必须（SHALL）在 Gateway/ho
 #### Scenario: Not routed to Blender
 - **WHEN** 调用 `vision_analyze` 且 Gateway 已连接 addon
 - **THEN** addon 收不到该 op 的 execute_code 请求，Python dispatch 表也不需要新增 `vision_` 键
+
+#### Scenario: DNN gate fails before dispatch
+- **WHEN** `features.dnn=false` 时调用 `vision_detect`
+- **THEN** 回执为 `stage=config`、`code=dnn_disabled`、`retryable=false`，addon 收不到请求，也不会被误报为 `stage=session` 或 `unknown op`
 
 ### Requirement: Host families are declared, not treated as drift
 

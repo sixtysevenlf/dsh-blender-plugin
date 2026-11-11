@@ -17,6 +17,7 @@ import { validate, type FramePlan, type SequencePlan } from './validate.js'
 function sequenceOptions(
   plan: SequencePlan,
   instanceId: string,
+  sessionId?: string,
 ): Parameters<typeof executeSequence>[2] {
   return {
     viewpoint: plan.viewpoint,
@@ -31,7 +32,7 @@ function sequenceOptions(
     height: plan.dims.height,
     seconds: plan.seconds,
     fps: plan.fps,
-    force: plan.force,
+    sessionId,
     instanceId,
   }
 }
@@ -66,6 +67,10 @@ export async function executeSee(
   if ('text' in plan && 'envelope' in plan) return plan
   const instanceId = String(session.instanceId || '')
   if (plan.kind === 'sequence')
-    return executeSequence(ctx, port, sequenceOptions(plan as SequencePlan, instanceId))
+    return executeSequence(
+      ctx,
+      port,
+      sequenceOptions(plan as SequencePlan, instanceId, sessionIdOf(session)),
+    )
   return captureFrame(ctx, port, plan as FramePlan, args, sessionIdOf(session), instanceId)
 }

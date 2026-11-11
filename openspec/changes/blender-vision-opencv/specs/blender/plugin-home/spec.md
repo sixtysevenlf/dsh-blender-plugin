@@ -44,7 +44,7 @@
 
 ### Requirement: Settings are edited through the DSH config schema
 
-插件必须（SHALL）在 DSH 插件配置 schema 中暴露 `cache.render.maxEntries`、`cache.render.maxBytes`、`cache.render.ttlDays`、`vision.python`、`vision.detector`、`vision.model` 与 `vision.autoInstall`，使 DSH 插件设置 UI 可以编辑并校验它们；未设置时使用文档默认值。
+插件必须（SHALL）在 DSH 插件配置 schema 中暴露 `features.dnn`、`cache.render.maxEntries`、`cache.render.maxBytes`、`cache.render.ttlDays`、`vision.python` 与 `vision.model`，使 DSH 插件设置 UI 可以编辑并校验它们；未设置时使用文档默认值。`features.dnn` 默认 `false`，是 DNN 检测的唯一开关；`DSH_BLENDER_DNN=off/on` 可覆盖生效值，`doctor` 与 `vision_status` 必须报告生效值和来源。
 
 #### Scenario: Cache limit is editable
 - **WHEN** 用户在 DSH 插件设置中把 `cache.render.maxEntries` 改为 4 并保存
@@ -53,6 +53,18 @@
 #### Scenario: Invalid setting is rejected
 - **WHEN** 用户把 `cache.render.maxEntries` 设为 0 或 99
 - **THEN** 设置校验失败并指出字段与允许范围，Gateway 不使用该值
+
+#### Scenario: DNN is off by default
+- **WHEN** 插件全新安装且用户未修改设置
+- **THEN** `doctor` 报告 `features.dnn=false` 且来源为默认值，`vision_detect` 返回 `dnn_disabled`，不自动下载模型
+
+#### Scenario: DNN switch checks models immediately
+- **WHEN** 用户在 DSH 插件设置中打开 `features.dnn` 并保存，models 目录没有 `.onnx`
+- **THEN** 配置卡立即显示下载列表，不等 Gateway 重启；确认前不下载任何模型
+
+#### Scenario: DNN switch takes effect after restart
+- **WHEN** 用户保存 `features.dnn=true` 后重启 Gateway
+- **THEN** 下一次启动报告 `features.dnn=true`、来源为插件设置；打开开关本身不触发模型下载
 
 ### Requirement: Effective config has one documented precedence
 

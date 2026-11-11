@@ -120,7 +120,7 @@ describe('3.1 job queue', () => {
     } catch (e) {
       const elapsedMs = performance.now() - t0
       expect(e).toBeInstanceOf(QueueError)
-      expect((e as QueueError).failure.code).toBe('queue_full')
+      expect((e as QueueError).failure.code).toBe('QUEUE_FULL')
       expect((e as QueueError).failure.evidence.limit).toBe(2)
       // 3.6：队列满的决策是立即返回，不等待队列空位（queue 预算 ≤3s，决策 ≤100ms）。
       expect(elapsedMs).toBeLessThan(100)

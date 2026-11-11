@@ -1,5 +1,4 @@
 import { claimExisting, createSession, pickInstance } from './attach.js'
-import { issueConsentToken } from './consent.js'
 import { CFG } from '../../config.js'
 import { selectDisplayProvider } from '../../display/provider.js'
 import { systemVirtualGuiLimits } from '../../display/limits.js'
@@ -7,7 +6,16 @@ import type { VirtualGuiLimits } from '../../display/limits.js'
 import { applyHumanPause } from './human.js'
 import { applyHumanEditsToSessions, markHumanRead } from './human-edits.js'
 import type { HumanEditInput } from './human-edits.js'
-import { presenceRows, setNotice, setSelection, setView, touchAgent } from './presence.js'
+import { presenceRows, touchAgent } from './presence.js'
+import { publishPresence } from './presence-publish.js'
+import {
+  doctorFor,
+  noticeFor,
+  presenceFor,
+  updateSelectionFor,
+  updateViewFor,
+} from './presence-ops.js'
+import type { ObservableHost } from './presence-ops.js'
 import { pyTimeoutFailure, waitForPyLock } from './py-lock.js'
 import { grantTo, listGrants, revokeFrom } from './grant-ops.js'
 import type { GrantOpsHost } from './grant-ops.js'
@@ -19,6 +27,7 @@ import {
   callerView,
   fail,
   grantView,
+  heartbeatOwner,
   isMain,
   ownerMatches,
   ownerOf,
@@ -80,6 +89,18 @@ export class SessionRegistry {
     this.instances = next
   }
 
+  guiConnectionCounts(): { total: number; userGui: number; virtualGui: number } {
+    this.prune()
+    const ready = this.instances.filter((instance) => instance.ready)
+    const userGui = ready.filter((instance) => instance.kind === 'user-gui').length
+    const virtualGui = ready.filter((instance) => instance.kind === 'virtual-gui').length
+    return { total: ready.length, userGui, virtualGui }
+  }
+
+  guiConnections(): number {
+    return this.guiConnectionCounts().total
+  }
+
   private prune(now = Date.now()): void {
     this.instances = pruneSessions(this.sessions, this.listInstances, now)
   }
@@ -120,6 +141,15 @@ export class SessionRegistry {
     }
     const known = this.sessions.get('user-gui:' + picked.instance.instanceId)
     if (known) return this.adopt(claimExisting(known, c), c)
+    if (c.role !== 'main') {
+      return fail(
+        'owner_required',
+        'session',
+        'only the main agent may claim a GUI session',
+        'ask the main agent to call blender_session action=attach first',
+        { instanceId: picked.instance.instanceId },
+      )
+    }
     const created = createSession(picked.instance, c)
     created.paused = this.humanPaused.get(picked.instance.instanceId) === true
     if (created.paused) created.pausedAt = Date.now()
@@ -162,6 +192,7 @@ export class SessionRegistry {
         'call blender_session list to see live sessions',
         { sessionId: sessionId || null },
       )
+    if (ownerMatches(session.owner, c)) heartbeatOwner(session, c)
     if (ownerMatches(session.owner, c) || session.agents.has(callerKey(c))) touchAgent(session, c)
     return { ok: true, session: sessionView(session) }
   }
@@ -200,6 +231,7 @@ export class SessionRegistry {
       return { ok: true, released: true }
     }
     session.agents.delete(callerKey(c))
+    publishPresence(session, presenceRows(session))
     return { ok: true, released: false }
   }
 
@@ -207,12 +239,13 @@ export class SessionRegistry {
     this.prune()
     const session = sessionId ? this.sessions.get(String(sessionId)) : this.findForCaller(c)
     if (!session) return { ok: true, released: false }
-    if (!ownerMatches(session.owner, c)) {
+    const attachedMain = c.role === 'main' && session.agents.has(callerKey(c)) && !session.owner
+    if (!isMain(session, c) && !attachedMain) {
       return fail(
         'session_in_use',
         'session',
-        'only the owning DSH session can release this GUI session',
-        'ask the owner to release it',
+        'only the main agent may release this GUI session',
+        'ask the main agent to release it',
         { sessionId: session.id, owner: session.owner },
       )
     }
@@ -221,6 +254,7 @@ export class SessionRegistry {
   }
 
   releaseSession(s: SessionRecord): void {
+    if (s.agents.size > 0) publishPresence(s, [])
     s.owner = null
     s.agents.clear()
     s.grants.clear()
@@ -255,6 +289,8 @@ export class SessionRegistry {
   }
 
   removeSession(sessionId: string): void {
+    const session = this.sessions.get(String(sessionId))
+    if (session && session.agents.size > 0) publishPresence(session, [])
     this.sessions.delete(sessionId)
   }
 
@@ -298,7 +334,27 @@ export class SessionRegistry {
         { sessionId: session.id },
       )
     }
-    if (!session.owner) session.owner = ownerOf(c)
+    if (session.owner && !isMain(session, c)) {
+      return fail(
+        'session_in_use',
+        'session',
+        'only the owning main agent may heartbeat this GUI session',
+        'ask the main agent to heartbeat',
+        { sessionId: session.id },
+      )
+    }
+    if (!session.owner) {
+      if (c.role !== 'main') {
+        return fail(
+          'owner_required',
+          'session',
+          'only the main agent may reclaim a heartbeat-expired GUI session',
+          'ask the main agent to heartbeat or re-attach first',
+          { sessionId: session.id },
+        )
+      }
+      session.owner = ownerOf(c)
+    }
     session.owner.heartbeatAt = Date.now()
     touchAgent(session, c)
     return { ok: true, session: sessionView(session) }
@@ -312,36 +368,18 @@ export class SessionRegistry {
     session: Record<string, unknown> | null
   }> {
     this.prune()
-    const session = sessionId ? this.sessions.get(String(sessionId)) : this.findForCaller(c)
-    const ready = this.listInstances().filter((x) => x.ready)
-    return {
-      ok: true,
-      readiness: {
-        ready:
-          !!session &&
-          session.status === 'ready' &&
-          !!session.owner &&
-          ownerMatches(session.owner, c),
-        session_ready: !!session && session.status === 'ready',
-        instances: ready.length,
-        sessionId: session ? session.id : null,
-        owner: session ? session.owner : null,
-        paused: session ? session.paused : false,
-        activePy: session && session.activePy ? callerView(session.activePy.caller) : null,
-      },
-      session: session ? sessionView(session) : null,
-    }
+    const session = sessionId
+      ? (this.sessions.get(String(sessionId)) ?? null)
+      : this.findForCaller(c)
+    return { ok: true, ...doctorFor(c, session, this.listInstances()) }
   }
 
   async start(
     c: CallerIdentity,
-    opts: { kind?: SessionKind; consentToken?: string } = {},
+    opts: { kind?: SessionKind } = {},
   ): Promise<SessionResult<{ session: Record<string, unknown> }>> {
     this.prune()
     return this.lifecycle.start(c, opts)
-  }
-  issueConsent(c: CallerIdentity): SessionResult<{ consentToken: string; expiresAt: number }> {
-    return { ok: true, ...issueConsentToken(c) }
   }
   async stop(c: CallerIdentity, sessionId?: string): Promise<SessionResult<{ stopped: boolean }>> {
     this.prune()
@@ -401,33 +439,11 @@ export class SessionRegistry {
     )
   }
 
-  private mustOwn(
-    c: CallerIdentity,
-    sessionId?: string,
-  ): SessionResult<{ session: SessionRecord }> {
-    this.prune()
-    const session = sessionId ? this.sessions.get(String(sessionId)) : this.findForCaller(c)
-    if (!session)
-      return fail('session_not_found', 'session', 'the session does not exist', 'attach first', {})
-    if (!ownerMatches(session.owner, c))
-      return fail(
-        'session_in_use',
-        'session',
-        'another DSH session owns this GUI session',
-        'wait for the owner to release it',
-        {},
-      )
-    return { ok: true, session }
-  }
-
   presence(
     c: CallerIdentity,
     sessionId?: string,
   ): SessionResult<{ presence: Record<string, unknown>[] }> {
-    const r = this.status(c, sessionId)
-    if (!('session' in r)) return r
-    const session = this.sessions.get(String(r.session.id))
-    return { ok: true, presence: session ? presenceRows(session) : [] }
+    return presenceFor(this.observableHost(), c, sessionId)
   }
 
   updateView(
@@ -435,9 +451,7 @@ export class SessionRegistry {
     sessionId: string,
     view: Omit<ViewPose, 'updatedAt'>,
   ): SessionResult<{ presence: Record<string, unknown>[] }> {
-    const r = this.observableSession(c, sessionId)
-    if (!('session' in r)) return r
-    return { ok: true, presence: setView(r.session, c, view) }
+    return updateViewFor(this.observableHost(), c, sessionId, view)
   }
 
   notice(
@@ -445,9 +459,7 @@ export class SessionRegistry {
     sessionId: string,
     text: string,
   ): SessionResult<{ presence: Record<string, unknown>[] }> {
-    const r = this.observableSession(c, sessionId)
-    if (!('session' in r)) return r
-    return { ok: true, presence: setNotice(r.session, text) }
+    return noticeFor(this.observableHost(), c, sessionId, text)
   }
 
   updateSelection(
@@ -456,33 +468,11 @@ export class SessionRegistry {
     selected: string[],
     activity?: string,
   ): SessionResult<{ presence: Record<string, unknown>[] }> {
-    const r = this.observableSession(c, sessionId)
-    if (!('session' in r)) return r
-    return { ok: true, presence: setSelection(r.session, c, selected, activity) }
+    return updateSelectionFor(this.observableHost(), c, sessionId, selected, activity)
   }
 
-  /**
-   * Presence is observational state, not a GUI write: it must keep working while
-   * another caller owns the session and after the owner heartbeat expires. Any
-   * agent already attached to the session may publish its own view/selection.
-   */
-  private observableSession(
-    c: CallerIdentity,
-    sessionId: string,
-  ): SessionResult<{ session: SessionRecord }> {
-    this.prune()
-    const session = this.sessions.get(String(sessionId))
-    if (!session)
-      return fail('session_not_found', 'session', 'the session does not exist', 'attach first', {})
-    if (!session.agents.has(callerKey(c)))
-      return fail(
-        'session_in_use',
-        'session',
-        'the caller is not attached to this GUI session',
-        'attach this agent to the session first',
-        {},
-      )
-    return { ok: true, session }
+  private observableHost(): ObservableHost {
+    return { sessions: this.sessions, prune: () => this.prune() }
   }
 
   /** Authorize one write call. Returns the owning session or a structured failure. */
@@ -507,7 +497,7 @@ export class SessionRegistry {
       // The owner heartbeat expires on a long idle gap (OWNER_TTL_MS). A caller
       // already attached to this session may reclaim the free write lease
       // instead of failing the first py/op call after the gap.
-      if (!session.owner && session.agents.has(callerKey(c))) {
+      if (!session.owner && c.role === 'main' && session.agents.has(callerKey(c))) {
         session.owner = ownerOf(c)
         touchAgent(session, c)
       } else {
@@ -526,10 +516,16 @@ export class SessionRegistry {
     if (isMain(session, c)) {
       const main = authorizeMainWrite(session, c, effective)
       if (!main.ok) return main
+      heartbeatOwner(session, c)
       return { ok: true, sessionId: session.id, mode: 'main' }
     }
     const grant = coveringGrant(session, c, effective)
-    if (grant) return { ok: true, sessionId: session.id, mode: 'grant', grantId: grant.id }
+    if (grant) {
+      const now = Date.now()
+      grant.heartbeatAt = now
+      grant.expiresAt = Math.max(grant.expiresAt, now + 30_000)
+      return { ok: true, sessionId: session.id, mode: 'grant', grantId: grant.id }
+    }
     return fail(
       'scope_required',
       'session',

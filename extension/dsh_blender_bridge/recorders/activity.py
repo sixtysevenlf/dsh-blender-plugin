@@ -108,6 +108,29 @@ class ActivityTracker:
         self._human_edits.clear()
         return edits
 
+    def restore_human_edits(self, edits):
+        """Put back records from a drain whose Gateway send failed.
+
+        The write gate must not lose a human edit just because the add-on was
+        disconnected while reporting it, so the server re-queues the drained
+        records (bounded like note_depsgraph) and retries on the next tick.
+        """
+        for edit in edits or ():
+            if not isinstance(edit, dict):
+                continue
+            kind = str(edit.get("kind") or "")
+            name = str(edit.get("name") or "")
+            if not kind or not name:
+                continue
+            key = kind + ":" + name
+            if key not in self._human_edits and len(self._human_edits) >= 512:
+                self._human_edits.pop(next(iter(self._human_edits)))
+            self._human_edits[key] = dict(edit)
+            try:
+                self._edit_revision = max(self._edit_revision, int(edit.get("revision") or 0))
+            except (TypeError, ValueError):
+                pass
+
     def _resync(self):
         """Drop the previous selection fingerprint after agent commands (avoids a false 'human' event)."""
         self._selection_fp = None

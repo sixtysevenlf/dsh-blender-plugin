@@ -5,6 +5,12 @@ import { repoPath } from '../../../helpers/docs'
 const read = (relative: string): string => fs.readFileSync(repoPath(relative), 'utf8')
 
 describe('final-state addon pack invariants', () => {
+  it('keeps the development-only behavior matrix out of the npm package', () => {
+    const pkg = JSON.parse(read('package.json')) as { files: string[] }
+    expect(pkg.files).toContain('!tests/BEHAVIOR_MATRIX.md')
+    expect(pkg.files).toContain('!tests/BEHAVIOR_MATRIX.json')
+  })
+
   it('keeps the single command registry counts in source and package metadata', () => {
     const registry = read('extension/dsh_blender_bridge/command_registry.py')
     expect(registry).toContain('REGISTERED_COMMAND_COUNT = 25')

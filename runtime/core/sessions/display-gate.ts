@@ -1,6 +1,5 @@
 // Pre-spawn gate for virtual-gui sessions. It returns the same availability
 // envelope as the rest of the Gateway and never spawns Blender/display helpers.
-import { consentFailure, consumeConsentToken } from './consent.js'
 import { fail } from './types.js'
 import type { CallerIdentity, SessionRecord, SessionResult } from './types.js'
 import type { DisplayCapabilities } from '../../display/types.js'
@@ -8,7 +7,6 @@ import type { DisplayCapabilities } from '../../display/types.js'
 export interface VirtualGuiStartInput {
   caller: CallerIdentity
   kind?: string
-  consentToken?: string
   capability: DisplayCapabilities
   existing: SessionRecord | null
 }
@@ -65,7 +63,5 @@ export function startVirtualGuiGate(
       capability.fix,
       evidence,
     )
-  const consent = consumeConsentToken(input.caller, input.consentToken)
-  if (consent !== 'ok') return consentFailure<{ capability: DisplayCapabilities }>(consent)
   return { ok: true, capability }
 }

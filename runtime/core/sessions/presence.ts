@@ -21,7 +21,12 @@ function nextShortId(s: SessionRecord): string {
     const id = 'A' + i
     if (!used.has(id)) return id
   }
-  return 'A' + (s.agents.size + 1)
+  // Do not derive the id from the current agent count: after deletions the
+  // count can collide with a live short-id slot (delete one of the first eight,
+  // then the count can equal a slot still in use).
+  let n = MAX_AGENTS + 1
+  while (used.has('A' + n)) n++
+  return 'A' + n
 }
 
 export function touchAgent(s: SessionRecord, c: CallerIdentity): AgentPresence {
@@ -106,5 +111,8 @@ export function presenceRows(s: SessionRecord): Record<string, unknown>[] {
     activity: a.activity,
     lastActivityAt: a.lastActivityAt,
     lastActivity: a.lastActivity,
+    heldScopes: [...s.grants.values()]
+      .filter((g) => callerKey(g.holder) === callerKey(a.caller))
+      .map((g) => g.scopes),
   }))
 }

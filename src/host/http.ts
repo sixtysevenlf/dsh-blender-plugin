@@ -201,9 +201,12 @@ export async function fetchFrame(
   full = false,
   area = 0,
   instanceId = '',
+  sessionId = '',
 ): Promise<FrameResult> {
   const t0 = Date.now()
-  const suffix = instanceId ? '&instanceId=' + encodeURIComponent(instanceId) : ''
+  const suffix =
+    (instanceId ? '&instanceId=' + encodeURIComponent(instanceId) : '') +
+    (sessionId ? '&sessionId=' + encodeURIComponent(sessionId) : '')
   const url =
     base(port) +
     '/frame.png?' +
@@ -225,9 +228,14 @@ export async function fetchView(
   spec: unknown,
   timeoutMs = 180000,
   instanceId = '',
+  sessionId = '',
 ): Promise<ViewResult> {
   const t0 = Date.now()
-  const body = { ...asRecord(spec), ...(instanceId ? { instanceId } : {}) }
+  const body = {
+    ...asRecord(spec),
+    ...(instanceId ? { instanceId } : {}),
+    ...(sessionId ? { sessionId } : {}),
+  }
   const r = await withTimeout(
     base(port) + '/view',
     {

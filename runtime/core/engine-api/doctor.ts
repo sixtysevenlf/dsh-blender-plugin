@@ -401,7 +401,7 @@ export function createDoctorApi(E: EngineApiDeps) {
         }
       }
       const result = await gatewayDoctor(E, gateway)
-      return { ...result, virtualGui: displayCapabilities() }
+      return { ...result, virtualGui: virtualGuiView() }
     },
     /** 3D 视口区域 rect / 窗口尺寸 / 着色模式 */
     status() {

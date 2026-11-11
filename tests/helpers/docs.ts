@@ -81,6 +81,8 @@ const SKIP_ANY = new Set([
   'node_modules_symlink_backup',
   '__pycache__',
   '.git',
+  // Local scratch workspace (gitignored): never repository content.
+  'local-workspace',
   '.vite',
   '.vite-temp',
   '.cache',

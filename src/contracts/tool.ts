@@ -71,7 +71,7 @@ export const vTool = (spec: DynamicToolSpec): ToolDefinition => {
  *      多插件共存时的 DSH module-resolution 拦截下解析失败（现场 3/3 复现，见 issue #10 的
  *      bundle 二分表），而 ESM loader 正是宿主自己走的那条路 —— 所以先试它。
  *   ② **失败语义**：顶层不再 throw。旧版在模块载入期抛错 ⇒ 宿主只回一句 failed to import
- *      （真因被吞）、entry 的 fiber 始终 undefined ⇒ **15 个工具整体消失、后端也不起**，
+ *      （真因被吞）、entry 的 fiber 始终 undefined ⇒ **六个模型工具整体消失、后端也不起**，
  *      且现象与真因不在同一层，极难定位。现在改为**降级加载**：注册一个只回报原因的占位工具
  *      （见下面 DEGRADED 分支），其余工具不注册，但报错可读、插件不会消失。
  *   ③ **诊断**：走了哪条通道、试过哪些名字，进 __internals.schemaResolve，并在 op=status /
@@ -139,7 +139,7 @@ if (!schemaResolve.z) {
   console.error(
     '[dsh-blender] ' +
       schemaResolve.error +
-      '（降级加载：只注册一个诊断占位工具，不会再出现"15 个工具整体消失且真因被吞"）',
+      '（降级加载：只注册一个诊断占位工具，不会再出现"六个模型工具整体消失且真因被吞"）',
   )
 }
 export const z = schemaResolve.z

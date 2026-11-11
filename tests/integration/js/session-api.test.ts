@@ -75,13 +75,12 @@ describe('Gateway session API', () => {
     expect((who.json.sessions as unknown[]).length).toBe(1)
   })
 
-  it('issues a one-time consent token through the internal session action', async () => {
+  it('rejects the removed consent action as unknown', async () => {
     const { backend } = await setup()
     const consent = await backend.post('/lease', { action: 'consent' }, main)
-    expect(consent.status).toBe(200)
-    expect(typeof consent.json.consentToken).toBe('string')
-    expect(String(consent.json.consentToken).length).toBeGreaterThan(20)
-    expect(Number(consent.json.expiresAt)).toBeGreaterThan(Date.now())
+    expect(consent.status).toBe(400)
+    expect(consent.json.code).toBe('invalid_params')
+    expect(consent.json.consentToken).toBeUndefined()
   })
 
   it('refuses an unnamed attach when two instances are ready', async () => {
@@ -326,14 +325,7 @@ describe('Gateway session API', () => {
   it('5.15 keeps virtual-gui off when the feature gate is closed, without spawning anything', async () => {
     const { backend } = await setup(undefined, { DSH_BLENDER_VIRTUAL_GUI: 'off' })
     const before = await backend.get('/status')
-    const consent = await backend.post('/lease', { action: 'consent' }, main)
-    expect(consent.status).toBe(200)
-    const token = String(consent.json.consentToken)
-    const started = await backend.post(
-      '/lease',
-      { action: 'start', kind: 'virtual-gui', consentToken: token },
-      main,
-    )
+    const started = await backend.post('/lease', { action: 'start', kind: 'virtual-gui' }, main)
     expect(started.status).toBeGreaterThanOrEqual(400)
     expect(started.json.code).toBe('feature_disabled')
     expect(started.json.stage).toBe('config')

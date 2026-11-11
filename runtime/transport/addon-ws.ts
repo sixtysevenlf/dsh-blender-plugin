@@ -226,7 +226,16 @@ export class AddonGateway {
       )
     }
     const only = ready[0]
-    return { instance: only, connection: this.connectionFor(only.instanceId) as Connection }
+    const conn = this.connectionFor(only.instanceId)
+    if (!conn) {
+      throw new GatewayChannelError(
+        'transport',
+        'instance_not_found',
+        '没有可路由的 Blender 实例：' + only.instanceId,
+        this.list().map((x) => x.instanceId),
+      )
+    }
+    return { instance: only, connection: conn }
   }
 
   private connectionFor(instanceId: string): Connection | null {
@@ -404,11 +413,25 @@ export class AddonGateway {
       return
     }
     const hs = result.handshake
-    const previous = this.connectionFor(hs.instanceId)
-    if (previous && previous !== conn) {
-      this.failPending(previous.instance?.instanceId || hs.instanceId, 'instance reconnected')
-      this.destroyConnection(previous, 4001, 'instance reconnected')
+    // One socket owns exactly one instance. Re-handshaking the same socket with a
+    // different instanceId would leave the first instance with no connection.
+    if (conn.instance && conn.instance.instanceId !== hs.instanceId) {
+      const message =
+        '该连接已绑定实例 ' + conn.instance.instanceId + '，不能在同一连接上切换 instanceId。'
+      this.sendJson(conn, {
+        type: 'handshake_error',
+        stage: 'handshake',
+        code: 'invalid_field',
+        message,
+        fix: '为新的 instanceId 建立新的 WebSocket 连接。',
+      })
+      this.onEvent?.({ type: 'handshake_rejected', code: 'invalid_field', epoch: conn.epoch })
+      return
     }
+    // Register the replacement BEFORE tearing down the old connection: a
+    // superseded drop must not be reported as a real disconnect (that event makes
+    // the session registry reap a virtual-gui it should keep).
+    const previous = this.connectionFor(hs.instanceId)
     conn.instance = hs
     const view: AddonInstanceView = {
       instanceId: hs.instanceId,
@@ -424,6 +447,7 @@ export class AddonGateway {
     }
     this.instances.set(hs.instanceId, view)
     this.lastHandshakeError = null
+    if (previous && previous !== conn) this.failPending(hs.instanceId, 'instance reconnected')
     this.sendJson(conn, {
       type: 'handshake_ok',
       gatewayId: this.gatewayId,
@@ -432,6 +456,8 @@ export class AddonGateway {
       epoch: conn.epoch,
     })
     this.onEvent?.({ type: 'handshake_ok', instanceId: hs.instanceId, epoch: conn.epoch })
+    if (previous && previous !== conn)
+      this.destroyConnection(previous, 4001, 'instance reconnected')
   }
 
   private handleResponse(msg: Record<string, unknown>): void {
@@ -488,16 +514,19 @@ export class AddonGateway {
     }
     if (conn.instance) {
       const current = this.instances.get(conn.instance.instanceId)
-      if (current && current.epoch === conn.epoch) {
+      // Only the epoch that currently owns the instance speaks for it. A
+      // superseded connection (instanceId reconnected) and a Gateway shutdown
+      // must not emit connection_closed: that event reaps the live session.
+      if (!this.closed && current && current.epoch === conn.epoch) {
         current.ready = false
         current.lastSeen = Date.now()
+        this.failPending(conn.instance.instanceId, 'addon 连接已断开：' + conn.instance.instanceId)
+        this.onEvent?.({
+          type: 'connection_closed',
+          instanceId: conn.instance.instanceId,
+          epoch: conn.epoch,
+        })
       }
-      this.failPending(conn.instance.instanceId, 'addon 连接已断开：' + conn.instance.instanceId)
-      this.onEvent?.({
-        type: 'connection_closed',
-        instanceId: conn.instance.instanceId,
-        epoch: conn.epoch,
-      })
     }
   }
 
@@ -541,37 +570,4 @@ export class AddonGateway {
   }
 }
 
-/** AddonClient-compatible facade used by the engine. */
-export class GatewayAddonClient {
-  private readonly gateway: AddonGateway
-  readonly protocolInfo = {
-    proto: { id: 'ws', label: 'Gateway WebSocket (protocol 12)', panelHint: '' },
-    from: 'gateway',
-  }
-  constructor(gateway: AddonGateway) {
-    this.gateway = gateway
-  }
-  async ensure(): Promise<void> {
-    await this.gateway.ensure()
-  }
-  async protocol(): Promise<typeof this.protocolInfo> {
-    return this.protocolInfo
-  }
-  send(
-    type: string,
-    params: Record<string, unknown> = {},
-    timeoutMs = 120000,
-    opts: { instanceId?: string; noMark?: boolean } = {},
-  ): Promise<unknown> {
-    return this.gateway.send(type, params, timeoutMs, { instanceId: opts.instanceId })
-  }
-  close(): void {
-    this.gateway.close()
-  }
-  get instances(): AddonInstanceView[] {
-    return this.gateway.list()
-  }
-  get lastHandshakeError(): AddonHandshakeError | null {
-    return this.gateway.lastHandshakeError
-  }
-}
+export { GatewayAddonClient } from './gateway-addon-client.js'

@@ -15,14 +15,80 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+const STATES: readonly string[] = [
+  'queued',
+  'assigned',
+  'running',
+  'completed',
+  'failed',
+  'canceled',
+]
+
+function text(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function num(value: unknown): number {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : 0
+}
+
+function numOrNull(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function ownerRow(value: unknown): JobRecord['owner'] | null {
+  if (!isRecord(value)) return null
+  const hostId = text(value.hostId)
+  const dshSessionId = text(value.dshSessionId)
+  const agentId = text(value.agentId)
+  if (!hostId || !dshSessionId || !agentId) return null
+  const parentAgentId = text(value.parentAgentId)
+  return { hostId, dshSessionId, agentId, ...(parentAgentId ? { parentAgentId } : {}) }
+}
+
 /** Keep persisted rows that still carry the fields the queue reads. */
 function sanitizeRow(value: unknown): JobRecord | null {
   if (!isRecord(value)) return null
-  const id = typeof value.id === 'string' ? value.id : ''
+  const id = text(value.id)
   const kind = value.kind === 'render' || value.kind === 'headless' ? value.kind : null
-  const state = typeof value.state === 'string' ? value.state : ''
-  if (!id || !kind || !state) return null
-  return value as unknown as JobRecord
+  const state = typeof value.state === 'string' && STATES.includes(value.state) ? value.state : null
+  const params = isRecord(value.params) ? value.params : null
+  const owner = ownerRow(value.owner)
+  if (!id || !kind || !state || !params || !owner) return null
+  const logs = isRecord(value.logs) ? value.logs : null
+  const tempDir = text(value.tempDir)
+  return {
+    id,
+    kind,
+    params,
+    state: state as JobRecord['state'],
+    priority: Math.max(-100, Math.min(100, Math.trunc(num(value.priority)))),
+    slot: value.slot === 'gpu' || value.slot === 'cpu' ? value.slot : null,
+    owner,
+    createdAt: num(value.createdAt),
+    updatedAt: num(value.updatedAt),
+    assignedAt: numOrNull(value.assignedAt),
+    startedAt: numOrNull(value.startedAt),
+    finishedAt: numOrNull(value.finishedAt),
+    pid: numOrNull(value.pid),
+    decision: isRecord(value.decision)
+      ? (value.decision as unknown as JobRecord['decision'])
+      : null,
+    result: isRecord(value.result) ? (value.result as unknown as JobRecord['result']) : null,
+    artifacts: Array.isArray(value.artifacts)
+      ? value.artifacts.filter((x) => typeof x === 'string')
+      : [],
+    logs: {
+      stdout: logs ? text(logs.stdout) : '',
+      stderr: logs ? text(logs.stderr) : '',
+    },
+    error: isRecord(value.error) ? (value.error as unknown as JobRecord['error']) : null,
+    events: Array.isArray(value.events)
+      ? (value.events.filter((x) => isRecord(x)) as unknown as JobRecord['events'])
+      : [],
+    ...(tempDir ? { tempDir } : {}),
+  }
 }
 
 export class JsonJobStore implements JobStore {

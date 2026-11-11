@@ -4,7 +4,7 @@
  * submit 立即返回 jobId；之后用 status/wait/collect/cancel/list/perf 观察。
  * 没有同步模式、没有第二个作业工具。tune 保留旧 Cycles 分析（/perf）。
  */
-import { BACKEND_HINT } from '../../constants.js'
+import { BACKEND_HINT, T } from '../../constants.js'
 import type { AvailabilityStage } from '../../contracts/availability.js'
 import { text } from '../../contracts/dynamic.js'
 import { ensureBackend } from '../../host/backend/index.js'
@@ -132,7 +132,7 @@ async function tune(port: number, args: Record<string, unknown>): Promise<unknow
       port,
       '/perf',
       { op, args: Object.keys(pargs).length ? pargs : undefined },
-      600000,
+      T.perf,
     )
   } catch (e: unknown) {
     return toolError('gateway_unreachable', 'RUN tune 失败 · ' + text(e), BACKEND_HINT)

@@ -10,6 +10,7 @@ import { ensureBackend } from '../../host/backend/index.js'
 import { backendJson, backendPost, jsonPayload, leasedText } from '../../host/http.js'
 import { toolError } from '../errors.js'
 import type { ToolFailure } from '../errors.js'
+import { requireReadySession } from '../shared/session.js'
 import { formatCommandResult, formatHelp, rowsOf, type CommandRow } from './presenter.js'
 
 interface WrongToolTarget {
@@ -188,10 +189,19 @@ export async function executeInspect(
       'INSPECT ' + command + ' 被集成开关挡住（' + String(row.gate || 'gate') + '）',
       '在 Blender N 面板打开对应集成开关后重试；command=help 看哪些命令被禁用',
     )
+  const ready = await requireReadySession(port, undefined, text(args.session_id).trim())
+  if (!ready.ok) return ready.failure
   const params = jsonPayload(args.args)
+  const body: Record<string, unknown> = {
+    name: command,
+    params,
+    timeoutMs: 120000,
+    sessionId: String(ready.session.id || ''),
+    instanceId: String(ready.session.instanceId || ''),
+  }
   let r: Record<string, unknown>
   try {
-    r = await backendPost(port, '/cmd', { name: command, params, timeoutMs: 120000 }, 300000)
+    r = await backendPost(port, '/cmd', body, 300000)
   } catch (e: unknown) {
     return toolError('addon_unreachable', 'INSPECT ' + command + ' 失败 · ' + text(e), BACKEND_HINT)
   }

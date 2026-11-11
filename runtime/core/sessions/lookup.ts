@@ -1,6 +1,6 @@
 // Session-map maintenance extracted from the registry so the class stays inside
 // its module budget: pruning expired owners/grants and instance disconnects.
-import { callerKey, OWNER_TTL_MS } from './types.js'
+import { callerKey, NOTICE_TTL_MS, OWNER_TTL_MS } from './types.js'
 import type { CallerIdentity, InstanceRef, SessionRecord } from './types.js'
 
 export function pruneSessions(
@@ -12,9 +12,12 @@ export function pruneSessions(
   for (const s of sessions.values()) {
     if (s.owner && now - s.owner.heartbeatAt > OWNER_TTL_MS) {
       s.owner = null
-      s.activePy = null
+      // Keep activePy: a long-running Python call owns the lock until it ends.
+      // Clearing it here let a second agent start Python while the first was
+      // still executing in Blender.
       s.grants.clear()
     }
+    if (s.notice && now - s.notice.at > NOTICE_TTL_MS) s.notice = null
     for (const [id, g] of s.grants) {
       if (g.expiresAt > now) continue
       // An active blender_py holds its exclusive grant for the whole call;

@@ -17,7 +17,7 @@
 import { createHash } from 'node:crypto'
 import { readFileSync, readdirSync, statSync, writeFileSync, existsSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const EXTENSION_DIR = join(ROOT, 'extension')
@@ -219,6 +219,36 @@ function readZipManifest(buffer) {
   return names
 }
 
+function collectEntries() {
+  const files = walk(PACKAGE_DIR)
+  if (files.length === 0) fail('package contains no Python files')
+  const sources = [
+    ...files.map((path) => ({ name: zipName(path), path })),
+    { name: PACKAGE_ROOT + '/blender_manifest.toml', path: manifestPath() },
+    ...ROOT_EXTRAS.map((extra) => ({ name: PACKAGE_ROOT + '/' + extra.name, path: extra.path })),
+  ].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+  for (const required of [
+    PACKAGE_ROOT + '/__init__.py',
+    PACKAGE_ROOT + '/blender_manifest.toml',
+    PACKAGE_ROOT + '/LICENSE',
+    PACKAGE_ROOT + '/NOTICE',
+  ]) {
+    if (!sources.some((source) => source.name === required))
+      fail('package root ' + required + ' is missing')
+  }
+  // Normalize line endings so the committed zip is reproducible across checkouts
+  // (Git may materialize the Python sources with CRLF on Windows).
+  return sources.map((source) => ({
+    name: source.name,
+    data: Buffer.from(readFileSync(source.path, 'utf8').replace(/\r\n/g, '\n'), 'utf8'),
+  }))
+}
+
+/** Build the zip that the current extension sources must produce (exported for tests). */
+export function buildExpectedZip() {
+  return buildZip(collectEntries())
+}
+
 function main() {
   if (!existsSync(join(PACKAGE_DIR, '__init__.py'))) fail('package __init__.py is missing')
   if (!existsSync(join(PACKAGE_DIR, 'blender_manifest.toml')))
@@ -250,6 +280,17 @@ function main() {
     if (JSON.stringify(names) !== JSON.stringify([...names].sort())) {
       fail('zip entries are not in deterministic sorted order')
     }
+    const actualSha256 = createHash('sha256').update(buffer).digest('hex')
+    const expected = buildExpectedZip()
+    if (!buffer.equals(expected)) {
+      fail(
+        'zip is stale: rebuild with `npm run build:extension` (committed sha256 ' +
+          actualSha256 +
+          ', current sources produce ' +
+          createHash('sha256').update(expected).digest('hex') +
+          ')',
+      )
+    }
     console.log(
       JSON.stringify(
         {
@@ -260,7 +301,7 @@ function main() {
           package_root: PACKAGE_ROOT,
           entries: entries.length,
           versions,
-          sha256: createHash('sha256').update(buffer).digest('hex'),
+          sha256: actualSha256,
         },
         null,
         2,
@@ -269,28 +310,7 @@ function main() {
     return
   }
 
-  const files = walk(PACKAGE_DIR)
-  if (files.length === 0) fail('package contains no Python files')
-  const sources = [
-    ...files.map((path) => ({ name: zipName(path), path })),
-    { name: PACKAGE_ROOT + '/blender_manifest.toml', path: manifestPath() },
-    ...ROOT_EXTRAS.map((extra) => ({ name: PACKAGE_ROOT + '/' + extra.name, path: extra.path })),
-  ].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
-  for (const required of [
-    PACKAGE_ROOT + '/__init__.py',
-    PACKAGE_ROOT + '/blender_manifest.toml',
-    PACKAGE_ROOT + '/LICENSE',
-    PACKAGE_ROOT + '/NOTICE',
-  ]) {
-    if (!sources.some((source) => source.name === required))
-      fail('package root ' + required + ' is missing')
-  }
-  // Normalize line endings so the committed zip is reproducible across checkouts
-  // (Git may materialize the Python sources with CRLF on Windows).
-  const entries = sources.map((source) => ({
-    name: source.name,
-    data: Buffer.from(readFileSync(source.path, 'utf8').replace(/\r\n/g, '\n'), 'utf8'),
-  }))
+  const entries = collectEntries()
   const zip = buildZip(entries)
   writeFileSync(ZIP_PATH, zip)
 
@@ -313,4 +333,4 @@ function main() {
   )
 }
 
-main()
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) main()

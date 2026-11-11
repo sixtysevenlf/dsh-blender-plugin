@@ -7,6 +7,7 @@ import { asRecord } from '../../contracts/dynamic.js'
 import { callerHeaders, execSignal } from '../exec-context.js'
 import { decideStart, probeHttp } from '../runtime-bridge.js'
 import { childAlive, killStaleChild, spawnChild } from './spawn.js'
+import { hostIdentity } from './host-id.js'
 
 export { childAlive, getChild, killChildHandle, spawnChild } from './spawn.js'
 export { killBackendByCmd } from './process-scan.js'
@@ -39,6 +40,80 @@ export function resolveHttpPort(): number {
 /** 用户用 op=stop 显式停过 → 看护不再自动拉起（op=start 解除） */
 let paused = false
 
+/** 结构化拒绝：端口上的 Gateway 属于另一个 DSH host。 */
+export interface BackendOwnerFailure {
+  ok: false
+  stage: 'config'
+  code: 'GATEWAY_IN_USE'
+  root_cause: string
+  fix: string
+  fallback: { kind: 'unavailable'; summary: string }
+  evidence: { port: number; owner: Record<string, unknown> }
+}
+
+export type EnsureBackendResult =
+  { ok: true; adopted: boolean; failure?: null } | { ok: false; failure?: BackendOwnerFailure }
+
+let lastBackendFailure: BackendOwnerFailure | null = null
+
+/** 最近一次 ensure 失败的原因；启动工具据此把 GATEWAY_IN_USE 透传给模型面。 */
+export function getLastBackendFailure(): BackendOwnerFailure | null {
+  return lastBackendFailure
+}
+
+/**
+ * Pure ownership check for a /health payload.
+ *
+ * A Gateway always reports its owner once it is listening; a payload without an
+ * owner (legacy backend, test double) is treated as compatible and attaches.
+ */
+export function checkGatewayOwnership(
+  health: unknown,
+  hostId: string,
+  port = 0,
+): BackendOwnerFailure | null {
+  const gateway = asRecord(asRecord(health).gateway)
+  const ownerHost = typeof gateway.hostId === 'string' ? gateway.hostId : ''
+  if (!ownerHost || ownerHost === hostId) return null
+  const ownerPid = typeof gateway.pid === 'number' ? gateway.pid : null
+  return {
+    ok: false,
+    stage: 'config',
+    code: 'GATEWAY_IN_USE',
+    root_cause:
+      '端口 ' +
+      String(port) +
+      ' 上的 Gateway 属于另一个 DSH host（hostId=' +
+      ownerHost +
+      (ownerPid === null ? '' : ' pid=' + String(ownerPid)) +
+      '）；本 host 不共享、不 attach、不复用该 Gateway。',
+    fix: '停止占用该端口的另一个 DSH host，或为本 host 设置不同的 DSH_BLENDER_GATEWAY_PORT。',
+    fallback: {
+      kind: 'unavailable',
+      summary: '本 host 未接管另一个 DSH host 的 Gateway；需要独立端口或先停止对方。',
+    },
+    evidence: { port, owner: gateway },
+  }
+}
+
+/** Fetch /health and parse it; null when the port is down or the body is not JSON. */
+export async function probeHealth(
+  port: number,
+  timeoutMs = 1500,
+): Promise<Record<string, unknown> | null> {
+  const ac = new AbortController()
+  const timer = setTimeout(() => ac.abort(), timeoutMs)
+  try {
+    const r = await fetch(base(port) + '/health', { signal: ac.signal })
+    if (!r.ok) return null
+    return asRecord(await r.json())
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export function base(port: number): string {
   return 'http://' + HOSTNAME + ':' + String(port)
 }
@@ -57,22 +132,49 @@ export async function probe(port: number, timeoutMs = 1500): Promise<boolean> {
   }
 }
 
-export async function ensureBackend(port: number): Promise<boolean> {
-  if (await probe(port)) return true
-  if (paused) return false
+/**
+ * Ensure a usable Gateway for this DSH host.
+ *
+ * 3.1 rule: a Gateway belongs to exactly one DSH host. When /health reports a
+ * different owner hostId we refuse to attach (structured GATEWAY_IN_USE) instead
+ * of routing this host's calls through another host's process. A same-host
+ * reload reuses the existing Gateway only after the identity matches.
+ */
+export async function ensureBackendDetailed(port: number): Promise<EnsureBackendResult> {
+  const health = await probeHealth(port)
+  if (health) {
+    const failure = checkGatewayOwnership(health, hostIdentity(), port)
+    lastBackendFailure = failure
+    return failure ? { ok: false, failure } : { ok: true, adopted: true }
+  }
+  // A live but non-JSON /health (legacy backend) still counts as running.
+  if (await probe(port)) {
+    lastBackendFailure = null
+    return { ok: true, adopted: true }
+  }
+  if (paused) return { ok: false }
   // Test-only guard: contract tests exercise the unreachable-backend path on a
   // closed port; never spawn a real server from inside the unit/integration suite.
-  if (process.env.DSH_BLENDER_TEST_NO_SPAWN === '1') return false
+  if (process.env.DSH_BLENDER_TEST_NO_SPAWN === '1') return { ok: false }
   try {
     await startBackend(port)
   } catch {
     /* ignore */
   }
   for (let i = 0; i < 25; i++) {
-    if (await probe(port)) return true
+    const next = await probeHealth(port)
+    if (next) {
+      const failure = checkGatewayOwnership(next, hostIdentity(), port)
+      lastBackendFailure = failure
+      return failure ? { ok: false, failure } : { ok: true, adopted: false }
+    }
+    if (await probe(port)) {
+      lastBackendFailure = null
+      return { ok: true, adopted: false }
+    }
     // A previous Gateway may still be releasing the port after dispose; retry the
     // spawn once the OS has had a moment to free it instead of waiting for the watchdog.
-    if (i === 5 && !(await probe(port))) {
+    if (i === 5) {
       try {
         await startBackend(port)
       } catch {
@@ -81,7 +183,12 @@ export async function ensureBackend(port: number): Promise<boolean> {
     }
     await sleep(300)
   }
-  return false
+  return { ok: false }
+}
+
+/** Boolean view kept for the existing tool call sites. */
+export async function ensureBackend(port: number): Promise<boolean> {
+  return (await ensureBackendDetailed(port)).ok
 }
 
 /**

@@ -7,6 +7,7 @@ const release = fs.readFileSync(repoPath('.github/workflows/release.yml'), 'utf8
 const all = pr + '\n' + release
 const pkg = JSON.parse(fs.readFileSync(repoPath('package.json'), 'utf8')) as {
   scripts: Record<string, string>
+  files: string[]
 }
 const checkBuildSource = fs.readFileSync(repoPath('scripts/check-build.mjs'), 'utf8')
 
@@ -63,6 +64,36 @@ describe('CI workflow hygiene', () => {
       expect(checkBuild).toBeGreaterThan(-1)
       expect(build).toBeLessThan(checkBuild)
     }
+  })
+
+  it('rejects a build that rewrites committed generated sources and then runs finalization', () => {
+    for (const text of [pr, release]) {
+      const build = text.indexOf('npm run build\n')
+      const diffGuard = text.indexOf('git diff --exit-code')
+      const finalization = text.indexOf('npm run check:finalization')
+      expect(build).toBeGreaterThan(-1)
+      expect(diffGuard).toBeGreaterThan(build)
+      expect(finalization).toBeGreaterThan(diffGuard)
+    }
+    expect(pkg.scripts['check:finalization']).toContain('npm run check:structure')
+    expect(pkg.scripts['check:finalization']).toContain('npm run check:routes')
+  })
+
+  it('rejects a stale committed extension zip before the CI rebuild', () => {
+    const check = pr.indexOf('npm run check:extension')
+    const build = pr.indexOf('npm run build:extension')
+    expect(check).toBeGreaterThan(-1)
+    expect(build).toBeGreaterThan(check)
+    expect(release).toContain(
+      'npm run build:extension\n          git diff --exit-code\n          npm run check:extension',
+    )
+  })
+
+  it('keeps a real virtual-gui end-to-end job in the PR gate', () => {
+    expect(pr).toContain('Linux preview virtual-gui and blender_see')
+    expect(pr).toContain('tests/e2e/linux_preview_see.mjs')
+    expect(pr).toContain('xvfb libgl1 libegl1')
+    expect(pr).toContain('tests/e2e/win_hidden_desktop.mjs')
   })
 
   it('validates the addon package with a pinned Blender 4.2 LTS validator', () => {

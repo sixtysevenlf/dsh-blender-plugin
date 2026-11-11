@@ -1,7 +1,7 @@
 {
   "version": 1,
   "description": "Function-level budget registry (two-level exception model): every 80-120 line function is registered with a real classification, reason, class owner and future reviewBy; unregistered, unclassified, expired and stale entries fail. Functions over 120 lines always fail. Path-level file-budget exceptions live in config/exceptions.json.",
-  "generatedAt": "2026-11-08T02:15:18.963Z",
+  "generatedAt": "2026-11-11T12:13:57.000Z",
   "functions": [
     {
       "file": "extension/dsh_blender_bridge/commands/core/bpy_lookup.py",
@@ -130,6 +130,15 @@
       "reviewBy": "2027-06-30"
     },
     {
+      "file": "runtime/core/queue/spawn-executor.ts",
+      "name": "start",
+      "lines": 82,
+      "classification": "orchestration",
+      "reason": "Queue executor start: process spawn, log capture, timeout and settle lifecycle kept in one closure.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
       "file": "runtime/execution/headless/process.ts",
       "name": "<anonymous>",
       "lines": 90,
@@ -193,6 +202,24 @@
       "reviewBy": "2027-06-30"
     },
     {
+      "file": "runtime/gateway/app.ts",
+      "name": "createGatewayApp",
+      "lines": 86,
+      "classification": "dispatch-table",
+      "reason": "Gateway app factory: wires the HTTP dependency surface and route table for the whole process.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/http/host/scene-items.ts",
+      "name": "hostStateView",
+      "lines": 111,
+      "classification": "formatting",
+      "reason": "Host state view: assembles the /host/state payload block by block with conservative defaults.",
+      "owner": "host",
+      "reviewBy": "2027-06-30"
+    },
+    {
       "file": "runtime/http/routes/act.ts",
       "name": "createActRoutes",
       "lines": 81,
@@ -215,7 +242,7 @@
       "name": "runSessionAction",
       "lines": 88,
       "classification": "dispatch-table",
-      "reason": "Session action dispatcher: one case per wire action (attach, grant, presence, human-edit readback, consent, virtual-gui start).",
+      "reason": "Session action dispatcher: one case per wire action (attach, grant, presence, human-edit readback, host permission, virtual-gui start).",
       "owner": "runtime",
       "reviewBy": "2027-06-30"
     },
@@ -823,6 +850,24 @@
       "reviewBy": "2027-06-30"
     },
     {
+      "file": "runtime/py/render/qc_render_impl/views.py",
+      "name": "_qv_setup",
+      "lines": 120,
+      "classification": "linear-pipeline",
+      "reason": "QC view setup phase: parts, engine and scene configuration (band edge at 120 lines).",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/qc_render_impl/views.py",
+      "name": "_qv_vlist",
+      "lines": 89,
+      "classification": "parsing",
+      "reason": "QC view list normalization: dedupe, canonical order and ortho resolution.",
+      "owner": "host",
+      "reviewBy": "2027-06-30"
+    },
+    {
       "file": "runtime/py/render/qc_render_impl/views_render.py",
       "name": "_qv_finish_out",
       "lines": 82,
@@ -859,24 +904,6 @@
       "reviewBy": "2027-06-30"
     },
     {
-      "file": "runtime/py/render/qc_render_impl/views.py",
-      "name": "_qv_setup",
-      "lines": 120,
-      "classification": "linear-pipeline",
-      "reason": "QC view setup phase: parts, engine and scene configuration (band edge at 120 lines).",
-      "owner": "runtime",
-      "reviewBy": "2027-06-30"
-    },
-    {
-      "file": "runtime/py/render/qc_render_impl/views.py",
-      "name": "_qv_vlist",
-      "lines": 89,
-      "classification": "parsing",
-      "reason": "QC view list normalization: dedupe, canonical order and ortho resolution.",
-      "owner": "host",
-      "reviewBy": "2027-06-30"
-    },
-    {
       "file": "runtime/py/render/view.py",
       "name": "capture",
       "lines": 90,
@@ -886,11 +913,11 @@
       "reviewBy": "2027-06-30"
     },
     {
-      "file": "runtime/py/render/view.py",
+      "file": "runtime/py/render/view_host_impl/__init__.py",
       "name": "host_pick",
-      "lines": 86,
+      "lines": 88,
       "classification": "integration-io",
-      "reason": "bpy ray-cast pick adapter: screen-to-world ray plus hit resolution.",
+      "reason": "Viewport raycast adapter: click deprojection plus bpy ray_cast and object fallback.",
       "owner": "addon",
       "reviewBy": "2027-06-30"
     },

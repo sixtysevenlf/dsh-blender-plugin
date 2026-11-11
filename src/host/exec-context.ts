@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { hostIdentity } from './backend/host-id.js'
 
 export interface CallerInfo {
   hostId: string
@@ -50,7 +51,8 @@ export function callerFromExec(exec: unknown): CallerInfo {
     process.env.DSH_SESSION_ID,
     'unknown-session',
   )
-  const hostId = firstText(process.env.DSH_HOST_ID, 'host-pid-' + String(process.pid))
+  // Same stable identity the Gateway owner record uses (survives plugin reload).
+  const hostId = hostIdentity()
   const role =
     agent.role === 'main' || parentAgentId === '' ? 'main' : ('subagent' as 'main' | 'subagent')
   return {
@@ -91,7 +93,7 @@ export function callerHeaders(): Record<string, string> {
 }
 
 // v0.9.2（DSH 更新适配 R3）：把宿主的 exec（exec.signal = 用户打断 / per-tool 截止）
-// 放进 AsyncLocalStorage，传输层 withTimeout() 自动合并它 —— **15 个工具体一行不改**
+// 放进 AsyncLocalStorage，传输层 withTimeout() 自动合并它 —— **六个工具体一行不改**
 // 就能响应宿主取消；每个工具另补静态 timeoutMs（见 T），把"上游设默认截止"从
 // "Blender 还在跑、工具已被判超时"的静默错位，变成"先由本插件给出可读错误"。
 export const EXEC_CTX = new AsyncLocalStorage<ExecContextStore>()

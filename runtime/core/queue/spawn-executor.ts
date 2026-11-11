@@ -135,12 +135,27 @@ export function buildJobArgs(
   return { args, outdir }
 }
 
+function removeTempDir(dir: string | null): void {
+  if (!dir) return
+  try {
+    fs.rmSync(dir, { recursive: true, force: true })
+  } catch {
+    /* temp cleanup is best effort */
+  }
+}
+
 function prepare(job: JobRecord, spawnOptions: SpawnExecutorOptions): Prepared {
   const tempRoot = spawnOptions.tempRoot || path.join(workRoot(), 'tmp')
   ensureDir(tempRoot)
   const tempDir = fs.mkdtempSync(path.join(tempRoot, 'dsh-job-'))
-  const built = buildJobArgs(job, tempDir)
-  return { ...built, tempDir }
+  try {
+    const built = buildJobArgs(job, tempDir)
+    return { ...built, tempDir }
+  } catch (e) {
+    // A rejected submission must not leave a dsh-job-* directory behind.
+    removeTempDir(tempDir)
+    throw e
+  }
 }
 
 function prepareFailure(e: unknown, blenderExe: string | null): JobExecutionResult {
@@ -278,6 +293,7 @@ export class SpawnJobExecutor implements JobExecutor {
     try {
       child = spawnBlender(this.opts, prepared, job.id)
     } catch (e) {
+      removeTempDir(prepared.tempDir)
       return {
         pid: null,
         cancel: () => {},
@@ -337,6 +353,11 @@ export class SpawnJobExecutor implements JobExecutor {
       })
       child.once('close', (code, signal) => finish(code, signal ? String(signal) : null))
     })
-    return { pid: child.pid ?? null, cancel: () => killTree(child), done }
+    return {
+      pid: child.pid ?? null,
+      cancel: () => killTree(child),
+      done,
+      tempDir: prepared.tempDir,
+    }
   }
 }

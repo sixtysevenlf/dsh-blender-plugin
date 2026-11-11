@@ -1,10 +1,48 @@
-""" Viewport screenshot capture (get_viewport_screenshot). """
+""" Viewport capture commands (get_viewport_screenshot).
+
+The same wire command also carries the two pause-safe read-only payloads that
+must keep working while the human has paused AI operations:
+
+* `spec`     - run the shared-kernel view capture (runtime/py/render/view.py)
+                without executing arbitrary code;
+* `presence` - install one presence snapshot (presence_draw.set_presence).
+
+Keeping them on a command that already starts with `get_` leaves the command
+count unchanged and never re-opens arbitrary execute_code during a pause.
+"""
+
+import json
+import sys
 
 import bpy
 
+KERNEL_CODES = ("kernel_not_loaded", "capture_failed", "invalid_spec")
+
+
+def _kernel_view_api():
+    """Return the shared kernel view API, or None when the kernel is not loaded."""
+    kernel = sys.modules.get("dsh_rt_kernel")
+    if kernel is None:
+        return None
+    return getattr(kernel, "dsh_view_api", None)
+
+
+def _payload(value):
+    """Accept a mapping or a JSON object string; anything else is None."""
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except Exception:
+            return None
+        return parsed if isinstance(parsed, dict) else None
+    return None
+
 
 class ScreenshotCommands:
-    def get_viewport_screenshot(self, max_size=800, filepath=None, format="png"):
+    def get_viewport_screenshot(self, max_size=800, filepath=None, format="png",
+                                spec=None, presence=None, area=None):
         """
         Capture a screenshot of the current 3D viewport and save it to the specified path.
 
@@ -12,9 +50,18 @@ class ScreenshotCommands:
         - max_size: Maximum size in pixels for the largest dimension of the image
         - filepath: Path where to save the screenshot file
         - format: Image format (png, jpg, etc.)
+        - spec: pause-safe view-capture JSON handled by the shared kernel
+        - presence: pause-safe presence snapshot (JSON object or object string)
+        - area: pause-safe full-window screenshot of one screen area (see full=true)
 
         Returns success/error status
         """
+        if presence is not None:
+            return self._apply_presence(presence)
+        if spec is not None:
+            return self._readonly_capture(spec)
+        if area is not None:
+            return self._area_screenshot(area, filepath, format)
         # screen.screenshot_area captures the OS window framebuffer, which is
         # all-black whenever the Blender window is not composited in the
         # foreground (the normal case when Blender is driven headless-style via
@@ -96,3 +143,62 @@ class ScreenshotCommands:
 
         except Exception as e:
             return {"error": str(e)}
+
+    def _apply_presence(self, presence):
+        """Install a presence snapshot without executing arbitrary code."""
+        payload = _payload(presence)
+        if payload is None:
+            return {"error": "presence payload must be a JSON object", "code": "invalid_presence"}
+        try:
+            from ... import presence_draw
+            presence_draw.set_presence(payload)
+        except Exception as exc:
+            return {"error": "presence update failed: %s" % str(exc), "code": "presence_failed"}
+        return {"success": True, "presence": True}
+
+    def _area_screenshot(self, area_index, filepath, image_format):
+        """Full-window capture of one screen area (pause-safe: started with get_)."""
+        if not filepath:
+            return {"error": "No filepath provided"}
+        try:
+            screen = bpy.context.screen
+            areas = list(screen.areas)
+            if not areas:
+                return {"error": "No areas found in the current screen"}
+            index = min(max(0, int(area_index)), len(areas) - 1)
+            target = areas[index]
+            window = next(
+                (w for w in bpy.context.window_manager.windows if w.screen == screen), None)
+            if window is None:
+                return {"error": "No window found for the current screen"}
+            with bpy.context.temp_override(window=window, area=target):
+                bpy.ops.screen.screenshot_area(filepath=filepath)
+            image = bpy.data.images.load(filepath)
+            width, height = image.size
+            bpy.data.images.remove(image)
+            return {
+                "success": True,
+                "width": int(width),
+                "height": int(height),
+                "filepath": filepath,
+                "method": "screenshot_area",
+                "area": index,
+            }
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    def _readonly_capture(self, spec):
+        """Run the view capture that lives in the shared kernel (no new code path)."""
+        payload = _payload(spec)
+        if payload is None:
+            return {"ok": False, "code": "invalid_spec",
+                    "error": "capture spec must be a JSON object"}
+        api = _kernel_view_api()
+        if api is None:
+            return {"ok": False, "code": "kernel_not_loaded",
+                    "error": "view capture needs the shared kernel; resume AI operations once and retry"}
+        try:
+            return api["capture"](json.dumps(payload))
+        except Exception as exc:
+            return {"ok": False, "code": "capture_failed",
+                    "error": "view capture failed: %s" % str(exc)}

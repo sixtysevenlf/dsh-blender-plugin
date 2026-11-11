@@ -6,6 +6,8 @@ export function viewHeader(meta: Record<string, unknown>): string {
   const spec = objArg(meta.spec)
   const matrix = objArg(meta.matrix)
   const capture = objArg(meta.meta)
+  const from = Array.isArray(spec.from) ? spec.from : null
+  const lookAt = Array.isArray(spec.look_at) ? spec.look_at : null
   const payload: Record<string, unknown> = {
     mode: String(meta.mode || '').slice(0, 64),
     ms: meta.ms,
@@ -20,13 +22,18 @@ export function viewHeader(meta: Record<string, unknown>): string {
     fallback_from: meta.fallback_from,
     view_matrix: matrix.view || null,
     proj_matrix: matrix.proj || null,
-    from: Array.isArray(spec.from) ? spec.from : null,
-    look_at: Array.isArray(spec.look_at) ? spec.look_at : null,
+    from,
+    look_at: lookAt,
     lens: typeof spec.lens === 'number' ? spec.lens : null,
     ortho: spec.ortho === true,
     ortho_scale: typeof spec.ortho_scale === 'number' ? spec.ortho_scale : null,
     sensor: typeof spec.sensor === 'number' ? spec.sensor : null,
-    viewpoint: typeof spec.mode === 'string' ? spec.mode : null,
+    viewpoint:
+      spec.mode === 'viewport' && (from || lookAt)
+        ? 'custom'
+        : typeof spec.mode === 'string'
+          ? spec.mode
+          : null,
     camera: meta.camera ?? null,
     frame: meta.frame ?? null,
     preview_only: meta.preview_only === true,
@@ -67,7 +74,7 @@ export function viewHeader(meta: Record<string, unknown>): string {
 
 // HTTP 路由 /view：自定义视角
 export function createViewRoutes(E: HttpRouteDeps) {
-  const { engine, json, pushRtt, readBody, stats } = E
+  const { engine, json, leaseGate, pushRtt, readBody, stats } = E
   return {
     async view(req: IncomingMessage, res: ServerResponse, _url: URL, _p: string): Promise<void> {
       const raw = await readBody(req)
@@ -76,6 +83,11 @@ export function createViewRoutes(E: HttpRouteDeps) {
         payload = JSON.parse(raw)
       } catch (e) {
         payload = {}
+      }
+      const gate = leaseGate(payload, { readOnly: true })
+      if (gate) {
+        json(res, 409, gate)
+        return
       }
       const t0 = Date.now()
       try {

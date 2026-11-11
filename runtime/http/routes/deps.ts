@@ -17,6 +17,7 @@ export type StreamJsonFn = (
 export type ReadBodyFn = (req: IncomingMessage, limit?: number) => Promise<string>
 export type LeaseGateFn = (
   payload?: Record<string, unknown> | null,
+  opts?: { readOnly?: boolean },
 ) => Record<string, unknown> | null
 export type IsReadOnlyFn = (path: string, op: unknown) => boolean
 export type LeaseAcquireFn = (

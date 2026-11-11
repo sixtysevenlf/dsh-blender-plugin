@@ -1,4 +1,5 @@
 // Job queue manager: submission, admission, persistence, control.
+import fs from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { availabilityFailure } from '../availability.js'
 import type { AvailabilityFailure } from '../availability.js'
@@ -60,6 +61,17 @@ function queueFailure(
   })
 }
 
+export function failureForShutdown(): AvailabilityFailure {
+  return availabilityFailure({
+    stage: 'queue',
+    code: 'gateway_shutdown',
+    rootCause: 'Gateway shut down while this job was assigned or running.',
+    fix: 'Submit the job again after the Gateway is running.',
+    fallback: { kind: 'unavailable', summary: 'resubmit the job' },
+    evidence: { reason: 'gateway_shutdown' },
+  })
+}
+
 export function failureForRestart(): AvailabilityFailure {
   return availabilityFailure({
     stage: 'queue',
@@ -80,6 +92,7 @@ export class JobQueue {
   private readonly newId: () => string
   private readonly jobs: JobRecord[] = []
   private readonly handles = new Map<string, JobHandle>()
+  private closed = false
 
   constructor(opts: QueueOptions) {
     this.executor = opts.executor
@@ -95,6 +108,12 @@ export class JobQueue {
     const loaded = this.store.load()
     for (const job of loaded) {
       if (job.state === 'assigned' || job.state === 'running') {
+        // The old process is gone: drop its temp dir and clear the slot/pid so a
+        // restored record can never look live or keep a GPU slot occupied.
+        this.discardTempDir(job)
+        job.slot = null
+        job.pid = null
+        job.tempDir = null
         this.transition(job, 'failed', 'gateway_restart')
         job.error = failureForRestart()
         job.finishedAt = this.now()
@@ -106,6 +125,14 @@ export class JobQueue {
   }
 
   submit(caller: CallerIdentity, input: SubmitInput): JobRecord {
+    if (this.closed)
+      throw new QueueError(
+        queueFailure(
+          'queue_closed',
+          'The Gateway is shutting down and no longer accepts jobs.',
+          'Wait for the Gateway to restart, then submit again.',
+        ),
+      )
     const kind = input.kind === 'render' || input.kind === 'headless' ? input.kind : null
     if (!kind)
       throw new QueueError(
@@ -126,7 +153,7 @@ export class JobQueue {
     if (pendingCount(this.jobs) >= this.capacity.pending) {
       throw new QueueError(
         queueFailure(
-          'queue_full',
+          'QUEUE_FULL',
           'The job queue is full.',
           'Wait for a running job to finish, or raise the documented pending limit.',
           { pending: pendingCount(this.jobs), limit: this.capacity.pending },
@@ -163,13 +190,18 @@ export class JobQueue {
     return this.snapshot(job)
   }
 
-  status(id: string): JobRecord | null {
+  status(id: string): JobRecord | null
+  status(caller: CallerIdentity, id: string): JobRecord | null
+  status(callerOrId: string | CallerIdentity, maybeId?: string): JobRecord | null {
+    const id = typeof callerOrId === 'string' ? callerOrId : String(maybeId || '')
     const job = this.find(id)
-    return job ? this.snapshot(job) : null
+    if (!job) return null
+    if (typeof callerOrId !== 'string') this.authorize(callerOrId, job, 'status')
+    return this.snapshot(job)
   }
 
   async wait(
-    _caller: CallerIdentity,
+    caller: CallerIdentity,
     id: string,
     timeoutMs = WAIT_DEFAULT_MS,
   ): Promise<Record<string, unknown>> {
@@ -185,6 +217,7 @@ export class JobQueue {
             'Call op=list and use an existing jobId.',
           ),
         )
+      this.authorize(caller, job, 'status')
       if (terminalOf(job.state))
         return { job: this.snapshot(job), waitedMs: Date.now() - t0, waitTimedOut: false }
       if (Date.now() - t0 >= budget)
@@ -230,6 +263,9 @@ export class JobQueue {
     this.transition(job, 'canceled', 'cancel requested by caller')
     job.finishedAt = this.now()
     job.pid = null
+    job.slot = null
+    this.discardTempDir(job)
+    job.tempDir = null
     this.handles.delete(job.id)
     if (handle) {
       try {
@@ -243,8 +279,16 @@ export class JobQueue {
     return { job: this.snapshot(job), canceled: true, alreadyFinished: false }
   }
 
-  list(filter: { state?: string; kind?: string; owner?: string } = {}): JobRecord[] {
+  list(filter?: JobListFilter): JobRecord[]
+  list(caller: CallerIdentity, filter?: JobListFilter): JobRecord[]
+  list(
+    callerOrFilter: CallerIdentity | JobListFilter = {},
+    maybeFilter: JobListFilter = {},
+  ): JobRecord[] {
+    const caller = isCallerIdentity(callerOrFilter) ? callerOrFilter : null
+    const filter = caller ? maybeFilter : (callerOrFilter as JobListFilter)
     return this.jobs
+      .filter((job) => !caller || canManageJob(caller, job.owner).allowed)
       .filter((job) => !filter.state || job.state === filter.state)
       .filter((job) => !filter.kind || job.kind === filter.kind)
       .filter((job) => !filter.owner || job.owner.dshSessionId === filter.owner)
@@ -277,6 +321,7 @@ export class JobQueue {
   }
 
   private pump(): void {
+    if (this.closed) return
     for (;;) {
       const admission = nextAdmission(this.jobs, this.capacity, this.reservedGpu())
       if (!admission.job) {
@@ -324,6 +369,8 @@ export class JobQueue {
     }
     this.handles.set(job.id, handle)
     job.pid = handle.pid
+    job.startedAt = this.now()
+    job.tempDir = handle.tempDir ?? null
     this.transition(job, 'running', 'slot acquired')
     this.persist()
     void handle.done.then(
@@ -350,11 +397,13 @@ export class JobQueue {
     job.result = {
       exitCode: result.exitCode,
       signal: result.signal,
-      ms: Date.now() - (job.startedAt || Date.now()),
+      ms: Math.max(0, this.now() - (job.startedAt ?? job.assignedAt ?? this.now())),
       ...(result.parsed === undefined ? {} : { parsed: result.parsed }),
     }
     job.artifacts = result.artifacts || []
     job.pid = null
+    job.slot = null
+    job.tempDir = null
     if (result.error) {
       job.error = result.error
       this.transition(job, 'failed', result.error.code)
@@ -381,10 +430,57 @@ export class JobQueue {
     this.handles.delete(job.id)
     job.error = failure
     job.pid = null
+    job.slot = null
+    this.discardTempDir(job)
+    job.tempDir = null
     this.transition(job, 'failed', failure.code)
     job.finishedAt = this.now()
     this.persist()
     this.pump()
+  }
+
+  /** Gateway shutdown: kill running children, mark them failed, keep queued work. */
+  close(): void {
+    if (this.closed) return
+    this.closed = true
+    let dirty = false
+    for (const job of this.jobs) {
+      if (job.state !== 'assigned' && job.state !== 'running') continue
+      const handle = this.handles.get(job.id)
+      this.handles.delete(job.id)
+      if (handle) {
+        try {
+          handle.cancel()
+        } catch {
+          /* cancellation is idempotent */
+        }
+      }
+      job.slot = null
+      job.pid = null
+      this.discardTempDir(job)
+      job.tempDir = null
+      job.error = failureForShutdown()
+      this.transition(job, 'failed', 'gateway_shutdown')
+      job.finishedAt = this.now()
+      dirty = true
+    }
+    if (dirty) {
+      try {
+        this.persist()
+      } catch {
+        /* a shutdown must not throw on a broken state file */
+      }
+    }
+  }
+
+  private discardTempDir(job: JobRecord): void {
+    const dir = job.tempDir
+    if (!dir) return
+    try {
+      fs.rmSync(dir, { recursive: true, force: true })
+    } catch {
+      /* temp cleanup is best effort */
+    }
   }
 
   private transition(job: JobRecord, to: JobState, reason: string): void {
@@ -422,6 +518,22 @@ export class JobQueue {
   private persist(): void {
     this.store.save(this.jobs.map((job) => this.snapshot(job)))
   }
+}
+
+export interface JobListFilter {
+  state?: string
+  kind?: string
+  owner?: string
+}
+
+function isCallerIdentity(value: unknown): value is CallerIdentity {
+  if (typeof value !== 'object' || value === null) return false
+  const v = value as Record<string, unknown>
+  return (
+    typeof v.hostId === 'string' &&
+    typeof v.dshSessionId === 'string' &&
+    typeof v.agentId === 'string'
+  )
 }
 
 function clampPriority(value: unknown): number {

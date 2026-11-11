@@ -262,6 +262,39 @@ describe('Gateway addon WebSocket channel', () => {
     await expect(pending).resolves.toEqual({ ok: 1 })
   })
 
+  it('silently replaces a reconnected instanceId without emitting connection_closed', async () => {
+    const events: Record<string, unknown>[] = []
+    const app = createGatewayApp({
+      port: 0,
+      heartbeatMs: 60000,
+      onEvent: (event) => events.push(event),
+    })
+    apps.push(app)
+    const port = await listen(app)
+    const first = await dial(port)
+    send(first, handshake('inst-a'))
+    await nextMessage(first)
+
+    const second = await dial(port)
+    send(second, handshake('inst-a'))
+    await nextMessage(second)
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    expect(app.addonGateway.list()).toHaveLength(1)
+    expect(app.addonGateway.list()[0]).toMatchObject({ instanceId: 'inst-a', ready: true })
+    // A superseded connection must not look like a real disconnect: the session
+    // registry maps connection_closed -> handleInstanceGone (virtual-gui stop).
+    expect(events.filter((e) => e.type === 'connection_closed')).toHaveLength(0)
+    expect(events.filter((e) => e.type === 'handshake_ok')).toHaveLength(2)
+
+    await new Promise<void>((resolve) => {
+      second.socket.once('close', () => resolve())
+      second.socket.end()
+    })
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    expect(events.filter((e) => e.type === 'connection_closed')).toHaveLength(1)
+  })
+
   it('rejects a plain HTTP request to /addon with 400', async () => {
     const app = createGatewayApp({ port: 0 })
     apps.push(app)

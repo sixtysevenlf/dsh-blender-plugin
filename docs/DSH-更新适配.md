@@ -30,8 +30,9 @@
 
 ```bash
 cd ~/DSH/dsh-blender-plugin
-npm run test:dsh-api                    # ② 工具契约：6 工具 + 6 timeoutMs + 0 报错 + 前缀 [v3.1.0-alpha.1]
-npm run test:dsh-api -- --version 0.1.7-alpha.2   # ③ 升级前预演：把待升级版本的 dsh-tools 拉下来先测
+npm run test:contract                   # ② 工具契约：6 工具 + schema/presenter + capability lock，0 报错
+# ③ 升级前预演（可选）：把目标 dsh-tools 版本装到临时 prefix，再运行集成测试
+DSH_HOST_PKGS=<prefix>/node_modules/@deepseek-ai npm run test:integration
 ```
 
 会话里再点一次 `blender_session(action="doctor")`：
@@ -100,7 +101,7 @@ dsh --profile web --dump-config | grep -A3 "dsh-blender-plugin\|dsh-coc-dice\|ds
 
 ## 5. 每次 DSH 升级的固定动作（抄这段）
 
-1. 升级前：`npm run test:dsh-api -- --version <目标版本>` → PASS 再升。
+1. 升级前（可选）：把目标 dsh-tools 版本装到临时 prefix，`DSH_HOST_PKGS=<prefix>/node_modules/@deepseek-ai npm run test:integration` → PASS 再升。
 2. 升级时：**别用裸 `npm i -g @deepseek-ai/dsh`** —— `latest` 可能比现装版本**旧**（2026-09-23 历史快照曾出现）。
    升级前先用 `npm view @deepseek-ai/dsh dist-tags`（或项目文档的推荐版本）核对，再用显式版本 / `@alpha` 安装。
 3. 升级后：§2 三步 + `dsh --profile web --dump-config | grep -c super-injector`（应为 0）

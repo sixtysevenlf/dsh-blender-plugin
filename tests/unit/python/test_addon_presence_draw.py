@@ -10,6 +10,7 @@ import bpy_stub
 bpy_stub.install()
 
 presence_draw = importlib.import_module("extension.dsh_blender_bridge.presence_draw")
+presence_frustum = importlib.import_module("extension.dsh_blender_bridge.presence_frustum")
 
 
 def tearDown_function():
@@ -175,3 +176,92 @@ def test_label_screen_projects_world_point(monkeypatch):
 
     Region3D.perspective_matrix = FakeMatrix(w=-1.0)
     assert presence_draw._label_screen(Region(), Region3D(), (1.0, 2.0, 3.0)) is None
+
+
+def test_selection_uid_object_prefix_resolves_the_named_object(monkeypatch):
+    class FakeVector:
+        def __init__(self, values):
+            self.x, self.y, self.z = float(values[0]), float(values[1]), float(values[2])
+
+    class FakeMatrix:
+        def __matmul__(self, value):
+            return value
+
+    class FakeObject:
+        type = "MESH"
+        matrix_world = FakeMatrix()
+        bound_box = [(x, y, z) for x in (-1.0, 1.0) for y in (-1.0, 1.0) for z in (-1.0, 1.0)]
+
+    class FakeLight(FakeObject):
+        type = "LIGHT"
+
+    class FakeEmpty(FakeObject):
+        type = "EMPTY"
+        bound_box = []
+
+    drawn = []
+    monkeypatch.setattr(presence_draw, "Vector", FakeVector)
+    monkeypatch.setattr(presence_draw, "_draw_lines",
+                        lambda vertices, color: drawn.append((vertices, color)))
+    named = {"Cube": FakeObject, "Lamp": FakeLight, "Plain": FakeEmpty}
+    objects = type("Objects", (), {
+        "get": staticmethod(lambda name: named[name]() if name in named else None),
+    })()
+    monkeypatch.setattr(presence_draw.bpy.data, "objects", objects, raising=False)
+
+    presence_draw._selection("object:Cube", (1.0, 1.0, 1.0, 1.0))
+    assert len(drawn) == 1
+    assert len(drawn[0][0]) == 24
+
+    drawn.clear()
+    presence_draw._selection("Cube", (1.0, 1.0, 1.0, 1.0))
+    assert len(drawn) == 1
+
+    # Lights and other non-MESH selections still get a box.
+    drawn.clear()
+    presence_draw._selection("object:Lamp", (1.0, 1.0, 1.0, 1.0))
+    assert len(drawn) == 1
+    assert len(drawn[0][0]) == 24
+
+    # An object without a usable bounding box is skipped instead of crashing.
+    drawn.clear()
+    presence_draw._selection("object:Plain", (1.0, 1.0, 1.0, 1.0))
+    assert drawn == []
+
+    drawn.clear()
+    for uid in ("material:Red", "collection:Cube", "object:Missing", ""):
+        presence_draw._selection(uid, (1.0, 1.0, 1.0, 1.0))
+    assert drawn == []
+
+
+def test_fallback_ortho_frustum_draws_parallel_boxes(monkeypatch):
+    class FakeVector:
+        def __init__(self, values):
+            self.x, self.y, self.z = float(values[0]), float(values[1]), float(values[2])
+
+        def __add__(self, other):
+            return FakeVector((self.x + other.x, self.y + other.y, self.z + other.z))
+
+        def copy(self):
+            return FakeVector((self.x, self.y, self.z))
+
+    class Identity:
+        def __matmul__(self, value):
+            return value
+
+    class World:
+        translation = FakeVector((0.0, 0.0, 0.0))
+
+    monkeypatch.setattr(presence_frustum, "Vector", FakeVector)
+    monkeypatch.setattr(presence_frustum, "rotation", lambda world: Identity())
+    lines = presence_frustum.fallback_frustum(
+        {"ortho": True, "orthoScale": 4.0, "width": 1024, "height": 576}, World())
+
+    assert lines is not None
+    assert len(lines) == 24
+    points = {tuple(point) for point in lines}
+    assert len(points) == 8
+    # An orthographic frustum has no apex: every line is a box edge, so the
+    # camera origin never appears in the drawn geometry.
+    assert (0.0, 0.0, 0.0) not in points
+

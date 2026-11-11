@@ -98,7 +98,7 @@ export function readyRow(
 /**
  * Decision-required failure used when an executing tool has no ready GUI
  * session. It must never spawn Blender; it names the two explicit choices the
- * user can take (attach an open Blender, or consent to a virtual-gui).
+ * user can take (attach an open Blender, or ask a human to allow a virtual-gui).
  */
 export function sessionRequiredFailure(detail?: string): ToolFailure {
   const choices = [
@@ -111,7 +111,7 @@ export function sessionRequiredFailure(detail?: string): ToolFailure {
       action: 'start',
       tool: 'blender_session',
       kind: 'virtual-gui',
-      summary: '由用户确认后启动 virtual-gui（首次 start 返回 consent_required，需要人类授权）',
+      summary: '由用户在 Blender Presence 面板允许后启动 virtual-gui（默认不允许）',
     },
   ]
   return toolError(

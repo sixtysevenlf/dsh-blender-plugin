@@ -1,12 +1,16 @@
 /** loop 执行层：GUI timers 通道与无头 worker session 通道。 */
-import { BACKEND_HINT } from '../../constants.js'
+import { BACKEND_HINT, T } from '../../constants.js'
 import { ensureBackend } from '../../host/backend/index.js'
 import { backendPost, leasedText } from '../../host/http.js'
 import { asRecord, text } from '../../contracts/dynamic.js'
 import { redactSecrets, toolError } from '../errors.js'
 import { loopResultText, loopSessionError, loopSessionText } from './loop-response.js'
 
-export async function executeLoop(port: number, args: Record<string, unknown>): Promise<unknown> {
+export async function executeLoop(
+  port: number,
+  args: Record<string, unknown>,
+  routed: { sessionId?: string; instanceId?: string } = {},
+): Promise<unknown> {
   if (!(await ensureBackend(port)))
     return toolError(
       'backend_unreachable',
@@ -16,7 +20,7 @@ export async function executeLoop(port: number, args: Record<string, unknown>): 
   const op = text(args.op) || 'status'
   const target = text(args.target) || 'gui'
   if (target === 'session') return loopViaSession(port, args, op)
-  return loopGui(port, args, op)
+  return loopGui(port, args, op, routed)
 }
 
 async function loopViaSession(
@@ -29,7 +33,7 @@ async function loopViaSession(
     port,
     '/worker',
     { op: 'start', name: nm, preload: 'runner', engine: 'workbench', warmup: true, isolated: true },
-    120000,
+    T.loop,
   )
   if (!st || st.ok !== true)
     return toolError(
@@ -42,7 +46,7 @@ async function loopViaSession(
     port,
     '/worker',
     { op: 'exec', name: nm, code: code, isolated: true },
-    300000,
+    T.loop,
   )
   const rr = asRecord(r.result)
   if (!r || r.ok !== true)
@@ -99,9 +103,15 @@ function buildSessionCode(op: string, args: Record<string, unknown>): string {
               : 'print("HEADLESS " + K.dsh_loop_api["help"]())'
 }
 
-async function loopGui(port: number, args: Record<string, unknown>, op: string): Promise<unknown> {
+async function loopGui(
+  port: number,
+  args: Record<string, unknown>,
+  op: string,
+  routed: { sessionId?: string; instanceId?: string } = {},
+): Promise<unknown> {
   const payload: Record<string, unknown> = {
     op: op,
+    write_scope: text(args.write_scope).trim() || 'exclusive',
     spec: args.spec || {},
     history: args.history || 8,
     board: args.board || 0,
@@ -113,7 +123,9 @@ async function loopGui(port: number, args: Record<string, unknown>, op: string):
     note: args.note || '',
     iterations: args.iterations || 5000,
   }
-  const r = await backendPost(port, '/loop', payload, 300000)
+  if (routed.sessionId) payload.sessionId = routed.sessionId
+  if (routed.instanceId) payload.instanceId = routed.instanceId
+  const r = await backendPost(port, '/loop', payload, T.loop)
   const lt = leasedText(r)
   if (lt) return { text: lt }
   if (!r || r.ok !== true)

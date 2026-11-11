@@ -1,5 +1,5 @@
 /** blender_op action=plan：catalog 契约算子执行（会话门由 dispatcher 先做）。 */
-import { BACKEND_HINT } from '../../constants.js'
+import { BACKEND_HINT, T } from '../../constants.js'
 import { ensureBackend } from '../../host/backend/index.js'
 import { backendPost, jsonPayload, leasedText } from '../../host/http.js'
 import { text } from '../../contracts/dynamic.js'
@@ -11,6 +11,7 @@ export async function executePlan(
   ctx: HostContext,
   port: number,
   argsIn: Record<string, unknown>,
+  routed: { sessionId?: string; instanceId?: string } = {},
 ): Promise<unknown> {
   if (!(await ensureBackend(port)))
     return toolError(
@@ -32,7 +33,14 @@ export async function executePlan(
       'args 传 JSON 对象，例如 {"family":"audit"}',
     )
   if (op === 'report' && argsIn.path) payload.path = text(argsIn.path)
-  const r = await backendPost(port, '/plan', { op: op, args: payload }, 300000)
+  const body: Record<string, unknown> = {
+    op: op,
+    args: payload,
+    write_scope: text(argsIn.write_scope).trim() || 'exclusive',
+  }
+  if (routed.sessionId) body.sessionId = routed.sessionId
+  if (routed.instanceId) body.instanceId = routed.instanceId
+  const r = await backendPost(port, '/plan', body, T.plan)
   const lt = leasedText(r)
   if (lt) return { text: lt }
   if (!r || r.ok !== true)

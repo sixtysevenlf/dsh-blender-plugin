@@ -63,6 +63,11 @@ describe('backend start decision table', () => {
 })
 
 describe('configuration contract', () => {
+  it('defaults allowVirtualGui to false in the plugin schema', () => {
+    const schema = plugin.Config as unknown as (input: unknown) => { allowVirtualGui: boolean }
+    expect(schema({}).allowVirtualGui).toBe(false)
+  })
+
   it('publishes the documented defaults', () => {
     const d = describeConfig()
     expect(CFG.addonHost).toBe('127.0.0.1')

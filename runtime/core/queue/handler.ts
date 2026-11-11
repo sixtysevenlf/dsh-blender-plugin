@@ -49,7 +49,7 @@ export class JobSurface {
         return { ok: true, op, job }
       }
       if (op === 'status') {
-        const job = this.queue.status(String(payload.id || ''))
+        const job = this.queue.status(caller, String(payload.id || ''))
         return job ? { ok: true, op, job } : { ok: false, op, code: 'queue_unknown_job' }
       }
       if (op === 'wait')
@@ -74,7 +74,7 @@ export class JobSurface {
         return {
           ok: true,
           op,
-          jobs: this.queue.list({
+          jobs: this.queue.list(caller, {
             state: typeof payload.state === 'string' ? payload.state : undefined,
             kind: typeof payload.kind === 'string' ? payload.kind : undefined,
             owner: typeof payload.owner === 'string' ? payload.owner : undefined,

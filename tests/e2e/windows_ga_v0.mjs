@@ -348,14 +348,10 @@ try {
 
   const startAt = Date.now()
   const results = await Promise.all(
-    callers.map(async (who) => {
-      const consent = app.sessionRegistry.issueConsent(who)
-      if (!consent.ok) return { ok: false, code: 'consent_failed' }
-      return {
-        who,
-        started: await app.sessionRegistry.start(who, { consentToken: consent.consentToken }),
-      }
-    }),
+    callers.map(async (who) => ({
+      who,
+      started: await app.sessionRegistry.start(who),
+    })),
   )
   const startMs = Date.now() - startAt
   for (const item of results) {
