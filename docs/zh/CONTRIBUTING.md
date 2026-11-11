@@ -55,7 +55,8 @@ AGENTS.md 说明各层怎么拼在一起、什么算“装好了”，以及命�
 
 编辑器只认文件名恰好是 `tsconfig.json` 的配置，所以需要在编辑器里做类型检查的代码范围，都要在源码旁放
 一个：仓库根的 `tsconfig.json` 覆盖 `src/`，`runtime/tsconfig.json` 是 runtime 工程配置，`npm run typecheck`
-和 `scripts/build.mjs` 都读它。其余范围暂时保留根级配置，等后续切片迁到各自源码旁。
+和 `scripts/build.mjs` 都读它；`tests/tsconfig.json` 在根配置基础上扩展，覆盖测试源码。`scripts` 范围
+暂时保留根级配置，等后续切片迁到源码旁。
 
 Blender 侧：从 release 的 zip 安装 addon，启用并点 **Connect**。只有 `doctor` 返回 `kind=ok`
 （GUI 路线），或 worker 加 `see` 能返回一帧图（纯无头路线），才算装好。

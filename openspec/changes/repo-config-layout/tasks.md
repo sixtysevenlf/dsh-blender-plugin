@@ -16,9 +16,9 @@
 
 ## 3. S2 tests 工程迁移
 
-- [ ] 3.1 写 `tests/tsconfig.json`：`extends: "../tsconfig.json"`，覆盖 `module: ESNext`、`moduleResolution: Bundler`、`rootDir: ".."`、`noEmit: true`、`declaration: true`、`sourceMap: false`，`include: ["**/*.ts", "**/*.d.ts"]`；删除 `tsconfig.test.json`；验证 `--showConfig` `fileNames` 与基线相等，并确认没有把根 `["src"]` 继承进 tests 工程。
-- [ ] 3.2 改 tests 引用：`package.json` 的 `typecheck`/`typecheck:test`、`ensure-build` 的 `WATCH_FILES`、`check-doc-paths` 的 `ROOT_FILES`、`tests/types/shims.d.ts:5` 注释、CONTRIBUTING 中英的 tests 段；验证活文件不再出现 `tsconfig.test.json`（历史白名单除外），`npm run typecheck:test` exit 0。
-- [ ] 3.3 跑切片门禁并提交 S2：复用 2.4 的命令清单并额外确认 `npm run test:unit` 对 tests 类型断言无回归；验证全部 exit 0 后提交（带 AI trailer）。
+- [x] 3.1 写 `tests/tsconfig.json`：`extends: "../tsconfig.json"`，覆盖 `module: ESNext`、`moduleResolution: Bundler`、`rootDir: ".."`、`noEmit: true`、`declaration: true`、`sourceMap: false`，`include: ["**/*.ts", "**/*.d.ts"]`；删除 `tsconfig.test.json`；验证 `--showConfig` `fileNames` 与基线相等，并确认没有把根 `["src"]` 继承进 tests 工程。
+- [x] 3.2 改 tests 引用：`package.json` 的 `typecheck`/`typecheck:test`、`ensure-build` 的 `WATCH_FILES`、`check-doc-paths` 的 `ROOT_FILES`、`tests/types/shims.d.ts:5` 注释、CONTRIBUTING 中英的 tests 段；验证活文件不再出现 `tsconfig.test.json`（历史白名单除外），`npm run typecheck:test` exit 0。
+- [x] 3.3 跑切片门禁并提交 S2：复用 2.4 的命令清单并额外确认 `npm run test:unit` 对 tests 类型断言无回归；验证全部 exit 0 后提交（带 AI trailer）。
 
 ## 4. S3 scripts 工程迁移
 

@@ -34,7 +34,12 @@ const NEED = [
   'lib/runtime/backend_probe.js',
 ]
 const WATCH_DIRS = ['src', 'runtime', 'scripts', 'tests/helpers']
-const WATCH_FILES = ['package.json', 'tsconfig.json', 'runtime/tsconfig.json', 'tsconfig.test.json']
+const WATCH_FILES = [
+  'package.json',
+  'tsconfig.json',
+  'runtime/tsconfig.json',
+  'tests/tsconfig.json',
+]
 
 function collectTimes(dir, out) {
   if (!fs.existsSync(dir)) return
