@@ -70,7 +70,7 @@ npm package. npm scripts in package.json call these files; tests live under test
 
 ## Checked scripts and type coverage
 
-The following scripts are included in tsconfig.scripts.json and run through npm run typecheck:scripts:
+The following scripts are included in scripts/tsconfig.json and run through npm run typecheck:scripts:
 
 - check-behavior-matrix.mjs
 - check-coverage.mjs

@@ -122,7 +122,7 @@
     "typecheck": "node scripts/typecheck.mjs -p runtime/tsconfig.json && node scripts/build.mjs runtime && node scripts/typecheck.mjs && node scripts/typecheck.mjs -p tests/tsconfig.json",
     "typecheck:src": "node scripts/build.mjs runtime && node scripts/typecheck.mjs",
     "typecheck:test": "node scripts/typecheck.mjs -p tests/tsconfig.json",
-    "typecheck:scripts": "tsc -p tsconfig.scripts.json",
+    "typecheck:scripts": "node scripts/typecheck.mjs -p scripts/tsconfig.json",
     "lint": "eslint . --max-warnings=0 && node scripts/check-any.mjs && node scripts/check-exceptions.mjs && node scripts/check-plan-ids.mjs --enforce && node scripts/check-doc-paths.mjs --enforce && node scripts/check-ports.mjs",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"{src,tests,scripts,runtime}/**/*.{ts,mts,cts,js,mjs,cjs,json}\" \"*.{ts,json,yml,yaml}\" \"*.mjs\" \".prettierrc.json\" \".github/**/*.{yml,yaml}\"",

@@ -39,6 +39,7 @@ const WATCH_FILES = [
   'tsconfig.json',
   'runtime/tsconfig.json',
   'tests/tsconfig.json',
+  'scripts/tsconfig.json',
 ]
 
 function collectTimes(dir, out) {

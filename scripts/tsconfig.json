@@ -12,9 +12,5 @@
     "strict": false,
     "forceConsistentCasingInFileNames": true
   },
-  "include": [
-    "scripts/check-coverage.mjs",
-    "scripts/check-structure.mjs",
-    "scripts/check-behavior-matrix.mjs"
-  ]
+  "include": ["check-coverage.mjs", "check-structure.mjs", "check-behavior-matrix.mjs"]
 }

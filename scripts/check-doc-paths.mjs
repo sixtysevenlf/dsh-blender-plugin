@@ -39,7 +39,6 @@ const ROOT_FILES = [
   'vitest.config.ts',
   'eslint.config.mjs',
   'tsconfig.json',
-  'tsconfig.scripts.json',
   '.gitignore',
   'README.md',
   'AGENTS.md',

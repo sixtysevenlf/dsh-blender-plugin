@@ -62,8 +62,7 @@ Editors discover TypeScript projects by the file name `tsconfig.json`, so each s
 type-checked in the editor has one next to its sources: the root `tsconfig.json` covers `src/`, and
 `runtime/tsconfig.json` is the runtime project configuration used by both `npm run typecheck` and
 `scripts/build.mjs`, and `tests/tsconfig.json` extends the root host configuration for the test
-sources. The `scripts` scope keeps its root-level configuration until the follow-up slice moves it
-next to its sources.
+sources, and `scripts/tsconfig.json` covers the checked helper scripts.
 
 Blender side: install the addon package from the release zip, enable it, and click **Connect**. The
 installation is good only when `doctor` returns `kind=ok` (GUI route), or the worker plus `see` returns

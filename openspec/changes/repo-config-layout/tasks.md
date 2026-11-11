@@ -22,9 +22,9 @@
 
 ## 4. S3 scripts 工程迁移
 
-- [ ] 4.1 写 `scripts/tsconfig.json`：独立配置（不 extends），保留 `allowJs`/`checkJs`/`noEmit`/`strict: false` 等选项，`include: ["check-coverage.mjs", "check-structure.mjs", "check-behavior-matrix.mjs"]`；删除 `tsconfig.scripts.json`；验证 `--showConfig` `fileNames` 与基线相等。
-- [ ] 4.2 改 scripts 引用与工具解析：`package.json` 的 `typecheck:scripts` 改为 `node scripts/typecheck.mjs -p scripts/tsconfig.json`（去掉裸 `tsc`）、`check-doc-paths` 的 `ROOT_FILES`、`scripts/README.md:73`；验证 `npm run typecheck:scripts` 与 `npm run check:finalization` exit 0。
-- [ ] 4.3 跑切片门禁并提交 S3：复用 2.4 的命令清单；验证全部 exit 0 后提交（带 AI trailer）。
+- [x] 4.1 写 `scripts/tsconfig.json`：独立配置（不 extends），保留 `allowJs`/`checkJs`/`noEmit`/`strict: false` 等选项，`include: ["check-coverage.mjs", "check-structure.mjs", "check-behavior-matrix.mjs"]`；删除 `tsconfig.scripts.json`；验证 `--showConfig` `fileNames` 与基线相等。
+- [x] 4.2 改 scripts 引用与工具解析：`package.json` 的 `typecheck:scripts` 改为 `node scripts/typecheck.mjs -p scripts/tsconfig.json`（去掉裸 `tsc`）、`check-doc-paths` 的 `ROOT_FILES`、`scripts/README.md:73`；验证 `npm run typecheck:scripts` 与 `npm run check:finalization` exit 0。
+- [x] 4.3 跑切片门禁并提交 S3：复用 2.4 的命令清单；验证全部 exit 0 后提交（带 AI trailer）。
 
 ## 5. S4 编辑器一键配置
 
