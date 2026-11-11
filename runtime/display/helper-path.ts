@@ -2,7 +2,7 @@
 //
 // Resolution order is explicit: an environment override for development, the
 // staged vendor directory that release packaging ships, then the local build
-// output under tools/. A missing override never falls back silently: it is the
+// output under native/. A missing override never falls back silently: it is the
 // answer, so a developer who mistypes the path sees a config failure instead of
 // a different build being used.
 import fs from 'node:fs'
@@ -55,8 +55,8 @@ export function resolveHiddenDesktopHelper(options: HelperResolveOptions = {}): 
       source: 'vendor/win-hidden-desktop',
     },
     {
-      file: path.join(root, 'tools', 'win-hidden-desktop', 'out', HELPER_EXE),
-      source: 'tools/win-hidden-desktop/out',
+      file: path.join(root, 'native', 'win-hidden-desktop', 'out', HELPER_EXE),
+      source: 'native/win-hidden-desktop/out',
     },
   ]
   for (const candidate of candidates) {

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Build tools/win-hidden-desktop/helper.cpp with MSVC from the Visual Studio
+// Build native/win-hidden-desktop/helper.cpp with MSVC from the Visual Studio
 // Build Tools install. The binary is a build artifact: it is written under
-// tools/win-hidden-desktop/out/ (gitignored) and packaged by the release
+// native/win-hidden-desktop/out/ (gitignored) and packaged by the release
 // pipeline; it is never committed.
 //
 // Usage: npm run build:win-helper
@@ -14,8 +14,8 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const source = join(root, 'tools', 'win-hidden-desktop', 'helper.cpp')
-const defaultOut = join(root, 'tools', 'win-hidden-desktop', 'out')
+const source = join(root, 'native', 'win-hidden-desktop', 'helper.cpp')
+const defaultOut = join(root, 'native', 'win-hidden-desktop', 'out')
 
 function fail(message) {
   console.error('[build-win-helper] ' + message)

@@ -48,6 +48,7 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
 | Backend engine | `runtime/core/*` (dispatch, kernel, scripts), `runtime/execution/*` (headless, jobs, workers), `runtime/transport/*` |
 | Backend language | `runtime/**/*.ts` compiled to `lib/runtime/**/*.js`; `lib/` is never committed |
 | Python domains | `runtime/py/{core,geometry,assembly,render,export}` (registry `runtime/py/modules.json`; no flat `runtime/*.py` after the v3 domain split) |
+| Native helper | `native/win-hidden-desktop/` — C++17 helper for Windows virtual-gui; `npm run build:win-helper` writes `native/win-hidden-desktop/out/` (gitignored), and releases stage the binary under `vendor/win-hidden-desktop/` |
 | Blender addon | `extension/dsh_blender_bridge/` package and the committed `extension/dsh_blender_bridge.zip` |
 | Built output | `lib/` built by `prepack`; source maps carry inline sources |
 

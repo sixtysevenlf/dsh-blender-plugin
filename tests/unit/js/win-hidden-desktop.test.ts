@@ -248,18 +248,18 @@ describe('resolveHiddenDesktopHelper', () => {
     expect(missing.detail).toContain('missing file')
   })
 
-  it('falls back to vendor before tools and reports every checked path', () => {
+  it('falls back to vendor before the native build output and reports every checked path', () => {
     const root = tempDir('dsh-helper-root-')
-    const toolsDir = join(root, 'tools', 'win-hidden-desktop', 'out')
-    mkdirSync(toolsDir, { recursive: true })
-    const tools = join(toolsDir, 'dsh-blender-hidden-desktop.exe')
-    writeFileSync(tools, 'fake')
-    const toolsFound = resolveHiddenDesktopHelper({ env: {}, pkgRoot: root })
-    expect(toolsFound).toMatchObject({
-      path: tools,
-      source: 'tools/win-hidden-desktop/out',
+    const nativeDir = join(root, 'native', 'win-hidden-desktop', 'out')
+    mkdirSync(nativeDir, { recursive: true })
+    const nativeBinary = join(nativeDir, 'dsh-blender-hidden-desktop.exe')
+    writeFileSync(nativeBinary, 'fake')
+    const nativeFound = resolveHiddenDesktopHelper({ env: {}, pkgRoot: root })
+    expect(nativeFound).toMatchObject({
+      path: nativeBinary,
+      source: 'native/win-hidden-desktop/out',
     })
-    expect(toolsFound.checked).toHaveLength(2)
+    expect(nativeFound.checked).toHaveLength(2)
     const vendorDir = join(root, 'vendor', 'win-hidden-desktop')
     mkdirSync(vendorDir, { recursive: true })
     const vendor = join(vendorDir, 'dsh-blender-hidden-desktop.exe')

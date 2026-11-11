@@ -2,7 +2,7 @@
 // Verify the packaged Windows hidden-desktop helper (task 5.3).
 //
 // The helper is a build artifact: Windows CI builds it from
-// tools/win-hidden-desktop/helper.cpp and the release pipeline stages it under
+// native/win-hidden-desktop/helper.cpp and the release pipeline stages it under
 // vendor/win-hidden-desktop/ before npm pack. This check proves that the
 // packaged binary was built from the current source commit and that the npm
 // tarball really contains it.
@@ -73,7 +73,7 @@ if (info.commit !== commit) {
   fail('helper commit ' + String(info.commit) + ' != HEAD ' + commit + ' (rebuild the helper)')
 }
 
-const sourcePath = join(root, 'tools', 'win-hidden-desktop', 'helper.cpp')
+const sourcePath = join(root, 'native', 'win-hidden-desktop', 'helper.cpp')
 if (!existsSync(sourcePath)) {
   fail('missing helper source: ' + sourcePath)
 }

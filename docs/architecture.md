@@ -62,7 +62,8 @@ Layout:
 - runtime/gateway/: the Gateway process, addon WebSocket channel, ownership, and lifecycle;
 - runtime/transport/: frames, sockets, protocol helpers;
 - contract tables: `config/contracts.json` is the catalog <-> Python link layer (described in section 8); there is no separate runtime contract-table directory;
-- runtime/py/: the Blender-side Python library described below.
+- runtime/py/: the Blender-side Python library described below;
+- native/win-hidden-desktop/: the C++17 hidden-desktop helper used by Windows virtual-gui. `npm run build:win-helper` builds it into `native/win-hidden-desktop/out/` (gitignored); releases stage the binary under `vendor/win-hidden-desktop/`, so published packages contain the binary but not the C++ source.
 
 The runtime build precedes the host build because host modules import boundary helpers from the built
 runtime. The Gateway entry used by GATEWAY_PATH is lib/runtime/gateway.js. Source maps are emitted so a

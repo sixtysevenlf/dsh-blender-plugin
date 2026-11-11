@@ -26,7 +26,7 @@ npm package. npm scripts in package.json call these files; tests live under test
 | ensure-build.mjs | Ensure lib/ exists and is fresh before tests/checks                                          | imported by checkers and test helpers      | lib/                                                                      |
 | gen-routes.mjs   | Render the worker/GUI route tables from config/routing.json; header carries the source hash  | npm run build                              | src/plan/routes.generated.ts, runtime/core/dispatcher/routes.generated.ts |
 | publish-extension.mjs | Upload one built extension version to extensions.blender.org (multipart version_file + release_notes); dry-run and token-missing fail closed | npm run publish:extension / Manual CD | network call only on a real publish |
-| build-win-helper.mjs | Build and self-test the Windows hidden-desktop helper with MSVC; Windows only | npm run build:win-helper / Windows CI | tools/win-hidden-desktop/out/ |
+| build-win-helper.mjs | Build and self-test the Windows hidden-desktop helper with MSVC; Windows only | npm run build:win-helper / Windows CI | native/win-hidden-desktop/out/ |
 | check-win-helper.mjs | Verify the staged helper's version, source commit, source/protocol, and sha256 against HEAD, then optionally that npm pack includes it | npm run check:win-helper / Windows CI / Manual CD | none (reads vendor/win-hidden-desktop) |
 
 ### Test entry points
