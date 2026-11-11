@@ -44,7 +44,7 @@
 
 ### Requirement: Settings are edited through the DSH config schema
 
-插件必须（SHALL）在 DSH 插件配置 schema 中暴露 `features.dnn`、`cache.render.maxEntries`、`cache.render.maxBytes`、`cache.render.ttlDays`、`vision.python` 与 `vision.model`，使 DSH 插件设置 UI 可以编辑并校验它们；未设置时使用文档默认值。`features.dnn` 默认 `false`，是 DNN 检测的唯一开关；`DSH_BLENDER_DNN=off/on` 可覆盖生效值，`doctor` 与 `vision_status` 必须报告生效值和来源。
+插件必须（SHALL）在 DSH 插件配置 schema 中暴露 `features.dnn`、`cache.render.maxEntries`、`cache.render.maxBytes`、`cache.render.ttlDays`、`vision.python`、`vision.venv`、`vision.model`、`vision.dnn.backend` 与 `vision.dnn.device`，使 DSH 插件设置 UI 可以编辑并校验它们；未设置时使用文档默认值。`features.dnn` 默认 `false`，是 DNN 检测的唯一开关；DNN 字段保存后必须经 `$DSH_HOME/dsh-blender/vision/runtime.json` 热应用，不要求重启 Gateway；`cache.render.*` 仍在下一次 Gateway 启动生效。`DSH_BLENDER_DNN=off/on` 可覆盖并锁定生效值，`doctor` 与 `vision_status` 必须报告生效值和来源。
 
 #### Scenario: Cache limit is editable
 - **WHEN** 用户在 DSH 插件设置中把 `cache.render.maxEntries` 改为 4 并保存
@@ -62,17 +62,73 @@
 - **WHEN** 用户在 DSH 插件设置中打开 `features.dnn` 并保存，models 目录没有 `.onnx`
 - **THEN** 配置卡立即显示下载列表，不等 Gateway 重启；确认前不下载任何模型
 
-#### Scenario: DNN switch takes effect after restart
-- **WHEN** 用户保存 `features.dnn=true` 后重启 Gateway
-- **THEN** 下一次启动报告 `features.dnn=true`、来源为插件设置；打开开关本身不触发模型下载
+#### Scenario: DNN switch applies without restart
+- **WHEN** 用户保存 `features.dnn=true`，Gateway 在线且没有视觉请求在途
+- **THEN** 宿主写运行时快照并触发 reconcile；`doctor` 与 `vision_status` 报告 `features.dnn=true`、来源为插件设置，全程未重启 Gateway；打开开关本身不触发模型下载
+
+#### Scenario: Busy worker defers a DNN config change
+- **WHEN** 一个 `vision_detect` 在途，用户修改 `vision.dnn.backend` 并保存
+- **THEN** 配置卡显示“等待当前检测结束”与 pending revision，不显示已生效；在途请求用旧配置完成，空闲后自动切换
+
+#### Scenario: Unreachable Gateway is not shown as applied
+- **WHEN** Gateway 不可达时用户点“保存并应用”
+- **THEN** 配置卡显示 `gateway_unreachable`，不显示已生效，也不声称已热应用
+
+### Requirement: DNN apply and probe are exposed in settings
+
+DNN 分组必须（SHALL）提供“保存并应用”“检测可用性”“取消等待”“回滚上一版”入口，并显示 phase、activeRevision、pendingRevision、waitingFor 与 lastSwitchError。保存并应用必须写入候选 DNN 配置并调用 owner-only `/dsh-blender` RPC 的 `dnn.apply`；无在途请求时立即生效，有在途请求时登记 pending，配置卡不得把 pending 显示为已生效。检测可用性必须调用 `dnn.probe` 使用候选配置，逐项显示 pass/warn/fail 与 fix，不写快照、不改变运行中的 Gateway；保存并应用后必须自动再跑一次。
+
+#### Scenario: Probe explains a missing dependency
+- **WHEN** 候选配置为 `backend=onnxruntime`，自备 venv 缺少 `onnxruntime`
+- **THEN** 检测结果显示该项 fail 与安装到该 venv 的 fix；不保存、不启动 worker、不改变当前生效配置
+
+#### Scenario: Pending switch can be cancelled
+- **WHEN** 配置卡显示 pending revision，用户点“取消等待”
+- **THEN** 宿主用当前 active 配置写新 revision，取消 pending，配置卡恢复显示 active 已生效；在途请求不受影响
+
+#### Scenario: Downloaded model is usable without restart
+- **WHEN** 用户确认下载 `yolov5n`，宿主完成校验、写 labels 与 models.yml 条目
+- **THEN** 配置卡提示可使用，下一次 `vision_detect` 直接用该模型，不要求重启 Gateway
+
+### Requirement: DNN experimental status and DIY docs are discoverable
+
+DSH 插件设置必须（SHALL）把 `features.dnn` 标为“实验性”，显示影响说明（YOLOv5/GPL-3.0、默认 CPU、结果可能不稳定、GPU 需自备环境），并提供指向 `https://github.com/sixtysevenlf/dsh-blender-plugin/blob/main/docs/vision-custom-backend.md` 的链接。home 初始化时必须（SHALL）在 `vision/models/GPU-DIY.md` 缺失时创建中英双语快捷说明，已存在时不得覆盖；`vision_status.dnn.docs` 必须返回该文件路径与同一 URL。
+
+#### Scenario: Experimental badge and link are visible
+- **WHEN** 用户打开 DSH 插件设置中的 DNN 分组
+- **THEN** 开关旁显示“实验性”badge 与影响说明，并提供可点击的 GitHub 文档链接；不自动安装 ONNX Runtime 或 GPU 驱动
+
+#### Scenario: Model directory has a bilingual quickstart
+- **WHEN** 插件首次创建 home，且 `vision/models/GPU-DIY.md` 不存在
+- **THEN** 创建包含中英文小节、默认 CPU、自备 venv/ONNX Runtime 步骤与完整文档链接的快捷说明；再次激活或文件已存在时不覆盖用户内容
+
+### Requirement: Custom DNN backend settings are validated safely
+
+`vision.venv` 默认空（使用托管环境），非空时必须是用户自备 venv 的绝对路径；`vision.dnn.backend` 默认 `opencv`，`vision.dnn.device` 默认 `cpu`。`backend=opencv` 与 `device=auto|gpu` 的组合必须（SHALL）被设置校验拒绝；`backend=onnxruntime` 必须配合非空 `vision.venv`，缺失时 `doctor`/`vision_status` 返回 `dnn_backend_unavailable`；插件不得安装 ONNX Runtime 或驱动。这些字段保存后必须热应用；需要换 worker 时按两阶段切换，配置卡显示 pending，不得中断在途请求。
+
+#### Scenario: Custom backend requires a custom venv
+- **WHEN** 用户设置 `vision.dnn.backend=onnxruntime` 但 `vision.venv` 为空
+- **THEN** `doctor` 与 `vision_status` 报告 `dnn_backend_unavailable`，提示设置自备 venv 并安装 ORT，不自动安装
+
+#### Scenario: Default inference remains CPU
+- **WHEN** 用户启用 `features.dnn` 但未修改 backend/device/venv
+- **THEN** `doctor` 与 `vision_status` 报告 `backend=opencv`、`device=cpu`，插件不 import onnxruntime
 
 ### Requirement: Effective config has one documented precedence
 
-系统必须（SHALL）按 `DSH_BLENDER_CONFIG` 显式文件 → home 内 `dsh-blender.config.json` → 包内默认配置 的顺序合并配置，DSH 插件设置中的值优先于文件值；环境变量中已有的单项覆盖规则保持不变。`doctor` 必须报告最终生效值及其来源，且不得回显密钥。
+系统必须（SHALL）按 `DSH_BLENDER_CONFIG` 显式文件 → home 内 `dsh-blender.config.json` → 包内默认配置 的顺序合并配置，DSH 插件设置中的值优先于文件值；DNN 字段保存并应用后，`$DSH_HOME/dsh-blender/vision/runtime.json` 的当前 revision 优先于启动时写入的 `DSH_BLENDER_PLUGIN_CONFIG`，但 `DSH_BLENDER_DNN=off/on` 始终最高并锁定 `features.dnn`。`doctor` 必须报告最终生效值及其来源，且不得回显密钥。
 
 #### Scenario: Settings override file
 - **WHEN** home 配置文件写 `cache.render.maxEntries=8`，DSH 设置写 4
 - **THEN** 生效值为 4，`doctor` 报告来源为插件设置
+
+#### Scenario: Runtime snapshot wins for DNN fields
+- **WHEN** 启动时 `DSH_BLENDER_PLUGIN_CONFIG` 写 `vision.dnn.backend=opencv`，用户随后保存并应用 `onnxruntime`
+- **THEN** 生效值为 `onnxruntime`，`doctor` 报告来源为运行时快照，直到再次应用或下次启动
+
+#### Scenario: Env lock overrides the runtime snapshot
+- **WHEN** 进程环境设置 `DSH_BLENDER_DNN=off`，而运行时快照写 `features.dnn=true`
+- **THEN** 生效值为 `false`，配置卡显示 env 锁定，`dnn.apply` 返回 `dnn_env_locked`，不覆盖 `features.dnn`
 
 #### Scenario: No config file still works
 - **WHEN** 三个配置文件都不存在

@@ -20,7 +20,7 @@
 
 ### Requirement: Pass artifacts are self-describing
 
-当请求 pass 时，系统必须（SHALL）为每一帧写一个 `manifest.json`，至少包含 pass 名、文件路径、分辨率、dtype、值域、颜色空间、坐标系、深度 near/far 或 normal 编码方式，以及 object_index→对象名映射。manifest 必须最后写入；文件缺失或解码失败的帧必须标记为 degraded，不得静默当作成功。
+当请求 pass 时，系统必须（SHALL）为每一帧写一个 `manifest.json`，至少包含 pass 名、文件路径、分辨率、dtype、值域、颜色空间、坐标系、深度 near/far 或 normal 编码方式，以及 object_index→对象名映射。manifest 必须最后写入；文件缺失或解码失败的帧必须标记为 degraded，不得静默当作成功。manifest 必须足以让 `vision_pass` 直接解码 depth 为米、normal 为相机空间向量、object_index 为对象名；不得要求分析器按文件名、颜色分布或固定 8-bit 假设猜测格式。
 
 #### Scenario: Depth manifest decodes to meters
 - **WHEN** 请求 `depth`
@@ -30,9 +30,13 @@
 - **WHEN** 请求 `object_index`
 - **THEN** manifest 提供 index→对象名的稳定映射，回执不包含原始索引图数组
 
+#### Scenario: Manifest is analyzable without guessing
+- **WHEN** 调用方把一帧的 manifest 交给 `vision_pass`
+- **THEN** `vision_pass` 能按 manifest 解码 depth/normal/object_index 并返回有界统计；字段缺失时显式失败，而不是猜格式或跳过该帧
+
 ### Requirement: Tool responses carry metadata, not raw pass arrays
 
-`blender_run` 的 submit/status/collect 回执必须（SHALL）只包含 manifest 路径、pass 元数据、文件大小与摘要；不得把 depth/normal/object_index 的原始数组或 base64 图片塞进回执。需要像素分析时，调用方应把 manifest 路径交给 `vision_*`。
+`blender_run` 的 submit/status/collect 回执必须（SHALL）只包含 manifest 路径、pass 元数据、文件大小与摘要；不得把 depth/normal/object_index 的原始数组或 base64 图片塞进回执。需要像素分析时，调用方应把 manifest 路径交给 `vision_pass`（图像级分析仍用 `vision_analyze` / `vision_compare`）。
 
 #### Scenario: Collect returns manifest references
 - **WHEN** 带 pass 的 render 完成并执行 `collect`
