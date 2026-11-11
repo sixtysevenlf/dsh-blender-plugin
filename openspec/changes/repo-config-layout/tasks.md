@@ -48,7 +48,7 @@
 - [x] 7.3 `git fetch` 后 rebase 到发布侧最新基线，处理 `package.json`/`CHANGELOG.md` 冲突（保留双方语义：版本/描述取发布侧，脚本/`files` 取本 change）；验证 rebase 后 `npm run typecheck`、`npm run lint`、`npm run build`、`npm run check:build` 全绿。（实际：`origin/feat/gateway-topology-3-1` 仍等于 base `ba3f536`，无需 rebase；用户要求并入 feat 而非 main。）
 - [ ] 7.4 跑全量门禁：`npm test`、`npm run test:matrix`、`npm run check:finalization`、`npm run check:structure`、`node scripts/check-doc-paths.mjs --enforce`、`npm run format:check`、7.1 的包检查；验证全部 exit 0。（2026-11-11 实测：build / typecheck / lint / format / check:build / check:finalization / check:structure / test:matrix / doc-paths 全绿；`npm test` 仅 5 个 integration 文件失败，同一失败在 base `ba3f536` 的主检出上同样复现，属既有环境问题，见 PR 说明。）
 - [x] 7.5 复跑强验证：`runtime/tsconfig.json`、`tests/tsconfig.json`、`scripts/tsconfig.json` 的 `--showConfig` `fileNames` 与 1.2 基线集合相等；`lib/runtime/**` sha256 与 S1 前基线逐字节相同；验证比较脚本输出为空差异。
-- [ ] 7.6 发 PR（模板 [.github/PULL_REQUEST_TEMPLATE/refactor.md](.github/PULL_REQUEST_TEMPLATE/refactor.md)）：说明切片、验证结果、人工编辑器检查、并发/rebase 处理、非目标（pyright 下沉、project references、`.vscode` 入库）；披露 AI 参与（assistant DeepSeek Harness、model deepseek-flash、写明本 change 由 agent 编写与验证）；验证 CI 全绿。
+- [x] 7.6 交付（模板 [.github/PULL_REQUEST_TEMPLATE/refactor.md](.github/PULL_REQUEST_TEMPLATE/refactor.md)）：说明切片、验证结果、人工编辑器检查、并发/rebase 处理、非目标（pyright 下沉、project references、`.vscode` 入库）；披露 AI 参与（assistant DeepSeek Harness、model deepseek-flash、写明本 change 由 agent 编写与验证）；验证 CI 全绿。（按用户要求不开 PR：分支直接并入 `feat/gateway-topology-3-1`，merge commit `d89d692` 已推送；AI 披露写在 commit trailer。）
 
 ## Workflow follow-up
 
