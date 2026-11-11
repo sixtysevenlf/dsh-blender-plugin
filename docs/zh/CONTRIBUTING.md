@@ -54,11 +54,25 @@ AGENTS.md 说明各层怎么拼在一起、什么算“装好了”，以及命�
 ### 编辑器与 TypeScript 工程配置
 
 编辑器只认文件名恰好是 `tsconfig.json` 的配置，所以需要在编辑器里做类型检查的代码范围，都要在源码旁放
-一个：仓库根的 `tsconfig.json` 覆盖 `src/`，`runtime/tsconfig.json` 是只 `extends` 构建配置
-`tsconfig.runtime.json` 的两行适配文件。构建和 CI 从不读这个适配文件：`npm run typecheck` 和
-`scripts/build.mjs` 都显式传构建配置。新增只给编辑器用的配置时，保持它是纯 `extends`，不要加入构建
-配置没有的选项。
+一个：仓库根的 `tsconfig.json` 覆盖 `src/`，`runtime/tsconfig.json` 覆盖后端，`tests/tsconfig.json`
+在根配置基础上扩展、覆盖测试源码，`scripts/tsconfig.json` 覆盖参与检查的辅助脚本。构建和 CI 直接读
+同一批文件，不需要另维护一份只给编辑器用的配置。
 
+`npm run setup:dev` 提供一次性的编辑器引导：`.vscode/settings.json` 不存在时，写入
+`typescript.tsdk`（指向 `node_modules/typescript/lib`）和 `typescript.enablePromptUseWorkspaceTsdk`，
+让 VS Code 提示 "Use Workspace Version"。该文件被 gitignore，属于你本地：已存在的文件不会被解析或
+覆盖，`--force` 也不会动它。如果文件已存在但缺这两个键，请手动补：
+
+```json
+{
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
+}
+```
+
+然后在 VS Code 执行 **TypeScript: Select TypeScript Version** → **Use Workspace Version**，编辑器就会
+用和 `npm run typecheck` 相同的编译器版本。这是便利，不是仓库保证：其它编辑器、或跳过提示时，仍会
+回退到编辑器自带的 TypeScript。
 Blender 侧：从 release 的 zip 安装 addon，启用并点 **Connect**。只有 `doctor` 返回 `kind=ok`
 （GUI 路线），或 worker 加 `see` 能返回一帧图（纯无头路线），才算装好。
 

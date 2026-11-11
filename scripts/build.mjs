@@ -19,7 +19,7 @@ const ROOT = path.resolve(HERE, '..')
 
 const TARGETS = {
   host: { config: 'tsconfig.json', label: 'host tsc (src → lib)' },
-  runtime: { config: 'tsconfig.runtime.json', label: 'runtime tsc (runtime → lib/runtime)' },
+  runtime: { config: 'runtime/tsconfig.json', label: 'runtime tsc (runtime → lib/runtime)' },
 }
 
 const target = (process.argv[2] || '').toLowerCase()

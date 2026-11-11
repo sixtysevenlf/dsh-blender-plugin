@@ -29,6 +29,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { planEditorConfig } from './editor-config.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, '..')
@@ -46,6 +47,8 @@ const VENV_PYTHON_ALIASES = [
   path.join(VENV_DIR, 'Scripts/python3.exe'),
 ]
 const NODE_MODULES = path.join(ROOT, 'node_modules')
+const EDITOR_DIR = path.join(ROOT, '.vscode')
+const EDITOR_SETTINGS = path.join(EDITOR_DIR, 'settings.json')
 const VITEST_ENTRY = path.join(NODE_MODULES, 'vitest', 'vitest.mjs')
 const PYRIGHT_ENTRY = path.join(NODE_MODULES, 'pyright', 'index.js')
 const REQUIREMENT_FILES = ['requirements-dev.txt', 'requirements-typecheck.txt'].map(
@@ -237,6 +240,48 @@ function ensureNodeModules() {
   }
   info('npm dependencies present; skipping npm ci (use --force to reinstall)')
   if (installRecordIsOlderThanLockfile()) info(staleNote)
+}
+
+function ensureEditorConfig() {
+  let exists
+  let settingsText = ''
+  try {
+    exists = fs.existsSync(EDITOR_SETTINGS)
+    if (exists) settingsText = fs.readFileSync(EDITOR_SETTINGS, 'utf8')
+  } catch (error) {
+    detail(
+      'editor settings: cannot read ' +
+        relPath(EDITOR_SETTINGS) +
+        ' (' +
+        String(error.message || error) +
+        '); skipping',
+    )
+    return
+  }
+  const plan = planEditorConfig({
+    settingsPath: relPath(EDITOR_SETTINGS),
+    settingsText: settingsText,
+    exists: exists,
+    checkOnly: CHECK_ONLY,
+    ci: Boolean(process.env.CI),
+  })
+  if (plan.action === 'create') {
+    try {
+      fs.mkdirSync(EDITOR_DIR, { recursive: true })
+      fs.writeFileSync(EDITOR_SETTINGS, plan.content)
+      info(plan.message)
+    } catch (error) {
+      detail(
+        'editor settings: could not write ' +
+          relPath(EDITOR_SETTINGS) +
+          ' (' +
+          String(error.message || error) +
+          '); skipping (warning only)',
+      )
+    }
+    return
+  }
+  info(plan.message)
 }
 
 // ── Python discovery ───────────────────────────────────────────────────────
@@ -651,6 +696,7 @@ function main() {
   const venv = ensureVenv(basePython, discovery)
   ensurePythonDependencies(venv)
   ensureNodeModules()
+  ensureEditorConfig()
   printReady(venv)
 }
 
