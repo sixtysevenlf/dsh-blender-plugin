@@ -32,8 +32,9 @@
 - [x] 5.2 在 `scripts/setup-dev.mjs` 接入 `ensureEditorConfig()`：位置在 `ensureNodeModules()` 之后、`printReady()` 之前；CI 跳过、`--check` 只读不写、文件缺失才创建、已存在不解析不覆盖、写失败只 warn、`--force` 不覆盖 `.vscode/settings.json`；验证 `node scripts/setup-dev.mjs --help` 与 `--check` 输出符合 design D4 的行为表且 exit 0。
 - [x] 5.3 新增 `tests/unit/js/scripts/editor-config.test.ts` 覆盖六个分支（先写失败用例再实现）；验证 `npm run test:unit` 通过且无 skip。
 - [x] 5.4 重写 `CONTRIBUTING.md` 与 `docs/zh/CONTRIBUTING.md` 的编辑器段：就近 tsconfig 布局、`setup-dev` 写入 `js/ts.tsdk.path`/`js/ts.tsdk.promptToUseWorkspaceVersion`、VS Code 的 “TypeScript: Select TypeScript Version...” → “Use Workspace Version” 步骤、`.vscode/` 被 gitignore 的边界；验证中英两段语义一致且 `node scripts/check-doc-paths.mjs --enforce` exit 0。
-- [ ] 5.5 人工验证编辑器生效：备份本地 `.vscode/settings.json` 后临时移走，运行一次 `node scripts/setup-dev.mjs` 确认生成内容，再在 VS Code 执行 “Use Workspace Version” 并打开 `runtime/core/evidence.ts` 确认无 TS2591，最后恢复原设置文件；验证结果记录到 PR（该步骤无法在 CI 自动化，写明人工证据）。
-  - 2026-11-11 验证发现 VS Code 1.145.3 将旧的 `typescript.tsdk` / `typescript.enablePromptUseWorkspaceTsdk` 标记为已弃用（提示改用 `js/ts.tsdk.path` / `js/ts.tsdk.promptToUseWorkspaceVersion`）；生成器、测试、文档和本 change 的规划已同步改用新键。中文界面的命令是 “TypeScript: 选择 TypeScript 版本...”，下一步是 “使用工作区版本”。
+- [x] 5.5 人工验证编辑器生效：备份本地 `.vscode/settings.json` 后临时移走，运行一次 `node scripts/setup-dev.mjs` 确认生成内容，再在 VS Code 执行 “Use Workspace Version” 并打开 `runtime/core/evidence.ts` 确认无 TS2591，最后恢复原设置文件；验证结果记录到 PR（该步骤无法在 CI 自动化，写明人工证据）。
+  - 2026-11-11 人工验证：本机 `.vscode/settings.json` 原本不存在，`setup-dev` 创建后确认内容；中文界面执行 “TypeScript: 选择 TypeScript 版本...” → “使用工作区版本”，状态栏显示 “6.0.3 - TypeScript 版本” 与 `runtime/tsconfig.json`；打开 `runtime/core/evidence.ts` 无 error/warn。
+  - 同日发现 VS Code 1.145.3 将旧的 `typescript.tsdk` / `typescript.enablePromptUseWorkspaceTsdk` 标记为已弃用（提示改用 `js/ts.tsdk.path` / `js/ts.tsdk.promptToUseWorkspaceVersion`）；生成器、测试、文档和本 change 的规划已同步改用新键。
 
 ## 6. S5 布局检查器
 
