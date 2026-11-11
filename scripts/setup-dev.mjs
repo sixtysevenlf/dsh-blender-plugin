@@ -265,7 +265,7 @@ function ensureEditorConfig() {
     checkOnly: CHECK_ONLY,
     ci: Boolean(process.env.CI),
   })
-  if (plan.action === 'create') {
+  if (plan.action === 'create' || plan.action === 'merge') {
     try {
       fs.mkdirSync(EDITOR_DIR, { recursive: true })
       fs.writeFileSync(EDITOR_SETTINGS, plan.content)

@@ -58,17 +58,21 @@ AGENTS.md 说明各层怎么拼在一起、什么算“装好了”，以及命�
 在根配置基础上扩展、覆盖测试源码，`scripts/tsconfig.json` 覆盖参与检查的辅助脚本。构建和 CI 直接读
 同一批文件，不需要另维护一份只给编辑器用的配置。
 
-`npm run setup:dev` 提供一次性的编辑器引导：`.vscode/settings.json` 不存在时，写入
-`js/ts.tsdk.path`（指向 `node_modules/typescript/lib`）和 `js/ts.tsdk.promptToUseWorkspaceVersion`，
-让 VS Code 提示 "Use Workspace Version"。该文件被 gitignore，属于你本地：已存在的文件不会被解析或
-覆盖，`--force` 也不会动它。如果文件已存在但缺这两个键，请手动补：
+`npm run setup:dev` 提供一次性的编辑器引导：`.vscode/settings.json` 不存在时创建它；文件已存在时
+只补缺失的键，在 JSONC 足够简单、可以安全编辑的前提下保留已有的值和注释。写入内容：
 
 ```json
 {
   "js/ts.tsdk.path": "node_modules/typescript/lib",
-  "js/ts.tsdk.promptToUseWorkspaceVersion": true
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode"
 }
 ```
+
+前两个键让 VS Code 提示 **Use Workspace Version**；formatter 键把 Prettier 设为默认格式化器，与
+`npm run format:check` 一致（需要安装 Prettier 扩展）。该文件被 gitignore，属于你本地：已有的键不会被
+覆盖（`--force` 也不会覆盖已有键）；脚本无法安全编辑的文件会原样保留，并打印需要手动粘贴的 snippet。
+`--check` 只报告，不写入。
 
 然后在 VS Code 执行 **TypeScript: 选择 TypeScript 版本...**（英文界面为 **TypeScript: Select TypeScript Version...**）
 → **使用工作区版本**（Use Workspace Version），编辑器就会

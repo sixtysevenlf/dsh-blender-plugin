@@ -64,18 +64,22 @@ type-checked in the editor has one next to its sources: the root `tsconfig.json`
 for the test sources, and `scripts/tsconfig.json` covers the checked helper scripts. The build and CI
 read the same files directly; there is no separate editor-only configuration to keep in sync.
 
-`npm run setup:dev` offers a one-time editor bootstrap: when `.vscode/settings.json` does not exist it
-writes `js/ts.tsdk.path` (pointing at `node_modules/typescript/lib`) and
-`js/ts.tsdk.promptToUseWorkspaceVersion`, so VS Code offers "Use Workspace Version". The file is
-gitignored and belongs to you: an existing file is never parsed or overwritten, and `--force` does not
-touch it either. If it already exists but lacks the keys, add them manually:
+`npm run setup:dev` offers a one-time editor bootstrap. It creates `.vscode/settings.json` when the file
+does not exist; when the file exists, it adds only the missing keys and leaves existing values and
+comments intact where the JSONC is simple enough to edit safely. It writes:
 
 ```json
 {
   "js/ts.tsdk.path": "node_modules/typescript/lib",
-  "js/ts.tsdk.promptToUseWorkspaceVersion": true
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode"
 }
 ```
+
+The first two keys make VS Code offer **Use Workspace Version**; the formatter key makes Prettier the
+default formatter, matching `npm run format:check` (install the Prettier extension). The file is
+gitignored and belongs to you: existing keys are never overwritten (not even with `--force`), and a
+file the script cannot edit safely is left untouched with a snippet to paste. `--check` only reports.
 
 Then run **TypeScript: Select TypeScript Version...** → **Use Workspace Version** in VS Code; the editor
 uses the same compiler version as `npm run typecheck`. This is a convenience, not a repository
