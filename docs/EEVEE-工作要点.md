@@ -17,6 +17,9 @@
 | 渲染 harness 实测（v0.8.8，350 可见 mesh / 512×512 / 64 采样） | 3 视角 2124 / 798 / 565 ms（首张含着色器编译）· 共 3487 ms · jsonl 3 行 · 四边余量 36 px |
 | EEVEE+RT 的可复现性 | 同一装置连渲两张：RGB 最大差 1/255（0 像素 >1/255），**alpha 通道完全相同**；换进程/换会话后差值 ≤5/255（0.05% 像素，集中在轮廓与阴影边缘）→ **几何判定看 alpha，像素级 md5 不能当判据** |
 
+**引擎标识随版本变化**：`BLENDER_EEVEE` 在 Blender 4.2–4.9 为 `BLENDER_EEVEE_NEXT`，5.0 起又改回 `BLENDER_EEVEE`。
+worker 预热、`perf` 助手与 GPU 前导按 `(4, 2, 0) <= bpy.app.version < (5, 0, 0)` 选择；不要写死单一名字——选错名字时赋值会抛 `TypeError` 并被吞掉，光追/采样设置静默丢失（worker 仍 ready，只有 EEVEE 配置不生效）。
+
 ## 2. EEVEE 的硬限制与对策（社区实测，直接用）
 
 1. Shader to RGB 只含直接光照 → 环境光/世界光不进材质 → 暗部纯黑。
