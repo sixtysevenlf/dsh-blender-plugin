@@ -113,42 +113,6 @@ window.__ModuleLoader__.load({
       return String(e)
     }
 
-    /** 夹到 [0,1]（契约 §1.5：坐标超出范围夹住）。 */
-    function clamp01(n) {
-      if (!(typeof n === 'number') || n !== n) return 0
-      if (n < 0) return 0
-      if (n > 1) return 1
-      return n
-    }
-
-    /** 取路径最后一段（面板里显示 .blend 文件名）。 */
-    function shortPath(p) {
-      var s = String(p === null || p === undefined ? '' : p)
-      var i = Math.max(s.lastIndexOf('/'), s.lastIndexOf('\\'))
-      return i >= 0 ? s.slice(i + 1) : s
-    }
-
-    /** Unix 秒 → 本地 HH:MM:SS。 */
-    function timeLabel(unixSec) {
-      try {
-        var d = new Date(unixSec * 1000)
-        function two(n) {
-          return n < 10 ? '0' + n : String(n)
-        }
-        return two(d.getHours()) + ':' + two(d.getMinutes()) + ':' + two(d.getSeconds())
-      } catch (e) {
-        return ''
-      }
-    }
-
-    /** source 字段 → 中文（契约 §1.2）。 */
-    function sourceLabel(src) {
-      if (src === 'user') return '用户'
-      if (src === 'auto') return '自动'
-      if (src === 'model') return '模型'
-      return '无'
-    }
-
     /**
      * 从 ctx 上安全取一个服务：`ctx.get(name)` 是 cordis 的安全访问器
      * （`dsh-client-ui-conversation/lib/client.js:22945` 同款用法）；
@@ -180,7 +144,7 @@ window.__ModuleLoader__.load({
       }
       var status = res && typeof res.status === 'number' ? res.status : 0
       var httpOk = !!(res && res.ok)
-      var body = null
+      var body
       try {
         body = await res.json()
       } catch (e) {
@@ -262,7 +226,6 @@ window.__ModuleLoader__.load({
       var obj = String(sub.object || '')
       var counts = sub.counts && typeof sub.counts === 'object' ? sub.counts : {}
       var more = sub.truncated === true
-      var prefix = 'Blender 子元素选中'
       if (type === 'MESH') {
         var v = Number(counts.vertices || 0),
           e = Number(counts.edges || 0),

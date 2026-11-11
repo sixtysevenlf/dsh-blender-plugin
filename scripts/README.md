@@ -63,10 +63,10 @@ the npm package. They require a real Blender session.
 | check-routes.mjs            | Assert the generated route tables match config/routing.json byte for byte    | npm run check:routes / check:finalization    | stdout only                              |
 | check-function-budget.mjs   | File and function line budgets; 80-120 line functions register in config/function-budget-allowlist.json | check:function-budget / check:finalization | stdout only |
 | check-git-hygiene.mjs       | Ensure lib/ is untracked; requires a git checkout                            | npm run check:git-hygiene / CI               | stdout only                              |
-| check-import-boundaries.mjs | Layer boundaries for host, runtime and addon                                 | check:finalization                           | stdout only                              |
 | check-no-shims.mjs          | No flat compatibility shims or retired dual-entry files; config/facades.json lists registered public facades | check:finalization | stdout only |
 | check-parity.mjs            | Contract/catalog/package parity snapshot                                     | npm run test:parity                          | stdout only                              |
-| check-python-static.mjs     | Ruff baseline plus pure-logic pyright                                        | npm run check:python-static                  | stdout only                              |
+| check-python-imports.mjs    | import-linter contracts from pyproject.toml: runtime domains exhaustive, addon forbidden edges | npm run check:python-imports | stdout only |
+| check-python-static.mjs     | Ruff over every tracked Python root, scope admission, plus pure-logic pyright | npm run check:python-static                  | stdout only                              |
 | check-runtime-layout.mjs    | modules.json is the only Python module map; every module resolves            | check:finalization                           | stdout only                              |
 | check-structure.mjs         | Entry/file map, module budgets and import cycles                             | npm run check:structure / check:finalization | stdout only                              |
 | check-tsconfig-layout.mjs   | Every .ts file belongs to one project; four projects exist; references resolve; no retired config names | npm run lint | stdout only |

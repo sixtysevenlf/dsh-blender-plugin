@@ -43,6 +43,8 @@ jobs:
         run: npm run typecheck:scripts
       - name: Lint
         run: npm run lint
+      - name: Python import boundaries
+        run: npm run check:python-imports
       - name: Format check
         run: npm run format:check
       - name: Structure and build checks

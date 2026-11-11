@@ -25,16 +25,15 @@ Every other document links here instead of repeating commands.
 | Full suite (Vitest + pytest) | `npm test` |
 | Python tests only | `npm run test:python` with `PYTHON=/path/to/venv/python` |
 | Lint / format gate | `npm run lint` / `npm run format:check` |
-| Python static gate | `npm run check:python-static` (plain ruff + pure-logic pyright; no allowlist) |
+| Python static gate | `npm run check:python-static` (ruff + scope admission + pure-logic pyright; no allowlist) |
+| Python import boundaries | `npm run check:python-imports` (import-linter; contracts in `pyproject.toml`) |
 | Package contents check | `npm pack --dry-run` |
 | Refresh counts after catalog edits | `node scripts/sync_counts.mjs` then update `tests/fixtures/capability.lock.json` ([tests/MIGRATION.md](tests/MIGRATION.md)) |
 
-Addon typing: install `requirements-typecheck.txt` (fake-bpy stubs + NumPy for legacy imports; type-only; behavior is real-Blender E2E).
-Addon IDE: root `pyrightconfig.json` = whole-addon editor config; it ignores legacy `tests/e2e/blender/native` and `runtime/py` diagnostics. `pyrightconfig.extension.json` = typed-core gate; `pyrightconfig.python.json` = pure-logic runtime scope; `pyproject.toml` = pytest/Ruff configuration.
+Addon typing: install `requirements-typecheck.txt` (fake-bpy stubs + NumPy for legacy imports; type-only; behavior is real-Blender E2E). Addon IDE: root `pyrightconfig.json` = whole-addon editor config; it ignores legacy `tests/e2e/blender/native` and `runtime/py` diagnostics. `pyrightconfig.extension.json` = typed-core gate; `pyrightconfig.python.json` = pure-logic runtime scope; `pyproject.toml` = pytest/Ruff/import-linter configuration.
 
-Node **24.9** is the minimum supported version; CI runs on Node 24. Python tests need a venv with `pytest`, selected through
-`PYTHON` (`PYTHONIOENCODING=utf-8`, `PYTHONUTF8=1` on Windows); layers and fixtures:
-[tests/README.md](tests/README.md).
+Node **24.9** is the minimum supported version; CI runs on Node 24. Python tests need a venv with `pytest`, selected through `PYTHON`
+(`PYTHONIOENCODING=utf-8`, `PYTHONUTF8=1` on Windows); layers and fixtures: [tests/README.md](tests/README.md).
 
 ## 2. Architecture map
 
@@ -69,6 +68,7 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
   use `gate_preflight` / `gate_checkpoint` / `gate_deliver` and `deliver_export(require_gate=true)`.
 - **Migrate in slices** ([architecture](docs/architecture.md)): one module or boundary per change,
   no behavior change while moving code, and the old file is deleted in the same change.
+- **Boundaries are explicit.** Every tracked `.py` must live under a declared ruff root (`runtime/py`, `tests`, `extension/dsh_blender_bridge`, `scripts`, `docs/examples`) and fit the import-linter layers; every `src` / `runtime` directory and root-file category is registered in `eslint.config.mjs`. New scope or a cross-element import updates the declaration, never a per-file waiver.
 - **No new rule files.** A lesson learned goes into this file or the architecture guide.
 
 ## 4. Task routing
@@ -91,6 +91,7 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
   The addon count is 25 **registered** commands; the transport-only `ping` makes 26 wire commands.
   The single truth is `extension/dsh_blender_bridge/command_registry.py` (see architecture §5).
 - New behavior has a failing test first. No `skip`, no retry, and no relaxed assertion to hide a failure.
+- Boundary declarations move with the code: Python scope/import-linter contracts and the ESLint element matrix are updated in the same change.
 - Docs are updated in the same change, and both language versions stay in sync.
 - No secrets, no build artifacts, no `node_modules` or venv; `lib/` is regenerated, never hand-edited.
 - The pull request uses one of the templates in [.github/PULL_REQUEST_TEMPLATE/](.github/PULL_REQUEST_TEMPLATE/): `bug_fix.md`, `feature.md`, `docs_update.md`, or `refactor.md`.

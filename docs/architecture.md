@@ -45,6 +45,12 @@ split by responsibility:
 - src/ui/ and src/tui/: DSH UI cards and terminal behavior;
 - src/plugin*.ts: plugin lifecycle and surfaces.
 
+Boundaries are enforced, not just described: `eslint.config.mjs` declares each src
+subdirectory as an element and treats `src/index.ts`, `src/constants.ts`, and
+`src/plugin*.ts` as file categories, then applies a default-deny matrix. Adding a
+directory or root file means registering it; adding a cross-element import means
+changing the matrix (see section 8).
+
 Host code uses strict TypeScript. Any value from the backend, addon, model, or user file system is
 parsed at one boundary before it enters typed logic. Explicit any is not accepted in foundation files;
 the remaining type-debt ledger must have an owner, reason, and expiry.
@@ -64,6 +70,11 @@ Layout:
 - contract tables: `config/contracts.json` is the catalog <-> Python link layer (described in section 8); there is no separate runtime contract-table directory;
 - runtime/py/: the Blender-side Python library described below;
 - native/win-hidden-desktop/: the C++17 hidden-desktop helper used by Windows virtual-gui. `npm run build:win-helper` builds it into `native/win-hidden-desktop/out/` (gitignored); releases stage the binary under `vendor/win-hidden-desktop/`, so published packages contain the binary but not the C++ source.
+
+Runtime dependency directions are frozen in `eslint.config.mjs`: each runtime
+subdirectory is an element, loose `runtime/*.ts` modules are the `runtime-root`
+file category, and the policy matrix allows only the measured edges. Existing cycles
+are registered as-is; this gate does not reorder them.
 
 The runtime build precedes the host build because host modules import boundary helpers from the built
 runtime. The Gateway entry used by GATEWAY_PATH is lib/runtime/gateway.js. Source maps are emitted so a
@@ -149,6 +160,10 @@ the shared runtime/py/_facade.py helper and re-export the implementation package
 lives in the sibling <name>_impl/ package. The public path, preload name, and K.dsh_<name>_api entry are
 the contract; the facade is the stable entry, not a temporary shim.
 
+The five domains are independent siblings, and the layers contract is exhaustive: a module under
+`runtime/py` that is not listed there fails `npm run check:python-imports` until its domain is
+declared. `_facade` is the only declared exception.
+
 ## 5. Blender addon (extension/dsh_blender_bridge/)
 
 The addon is a package, not a single file. Its modules cover protocol, command registration, selection,
@@ -164,6 +179,9 @@ capabilities from `command_registry.COMMAND_NAMES`, and the host catalog
 The launcher and plugin refuse an incompatible protocol and name the expected addon version. Existing
 users migrate by removing the old single-file addon and installing the release zip; the backend and
 protocol do not change during that migration.
+
+The addon has two enforced internal boundaries: `assets.io` may not import `commands`, and
+`ui.panels` may not import `integrations`. Both are import-linter contracts in `pyproject.toml`.
 
 Credentials have one owner: the add-on preferences. `config.get_credential` reads a process-local
 session override (the Hyper3D free-trial button), then the preferences, then the `DSHBB_*` environment
@@ -196,10 +214,10 @@ Three layers, with a different job each:
 - End-to-end: real Blender 4.2 LTS headless and GUI. The native runner loads modules inside Blender,
   resets the scene per test, writes JSON, and the host pytest launcher asserts the report.
 
-Python static checks are part of the same quality surface: ruff over runtime/py, tests, and the addon,
-plus a narrow pyright scope over pure-logic runtime modules. The pyright scope is explicit; it is not a
-claim that all runtime Python is typed. There is no checked-in ruff baseline: every violation fails the
-gate.
+Python static checks are part of the same quality surface: ruff over every tracked Python root
+(`runtime/py`, `tests`, `extension/dsh_blender_bridge`, `scripts`, `docs/examples`), plus a narrow
+pyright scope over pure-logic runtime modules. The pyright scope is explicit; it is not a claim that
+all runtime Python is typed. There is no checked-in ruff baseline: every violation fails the gate.
 
 ## 8. Quality gates and invariants
 
@@ -228,6 +246,39 @@ These are the rules that protect the architecture:
 - No explicit any in foundation host/runtime files; type debt is a ledger, not a whole-file exemption.
 - Coverage floors are enforced by check:coverage; E2E scenario coverage is separate from line coverage.
 - Every behavioral change needs a failing test first and evidence in the pull request.
+
+### Static scope and import boundaries
+
+Python scope and import boundaries are enforced at three points:
+
+- `npm run check:python-static` runs ruff over every tracked Python root (`runtime/py`, `tests`,
+  `extension/dsh_blender_bridge`, `scripts`, `docs/examples`), asserts that every tracked `.py`
+  lives under one of those roots, and asserts that every include in `pyrightconfig.python.json` and
+  `pyrightconfig.extension.json` exists, is a file, and is unique. There is no ruff baseline and no
+  per-file waiver.
+- `npm run check:python-imports` runs import-linter with the contracts in `pyproject.toml`. The five
+  runtime domains (`core`, `geometry`, `assembly`, `render`, `export`) are independent siblings,
+  and the layers contract is exhaustive: a module under `runtime/py` that is not listed fails the
+  contract. `_facade` is the only declared exception because it resolves targets dynamically. The two
+  addon contracts forbid `assets.io` from importing `commands` and `ui.panels` from importing
+  `integrations`; the latter checks direct imports only to match the current import chain.
+- Adding a Python module means placing it under an existing root and domain. Adding a domain means
+  registering it in `runtime/py/modules.json` and in the layers contract; the exhaustive check fails
+  until both are updated. Do not add a per-file waiver: fix the import instead.
+
+TypeScript boundaries use `eslint-plugin-boundaries` in `eslint.config.mjs`:
+
+- src subdirectories and the runtime subdirectories are elements; root-level source files are file
+  categories (`entry`, `constants`, `plugin` for src; `runtime-root` for runtime). The
+  `boundaries/dependencies` matrix is default-deny, and `boundaries/no-unknown-files` rejects a file
+  that belongs to no registered element or category. `eslint-import-resolver-typescript` resolves
+  `.js` specifiers to `.ts` before classification, so the matrix sees real targets.
+- `src/client/**/*.js` has its own lint block (browser globals, CommonJS, client element). It is not
+  part of the TypeScript project.
+- `src` may not import `lib/runtime` internals except through `src/host/runtime-bridge.ts`, enforced by
+  `no-restricted-imports` with a one-file override.
+- Adding a TypeScript directory or root file means registering it; adding a cross-element import means
+  updating the matrix. There are no per-file waivers; the previous ad-hoc boundary checker is retired.
 
 ### Comment conventions
 

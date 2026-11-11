@@ -105,18 +105,21 @@ allow_indirect_imports = true
 
 ### D5. TS Phase 1：src 元素矩阵（冻结 + 默认拒绝）
 
-`eslint.config.mjs` 引入 `eslint-plugin-boundaries`：
+`eslint.config.mjs` 引入 `eslint-plugin-boundaries` 7.4.2。该版本的元素描述符只匹配目录，单文件改用 `boundaries/files` 的 file category；因此实现如下：
 
-- elements（`mode: 'file'` 用于单文件，`folder`/full 用于目录）：`entry`=`src/index.ts`、`constants`=`src/constants.ts`、`plugin`=`src/plugin*.ts`、`tools`=`src/tools/**`、`host`=`src/host/**`、`contracts`=`src/contracts/**`、`ui`=`src/ui/**`、`tui`=`src/tui/**`、`headless`=`src/headless/**`、`client`=`src/client/**`、`utils`=`src/utils/**`。
+- elements：`tools`=`src/tools`、`host`=`src/host`、`contracts`=`src/contracts`、`ui`=`src/ui`、`tui`=`src/tui`、`headless`=`src/headless`、`client`=`src/client`、`utils`=`src/utils`。
+- file categories（`boundaries/files`）：`entry`=`src/index.ts`、`constants`=`src/constants.ts`、`plugin`=`src/plugin*.ts`。
+- 规则名是 7.x 的 `boundaries/dependencies`（不是旧 `element-types`）；matrix 同时包含 element→element、file→element、element→file、file→file 四类策略。
+- 边界解析需要 `eslint-import-resolver-typescript@4.4.5`（devDependency），并设 `settings['import/resolver'].typescript.project = './tsconfig.json'`；没有解析器时 `to.element.isUnknown` 恒为 true，所有策略都会静默失效。
 - rules 只作用于 `files: ['src/**/*.ts']`（tests 不参与边界矩阵）：
 
 | from | allow |
 | --- | --- |
 | entry | plugin, utils |
-| plugin | constants, contracts, headless, host, tools, tui, ui, utils |
+| plugin | constants, contracts, headless, host, plugin, tools, tui, ui, utils |
 | tools | constants, contracts, host, ui, utils |
 | headless | constants, contracts, host, tools, ui |
-| host | constants, contracts |
+| host | constants, contracts, tui |
 | contracts | constants, host, ui |
 | ui | contracts |
 | tui | contracts |
@@ -124,7 +127,7 @@ allow_indirect_imports = true
 | constants | contracts |
 | client | （空） |
 
-`default: 'disallow'`；`'boundaries/no-unknown-files': 'error'` 保证 `src` 下新增文件必须被某个 element 覆盖。
+`default: 'disallow'`；`'boundaries/no-unknown-files': 'error'` 保证 `src` 下新增文件必须被某个 element 或 file category 覆盖。实测在 design 矩阵之外还发现 `host → tui`（`src/host/virtual-gui-panel.ts`）与 `plugin → plugin`（`src/plugin.ts` 导入 `plugin-lifecycle.ts` / `plugin-surfaces.ts`）；两者按"只加真实存在的边"补进矩阵，不按文件豁免。
 
 为什么要"冻结实测边"而不是"按文档重排"：`constants ↔ contracts ↔ host ↔ ui` 是现存循环，`contracts/tool.ts:5-9` 同时依赖 `constants`、`host/exec-context`、`ui/cards`；重排属于行为重构，违反 AGENTS.md "移动代码时零行为变化"的切片原则。本次的价值是"这些边从此必须显式存在"，后续 refactor 可以逐条 ratchet（矩阵只删不加是安全的收紧）。
 
@@ -134,13 +137,13 @@ allow_indirect_imports = true
 
 ### D6. src/client 的 lint 覆盖
 
-新增一个独立配置块 `files: ['src/client/**/*.js']`：`js.configs.recommended`、`sourceType: 'script'`（文件用 `require` 而非 ESM）、`globals` = `globals.browser` + `{ require: 'readonly' }`；element `client`，`element-types` 用 `default: 'disallow'`（当前无内部依赖），`no-unknown-files: error`。不做类型检查（不在 tsconfig 内），只补 lint。首次运行可能暴露既有问题：按"修复或明确规则调整（记录理由）"处理，不允许用 eslint-disable 批量静音。
+新增一个独立配置块 `files: ['src/client/**/*.js']`：`js.configs.recommended`、`sourceType: 'script'`（文件用 `require` 而非 ESM）、`globals` = `globals.browser` + `{ require: 'readonly' }`；element `client`（目录 pattern），`boundaries/dependencies` 用 `default: 'disallow'`（当前无内部依赖），`no-unknown-files: error`。不做类型检查（不在 tsconfig 内），只补 lint。首次运行暴露了 6 个既有问题（4 个未使用 helper、1 个未使用变量、1 个无效赋值），已删除这些死代码（行为不变），不允许用 eslint-disable 批量静音。
 
 ### D7. TS Phase 2：runtime 元素矩阵
 
 同一插件、新配置块 `files: ['runtime/**/*.ts']`：
 
-- elements：目录 element `runtime-catalog/core/display/execution/gateway/http/launch/transport`；根级 `.ts`（`config.ts`、`engine.ts`、`gateway.ts`、`paths.ts`、`ports.ts`、`proc_env.ts`、`staging.ts`、`classes.ts`、`hard_exit.ts`、`file_guard.ts`、`selectionstore.ts`、`win_proc.ts`、`backend_probe.ts`、`blender-detect.ts`、`addon-protocol.ts`、`_probe_tools.ts`）统一为 element `runtime-root`（`mode: 'file'`，pattern `runtime/*.ts`）。`runtime/ext/**` 已被 globalIgnores 排除。
+- elements：目录 element `runtime-catalog/core/display/execution/gateway/http/launch/transport`；根级 `.ts`（`config.ts`、`engine.ts`、`gateway.ts`、`paths.ts`、`ports.ts`、`proc_env.ts`、`staging.ts`、`classes.ts`、`hard_exit.ts`、`file_guard.ts`、`selectionstore.ts`、`win_proc.ts`、`backend_probe.ts`、`blender-detect.ts`、`addon-protocol.ts`、`_probe_tools.ts`）统一为 file category `runtime-root`（`boundaries/files`，pattern `runtime/*.ts`），因为 7.x 的 element 描述符只匹配目录。`runtime/ext/**` 已被 globalIgnores 排除。
 - matrix（所有目录都可导入 `runtime-root`）：
 
 | from | allow |
@@ -155,7 +158,7 @@ allow_indirect_imports = true
 | launch | core |
 | transport | （仅 root） |
 
-`default: 'disallow'`、`no-unknown-files: error`。既有 10 元循环不修，只登记；根级文件之间同 element，不再细分。
+`default: 'disallow'`、`no-unknown-files: error`。既有 10 元循环不修，只登记；根级文件用同一个 file category，不再细分。`settings['import/resolver'].typescript.project` 指向 `./runtime/tsconfig.json`。
 
 测量方法：先按上表写入配置并运行 `npx eslint runtime`；正则测量可能漏掉 re-export/type-only/动态 import，以 ESLint 的实际 findings 为准补齐"显式允许边"（只加真实存在的边，不允许按文件豁免）。
 
@@ -167,7 +170,7 @@ allow_indirect_imports = true
 
 - `tests/unit/js/contract/boundary-governance.test.ts`：
   - `pyproject.toml`：按 `[[tool.importlinter.contracts]]` 切段，断言 3 个 name、类型/参数（`exhaustive = true`、`exhaustive_ignores` 含 `_facade`、ui 契约含 `allow_indirect_imports = true`）；断言 `root_packages` 两项。
-  - `eslint.config.mjs`：包含 `eslint-plugin-boundaries`、`'boundaries/no-unknown-files'`、`default: 'disallow'`；每个 `src` 子目录名出现在 elements 声明里；存在 `src/client` 与 `runtime` 两个配置块；存在 `runtime-bridge.ts` 的 override。
+  - `eslint.config.mjs`：包含 `eslint-plugin-boundaries`、`'boundaries/dependencies'`、`'boundaries/no-unknown-files'`、`default: 'disallow'`；扫描 `src` 目录并断言每个子目录出现在 elements 里，根文件类别 entry/constants/plugin 出现在 `boundaries/files` 里；`runtime` 八个目录和 `runtime-root` category 同理；存在 `src/client` 与 `runtime` 两个配置块；存在 `runtime-bridge.ts` 的 `no-restricted-imports: off` override；旧 3 组规则消息不再出现。
   - `scripts/check-python-static.mjs`：抽出 `PYTHON_ROOTS` 并断言覆盖所有 tracked `.py`（测试自己跑 `git ls-files '*.py'`，与脚本解耦）。
   - `package.json`：`check:python-imports` 存在、`check:import-boundaries` 不存在、`check:finalization` 不含旧命令；`.github/workflows/pr.yml` 含 `npm run check:python-imports`；`AGENTS.md` 与 `scripts/README.md` 有对应条目。
 - `tests/unit/js/contract/python-static-scope.test.ts`：以子进程方式验证脚本的 admission 行为——`node scripts/check-python-static.mjs --scope-only` 配合 `CHECK_PYTHON_TRACKED_FILES` 注入 (a) 真实列表 → exit 0；(b) `docs/...` 等未覆盖路径 → exit 1 且 stderr 点名该文件；(c) 不存在的 pyright include（临时 mock 不可行时，改为直接断言真实配置全部存在）。不依赖 ruff/pyright 是否安装。

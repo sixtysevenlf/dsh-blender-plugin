@@ -111,6 +111,23 @@ candidates rather than on every pull request.
 A test that fails is information. Do not add a skip, a retry, or a looser assertion to make it pass; fix
 the cause or report it. Flaky tests need an issue, an owner, and an expiry date.
 
+## Boundary rules
+
+- Every tracked Python file must live under one of the static roots: `runtime/py`, `tests`,
+  `extension/dsh_blender_bridge`, `scripts`, or `docs/examples`. A new module goes under an existing
+  root and domain; a new domain must be registered in `runtime/py/modules.json` and in the import-linter
+  layers contract in `pyproject.toml`.
+- `npm run check:python-static` rejects a tracked file outside those roots and a pyright include that
+  does not exist. `npm run check:python-imports` runs the import-linter contracts: runtime domains stay
+  independent and exhaustive, and the declared addon edges stay forbidden.
+- TypeScript boundaries live in `eslint.config.mjs`: every `src` / `runtime` directory and root-file
+  category is registered as an element or file category, and `boundaries/dependencies` defaults to
+  disallow. A new directory, root file, or cross-element import needs a declaration and a matrix
+  policy in the same change. `npm run lint` enforces it; `src/client/**/*.js` has its own block.
+- `src` may not import `lib/runtime` internals; only `src/host/runtime-bridge.ts` is exempt.
+- There are no per-file waivers. If a boundary blocks an import, change the import or register a real
+  allowed edge; do not add an allowlist entry for one file.
+
 ## Changing the catalog
 
 The catalog in `runtime/` is the single source of truth for families, operations, and counts. After

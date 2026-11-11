@@ -102,6 +102,20 @@ PR 门禁。大多数测试既不需要 Blender 也不需要 GUI；端到端层�
 测试失败是信息。不要用 skip、重试或放宽断言让它变绿；修因，或者报告。flaky 测试要有 issue、owner
 和到期日。
 
+## 边界规则
+
+- 每个已入库的 Python 文件都必须落在静态根之一：`runtime/py`、`tests`、
+  `extension/dsh_blender_bridge`、`scripts` 或 `docs/examples`。新模块放进已有的根与域；新域必须同时
+  登记到 `runtime/py/modules.json` 和 `pyproject.toml` 的 import-linter layers 契约。
+- `npm run check:python-static` 会拒绝落在这些根之外的已入库文件，以及不存在的 pyright include。
+  `npm run check:python-imports` 运行 import-linter 契约：runtime 五个域互相独立且穷尽检查，addon 已声明
+  的边保持禁止。
+- TypeScript 边界在 `eslint.config.mjs`：每个 `src` / `runtime` 目录和根级文件类别都登记为
+  element 或 file category，`boundaries/dependencies` 默认拒绝。新增目录、根级文件或跨 element 的 import，
+  必须在同一次改动里补声明和矩阵策略；`npm run lint` 强制执行，`src/client/**/*.js` 有独立配置块。
+- `src` 不得直接 import `lib/runtime` 内部模块；只有 `src/host/runtime-bridge.ts` 例外。
+- 不提供按文件豁免。边界挡住某个 import 时，改 import 或登记真实允许的边；不要为单个文件加白名单。
+
 ## 修改 catalog
 
 `runtime/` 里的 catalog 是 family、op 和计数的唯一事实源。改完后按 AGENTS.md §1 的命令刷新计数和

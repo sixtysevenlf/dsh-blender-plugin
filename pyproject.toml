@@ -1,7 +1,7 @@
 # Python tooling configuration for the Blender add-on and its tests.
 #
 # This project ships as an npm package, so there is no Python build; this file is
-# intentionally only a single home for pytest and Ruff configuration.
+# intentionally only a single home for pytest, Ruff, and import-linter configuration.
 
 [tool.pytest.ini_options]
 testpaths = ["tests/unit/python", "tests/integration/python"]
@@ -24,3 +24,32 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["E9", "F63", "F7", "F82", "F401", "F811", "F821", "F823"]
+
+[tool.importlinter]
+# Python import boundaries are enforced by scripts/check-python-imports.mjs.
+# New domains under runtime/py must be listed in the layers contract or the
+# exhaustive check fails; there are no per-file waivers.
+root_packages = ["runtime.py", "dsh_blender_bridge"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "runtime domains are independent"
+type = "layers"
+containers = ["runtime.py"]
+layers = ["core | geometry | assembly | render | export"]
+exhaustive = true
+# _facade resolves its targets dynamically, so the static graph cannot see them.
+exhaustive_ignores = ["_facade"]
+
+[[tool.importlinter.contracts]]
+name = "addon assets must not import commands"
+type = "forbidden"
+source_modules = ["dsh_blender_bridge.assets.io"]
+forbidden_modules = ["dsh_blender_bridge.commands"]
+
+[[tool.importlinter.contracts]]
+name = "addon ui panels must not import integrations"
+type = "forbidden"
+source_modules = ["dsh_blender_bridge.ui.panels"]
+forbidden_modules = ["dsh_blender_bridge.integrations"]
+allow_indirect_imports = true

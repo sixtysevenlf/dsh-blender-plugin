@@ -59,6 +59,7 @@ Refs #
 - [ ] Tests for the touched layer pass; new behavior had a failing test first.
 - [ ] Documentation is updated in the same change, both languages in sync.
 - [ ] No secrets, build artifacts, node_modules, venv, or hand-edited lib/.
+- [ ] Boundary declarations are current: new or moved Python modules, TypeScript directories, or cross-element imports updated the import-linter contract or the ESLint matrix.
 - [ ] Disclosure is filled in.
 - [ ] The architecture guide is updated when the change is expensive to reverse.
 

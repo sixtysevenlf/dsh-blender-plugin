@@ -103,6 +103,8 @@
     "@types/node": "^24.9.0",
     "@vitest/coverage-v8": "^5.0.5",
     "eslint": "^10.13.0",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-boundaries": "^7.4.2",
     "globals": "^17.13.0",
     "jsdom": "29.1.1",
     "prettier": "^3.9.10",
@@ -140,6 +142,7 @@
     "check:git-hygiene": "node scripts/check-git-hygiene.mjs",
     "check:any": "node scripts/check-any.mjs",
     "check:python-static": "node scripts/check-python-static.mjs",
+    "check:python-imports": "node scripts/check-python-imports.mjs",
     "prepack": "npm run build",
     "test": "node scripts/test.mjs",
     "test:unit": "node scripts/test.mjs unit",
@@ -166,10 +169,9 @@
     "test:extension-unit": "node scripts/test.mjs extension-unit",
     "check:no-shims": "node scripts/check-no-shims.mjs",
     "check:runtime-layout": "node scripts/check-runtime-layout.mjs",
-    "check:import-boundaries": "node scripts/check-import-boundaries.mjs",
     "check:doc-paths": "node scripts/check-doc-paths.mjs",
     "check:plan-ids": "node scripts/check-plan-ids.mjs",
-    "check:finalization": "npm run check:structure && npm run check:routes && npm run check:function-budget && npm run check:no-shims && npm run check:runtime-layout && npm run check:import-boundaries && npm run check:doc-paths && npm run check:gateway-schema && npm run check:availability && npm run typecheck:scripts"
+    "check:finalization": "npm run check:structure && npm run check:routes && npm run check:function-budget && npm run check:no-shims && npm run check:runtime-layout && npm run check:doc-paths && npm run check:gateway-schema && npm run check:availability && npm run typecheck:scripts"
   },
   "exports": {
     ".": {
