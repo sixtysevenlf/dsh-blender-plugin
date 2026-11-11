@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- 行为修复（EEVEE 引擎标识）：无头 worker、perf 助手与 GPU 前导不再硬编码 `BLENDER_EEVEE`。Blender 4.2 起该标识改名 `BLENDER_EEVEE_NEXT`，旧名赋值抛 `TypeError` 且被吞掉，导致 4.5.2 LTS 上 EEVEE 的 `use_raytracing` / `taa_render_samples` 等设置静默不生效（worker 仍 ready、workbench 正常，故此前未暴露）。现按 `bpy.app.version >= (4, 2, 0)` 选择标识；回归 `tests/unit/python/test_engine_compat.py`（修复前基线 2 例失败，修复后 Python 套件 364 例全过），并以 Blender 4.5.2 `-b` 实测：旧赋值报 enum 错误、新表达式落到 `BLENDER_EEVEE_NEXT`。
+- 行为修复（EEVEE 引擎标识）：无头 worker、perf 助手与 GPU 前导不再硬编码 `BLENDER_EEVEE`。Blender 4.2–4.9 该标识改为 `BLENDER_EEVEE_NEXT`（旧名赋值抛 `TypeError`），而 5.0 起又改回 `BLENDER_EEVEE`。现按 `(4, 2, 0) <= bpy.app.version < (5, 0, 0)` 选择标识，覆盖 4.2+ 与 5.x 两段；回归 `tests/unit/python/test_engine_compat.py`（修复前基线 2 例失败，修复后 Python 单测 249 例全过），并以 Blender 4.5.2 `-b` 实测：旧赋值报 enum 错误、新表达式落到 `BLENDER_EEVEE_NEXT`。
 
 ## v3.1.0-alpha.1（2026-11-09）
 

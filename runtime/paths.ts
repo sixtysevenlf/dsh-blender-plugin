@@ -259,7 +259,7 @@ export const GPU_PRELUDE = [
   '    info["before"]["rt"] = getattr(ee, "use_raytracing", None)',
   '    info["before"]["samples"] = getattr(ee, "taa_render_samples", None)',
   '    try:',
-  '        sc.render.engine = "BLENDER_EEVEE_NEXT" if bpy.app.version >= (4, 2, 0) else "BLENDER_EEVEE"',
+  '        sc.render.engine = "BLENDER_EEVEE_NEXT" if (4, 2, 0) <= bpy.app.version < (5, 0, 0) else "BLENDER_EEVEE"',
   '        if ee is not None:',
   '            if hasattr(ee, "use_raytracing"):',
   '                ee.use_raytracing = True',
