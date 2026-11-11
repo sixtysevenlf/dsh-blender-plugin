@@ -36,10 +36,10 @@
 
 ## 6. S5 布局检查器
 
-- [ ] 6.1 实现 `scripts/check-tsconfig-layout.mjs`：用 TypeScript API 的 `readConfigFile` + `parseJsonConfigFileContent` 计算四个工程的 `fileNames`；R1 每个 `.ts`/`.mts`/`.cts`（`.d.ts` 除外）恰好属于一个工程，白名单仅根 `vitest.config.ts`；R2 四个工程存在且根目录无 `tsconfig.*.json`；R3 `build.mjs`/`package.json`/`ensure-build`/`check-doc-paths` 的引用目标存在；R4 活文件无旧配置名（白名单 `CHANGELOG.md`、`MIGRATIONS.md` 历史段、`openspec/**`）；支持 `--root <dir>`；验证对当前仓库 exit 0。
-- [ ] 6.2 新增 `tests/unit/js/contract/tsconfig-layout.test.ts`：用临时 fixture 覆盖五种负向场景（孤儿 `.ts`、一文件落两个工程、根出现 `tsconfig.extra.json`、引用目标不存在、活文件残留旧名），断言 checker 非零退出且消息含具体路径；正向对仓库断言 exit 0；先红后绿，不用 skip。
-- [ ] 6.3 接入 `package.json` 的 `lint` 链（`&& node scripts/check-tsconfig-layout.mjs`），在 `scripts/README.md` 说明 checker 的规则与白名单；验证 `npm run lint` exit 0，且负向 fixture 测试在 `npm run test:unit` 中按预期变红后再修绿。
-- [ ] 6.4 跑切片门禁并提交 S5：复用 2.4 的命令清单；验证全部 exit 0 后提交（带 AI trailer）。
+- [x] 6.1 实现 `scripts/check-tsconfig-layout.mjs`：用 TypeScript API 的 `readConfigFile` + `parseJsonConfigFileContent` 计算四个工程的 `fileNames`；R1 每个 `.ts`/`.mts`/`.cts`（`.d.ts` 除外）恰好属于一个工程，白名单仅根 `vitest.config.ts`；R2 四个工程存在且根目录无 `tsconfig.*.json`；R3 `build.mjs`/`package.json`/`ensure-build`/`check-doc-paths` 的引用目标存在；R4 活文件无旧配置名（白名单 `CHANGELOG.md`、`MIGRATIONS.md` 历史段、`openspec/**`，以及 checker 自身的负向 fixture 测试）；支持 `--root <dir>`；验证对当前仓库 exit 0。
+- [x] 6.2 新增 `tests/unit/js/contract/tsconfig-layout.test.ts`：用临时 fixture 覆盖五种负向场景（孤儿 `.ts`、一文件落两个工程、根出现 `tsconfig.extra.json`、引用目标不存在、活文件残留旧名），断言 checker 非零退出且消息含具体路径；正向对仓库断言 exit 0；先红后绿，不用 skip。
+- [x] 6.3 接入 `package.json` 的 `lint` 链（`&& node scripts/check-tsconfig-layout.mjs`），在 `scripts/README.md` 说明 checker 的规则与白名单；验证 `npm run lint` exit 0，且负向 fixture 测试在 `npm run test:unit` 中按预期变红后再修绿。
+- [x] 6.4 跑切片门禁并提交 S5：复用 2.4 的命令清单；验证全部 exit 0 后提交（带 AI trailer）。
 
 ## 7. S6 发布卫生与收口
 

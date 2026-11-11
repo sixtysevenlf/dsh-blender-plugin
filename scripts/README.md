@@ -58,6 +58,7 @@ npm package. npm scripts in package.json call these files; tests live under test
 | check-python-static.mjs     | Ruff baseline plus pure-logic pyright                                        | npm run check:python-static                  | stdout only                              |
 | check-runtime-layout.mjs    | modules.json is the only Python module map; every module resolves            | check:finalization                           | stdout only                              |
 | check-structure.mjs         | Entry/file map, module budgets and import cycles                             | npm run check:structure / check:finalization | stdout only                              |
+| check-tsconfig-layout.mjs   | Every .ts file belongs to one project; four projects exist; references resolve; no retired config names | npm run lint | stdout only |
 | engine-probe.sh             | Manual engine/HTTP probe; not part of the pytest or npm gate                 | manual                                       | none                                     |
 
 ### Typecheck and development utilities
@@ -82,6 +83,20 @@ existing JavaScript can be checked without a mass rewrite; the next tightening s
 strictNullChecks and noImplicitAny file by file. Do not add // @ts-nocheck to make this pass.
 
 Build/test bootstrap scripts intentionally stay out of this config.
+
+### TypeScript project layout
+
+`check-tsconfig-layout.mjs` runs from `npm run lint` and enforces four rules:
+R1 every tracked `.ts`/`.mts`/`.cts` file (except `.d.ts`) belongs to exactly one project;
+R2 the four projects exist and the repository root has no `tsconfig.*.json`;
+R3 the config targets referenced by `scripts/build.mjs`, `package.json`, `scripts/ensure-build.mjs`
+and `scripts/check-doc-paths.mjs` resolve to existing files;
+R4 live files no longer mention the retired root-level configuration names.
+
+Whitelists are deliberate and narrow: the root `vitest.config.ts` is a fixed-location tool entry that
+belongs to no source project; `CHANGELOG.md`, `MIGRATIONS.md`, `openspec/**`, this checker and its
+negative-fixture test may still name the retired files because they are history or the rule itself.
+Run it against a fixture with `--root <dir>`.
 
 ## Removed
 
