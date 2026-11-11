@@ -60,10 +60,9 @@ documents. A normal clone no longer ships `lib/`: build it before running the ba
 
 Editors discover TypeScript projects by the file name `tsconfig.json`, so each scope that should be
 type-checked in the editor has one next to its sources: the root `tsconfig.json` covers `src/`, and
-`runtime/tsconfig.json` is a two-line adapter that only extends the build configuration,
-`tsconfig.runtime.json`. The build and CI never read the adapter; `npm run typecheck` and
-`scripts/build.mjs` always pass the build configurations explicitly. If you add an editor-only config,
-keep it a pure `extends`: it must not add options the build does not have.
+`runtime/tsconfig.json` is the runtime project configuration used by both `npm run typecheck` and
+`scripts/build.mjs`. The remaining scopes keep their root-level configurations until the follow-up
+slices move them next to their sources.
 
 Blender side: install the addon package from the release zip, enable it, and click **Connect**. The
 installation is good only when `doctor` returns `kind=ok` (GUI route), or the worker plus `see` returns

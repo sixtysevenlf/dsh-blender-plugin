@@ -1,3 +1,21 @@
 {
-  "extends": "../tsconfig.runtime.json"
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2023"],
+    "strict": true,
+    "types": ["node"],
+    "rootDir": ".",
+    "outDir": "../lib/runtime",
+    "declaration": true,
+    "sourceMap": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmitOnError": true,
+    "inlineSources": true
+  },
+  "include": ["**/*.ts"],
+  "exclude": ["**/*.d.ts", "ext/venv/**", "ext/node_modules/**"]
 }

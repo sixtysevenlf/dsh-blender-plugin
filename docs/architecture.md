@@ -51,7 +51,7 @@ the remaining type-debt ledger must have an owner, reason, and expiry.
 
 ## 3. Backend runtime (runtime/, built to lib/)
 
-The backend is strict TypeScript under runtime/. It is compiled with tsconfig.runtime.json into
+The backend is strict TypeScript under runtime/. It is compiled with runtime/tsconfig.json into
 lib/runtime/**/*.js. Published packages contain built JavaScript, not backend TypeScript sources.
 
 Layout:

@@ -2,17 +2,17 @@
 
 ## 1. 准备与基线
 
-- [ ] 1.1 从最新 main 建独立 worktree 与分支：先 `git fetch origin --tags`，再 `git worktree add ../dsh-blender-plugin-repo-config -b chore/repo-config-layout <base>`；确认共享工作区不提交、不清理；验证 `git -C ../dsh-blender-plugin-repo-config status` 干净（只有 `local-workspace/` 等明确保留的未跟踪项）。
-- [ ] 1.2 记录基线：在 worktree 记录 `git rev-parse HEAD`；跑 `npm run build`、`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run check:build`、`npm run test:unit`、`npm run test:contract`；对 `tsconfig.json`、`tsconfig.runtime.json`、`tsconfig.test.json`、`tsconfig.scripts.json` 跑 `<tsc> --showConfig` 并把 `fileNames` 存成 `local-workspace/repo-config-layout-baseline/*.json`；对 `lib/runtime/**` 的 `.js`/`.d.ts`/`.js.map` 记录 sha256；验证所有命令 exit 0 且基线目录文件齐全。
-- [ ] 1.3 确认与 3.1.0-alpha.1 发布并发边界：记录共享工作区 `package.json` 的 `version`/`description` 与 `CHANGELOG.md` 当前内容；确认 worktree 基于发布合并后的最新基线，避免在脏工作区提交；验证 worktree 内 `package.json` 不含共享工作区的 release 改动之外的差异。
-- [ ] 1.4 盘点未提交止血改动的最终去向：`runtime/tsconfig.json` 两行 adapter（S1 升级为真实配置）、`package.json` 的 `"!runtime/tsconfig.json"`（保留）、`CONTRIBUTING.md` 与 `docs/zh/CONTRIBUTING.md` 两段（S1/S4 重写）、`docs/architecture.md` 已恢复 HEAD；验证清单记录在 PR 草稿，不在本 change 中重复搬运临时说明。
+- [x] 1.1 从最新 main 建独立 worktree 与分支：先 `git fetch origin --tags`，再 `git worktree add ../dsh-blender-plugin-repo-config -b chore/repo-config-layout <base>`；确认共享工作区不提交、不清理；验证 `git -C ../dsh-blender-plugin-repo-config status` 干净（只有 `local-workspace/` 等明确保留的未跟踪项）。
+- [x] 1.2 记录基线：在 worktree 记录 `git rev-parse HEAD`；跑 `npm run build`、`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run check:build`、`npm run test:unit`、`npm run test:contract`；对 `tsconfig.json`、`tsconfig.runtime.json`、`tsconfig.test.json`、`tsconfig.scripts.json` 跑 `<tsc> --showConfig` 并把 `fileNames` 存成 `local-workspace/repo-config-layout-baseline/*.json`；对 `lib/runtime/**` 的 `.js`/`.d.ts`/`.js.map` 记录 sha256；验证所有命令 exit 0 且基线目录文件齐全。
+- [x] 1.3 确认与 3.1.0-alpha.1 发布并发边界：记录共享工作区 `package.json` 的 `version`/`description` 与 `CHANGELOG.md` 当前内容；确认 worktree 基于发布合并后的最新基线，避免在脏工作区提交；验证 worktree 内 `package.json` 不含共享工作区的 release 改动之外的差异。
+- [x] 1.4 盘点未提交止血改动的最终去向：`runtime/tsconfig.json` 两行 adapter（S1 升级为真实配置）、`package.json` 的 `"!runtime/tsconfig.json"`（保留）、`CONTRIBUTING.md` 与 `docs/zh/CONTRIBUTING.md` 两段（S1/S4 重写）、`docs/architecture.md` 已恢复 HEAD；验证清单记录在 PR 草稿，不在本 change 中重复搬运临时说明。
 
 ## 2. S1 runtime 工程迁移
 
-- [ ] 2.1 写 `runtime/tsconfig.json` 真实配置：`rootDir: "."`、`outDir: "../lib/runtime"`、`include: ["**/*.ts"]`、`exclude: ["**/*.d.ts", "ext/venv/**", "ext/node_modules/**"]`，其余编译选项从 `tsconfig.runtime.json` 逐字保留；删除 `tsconfig.runtime.json`；验证新配置的 `--showConfig` `fileNames` 排序集合与 1.2 的旧基线完全相等。
-- [ ] 2.2 改 runtime 引用：`scripts/build.mjs:20-22` 的 `TARGETS.runtime.config`、`package.json` 的 `typecheck`/`typecheck:runtime`、`scripts/ensure-build.mjs:36-37` 的 `WATCH_FILES`、`scripts/check-doc-paths.mjs:36-44` 的 `ROOT_FILES`、`docs/architecture.md:54`、`CONTRIBUTING.md` 与 `docs/zh/CONTRIBUTING.md` 的 runtime 段；验证活文件中不再出现 `tsconfig.runtime.json`（历史白名单除外），`npm run typecheck` exit 0。
-- [ ] 2.3 构建产物等价验证：迁移前后各跑 `node scripts/build.mjs runtime`，对 `lib/runtime/**` 的 `.js`/`.d.ts`/`.js.map` 做 sha256 对比，要求逐字节相同；验证 `git diff --stat` 不出现 `lib/`（`lib/` 不提交但哈希需一致），不一致时回滚该片并调查 source map 的 `sources` 差异。
-- [ ] 2.4 跑切片门禁并提交 S1：`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run check:build`、`npm run test:unit`、`npm run test:contract`、`node scripts/check-doc-paths.mjs --enforce`；验证全部 exit 0，提交信息带 `AI-Assisted: DeepSeek Harness (deepseek-flash)` trailer。
+- [x] 2.1 写 `runtime/tsconfig.json` 真实配置：`rootDir: "."`、`outDir: "../lib/runtime"`、`include: ["**/*.ts"]`、`exclude: ["**/*.d.ts", "ext/venv/**", "ext/node_modules/**"]`，其余编译选项从 `tsconfig.runtime.json` 逐字保留；删除 `tsconfig.runtime.json`；验证新配置的 `--showConfig` `fileNames` 排序集合与 1.2 的旧基线完全相等。
+- [x] 2.2 改 runtime 引用：`scripts/build.mjs:20-22` 的 `TARGETS.runtime.config`、`package.json` 的 `typecheck`/`typecheck:runtime`、`scripts/ensure-build.mjs:36-37` 的 `WATCH_FILES`、`scripts/check-doc-paths.mjs:36-44` 的 `ROOT_FILES`、`docs/architecture.md:54`、`CONTRIBUTING.md` 与 `docs/zh/CONTRIBUTING.md` 的 runtime 段；验证活文件中不再出现 `tsconfig.runtime.json`（历史白名单除外），`npm run typecheck` exit 0。
+- [x] 2.3 构建产物等价验证：迁移前后各跑 `node scripts/build.mjs runtime`，对 `lib/runtime/**` 的 `.js`/`.d.ts`/`.js.map` 做 sha256 对比，要求逐字节相同；验证 `git diff --stat` 不出现 `lib/`（`lib/` 不提交但哈希需一致），不一致时回滚该片并调查 source map 的 `sources` 差异。
+- [x] 2.4 跑切片门禁并提交 S1：`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run check:build`、`npm run test:unit`、`npm run test:contract`、`node scripts/check-doc-paths.mjs --enforce`；验证全部 exit 0，提交信息带 `AI-Assisted: DeepSeek Harness (deepseek-flash)` trailer。
 
 ## 3. S2 tests 工程迁移
 

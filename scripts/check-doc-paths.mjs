@@ -41,7 +41,6 @@ const ROOT_FILES = [
   'tsconfig.json',
   'tsconfig.test.json',
   'tsconfig.scripts.json',
-  'tsconfig.runtime.json',
   '.gitignore',
   'README.md',
   'AGENTS.md',
