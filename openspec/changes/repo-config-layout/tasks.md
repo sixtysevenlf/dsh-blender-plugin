@@ -28,10 +28,10 @@
 
 ## 5. S4 编辑器一键配置
 
-- [ ] 5.1 新增 `scripts/editor-config.mjs`：导出纯函数 `planEditorConfig({ settingsPath, settingsText, exists, checkOnly, ci })` 与写入内容常量，覆盖 `skip-ci`/`check-ok`/`check-missing`/`check-partial`/`create`/`manual` 六个分支；验证 `node --check scripts/editor-config.mjs` 通过。
-- [ ] 5.2 在 `scripts/setup-dev.mjs` 接入 `ensureEditorConfig()`：位置在 `ensureNodeModules()` 之后、`printReady()` 之前；CI 跳过、`--check` 只读不写、文件缺失才创建、已存在不解析不覆盖、写失败只 warn、`--force` 不覆盖 `.vscode/settings.json`；验证 `node scripts/setup-dev.mjs --help` 与 `--check` 输出符合 design D4 的行为表且 exit 0。
-- [ ] 5.3 新增 `tests/unit/js/scripts/editor-config.test.ts` 覆盖六个分支（先写失败用例再实现）；验证 `npm run test:unit` 通过且无 skip。
-- [ ] 5.4 重写 `CONTRIBUTING.md` 与 `docs/zh/CONTRIBUTING.md` 的编辑器段：就近 tsconfig 布局、`setup-dev` 写入 `typescript.tsdk`/`enablePromptUseWorkspaceTsdk`、VS Code 的 “TypeScript: Select TypeScript Version → Use Workspace Version” 步骤、`.vscode/` 被 gitignore 的边界；验证中英两段语义一致且 `node scripts/check-doc-paths.mjs --enforce` exit 0。
+- [x] 5.1 新增 `scripts/editor-config.mjs`：导出纯函数 `planEditorConfig({ settingsPath, settingsText, exists, checkOnly, ci })` 与写入内容常量，覆盖 `skip-ci`/`check-ok`/`check-missing`/`check-partial`/`create`/`manual` 六个分支；验证 `node --check scripts/editor-config.mjs` 通过。
+- [x] 5.2 在 `scripts/setup-dev.mjs` 接入 `ensureEditorConfig()`：位置在 `ensureNodeModules()` 之后、`printReady()` 之前；CI 跳过、`--check` 只读不写、文件缺失才创建、已存在不解析不覆盖、写失败只 warn、`--force` 不覆盖 `.vscode/settings.json`；验证 `node scripts/setup-dev.mjs --help` 与 `--check` 输出符合 design D4 的行为表且 exit 0。
+- [x] 5.3 新增 `tests/unit/js/scripts/editor-config.test.ts` 覆盖六个分支（先写失败用例再实现）；验证 `npm run test:unit` 通过且无 skip。
+- [x] 5.4 重写 `CONTRIBUTING.md` 与 `docs/zh/CONTRIBUTING.md` 的编辑器段：就近 tsconfig 布局、`setup-dev` 写入 `typescript.tsdk`/`enablePromptUseWorkspaceTsdk`、VS Code 的 “TypeScript: Select TypeScript Version → Use Workspace Version” 步骤、`.vscode/` 被 gitignore 的边界；验证中英两段语义一致且 `node scripts/check-doc-paths.mjs --enforce` exit 0。
 - [ ] 5.5 人工验证编辑器生效：备份本地 `.vscode/settings.json` 后临时移走，运行一次 `node scripts/setup-dev.mjs` 确认生成内容，再在 VS Code 执行 “Use Workspace Version” 并打开 `runtime/core/evidence.ts` 确认无 TS2591，最后恢复原设置文件；验证结果记录到 PR（该步骤无法在 CI 自动化，写明人工证据）。
 
 ## 6. S5 布局检查器

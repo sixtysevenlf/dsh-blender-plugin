@@ -64,7 +64,8 @@ npm package. npm scripts in package.json call these files; tests live under test
 
 | Script          | Purpose                                                                                       | Main caller                     | Writes                                |
 | --------------- | --------------------------------------------------------------------------------------------- | ------------------------------- | ------------------------------------- |
-| setup-dev.mjs   | One-command dev environment: Python discovery, .venv, requirements, npm deps, --check/--force | npm run setup:dev               | .venv/ and node_modules/ when missing |
+| setup-dev.mjs   | One-command dev environment: Python discovery, .venv, requirements, npm deps, optional .vscode/settings.json, --check/--force | npm run setup:dev               | .venv/, node_modules/ and .vscode/settings.json when missing |
+| editor-config.mjs | Pure planning for the optional .vscode/settings.json bootstrap | imported by setup-dev.mjs | .vscode/settings.json when missing |
 | typecheck.mjs   | Reproducible tsc lookup and typecheck entry                                                   | npm run typecheck / typecheck:* | lib/runtime when build is requested   |
 | sync_counts.mjs | Refresh catalog counts in display text; --dry reports drift                                   | manual plus single-source test  | docs/AGENTS text (normal mode)        |
 

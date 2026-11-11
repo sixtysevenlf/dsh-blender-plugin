@@ -58,12 +58,28 @@ documents. A normal clone no longer ships `lib/`: build it before running the ba
 
 ### Editor and TypeScript project configuration
 
-Editors discover TypeScript projects by the file name `tsconfig.json`, so each scope that should be
-type-checked in the editor has one next to its sources: the root `tsconfig.json` covers `src/`, and
-`runtime/tsconfig.json` is the runtime project configuration used by both `npm run typecheck` and
-`scripts/build.mjs`, and `tests/tsconfig.json` extends the root host configuration for the test
-sources, and `scripts/tsconfig.json` covers the checked helper scripts.
+Editors discover TypeScript projects by the file name `tsconfig.json`, so every scope that should be
+type-checked in the editor has one next to its sources: the root `tsconfig.json` covers `src/`,
+`runtime/tsconfig.json` covers the backend, `tests/tsconfig.json` extends the root host configuration
+for the test sources, and `scripts/tsconfig.json` covers the checked helper scripts. The build and CI
+read the same files directly; there is no separate editor-only configuration to keep in sync.
 
+`npm run setup:dev` offers a one-time editor bootstrap: when `.vscode/settings.json` does not exist it
+writes `typescript.tsdk` (pointing at `node_modules/typescript/lib`) and
+`typescript.enablePromptUseWorkspaceTsdk`, so VS Code offers "Use Workspace Version". The file is
+gitignored and belongs to you: an existing file is never parsed or overwritten, and `--force` does not
+touch it either. If it already exists but lacks the keys, add them manually:
+
+```json
+{
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
+}
+```
+
+Then run **TypeScript: Select TypeScript Version** → **Use Workspace Version** in VS Code; the editor
+uses the same compiler version as `npm run typecheck`. This is a convenience, not a repository
+guarantee: other editors, or a skipped prompt, still fall back to the editor's bundled TypeScript.
 Blender side: install the addon package from the release zip, enable it, and click **Connect**. The
 installation is good only when `doctor` returns `kind=ok` (GUI route), or the worker plus `see` returns
 a frame (headless-only route).
