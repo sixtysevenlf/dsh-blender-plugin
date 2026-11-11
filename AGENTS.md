@@ -68,7 +68,7 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
   use `gate_preflight` / `gate_checkpoint` / `gate_deliver` and `deliver_export(require_gate=true)`.
 - **Migrate in slices** ([architecture](docs/architecture.md)): one module or boundary per change,
   no behavior change while moving code, and the old file is deleted in the same change.
-- **Boundaries are explicit.** Every tracked `.py` must live under a declared ruff root (`runtime/py`, `tests`, `extension/dsh_blender_bridge`, `scripts`, `docs/examples`) and fit the import-linter layers; every `src` / `runtime` directory and root-file category is registered in `eslint.config.mjs`. New scope or a cross-element import updates the declaration, never a per-file waiver.
+- **Boundaries are explicit.** Every tracked `.py` must live under a declared ruff root (`runtime/py`, `tests`, `extension/dsh_blender_bridge`, `scripts`, `docs/examples`) and respect the declared import-linter contracts; every `src` / `runtime` directory and root-file category is registered in `eslint.config.mjs`. New scope or a cross-element import updates the declaration, never a per-file waiver.
 - **No new rule files.** A lesson learned goes into this file or the architecture guide.
 
 ## 4. Task routing
