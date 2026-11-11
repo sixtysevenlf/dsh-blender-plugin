@@ -8,7 +8,8 @@ npm package. npm scripts in package.json call these files; tests live under test
 1. Name checkers check-<topic>.mjs, test runners test*.mjs, build steps build-*.mjs.
 2. Exit 0 only on success; exit non-zero on failure. Write failures to stderr.
 3. Do not write product files; temporary output goes under coverage/ or an OS temp directory.
-4. Register the script in package.json or in an existing composed check. A script with no caller is dead.
+4. Register the script in package.json or in an existing composed check. A script with no caller is dead;
+   manual probes under `manual/` are the exception, because a developer runs them by hand.
 5. Add one row to the table below with its caller and side effects.
 6. Bootstrap scripts (build.mjs, typecheck.mjs, test.mjs, ensure-build.mjs) stay JavaScript. Do not make
    them TypeScript or import a compiled artifact before the build exists.
@@ -28,6 +29,16 @@ npm package. npm scripts in package.json call these files; tests live under test
 | publish-extension.mjs | Upload one built extension version to extensions.blender.org (multipart version_file + release_notes); dry-run and token-missing fail closed | npm run publish:extension / Manual CD | network call only on a real publish |
 | build-win-helper.mjs | Build and self-test the Windows hidden-desktop helper with MSVC; Windows only | npm run build:win-helper / Windows CI | native/win-hidden-desktop/out/ |
 | check-win-helper.mjs | Verify the staged helper's version, source commit, source/protocol, and sha256 against HEAD, then optionally that npm pack includes it | npm run check:win-helper / Windows CI / Manual CD | none (reads vendor/win-hidden-desktop) |
+
+### Manual probes
+
+Manual probes are developer entry points, not gates: they are not part of `npm test` and are excluded from
+the npm package. They require a real Blender session.
+
+| Script | Purpose | Needs |
+| --- | --- | --- |
+| manual/gui-channel-probe.mjs | Exercise the GUI channel cover set: doctor/status, frame, custom view, kernel K, commands, perf/opt | GUI Blender + connected add-on + backend |
+| manual/skill_probe.py | Check whether a skill's declared Blender dependencies (add-ons, ops, node groups) are ready | Run inside Blender through `blender_rt_do`/`blender_py` |
 
 ### Test entry points
 

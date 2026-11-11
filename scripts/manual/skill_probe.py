@@ -2,9 +2,9 @@
 """技能前置探测（skill probe）—— 在 Blender 内运行，判断某技能声明的 Blender 依赖是否就绪。
 
 用法（本插件通道，不需要 MCP）：
-    blender_rt_do(file="//tests/skill_probe.py")            # 默认 spec（含 stylized-shading）
+    blender_rt_do(file="//scripts/manual/skill_probe.py")            # 默认 spec（含 stylized-shading）
     K.dsh_probe_spec = {"name": "某技能", "addons": ["mod"], "ops": ["node.add_xxx"], "node_groups": ["组名"]}
-    blender_rt_do(file="//tests/skill_probe.py")            # 自定义 spec
+    blender_rt_do(file="//scripts/manual/skill_probe.py")            # 自定义 spec
 输出：print("HEADLESS {...}") —— ready + 逐项判据 + next_steps。
 
 注意（本文件踩过的坑）：bpy.ops 是动态的，getattr(bpy.ops.node, "不存在的算子") 也会返回代理对象，

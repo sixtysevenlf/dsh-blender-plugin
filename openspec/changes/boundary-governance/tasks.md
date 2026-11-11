@@ -6,8 +6,8 @@
 
 ## 1. Python 范围准入
 
-- [ ] 1.1 先写失败测试：新增 `tests/unit/js/contract/python-static-scope.test.ts`，用子进程覆盖三件事——(a) 真实 tracked 列表下 `node scripts/check-python-static.mjs --scope-only` exit 0；(b) 通过 `CHECK_PYTHON_TRACKED_FILES` 注入不在 roots 下的路径（如 `tools/x.py`）时 exit 1 且 stderr 点名该文件；(c) 真实 `pyrightconfig.python.json`/`pyrightconfig.extension.json` 的 include 全部存在。验证：实现前该测试红（`--scope-only`/seam 不存在），`npx vitest run tests/unit/js/contract/python-static-scope.test.ts` 最终绿。
-- [ ] 1.2 改 `scripts/check-python-static.mjs`：`PYTHON_ROOTS` 扩为 `runtime/py`、`tests`、`extension/dsh_blender_bridge`、`scripts`、`docs/examples`、`tools`（同一常量驱动 ruff 参数与断言）；用 `git ls-files '*.py'` 断言每个 tracked 文件都落在某个 root 下；断言两个 pyright 配置的 include 存在、是文件、无重复；新增 `--scope-only`、`CHECK_PYTHON_TRACKED_FILES` 测试 seam、main guard 与可执行的错误提示。验证：`npm run check:python-static` 绿（ruff 输出确认扫到新增根），`node scripts/check-python-static.mjs --scope-only` exit 0。
+- [ ] 1.1 先写失败测试：新增 `tests/unit/js/contract/python-static-scope.test.ts`，用子进程覆盖三件事——(a) 真实 tracked 列表下 `node scripts/check-python-static.mjs --scope-only` exit 0；(b) 通过 `CHECK_PYTHON_TRACKED_FILES` 注入不在 roots 下的路径（如 `docs/x.py`）时 exit 1 且 stderr 点名该文件；(c) 真实 `pyrightconfig.python.json`/`pyrightconfig.extension.json` 的 include 全部存在。验证：实现前该测试红（`--scope-only`/seam 不存在），`npx vitest run tests/unit/js/contract/python-static-scope.test.ts` 最终绿。
+- [ ] 1.2 改 `scripts/check-python-static.mjs`：`PYTHON_ROOTS` 扩为 `runtime/py`、`tests`、`extension/dsh_blender_bridge`、`scripts`、`docs/examples`（同一常量驱动 ruff 参数与断言）；用 `git ls-files '*.py'` 断言每个 tracked 文件都落在某个 root 下；断言两个 pyright 配置的 include 存在、是文件、无重复；新增 `--scope-only`、`CHECK_PYTHON_TRACKED_FILES` 测试 seam、main guard 与可执行的错误提示。验证：`npm run check:python-static` 绿（ruff 输出确认扫到新增根），`node scripts/check-python-static.mjs --scope-only` exit 0。
 - [ ] 1.3 更新 `AGENTS.md` §1 的 Python static gate 行（改为 ruff + 范围准入 + pure-logic pyright）与 §3 硬规则（新增 Python 模块/域必须落进 ruff 根或 import-linter 已声明层），更新 `scripts/README.md` 的 `check-python-static.mjs` 行。验证：`npm run lint`（含 `check-doc-paths`）通过，且文档中的命令可复制执行。
 
 ## 2. Python 边界（import-linter）

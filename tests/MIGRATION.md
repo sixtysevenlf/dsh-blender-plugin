@@ -4,7 +4,7 @@ Every file that lived in `tests/` before the refactor is listed here with a disp
 
 Targets were written first, then each legacy file was deleted (plan section 6.7). Unit and integration tests run in the default `npm test`; every real-Blender/GUI E2E case is release-gated and excluded from the default pytest collection.
 
-**E2E status (final):** the archived-case + legacy-runner intermediate is gone as of T11b.9. Every E2E legacy file now targets a native module: H headless (`tests/e2e/blender/native/`, `test_native_e2e.py`), G GUI (`tests/e2e/gui/native/`, `test_native_gui.py`), B host backend (`tests/e2e/gui/test_qc_backend.py`) or M manual probe (`tools/gui-channel-probe.mjs`). `npm run test:e2e` and `npm run test:e2e:gui` are green; C4/C8 evidence is in T11b.9.
+**E2E status (final):** the archived-case + legacy-runner intermediate is gone as of T11b.9. Every E2E legacy file now targets a native module: H headless (`tests/e2e/blender/native/`, `test_native_e2e.py`), G GUI (`tests/e2e/gui/native/`, `test_native_gui.py`), B host backend (`tests/e2e/gui/test_qc_backend.py`) or M manual probe (`scripts/manual/gui-channel-probe.mjs`). `npm run test:e2e` and `npm run test:e2e:gui` are green; C4/C8 evidence is in T11b.9.
 
 ## 1. Unit layer (JS)
 
@@ -48,7 +48,7 @@ Targets were written first, then each legacy file was deleted (plan section 6.7)
 | tests/dsh_api_compat_probe.mjs | migrated | tests/integration/js/dsh-api-compat.test.ts | migrated | matrix-driven; host-package probe skips when no DSH tree is installed |
 | tests/tui_host_selftest.mjs | split | tests/integration/js/tui-selection.test.ts + tui-footer.test.ts + tui-commands.test.ts | migrated |  |
 | tests/view_diag_selftest_runner.mjs | moved | tests/e2e/blender/native/view_diag.py + tests/e2e/gui/native/view_capture.py | migrated | T11b.9 final shape: headless diagnostics + GUI OpenGL capture split |
-| tests/gui_channel_probe.mjs | moved | tools/gui-channel-probe.mjs | migrated | T11b.7 manual probe (M layer): not a pytest test; needs a real GUI Blender + connected add-on + backend |`
+| tests/gui_channel_probe.mjs | moved | scripts/manual/gui-channel-probe.mjs | migrated | T11b.7 manual probe (M layer): not a pytest test; needs a real GUI Blender + connected add-on + backend |`
 
 ## 3. Unit layer (Python)
 
@@ -71,7 +71,7 @@ in T11b.9. The final layers are:
   real non-background Blender window by the same runner; host launcher test_native_gui.py.
 - B host-side backend test: tests/e2e/gui/test_qc_backend.py talks HTTP to a running
   backend and never starts Blender; skips with a reason when no backend is listening.
-- M manual probe: tools/gui-channel-probe.mjs, not collected by pytest.
+- M manual probe: scripts/manual/gui-channel-probe.mjs, not collected by pytest.
 - Existing native E2E: test_addon_e2e.py, addon_extension_install.mjs, addon_reverse_connect.mjs, blender_42_headless.mjs.
 
 Commands: npm run test:e2e (H + addon; 76 passed on Blender 4.2.10) and
@@ -110,7 +110,7 @@ running backend).
 
 | Legacy file | Disposition | Target | Status | Notes |
 | --- | --- | --- | --- | --- |
-| tests/skill_probe.py | moved | tools/skill_probe.py | moved | manual probe, not part of the pytest stack |
+| tests/skill_probe.py | moved | scripts/manual/skill_probe.py | moved | manual probe, not part of the pytest stack |
 | tests/engine_probe.sh | moved | scripts/engine-probe.sh | moved | manual probe, not part of the pytest stack |
 | tests/png_decode.py | moved | tests/helpers/png_decode.py | moved | shared helper |
 | tests/capability.lock.json | moved | tests/fixtures/capability.lock.json | moved | byte-identical duplicate removed |

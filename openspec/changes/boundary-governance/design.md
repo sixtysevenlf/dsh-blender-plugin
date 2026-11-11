@@ -10,7 +10,7 @@ See `proposal.md` - Why for the gap inventory and motivation. This section recor
 - 实测模块依赖（本次 design 的矩阵来源，方法：解析相对 import 并解析到实际文件）：
   - `src` 依赖边：`entry → {plugin, utils}`；`plugin → {constants, contracts, headless, host, tools, tui, ui, utils}`；`tools → {constants, contracts, host, ui, utils}`；`headless → {constants, contracts, host, tools, ui}`；`host → {constants, contracts}`；`contracts → {constants, host, ui}`；`ui → {contracts}`；`tui → {contracts}`；`utils → {contracts}`；`constants → {contracts}`；`client → {}`。`constants/contracts/host/ui` 构成 4 元循环。
   - `runtime` 目录级依赖边：`root → {catalog, core, display, execution, gateway, http, launch, transport}`；`catalog → {core}`；`core → {catalog, display, execution, launch, transport}`；`execution → {core, transport}`；`gateway → {core, http, transport}`；`http → {catalog, core}`；`launch → {core}`；`display → {}`；`transport → {}`。`core/config/catalog/display/execution/launch/paths/proc_env/staging/blender-detect` 构成 10 元循环（`config.ts` 等根级文件见下）。
-- Python 侧已入库 `.py` 共 346 个：`runtime/py` 167、`extension/dsh_blender_bridge` 73、`tests` 102、`scripts` 2、`docs/examples` 1、`tools` 1。后四个根都不在当前 ruff 参数里；实测 `scripts`、`docs/examples/chair-backrest/run.py`、`tools/skill_probe.py` 现在 ruff 全绿。
+- Python 侧已入库 `.py` 共 350 个：`runtime/py` 168、`extension/dsh_blender_bridge` 74、`tests` 104、`scripts` 3、`docs/examples` 1。`scripts` 与 `docs/examples` 不在当前 ruff 参数里；实测这些文件现在 ruff 全绿。
 - 约束：
   - `AGENTS.md:71` "No new rule files."：规则进 `AGENTS.md` 或 `docs/architecture.md`，本次不新建规则文档、不启用 ADR。
   - `pyproject.toml:1-4` 声明该文件是 Python 工具配置的 single home；加 `[tool.importlinter]` 时必须同步改这段说明。
@@ -95,7 +95,7 @@ allow_indirect_imports = true
 
 ### D4. 范围准入放进 check-python-static.mjs
 
-- 常量 `PYTHON_ROOTS = ['runtime/py','tests','extension/dsh_blender_bridge','scripts','docs/examples','tools']` 同时用于 ruff 参数与断言，避免两处漂移。
+- 常量 `PYTHON_ROOTS = ['runtime/py','tests','extension/dsh_blender_bridge','scripts','docs/examples']` 同时用于 ruff 参数与断言，避免两处漂移。
 - tracked 列表来源 = `git ls-files '*.py'`（只检查已入库文件；本地未追踪的 WIP 文件不误报，`tmp/` 也不会被卷进来）。
 - 断言 1：每个 tracked `.py` 必须以某个 root + `/` 开头，否则列出文件并提示"移到已有 root 或显式加 root 并说明原因"。
 - 断言 2：`pyrightconfig.python.json` / `pyrightconfig.extension.json` 的每个 include 必须存在且是文件、无重复；失败信息给文件路径。
@@ -170,7 +170,7 @@ allow_indirect_imports = true
   - `eslint.config.mjs`：包含 `eslint-plugin-boundaries`、`'boundaries/no-unknown-files'`、`default: 'disallow'`；每个 `src` 子目录名出现在 elements 声明里；存在 `src/client` 与 `runtime` 两个配置块；存在 `runtime-bridge.ts` 的 override。
   - `scripts/check-python-static.mjs`：抽出 `PYTHON_ROOTS` 并断言覆盖所有 tracked `.py`（测试自己跑 `git ls-files '*.py'`，与脚本解耦）。
   - `package.json`：`check:python-imports` 存在、`check:import-boundaries` 不存在、`check:finalization` 不含旧命令；`.github/workflows/pr.yml` 含 `npm run check:python-imports`；`AGENTS.md` 与 `scripts/README.md` 有对应条目。
-- `tests/unit/js/contract/python-static-scope.test.ts`：以子进程方式验证脚本的 admission 行为——`node scripts/check-python-static.mjs --scope-only` 配合 `CHECK_PYTHON_TRACKED_FILES` 注入 (a) 真实列表 → exit 0；(b) `tools/...` 等未覆盖路径 → exit 1 且 stderr 点名该文件；(c) 不存在的 pyright include（临时 mock 不可行时，改为直接断言真实配置全部存在）。不依赖 ruff/pyright 是否安装。
+- `tests/unit/js/contract/python-static-scope.test.ts`：以子进程方式验证脚本的 admission 行为——`node scripts/check-python-static.mjs --scope-only` 配合 `CHECK_PYTHON_TRACKED_FILES` 注入 (a) 真实列表 → exit 0；(b) `docs/...` 等未覆盖路径 → exit 1 且 stderr 点名该文件；(c) 不存在的 pyright include（临时 mock 不可行时，改为直接断言真实配置全部存在）。不依赖 ruff/pyright 是否安装。
 
 ### D10. 文档与规则落点（遵循 AGENTS.md:71）
 
@@ -193,7 +193,7 @@ allow_indirect_imports = true
 - [repo-config-layout 并发改 package.json / CONTRIBUTING / architecture] → 在独立 worktree 从最新 main 开始；本变更对这些文件只做最小、互不重叠的行级修改；冲突时 rebase 重放。
 - [lint-imports 的定位在 Windows/CI 不一致] → 解释器同目录 + PATH 两级发现；CI 步骤本身验证；失败信息指向 `npm run setup:dev`。
 - [tracked 列表依赖 git] → CI/本地开发环境都有 git；脚本在 git 失败时报错而不是当成空集通过。
-- [把 docs/examples 与 tools 加进 ruff 后未来新增示例代码被误伤] → 这是预期行为（示例也是入库 Python）；若确实需要更松规则，应在 ruff 配置里按路径设规则（显式，不设 baseline）。
+- [把 docs/examples 加进 ruff 后未来新增示例代码被误伤] → 这是预期行为（示例也是入库 Python）；若确实需要更松规则，应在 ruff 配置里按路径设规则（显式，不设 baseline）。
 - [契约测试解析 TOML/JS 文本脆弱] → 只断言结构化不变量（切段后的键值、JSON.parse 的配置、tracked 路径前缀），不做全文 golden diff；配置格式若大改，测试失败即提醒开发者更新契约。
 - [两个边界权威迁移期风险] → 每个 slice 都在旧的检查仍绿的前提下切一段，最后一次性删除旧脚本；任何时刻 CI 都至少有一个权威在跑。
 

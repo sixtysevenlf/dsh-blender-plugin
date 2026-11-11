@@ -6,7 +6,7 @@
 
 Python 侧：
 
-- ruff 根目录硬编码在 `scripts/check-python-static.mjs:47`（`runtime/py`、`tests`、`extension/dsh_blender_bridge`），漏掉 4 个已入库的 `.py`：`scripts/catalog_dispatch_keys.py`、`scripts/python_function_budget.py`、`docs/examples/chair-backrest/run.py`、`tools/skill_probe.py`。实测这 4 个文件当前 ruff 全绿，补范围不会引入债务。
+- ruff 根目录硬编码在 `scripts/check-python-static.mjs:47`（`runtime/py`、`tests`、`extension/dsh_blender_bridge`），漏掉 4 个已入库的 `.py`：`scripts/catalog_dispatch_keys.py`、`scripts/python_function_budget.py`、`docs/examples/chair-backrest/run.py`、`scripts/manual/skill_probe.py`。实测这 4 个文件当前 ruff 全绿，补范围不会引入债务。
 - pyright 白名单（`pyrightconfig.python.json` 13 条、`pyrightconfig.extension.json` 14 条）只是文件清单：没有任何检查保证列出的文件仍存在、仍值得列，也没有规则说明新文件何时该进来。
 - 模块边界只有 `scripts/check-import-boundaries.mjs` 的 4 条硬编码正则：Python 域间检查只看直接导入、只认 `modules.json` 已声明的域（新域默认不在检查内）；addon 两条规则同样只看直接导入。实测 `ui/panels` 到 `integrations` 存在间接链路（`ui.panels.index → protocol → command_registry → commands.assets_polyhaven → integrations.polyhaven_client`），当前检查完全看不到。
 
@@ -27,7 +27,7 @@ TypeScript 侧：
 - `pyproject.toml` 增加 `[tool.importlinter]`，落 3 条契约：runtime 五个域互不依赖（`layers` + `exhaustive = true`，只豁免跨域门面模块 `_facade`）；`assets/io.py` 不得导入 `commands`；`ui/panels` 不得导入 `integrations`（先设 `allow_indirect_imports = true` 与现有直接导入语义对齐，收紧留到后续 change）。契约走 grimp 的导入图，替代正则。
 - `requirements-dev.txt` 固定 `import-linter==2.16`（与 `ruff==0.17.3` 同风格精确 pin）。
 - 新增 `scripts/check-python-imports.mjs`：按 `PYTHON` / `.venv` / `lint-imports` 的控制台脚本定位执行，设置 `PYTHONPATH=<repo>;<repo>/extension`，失败时给出可执行的修复提示；对应 `npm run check:python-imports`，接入 `.github/workflows/pr.yml`。
-- `scripts/check-python-static.mjs` 从"跑 ruff + pyright"升级为"范围准入检查"：ruff 根扩到 `scripts/`、`docs/examples/`、`tools/`（覆盖全部 346 个已入库 `.py`）；启动时断言每个 `git ls-files '*.py'` 都落在某个 ruff 根下、每个 pyright include 路径都存在，失败信息直接告诉开发者"把文件放进哪、或把根加到哪里"。
+- `scripts/check-python-static.mjs` 从"跑 ruff + pyright"升级为"范围准入检查"：ruff 根扩到 `scripts/`、`docs/examples/`（覆盖全部 350 个已入库 `.py`）；启动时断言每个 `git ls-files '*.py'` 都落在某个 ruff 根下、每个 pyright include 路径都存在，失败信息直接告诉开发者"把文件放进哪、或把根加到哪里"。
 - `scripts/check-import-boundaries.mjs` 退役：Python 两段迁到 import-linter，`src → lib/runtime` 一段迁到 ESLint 的 `no-restricted-imports`（`src/host/runtime-bridge.ts` 用文件级 override 豁免）。
 
 **TypeScript 边界（两个 Phase）**
