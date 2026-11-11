@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
+import { hostIdentity } from '../../src/host/backend/host-id.js'
 import { pkgPath } from './pkg'
 
 // Shared integration harness: a real lib/runtime/gateway.js on an ephemeral port with
@@ -55,6 +56,9 @@ export async function startBackend(
         {},
         process.env,
         {
+          // The host-side ensureBackend path compares /health.gateway.hostId with
+          // hostIdentity(); the spawned Gateway must report the same value.
+          DSH_HOST_ID: hostIdentity(),
           DSH_BLENDER_WORKDIR: workDir,
           DSH_BLENDER_GATEWAY_PORT: String(port),
           DSH_BLENDER_HTTP_PORT: String(port),

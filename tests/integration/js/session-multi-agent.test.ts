@@ -170,18 +170,22 @@ describe('multi-agent session and GUI instance isolation', () => {
     await waitFor(async () =>
       addons[0]!.requests.some(
         (request) =>
-          request.type === 'execute_code' &&
-          String(request.params.code || '').includes('presence_draw'),
+          request.type === 'get_viewport_screenshot' && typeof request.params.presence === 'string',
       ),
     )
     const presencePushes = addons[0]!.requests.filter(
       (request) =>
-        request.type === 'execute_code' &&
-        String(request.params.code || '').includes('presence_draw'),
+        request.type === 'get_viewport_screenshot' && typeof request.params.presence === 'string',
     )
-    expect(presencePushes.length).toBeGreaterThan(0)
+    const presencePayloads = presencePushes.map((request) =>
+      JSON.parse(String(request.params.presence)),
+    )
+    expect(presencePayloads.length).toBeGreaterThan(0)
     expect(
-      presencePushes.every((request) => String(request.params.code).includes('set_presence')),
+      presencePayloads.some(
+        (payload) => Array.isArray(payload.agents) && payload.agents.length >= 3,
+      ),
     ).toBe(true)
+    expect(presencePayloads.every((payload) => typeof payload.paused === 'boolean')).toBe(true)
   })
 })

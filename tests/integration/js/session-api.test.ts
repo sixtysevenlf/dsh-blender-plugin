@@ -241,12 +241,15 @@ describe('Gateway session API', () => {
     await waitFor(async () =>
       addons[0]!.requests.some(
         (request) =>
-          request.type === 'execute_code' &&
-          String(request.params.code || '').includes('set_presence'),
+          request.type === 'get_viewport_screenshot' && typeof request.params.presence === 'string',
       ),
     )
-    const push = addons[0]!.requests.find((request) => request.type === 'execute_code')!
-    expect(String(push.params.code)).toContain('presence_draw')
+    const pushes = addons[0]!.requests.filter(
+      (request) =>
+        request.type === 'get_viewport_screenshot' && typeof request.params.presence === 'string',
+    )
+    const snapshot = JSON.parse(String(pushes[pushes.length - 1]!.params.presence))
+    expect(snapshot.agents[0].selected).toContain('object:Cube')
   })
 
   it('4.8 holds the Python lock for the holder and reports py_busy to other agents', async () => {

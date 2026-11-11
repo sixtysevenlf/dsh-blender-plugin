@@ -113,9 +113,18 @@ describe('backend HTTP routes against a fake addon', () => {
     expect(granted.status).toBe(200)
     expect(((await granted.json()) as any).lease.holder).toBe(holder)
 
-    const denied = await post('/cmd', { holder: 'plugin-other', name: 'ping' })
+    const denied = await post('/cmd', {
+      holder: 'plugin-other',
+      name: 'execute_code',
+      params: { code: 'print(1)' },
+    })
     expect(denied.status).toBe(409)
     expect((await denied.json()) as any).toMatchObject({ ok: false, error: 'leased', holder })
+
+    // Read-only commands stay available while another holder owns the write lease.
+    const readOnly = await post('/cmd', { holder: 'plugin-other', name: 'ping' })
+    expect(readOnly.status).toBe(200)
+    expect((await readOnly.json()) as any).toMatchObject({ ok: true, result: { pong: true } })
 
     const catalog = await post('/plan', { op: 'catalog', holder: 'plugin-other' })
     expect(catalog.status).toBe(200)
