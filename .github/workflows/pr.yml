@@ -117,7 +117,7 @@ jobs:
         run: npm run build:extension
       - name: Cache Blender 4.2 LTS
         id: blender-cache
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .cache/blender-4.2.10
           key: blender-4.2.10-linux-x64
@@ -196,7 +196,7 @@ jobs:
             libxrender1 libsm6 libice6 libxrandr2 libxinerama1 libxcursor1 libgomp1
       - name: Cache Blender 4.2 LTS
         id: blender-cache
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .cache/blender-4.2.10
           key: blender-4.2.10-linux-x64
