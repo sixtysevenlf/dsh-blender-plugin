@@ -46,6 +46,16 @@ describe('3.1 GUI session registry', () => {
     expect((r.session.agents as unknown[]).length).toBe(1)
   })
 
+  it('never creates a user-gui session for a virtual-gui instance', () => {
+    const { registry } = setup([{ instanceId: 'vgui-1', kind: 'virtual-gui', ready: true }])
+    const r = registry.attach(main(), { instanceId: 'vgui-1' })
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.code).toBe('session_unavailable')
+    expect(r.evidence).toMatchObject({ kind: 'virtual-gui' })
+    expect(registry.list()).toHaveLength(0)
+  })
+
   it('counts every ready GUI Blender window, split by kind', () => {
     const { registry } = setup([
       { instanceId: 'gui-1', kind: 'user-gui', ready: true },
@@ -184,6 +194,16 @@ describe('3.1 GUI session registry', () => {
     expect(registry.authorizeWrite(main(), undefined, ['exclusive']).ok).toBe(true)
   })
 
+  it('never pauses every session when the pause event has no instance id', () => {
+    const { registry } = setup()
+    expect(registry.attach(main()).ok).toBe(true)
+    expect(registry.applyHumanPause(undefined, true)).toBe(0)
+    const view = registry.status(main())
+    expect(view.ok).toBe(true)
+    if (!view.ok) return
+    expect(view.session.paused).toBe(false)
+  })
+
   it('inherits the Blender pause when a session attaches after the human paused', () => {
     const { registry } = setup()
     expect(registry.applyHumanPause('inst-1', true)).toBe(0)
@@ -212,6 +232,22 @@ describe('3.1 GUI session registry', () => {
     expect(r.code).toBe('py_busy')
     expect(registry.endPy(main(), sessionId).ok).toBe(true)
     expect((await registry.beginPy(sub(), sessionId)).ok).toBe(true)
+  })
+
+  it('rejects a second py from the same holder instead of overwriting the lock', async () => {
+    const { registry } = setup()
+    const attached = registry.attach(main())
+    expect(attached.ok).toBe(true)
+    if (!attached.ok) return
+    const sessionId = String(attached.session.id)
+    expect((await registry.beginPy(main(), sessionId)).ok).toBe(true)
+    const again = await registry.beginPy(main(), sessionId)
+    expect(again.ok).toBe(false)
+    if (again.ok) return
+    expect(again.code).toBe('py_busy')
+    // The first call still owns the lock, so ending it releases exactly once.
+    expect(registry.endPy(main(), sessionId).ok).toBe(true)
+    expect(registry.endPy(main(), sessionId).ok).toBe(true)
   })
 
   it('lets a bounded wait_ms wait for the active blender_py to finish', async () => {
@@ -269,6 +305,22 @@ describe('3.1 GUI session registry', () => {
     const released = registry.detach(main())
     expect(released.ok).toBe(true)
     expect(registry.attach(otherSession()).ok).toBe(true)
+  })
+
+  it('drops a detached agent grants so they cannot block other agents', () => {
+    const { registry } = setup()
+    const attached = registry.attach(main())
+    expect(attached.ok).toBe(true)
+    if (!attached.ok) return
+    const sessionId = String(attached.session.id)
+    expect(registry.attach(sub()).ok).toBe(true)
+    expect(registry.grant(main(), sessionId, ['collection:Body'], sub()).ok).toBe(true)
+    expect(registry.detach(sub(), sessionId).ok).toBe(true)
+    // The same collection is writable again right away, not after the 30s TTL.
+    const other = registry.authorizeWrite(otherSession(), sessionId, ['collection:Body'])
+    expect(other.ok).toBe(false)
+    const owner = registry.authorizeWrite(main(), sessionId, ['collection:Body'])
+    expect(owner.ok).toBe(true)
   })
 
   it('reclaims stale ownership after the 120s TTL', () => {

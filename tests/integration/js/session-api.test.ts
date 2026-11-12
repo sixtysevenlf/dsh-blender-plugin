@@ -208,6 +208,41 @@ describe('Gateway session API', () => {
     expect(allowed.status).toBe(200)
   })
 
+  it('only lets the blocked agent clear its human_modified conflict', async () => {
+    const { backend, addons } = await setup()
+    const attached = await backend.post('/lease', { action: 'attach' }, main)
+    const sessionId = String(attached.json.session.id)
+    await backend.post('/lease', { action: 'attach' }, sub)
+    addons[0]!.sendEvent('human_edit', {
+      instanceId: 'inst-1',
+      objects: [{ kind: 'object', name: 'Cube', revision: 2 }],
+      collections: [],
+    })
+    await waitFor(async () => {
+      const who = await backend.get('/who', main)
+      return who.json.sessions?.[0]?.humanModified?.objects?.[0]?.name === 'Cube'
+    })
+    const blocked = await backend.post(
+      '/act',
+      { code: 'print(1)', write_scope: 'object:Cube', sessionId },
+      main,
+    )
+    expect(blocked.json.code).toBe('human_modified')
+    // A bystander from the same DSH session must not clear the writer's conflict.
+    const bystander = await backend.post(
+      '/lease',
+      { action: 'mark_read', sessionId, scopes: ['object:Cube'] },
+      sub,
+    )
+    expect(bystander.json.cleared).toBe(0)
+    const own = await backend.post(
+      '/lease',
+      { action: 'mark_read', sessionId, scopes: ['object:Cube'] },
+      main,
+    )
+    expect(own.json.cleared).toBe(1)
+  })
+
   it('records presence views without changing the scene', async () => {
     const { backend } = await setup()
     await backend.post('/lease', { action: 'attach' }, main)
@@ -273,6 +308,7 @@ describe('Gateway session API', () => {
     await addon.ready
     closers.push(() => addon.close())
     expect((await backend.post('/lease', { action: 'attach' }, main)).status).toBe(200)
+    expect((await backend.post('/lease', { action: 'attach' }, sub)).status).toBe(200)
 
     const first = backend.post('/act', { code: 'print(1)', py: true }, main)
     await waitFor(async () =>
@@ -299,6 +335,7 @@ describe('Gateway session API', () => {
     const { backend, addons } = await setup()
     const attached = await backend.post('/lease', { action: 'attach' }, main)
     const sessionId = String(attached.json.session.id)
+    expect((await backend.post('/lease', { action: 'attach' }, sub)).status).toBe(200)
     expect((await backend.post('/txn', { op: 'list' }, sub)).status).toBe(200)
 
     const denied = await backend.post('/txn', { op: 'restore', args: { label: 's' } }, sub)

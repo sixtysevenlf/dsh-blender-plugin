@@ -16,7 +16,11 @@ export function createTxnRoutes(E: HttpRouteDeps) {
         payload = {}
       }
       const op = String(payload.op || 'list')
-      const gate = isReadOnly('/txn', op) ? null : leaseGate(payload)
+      // A snapshot restore rewrites the whole scene: the caller's own
+      // write_scope must not narrow what the gate asks for.
+      const gate = isReadOnly('/txn', op)
+        ? null
+        : leaseGate({ ...payload, write_scope: 'exclusive' })
       if (gate) {
         json(res, 409, gate)
         return

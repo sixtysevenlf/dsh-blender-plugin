@@ -12,9 +12,13 @@ export function applyHumanPause(
   paused: boolean,
 ): number {
   const id = String(instanceId || '')
+  // An event without an instance id cannot be attributed: pausing every session
+  // would silently cross instance boundaries (and the pause could not be undone
+  // by a scoped event later).
+  if (!id) return 0
   let changed = 0
   for (const s of sessions.values()) {
-    if (id && s.instanceId !== id) continue
+    if (s.instanceId !== id) continue
     s.paused = paused
     s.pausedAt = paused ? Date.now() : null
     changed++

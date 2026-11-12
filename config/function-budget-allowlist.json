@@ -1,7 +1,7 @@
 {
   "version": 1,
   "description": "Function-level budget registry (two-level exception model): every 80-120 line function is registered with a real classification, reason, class owner and future reviewBy; unregistered, unclassified, expired and stale entries fail. Functions over 120 lines always fail. Path-level file-budget exceptions live in config/exceptions.json.",
-  "generatedAt": "2026-11-12T14:23:34.763Z",
+  "generatedAt": "2026-11-12T17:46:07.583Z",
   "functions": [
     {
       "file": "extension/dsh_blender_bridge/commands/core/bpy_lookup.py",
@@ -24,7 +24,7 @@
     {
       "file": "extension/dsh_blender_bridge/commands/core/screenshot.py",
       "name": "get_viewport_screenshot",
-      "lines": 102,
+      "lines": 104,
       "classification": "integration-io",
       "reason": "Viewport screenshot adapter: context/area juggling plus image encoding for the host.",
       "owner": "addon",
@@ -159,7 +159,7 @@
     {
       "file": "runtime/core/queue/spawn-executor.ts",
       "name": "start",
-      "lines": 91,
+      "lines": 95,
       "classification": "orchestration",
       "reason": "Queue executor start: process spawn, log capture, timeout and settle lifecycle kept in one closure.",
       "owner": "runtime",
@@ -244,15 +244,6 @@
       "classification": "formatting",
       "reason": "Host state view: assembles the /host/state payload block by block with conservative defaults.",
       "owner": "host",
-      "reviewBy": "2027-06-30"
-    },
-    {
-      "file": "runtime/http/routes/act.ts",
-      "name": "createActRoutes",
-      "lines": 82,
-      "classification": "dispatch-table",
-      "reason": "Act route: parse body, run the session write + py lock gate, then one engine call and one response shape.",
-      "owner": "runtime",
       "reviewBy": "2027-06-30"
     },
     {
@@ -1005,7 +996,7 @@
     {
       "file": "runtime/vision/installer.ts",
       "name": "downloadManagedPython",
-      "lines": 98,
+      "lines": 99,
       "classification": "orchestration",
       "reason": "Managed Python fetch: fixed release URL, sha256 check, tar extract and import venv.",
       "owner": "runtime",

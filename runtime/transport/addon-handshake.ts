@@ -1,8 +1,10 @@
 // Addon handshake contract (protocol 12) shared by the Gateway endpoint and callers.
 // The addon dials the Gateway; Gateway validates and registers the instance.
+import type { IncomingMessage } from 'node:http'
 import {
   ADDON_KINDS,
   ADDON_PROTOCOL_VERSION,
+  ADDON_WS_PATH,
   HANDSHAKE_REQUIRED_FIELDS,
 } from './gateway-schema.generated.js'
 import type { AddonKind } from './gateway-schema.generated.js'
@@ -145,4 +147,36 @@ export function gatewayHandshakeError(addon: unknown): AddonHandshakeError | nul
   const value = (addon as { lastHandshakeError?: unknown } | null | undefined)?.lastHandshakeError
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
   return value as AddonHandshakeError
+}
+
+/** Origins allowed to open the addon channel; an absent Origin (native client) is allowed. */
+const ORIGIN_RE = /^(http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?|dsh-app:\/\/app)$/
+
+export interface UpgradeCheck {
+  /** null means the upgrade is acceptable. */
+  reject: { status: number; text: string; reason: string } | null
+  key: string
+}
+
+/**
+ * Validate an /addon WebSocket upgrade before the 101 is written. Browsers always
+ * send Origin, native clients (the addon, DSH) do not, so a page origin is refused
+ * to keep a random website from taking over the control channel.
+ */
+export function checkUpgrade(req: IncomingMessage): UpgradeCheck {
+  const key = String(req.headers['sec-websocket-key'] || '')
+  const path = String(req.url || '').split('?')[0]
+  if (path !== ADDON_WS_PATH)
+    return { reject: { status: 404, text: 'Not Found', reason: 'not the addon path' }, key }
+  const origin = String(req.headers.origin || '')
+  if (origin && !ORIGIN_RE.test(origin))
+    return { reject: { status: 403, text: 'Forbidden', reason: 'origin not allowed' }, key }
+  const upgrade = String(req.headers.upgrade || '').toLowerCase()
+  if (
+    upgrade !== 'websocket' ||
+    !key ||
+    String(req.headers['sec-websocket-version'] || '') !== '13'
+  )
+    return { reject: { status: 400, text: 'Bad Request', reason: 'not a websocket upgrade' }, key }
+  return { reject: null, key }
 }

@@ -40,11 +40,30 @@ export function removeGatewayOwner(port: number): void {
   }
 }
 
-/** Exported for tests / host status: read the owner state file of a port. */
+/** A recorded pid that no longer exists means the state file is stale. */
+function ownerAlive(pid: unknown): boolean {
+  const value = Number(pid)
+  if (!Number.isInteger(value) || value <= 0) return false
+  try {
+    process.kill(value, 0)
+    return true
+  } catch (e) {
+    // EPERM means the process exists but belongs to someone else.
+    return !!e && (e as NodeJS.ErrnoException).code === 'EPERM'
+  }
+}
+
+/**
+ * Exported for tests / host status: read the owner state file of a port.
+ * A file left behind by a crashed Gateway is ignored, otherwise a later Gateway
+ * on that port would fail closed with GATEWAY_IN_USE instead of port_conflict.
+ */
 export function readGatewayOwner(port: number): GatewayOwner | null {
   try {
     const parsed: unknown = JSON.parse(fs.readFileSync(gatewayStatePath(port), 'utf8'))
-    return parsed && typeof parsed === 'object' ? (parsed as GatewayOwner) : null
+    if (!parsed || typeof parsed !== 'object') return null
+    const owner = parsed as GatewayOwner
+    return ownerAlive(owner.pid) ? owner : null
   } catch (e) {
     return null
   }

@@ -194,12 +194,12 @@ export function leasedText(r: unknown): string | undefined {
   )
 }
 
-/** 拉一帧 PNG 字节（含耗时）；full=true 走 screenshot_area（整窗口/区域） */
+/** 拉一帧 PNG 字节（含耗时）；full=true 走整窗 screenshot，给了 area 才抓单个编辑器 */
 export async function fetchFrame(
   port: number,
   size: number,
   full = false,
-  area = 0,
+  area: number | null = 0,
   instanceId = '',
   sessionId = '',
 ): Promise<FrameResult> {
@@ -210,7 +210,9 @@ export async function fetchFrame(
   const url =
     base(port) +
     '/frame.png?' +
-    (full ? 'full=1&area=' + String(area) : 'size=' + String(size)) +
+    (full
+      ? 'full=1' + (area === null ? '' : '&area=' + String(area)) + '&size=' + String(size)
+      : 'size=' + String(size)) +
     suffix
   const r = await withTimeout(url, {}, 60000)
   if (!r.ok) throw new Error('frame http ' + String(r.status))

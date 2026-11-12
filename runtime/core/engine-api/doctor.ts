@@ -28,12 +28,13 @@ import { buildInstallPlans } from '../../display/install.js'
  * /status 的 bpy 往返（REGION_CODE）预算：2.5s。
  *
  * extension/bpy 的硬超时 <=3s，首调失败的第 95 百分位 <=3s；Gateway 路径的传输诊断是
- * 同步的实例表判定（不再串 legacy 9876 的 ~2.5s diagnose），所以半开 addon 的
- * /status 稳态 = 2.5s + 路由开销，落在预算内。
+ * 同步的实例表判定（不再串 legacy 9876 的 diagnose），所以半开 addon 的
+ * /status 稳态 = 2s + 路由开销，落在预算内。2.5s 只给路由留 0.5s，负载下实测
+ * 会顶到 3.055s，因此探针收到 2s。
  */
-export const ADDON_STATUS_TIMEOUT_MS = 2500
-/** /doctor 的 status 阶段预算：2.5s；复用 statusView 的同源 readiness，不重复探测。 */
-export const ADDON_DOCTOR_STATUS_TIMEOUT_MS = 2500
+export const ADDON_STATUS_TIMEOUT_MS = 2000
+/** /doctor 的 status 阶段预算：2s；复用 statusView 的同源 readiness，不重复探测。 */
+export const ADDON_DOCTOR_STATUS_TIMEOUT_MS = 2000
 /** /commands 的 FLAGS 预算：2s（单层硬超时；commands 断连的 socket closed 不再叠加重试）。 */
 export const ADDON_FLAGS_TIMEOUT_MS = 2000
 /** /commands 单个集成 status 预算：1.5s；五个集成并行，总代价不随数量线性增长。 */

@@ -82,7 +82,7 @@ export async function executeSequence(
   if (firstMeta && opts.sessionId)
     await publishView(port, opts.sessionId, poseFromMeta(firstMeta, opts.viewpoint))
   const seen = new Set<string>()
-  const images: string[] = []
+  const images: unknown[] = []
   for (const shot of shots) {
     if (seen.has(shot.hash) || images.length >= 6) continue
     seen.add(shot.hash)
@@ -91,7 +91,9 @@ export async function executeSequence(
       shot.png,
       'see-seq-' + String(Date.now()) + '-' + shot.hash + '.png',
     )
-    if (img.ref) images.push(img.ref.attachmentId)
+    // Same shape as the single-frame `image` field and plan `images`:
+    // the UI cards pass each entry straight through as an attachment ref.
+    if (img.ref) images.push(img.ref)
   }
   const textOut = formatSequenceText(
     opts.viewpoint,

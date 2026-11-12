@@ -7,6 +7,7 @@ import type { HostContext } from '../../host/context.js'
 import { dedupeNote, frameDedupe } from '../../utils/frame-cache.js'
 import { toAttachment } from '../../utils/image.js'
 import { toolError } from '../errors.js'
+import { gatewayFailure } from '../shared/session.js'
 import { formatActText } from './envelope.js'
 
 /**
@@ -43,11 +44,13 @@ export async function executePy(
       instanceId: String(session.instanceId || ''),
       sessionId: String(session.id || ''),
       waitMs: Number(args.wait_ms) || 0,
+      timeoutMs: 180000,
     },
-    180000,
+    200000,
   )
   const lt = leasedText(r)
   if (lt) return { text: lt }
+  if (r && typeof r.code === 'string' && r.code) return gatewayFailure(r, 'PY')
   if (!r || r.ok !== true)
     return toolError(
       'py_error',
@@ -55,40 +58,49 @@ export async function executePy(
       '看 traceback/stderr 修脚本；脚本可以重跑。需要后台执行时用 blender_run(kind=headless)。',
     )
   const out: Record<string, unknown> = { text: formatActText(r).join(String.fromCharCode(10)) }
-  if (args.see !== false) {
-    const size = Math.max(120, Math.min(1600, Number(args.max_size || 560)))
-    let f
-    try {
-      f = await fetchFrame(
-        port,
-        size,
-        false,
-        0,
-        String(session.instanceId || ''),
-        String(session.id || ''),
-      )
-    } catch {
-      return out
-    }
-    const dd = frameDedupe('py-see:' + String(size), f.hash, !!args.force)
-    if (dd.dup) {
-      out.text = text(out.text) + dedupeNote(dd.repeats)
-      return out
-    }
-    const img = await toAttachment(ctx, f.png, 'py-see-' + String(Date.now()) + '.png')
-    if (img.ref) out.image = img.ref
-    out.text =
-      text(out.text) +
-      String.fromCharCode(10) +
-      'SEE ' +
-      String(size) +
-      'px · ' +
-      String(f.ms) +
-      'ms · hash ' +
-      f.hash
-    if (!img.ref)
-      out.text =
-        text(out.text) + String.fromCharCode(10) + '⚠ 图片未回传：' + text(img.why || '未知原因')
-  }
+  if (args.see !== false) await appendSee(ctx, port, args, session, out)
   return out
+}
+
+/** see=true：抓一帧当前视口并附在回执上；抓图失败不影响脚本本身的回执。 */
+async function appendSee(
+  ctx: HostContext,
+  port: number,
+  args: Record<string, unknown>,
+  session: Record<string, unknown>,
+  out: Record<string, unknown>,
+): Promise<void> {
+  const size = Math.max(120, Math.min(1600, Number(args.max_size || 560)))
+  let f
+  try {
+    f = await fetchFrame(
+      port,
+      size,
+      false,
+      0,
+      String(session.instanceId || ''),
+      String(session.id || ''),
+    )
+  } catch {
+    return
+  }
+  const dd = frameDedupe('py-see:' + String(size), f.hash, !!args.force)
+  if (dd.dup) {
+    out.text = text(out.text) + dedupeNote(dd.repeats)
+    return
+  }
+  const img = await toAttachment(ctx, f.png, 'py-see-' + String(Date.now()) + '.png')
+  if (img.ref) out.image = img.ref
+  out.text =
+    text(out.text) +
+    String.fromCharCode(10) +
+    'SEE ' +
+    String(size) +
+    'px · ' +
+    String(f.ms) +
+    'ms · hash ' +
+    f.hash
+  if (!img.ref)
+    out.text =
+      text(out.text) + String.fromCharCode(10) + '⚠ 图片未回传：' + text(img.why || '未知原因')
 }

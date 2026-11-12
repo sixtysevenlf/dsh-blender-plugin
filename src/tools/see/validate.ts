@@ -87,8 +87,15 @@ function invalidParams(message: string, fix: string): Failure {
   return toolError('invalid_params', message, fix) as unknown as Failure
 }
 
+/** A field counts as present unless it is missing, empty, or an explicit `false`. */
 function has(v: unknown): boolean {
-  return v !== undefined && v !== null && String(v).trim() !== ''
+  if (v === undefined || v === null || v === false) return false
+  return String(v).trim() !== ''
+}
+
+/** camera is either `true` (scene camera) or a camera object name; `false` means the same as absent. */
+function cameraName(v: unknown): string {
+  return v === true || v === false || v === undefined || v === null ? '' : String(v).trim()
 }
 
 /** 固定档位解析；失败时给出统一 fix。 */
@@ -157,6 +164,11 @@ function sequenceView(
       )
     return null
   }
+  if (has(args.from) || has(args.look_at))
+    return invalidParams(
+      'viewpoint=viewport 不接受 from/look_at',
+      '要指定机位请用 viewpoint=custom + from/look_at',
+    )
   return rejectCustomOnly('viewport', args)
 }
 
@@ -202,7 +214,7 @@ function cameraFrame(args: Record<string, unknown>): FramePlan | Failure {
       'max_size 只接受 544 / 768 / 1024 / 1280',
       'camera 按渲染比例缩放；改 max_size 控制长边',
     )
-  const cameraArg = args.camera === true ? '' : text(args.camera).trim()
+  const cameraArg = cameraName(args.camera)
   return { kind: 'frame', viewpoint: 'camera', camera: cameraArg || undefined, force: !!args.force }
 }
 

@@ -159,9 +159,11 @@ describe('archive and lease security boundaries', () => {
     )
     // 3.1 session-read: /plan animates its gate by catalog list
     // (read-only bypass, session-read = read gate, everything else = write gate).
-    expect(serverSource).toContain(
-      'const sessionRead = !readOnly && PLAN_SESSION_READ_OPS.includes(op)',
-    )
+    expect(serverSource).toContain('const sessionReadOp = PLAN_SESSION_READ_OPS.includes(op)')
+    // dry-run is read-only, except for the session-read ops that must see the scene.
+    expect(serverSource).toContain('const dryRun = argsRec.dry_run === true && !sessionReadOp')
+    expect(serverSource).toContain('const readOnly = dryRun || isReadOnly(')
+    expect(serverSource).toContain('const sessionRead = !readOnly && sessionReadOp')
     expect(serverSource).toMatch(
       /const gate = readOnly\s*\?\s*null\s*:\s*leaseGate\(payload, sessionRead \? \{ readOnly: true \} : undefined\)/,
     )

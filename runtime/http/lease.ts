@@ -182,7 +182,7 @@ function isReadOnly(path: string, op: unknown): boolean {
 /** 请求带上 holder/force 时的门禁；返回 null = 放行 */
 function leaseGate(
   payload?: Record<string, unknown> | null,
-  opts: { readOnly?: boolean } = {},
+  opts: { readOnly?: boolean; pyLock?: boolean } = {},
 ): Record<string, unknown> | null {
   const payloadRec: Record<string, unknown> = (payload || {}) as Record<string, unknown>
   // 3.1: host-attributed calls are gated by session ownership + scope grants.
@@ -194,7 +194,7 @@ function leaseGate(
     const readFailure = sessionReadGate(payloadRec)
     return readFailure ? gateResponse(readFailure) : null
   }
-  const sessionFailure = sessionWriteGate(payloadRec)
+  const sessionFailure = sessionWriteGate(payloadRec, 'exclusive', { pyLock: opts.pyLock })
   if (sessionFailure) return gateResponse(sessionFailure)
   const h = String(payloadRec.holder || payloadRec.lease || '')
   const force = !!payloadRec.force

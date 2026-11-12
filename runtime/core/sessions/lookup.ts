@@ -12,6 +12,7 @@ export function pruneSessions(
   for (const s of sessions.values()) {
     if (s.owner && now - s.owner.heartbeatAt > OWNER_TTL_MS) {
       s.owner = null
+      s.orphanedAt = now
       // Keep activePy: a long-running Python call owns the lock until it ends.
       // Clearing it here let a second agent start Python while the first was
       // still executing in Blender.

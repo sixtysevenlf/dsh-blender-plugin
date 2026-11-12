@@ -61,7 +61,7 @@ export function markHumanRead(
       'wait for the owner to release it',
       { sessionId: session.id },
     )
-  return { ok: true, cleared: clearHumanEdits(session, parseScopes(scopes)) }
+  return { ok: true, cleared: clearHumanEdits(session, parseScopes(scopes), callerKey(c)) }
 }
 
 /** Merge edits from one add-on instance; newest revision wins. */
@@ -113,13 +113,34 @@ export function conflictingHumanEdits(session: SessionRecord, scopes: ScopeSpec[
   return [...out.values()].sort((a, b) => a.name.localeCompare(b.name))
 }
 
+/**
+ * Record that this caller's write was blocked by the edits: mark_read only
+ * clears an edit for an agent that actually hit it, so a bystander in the same
+ * DSH session cannot silently drop the conflict for the writer.
+ */
+export function noteHumanConflict(
+  session: SessionRecord,
+  scopes: ScopeSpec[],
+  caller: string,
+): void {
+  for (const edit of conflictingHumanEdits(session, scopes)) {
+    const editors = edit.editors || (edit.editors = [])
+    if (!editors.includes(caller)) editors.push(caller)
+  }
+}
+
 /** Clear the edits covered by the scopes the caller just re-read. */
-export function clearHumanEdits(session: SessionRecord, scopes: ScopeSpec[]): number {
+export function clearHumanEdits(
+  session: SessionRecord,
+  scopes: ScopeSpec[],
+  caller?: string,
+): number {
   // An empty scope list used to clear every human edit while reporting 0. A
   // mark_read must name the scope it re-read; use exclusive to clear everything.
   if (!scopes.length) return 0
   let cleared = 0
   for (const [key, edit] of session.humanEdits) {
+    if (caller && !(edit.editors || []).includes(caller)) continue
     if (scopes.some((scope) => editOverlapsScope(edit, scope))) {
       session.humanEdits.delete(key)
       cleared += 1

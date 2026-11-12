@@ -94,7 +94,7 @@ export interface EngineSurface {
   loopBoard: (limit?: number, groups?: boolean) => Promise<unknown>
   loopExport: (opts?: Record<string, unknown>) => Promise<unknown>
   loopHelp: () => Promise<unknown>
-  frameArea: (areaIndex?: number, instanceId?: string) => Promise<unknown>
+  frameArea: (areaIndex?: number, instanceId?: string, maxSize?: number) => Promise<unknown>
   perf: (op: string, payload?: unknown) => Promise<unknown>
   opt: (op: string, payload?: unknown) => Promise<unknown>
   frame: (maxSize?: number, instanceId?: string) => Promise<unknown>

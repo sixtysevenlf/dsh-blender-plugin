@@ -12,6 +12,7 @@ import type { AvailabilityFailure } from '../availability.js'
 import { homePath } from '../../home.js'
 import { BLENDER_EXE } from '../../paths.js'
 import { RENDER_PASSES_MANIFEST_VERSION, RENDER_PASSES_PY } from './render-passes-script.js'
+import { asString, frameRange, headlessArgs } from './job-args.js'
 import type { JobExecutionResult, JobExecutor, JobHandle, JobRecord } from './types.js'
 
 export interface SpawnExecutorOptions {
@@ -42,32 +43,11 @@ interface Prepared {
   outdir: string | null
 }
 
-function asString(value: unknown): string {
-  return value === undefined || value === null ? '' : String(value)
-}
-
-function frameRange(params: Record<string, unknown>): { start: number; end: number } | null {
-  const raw = params.frames
-  if (Array.isArray(raw) && raw.length === 2) return { start: Number(raw[0]), end: Number(raw[1]) }
-  if (typeof raw === 'string' && raw.includes('-')) {
-    const [a, b] = raw.split('-')
-    if (Number.isFinite(Number(a)) && Number.isFinite(Number(b)))
-      return { start: Number(a), end: Number(b) }
-  }
-  if (raw !== undefined && raw !== null) {
-    const n = Number(raw)
-    if (Number.isFinite(n)) return { start: n, end: n }
-  }
-  return null
-}
-
-/** A fixed internal Python entry for render parameters: no caller script is ever accepted. */
 function renderPrelude(params: Record<string, unknown>): string {
-  const lines = ['import bpy, json, os']
+  const lines = ['import bpy, json, os', 's=bpy.context.scene']
   const res = params.resolution
   if (Array.isArray(res) && res.length === 2)
     lines.push(
-      's=bpy.context.scene',
       's.render.resolution_x=' + Number(res[0]),
       's.render.resolution_y=' + Number(res[1]),
       's.render.resolution_percentage=100',
@@ -100,6 +80,14 @@ function renderPrelude(params: Record<string, unknown>): string {
  * field keeps the legacy render path, while a present-but-empty or malformed
  * list is a rejected submission, not a silent fallback.
  */
+export class JobParamError extends Error {
+  readonly code = 'invalid_params'
+  constructor(message: string) {
+    super(message)
+    this.name = 'JobParamError'
+  }
+}
+
 export class PassConfigError extends Error {
   readonly code = 'render_config_invalid'
   constructor(message: string) {
@@ -169,6 +157,7 @@ function writePassEntry(
   return { scriptPath, configPath }
 }
 
+/** Headless: one fresh `blender -b` per job, the caller's script is the only entry. */
 /** Exported for contract tests: render and headless use one fixed internal entry. */
 export function buildJobArgs(
   job: JobRecord,
@@ -209,25 +198,29 @@ export function buildJobArgs(
       ensureDir(outdir)
     }
     const renderParams = { ...params, output }
-    args.push('-b', '--factory-startup', '--python-expr', renderPrelude(renderParams))
+    // --python-exit-code: the fixed entry runs as --python-expr here too, so an
+    // uncaught Python error (e.g. a bad parameter) must fail the job instead of
+    // exiting 0 and reporting a render that produced no file.
+    args.push(
+      '-b',
+      '--factory-startup',
+      '--python-exit-code',
+      '2',
+      '--python-expr',
+      renderPrelude(renderParams),
+    )
     const frames = frameRange(params)
+    if (!frames && params.frames !== undefined && params.frames !== null)
+      throw new JobParamError(
+        'frames=' +
+          JSON.stringify(params.frames) +
+          ' is invalid: pass N, "A-B", or [A, B] with A <= B',
+      )
     if (frames) args.push('-s', String(frames.start), '-e', String(frames.end), '-a')
     if (output && !output.endsWith('/') && !output.endsWith('\\')) ensureDir(path.dirname(output))
     return { args, outdir }
   }
-  const file = asString(params.file)
-  const args: string[] = []
-  if (file) args.push(file)
-  args.push('-b', '--factory-startup')
-  const scriptPath = path.join(tempDir, 'job.py')
-  const script = asString(params.script)
-  if (script) fs.writeFileSync(scriptPath, script, 'utf8')
-  const scriptFile = asString(params.script_file)
-  if (scriptFile) args.push('--python', scriptFile)
-  else if (script) args.push('--python', scriptPath)
-  const extra = params.args
-  if (Array.isArray(extra)) args.push(...extra.map(asString))
-  return { args, outdir }
+  return { args: headlessArgs(params, tempDir), outdir }
 }
 
 function removeTempDir(dir: string | null): void {
@@ -267,6 +260,25 @@ function prepareFailure(e: unknown, blenderExe: string | null): JobExecutionResu
       fix: 'Set DSH_BLENDER_EXE or write dsh-blender.config.json with blenderExe.',
       fallback: { kind: 'unavailable', summary: 'install Blender or set DSH_BLENDER_EXE' },
       evidence: { blenderExe },
+    },
+  }
+}
+
+/** A rejected frames/parameter value happens before Blender starts. */
+function paramFailure(e: JobParamError): JobExecutionResult {
+  return {
+    exitCode: null,
+    signal: null,
+    stdout: '',
+    stderr: e.message,
+    error: {
+      ok: false,
+      code: e.code,
+      stage: 'config',
+      root_cause: e.message,
+      fix: 'Fix the job parameter (frames must be N, "A-B", or [A, B] with A <= B), then resubmit.',
+      fallback: { kind: 'unavailable', summary: 'correct the parameter and resubmit' },
+      evidence: { param: 'frames' },
     },
   }
 }
@@ -391,6 +403,40 @@ function parseHeadless(text: string): unknown {
   return markerJson(text, 'HEADLESS')
 }
 
+/**
+ * headless out_json: persist the structured result the script printed (the
+ * `HEADLESS {json}` contract) so callers do not have to scrape stdout. The
+ * parameter used to be accepted and silently ignored, leaving no file at all.
+ */
+function writeOutJson(
+  job: JobRecord,
+  parsed: unknown,
+  exitCode: number | null,
+): AvailabilityFailure | null {
+  const target = asString(job.params.out_json).trim()
+  if (!target) return null
+  try {
+    fs.mkdirSync(path.dirname(target), { recursive: true })
+    fs.writeFileSync(
+      target,
+      JSON.stringify({ ok: exitCode === 0, exitCode, result: parsed ?? null }, null, 2) + '\n',
+      'utf8',
+    )
+    return null
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    return {
+      ok: false,
+      code: 'out_json_write_failed',
+      stage: 'queue',
+      root_cause: 'Could not write out_json to ' + target + ': ' + message,
+      fix: 'Point out_json at a writable path (an absolute directory the DSH host can write), then resubmit.',
+      fallback: { kind: 'unavailable', summary: 'read the job logs for the structured result' },
+      evidence: { out_json: target },
+    }
+  }
+}
+
 /** The pass entry prints PASSES_DONE on success and PASSES_ERROR on a fatal failure. */
 function parsePassesDone(text: string): unknown {
   return markerJson(text, 'PASSES_DONE')
@@ -433,6 +479,8 @@ export class SpawnJobExecutor implements JobExecutor {
     try {
       prepared = prepare(job, this.opts)
     } catch (e) {
+      if (e instanceof JobParamError)
+        return { pid: null, cancel: () => {}, done: Promise.resolve(paramFailure(e)) }
       if (e instanceof PassConfigError)
         return { pid: null, cancel: () => {}, done: Promise.resolve(configFailure(e)) }
       return {
@@ -479,6 +527,7 @@ export class SpawnJobExecutor implements JobExecutor {
               ? parsePassesDone(logs.stdout)
               : undefined
         const failed = job.kind === 'render' ? passesFailure(logs.stdout) : null
+        const writeFailure = job.kind === 'headless' ? writeOutJson(job, parsed, exitCode) : null
         resolve({
           exitCode,
           signal,
@@ -486,7 +535,11 @@ export class SpawnJobExecutor implements JobExecutor {
           stderr: logs.stderr,
           artifacts: artifactsIn(prepared.outdir, started),
           ...(parsed === undefined ? {} : { parsed }),
-          ...(failed && exitCode !== 0 ? { error: failed } : {}),
+          ...(writeFailure
+            ? { error: writeFailure }
+            : failed && exitCode !== 0
+              ? { error: failed }
+              : {}),
           ...(timedOut
             ? {
                 error: {

@@ -83,6 +83,8 @@ export interface HumanEdit {
   name: string
   revision: number
   at: number
+  /** Agents whose write this edit blocked; only they may clear it with mark_read. */
+  editors?: string[]
 }
 
 export interface GrantRecord {
@@ -111,12 +113,16 @@ export interface SessionRecord {
   status: SessionStatus
   owner: Owner | null
   agents: Map<string, AgentPresence>
+  /** Every caller that ever attached: read-only visibility after ownership lapses. */
+  claimants: Set<string>
   grants: Map<string, GrantRecord>
   paused: boolean
   pausedAt: number | null
   activePy: { caller: CallerIdentity; startedAt: number } | null
   humanEdits: Map<string, HumanEdit>
   humanModifiedAt: number | null
+  /** When the owner lease lapsed; a virtual-gui with no owner and no agents is reaped. */
+  orphanedAt: number | null
   notice: PresenceNotice | null
   /** Set for virtual-gui: the provider handle and the provider that owns it. */
   display: DisplayInstance | null

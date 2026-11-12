@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { startBackend } from '../../helpers/backend'
 import { startFakeWsAddon } from '../../helpers/fake-ws-addon.mjs'
 
-// 3.1 预算：addon 单次 status 探测 ≤2500ms，端到端 /status 与 /doctor ≤3000ms
+// 3.1 预算：addon 单次 status 探测 ≤2000ms，端到端 /status 与 /doctor ≤3000ms
 // （config/availability.json 的 transport/addon 预算）。本机实测冷/热 /status 2525/2522ms、
 // /doctor 2523/2530ms；这里先预热一次再计时，并断言一次调用只发一个探测请求（3.7：不做嵌套重试）。
 const BUDGET_MS = 3_000

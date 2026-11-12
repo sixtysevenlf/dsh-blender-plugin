@@ -2,11 +2,20 @@
 // The addon dials this process; host tools keep talking to the 29 HTTP routes.
 import { parsePortArg } from './ports.js'
 import { CFG } from './config.js'
-import { createGatewayApp } from './gateway/app.js'
-import { startGateway } from './gateway/lifecycle.js'
+import { portConflict } from './gateway/lifecycle.js'
 
 const argv = process.argv.slice(2)
 const port = parsePortArg(argv) ?? Number(process.env.DSH_BLENDER_GATEWAY_PORT || CFG.gatewayPort)
+// Fail closed before loading the app: building the engine/catalog on a bound port
+// burned seconds and pushed the exit past the port-conflict budget. The app
+// modules stay dynamic so this check runs on a bare process.
+const conflict = portConflict(port)
+if (conflict) {
+  console.error(JSON.stringify(conflict))
+  process.exit(1)
+}
+const { createGatewayApp } = await import('./gateway/app.js')
+const { startGateway } = await import('./gateway/lifecycle.js')
 const app = createGatewayApp({ port })
 const result = await startGateway(app)
 if (!result.ok) {

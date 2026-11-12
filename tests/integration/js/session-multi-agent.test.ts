@@ -188,4 +188,49 @@ describe('multi-agent session and GUI instance isolation', () => {
     ).toBe(true)
     expect(presencePayloads.every((payload) => typeof payload.paused === 'boolean')).toBe(true)
   })
+  it('keeps the py lock when a Gateway timeout leaves Blender executing', async () => {
+    const backend = await startBackend()
+    closers.push(() => backend.stop())
+    const addon = await startFakeWsAddon({
+      gatewayPort: backend.port,
+      instanceId: 'inst-hang',
+      behavior: (type: string) =>
+        type === 'execute_code'
+          ? new Promise(() => {})
+          : { status: 'success', result: { pong: true, type } },
+    })
+    closers.push(() => addon.close())
+    await addon.ready
+    const attached = await backend.post('/lease', { action: 'attach' }, main)
+    expect(attached.status).toBe(200)
+    const sessionId = String(attached.json.session.id)
+
+    // The addon never answers: the Gateway gives up at timeoutMs, but the script
+    // keeps running in Blender, so the lock must stay and the receipt must say so.
+    const timedOut = await backend.post(
+      '/act',
+      { code: 'import time; time.sleep(5)', py: true, sessionId, timeoutMs: 400 },
+      main,
+    )
+    expect(timedOut.status).toBe(409)
+    expect(timedOut.json.code).toBe('py_still_running')
+    expect(timedOut.json.evidence.holder).toBeTruthy()
+
+    const second = await backend.post(
+      '/act',
+      { code: 'pass', py: true, sessionId, timeoutMs: 400, waitMs: 0 },
+      main,
+    )
+    expect(second.status).toBe(409)
+    expect(second.json.code).toBe('py_busy')
+  }, 60_000)
+  it('serves a dry-run plan without any session, and gates the real execution', async () => {
+    const backend = await startBackend()
+    closers.push(() => backend.stop())
+    const dry = await backend.post('/plan', { op: 'gate_deliver', args: { dry_run: true } }, main)
+    expect(dry.status).toBe(200)
+    const gated = await backend.post('/plan', { op: 'gate_deliver', args: {} }, main)
+    expect(gated.status).toBe(409)
+    expect(gated.json.code).toBe('session_unavailable')
+  }, 60_000)
 })

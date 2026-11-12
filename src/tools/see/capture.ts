@@ -131,7 +131,9 @@ export async function captureFull(
   sessionId?: string,
   instanceId = '',
 ): Promise<unknown> {
-  const area = Number(plan.area) || 0
+  // No area means the whole window (screen.screenshot); an explicit area keeps
+  // the single-editor grab for callers that asked for one.
+  const area = plan.area === undefined || plan.area === null ? null : Number(plan.area)
   let fr
   try {
     fr = await fetchFrame(port, DEFAULT_WIDTH, true, area, instanceId, sessionId)
@@ -139,7 +141,7 @@ export async function captureFull(
     return toolError('backend_error', 'SEE full 失败 · ' + text(failureFromView(e)), BACKEND_HINT)
   }
   const [width, height] = pngSize(fr.png)
-  const dedupe = frameDedupe('see:full:' + String(area), fr.hash, plan.force)
+  const dedupe = frameDedupe('see:full:' + String(area ?? 'window'), fr.hash, plan.force)
   let t =
     'SEE full · ' +
     String(width) +
@@ -150,7 +152,11 @@ export async function captureFull(
     'ms · ' +
     String(fr.png.length) +
     'B · hash ' +
-    String(fr.hash)
+    String(fr.hash) +
+    String.fromCharCode(10) +
+    (area === null ? '整窗 screen.screenshot：' : '单个编辑器 area=' + String(area) + '：') +
+    '抓的是窗口帧缓冲，Blender 窗口不在前台/被遮挡时可能缺内容；' +
+    '要可信画面请用 viewpoint=custom 或 camera。'
   if (dedupe.dup) t += dedupeNote(dedupe.repeats)
   const out: Record<string, unknown> = { text: t }
   if (!dedupe.dup) {

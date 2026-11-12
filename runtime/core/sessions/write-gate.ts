@@ -1,7 +1,7 @@
 import type { CallerIdentity, GrantRecord, SessionRecord, SessionResult } from './types.js'
-import { callerKey, fail } from './types.js'
+import { callerKey, callerView, fail } from './types.js'
 import { anyOverlap, parseScopes, scopesCover } from './scopes.js'
-import { conflictingHumanEdits } from './human-edits.js'
+import { conflictingHumanEdits, noteHumanConflict } from './human-edits.js'
 import type { ScopeSpec } from './scopes.js'
 
 /** State checks shared by every agent write: ownership, pause, python lock, scope syntax. */
@@ -9,7 +9,7 @@ export function evaluateWriteGate(
   session: SessionRecord,
   c: CallerIdentity,
   scopes: unknown,
-  opts: { py?: boolean },
+  opts: { py?: boolean; pyLock?: boolean },
 ): SessionResult<{ effective: ScopeSpec[] }> {
   if (session.paused) {
     return fail(
@@ -20,8 +20,10 @@ export function evaluateWriteGate(
       { sessionId: session.id, pausedAt: session.pausedAt },
     )
   }
-  const humanEdits = conflictingHumanEdits(session, parseScopes(scopes))
+  const effectiveScopes = parseScopes(scopes)
+  const humanEdits = conflictingHumanEdits(session, effectiveScopes)
   if (humanEdits.length) {
+    noteHumanConflict(session, effectiveScopes, callerKey(c))
     return fail(
       'human_modified',
       'session',
@@ -38,14 +40,17 @@ export function evaluateWriteGate(
       },
     )
   }
-  if (opts.py && session.activePy && callerKey(session.activePy.caller) !== callerKey(c)) {
+  // py is a session-wide mutex, not a per-agent one: a second py call from the
+  // same holder must also fail (overwriting activePy would let its endPy clear
+  // the other call's lock). Same-holder retries go through waitMs in beginPy.
+  if (opts.py && opts.pyLock !== false && session.activePy) {
     return fail(
       'py_busy',
       'session',
-      'another agent is running Python',
-      'retry after the active Python call finishes',
+      'another Python call is already running in this session',
+      'retry after the active Python call finishes, or pass wait_ms to wait for it',
       {
-        holder: session.activePy.caller,
+        holder: callerView(session.activePy.caller),
         startedAt: session.activePy.startedAt,
         retryAfterMs: 250,
       },

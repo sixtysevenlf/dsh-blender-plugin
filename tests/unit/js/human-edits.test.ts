@@ -61,7 +61,12 @@ describe('human edit conflicts', () => {
   it('re-blocks when the human edits again after mark_read', () => {
     const registry = attached()
     registry.applyHumanEdits('inst-1', [{ kind: 'object', name: 'Cube', revision: 1 }])
-    expect(registry.markRead(caller, undefined, 'object:Cube').ok).toBe(true)
+    // Only the agent the edit blocked may clear it, so the write must come first.
+    expect(registry.authorizeWrite(caller, undefined, 'object:Cube').ok).toBe(false)
+    expect(registry.markRead(caller, undefined, 'object:Cube')).toMatchObject({
+      ok: true,
+      cleared: 1,
+    })
     expect(registry.authorizeWrite(caller, undefined, 'object:Cube').ok).toBe(true)
     registry.applyHumanEdits('inst-1', [{ kind: 'object', name: 'Cube', revision: 2 }])
     expect(registry.authorizeWrite(caller, undefined, 'object:Cube').ok).toBe(false)

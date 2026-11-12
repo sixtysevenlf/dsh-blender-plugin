@@ -35,31 +35,51 @@ export function rowsOf(body: Record<string, unknown>): CommandRow[] {
   return rows
 }
 
+function commandLine(r: CommandRow): string {
+  const flags = []
+  if (r.pause_safe) flags.push('pause_safe')
+  if (r.network) flags.push('network')
+  return (
+    '· ' +
+    r.name +
+    '(' +
+    (r.args.length ? r.args.join(', ') : '无参') +
+    ')' +
+    (flags.length ? ' · ' + flags.join(' · ') : '') +
+    (r.description ? ' · ' + r.description : '')
+  )
+}
+
 export function formatHelp(rows: CommandRow[], scene: unknown, file: unknown): string {
   const readable = rows.filter((r) => r.access === 'read')
+  const enabled = readable.filter((r) => r.enabled)
+  const disabled = readable.filter((r) => !r.enabled)
   const internal = rows.length - readable.length
   const lines = [
     'INSPECT help · ' +
-      String(readable.length) +
+      String(enabled.length) +
       ' 个可执行只读命令' +
+      (disabled.length ? ' · ' + String(disabled.length) + ' 个被 gate 关闭' : '') +
       (internal > 0 ? '（另有 ' + String(internal) + ' 个内部传输命令不列出、不可执行）' : '') +
       (scene ? ' · 场景 ' + text(scene) : '') +
       (file ? ' · 文件 ' + text(file) : ''),
   ]
-  for (const r of readable.sort((a, b) => a.name.localeCompare(b.name))) {
-    const flags = []
-    if (!r.enabled) flags.push('DISABLED(' + String(r.gate || 'gate') + ')')
-    if (r.pause_safe) flags.push('pause_safe')
-    if (r.network) flags.push('network')
-    lines.push(
-      '· ' +
-        r.name +
-        '(' +
-        (r.args.length ? r.args.join(', ') : '无参') +
-        ')' +
-        (flags.length ? ' · ' + flags.join(' · ') : '') +
-        (r.description ? ' · ' + r.description : ''),
-    )
+  for (const r of enabled.sort((a, b) => a.name.localeCompare(b.name))) lines.push(commandLine(r))
+  if (disabled.length) {
+    // A gated command is NOT executable: listing it with the runnable ones made
+    // the help read as if blender_inspect could call it.
+    lines.push('')
+    lines.push('被 gate 关闭（enabled=false，当前不可执行）：')
+    for (const r of disabled.sort((a, b) => a.name.localeCompare(b.name)))
+      lines.push(
+        '· ' +
+          r.name +
+          '(' +
+          (r.args.length ? r.args.join(', ') : '无参') +
+          ') · DISABLED(' +
+          String(r.gate || 'gate') +
+          ')',
+      )
   }
   lines.push('执行：blender_inspect command=<name> args={...}（只读；写操作请用对应工具）')
   return lines.join(LF)

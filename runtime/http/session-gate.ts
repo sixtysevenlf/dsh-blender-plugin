@@ -34,6 +34,7 @@ export function writeScopesFor(payload: Record<string, unknown>, fallback: unkno
 export function sessionWriteGate(
   payload: Record<string, unknown> | null | undefined,
   fallbackScope: unknown = 'exclusive',
+  opts: { pyLock?: boolean } = {},
 ): AvailabilityFailure | null {
   const caller = currentCaller()
   const registry = REGISTRY
@@ -42,6 +43,7 @@ export function sessionWriteGate(
   const sessionId = body.sessionId === undefined ? undefined : String(body.sessionId)
   const result = registry.authorizeWrite(caller, sessionId, writeScopesFor(body, fallbackScope), {
     py: body.py === true,
+    pyLock: opts.pyLock,
   })
   if (result.ok) return null
   return result

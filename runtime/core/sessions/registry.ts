@@ -33,7 +33,17 @@ import {
   ownerOf,
   sessionView,
 } from './types.js'
+import { heartbeatSession } from './heartbeat.js'
 import { findCallerSession, pruneSessions } from './lookup.js'
+import {
+  disposeInBackground,
+  foreignSession,
+  handleInstanceGone,
+  reapOrphans,
+  removeSession,
+  virtualGuiCount as virtualGuiCountOf,
+  visibleCaller,
+} from './visibility.js'
 import { VirtualGuiLifecycle, waitForAddonInstance } from './virtual-gui.js'
 import type { ProviderSelector } from './virtual-gui.js'
 import type {
@@ -103,6 +113,7 @@ export class SessionRegistry {
 
   private prune(now = Date.now()): void {
     this.instances = pruneSessions(this.sessions, this.listInstances, now)
+    reapOrphans(this.sessions, this.lifecycle, now)
   }
 
   findForCaller(c: CallerIdentity): SessionRecord | null {
@@ -150,6 +161,17 @@ export class SessionRegistry {
         { instanceId: picked.instance.instanceId },
       )
     }
+    // A virtual-gui instance is owned by the DSH session that started it: if its
+    // session record is gone (release window or a reconnect raced the reap), it
+    // must not be re-created as a user-gui session that anyone can drive.
+    if (picked.instance.kind === 'virtual-gui')
+      return fail(
+        'session_unavailable',
+        'session',
+        'the virtual-gui instance has no live session record',
+        'call blender_session action=start kind=virtual-gui again (or action=stop to clean it up); a virtual-gui is never attached as user-gui',
+        { instanceId: picked.instance.instanceId, kind: 'virtual-gui' },
+      )
     const created = createSession(picked.instance, c)
     created.paused = this.humanPaused.get(picked.instance.instanceId) === true
     if (created.paused) created.pausedAt = Date.now()
@@ -173,9 +195,12 @@ export class SessionRegistry {
 
   listFor(c: CallerIdentity): Record<string, unknown>[] {
     this.prune()
-    return [...this.sessions.values()]
-      .filter((s) => ownerMatches(s.owner, c) || s.agents.has(callerKey(c)))
-      .map(sessionView)
+    return [...this.sessions.values()].filter((s) => this.visible(c, s)).map(sessionView)
+  }
+
+  /** Owner or attached agent: the only callers allowed to read a session view. */
+  private visible(c: CallerIdentity, session: SessionRecord): boolean {
+    return visibleCaller(session, c)
   }
 
   status(
@@ -184,6 +209,9 @@ export class SessionRegistry {
   ): SessionResult<{ session: Record<string, unknown> }> {
     this.prune()
     const session = sessionId ? this.sessions.get(String(sessionId)) : this.findForCaller(c)
+    // A session the caller cannot see is not readable by naming its id: the view
+    // carries the owner, attached agents and grants.
+    if (session && !this.visible(c, session)) return foreignSession(session)
     if (!session)
       return fail(
         'session_not_found',
@@ -231,6 +259,10 @@ export class SessionRegistry {
       return { ok: true, released: true }
     }
     session.agents.delete(callerKey(c))
+    // A detached agent must not keep write grants: they would block other agents
+    // for the whole grant TTL after the agent that owned them is gone.
+    for (const [id, grant] of session.grants)
+      if (callerKey(grant.holder) === callerKey(c)) session.grants.delete(id)
     publishPresence(session, presenceRows(session))
     return { ok: true, released: false }
   }
@@ -268,7 +300,7 @@ export class SessionRegistry {
       // Releasing the owner tears the provider down too; stop() awaits the same
       // dispose path, while detach/release can stay synchronous at the API edge.
       this.sessions.delete(s.id)
-      void this.lifecycle.disposeSession(s)
+      disposeInBackground(this.lifecycle, s)
     }
   }
 
@@ -277,11 +309,7 @@ export class SessionRegistry {
   }
 
   virtualGuiCount(): number {
-    let count = 0
-    for (const s of this.sessions.values()) {
-      if (s.kind === 'virtual-gui' && (s.status === 'starting' || s.status === 'ready')) count++
-    }
-    return count
+    return virtualGuiCountOf(this.sessions)
   }
 
   addSession(session: SessionRecord): void {
@@ -289,18 +317,12 @@ export class SessionRegistry {
   }
 
   removeSession(sessionId: string): void {
-    const session = this.sessions.get(String(sessionId))
-    if (session && session.agents.size > 0) publishPresence(session, [])
-    this.sessions.delete(sessionId)
+    removeSession(this.sessions, sessionId)
   }
 
   /** The addon socket dropped: a virtual-gui session for it cannot outlive it. */
   handleInstanceGone(instanceId: string): void {
-    const session = this.sessions.get('virtual-gui:' + String(instanceId))
-    if (!session) return
-    session.status = 'stopped'
-    this.sessions.delete(session.id)
-    void this.lifecycle.disposeSession(session)
+    handleInstanceGone(this.sessions, this.lifecycle, instanceId)
   }
 
   limits(): VirtualGuiLimits {
@@ -316,48 +338,8 @@ export class SessionRegistry {
     sessionId?: string,
   ): SessionResult<{ session: Record<string, unknown> }> {
     this.prune()
-    const session = sessionId ? this.sessions.get(String(sessionId)) : this.findForCaller(c)
-    if (!session)
-      return fail(
-        'session_not_found',
-        'session',
-        'the session does not exist',
-        're-attach the GUI session',
-        {},
-      )
-    if (session.owner && !ownerMatches(session.owner, c)) {
-      return fail(
-        'session_in_use',
-        'session',
-        'another DSH session owns this GUI session',
-        'wait for the owner to release it',
-        { sessionId: session.id },
-      )
-    }
-    if (session.owner && !isMain(session, c)) {
-      return fail(
-        'session_in_use',
-        'session',
-        'only the owning main agent may heartbeat this GUI session',
-        'ask the main agent to heartbeat',
-        { sessionId: session.id },
-      )
-    }
-    if (!session.owner) {
-      if (c.role !== 'main') {
-        return fail(
-          'owner_required',
-          'session',
-          'only the main agent may reclaim a heartbeat-expired GUI session',
-          'ask the main agent to heartbeat or re-attach first',
-          { sessionId: session.id },
-        )
-      }
-      session.owner = ownerOf(c)
-    }
-    session.owner.heartbeatAt = Date.now()
-    touchAgent(session, c)
-    return { ok: true, session: sessionView(session) }
+    const found = sessionId ? this.sessions.get(String(sessionId)) : this.findForCaller(c)
+    return heartbeatSession(found ?? null, c)
   }
 
   doctor(
@@ -371,6 +353,7 @@ export class SessionRegistry {
     const session = sessionId
       ? (this.sessions.get(String(sessionId)) ?? null)
       : this.findForCaller(c)
+    if (session && !this.visible(c, session)) return foreignSession(session)
     return { ok: true, ...doctorFor(c, session, this.listInstances()) }
   }
 
@@ -480,7 +463,7 @@ export class SessionRegistry {
     c: CallerIdentity,
     sessionId: string | undefined,
     scopes: unknown,
-    opts: { py?: boolean; waitMs?: number } = {},
+    opts: { py?: boolean; pyLock?: boolean; waitMs?: number } = {},
   ): SessionResult<{ sessionId: string; mode: 'main' | 'grant'; grantId?: string }> {
     this.prune()
     const session = sessionId ? this.sessions.get(String(sessionId)) : this.findForCaller(c)
@@ -493,13 +476,26 @@ export class SessionRegistry {
         {},
       )
     }
-    if (!ownerMatches(session.owner, c)) {
+    // Attached, not merely same-DSH-session: a detached agent must not write even
+    // though it shares hostId/dshSessionId with the owner.
+    const attached = session.agents.has(callerKey(c))
+    const ownerAgent =
+      !!session.owner && ownerMatches(session.owner, c) && session.owner.agentId === c.agentId
+    if (!ownerMatches(session.owner, c) || (!attached && !ownerAgent)) {
       // The owner heartbeat expires on a long idle gap (OWNER_TTL_MS). A caller
       // already attached to this session may reclaim the free write lease
       // instead of failing the first py/op call after the gap.
       if (!session.owner && c.role === 'main' && session.agents.has(callerKey(c))) {
         session.owner = ownerOf(c)
         touchAgent(session, c)
+      } else if (ownerMatches(session.owner, c) && !attached) {
+        return fail(
+          'session_in_use',
+          'session',
+          'this agent is not attached to the GUI session (a detached agent cannot write)',
+          'call blender_session action=attach for this session first',
+          { sessionId: session.id, caller: callerView(c) },
+        )
       } else {
         return fail(
           'session_in_use',

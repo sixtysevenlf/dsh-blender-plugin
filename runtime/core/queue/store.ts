@@ -75,6 +75,26 @@ function ownerRow(value: unknown): JobRecord['owner'] | null {
 }
 
 /** Keep persisted rows that still carry the fields the queue reads. */
+function cacheRow(value: unknown): JobRecord['cache'] | null {
+  if (!isRecord(value)) return null
+  const keys = Array.isArray(value.keys) ? value.keys.filter((x) => typeof x === 'string') : []
+  const frames = Array.isArray(value.frames)
+    ? value.frames.map((x) => num(x)).filter((x) => Number.isFinite(x))
+    : []
+  const scene = isRecord(value.scene) ? value.scene : null
+  const stagingDir = text(value.stagingDir)
+  if (!scene || !stagingDir || typeof scene.path !== 'string') return null
+  return {
+    keys,
+    frames,
+    scene: { path: scene.path, size: num(scene.size), mtimeMs: num(scene.mtimeMs) },
+    stagingDir,
+    userOutdir: value.userOutdir === null ? null : text(value.userOutdir) || null,
+    hit: value.hit === true,
+    corrupt: value.corrupt === true,
+  }
+}
+
 function sanitizeRow(value: unknown): JobRecord | null {
   if (!isRecord(value)) return null
   const id = text(value.id)
@@ -85,6 +105,7 @@ function sanitizeRow(value: unknown): JobRecord | null {
   if (!id || !kind || !state || !params || !owner) return null
   const logs = isRecord(value.logs) ? value.logs : null
   const tempDir = text(value.tempDir)
+  const cache = cacheRow(value.cache)
   return {
     id,
     kind,
@@ -115,6 +136,9 @@ function sanitizeRow(value: unknown): JobRecord | null {
       ? (value.events.filter((x) => isRecord(x)) as unknown as JobRecord['events'])
       : [],
     ...(tempDir ? { tempDir } : {}),
+    // cache carries the staging directory the restore path must clean; dropping
+    // it left dsh-render-staging-* directories behind after a Gateway restart.
+    ...(cache ? { cache } : {}),
   }
 }
 

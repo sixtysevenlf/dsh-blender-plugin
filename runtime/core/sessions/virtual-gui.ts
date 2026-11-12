@@ -128,6 +128,8 @@ function handshakeFailure(
 export class VirtualGuiLifecycle {
   private readonly host: VirtualGuiHost
   private readonly selectProvider: ProviderSelector
+  /** Slots reserved between the capacity check and the session becoming ready. */
+  private readonly pending = new Set<string>()
 
   constructor(host: VirtualGuiHost, selectProvider: ProviderSelector = () => null) {
     this.host = host
@@ -147,7 +149,9 @@ export class VirtualGuiLifecycle {
     })
     if (!gated.ok) return gated
     const limits = this.host.limits()
-    const used = this.host.virtualGuiCount()
+    // Count in-flight starts too: two concurrent starts used to both pass this
+    // check and exceed the configured limit.
+    const used = this.host.virtualGuiCount() + this.pending.size
     if (used >= limits.limit) return capacityFailure(used, limits)
     const provider = this.selectProvider(capability)
     if (!provider)
@@ -159,14 +163,17 @@ export class VirtualGuiLifecycle {
         { provider: capability.provider, missing: capability.missing },
       )
     const instanceId = 'vgui-' + randomUUID().replace(/-/g, '').slice(0, 24)
+    this.pending.add(instanceId)
     let display: DisplayInstance
     try {
       display = await provider.start({ sessionId: instanceId, instanceId })
     } catch (error) {
+      this.pending.delete(instanceId)
       return providerFailure(error)
     }
     const ready = await this.host.waitForInstance(instanceId, VIRTUAL_GUI_HANDSHAKE_TIMEOUT_MS)
     if (!ready) {
+      this.pending.delete(instanceId)
       await this.dispose(display, provider)
       return handshakeFailure(instanceId, display, VIRTUAL_GUI_HANDSHAKE_TIMEOUT_MS)
     }
@@ -178,12 +185,14 @@ export class VirtualGuiLifecycle {
       status: 'ready',
       owner: ownerOf(caller),
       agents: new Map(),
+      claimants: new Set(),
       grants: new Map(),
       paused: false,
       pausedAt: null,
       activePy: null,
       humanEdits: new Map(),
       humanModifiedAt: null,
+      orphanedAt: null,
       notice: null,
       display,
       provider,
@@ -195,6 +204,7 @@ export class VirtualGuiLifecycle {
     // the virtual-gui it owns (the session then stayed alive as an orphan).
     touchAgent(session, caller)
     this.host.addSession(session)
+    this.pending.delete(instanceId)
     return { ok: true, session: sessionView(session) }
   }
 

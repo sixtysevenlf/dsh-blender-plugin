@@ -9,7 +9,10 @@ export function createFrameRoutes(E: HttpRouteDeps) {
     async frame(req: IncomingMessage, res: ServerResponse, url: URL, _p: string): Promise<void> {
       const size = Math.max(120, Math.min(1600, Number(url.searchParams.get('size') || 560)))
       const full = url.searchParams.get('full') === '1'
-      const areaIndex = Number(url.searchParams.get('area') || 0)
+      // full=1 without an area is the whole window (screen.screenshot); an
+      // explicit area keeps the single-editor grab.
+      const rawArea = url.searchParams.get('area')
+      const areaIndex = rawArea === null ? -1 : Number(rawArea)
       const instanceId = url.searchParams.get('instanceId') || ''
       const sessionId = url.searchParams.get('sessionId') || ''
       const gate = leaseGate(
@@ -24,7 +27,7 @@ export function createFrameRoutes(E: HttpRouteDeps) {
       try {
         const out = objArg(
           full
-            ? await engine.frameArea(areaIndex, instanceId)
+            ? await engine.frameArea(full && areaIndex < 0 ? -1 : areaIndex, instanceId, size)
             : await engine.frame(size, instanceId),
         )
         stats.frames++

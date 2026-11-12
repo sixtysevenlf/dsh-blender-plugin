@@ -102,7 +102,43 @@ function handshake(instanceId: string, protocol = 12): Record<string, unknown> {
   }
 }
 
+/** Raw upgrade request so the test controls the Origin header. */
+function upgradeStatus(port: number, origin: string): Promise<string> {
+  const CRLF = String.fromCharCode(13, 10)
+  return new Promise((resolve, reject) => {
+    const socket = net.connect({ host: '127.0.0.1', port })
+    sockets.push(socket)
+    let buf = ''
+    socket.once('connect', () => {
+      const lines = [
+        'GET /addon HTTP/1.1',
+        'Host: 127.0.0.1',
+        'Upgrade: websocket',
+        'Connection: Upgrade',
+        'Sec-WebSocket-Key: ' + crypto.randomBytes(16).toString('base64'),
+        'Sec-WebSocket-Version: 13',
+      ]
+      if (origin) lines.push('Origin: ' + origin)
+      socket.write(lines.join(CRLF) + CRLF + CRLF)
+    })
+    socket.on('data', (chunk: Buffer) => {
+      buf += chunk.toString('utf8')
+      if (buf.includes(CRLF)) resolve(buf.split(CRLF)[0])
+    })
+    socket.once('error', reject)
+  })
+}
+
 describe('Gateway addon WebSocket channel', () => {
+  it('rejects a browser page origin and keeps the native (no Origin) channel', async () => {
+    const app = createGatewayApp({ port: 0, heartbeatMs: 60000 })
+    apps.push(app)
+    const port = await listen(app)
+    expect(await upgradeStatus(port, 'http://evil.example')).toContain('403')
+    expect(await upgradeStatus(port, 'http://127.0.0.1:3000')).toContain('101')
+    expect(await upgradeStatus(port, '')).toContain('101')
+  })
+
   it('serves /health and upgrades /addon on the same port', async () => {
     const app = createGatewayApp({ port: 0, heartbeatMs: 60000 })
     apps.push(app)
@@ -220,20 +256,22 @@ describe('Gateway addon WebSocket channel', () => {
     expect(app.addonGateway.list()).toHaveLength(0)
   })
 
-  it('fails in-flight requests on reconnect and never replays them', async () => {
-    const app = createGatewayApp({ port: 0, heartbeatMs: 60000 })
+  it('fails in-flight requests on a silent-instance reconnect and never replays them', async () => {
+    // heartbeatMs also bounds how long a live connection may block a takeover, so
+    // a short value makes the old connection look silent without waiting 15s.
+    const app = createGatewayApp({ port: 0, heartbeatMs: 60 })
     apps.push(app)
     const port = await listen(app)
     const first = await dial(port)
     send(first, handshake('inst-a'))
     await nextMessage(first)
+    await new Promise((resolve) => setTimeout(resolve, 120))
 
     const pending = app.addonGateway.send('ping', {}, 5000, { instanceId: 'inst-a' })
     const pendingAssert = expect(pending).rejects.toMatchObject({
       code: 'instance_disconnected',
       message: 'instance reconnected',
     })
-    await nextMessage(first)
     const second = await dial(port)
     send(second, handshake('inst-a'))
     await nextMessage(second)
@@ -243,13 +281,33 @@ describe('Gateway addon WebSocket channel', () => {
     expect(app.addonGateway.list()[0].epoch).toBeGreaterThan(1)
   })
 
-  it('replaces a stale connection for the same instanceId', async () => {
+  it('refuses to replace a connection that is still answering, and keeps it routable', async () => {
     const app = createGatewayApp({ port: 0, heartbeatMs: 60000 })
     apps.push(app)
     const port = await listen(app)
     const first = await dial(port)
     send(first, handshake('inst-a'))
     await nextMessage(first)
+    const second = await dial(port)
+    send(second, handshake('inst-a'))
+    // The new socket gets an explicit refusal instead of seizing the instance.
+    expect(await nextMessage(second)).toMatchObject({ type: 'error', code: 'instance_in_use' })
+    expect(app.addonGateway.list()).toHaveLength(1)
+    expect(app.addonGateway.list()[0].epoch).toBe(1)
+    const pending = app.addonGateway.send('ping', {}, 2000, { instanceId: 'inst-a' })
+    const req = await nextMessage(first)
+    send(first, { status: 'success', result: { ok: 1 }, requestId: req.requestId })
+    await expect(pending).resolves.toEqual({ ok: 1 })
+  })
+
+  it('replaces a silent connection for the same instanceId', async () => {
+    const app = createGatewayApp({ port: 0, heartbeatMs: 60 })
+    apps.push(app)
+    const port = await listen(app)
+    const first = await dial(port)
+    send(first, handshake('inst-a'))
+    await nextMessage(first)
+    await new Promise((resolve) => setTimeout(resolve, 120))
     const second = await dial(port)
     send(second, handshake('inst-a'))
     await nextMessage(second)
@@ -262,11 +320,11 @@ describe('Gateway addon WebSocket channel', () => {
     await expect(pending).resolves.toEqual({ ok: 1 })
   })
 
-  it('silently replaces a reconnected instanceId without emitting connection_closed', async () => {
+  it('replaces a silent instanceId without emitting connection_closed', async () => {
     const events: Record<string, unknown>[] = []
     const app = createGatewayApp({
       port: 0,
-      heartbeatMs: 60000,
+      heartbeatMs: 60,
       onEvent: (event) => events.push(event),
     })
     apps.push(app)
@@ -274,6 +332,7 @@ describe('Gateway addon WebSocket channel', () => {
     const first = await dial(port)
     send(first, handshake('inst-a'))
     await nextMessage(first)
+    await new Promise((resolve) => setTimeout(resolve, 120))
 
     const second = await dial(port)
     send(second, handshake('inst-a'))

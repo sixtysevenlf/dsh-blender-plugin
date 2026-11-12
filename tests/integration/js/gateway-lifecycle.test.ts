@@ -1,8 +1,14 @@
+import { spawn } from 'node:child_process'
+import fs from 'node:fs'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createGatewayApp } from '../../../runtime/gateway/app.js'
 import type { GatewayApp } from '../../../runtime/gateway/app.js'
 import { startGateway, stopGateway } from '../../../runtime/gateway/lifecycle.js'
-import { readGatewayOwner, writeGatewayOwner } from '../../../runtime/gateway/owner.js'
+import {
+  gatewayStatePath,
+  readGatewayOwner,
+  writeGatewayOwner,
+} from '../../../runtime/gateway/owner.js'
 
 const apps: GatewayApp[] = []
 
@@ -102,6 +108,26 @@ describe('Gateway single-host lifecycle', () => {
     })
     // The failed attempt must not replace the original owner's identity.
     expect(readGatewayOwner(port)?.hostId).toBe('another-dsh-host')
+  })
+
+  it('ignores an owner file left behind by a dead Gateway', async () => {
+    const first = make()
+    const started = await startGateway(first, { handleSignals: false })
+    expect(started.ok).toBe(true)
+    const port = started.port
+    stopGateway(first)
+    const child = spawn(process.execPath, ['-e', ''], { stdio: 'ignore' })
+    await new Promise<void>((resolve) => child.once('exit', () => resolve()))
+    const alive = readGatewayOwner(port)
+    expect(alive).toBeNull()
+    fs.writeFileSync(
+      gatewayStatePath(port),
+      JSON.stringify({ gatewayId: 'gw-dead', hostId: 'gone-host', pid: child.pid, port }),
+      'utf8',
+    )
+    // The crashed Gateway's file must not turn a plain port conflict into GATEWAY_IN_USE.
+    expect(readGatewayOwner(port)).toBeNull()
+    fs.rmSync(gatewayStatePath(port), { force: true })
   })
 
   it('reports port_conflict with the occupying pid/process when no owner file exists', async () => {

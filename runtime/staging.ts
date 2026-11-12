@@ -50,6 +50,30 @@ interface StagingCandidate {
   win: string | null
   label: string
 }
+/** Why the script landed where it did; a substitution must explain itself. */
+function stagingNote(
+  substituted: boolean,
+  requested: string,
+  requestedWhy: string,
+  used: string,
+  sh: { shared: boolean | null; why: string },
+): string {
+  if (!substituted) return 'workDir 共享性检查通过（' + sh.why + '）'
+  return (
+    'workDir ' +
+    requested +
+    ' 在 Windows 侧不保证可见（' +
+    requestedWhy +
+    '）→ 本次脚本改落 ' +
+    used +
+    '（shared=' +
+    String(sh.shared) +
+    '，' +
+    sh.why +
+    '）；无头脚本必须放在 Blender 读得到的地方'
+  )
+}
+
 export function writeHeadlessScript(code: string): {
   wsl: string
   win: string
@@ -91,19 +115,7 @@ export function writeHeadlessScript(code: string): {
         usedWhy: sh.why,
         label: c.label,
         substituted: substituted,
-        note: substituted
-          ? 'workDir ' +
-            requested +
-            ' 在 Windows 侧不保证可见（' +
-            reqShared.why +
-            '）→ 本次脚本改落 ' +
-            c.dir +
-            '（shared=' +
-            String(sh.shared) +
-            '，' +
-            sh.why +
-            '）；无头脚本必须放在 Blender 读得到的地方'
-          : 'workDir 共享性检查通过（' + sh.why + '）',
+        note: stagingNote(substituted, requested, reqShared.why, c.dir, sh),
       },
     }
   }

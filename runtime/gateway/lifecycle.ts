@@ -49,7 +49,7 @@ function ownerProbe(port: number): PortProbe {
 }
 
 function conflictError(
-  app: GatewayApp,
+  port: number,
   existing: GatewayOwner | null,
   probe: PortProbe,
 ): Record<string, unknown> {
@@ -58,10 +58,10 @@ function conflictError(
     return {
       stage: 'config',
       code: 'GATEWAY_IN_USE',
-      port: app.port,
+      port: port,
       root_cause:
         'Gateway 端口 ' +
-        String(app.port) +
+        String(port) +
         ' 属于另一个 DSH host（hostId=' +
         String(existing.hostId) +
         '，pid=' +
@@ -69,21 +69,21 @@ function conflictError(
         '）；3.1 每个 host 一个 Gateway，不共享、不 attach、不复用。',
       fix: '停掉另一个 DSH host 的 Gateway，或为当前 host 显式设置另一个 DSH_BLENDER_GATEWAY_PORT。',
       fallback: 'Gateway 未启动；不会把请求路由到既有 Gateway。',
-      evidence: { port: app.port, owner: existing, probe },
+      evidence: { port: port, owner: existing, probe },
     }
   }
   return {
     stage: 'config',
     code: 'port_conflict',
-    port: app.port,
-    root_cause: 'Gateway 端口 ' + String(app.port) + ' 已被占用；3.1 不共享端口、不夺回。',
+    port: port,
+    root_cause: 'Gateway 端口 ' + String(port) + ' 已被占用；3.1 不共享端口、不夺回。',
     fix:
       '停掉占用进程，或显式设置 DSH_BLENDER_GATEWAY_PORT 为另一个 loopback 端口。' +
       '占用者：' +
       JSON.stringify(probe) +
       (existing ? '；同 host 的旧 Gateway 仍在运行，插件重载必须先停止旧 Gateway。' : ''),
     fallback: 'Gateway 未启动；Blender 保持未连接，不会自动降级到旧拓扑。',
-    evidence: { port: app.port, owner: existing, ownerFile: existing !== null, probe },
+    evidence: { port: port, owner: existing, ownerFile: existing !== null, probe },
   }
 }
 
@@ -105,6 +105,20 @@ export function stopGateway(app: GatewayApp): void {
   app.close()
 }
 
+/**
+ * Cheap ownership preflight: run it before building the app so a conflict fails
+ * closed in well under the 3 s budget instead of after catalog/engine startup.
+ */
+export function portConflict(port: number): Record<string, unknown> | null {
+  if (!(port > 0)) return null
+  const existing = readGatewayOwner(port)
+  // A live owner file already names the holder: skip the listener lookup, which
+  // shells out to netstat and is the slow part of this preflight under load.
+  const probe: PortProbe =
+    existing && existing.pid ? { port, pid: existing.pid, process: null } : ownerProbe(port)
+  return probe.pid === null ? null : conflictError(port, existing, probe)
+}
+
 /** Listen on the configured loopback port. Never steals or shares an occupied port. */
 export async function startGateway(
   app: GatewayApp,
@@ -112,18 +126,8 @@ export async function startGateway(
 ): Promise<GatewayStartResult> {
   // Explicit ownership preflight: do not wait for the bind error to discover an
   // unrelated listener, and never reclaim another host's Gateway.
-  if (app.port > 0) {
-    const existing = readGatewayOwner(app.port)
-    const probe = ownerProbe(app.port)
-    if (probe.pid !== null) {
-      return {
-        ok: false,
-        port: app.port,
-        homeLayout: app.homeLayout,
-        error: conflictError(app, existing, probe),
-      }
-    }
-  }
+  const conflict = portConflict(app.port)
+  if (conflict) return { ok: false, port: app.port, homeLayout: app.homeLayout, error: conflict }
   const owner = ownerOf(app)
   const ownerWithPort: GatewayOwner = { ...owner, port: app.port }
   return new Promise<GatewayStartResult>((resolve) => {
@@ -136,7 +140,7 @@ export async function startGateway(
     app.server.once('error', (e: NodeJS.ErrnoException) => {
       const code = String(e && e.code ? e.code : '')
       if (code === 'EADDRINUSE') {
-        fail(conflictError(app, readGatewayOwner(app.port), ownerProbe(app.port)))
+        fail(conflictError(app.port, readGatewayOwner(app.port), ownerProbe(app.port)))
         return
       }
       fail({

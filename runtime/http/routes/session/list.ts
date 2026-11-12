@@ -14,11 +14,8 @@ export function createWhoHandler(E: HttpRouteDeps) {
     const caller = currentCaller()
     json(res, 200, {
       ok: true,
-      sessions: !sessionRegistry
-        ? []
-        : caller
-          ? sessionRegistry.listFor(caller)
-          : sessionRegistry.list(),
+      // No caller header means no identity: never fall back to every session.
+      sessions: !sessionRegistry || !caller ? [] : sessionRegistry.listFor(caller),
       lease: leaseView(),
       metrics: engine.metrics(),
       stats: stats,

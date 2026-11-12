@@ -23,7 +23,10 @@ export function planRequestBody(
   routed: { sessionId?: string; instanceId?: string } = {},
 ): Record<string, unknown> {
   const body: Record<string, unknown> = { op: op, args: payload }
-  if (!isSessionRead(op) && !isHostLocalOp(op))
+  // dry-run is a local validation pass: the Gateway skips its session gate for
+  // it, so declaring a write scope here would look like a write request.
+  const dryRun = payload.dry_run === true
+  if (!isSessionRead(op) && !isHostLocalOp(op) && !dryRun)
     body.write_scope = text(argsIn.write_scope).trim() || 'exclusive'
   if (routed.sessionId) body.sessionId = routed.sessionId
   if (routed.instanceId) body.instanceId = routed.instanceId

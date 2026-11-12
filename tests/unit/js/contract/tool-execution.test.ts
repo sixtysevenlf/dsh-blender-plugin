@@ -151,6 +151,25 @@ describe('model tool execution semantics (six-tool surface)', () => {
     ).toBe(false)
   })
 
+  it('blender_op dry_run validates a write op without a session or write scope', async () => {
+    hideSessions()
+    const mark = backend.requests.length
+    const out = await run('blender_op', {
+      action: 'plan',
+      op: 'gate_deliver',
+      args: { dry_run: true },
+    })
+    expect(out.text).toContain('OP gate_deliver ok')
+    const body = requestSince(mark, 'POST', '/plan')?.body
+    expect(body.op).toBe('gate_deliver')
+    expect(body.write_scope).toBeUndefined()
+    expect(body.sessionId).toBeUndefined()
+    expect(
+      requestsSince(mark).some((r: any) => r.path === '/lease' && r.body?.action === 'list'),
+    ).toBe(false)
+    backend.setHandler('POST /lease')
+  })
+
   it('blender_op rejects an executing op without a ready session', async () => {
     hideSessions()
     const out = await run('blender_op', { action: 'plan', op: 'gate_deliver' })
@@ -359,6 +378,39 @@ describe('model tool execution semantics (six-tool surface)', () => {
     expect(seqForce.text).toContain('invalid_params')
   })
 
+  it('blender_see keeps sequence frames as attachment refs and rejects a fixed viewpoint', async () => {
+    const bad = await run('blender_see', {
+      mode: 'sequence',
+      viewpoint: 'viewport',
+      from: '1,2,3',
+      look_at: '0,0,0',
+      seconds: 0.2,
+      fps: 5,
+    })
+    expect(bad.text).toContain('不接受 from/look_at')
+    expect(bad.text).toContain('invalid_params')
+
+    // Explicit false must read as "off", not as a present field.
+    const ok = await run('blender_see', {
+      mode: 'sequence',
+      viewpoint: 'viewport',
+      full: false,
+      seconds: 0.2,
+      fps: 5,
+    })
+    expect(ok.text).toContain('SEE sequence(viewport)')
+    expect(Array.isArray(ok.images)).toBe(true)
+    expect(ok.images[0].attachmentId).toContain('see-seq-')
+  })
+
+  it('blender_see treats camera=false as the scene camera, not a camera named false', async () => {
+    const mark = backend.requests.length
+    const out = await run('blender_see', { viewpoint: 'camera', camera: false })
+    expect(out.text).toContain('SEE camera')
+    const body = requestSince(mark, 'POST', '/view')?.body
+    expect(String(body?.camera ?? '')).not.toBe('false')
+  })
+
   it('blender_run submits a declarative render job to the queue', async () => {
     backend.setHandler('POST /job', () => ({
       status: 200,
@@ -408,10 +460,11 @@ describe('model tool execution semantics (six-tool surface)', () => {
     backend.setHandler('POST /job')
   })
 
-  it('blender_inspect help lists only executable read commands', async () => {
+  it('blender_inspect help separates executable commands from gated ones', async () => {
     const out = await run('blender_inspect', {})
-    expect(out.text).toContain('INSPECT help · 2 个可执行只读命令')
+    expect(out.text).toContain('INSPECT help · 1 个可执行只读命令 · 1 个被 gate 关闭')
     expect(out.text).toContain('get_scene_info')
+    expect(out.text).toContain('被 gate 关闭（enabled=false，当前不可执行）')
     expect(out.text).toContain('DISABLED(polyhaven)')
     expect(out.text).toContain('内部传输命令不列出')
     expect(out.text).not.toContain('get_viewport_screenshot')

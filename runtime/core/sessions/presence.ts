@@ -32,6 +32,10 @@ function nextShortId(s: SessionRecord): string {
 export function touchAgent(s: SessionRecord, c: CallerIdentity): AgentPresence {
   const key = callerKey(c)
   const now = Date.now()
+  // Visibility outlives presence: a session that loses its owner (instance drop,
+  // TTL) must stay readable by the agents that were attached to it.
+  s.claimants.add(key)
+  s.orphanedAt = null
   let agent = s.agents.get(key)
   if (!agent) {
     agent = {

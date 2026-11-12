@@ -21,12 +21,12 @@ import {
 import type { WsFrame } from './ws.js'
 import {
   ADDON_PROTOCOL_VERSION,
-  ADDON_WS_PATH,
   HEARTBEAT_DEAD_MS,
   HEARTBEAT_MS,
   MAX_MESSAGE_BYTES,
 } from './gateway-schema.generated.js'
-import { validateHandshake } from './addon-handshake.js'
+import { checkUpgrade, validateHandshake } from './addon-handshake.js'
+
 import type { AddonHandshake, AddonHandshakeError, AddonInstanceView } from './addon-handshake.js'
 
 export { validateHandshake, gatewayInstances, gatewayHandshakeError } from './addon-handshake.js'
@@ -250,20 +250,12 @@ export class AddonGateway {
       socket.destroy()
       return
     }
-    const path = String(req.url || '').split('?')[0]
-    if (path !== ADDON_WS_PATH) {
-      socket.write('HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n')
-      socket.destroy()
-      return
-    }
-    const key = String(req.headers['sec-websocket-key'] || '')
-    const upgrade = String(req.headers.upgrade || '').toLowerCase()
-    if (
-      upgrade !== 'websocket' ||
-      !key ||
-      String(req.headers['sec-websocket-version'] || '') !== '13'
-    ) {
-      socket.write('HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n')
+    const { reject, key } = checkUpgrade(req)
+    if (reject) {
+      // Built from parts: a literal newline in the source would send LF-only.
+      const head = 'HTTP/1.1 ' + String(reject.status) + ' ' + reject.text
+      const crlf = String.fromCharCode(13, 10)
+      socket.write(head + crlf + 'Content-Length: 0' + crlf + crlf)
       socket.destroy()
       return
     }
@@ -393,6 +385,35 @@ export class AddonGateway {
     this.sendJson(conn, { type: 'protocol_error', message: '未知消息类型：' + String(msg.type) })
   }
 
+  /** One socket owns one instance: switching instanceId would orphan the first. */
+  private rejectRebind(conn: Connection, hs: { instanceId: string }): void {
+    const message =
+      '该连接已绑定实例 ' +
+      String(conn.instance?.instanceId) +
+      '，不能在同一连接上切换 instanceId。'
+    this.sendJson(conn, {
+      type: 'handshake_error',
+      stage: 'handshake',
+      code: 'invalid_field',
+      message,
+      fix: '为新的 instanceId 建立新的 WebSocket 连接。',
+    })
+    this.onEvent?.({ type: 'handshake_rejected', code: 'invalid_field', epoch: conn.epoch })
+    void hs
+  }
+
+  /** A live holder keeps its channel; only a heartbeat-silent one may be replaced. */
+  private rejectLiveDuplicate(conn: Connection, hs: { instanceId: string }): void {
+    this.sendJson(conn, {
+      type: 'error',
+      code: 'instance_in_use',
+      message: '实例 ' + hs.instanceId + ' 已有活动连接；旧连接会先被心跳回收，之后才能重连。',
+    })
+    this.onEvent?.({ type: 'handshake_rejected', code: 'instance_in_use', epoch: conn.epoch })
+    conn.instance = null
+    this.destroyConnection(conn, 4009, 'instance in use')
+  }
+
   private handleHandshake(conn: Connection, msg: Record<string, unknown>): void {
     const value = (
       msg.handshake && typeof msg.handshake === 'object' ? msg.handshake : msg
@@ -416,22 +437,21 @@ export class AddonGateway {
     // One socket owns exactly one instance. Re-handshaking the same socket with a
     // different instanceId would leave the first instance with no connection.
     if (conn.instance && conn.instance.instanceId !== hs.instanceId) {
-      const message =
-        '该连接已绑定实例 ' + conn.instance.instanceId + '，不能在同一连接上切换 instanceId。'
-      this.sendJson(conn, {
-        type: 'handshake_error',
-        stage: 'handshake',
-        code: 'invalid_field',
-        message,
-        fix: '为新的 instanceId 建立新的 WebSocket 连接。',
-      })
-      this.onEvent?.({ type: 'handshake_rejected', code: 'invalid_field', epoch: conn.epoch })
+      this.rejectRebind(conn, hs)
       return
     }
     // Register the replacement BEFORE tearing down the old connection: a
     // superseded drop must not be reported as a real disconnect (that event makes
     // the session registry reap a virtual-gui it should keep).
     const previous = this.connectionFor(hs.instanceId)
+    // A connection that is still answering heartbeats is not replaced: otherwise
+    // any local process (or a page that guessed the instanceId) could take over a
+    // running Blender's control channel. A silent connection may be superseded —
+    // that is what an addon restart or a dropped link looks like.
+    if (previous && previous !== conn && Date.now() - previous.lastSeen <= this.heartbeatMs) {
+      this.rejectLiveDuplicate(conn, hs)
+      return
+    }
     conn.instance = hs
     const view: AddonInstanceView = {
       instanceId: hs.instanceId,

@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -304,6 +305,37 @@ describe('3.1 queue executor command shape', () => {
     expect(args.slice(-5)).toEqual(['-s', '1', '-e', '2', '-a'])
   })
 
+  it('render without resolution still defines the scene alias and cannot exit 0 on Python errors', () => {
+    const { args } = buildJobArgs(
+      record('render', {
+        file: 'scene.blend',
+        engine: 'CYCLES',
+        samples: 2,
+        format: 'PNG',
+        frames: [1, 1],
+      }),
+      os.tmpdir(),
+    )
+    const expr = args[args.indexOf('--python-expr') + 1]
+    // Every declarative field writes through `s`; without resolution that alias
+    // used to be missing, so samples/format raised NameError and Blender exited 0.
+    expect(expr).toContain('s=bpy.context.scene')
+    expect(expr).toContain('s.cycles.samples=2')
+    expect(args[args.indexOf('--python-exit-code') + 1]).toBe('2')
+  })
+
+  it('parses negative frame ranges and rejects the strings that used to be misread', () => {
+    const { args } = buildJobArgs(
+      record('render', { file: 'scene.blend', frames: '-5--1' }),
+      os.tmpdir(),
+    )
+    expect(args.slice(-5)).toEqual(['-s', '-5', '-e', '-1', '-a'])
+    for (const frames of ['1-2-3', '3-']) {
+      const bad = record('render', { file: 'scene.blend', frames })
+      expect(() => buildJobArgs(bad, os.tmpdir())).toThrow(/frames/)
+    }
+  })
+
   it('render with camera + frames previews an animation without a GUI session', () => {
     const { args } = buildJobArgs(
       record('render', {
@@ -347,6 +379,51 @@ describe('3.1 queue executor command shape', () => {
     expect(fs.readFileSync(path.join(dir, 'job.py'), 'utf8')).toContain('HEADLESS')
   })
 
+  it('headless preload imports modules before the script and rejects injected tokens', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-queue-args-'))
+    const { args } = buildJobArgs(
+      record('headless', { script: 'print(1)', preload: 'numpy, math, import os' }),
+      dir,
+    )
+    const expr = args[args.indexOf('--python-expr') + 1]
+    expect(expr).toBe('import numpy, math, os')
+    expect(args.indexOf('--python-expr')).toBeLessThan(args.indexOf('--python'))
+  })
+
+  it('headless out_json persists the HEADLESS marker instead of ignoring the param', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-queue-out-'))
+    const outJson = path.join(root, 'nested', 'out.json')
+    const child = new EventEmitter() as any
+    child.pid = 4242
+    child.kill = () => {}
+    child.stdout = new EventEmitter()
+    child.stderr = new EventEmitter()
+    let spawnArgs: string[] = []
+    const executor = new SpawnJobExecutor({
+      blenderExe: 'blender',
+      tempRoot: root,
+      spawnImpl: ((_exe: string, args: string[]) => {
+        spawnArgs = args
+        process.nextTick(() => {
+          child.stdout.emit('data', Buffer.from('HEADLESS {"ok":true,"value":7}\n'))
+          child.emit('close', 0, null)
+        })
+        return child
+      }) as any,
+    })
+    const handle = executor.start(
+      record('headless', { script: 'print(1)', out_json: outJson, preload: 'numpy' }),
+    )
+    const result = await handle.done
+    expect(spawnArgs).toContain('--python-expr')
+    expect(result.parsed).toEqual({ ok: true, value: 7 })
+    expect(JSON.parse(fs.readFileSync(outJson, 'utf8'))).toEqual({
+      ok: true,
+      exitCode: 0,
+      result: { ok: true, value: 7 },
+    })
+  })
+
   it('attributes a missing Blender executable to stage spawn', async () => {
     const missing = path.join(os.tmpdir(), 'missing-blender-' + process.pid)
     const executor = new SpawnJobExecutor({ blenderExe: missing })
@@ -359,6 +436,33 @@ describe('3.1 queue executor command shape', () => {
 })
 
 describe('3.1 job queue persistence', () => {
+  it('keeps the render cache state so a restart can clean its staging dir', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-queue-cache-'))
+    const file = path.join(dir, 'queue.json')
+    const store = new JsonJobStore(file)
+    const row = {
+      id: 'job-c',
+      kind: 'render',
+      params: { file: 'scene.blend', frames: [1, 1] },
+      state: 'running',
+      slot: 'gpu',
+      owner: { hostId: 'h', dshSessionId: 'd', agentId: 'a' },
+      cache: {
+        keys: ['k1'],
+        frames: [1],
+        scene: { path: 'scene.blend', size: 10, mtimeMs: 20 },
+        stagingDir: path.join(dir, 'staging'),
+        userOutdir: null,
+        hit: false,
+        corrupt: false,
+      },
+    }
+    fs.writeFileSync(file, JSON.stringify({ version: 1, jobs: [row] }))
+    const [loaded] = store.load()
+    expect(loaded.cache).toEqual(row.cache)
+    expect(loaded.state).toBe('running')
+  })
+
   it('quarantines a corrupt state file instead of failing the Gateway', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-queue-'))
     const file = path.join(dir, 'queue.json')

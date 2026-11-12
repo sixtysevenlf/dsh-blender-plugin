@@ -119,6 +119,52 @@ describe('virtual-gui lifecycle', () => {
     expect(reg.listFor(MAIN)).toEqual([])
   })
 
+  it('does not let two concurrent starts exceed the limit', async () => {
+    const { provider, started } = fakeProvider()
+    const gate: { release?: () => void } = {}
+    const slow: DisplayProvider = {
+      ...provider,
+      async start(request) {
+        await new Promise<void>((resolve) => {
+          gate.release = resolve
+        })
+        return provider.start(request)
+      },
+    }
+    const reg = makeRegistry({ provider: slow, max: 1 })
+    const first = reg.start(MAIN)
+    const second = reg.start({ ...MAIN, agentId: 'b' })
+    await Promise.resolve()
+    gate.release?.()
+    const results = await Promise.all([first, second])
+    expect(results.filter((r) => r.ok)).toHaveLength(1)
+    const rejected = results.find((r) => !r.ok)
+    expect(rejected && !rejected.ok ? rejected.code : '').toBe('capacity')
+    expect(started).toHaveLength(1)
+    expect(reg.virtualGuiCount()).toBe(1)
+  })
+
+  it('stops a virtual-gui whose owner lease lapsed and frees the slot', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-11-08T00:00:00Z'))
+    const { provider, stopped } = fakeProvider()
+    const reg = makeRegistry({ provider, max: 1 })
+    const started = await reg.start(MAIN)
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    // 121s lapses the owner lease; the grace window must pass before the reaper
+    // stops the display, so the creator can still reclaim it in between.
+    vi.advanceTimersByTime(121_000)
+    expect(reg.listFor(MAIN)).toHaveLength(1)
+    vi.advanceTimersByTime(61_000)
+    // Any registry call prunes: the ownerless, unattached virtual-gui must go.
+    expect(reg.listFor(MAIN)).toEqual([])
+    await Promise.resolve()
+    expect(stopped).toHaveLength(1)
+    const again = await reg.start(MAIN)
+    expect(again.ok).toBe(true)
+  })
+
   it('passes a structured provider error through without leaving a session', async () => {
     const provider = {
       kind: 'fake',
