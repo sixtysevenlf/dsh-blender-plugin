@@ -91,7 +91,8 @@ REGISTERED_COMMANDS = (
     _command("get_polypizza_status"),
     _command("get_hunyuan3d_status"),
     # -- polyhaven gate ----------------------------------------------------
-    _command("get_polyhaven_categories", ("asset_type",), gate="polyhaven"),
+    _command("get_polyhaven_categories", ("asset_type",), gate="polyhaven",
+             network=True),
     _command("search_polyhaven_assets",
              ("asset_type", "category", "attributes", "query", "limit", "min_size_m"),
              gate="polyhaven", network=True),

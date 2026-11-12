@@ -28,6 +28,12 @@ def test_network_commands_fail_closed_when_online_access_is_off(monkeypatch):
     assert "online access" in blocked["message"].lower()
     assert "Allow Online Access" in blocked["fix"]
 
+    categories = server.execute_command(
+        {"type": "get_polyhaven_categories", "params": {"asset_type": "models"}}
+    )
+    assert categories["status"] == "error"
+    assert categories["code"] == "network_policy"
+
     local = server.execute_command({"type": "get_addon_info", "params": {}})
     assert local["status"] == "success"
     assert local["result"]["protocol_version"] == 12

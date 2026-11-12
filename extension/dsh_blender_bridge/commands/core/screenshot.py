@@ -40,6 +40,23 @@ def _payload(value):
     return None
 
 
+def _area_index_for(area_types, area_index):
+    """Index of the requested editor; None means the 3D viewport, never areas[0].
+
+    areas[0] is usually the PROPERTIES editor, so a full=true capture without an
+    explicit area used to return the wrong editor. Returns -1 when out of range.
+    """
+    if not area_types:
+        return -1
+    if area_index is None:
+        return next((i for i, kind in enumerate(area_types) if kind == "VIEW_3D"), 0)
+    try:
+        index = int(area_index)
+    except (TypeError, ValueError):
+        return -1
+    return index if 0 <= index < len(area_types) else -1
+
+
 class ScreenshotCommands:
     def get_viewport_screenshot(self, max_size=800, filepath=None, format="png",
                                 spec=None, presence=None, area=None):
@@ -60,8 +77,10 @@ class ScreenshotCommands:
             return self._apply_presence(presence)
         if spec is not None:
             return self._readonly_capture(spec)
+        if area == "window":
+            return self._window_screenshot(filepath, format, max_size)
         if area is not None:
-            return self._area_screenshot(area, filepath, format)
+            return self._area_screenshot(area, filepath, format, max_size)
         # screen.screenshot_area captures the OS window framebuffer, which is
         # all-black whenever the Blender window is not composited in the
         # foreground (the normal case when Blender is driven headless-style via
@@ -156,8 +175,49 @@ class ScreenshotCommands:
             return {"error": "presence update failed: %s" % str(exc), "code": "presence_failed"}
         return {"success": True, "presence": True}
 
-    def _area_screenshot(self, area_index, filepath, image_format):
-        """Full-window capture of one screen area (pause-safe: started with get_)."""
+    def _window_screenshot(self, filepath, image_format, max_size=1024):
+        """Whole-window capture (full=true): screen.screenshot keeps every editor.
+
+        The framebuffer is only complete while the window is composited, so the
+        receipt says which path produced it; callers that need a trustworthy
+        image use viewpoint=custom/camera instead.
+        """
+        if not filepath:
+            return {"error": "No filepath provided"}
+        try:
+            limit = max(1, int(max_size or 1024))
+            window = bpy.context.window
+            if window is None:
+                return {"error": "No window found for the current screen"}
+            with bpy.context.temp_override(window=window):
+                bpy.ops.screen.screenshot(filepath=filepath)
+            image = bpy.data.images.load(filepath)
+            width, height = image.size
+            if max(width, height) > limit:
+                scale = limit / max(width, height)
+                width, height = max(1, int(width * scale)), max(1, int(height * scale))
+                image.scale(width, height)
+                image.file_format = image_format.upper()
+                image.save()
+            bpy.data.images.remove(image)
+            return {
+                "success": True,
+                "width": int(width),
+                "height": int(height),
+                "filepath": filepath,
+                "method": "screenshot_window",
+                "area": "window",
+            }
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    def _area_screenshot(self, area_index, filepath, image_format, max_size=1024):
+        """Full-window capture of one screen area (pause-safe: started with get_).
+
+        The window grab is resized to max_size on its longest edge: the see spec
+        requires a fixed 1024-pixel longest edge for full=true, and the raw
+        framebuffer is usually much larger than that.
+        """
         if not filepath:
             return {"error": "No filepath provided"}
         try:
@@ -165,7 +225,12 @@ class ScreenshotCommands:
             areas = list(screen.areas)
             if not areas:
                 return {"error": "No areas found in the current screen"}
-            index = min(max(0, int(area_index)), len(areas) - 1)
+            limit = max(1, int(max_size or 1024))
+            index = _area_index_for([a.type for a in areas], area_index)
+            if index < 0:
+                return {"error": "area %s is out of range (0..%d)"
+                        % (area_index, len(areas) - 1),
+                        "code": "invalid_area"}
             target = areas[index]
             window = next(
                 (w for w in bpy.context.window_manager.windows if w.screen == screen), None)
@@ -175,6 +240,12 @@ class ScreenshotCommands:
                 bpy.ops.screen.screenshot_area(filepath=filepath)
             image = bpy.data.images.load(filepath)
             width, height = image.size
+            if max(width, height) > limit:
+                scale = limit / max(width, height)
+                width, height = max(1, int(width * scale)), max(1, int(height * scale))
+                image.scale(width, height)
+                image.file_format = image_format.upper()
+                image.save()
             bpy.data.images.remove(image)
             return {
                 "success": True,

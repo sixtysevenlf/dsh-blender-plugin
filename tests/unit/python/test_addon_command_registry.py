@@ -72,6 +72,7 @@ def test_protocol_no_longer_reexports_the_command_registry():
 
 def test_network_commands_are_declared_with_their_policy():
     expected = {
+        "get_polyhaven_categories",
         "search_polyhaven_assets",
         "poll_rodin_job_status",
         "search_sketchfab_models",
