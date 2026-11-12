@@ -151,7 +151,8 @@ describe('invalid cache.render on the plugin layer reaches the doctor channel', 
       layer('plugin', JSON.parse(payload.json), null),
     ])
     expect(merged.cfg.cache).toMatchObject({ render: { maxEntries: 0 } })
-    const resolved = normalizeRenderCacheLimits(merged.cfg.cache.render)
+    const cache = merged.cfg.cache as { render: unknown }
+    const resolved = normalizeRenderCacheLimits(cache.render)
     expect(resolved.limits.maxEntries).toBe(8)
     expect(resolved.issues).toEqual([
       expect.objectContaining({

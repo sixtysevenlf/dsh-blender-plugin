@@ -28,7 +28,7 @@ function jsonFromStdout(out: unknown): unknown {
 
 /** 路径映射见 config.mjs：winToWsl / wslToWin（Windows 上原样返回） */
 
-/** 无头运行用的 python 脚本落到 Windows 可见目录；/mnt 不可写时退回包内 tmp + UNC */
+/** 无头运行用的 python 脚本落到 Windows 可见目录；workDir 不可写时退回用户 home 或 OS 临时目录 */
 /** v0.8.10：长输出"头+尾+省略标记"—— 旧版只回尾部，长 JSON 的头被吃掉 */
 function clipMiddle(s: unknown, head: number, tail: number): string {
   const t = String(s == null ? '' : s)

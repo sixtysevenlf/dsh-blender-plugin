@@ -7,7 +7,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { wslPathShared, wslToWin } from './config.js'
-import { WIN_TMP, WSL_TMP, PY_ROOT, blenderJoin } from './paths.js'
+import { WIN_TMP, WSL_TMP, blenderJoin } from './paths.js'
 import { errorMessage } from './core/json.js'
 
 /**
@@ -58,15 +58,19 @@ export function writeHeadlessScript(code: string): {
   const name = headlessScriptName()
   const requested = WSL_TMP
   const reqShared = wslPathShared(requested)
-  // 候选：请求的 workDir（判为不可共享时降级）→ 用户 home（发行版根文件系统，Windows 可见）→ 包内 tmp
+  // 候选：请求的 workDir（判为不可共享时降级）→ 用户 home（发行版根文件系统，Windows 可见）→ OS 临时目录
   const wanted = { dir: requested, win: blenderJoin(WIN_TMP, name), label: 'workDir' }
   const homeTmp = {
     dir: path.join(os.homedir(), '.dsh', 'dsh-blender-rt'),
     win: null,
     label: 'fallback:home',
   }
-  const pkgTmp = { dir: path.join(PY_ROOT, 'tmp'), win: null, label: 'fallback:pkg' }
-  const cands = reqShared.shared === false ? [homeTmp, pkgTmp, wanted] : [wanted, homeTmp, pkgTmp]
+  const osTmp = {
+    dir: path.join(os.tmpdir(), 'dsh-blender-rt'),
+    win: null,
+    label: 'fallback:tmpdir',
+  }
+  const cands = reqShared.shared === false ? [homeTmp, osTmp, wanted] : [wanted, homeTmp, osTmp]
   const errs: string[] = []
   const tryWrite = (c: StagingCandidate): { wsl: string; win: string; staging: StagingInfo } => {
     fs.mkdirSync(c.dir, { recursive: true })

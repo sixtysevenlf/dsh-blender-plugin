@@ -28,6 +28,7 @@
 
 ### 修复
 
+- 工程（工作区卫生）：`workDir` 探写失败时的回退与无头脚本暂存不再写包内 `tmp/`，只落 OS 临时目录；新增 AGENTS 工作区卫生规则（`local-workspace/` 不存在时创建），并清理 `.gitignore` 的重复条目与过期备注。
 - 视觉 op 在 `/plan` 上按 host-local 只读处理：8 个 `vision_*` 归入 `PLAN_HOST_LOCAL_OPS`，不取 lease、不解析会话、不要求 `write_scope`，Blender 未连接也能用。
 - 托管视觉安装补齐每步预算（下载 900 s、建 venv 300 s、解压 300 s、pip 1800 s、probe 60 s），venv 收尾改为原子交换：失败回滚旧目录、清理临时目录，`vision_install_failed` 的 `details.stage` 指明失败步骤。
 - `vision.model` 随每个 worker-backed 请求下发，改模型对下一次请求生效，不再重启 worker 或 Gateway；`vision_status` 与成功回执回显 `configRevision`。

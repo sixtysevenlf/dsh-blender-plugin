@@ -1,50 +1,55 @@
-node_modules/
+# 依赖目录与依赖符号链接（node_modules/ 只匹配目录，符号链接需要不带斜杠的写法）
+node_modules
+
+# Python 缓存与测试缓存
 __pycache__/
 .pytest_cache/
 .vitest/
 *.pyc
+
+# 本地覆盖配置
 dsh-blender.config.json
+
+# 本地打包产物（已提交的扩展 zip 除外）
 *.tgz
 *.zip
 !extension/dsh_blender_bridge.zip
+
+# 本地日志与桌面系统文件
 *.log
 .DS_Store
 
 # Python 虚拟环境（open3d 等大依赖，1.2G，绝不入库；用 runtime/ext/README 里的安装说明重建）
 venv/
-runtime/ext/venv/
 .venv/
-.venv.broken-*/
 
-# Ruff editor cache
+# Ruff 静态检查缓存
 .ruff_cache/
 
-# 工作树/构建用的依赖符号链接（node_modules/ 只匹配目录，符号链接要单独忽略）
-node_modules
-
-# 构建产物（T15：prepack 重建，不入库）
-/lib/
+# 构建产物（prepack 重建，不入库；目录与符号链接都匹配）
 /lib
 
-# T12: coverage artifacts
+# coverage 产物（pytest-cov / coverage.py）
 coverage/
 .coverage
 
-#openspec skill
+# OpenSpec 生成的 agent skill 目标（由 openspec 生成，不入库）
 .agents/
 
-# Local-only working notes and evidence: never commit
+# 本地工作笔记与证据：绝不入库
 /docs/refactor/
 /.dsh/
 
-# Agent-local working directory (never committed)
+# Agent 临时工作区：不属于仓库，不存在时自行创建
 /local-workspace/
-# Local PR-review workspace (never committed or shipped)
+# 本地 PR 审查工作区（绝不入库或随包发布）
 /.review-tmp/
+
+# 编辑器本地设置（setup-dev 按需创建）
 .vscode/
 
-# Windows hidden-desktop helper build output (scripts/build-win-helper.mjs)
+# Windows hidden-desktop helper 构建输出（scripts/build-win-helper.mjs）
 /native/win-hidden-desktop/out/
 
-# Windows hidden-desktop helper staged for the npm tarball (release pipeline only)
+# Windows hidden-desktop helper 的发布暂存（仅 release 流水线使用）
 /vendor/

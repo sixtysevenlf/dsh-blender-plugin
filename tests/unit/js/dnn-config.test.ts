@@ -10,6 +10,7 @@ import {
   type DnnRpcDeps,
 } from '../../../src/host/dnn-config.js'
 import { resetDnnDownloadForTests } from '../../../src/host/dnn-download.js'
+import type { ProbeOptions } from '../../../src/host/dnn-probe.js'
 import { dispatchVirtualGuiRpc } from '../../../src/host/virtual-gui-permission.js'
 
 const OWNER = { principal: { kind: 'owner' } }
@@ -761,10 +762,16 @@ describe('dnn config rpc', () => {
 
   it('passes the env lock into probe and reports the invalid raw value', async () => {
     const home = tempDir()
-    const captured: Array<Record<string, unknown>> = []
-    const probe = async (options: Record<string, unknown>) => {
+    const captured: ProbeOptions[] = []
+    const probe = async (options: ProbeOptions) => {
       captured.push(options)
-      return { ok: true, checks: [], summary: { pass: 0, warn: 0, fail: 0 }, elapsedMs: 1 }
+      return {
+        ok: true,
+        checks: [],
+        summary: { pass: 0, warn: 0, fail: 0 },
+        elapsedMs: 1,
+        candidate: null,
+      }
     }
     const locked = await call({ op: 'probe', candidate: candidate() }, home, {
       env: { DSH_BLENDER_DNN: 'off' },

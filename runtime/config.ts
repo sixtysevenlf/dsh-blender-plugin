@@ -512,17 +512,14 @@ export function legacyWorkDirs(): string[] {
 /**
  * workDir **可写性自证 + 回退**（现场：/mnt/d 变只读后，后端写不了自己的 status/ledger 就起不来，
  * 而报错只说"看后端日志"，没有一句"你的 workDir 不可写"—— 40 分钟就这么没了）。
- * 顺序：配置/自动探测的候选 → 包内 tmp（工作区内，通常可写）→ OS tmpdir。回退必须显式留痕。
+ * 顺序：配置/自动探测的候选 → OS tmpdir。回退必须显式留痕；绝不写包目录
+ *（包目录是仓库/发布内容，不能因为 workDir 不可写就在里面制造临时文件）。
  */
 function resolveWorkDir(): WorkDirInfo {
   const cand = resolveWorkDirRaw()
   const pr = probeWritable(cand.wsl)
   if (pr.ok) return Object.assign({}, cand, { writable: true, fallback: null })
-  const pkgTmp = path.join(PKG_ROOT, 'tmp')
-  const tries = [
-    { dir: pkgTmp, from: 'fallback:pkg-tmp' },
-    { dir: path.join(os.tmpdir(), 'dsh-blender-rt'), from: 'fallback:tmpdir' },
-  ]
+  const tries = [{ dir: path.join(os.tmpdir(), 'dsh-blender-rt'), from: 'fallback:tmpdir' }]
   const errs = [cand.wsl + '（' + cand.from + '）：' + pr.why]
   for (const t of tries) {
     const p2 = probeWritable(t.dir)

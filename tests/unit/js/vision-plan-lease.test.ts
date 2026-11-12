@@ -55,6 +55,11 @@ function route() {
 
 let response: { code: number; obj: unknown } | null = null
 
+function lastResponse(): { code: number; obj: unknown } {
+  if (!response) throw new Error('route did not respond')
+  return response
+}
+
 describe('/plan host-local vision ops', () => {
   beforeEach(() => {
     response = null
@@ -79,8 +84,9 @@ describe('/plan host-local vision ops', () => {
       await runWithCaller(callerFromRequest(req), () =>
         route().plan(req, {} as never, new URL('http://127.0.0.1/plan'), '/plan'),
       )
-      expect(response?.code, op).toBe(200)
-      expect(response?.obj, op).not.toMatchObject({ stage: 'session' })
+      const res = lastResponse()
+      expect(res.code, op).toBe(200)
+      expect(res.obj, op).not.toMatchObject({ stage: 'session' })
     }
   })
 

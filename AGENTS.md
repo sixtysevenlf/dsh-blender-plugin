@@ -53,12 +53,9 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
 
 ## 3. Hard rules
 
-- **Installed means verified.** GUI route: `doctor` returns `kind=ok`. Headless-only route:
-  `blender_run(kind="headless")` submit + `wait`/`collect` returns outputs. Never report success otherwise.
-- **Install, config, and troubleshooting facts** live in [docs/操作教程.md](docs/操作教程.md) and
-  [docs/配置参考.md](docs/配置参考.md). Read them before advising.
-- **Only the bundled addon is supported** (`extension/dsh_blender_bridge.zip`, v2.0.0 / protocol 12).
-  MCP for Blender is unsupported since v2.3; migration is in [MIGRATIONS.md](MIGRATIONS.md).
+- **Installed means verified.** GUI: `doctor` returns `kind=ok`; headless: `blender_run(kind="headless")` submit + `wait`/`collect` returns outputs. Never report success otherwise.
+- **Install, config, and troubleshooting facts** live in [docs/操作教程.md](docs/操作教程.md) and [docs/配置参考.md](docs/配置参考.md); read them before advising.
+- **Only the bundled addon is supported** (`extension/dsh_blender_bridge.zip`, v2.0.0 / protocol 12); MCP for Blender is unsupported since v2.3; migration is in [MIGRATIONS.md](MIGRATIONS.md).
 - **Tool and op names come from the catalog**: `blender_op(op="catalog")`; fix from `did_you_mean`.
 - **Not installed / not covered**: landmark and face (no cv2 or MediaPipe), OCR, DXF,
   Open3D / manifold3d / glTF-Validator. Never document them as supported.
@@ -69,6 +66,9 @@ Flow: DSH host → `src/` tools → backend HTTP → engine dispatch → Blender
 - **Migrate in slices** ([architecture](docs/architecture.md)): one module or boundary per change,
   no behavior change while moving code, and the old file is deleted in the same change.
 - **Boundaries are explicit.** Every tracked `.py` must live under a declared ruff root (`runtime/py`, `tests`, `extension/dsh_blender_bridge`, `scripts`, `docs/examples`) and respect the declared import-linter contracts; every `src` / `runtime` directory and root-file category is registered in `eslint.config.mjs`. New scope or a cross-element import updates the declaration, never a per-file waiver.
+- **Workspace hygiene.** `local-workspace/` is the gitignored agent scratch area outside the repository;
+  create it if missing and keep temp files, logs, and test helpers there — never at the repository root.
+  Code uses the OS temp dir or resolved home (never `PKG_ROOT/tmp`); fix generators, don't hide junk in `.gitignore`.
 - **No new rule files.** A lesson learned goes into this file or the architecture guide.
 
 ## 4. Task routing

@@ -295,8 +295,10 @@ describe('plugin settings layer end to end', () => {
       // No defaults are serialized, so nothing shadows the home layer.
       expect(JSON.parse(process.env.DSH_BLENDER_PLUGIN_CONFIG || '{}')).toEqual({})
       const merged = mergeConfigLayers(loadConfigLayers())
-      expect(merged.cfg.features.dnn).toBe(true)
-      expect(merged.cfg.vision.model).toBe('mymodel')
+      const features = merged.cfg.features as { dnn?: boolean }
+      const vision = merged.cfg.vision as { model?: string }
+      expect(features.dnn).toBe(true)
+      expect(vision.model).toBe('mymodel')
       expect(merged.sources['features.dnn']).toMatch(/^home:/)
       expect(merged.sources['vision.model']).toMatch(/^home:/)
       // A value nobody set has no source: configSource() reports `default`.
@@ -320,10 +322,12 @@ describe('plugin settings layer end to end', () => {
         vision: { model: 'yolov5x' },
       })
       const merged = mergeConfigLayers(loadConfigLayers())
-      expect(merged.cfg.vision.model).toBe('yolov5x')
+      const features = merged.cfg.features as { dnn?: boolean }
+      const vision = merged.cfg.vision as { model?: string }
+      expect(vision.model).toBe('yolov5x')
       expect(merged.sources['vision.model']).toMatch(/^plugin:DSH_BLENDER_PLUGIN_CONFIG/)
       // Keys the user did not touch still come from home.
-      expect(merged.cfg.features.dnn).toBe(true)
+      expect(features.dnn).toBe(true)
       expect(merged.sources['features.dnn']).toMatch(/^home:/)
     } finally {
       f.dispose()
