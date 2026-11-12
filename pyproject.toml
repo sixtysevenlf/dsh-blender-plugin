@@ -36,7 +36,7 @@ include_external_packages = true
 name = "runtime domains are independent"
 type = "layers"
 containers = ["runtime.py"]
-layers = ["core | geometry | assembly | render | export"]
+layers = ["core | geometry | assembly | render | export | animation"]
 exhaustive = true
 # _facade resolves its targets dynamically, so the static graph cannot see them.
 exhaustive_ignores = ["_facade"]

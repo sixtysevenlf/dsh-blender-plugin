@@ -3,7 +3,7 @@
 > 格式借鉴 lurenjia-l/dsh-blender-stylized-shading 的 AI_DEPLOY.md：**目标与完成标准 → 环境探测 → 安装 → 连接 → 自检 → 汇报 → 排障**。
 > 原则：**先探测，别猜**；每一步都要有可验证的判据；失败给出明确的下一步而不是笼统报错。
 
-> **当前版本口径（2026-11-08）**：插件 **v3.1.0-alpha.1** · **6 个模型工具** · plan catalog **34 family / 228 op** ·
+> **当前版本口径（2026-11-08）**：插件 **v3.1.0-alpha.1** · **6 个模型工具** · plan catalog **36 family / 239 op** ·
 > addon **v2.0.0**（protocol **12**）· Gateway `127.0.0.1:39877` · addon 主动连接（无入站端口）。
 > 验收判据：**GUI 路线 = `doctor` 回 `kind=ok`**；**纯无头路线**（不装 addon）= `blender_run(action="submit", kind="headless")` 出产物自证
 > （doctor 的 bpy 往返不可达属预期）。**默认先开 GUI**；无 GUI 时用后台无头作业独立建模，它是备用路径。
@@ -11,10 +11,10 @@
 ## 0. 目标与完成标准
 
 目标：让 DSH 侧 **6 个模型工具**在本机调通；有 GUI 时走 GUI（`blender_py` / `blender_see`），没有 GUI 时用**后台无头作业**（`blender_run(kind="headless")`）同样能建模/出图。
-plan catalog 应能列出 **34 family / 228 op**。
+plan catalog 应能列出 **36 family / 239 op**。
 
 完成标准（**通用项 + 你选的路线**全部满足才算装好）：
-- **通用**：`blender_op(op="catalog")` 能列出 **34 family / 228 op**；
+- **通用**：`blender_op(op="catalog")` 能列出 **36 family / 239 op**；
 - **通用**：`blender_inspect()` 能列出 addon **25 条命令**（18 常驻 + 7 集成门控；21 只读 + 4 内部）；
 - **通用**：`blender_run(action="tune", op="status")` 能返回 `engine` 字段（默认 `BLENDER_EEVEE`；QC/白模渲染用 Workbench）；
 - **通用**：`blender_op(op="qc_self_check")` 返回 `iou_self = 1.0`；任一渲染类调用产出的 PNG **不是黑图**（可看 `qc_compare` 对照图）；
@@ -55,7 +55,7 @@ dsh --profile <profile> --dump-config | grep -A3 dsh-blender-plugin
 
 ~~~text
 blender_session(action="doctor")                 # 通道三级体检（kind=ok）
-blender_op(op="catalog")                          # 34 family / 228 op
+blender_op(op="catalog")                          # 36 family / 239 op
 blender_inspect()                                 # 25 条命令 + 5 个集成状态
 blender_run(action="tune", op="status")           # 引擎/采样/光追状态
 blender_op(op="qc_self_check")                    # QC 算法自检（自比 IoU 应为 1.0）

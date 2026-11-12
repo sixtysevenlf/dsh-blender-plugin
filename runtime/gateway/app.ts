@@ -3,6 +3,8 @@
 import http from 'node:http'
 import type { Server } from 'node:http'
 import { createEngine, engineProvenance } from '../engine.js'
+import { ensureHomeLayout } from '../home.js'
+import type { HomeLayoutResult } from '../home.js'
 import { createSelectionStore } from '../selectionstore.js'
 import { describeConfig } from '../config.js'
 import { HOST, stats, pushRtt, rttView, reqCounts, bump } from '../http/config.js'
@@ -19,6 +21,8 @@ import { trimJob, clampIntParam } from '../http/jobs.js'
 import { SessionRegistry } from '../core/sessions/registry.js'
 import { JobQueue } from '../core/queue/manager.js'
 import { SpawnJobExecutor } from '../core/queue/spawn-executor.js'
+import { createRenderCache } from '../core/queue/render-cache.js'
+import type { RenderCache } from '../core/queue/render-cache.js'
 import type { JobExecutor } from '../core/queue/types.js'
 import { setSessionRegistry } from '../http/session-gate.js'
 import { installPresencePublisher } from './presence-push.js'
@@ -48,6 +52,8 @@ export interface GatewayApp {
   host: string
   routes: string[]
   owner: GatewayOwner | null
+  /** Result of the idempotent home layout probe done at Gateway startup. */
+  homeLayout: HomeLayoutResult
   close: () => void
 }
 
@@ -87,14 +93,26 @@ function addonEventSink(
 export function createGatewayJobQueue(
   sessions: Pick<SessionRegistry, 'virtualGuiCount'>,
   executor: JobExecutor = new SpawnJobExecutor(),
+  renderCache?: RenderCache | null,
 ): JobQueue {
-  return new JobQueue({ executor, reservedGpu: () => sessions.virtualGuiCount() })
+  // Cache limits are read once here (cache.render.*), so a settings change only
+  // takes effect at the next Gateway start, never mid-flight.
+  const cache = renderCache === undefined ? (createRenderCache()?.cache ?? null) : renderCache
+  return new JobQueue({
+    executor,
+    reservedGpu: () => sessions.virtualGuiCount(),
+    renderCache: cache,
+  })
 }
 
 /** Build the Gateway app without listening; tests and the process entry share it. */
 export function createGatewayApp(opts: GatewayAppOptions = {}): GatewayApp {
   const port = opts.port ?? GATEWAY_DEFAULT_PORT
   const host = opts.host ?? HOST
+  // Create the persistent layout before any writer exists. A read-only home is
+  // reported (doctor reads config.home.layout) and write-heavy subsystems are
+  // skipped, but the read-only HTTP surface stays available.
+  const homeLayout = ensureHomeLayout()
   const registryRef: { current: SessionRegistry | null } = { current: null }
   const addonGateway = new AddonGateway({ ...opts, onEvent: addonEventSink(opts, registryRef) })
   const addonClient = new GatewayAddonClient(addonGateway)
@@ -111,7 +129,13 @@ export function createGatewayApp(opts: GatewayAppOptions = {}): GatewayApp {
   )
   registryRef.current = sessionRegistry
   setSessionRegistry(sessionRegistry)
-  const jobQueue = createGatewayJobQueue(sessionRegistry)
+  // Render cache is the write-heavy subsystem: without a writable home it is
+  // disabled (queue rows still serve renders, just uncached).
+  const jobQueue = createGatewayJobQueue(
+    sessionRegistry,
+    undefined,
+    homeLayout.ok ? undefined : null,
+  )
   const E: HttpRouteDeps = {
     sessionRegistry,
     jobQueue,
@@ -155,6 +179,7 @@ export function createGatewayApp(opts: GatewayAppOptions = {}): GatewayApp {
     host,
     routes: CONTRACT_ROUTES,
     owner: null,
+    homeLayout,
     close: () => {
       // Queue first: running Blender children must be killed before the process
       // exits, and rows must be persisted as gateway_shutdown (never orphaned).

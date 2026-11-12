@@ -1,4 +1,5 @@
 import { catalogPayload, extractLoop } from './output/index.js'
+import { VISION_OPS } from '../vision/dispatch.js'
 import { KERNEL_BOOTSTRAP } from './kernel/index.js'
 import { planOpSuggestion } from '../catalog/index.js'
 import { extCheckOp } from './plan/ext-check.js'
@@ -22,11 +23,61 @@ export interface PlanDispatchDeps {
   loopStatus: (limit: number) => Promise<Record<string, unknown> | null>
   loopStop: () => Promise<unknown>
   planCallInner: (op: string, payload?: unknown) => Promise<unknown>
+  /**
+   * vision_* 的 Gateway 侧入口（createVisionDispatch(deps).handle 的绑定）。
+   * 不提供时 8 个 vision op 返回结构化 vision_unavailable，而不是落回 Blender
+   * 往返——它们是 host-local op，Blender 永远不认识。
+   */
+  visionOp?: (op: string, payload?: unknown) => Promise<unknown>
   readRenderFlag: () => {
     present: boolean
     stale: boolean
     ageMs: number | null
     info: Record<string, unknown> | null
+  }
+}
+
+/** v0.9.6：把模块返回里的 unknown op 变成"一步改对"——补 did_you_mean + 最小骨架 */
+function enhancePlanResult(out: unknown, o: string): unknown {
+  let obj: unknown = out
+  let asString = false
+  if (typeof out === 'string') {
+    try {
+      obj = JSON.parse(out) as Record<string, unknown>
+      asString = true
+    } catch (e) {
+      return out
+    }
+  }
+  if (!obj || typeof obj !== 'object') return out
+  const rec = obj as Record<string, unknown>
+  if (rec.ok !== false) return out
+  const err = String(rec.error || '')
+  if (!/unknown|不认识|not found|参数不匹配/i.test(err)) return out
+  const near = planOpSuggestion(o)
+  if (near) {
+    rec.did_you_mean = near
+    rec.hint = '回执里有 did_you_mean：直接用这个名字重发，别猜参数——骨架见 did_you_mean.skeleton。'
+    if (rec.hint_shown === undefined) rec.hint_shown = true
+  }
+  return asString ? JSON.stringify(rec) : rec
+}
+
+/** vision dispatcher 未装配时的结构化失败（stage=vision，可重试，不伪装成功）。 */
+function visionUnavailable(o: string): Record<string, unknown> {
+  const message = '视觉 op 需要 Gateway 注入 vision dispatcher；当前进程未装配，' + o + ' 不可用。'
+  return {
+    ok: false,
+    op: o,
+    stage: 'vision',
+    code: 'vision_unavailable',
+    message,
+    error: message,
+    root_cause: message,
+    fix: '更新到包含 blender-vision-opencv 的版本并重启 Gateway；模型/依赖安装见 vision_status 与 docs。',
+    fallback: { kind: 'unavailable', summary: '该视觉能力当前不可用；不要把它当成成功结果。' },
+    retryable: true,
+    evidence: { op: o },
   }
 }
 
@@ -48,6 +99,7 @@ export function createPlanDispatch(E: PlanDispatchDeps) {
     loopStop,
     planCallInner,
     readRenderFlag,
+    visionOp,
   } = E
   async function perfCall(op: string, payload?: unknown): Promise<unknown> {
     await ensurePerf()
@@ -62,32 +114,6 @@ export function createPlanDispatch(E: PlanDispatchDeps) {
     return extractLoop(
       await addon.send('execute_code', { code: KERNEL_BOOTSTRAP + '\n' + body }, 300000),
     )
-  }
-  /** v0.9.6：把模块返回里的 unknown op 变成"一步改对"——补 did_you_mean + 最小骨架 */
-  function enhancePlanResult(out: unknown, o: string): unknown {
-    let obj: unknown = out
-    let asString = false
-    if (typeof out === 'string') {
-      try {
-        obj = JSON.parse(out) as Record<string, unknown>
-        asString = true
-      } catch (e) {
-        return out
-      }
-    }
-    if (!obj || typeof obj !== 'object') return out
-    const rec = obj as Record<string, unknown>
-    if (rec.ok !== false) return out
-    const err = String(rec.error || '')
-    if (!/unknown|不认识|not found|参数不匹配/i.test(err)) return out
-    const near = planOpSuggestion(o)
-    if (near) {
-      rec.did_you_mean = near
-      rec.hint =
-        '回执里有 did_you_mean：直接用这个名字重发，别猜参数——骨架见 did_you_mean.skeleton。'
-      if (rec.hint_shown === undefined) rec.hint_shown = true
-    }
-    return asString ? JSON.stringify(rec) : rec
   }
 
   /**
@@ -115,6 +141,11 @@ export function createPlanDispatch(E: PlanDispatchDeps) {
     }
     // 声明式搜索：目标 + 参数区间 → 内环全流程（spec 由 shape_search 生成；本地编排，不占额外往返）
     if (o === 'shape_search') return await shapeSearchOp(payload)
+    // vision_*：host-local 视觉 op（vision op 契约）——不经 addon，也不走 lease。
+    if (VISION_OPS.includes(o as (typeof VISION_OPS)[number])) {
+      if (!visionOp) return visionUnavailable(o)
+      return await visionOp(o, payload)
+    }
     const out = await planCallInner(o, payload)
     try {
       return enhancePlanResult(out, o)
@@ -122,6 +153,7 @@ export function createPlanDispatch(E: PlanDispatchDeps) {
       return out
     }
   }
+
   const renderGuardOp = createRenderGuardOp({
     RENDER_FLAG_WSL,
     RENDER_STALE_MS,

@@ -42,11 +42,22 @@ export interface JobLogs {
   stderr: string
 }
 
+/** Render-pass cache receipt attached to a job result. Metadata only, never pixels. */
+export interface JobCacheReceipt {
+  hit?: boolean
+  keys?: string[]
+  key?: string
+  entries?: number
+  skipped?: string
+  corrupt?: boolean
+}
+
 export interface JobResult {
   exitCode: number | null
   signal: string | null
   ms: number
   parsed?: unknown
+  cache?: JobCacheReceipt
 }
 
 /** Persisted job shape. Handles and timers are never part of this record. */
@@ -72,6 +83,23 @@ export interface JobRecord {
   events: JobEvent[]
   /** Temp working directory owned by the executor; removed on finish/restore. */
   tempDir?: string | null
+  /**
+   * Render-pass cache state for this job. Absent when the job is not cacheable
+   * (no passes, no .blend path, no frame range). Persisted so a restart can
+   * clean staging without re-deriving keys.
+   */
+  cache?: JobCacheState
+}
+
+export interface JobCacheState {
+  keys: string[]
+  frames: number[]
+  /** Scene identity frozen at submit time: promotion stores it in the index. */
+  scene: { path: string; size: number; mtimeMs: number }
+  stagingDir: string
+  userOutdir: string | null
+  hit: boolean
+  corrupt: boolean
 }
 
 export interface JobExecutionResult {

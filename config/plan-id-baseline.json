@@ -1,11 +1,11 @@
 {
   "version": 1,
   "tool": "check-plan-ids",
-  "generatedAt": "2026-11-09T18:44:08.459Z",
+  "generatedAt": "2026-11-12T04:35:16.226Z",
   "mode": "warn",
   "totals": {
-    "all": 1387,
-    "exempt": 1387,
+    "all": 1389,
+    "exempt": 1389,
     "residual": 0
   },
   "byPrefix": {},
@@ -32,8 +32,8 @@
       "residual": 0
     },
     "docs/architecture.md": {
-      "count": 6,
-      "exempt": 6,
+      "count": 7,
+      "exempt": 7,
       "residual": 0
     },
     "docs/archive/headless优先-路线决定.md": {
@@ -214,6 +214,11 @@
     "tests/e2e/blender/harness.py": {
       "count": 2,
       "exempt": 2,
+      "residual": 0
+    },
+    "tests/e2e/blender/native/animation.py": {
+      "count": 1,
+      "exempt": 1,
       "residual": 0
     },
     "tests/e2e/blender/native/assembly.py": {

@@ -1,14 +1,19 @@
 /**
- * 分享版配置解析 —— **换机器不用改源码**：环境变量 → 配置文件 → 自动探测 → 默认值。
+ * 分享版配置解析 —— **换机器不用改源码**：低层文件 → 高层文件 → 环境变量 → 自动探测 → 默认值。
  *
- * 这文件是本机版（作者机器）与分享版的唯一区别来源：
- *   本机版把 workDir / blender.exe / 端口写死在 engine.mjs；分享版全部走这里。
+ * 配置是**分层合并**（3.1.0-alpha.1），后者覆盖前者，且每个生效值都记录来源：
+ *   1) 内置默认（本文件里的字面量：端口、租约 TTL、缓存上限等）
+ *   2) 包内默认     <包根>/dsh-blender.config.json
+ *   3) 旧用户配置   ~/.dsh/dsh-blender.config.json（仅兼容旧版本，仍可被更高层覆盖）
+ *   4) home 配置    $DSH_HOME/dsh-blender/dsh-blender.config.json（见 runtime/home.ts）
+ *   5) 显式文件     DSH_BLENDER_CONFIG 指定的文件
+ *   6) 插件设置     DSH_BLENDER_PLUGIN_CONFIG（DSH 插件设置序列化后的 JSON 环境变量）
+ *   7) 单项环境变量 DSH_BLENDER_*（最高；见 docs/配置参考.md）
+ *   8) 自动探测     workDir（默认 = home）/ Blender 安装路径 / PATH
  *
- * 优先顺序（高 → 低）：
- *   1) 环境变量     DSH_BLENDER_*（见 docs/配置参考.md）
- *   2) 配置文件     $DSH_BLENDER_CONFIG → <包根>/dsh-blender.config.json → ~/.dsh/dsh-blender.config.json
- *   3) 自动探测     工作目录（Windows 用户临时区）/ Blender 安装路径 / PATH
- *   4) 内置默认     Gateway 127.0.0.1:39877 · 租约 TTL 600000 ms
+ * DNN 字段（features.dnn / vision.* / vision.dnn.*）保存后还会写入
+ * $DSH_HOME/dsh-blender/vision/runtime.json 做热应用；DSH_BLENDER_DNN=off/on
+ * 始终最高并锁定 features.dnn。DNN 快照的优先级由 runtime/vision/runtime-config.ts 决定。
  */
 import fs from 'node:fs'
 import os from 'node:os'
@@ -20,6 +25,13 @@ import { errorMessage } from './core/json.js'
 import { detectBlenderExe } from './blender-detect.js'
 import { GATEWAY_DEFAULT_PORT } from './transport/gateway-schema.generated.js'
 import { VIRTUAL_GUI_DEFAULT_MAX } from './display/limits.js'
+import {
+  ensureHomeLayout,
+  getHome,
+  getHomeResolution,
+  homePath,
+  type HomeLayoutResult,
+} from './home.js'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 /**
@@ -87,12 +99,6 @@ export function linuxDistroName() {
   return 'linux'
 }
 
-export const CONFIG_FILES: string[] = [
-  process.env.DSH_BLENDER_CONFIG,
-  path.join(PKG_ROOT, 'dsh-blender.config.json'),
-  path.join(os.homedir(), '.dsh', 'dsh-blender.config.json'),
-].filter((p): p is string => Boolean(p))
-
 function readJson(p: string): unknown {
   try {
     return JSON.parse(fs.readFileSync(p, 'utf8'))
@@ -101,20 +107,184 @@ function readJson(p: string): unknown {
   }
 }
 
-/** 载入第一个存在的配置文件（并记住它，方便 doctor/日志说明配置来自哪里） */
+/** 一层配置：id 用于 doctor，label 是给用户看的来源串（含路径，绝不含密钥）。 */
+export interface ConfigLayer {
+  id: 'package' | 'legacy-home' | 'home' | 'file' | 'plugin' | string
+  path: string | null
+  label: string
+  cfg: Record<string, unknown>
+}
+
 interface FileConfig {
   [key: string]: unknown
 }
 
-function loadFileConfig(): { cfg: FileConfig; from: string | null } {
-  for (const p of CONFIG_FILES) {
-    const j = readJson(p)
-    if (isRecord(j)) return { cfg: j, from: p }
-  }
-  return { cfg: {}, from: null }
+export interface MergedConfig {
+  cfg: FileConfig
+  /** 点路径（含嵌套，如 features.dnn）→ 提供该值的层 label */
+  sources: Record<string, string>
+  layers: Array<{ id: string; path: string | null; label: string }>
+  /** 最高层且有路径的那层（doctor 的 configFile 摘要沿用） */
+  from: string | null
 }
 
-const FILE = loadFileConfig()
+/** v3.2：诊断用的非致命配置问题（弃用别名、非法插件设置 JSON 等）。 */
+export const CONFIG_WARNINGS: string[] = []
+
+/** 候选配置文件（不含 DSH_BLENDER_PLUGIN_CONFIG；仅用于诊断与自检展示）。 */
+export const CONFIG_FILES: string[] = [
+  readString(process.env.DSH_BLENDER_CONFIG),
+  homePath('dsh-blender.config.json'),
+  path.join(PKG_ROOT, 'dsh-blender.config.json'),
+  path.join(os.homedir(), '.dsh', 'dsh-blender.config.json'),
+].filter((p): p is string => Boolean(p))
+
+export function configLayerFiles(env: NodeJS.ProcessEnv = process.env): {
+  package: string
+  legacyHome: string
+  home: string
+  explicit: string | null
+} {
+  return {
+    package: path.join(PKG_ROOT, 'dsh-blender.config.json'),
+    legacyHome: path.join(os.homedir(), '.dsh', 'dsh-blender.config.json'),
+    home: homePath('dsh-blender.config.json'),
+    explicit: (readString(env.DSH_BLENDER_CONFIG) || '').trim() || null,
+  }
+}
+
+/**
+ * 解析 DSH_BLENDER_PLUGIN_CONFIG（DSH 插件设置序列化结果）。
+ * 非法 JSON / 非对象不抛异常：记一条 warning 后当作没有这一层，让插件照常启动。
+ */
+export function pluginSettingsFromEnv(raw: unknown): {
+  cfg: Record<string, unknown> | null
+  warning: string | null
+} {
+  const text = readString(raw)
+  if (!text) return { cfg: null, warning: null }
+  try {
+    const parsed = JSON.parse(text)
+    if (!isRecord(parsed)) {
+      return { cfg: null, warning: 'DSH_BLENDER_PLUGIN_CONFIG 不是 JSON 对象，已忽略这一层' }
+    }
+    return { cfg: parsed, warning: null }
+  } catch (e) {
+    return {
+      cfg: null,
+      warning:
+        'DSH_BLENDER_PLUGIN_CONFIG 不是合法 JSON，已忽略这一层：' + errorMessage(e).slice(0, 160),
+    }
+  }
+}
+
+function readLayer(id: string, file: string | null): ConfigLayer | null {
+  if (!file) return null
+  const resolved = path.resolve(file)
+  const cfg = readJson(resolved)
+  if (!isRecord(cfg)) return null
+  return { id, path: resolved, label: id + ':' + resolved, cfg }
+}
+
+/** 低 → 高。不存在的层直接缺席；同一路径只算最高那一层。 */
+export function loadConfigLayers(env: NodeJS.ProcessEnv = process.env): ConfigLayer[] {
+  const files = configLayerFiles(env)
+  const layers: ConfigLayer[] = []
+  const seen = new Set<string>()
+  const candidates: Array<[string, string | null]> = [
+    ['package', files.package],
+    ['legacy-home', files.legacyHome],
+    ['home', files.home],
+    ['file', files.explicit],
+  ]
+  for (const [id, file] of candidates) {
+    if (!file) continue
+    const resolved = path.resolve(file)
+    if (seen.has(resolved)) continue
+    seen.add(resolved)
+    const layer = readLayer(id, resolved)
+    if (layer) layers.push(layer)
+  }
+  const plugin = pluginSettingsFromEnv(env.DSH_BLENDER_PLUGIN_CONFIG)
+  if (plugin.warning) CONFIG_WARNINGS.push(plugin.warning)
+  if (plugin.cfg) {
+    layers.push({
+      id: 'plugin',
+      path: null,
+      label: 'plugin:DSH_BLENDER_PLUGIN_CONFIG',
+      cfg: plugin.cfg,
+    })
+  }
+  return layers
+}
+
+/**
+ * 深合并（对象递归、数组与标量整体覆盖），并逐叶记录来源。
+ * 纯函数：单测直接喂合成的层列表，不需要子进程或真实文件。
+ */
+export function mergeConfigLayers(layers: ConfigLayer[]): MergedConfig {
+  const cfg: Record<string, unknown> = {}
+  const sources: Record<string, string> = {}
+  const walk = (
+    target: Record<string, unknown>,
+    source: Record<string, unknown>,
+    label: string,
+    prefix: string,
+  ): void => {
+    for (const [key, value] of Object.entries(source)) {
+      const dot = prefix ? prefix + '.' + key : key
+      if (isRecord(value)) {
+        const existing = target[key]
+        const next = isRecord(existing) ? existing : {}
+        target[key] = next
+        walk(next, value, label, dot)
+        continue
+      }
+      target[key] = value
+      sources[dot] = label
+    }
+  }
+  for (const layer of layers) walk(cfg, layer.cfg, layer.label, '')
+  let from: string | null = null
+  for (const layer of layers) if (layer.path) from = layer.path
+  return {
+    cfg,
+    sources,
+    layers: layers.map((layer) => ({ id: layer.id, path: layer.path, label: layer.label })),
+    from,
+  }
+}
+
+const LAYERS = loadConfigLayers()
+const MERGED = mergeConfigLayers(LAYERS)
+const FILE: { cfg: FileConfig; from: string | null } = { cfg: MERGED.cfg, from: MERGED.from }
+
+/**
+ * Home layout is created lazily, on first doctor/Gateway call: importing the
+ * config must not create directories (CLI help, tests and read-only tooling all
+ * import it). Gateway startup calls ensureHomeLayout() itself as well.
+ */
+let HOME_LAYOUT: HomeLayoutResult | null = null
+
+export function homeLayout(): HomeLayoutResult {
+  if (HOME_LAYOUT === null) {
+    HOME_LAYOUT = ensureHomeLayout(getHome())
+    if (!HOME_LAYOUT.ok) {
+      CONFIG_WARNINGS.push(
+        'home_unwritable: ' + HOME_LAYOUT.error.path + '（' + HOME_LAYOUT.error.reason + '）',
+      )
+    }
+  }
+  return HOME_LAYOUT
+}
+
+/** 合并后的静态配置（不含 runtime.json 快照）；vision runtime store 由它读 file 层。 */
+export const FILE_CONFIG: FileConfig = FILE.cfg
+
+/** 点路径的生效来源（doctor / 测试用）：'default' 表示内置默认。 */
+export function configSource(key: string): string {
+  return MERGED.sources[key] || 'default'
+}
 
 /** Windows 路径 → WSL 路径（D:\a\b → /mnt/d/a/b；UNC → /…；Windows 上原样返回） */
 export function winToWsl(p: unknown): string {
@@ -307,23 +477,36 @@ interface WorkDirInfo {
   fallback: WorkDirFallback | null
 }
 function resolveWorkDirRaw(): RawWorkDir {
-  const given = readString(process.env.DSH_BLENDER_WORKDIR) || readString(FILE.cfg.workDir)
+  const deprecatedAlias = readString(process.env.DSH_BLENDER_WORKDIR)
+  const fileValue = readString(FILE.cfg.workDir)
+  const given = deprecatedAlias || fileValue
   if (given) {
     const host = hostPathOf(given)
-    return { win: blenderPath(host, BLENDER.exe), wsl: host, from: 'config' }
+    const from = deprecatedAlias
+      ? 'env:DSH_BLENDER_WORKDIR(deprecated)'
+      : 'config:workDir(' + configSource('workDir') + ')'
+    return { win: blenderPath(host, BLENDER.exe), wsl: host, from }
   }
+  // v3.2：持久数据根是 home；workDir（取帧 PNG / 无头脚本 / 临时产物）也默认落在 home，
+  // 不再写 %LOCALAPPDATA%\dsh-blender-rt。旧目录只作为迁移来源读取（见 legacyWorkDirs）。
+  const host = getHome()
+  return { win: blenderPath(host, BLENDER.exe), wsl: host, from: 'auto:home' }
+}
+
+/**
+ * 旧版 dsh-blender-rt 目录候选（只读迁移来源；永不用于新数据，也永不删除）。
+ * queue/store 在目标 queue.json 缺失时按此列表找旧状态文件复制一次。
+ */
+export function legacyWorkDirs(): string[] {
+  const out: string[] = []
   if (IS_MAC) {
-    // macOS：用户级持久目录（不用 os.tmpdir()，它会被系统清理，帧/台账会丢）
-    const d = path.join(os.homedir(), '.dsh-blender-rt')
-    return { win: d, wsl: d, from: 'auto:homedir' }
+    out.push(path.join(os.homedir(), '.dsh-blender-rt'))
+  } else {
+    const lad = winLocalAppData()
+    if (lad) out.push(hostPathOf(path.win32.join(lad, 'dsh-blender-rt')))
+    out.push(path.join(os.tmpdir(), 'dsh-blender-rt'))
   }
-  const lad = winLocalAppData()
-  if (lad) {
-    const host = hostPathOf(path.win32.join(lad, 'dsh-blender-rt'))
-    return { win: blenderPath(host, BLENDER.exe), wsl: host, from: 'auto:localappdata' }
-  }
-  const host = path.join(os.tmpdir(), 'dsh-blender-rt')
-  return { win: blenderPath(host, BLENDER.exe), wsl: host, from: 'auto:tmpdir' }
+  return out
 }
 
 /**
@@ -381,7 +564,7 @@ const FEATURE_VIRTUAL_GUI = (() => {
   if (env) return { value: env, source: 'env:DSH_BLENDER_VIRTUAL_GUI' }
   const features = isRecord(FILE.cfg.features) ? FILE.cfg.features : null
   const file = features ? readString(features.virtualGui) : ''
-  if (file) return { value: file, source: 'file:' + String(FILE.from || 'config') }
+  if (file) return { value: file, source: 'config:' + configSource('features.virtualGui') }
   return { value: '', source: 'default' }
 })()
 
@@ -390,8 +573,62 @@ const FEATURE_VIRTUAL_GUI_MAX = (() => {
   if (env) return { value: env, source: 'env:DSH_BLENDER_VIRTUAL_GUI_MAX' }
   const features = isRecord(FILE.cfg.features) ? FILE.cfg.features : null
   const file = features ? String(features.virtualGuiMax ?? '') : ''
-  if (file) return { value: file, source: 'file:' + String(FILE.from || 'config') }
+  if (file) return { value: file, source: 'config:' + configSource('features.virtualGuiMax') }
   return { value: '', source: 'default' }
+})()
+
+/**
+ * features.dnn —— 实验性 DNN 检测的唯一总开关（默认关闭）。
+ * DSH_BLENDER_DNN 最高并锁定；只接受 on/true/1 与 off/false/0（大小写不敏感）。
+ * 其他非空值不算锁：忽略该环境变量、沿用配置值，并在 doctor 里报 dnn_env_invalid。
+ */
+export interface DnnEnvLock {
+  lock: 'on' | 'off' | null
+  value: boolean | null
+  /** Raw value when it is not one of the accepted spellings (null otherwise). */
+  invalid: string | null
+}
+
+export function parseDnnEnvLock(raw: unknown): DnnEnvLock {
+  const value = (readString(raw) || '').trim().toLowerCase()
+  if (!value) return { lock: null, value: null, invalid: null }
+  if (value === 'on' || value === 'true' || value === '1') {
+    return { lock: 'on', value: true, invalid: null }
+  }
+  if (value === 'off' || value === 'false' || value === '0') {
+    return { lock: 'off', value: false, invalid: null }
+  }
+  return { lock: null, value: null, invalid: value }
+}
+
+const FEATURE_DNN = (() => {
+  const raw = readString(process.env.DSH_BLENDER_DNN)
+  const env = parseDnnEnvLock(raw)
+  const warning = env.invalid ? { code: 'dnn_env_invalid', value: env.invalid } : null
+  if (env.lock !== null) {
+    return { value: env.value === true, source: 'env:DSH_BLENDER_DNN', locked: true, warning }
+  }
+  if (env.invalid) {
+    CONFIG_WARNINGS.push(
+      'dnn_env_invalid: DSH_BLENDER_DNN=' +
+        JSON.stringify(env.invalid) +
+        ' 不是 on/true/1 或 off/false/0，已忽略该环境锁并沿用配置值',
+    )
+  }
+  const features = isRecord(FILE.cfg.features) ? FILE.cfg.features : null
+  if (features && Object.prototype.hasOwnProperty.call(features, 'dnn')) {
+    const value = features.dnn
+    const source = 'config:' + configSource('features.dnn')
+    if (typeof value === 'boolean') return { value, source, locked: false, warning }
+    if (value === 'true' || value === 'false') {
+      CONFIG_WARNINGS.push('features.dnn 必须是布尔值（收到字符串 ' + JSON.stringify(value) + '）')
+      return { value: value === 'true', source, locked: false, warning }
+    }
+    CONFIG_WARNINGS.push(
+      'features.dnn 不是布尔值（' + JSON.stringify(value) + '），按 false 处理；请在插件设置中修改',
+    )
+  }
+  return { value: false, source: 'default', locked: false, warning }
 })()
 
 /** blender.exe 探测在 runtime/blender-detect.ts（可注入依赖；Windows 含 Steam 库）。
@@ -400,6 +637,12 @@ const FEATURE_VIRTUAL_GUI_MAX = (() => {
  *  必须在 resolveWorkDir 之前：workDir 的 Blender 侧形态取决于 Blender 是 Windows 还是同机进程。 */
 const BLENDER = detectBlenderExe({ fileCfg: FILE.cfg })
 const WORK = resolveWorkDir()
+if (readString(process.env.DSH_BLENDER_WORKDIR)) {
+  CONFIG_WARNINGS.push(
+    'DSH_BLENDER_WORKDIR 已弃用：持久数据（queue/jobs/sessions/logs/cache/vision）现在固定在 home；' +
+      '该变量只覆盖临时产物目录，建议改用配置文件的 workDir 或删除它。',
+  )
+}
 
 function num(v: unknown, d: number): number {
   const n = Number(v)
@@ -465,9 +708,44 @@ export const CFG = {
     /** virtual-gui 并发上限（1–16）；低资源时由 runtime/display/limits.ts 降到 2。 */
     virtualGuiMax: Number(FEATURE_VIRTUAL_GUI_MAX.value || VIRTUAL_GUI_DEFAULT_MAX),
     virtualGuiMaxSource: FEATURE_VIRTUAL_GUI_MAX.source,
+    /** 实验性 DNN 检测的唯一总开关（默认 false）；DSH_BLENDER_DNN 存在时锁定。 */
+    dnn: FEATURE_DNN.value,
+    dnnSource: FEATURE_DNN.source,
+    dnnLocked: FEATURE_DNN.locked,
+    /** DSH_BLENDER_DNN 拼写非法时给 doctor 的 dnn_env_invalid 警告（不锁定）。 */
+    dnnWarning: FEATURE_DNN.warning,
+  },
+  /**
+   * render passes 缓存（render cache 设计）的**原始**配置值，不做校验也不回退：
+   * createRenderCache() 负责解析/夹取/回退默认并产出 issues，doctor 按同一函数报告。
+   * 这里保持原样，是为了让非法值在 doctor 里"看得见"，而不是被配置层悄悄修掉。
+   */
+  cache: {
+    render: isRecord(FILE.cfg.cache)
+      ? (FILE.cfg.cache as Record<string, unknown>).render
+      : undefined,
   },
   // 溯源（doctor/日志/教程排查用）
-  source: { configFile: FILE.from, workDir: WORK.from, blenderExe: BLENDER.from },
+  source: {
+    /** 最高优先级且有路径的配置文件；plugin 层没有路径时为 null。 */
+    configFile: FILE.from,
+    /** 低 → 高的层列表（含 label），供 doctor 逐项说明。 */
+    configLayers: MERGED.layers,
+    /** 点路径 → 生效来源（'default' 表示内置默认）。 */
+    configSources: MERGED.sources,
+    workDir: WORK.from,
+    blenderExe: BLENDER.from,
+    /** home 解析 + 幂等创建结果（失败时带结构化 home_unwritable，doctor 原样转出）。 */
+    home: {
+      ...getHomeResolution(),
+      /** Lazy getter: reading CFG must never create directories. */
+      get layout() {
+        const created = homeLayout()
+        return created.ok ? { ok: true as const } : { ok: false as const, error: created.error }
+      },
+    },
+    warnings: CONFIG_WARNINGS,
+  },
 }
 
 /**
@@ -548,6 +826,22 @@ export function describeConfig(over: { httpPort?: number | string } = {}) {
     blenderUserScripts: CFG.blenderUserScripts,
     workerPort: CFG.workerPort,
     configFile: CFG.source.configFile,
+    /** 分层配置的来源（低 → 高）；doctor 用它解释“这个值从哪来”。 */
+    configLayers: CFG.source.configLayers,
+    sources: CFG.source.configSources,
+    warnings: CONFIG_WARNINGS,
+    home: {
+      path: CFG.source.home.home,
+      source: CFG.source.home.source,
+      requestedFrom: CFG.source.home.requestedFrom,
+      layout: CFG.source.home.layout,
+    },
+    features: {
+      dnn: CFG.features.dnn,
+      dnnSource: CFG.features.dnnSource,
+      dnnLocked: CFG.features.dnnLocked,
+      dnnWarning: CFG.features.dnnWarning,
+    },
     holder: CFG.holder,
     leaseTtlMs: CFG.leaseTtlMs,
     env: {
@@ -556,6 +850,8 @@ export function describeConfig(over: { httpPort?: number | string } = {}) {
       DSH_BLENDER_HTTP_PORT: process.env.DSH_BLENDER_HTTP_PORT || null,
       DSH_BLENDER_ADDON_PROTOCOL: process.env.DSH_BLENDER_ADDON_PROTOCOL || null,
       DSH_BLENDER_CONFIG: process.env.DSH_BLENDER_CONFIG || null,
+      DSH_BLENDER_DNN: process.env.DSH_BLENDER_DNN || null,
+      DSH_BLENDER_PLUGIN_CONFIG: process.env.DSH_BLENDER_PLUGIN_CONFIG ? '<set>' : null,
     },
   }
 }

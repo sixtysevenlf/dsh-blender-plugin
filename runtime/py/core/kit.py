@@ -19,7 +19,7 @@ import types
 KIT_VERSION = 1
 
 # 领域包布局（Phase E）：runtime/py/<domain>/ 是真实实现；runtime/<name>.py 只留 shim。
-RUNTIME_DOMAINS = ("core", "geometry", "assembly", "render", "export")
+RUNTIME_DOMAINS = ("core", "geometry", "assembly", "render", "export", "animation")
 
 
 def _kernel():

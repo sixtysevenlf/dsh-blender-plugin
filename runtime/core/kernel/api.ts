@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import {
   pyModuleFile,
+  ANIMATION_PATH,
   ASSEMBLY_PATH,
   AUDIT_PATH,
   BLOCKOUT_PATH,
@@ -62,6 +63,7 @@ const MODULE_ATTR: Record<string, string> = {
   VIEW_READY: 'dsh_view_api',
   CONTRACT_READY: 'dsh_contract_api',
   PLAN_READY: 'dsh_plan_api',
+  ANIMATION_READY: 'dsh_animation_api',
   TXN_READY: 'dsh_txn_api',
   QC_READY: 'dsh_qc_api',
   GEO_READY: 'dsh_geo_api',
@@ -312,6 +314,8 @@ const ensureHuman = async (d: KernelIoDeps) => {
 }
 const ensureFace = (d: KernelIoDeps) =>
   injectModule(d, needFile(FACE_PATH, 'faceeval'), 'FACE_READY', 'FACE_VERSION')
+const ensureAnimation = (d: KernelIoDeps) =>
+  injectModule(d, needFile(ANIMATION_PATH, 'animation'), 'ANIMATION_READY', 'ANIMATION_VERSION')
 const ensureCalib = async (d: KernelIoDeps) => {
   await ensureGate(d)
   return injectModule(d, needFile(CALIB_PATH, 'calib'), 'CALIB_READY', 'CALIB_VERSION')
@@ -399,6 +403,7 @@ const createEnsures = (
   ensureFace: () => ensureFace(d),
   ensureCalib: () => ensureCalib(d),
   ensureGate: () => ensureGate(d),
+  ensureAnimation: () => ensureAnimation(d),
   ensureRenderGuard: () => ensureRenderGuard(d, renderFlagWin),
 })
 

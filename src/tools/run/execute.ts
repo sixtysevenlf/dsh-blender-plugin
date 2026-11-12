@@ -55,6 +55,38 @@ const HEADLESS_KEYS = [
 ]
 const ACTIONS = ['submit', 'status', 'wait', 'collect', 'cancel', 'list', 'perf', 'tune', 'help']
 
+/** Render passes accepted by blender_run(kind=render); order is the documented order. */
+export const RENDER_PASSES = ['beauty', 'depth', 'normal', 'object_index', 'alpha'] as const
+
+/**
+ * Declarative pass list. Absent => [] (the old beauty-only render path, no
+ * manifest, no cache). A string is one comma-separated declaration so the tool
+ * stays usable from a shell. Everything else is rejected here, before the
+ * Gateway sees the payload: the queue never repairs a bad pass set.
+ */
+export function normalizeRenderPasses(value: unknown): string[] | string {
+  if (value === undefined || value === null) return []
+  if (typeof value === 'string' && value.trim() === '')
+    return 'passes 不能为空；允许：' + RENDER_PASSES.join('/')
+  const list = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : null
+  if (!list) return 'passes 必须是数组或逗号分隔字符串；允许：' + RENDER_PASSES.join('/')
+  const seen = new Set<string>()
+  const passes: string[] = []
+  for (const item of list) {
+    if (typeof item !== 'string')
+      return 'passes 的每一项必须是字符串；允许：' + RENDER_PASSES.join('/')
+    const name = item.trim()
+    if (!name) return 'passes 不能包含空项；允许：' + RENDER_PASSES.join('/')
+    if (!(RENDER_PASSES as readonly string[]).includes(name))
+      return '未知 render pass：' + name + '；允许：' + RENDER_PASSES.join('/')
+    if (seen.has(name)) return 'passes 重复：' + name + '；每个 pass 只能出现一次'
+    seen.add(name)
+    passes.push(name)
+  }
+  if (passes.length === 0) return 'passes 不能为空数组；允许：' + RENDER_PASSES.join('/')
+  return passes
+}
+
 function present(v: unknown): boolean {
   return v !== undefined && v !== null && String(v).trim() !== ''
 }
@@ -105,7 +137,8 @@ async function postQueue(
   }
 }
 
-function submitPayload(args: Record<string, unknown>): Record<string, unknown> | string {
+/** Exported for the host-side validation tests: pure payload builder, no HTTP. */
+export function submitPayload(args: Record<string, unknown>): Record<string, unknown> | string {
   const kind = text(args.kind).trim()
   if (kind !== 'render' && kind !== 'headless')
     return 'submit 需要 kind=render|headless（render=声明式最终渲染；headless=跑脚本）'
@@ -114,9 +147,15 @@ function submitPayload(args: Record<string, unknown>): Record<string, unknown> |
   if (kind === 'render') {
     if (present(args.script) || present(args.script_file))
       return 'render 不接受 script/script_file：最终渲染是声明式入口；跑脚本请用 kind=headless 或 blender_py'
+    const passes = normalizeRenderPasses(args.passes)
+    if (typeof passes === 'string') return passes
     for (const k of RENDER_KEYS) if (present(args[k])) payload[k] = args[k]
+    if (passes.length > 0) payload.passes = passes
     return payload
   }
+  // passes is a render concept; dropping it silently would look like it worked.
+  if (args.passes !== undefined && args.passes !== null)
+    return 'passes 只用于 kind=render；headless 请在脚本内自己保存产物'
   if (!present(args.script) && !present(args.script_file) && !present(args.file))
     return 'headless 需要 script / script_file / file 之一'
   for (const k of HEADLESS_KEYS) if (present(args[k])) payload[k] = args[k]

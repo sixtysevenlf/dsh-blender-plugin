@@ -25,7 +25,7 @@ There are three logical processes and one inbound endpoint:
 - the host owns the model-facing tools and the headless/fallback policy.
 
 The public model surface is 6 tools (blender_session, blender_op, blender_py, blender_see,
-blender_run, blender_inspect), 34 planning families, 228 operations, 25 addon commands
+blender_run, blender_inspect), 36 planning families, 239 operations, 25 addon commands
 (25 registered commands; the transport-only ping makes 26 wire commands), 29 HTTP routes, and
 protocol 12. These counts are facts, not goals; changing one requires updating the catalog, lock,
 tests, and migration notes in the same change.
@@ -141,6 +141,128 @@ a right-sidebar guide entry, and `/blender-presence` opens the tab without submi
 Session presence queries read the same rows from the Gateway, so a read-only query and the
 viewport overlay cannot disagree.
 
+### Persistent home and layered configuration
+
+Everything the plugin persists lives under one resolved home: `DSH_BLENDER_HOME`, else `$DSH_HOME/dsh-blender`, else `~/.dsh/dsh-blender`. Resolution happens once per process (`runtime/home.ts`); `ensureHomeLayout()` idempotently creates `logs/`, `state/`, `jobs/`, `sessions/`, `queue/`, `cache/`, and `vision/`, then probes a real write. It runs from plugin `apply()` and from Gateway startup, never at import. An unwritable root returns a structured `home_unwritable` error instead of falling back to the package directory or the OS temp dir; doctor exposes it as `config.home.layout = {code, path, reason, fix}`, read-only ops keep working, and write-heavy subsystems (for example the render cache) skip their own directory instead of failing the whole process.
+
+Queue state, the job ledger, job artifacts, sessions, render-cache entries, and the vision venv/models all use home paths. Legacy `dsh-blender-rt` directories are read-only migration sources: `queue.json`, `jobs/index.jsonl`, and gateway state JSON are copied only when the home target is missing, and the old directory is never deleted, so downgrading keeps working. `workDir` remains a deprecated alias for the temporary-artifact directory (GUI frame PNGs, headless scripts) and defaults to home; `DSH_BLENDER_WORKDIR` no longer moves persistent data.
+
+Configuration is merged in layers (`runtime/config.ts`): built-in defaults, the package `dsh-blender.config.json`, the legacy `~/.dsh/dsh-blender.config.json` (compatibility only), the home config, `DSH_BLENDER_CONFIG`, the serialized DSH plugin settings (`DSH_BLENDER_PLUGIN_CONFIG`), and per-key `DSH_BLENDER_*` overrides. The plugin-settings layer contains only keys whose value differs from the plugin defaults (deleted or untouched fields are not serialized), so it cannot shadow the home config with stale defaults and `configSource()` reports `home`/`default`/`plugin` truthfully. Later layers win per key and every effective value keeps a source label; doctor reports the layer list, the per-key sources, the resolved home, and the DNN feature flag with its source and lock state. DNN fields are additionally hot-applied through `$DSH_HOME/dsh-blender/vision/runtime.json` (host-written atomically with a monotonic revision), which outranks the startup plugin snapshot; `DSH_BLENDER_DNN` stays highest and locks `features.dnn`. The Gateway reconciles that snapshot at `/doctor` and at each `vision_*` boundary; see the vision section below and [配置参考](配置参考.md).
+### Render passes and the render-pass cache
+
+`blender_run(kind="render", passes=[...])` is the only path that produces per-frame pass
+artifacts and the only path the render cache touches; omitting `passes` keeps the 3.1
+behaviour (one beauty output, no manifest, no cache lookup).
+
+- Host validation (`src/tools/run/execute.ts`): `RENDER_PASSES` is the closed set
+  (`beauty`/`depth`/`normal`/`object_index`/`alpha`); empty arrays, duplicates and unknown
+  names are rejected before the job is posted, and `passes` is accepted only for `render`
+  (a `render` job still takes no script).
+- Executor (`runtime/core/queue/spawn-executor.ts`): with passes, `buildJobArgs` writes two
+  fixed files into the job temp dir — `render_passes.py` (the embedded script exported as
+  `RENDER_PASSES_PY` by `runtime/core/queue/render-passes-script.ts`; it lives in TypeScript
+  because `runtime/py/*` is a registered Python domain with a frozen module list) and
+  `render-config.json` (passes, frames, outdir, camera, resolution, samples, engine, format) —
+  then launches `blender -b --factory-startup <file> --python render_passes.py -- <config>`.
+  This branch forwards no caller Python and no `--python-expr`, and adds no `-s/-e/-a`.
+  The script enables the view-layer passes, builds one compositor File Output per pass
+  (`beauty` in the requested format; depth = Z mapped to `[0,1]` as 16-bit PNG; normal =
+  `n*0.5+0.5` as 8-bit RGB in camera space; `object_index` = IndexOB divided by 65535 as
+  16-bit PNG with a stable `(name,type)`-sorted `pass_index` map; alpha 8-bit), writes
+  `manifest.json` last, and prints one `PASSES_DONE {json}` line. A requested pass that
+  produced no file is listed in `degraded`; fatal setup problems emit `PASSES_ERROR`
+  (e.g. `pass_unsupported`). Non-beauty passes are written with `view_transform="Raw"`, so
+  consumers must read them as Non-Color. `object_index` is Cycles-only on every supported
+  Blender: 4.2 / 4.5 / 5.x expose no Object Index output under EEVEE or Workbench (4.x keeps
+  the socket name but `outputs.get()` resolves only for Cycles; 5.x rebuilds the outputs per
+  engine and names it `Object Index`). That is an engine precondition, not a version
+  difference — the failure is the same structured `pass_unsupported`, never a silent
+  all-zero or all-one index image. The Python text is one program split across
+  `render-passes-py-setup.ts` (scene preparation + compositor graph) and
+  `render-passes-py-capture.ts` (per-frame capture + entry point) purely for the per-file
+  line budget; `render-passes-script.ts` concatenates both. Blender 4.2/4.5 use
+  `scene.node_tree` + `base_path`/`file_slots` + `CompositorNode*` math nodes, while 5.x
+  needs `scene.compositing_node_group` + `directory`/`file_name`/`file_output_items` +
+  `format.media_type="IMAGE"` + `ShaderNode*` math nodes; the script branches internally so
+  the manifest contract stays identical (verified by `npm run test:e2e:passes` on 4.2/4.5/5.2).
+- The manifest is the only decoding contract (`manifestVersion`, per-pass dtype/range/
+  colorspace/encoding, depth near/far + formula, normal coordinate space, object-index map);
+  receipts carry paths, sizes and digests only — never pixel arrays or base64.
+- Cache (`runtime/core/queue/render-cache-key.ts` + `render-cache.ts`, wired in
+  `runtime/core/queue/manager.ts`): the key is sha256 over canonical JSON of the scene
+  identity (path, size, mtime), frame, camera, resolution, samples, engine, sorted pass set and
+  manifest version. A hit creates a `completed` job with `result.cache.hit` and artifacts
+  pointing at the cache, without admission and without spawning Blender. A miss renders into
+  `home/cache/render/.staging/<jobId>/`; on success each frame directory is renamed atomically to
+  `home/cache/render/<key>/` (manifest pass paths are rewritten to the new home), the index in
+  `home/cache/render/index.json` is written temp-file + rename, then TTL/LRU pruning runs. Staging
+  lives inside the cache tree on purpose: `home/queue/staging` is the legacy render work root (still
+  used for job temp files), is never cleared by the cache, and may belong to another live Gateway.
+  Failure, cancellation, an incomplete manifest or one entry over 2 GiB never writes an index
+  entry: artifacts move to `home/jobs/<jobId>/` (and are copied to a caller `outdir` when one
+  was given) and the receipt carries `cache_skipped`. A corrupt index rebuilds empty; a hit
+  whose manifest/artifacts disappeared deletes that entry and falls back to a miss.
+- Limits are read once at Gateway start from `cache.render.maxEntries|maxBytes|ttlDays`
+  (defaults 8 entries / 4 GiB / 7 days; documented ranges 1–32 / 512 MiB–16 GiB / 1–30 days).
+  Out-of-range values fall back to the documented default and are surfaced by doctor, never
+  clamped.
+
+### Vision worker and DNN runtime snapshot
+
+`runtime/vision/` owns the long-lived Python worker and the DNN configuration state machine. The host exposes no new HTTP route: the owner-only `/dsh-blender` RPC multiplexes `virtual-gui`, `permission`, and `dnn` (`src/host/dnn-config.ts`). The host writes `$DSH_HOME/dsh-blender/vision/runtime.json` atomically with a monotonic revision and no secrets; the Gateway only reads it, at `/doctor` and at each `vision_*` boundary, and reconciles. Fields that need a new worker (`vision.python`, `vision.venv`, `backend`, `device`) use two-phase switching: idle applies immediately, whereas in-flight requests keep the old revision and new worker-backed calls get `dnn_config_switching` (retryable). A failed start keeps the old active configuration and reports `dnn_config_switch_failed` with a pending revision that can be cancelled or rolled back. Changing only `features.dnn` or `vision.model` does not restart the worker. Probe is a one-shot Python process with a 10 s timeout; it validates imports, execution providers, and `models.yml` without loading ONNX, writing snapshots, or using the network. Model downloads are host-side and single-concurrency, use `.part` → byte/SHA-256 check → atomic rename, and never bypass the pinned URL table.
+
+### Vision ops and pass analysis
+
+The eight `vision_*` ops are host-local and session-free: `runtime/vision/dispatch.ts` validates every
+argument (local existing file paths only, 64 MP decode ceiling, bounded ROI/object lists), applies the D6
+gate order for worker-backed calls (`dnn_disabled` → `dnn_config_switching` → `dnn_config_switch_failed`
+→ custom-env/backend/device errors → `dnn_no_model`), and then either serves the request itself
+(`vision_status`, `vision_help`, `vision_pass`) or forwards it to the single worker through the manager.
+`runtime/core/plan-dispatch.ts` short-circuits the same eight names before any session resolution, so a
+`vision_*` call never becomes `stage=session`, never starts Blender and never reaches `execute_code`.
+The `/plan` route treats them as host-local read-only ops: `PLAN_HOST_LOCAL_OPS` in
+`runtime/catalog/data.ts` is consumed by `runtime/http/lease.ts`, so they take no lease, need no
+session, and require no `write_scope` grant.
+Worker-backed Python op modules (`analyze.py`, `compare.py`, `detect.py`, `track.py`, `selftest.py`) live
+under `runtime/vision/worker/` next to the protocol/models/inference modules; each exposes
+`run(args, ctx)` and raises `VisionError(code, stage, message, fix, retryable, details)`, which the worker
+main loop turns into the standard failure envelope and echoes `configRevision` on success.
+
+`vision_pass` is pure host TypeScript (`runtime/vision/pass.ts`) with a bounded PNG decoder
+(`runtime/vision/png.ts`): it reads 1–240 render `manifest.json` files, validates the manifest contract
+(version/frame/resolution/pass dtype+range/near+far/normal space/object mapping, and pass paths confined to
+the manifest directory), decodes depth to meters (`near + (v/65535)*(far-near)`), normals as camera-space
+unit vectors, object_index through the manifest mapping (0 = background) and alpha coverage, and returns
+bounded per-frame statistics plus cross-frame aggregation. Raw pixels, depth, normals and index arrays are
+never returned. A pass missing from a manifest is `vision_pass_manifest_invalid` unless that frame listed it
+in `degraded` (then the frame carries a `frame_degraded` warning and its other passes are still analysed); a
+pass requested by the caller but absent from every manifest is `vision_pass_unsupported`. Object ordering is
+a visible-coverage/median-depth approximation, reported as such, never a hidden-surface reconstruction.
+
+### Animation analysis (animation family)
+
+`runtime/py/animation/` is the sixth Python domain: a lazy `__init__.py`, the `animation.py` facade
+(exports `ANIMATION_VERSION`) and the `animation_impl/` package (common, plan, metrics, report,
+selftest, help, api). `runtime/py/modules.json` registers the module and `pyproject.toml` adds
+`animation` to the exhaustive import-linter layer, so the domain is a sibling of the other five with
+no cross-domain imports. `animation_report` samples the evaluated depsgraph frame by frame
+(`Object.matrix_world`, `PoseBone.matrix`) — never `Action.fcurves` — and restores
+`frame_current`/`frame_subframe` in a `finally` block; `animation_selftest` builds a temporary
+keyframed object/armature and removes it in `finally`; `animation_help` exposes generic options only
+(no rig-profile examples or control/mechanism/DEF role inference).
+
+GUI routing lives in `config/routing.json` (`prefix: animation_`, `api: dsh_animation_api`,
+`ensure: ensureAnimation`, `preload: animation`); `scripts/gen-routes.mjs` renders it, and
+`runtime/core/kernel/api.ts` injects the facade through `ensureAnimation` after resolving
+`ANIMATION_PATH` (added in `runtime/paths.ts` from `modules.json`). Session semantics are
+three-state: `animation_report` and `animation_help` are listed in `PLAN_SESSION_READ_OPS`, so the
+host still resolves a ready GUI session (even for `dry_run`) while the Gateway `/plan` route calls
+`leaseGate(payload, { readOnly: true })`; they never take the write lease or a scope grant and are not
+in `READ_ONLY_OPS` or `PLAN_READ_ONLY_OPS`. `animation_selftest` mutates the scene and stays behind
+the normal write gate. Limits (240 samples, 16 objects / 16 contact bones / 16 intersection objects,
+64 bones / 64 contact intervals / 64 intersection pairs, 240 reference frames, 200k triangles per
+frame) and the metric definitions are documented in [docs/animation-analysis.md](animation-analysis.md).
+
 ## 4. Python domain library (runtime/py/)
 
 Python code is grouped by domain, not by a flat file list:
@@ -149,7 +271,9 @@ Python code is grouped by domain, not by a flat file list:
 - geometry: geo, blockout, sculpt, mesh fix, surface, shapesolve, generator, UV tools;
 - assembly: assembly, vehicle, human, clearance, mate;
 - render: qc, qc_render, imgtools, material, visualreport, montage, calib;
-- export: deliver, printcheck, open3d check.
+- export: deliver, printcheck, open3d check;
+- animation: animation_report, animation_selftest, animation_help (evaluated-depsgraph sampling,
+  root motion, joints, contacts, intersections, reference trajectories).
 
 runtime/py/modules.json is the only module registry. It maps public module names to domain and
 implementation paths. runtime/paths.ts, offline_bootstrap.py, and the layout tests read that registry;
@@ -160,7 +284,7 @@ the shared runtime/py/_facade.py helper and re-export the implementation package
 lives in the sibling <name>_impl/ package. The public path, preload name, and K.dsh_<name>_api entry are
 the contract; the facade is the stable entry, not a temporary shim.
 
-The five domains are independent siblings, and the layers contract is exhaustive: a module under
+The six domains are independent siblings, and the layers contract is exhaustive: a module under
 `runtime/py` that is not listed there fails `npm run check:python-imports` until its domain is
 declared. `_facade` is the only declared exception.
 
@@ -223,7 +347,7 @@ all runtime Python is typed. There is no checked-in ruff baseline: every violati
 
 These are the rules that protect the architecture:
 
-- 6 tools / 7 capabilities / 34 families / 228 ops / 25 addon commands / 29 routes / protocol 12 stay stable unless a
+- 6 tools / 7 capabilities / 36 families / 239 ops / 25 addon commands / 29 routes / protocol 12 stay stable unless a
   declared migration changes them. The 25 addon commands are the registered dispatch surface; the
   transport-only ping is the 26th wire command.
 - src/index.ts stays entry-only; production files stay under the line budgets enforced by
@@ -256,8 +380,8 @@ Python scope and import boundaries are enforced at three points:
   lives under one of those roots, and asserts that every include in `pyrightconfig.python.json` and
   `pyrightconfig.extension.json` exists, is a file, and is unique. There is no ruff baseline and no
   per-file waiver.
-- `npm run check:python-imports` runs import-linter with the contracts in `pyproject.toml`. The five
-  runtime domains (`core`, `geometry`, `assembly`, `render`, `export`) are independent siblings,
+- `npm run check:python-imports` runs import-linter with the contracts in `pyproject.toml`. The six
+  runtime domains (`core`, `geometry`, `assembly`, `render`, `export`, `animation`) are independent siblings,
   and the layers contract is exhaustive: a module under `runtime/py` that is not listed fails the
   contract. `_facade` is the only declared exception because it resolves targets dynamically. The two
   addon contracts forbid `assets.io` from importing `commands` and `ui.panels` from importing

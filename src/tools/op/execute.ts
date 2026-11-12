@@ -2,7 +2,8 @@
  * blender_op：执行 catalog 算子（plan 主体）+ loop / opt / preset 子面。
  *
  * 执行型 op 需要 ready 的 GUI 会话；catalog / 只读 op / dry-run 是本地或
- * Gateway 只读路径，不需要会话，也不会启动 Blender。
+ * Gateway 只读路径，不需要会话，也不会启动 Blender。session-read op 必须
+ * 解析会话（dry-run 也一样），但不需要写授权。
  */
 import { BACKEND_HINT } from '../../constants.js'
 import { asRecord, text } from '../../contracts/dynamic.js'
@@ -16,11 +17,12 @@ import { executeOpt } from './opt.js'
 import { executePlan } from './plan.js'
 import { executePreset } from './preset.js'
 import { READ_ONLY } from './read-only.js'
+import { opGateMode } from './session-read.js'
 
 export function opHelp(): string {
   return [
     'blender_op 动作（catalog 算子与参数搜索；执行型需要 GUI 会话）：',
-    '  action=plan   op=<catalog op> args={...}：34 family / 228 op 的主入口（op=catalog 看目录）',
+    '  action=plan   op=<catalog op> args={...}：36 family / 239 op 的主入口（op=catalog 看目录）',
     '  action=loop   op=start|status|stop|board|export|help|bench：参数搜索内环（target=gui|session）',
     '  action=opt    op=analyze|join|help：对象精简分析/合并',
     '  action=preset op=list|get|apply|save|delete|export|import|help：配方库',
@@ -85,11 +87,8 @@ export async function executeOp(
         'OP ' + op + ' 失败 · args 不是合法 JSON 对象：' + text(args.args).slice(0, 200),
         'args 传 JSON 对象，例如 {"family":"audit"}',
       )
-    const routed = await gate(
-      port,
-      !READ_ONLY.has(op) && !dryRun(args.args),
-      text(args.session_id).trim(),
-    )
+    const mode = opGateMode(op, dryRun(args.args), READ_ONLY)
+    const routed = await gate(port, mode.needsSession, text(args.session_id).trim())
     if (!routed.ok) return routed.failure
     return executePlan(ctx, port, args, routed)
   }

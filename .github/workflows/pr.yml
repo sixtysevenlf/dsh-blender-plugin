@@ -37,6 +37,8 @@ jobs:
         run: |
           npm ci --legacy-peer-deps
           python -m pip install -r requirements-dev.txt -r requirements-typecheck.txt
+      - name: Verify OpenCV for the vision worker tests
+        run: python -c "import cv2; print('opencv', cv2.__version__)"
       - name: Typecheck
         run: npm run typecheck
       - name: Script typecheck

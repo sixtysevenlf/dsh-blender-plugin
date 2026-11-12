@@ -6,7 +6,7 @@ license: MIT（融合自 RobLe3/cc-blender-skill 与 arjun988/blender-skills，�
 
 # Blender 建模流程
 
-> **v3.1.0-alpha.1 · 2026-11-08**：配套插件 dsh-blender-plugin v3.1.0-alpha.1，6 个模型工具，plan 通道 34 个 family / 228 个 op，addon v2.0.0 / protocol 12。**默认 GUI 优先**：先开 GUI Blender + Connect；无头用于批处理/长活/全新场景，通过 blender_run 后台作业提交、按 id 收图与产物。
+> **v3.1.0-alpha.1 · 2026-11-08**：配套插件 dsh-blender-plugin v3.1.0-alpha.1，6 个模型工具，plan 通道 36 个 family / 239 个 op，addon v2.0.0 / protocol 12。**默认 GUI 优先**：先开 GUI Blender + Connect；无头用于批处理/长活/全新场景，通过 blender_run 后台作业提交、按 id 收图与产物。
 > 旧版按 v2/v3/v7 记录的“哪段是哪次实测加的”不再写在正文；需要追溯看 CHANGELOG。下面只写**当前有效口径**。
 
 先定形状，再走流程，改一步看一眼。**不要一口气写完整个模型再回来看**——每一步都要有画面或数字证据。
@@ -18,7 +18,7 @@ license: MIT（融合自 RobLe3/cc-blender-skill 与 arjun988/blender-skills，�
 | 工具 | 什么时候用 | 关键点 |
 |---|---|---|
 | blender_session | 会话与通道运维 | list/status/doctor/attach/claim/release/grant/revoke/pause/mark_read/presence；action=txn 回滚；Blender/Gateway 生命周期由宿主管理 |
-| blender_op | 契约层 + 判定/验收/导出/造型 | op=catalog 先查 34 个 family / 228 个 op；执行 op 需要 ready 的 GUI 会话（catalog/dry-run 本地只读、无需会话）；action=loop/opt/preset |
+| blender_op | 契约层 + 判定/验收/导出/造型 | op=catalog 先查 36 个 family / 239 个 op；执行 op 需要 ready 的 GUI 会话（catalog/dry-run 本地只读、无需会话）；action=loop/opt/preset |
 | blender_py | 改一步看一眼 | 在已 attach 的 GUI 会话里跑 Python，持久内核 K；see=true 回一帧；仅 GUI，重活转 blender_run |
 | blender_see | 看一眼画面 | 仅 GUI 取帧：viewpoint=viewport/camera/custom、mode=frame/sequence，固定分档；不动用户视口 |
 | blender_run | 批处理/长活 | 唯一作业入口：submit kind=render|headless 立即回 job id；status/wait/collect/cancel/list；action=tune 管渲染性能；超时不等于失败 |
@@ -132,7 +132,7 @@ license: MIT（融合自 RobLe3/cc-blender-skill 与 arjun988/blender-skills，�
 
 | 我要做什么 | 首选 | 备注 |
 |---|---|---|
-| 不知道该用什么 | blender_op(op="catalog") | 34 个 family / 228 个 op；单族 family=... |
+| 不知道该用什么 | blender_op(op="catalog") | 36 个 family / 239 个 op；单族 family=... |
 | 基本体/分面硬表面 | bmesh / geo primitives + bevel | 分面件不要 SubSurf |
 | 光滑硬表面 | Bevel + Subdivision + shade smooth | Bevel 必须在 SubSurf 前 |
 | 布尔开孔/切割 | geo.boolean / K.dsh_geo_api | 先判连接/闭合；保留 cutter 副本 |
@@ -330,7 +330,7 @@ plan 通道返回 receipt.v2 信封（contract/op/verdict/summary/top_defects/ne
 
 **判据**：能用第一选择就不用第二选择；第二选择必须在回执里写明“为什么不用插件 op”。
 
-## 4. 当前 plan 通道速查（v3.1.0-alpha.1 · 34 个 family / 228 个 op）
+## 4. 当前 plan 通道速查（v3.1.0-alpha.1 · 36 个 family / 239 个 op）
 
 先 blender_op(op="catalog") 看“什么时候用 / 别用 / 最小骨架”，再单族展开。常用家族：
 

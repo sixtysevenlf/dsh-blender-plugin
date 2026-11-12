@@ -125,6 +125,8 @@ export const AUDIT_PATH = pyModuleFile('audit')
 export const MONTAGE_PATH = pyModuleFile('montage')
 /** 铰接/机构（v0.9.0）：关节实测 + 扫掠验证 + URDF/USDA 导出（motion_* 前缀 op） */
 export const MOTION_PATH = pyModuleFile('motion')
+/** 骨骼动画验收（3.2）：animation_* 前缀 op（report/help 走 session-read，selftest 走写门）。 */
+export const ANIMATION_PATH = pyModuleFile('animation')
 /** 交付导出（v0.9.0）：单位盒归一化 + 多组 OBJ/MTL + manifest(md5)（deliver_* 前缀 op） */
 export const DELIVER_PATH = pyModuleFile('deliver')
 /** 生成器注册表（v0.9.0 · #18 代码化建模通道的 Blender 原生轻量版）：已归入 geometry 领域包。 */

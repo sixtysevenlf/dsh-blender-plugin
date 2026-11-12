@@ -1,12 +1,7 @@
 {
   "version": 1,
-  "generated": [
-    "runtime/core/dispatcher/routes.generated.ts"
-  ],
-  "hostSideFamilies": [
-    "ext",
-    "render_guard"
-  ],
+  "generated": ["runtime/core/dispatcher/routes.generated.ts"],
+  "hostSideFamilies": ["ext", "render_guard", "vision"],
   "routes": [
     {
       "id": "plan",
@@ -118,6 +113,20 @@
       "ensure": "ensureMotion",
       "timeoutMs": 900000,
       "preload": "motion"
+    },
+    {
+      "id": "animation",
+      "side": "gui",
+      "family": "animation",
+      "group": "module",
+      "kind": "dispatch",
+      "match": "prefix",
+      "prefix": "animation_",
+      "strip": 10,
+      "api": "dsh_animation_api",
+      "ensure": "ensureAnimation",
+      "timeoutMs": 300000,
+      "preload": "animation"
     },
     {
       "id": "deliver",

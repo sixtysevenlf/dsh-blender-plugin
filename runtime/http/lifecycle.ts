@@ -2,8 +2,7 @@
 // 与拆分前一致：EADDRINUSE 先探活（能应答就让位），死进程 SIGTERM→600ms→SIGKILL→300ms 重试，最多 2 次。
 import type { Server } from 'node:http'
 import fs from 'node:fs'
-import path from 'node:path'
-import { CFG } from '../config.js'
+import { homePath } from '../home.js'
 import { errorMessage } from '../core/json.js'
 import { holderResponsive, killHolders } from '../ports.js'
 
@@ -69,7 +68,7 @@ export function startServer({ server, engine, port, host, routes }: StartServerO
         : '监听失败：' + errorMessage(e)
     console.error('[dsh-blender-backend] ' + msg)
     try {
-      fs.writeFileSync(path.join(CFG.workDirWsl, 'backend-listen-error.txt'), msg, 'utf8')
+      fs.writeFileSync(homePath('state', 'backend-listen-error.txt'), msg, 'utf8')
     } catch (e2) {
       /* workDir 都写不了就算了 */
     }

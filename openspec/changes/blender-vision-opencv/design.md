@@ -79,7 +79,7 @@ DNN 开关必须显示“实验性”badge，并在开关下方给出影响说�
 新增 `runtime/vision/`：
 
 - `manager.ts`：至多一个 worker 子进程；首次视觉请求时启动，空闲 10 分钟回收；崩溃/超时/协议错乱时杀掉进程树并按“最多 3 次/5 分钟”重启，重启后重新握手。manager 同时维护 `activeRevision/pendingRevision`、worker-backed 请求的 in-flight 集合和切换状态机（D6a）；`vision_status` 与 `vision_pass` 不启动 worker、不增加 in-flight。
-- `protocol.ts`：stdin/stdout 上的换行分隔 JSON；请求 `{id, op, args, configRevision}`，响应 `{id, ok, result|error, configRevision}`；单帧上限 8 MiB，超过即协议错误；每次请求 30 秒超时；worker 不下载模型，因此没有下载放宽。
+- `protocol.ts`：stdin/stdout 上的换行分隔 JSON；请求 `{id, op, args, configRevision, config?}`，其中 `config:{revision, model}` 让 model-only 热应用随请求到达 worker（只靠 hello 永远拿不到新模型）；响应 `{id, ok, result|error, configRevision}`，回执的 revision 取自请求。单行上限 8 MiB，按去掉行尾换行后的字节计——同一 chunk 内一次到达的完整行同样要校验，超限错误带真实 `details.bytes`；每次请求 30 秒超时；worker 不下载模型，因此没有下载放宽。
 - `worker/`：Python 包（`main.py`、`analyze.py`、`compare.py`、`detect.py`、`track.py`、`selftest.py`、`models.py`、`probe.py`、`protocol.py`，以及 `inference/opencv.py` / `inference/onnxruntime.py` / `inference/select.py`）。它不在 `runtime/py/modules.json` 中，不注册为 Blender 模块，不 import bpy；它与 `runtime/py` 的域模块完全隔离；`models.py` 用 `cv.FileStorage` 读取 `vision/models/models.yml`（OpenCV 5 语法），不在 Node 侧引入 YAML 解析依赖；worker 不发起任何网络请求，也不安装包。`probe.py` 只被 D6b 的一次性 probe 调用，不常驻、不加载 ONNX。新增 `runtime-config.ts`：读取/校验运行时快照、维护 revision 与切换状态，并原子写 `home/vision/runtime-state.json`。
 - worker 环境只继承最小变量（`PATH`、代理、home），cwd 为 home，Windows 用 `windowsHide` + 独立进程组；stderr 追加到 `home/logs/vision-worker.log`，保留最后 256 KiB。
 - worker 不监听端口；manager 不通过 HTTP、WebSocket 或命名管道暴露它。Gateway 的其他请求/作业不受其崩溃影响。
@@ -95,8 +95,9 @@ DNN 开关必须显示“实验性”badge，并在开关下方给出影响说�
 - 发现顺序：`vision.venv` 非空时直接使用其解释器（优先于下列所有来源）；否则 `vision.python` 显式路径 → `DSH_BLENDER_PYTHON` → Windows `py -3.13/-3.12/-3.11` → `python3.13/3.12/3.11` → `python3`/`python`；每个候选验证版本在 3.11–3.13 且能 `import venv`。优先 3.13，其次 3.12、3.11。
 - 自定义 venv：`vision.venv` 非空时，解析 `<venv>/Scripts/python.exe`（Windows）或 `<venv>/bin/python`（POSIX），校验存在、可执行、版本 3.11–3.13，并实际执行 `import cv2, numpy`（`backend=onnxruntime` 时再 `import onnxruntime`）；失败返回 `stage=config`、`code=vision_custom_env_invalid`，列出缺失模块与文档链接。成功时 `vision_status.env.source=custom`、安装状态为 `ready`，跳过托管 venv 创建、pip 安装、`state.json` 安装状态机与 notices 写入；插件不向该 venv 安装/升级/删除任何包，也不覆盖用户文件。自定义 venv 的 OpenCV/NumPy/ONNX Runtime 版本与驱动匹配由用户负责，`vision_status` 只报告实际 import 到的版本与 provider。
 - 没有系统解释器时，下载固定版本的 python-build-standalone CPython 3.13（Windows/Linux 各固定 URL + sha256）到 `home/vision/python/`，用系统 `tar` 解压，校验 `python -c "import venv"` 后再用；该来源在 `vision_status` 标为 `managed`。没有网络或校验失败返回 `python_missing`，不回退到系统 pip。该安装只涉及 Python/OpenCV，与 `features.dnn` 和 YOLOv5 模型下载无关。
-- venv 建在 `home/vision/venv`，先建 `venv.tmp-<pid>`，成功校验后原子 rename；失败清理临时目录，不留下半可用 venv。
-- 依赖固定为 `opencv-python-headless==5.0.0.93` + `numpy>=2`，由 `runtime/vision/requirements.lock` 按平台锁定并提供 sha256；pip 以 `--require-hashes --only-binary=:all: --no-input` 安装，pip cache 指向 `home/vision/cache/pip`，不升级系统 pip 除非验证失败后显式重试。
+- venv 建在 `home/vision/venv`：先建 `venv.tmp-<pid>`，校验通过后把旧目录改名为 `.old-*` 再换入新目录，失败回滚并恢复旧 venv；任何失败都清理 `venv.tmp-*`/`.old-*`，不留下半可用 venv。
+- 每个子进程有独立预算：下载 900 s、`python -m venv` 300 s、解压 300 s、pip 1800 s、probe 60 s（`DEFAULT_INSTALL_TIMEOUTS`，可由 `createVisionInstaller({timeouts})` 覆盖）；探测用的 15 s 默认值不能用于安装步骤。
+- 依赖固定为 `opencv-python-headless==5.0.0.93` + `numpy>=2`，由 `runtime/vision/requirements.lock` 按平台锁定并提供 sha256；`requirements.lock` 的 `installer.requireHashes` 只判定一次：为真时每条依赖都必须带 `sha256`（缺一条即失败），为假时整份不用哈希；不会生成“部分哈希”的 requirements 让 pip 自己拒绝。pip 以 `--require-hashes --only-binary=:all: --no-input` 安装，pip cache 指向 `home/vision/cache/pip`，不升级系统 pip 除非验证失败后显式重试。
 - 安装器用原子 `mkdir` 锁（`home/vision/install.lock`，含 pid/时间，10 分钟过期）防并发；失败最多重试 2 次；每次失败写 `home/logs/vision-install.log` 并把阶段、退出码、代理建议、离线安装 fallback 放进状态。
 - 托管路径（`vision.venv` 为空）安装成功后写 `home/vision/THIRD_PARTY_NOTICES.md`（OpenCV Apache-2.0、numpy BSD、Python PSF）并在 `vision_status.licenses` 给出路径；不复制 OpenCV 源码/头文件。自定义 venv 的依赖与许可由用户自行负责，插件不写 notices、不执行 pip。
 
@@ -117,7 +118,7 @@ DNN 开关必须显示“实验性”badge，并在开关下方给出影响说�
 | `vision_selftest` | 无 | 合成图上的 import/颜色/轮廓/ECC/检测前向检查结果；DNN 未启用或无模型时该检查标记为 skipped；切换 pending 时返回 `dnn_config_switching` 而不是启动旧 worker；启用时校验实际 backend/device/provider，显式失败不回退 |
 | `vision_help` | 无 | 8 个 op 的参数、单位、限制与示例；`models.yml` 字段与模型 id 用法；`vision.venv`/`backend`/`device` 的 DIY 边界、保存并应用/pending/probe 语义与 `docs/vision-custom-backend.md` 链接 |
 
-约定：像素坐标原点左上、x 向右、y 向下；bbox 用 `[x0,y0,x1,y1)`、0-based；长度单位像素；深度单位米。所有回执不含完整像素/mask/光流数组，只含标量、小数组、路径与 manifest 引用。图片仅接受已存在文件路径（绝对或相对 cwd），不接受 URL/通配/脚本；解码后像素上限 64 MP，超过返回 `vision_image_too_large`。worker-backed 的成功回执带 `configRevision`；`dnn_config_switching`/`dnn_config_switch_failed` 回执带 `activeRevision`、`pendingRevision`、`waitingFor` 与修复说明。
+约定：像素坐标原点左上、x 向右、y 向下；bbox 用 `[x0,y0,x1,y1)`、0-based；长度单位像素；深度单位米。所有回执不含完整像素/mask/光流数组，只含标量、小数组、路径与 manifest 引用。图片仅接受已存在文件路径（绝对或相对 cwd），不接受 URL/通配/脚本；解码后像素上限 64 MP，超过返回 `vision_image_too_large`。`vision.model` 与单次 `model` 参数必须匹配 `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`，路径或 URL 返回 `vision_model_unsupported`。`/plan` 用 `PLAN_HOST_LOCAL_OPS`（8 个 vision op）与 `PLAN_READ_ONLY_OPS` 的并集判定 read-only：不取租约、不要求会话、宿主 `planRequestBody` 不写 `write_scope`。worker-backed 的成功回执带 `configRevision`；`dnn_config_switching`/`dnn_config_switch_failed` 回执带 `activeRevision`、`pendingRevision`、`waitingFor` 与修复说明。
 
 `vision_analyze` 的前景检测规则写进注释与 `vision_help`：有 alpha 用 alpha>0；无 alpha 用 Otsu 阈值反相后最大连通域；都不可靠时返回 `foreground:null` 并说明。`vision_compare` 先 ECC（`MOTION_EUCLIDEAN`），失败再用 ORB+单应；对齐失败返回 `aligned:false`，不伪造 IoU。`vision_track` 的 Farneback 只返回位移/散度/旋度摘要，LK 只返回有限轨迹点；序列稳定性用相邻帧位移/亮度差的鲁棒统计，参考序列偏差用同长度轨迹的 RMSE/max，不把缺失帧当 0。`vision_pass` 只读 manifest 与 pass 文件，不猜 dtype/值域/公式；具体边界见 D5a。
 
@@ -134,7 +135,7 @@ DNN 开关必须显示“实验性”badge，并在开关下方给出影响说�
 
 返回分三层：逐帧、聚合、诊断。逐帧只给标量/小数组：depth 用 manifest 的 near/far 与解码公式还原为米，给 min/max/mean/p01/p05/p50/p95/p99 与 invalid_ratio；normal 给相机空间单位向量的均值、角度离散度与有效像素占比；object_index 给每对象可见像素、占画面比例、bbox，以及按中位深度得到的前后顺序；alpha 给前景覆盖率。聚合给跨帧范围、对象覆盖稳定性（标准差）和缺帧/越界警告。预览最多 2 张，路径写 home。
 
-`object_index` 的顺序只表示可见覆盖与中位深度，不声称隐藏面重建或精确遮挡；bbox 重叠另给 `bbox_overlap_order`，并在回执中注明这是 bbox 级近似。manifest 缺 pass、dtype/值域/公式不完整、尺寸不一致时返回 `stage=input`、`code=vision_pass_manifest_invalid`，不猜格式；请求的 pass 不在 manifest 中返回 `vision_pass_unsupported`。所有数组有上限，超限截断并 warning，不返回原始像素、深度、法线或索引数组。
+`object_index` 的顺序只表示可见覆盖与中位深度，不声称隐藏面重建或精确遮挡；bbox 重叠另给 `bbox_overlap_order`，并在回执中注明这是 bbox 级近似。manifest 缺 pass、声明的 `dtype`/`encoding`/`range` 与 PNG 实际位深/通道不一致、尺寸不一致时返回 `stage=input`、`code=vision_pass_manifest_invalid`，不猜格式；请求的 pass 不在 manifest 中返回 `vision_pass_unsupported`。depth 条目用 `noGeometryValue`（默认 0）判定无几何、`clampedAt` 标明截断端，near 映射到 1/65535，因此原始 0 只表示“无几何”；stride>1 时回执标 `sampled`，未映射的 index 像素计入 `unmapped_pixels` 并告警。单文件上限 PNG ≤ 256 MiB、manifest ≤ 8 MiB 且必须是普通文件（FIFO/设备/目录拒绝）；每个请求 4×10^8 像素与 60 秒预算，超限返回 `vision_pass_budget_exceeded`，帧间让出事件循环；意外异常统一映射为 `vision_pass_failed`。所有数组有上限，超限截断并 warning，不返回原始像素、深度、法线或索引数组。
 
 ### D5b. 3D 动作分析：独立 animation 家族，session-bound session-read 报告
 
@@ -232,7 +233,7 @@ my-detector:
 
 ### D6a. DNN 配置热应用：宿主写快照，Gateway 在请求边界两阶段切换
 
-`$DSH_HOME/dsh-blender/vision/runtime.json` 是宿主单写的 DNN 运行时快照，只含 `version`、`revision`、`updatedAt`、`features.dnn`、`vision.python`、`vision.venv`、`vision.model`、`vision.dnn.backend`、`vision.dnn.device`；不含密钥、cookie、token。宿主用临时文件 + 原子 rename 写入，权限尽量 0600；Gateway 只读。快照覆盖 `DSH_BLENDER_PLUGIN_CONFIG` 的对应字段，`DSH_BLENDER_DNN=off/on` 优先级最高：env 存在时 `features.dnn` 由 env 锁定，`dnn.apply` 返回 `dnn_env_locked`，配置卡禁用开关并说明。Gateway 启动时按“内置默认 → 包内/home/DSH_BLENDER_CONFIG → DSH_BLENDER_PLUGIN_CONFIG → runtime.json”合并；启动时快照无效则回退插件配置，写 `phase=failed`/`dnn_config_invalid`，不崩溃。
+`$DSH_HOME/dsh-blender/vision/runtime.json` 是宿主单写的 DNN 运行时快照，只含 `version`、`revision`、`updatedAt`、`features.dnn`、`vision.python`、`vision.venv`、`vision.model`、`vision.dnn.backend`、`vision.dnn.device`；不含密钥、cookie、token。宿主用临时文件 + 原子 rename 写入，权限尽量 0600；Gateway 只读。快照覆盖 `DSH_BLENDER_PLUGIN_CONFIG` 的对应字段，`DSH_BLENDER_DNN` 优先级最高，只接受 `on|true|1` / `off|false|0`（大小写不敏感）；其他非空值被忽略并保留配置值，doctor 报 `dnn_env_invalid` 并带原值。env 存在时 `features.dnn` 由 env 锁定，`dnn.apply` 返回 `dnn_env_locked`，配置卡禁用开关并说明。Gateway 启动时按“内置默认 → 包内/home/DSH_BLENDER_CONFIG → DSH_BLENDER_PLUGIN_CONFIG → runtime.json”合并；启动时快照无效则回退插件配置，写 `phase=failed`/`dnn_config_invalid`，不崩溃。
 
 Gateway 维护 `activeRevision/pendingRevision/phase/active/pending/waitingFor/lastSwitchError/previous/worker`，并原子写 `home/vision/runtime-state.json`（临时文件 + rename）。`active/pending` 只含上述 DNN 字段摘要，不含密钥。`phase` 取 `idle`/`pending`/`switching`/`failed`；`waitingFor` 是 `{op, startedAt, requestId}`；`previous` 是上一次成功提交的配置和 revision，用于显式回滚；`worker.lastStartError` 记录新配置启动失败。`vision_status.dnn.config` 与 `/doctor.dnn.config` 暴露同一状态，状态文件只作跨进程读取，内存中的 manager 是事实源。
 
@@ -243,10 +244,14 @@ Gateway 在 `/doctor` 和每次 `vision_*` 请求开始时调用 `runtime-config
 | 变化 | 处理 |
 |---|---|
 | 仅 `features.dnn` | 立即提交；新 `vision_detect` 按新值门禁；不重启 worker（analyze/compare/track 仍需要它） |
-| 仅 `vision.model` 或 models.yml 内容 | 立即提交；失效模型缓存；不重启 worker |
+| 仅 `vision.model` 或 models.yml 内容 | 立即提交；失效模型缓存；不重启 worker；下一个 worker-backed 请求携带 `config:{revision, model}`，worker 按请求覆盖上下文 |
 | `vision.python` / `vision.venv` | 需要换 worker |
 | `vision.dnn.backend` / `device` | 仅在 active 或 pending 的 `features.dnn=true` 时需要换 worker；否则立即提交 |
 | 字段非法/类型错误 | 不提交；`phase=failed`、`dnn_config_invalid`，active 不变 |
+
+配置 apply 在 worker 握手期间（`state=starting`）到达时同样登记 pending：握手完成后在 in-flight 归零时执行两阶段切换，不能因为当时不是 `ready` 就“直接提交但不重启”。
+
+`dnn_config_invalid` 只影响 apply/status：保留上一份 active 继续服务，不阻塞 detect；只有 `dnn_config_switching`/`dnn_config_switch_failed` 才门禁 worker-backed op。
 
 需要换 worker 且没有 in-flight 时，立即走两阶段切换：先优雅关闭旧 worker（关闭 stdin，等 2 秒，仍不退则杀进程树），成功后才提交 pending 为 active、清空 pending、`phase=idle`；下一次 worker-backed 请求按新配置启动。关闭失败时保持旧 active，`phase=failed`、`lastSwitchError.code=dnn_config_switch_failed`，pending 保留供重试/取消；新 worker-backed 请求返回同一错误，不再落到可能半关闭的旧 worker。
 
@@ -276,7 +281,7 @@ Gateway 在 `/doctor` 和每次 `vision_*` 请求开始时调用 `runtime-config
 4. 每帧输出到 `<outdir>/passes/frame_<frame:04d>/`，渲染完成后写该帧的 `manifest.json`（最后写）；manifest 至少含 `manifestVersion`、frame、camera、resolution、samples、engine、passes、每 pass 的 path/dtype/range/colorspace、depth 的 near/far/解码公式、normal 编码、object_index 映射。
 5. 渲染结束打印一行 `PASSES_DONE {json}` 供 executor 读取；失败/缺帧/缺 manifest 时退出非零。
 
-depth 的 near/far 取相机 `clip_start/clip_end`（不是 view layer 的 mist 范围），manifest 公式为 `depth_m = near + (pixel/65535)*(far-near)`；normal 的坐标系为世界空间还是相机空间必须在 manifest 固定为相机空间并写编码；object_index 的 0 表示背景，映射只含实际对象。具体 Blender 4.2/4.5/5.2 的 pass 可用性用 E2E 验证，不可用时该 pass 返回 `pass_unsupported` 而非静默缺文件。
+depth 的 near/far 取相机 `clip_start/clip_end`（不是 view layer 的 mist 范围），Map Range 把 near 映射到 1/65535（不 clamp），manifest 公式为 `depth_m = near + ((pixel/65535 - 1/65535)/(1 - 1/65535))*(far-near)`，并写 `noGeometryValue:0`、`clampedAt:"far"`，因此原始 0 只表示无几何；normal 固定为相机空间并写编码，Cycles 的 Normal pass 是世界空间，脚本必须统一做 `world @ R` 转换（所有引擎同一路径）；object_index 的 0 表示背景，映射只含实际对象。具体 Blender 4.2/4.5/5.2 的 pass 可用性用 E2E 验证，不可用时该 pass 返回 `pass_unsupported` 而非静默缺文件。
 
 manifest 同时是 `vision_pass` 的唯一输入契约：必须带足够字段让分析器解码 depth、normal 与 object index，不允许分析器按文件名/颜色/像素分布猜 dtype、值域或编码。字段缺失或不一致时 `vision_pass` 返回 `vision_pass_manifest_invalid`，不静默跳过该帧。
 
@@ -288,8 +293,10 @@ manifest 同时是 `vision_pass` 的唯一输入契约：必须带足够字段�
 
 - key = sha256(canonical JSON of {scene: {path,size,mtime}, frame, camera, resolution, samples, engine, passSet, manifestVersion})。scene 文件必须存在且可 stat；未保存/无文件路径时直接不缓存。帧范围逐帧做 key，一个 job 可对应多条 entry。
 - 提交时先查缓存；命中则直接创建 `state=completed`、`cache_hit=true` 的 job 记录，artifacts 指向缓存文件，不占 GPU slot、不 spawn Blender。大小/条目/TTL 上限来自启动时读到的 `cache.render.*`。
-- 未命中时正常排队；pass 输出先写 `home/queue/staging/<jobId>/`，成功且 manifest 完整后，按 entry 计算总字节：超过 2 GiB → 不提升，产物移到 `home/jobs/<jobId>/`，回执带 `cache_skipped=oversize`；否则原子 rename 到 `home/cache/render/<key>/` 并更新索引。用户指定 `outdir` 时，从 staging/缓存复制一份到用户目录，缓存仍保留自己的副本。
+- 未命中时正常排队；pass 输出先写 `home/cache/render/.staging/<jobId>/`（legacy `home/queue/staging` 不再被缓存清理触碰），成功且 manifest 完整后，按 entry 计算总字节：超过 2 GiB → 不提升，产物移到 `home/jobs/<jobId>/`，回执带 `cache_skipped=oversize`；否则原子 rename 到 `home/cache/render/<key>/` 并更新索引。用户指定 `outdir` 时，从 staging/缓存复制一份到用户目录，缓存仍保留自己的副本。
 - 索引 `home/cache/render/index.json` 用临时文件+rename 原子写；entry 含 key、createdAt、lastAccess、bytes、scene、frame、manifest、artifacts。启动时清理 TTL/超限；每次写入后按 LRU 淘汰到上限。单条 entry 超过上限或文件缺失时删除并回退 miss。
+- 任何 manifest 不完整、`degraded:true`/非空 `degraded`、或 `requestedPasses` 未被 `passes` 全覆盖的帧都整单拒绝提升，产物留在 `home/jobs/<jobId>/`，回执 `skipped:"degraded"`；降级帧永远不进缓存。
+- key 还包含 beauty `format`；索引加载时只接受 64 位小写 hex 的 key（防路径逃逸）；命中时逐 pass 校验 sha256（不符按 corrupt 重渲染），并先按帧预统计字节，超过 `cache.render.maxBytes` 直接 `skipped:"oversize"`；命中仍把帧复制到用户 `outdir`。
 - 失败/取消/超时：删除 staging，不写索引；已有旧 entry 不动。命中后发现 manifest 缺失/损坏：删除 entry 并按 miss 重渲染，回执说明 `cache_corrupt`。
 - 设置变更只在 Gateway 下一次启动生效；启动时立即按新上限淘汰。缓存索引/目录损坏时整体重建为空，不阻塞 render。
 

@@ -13,6 +13,13 @@ if (!result.ok) {
   console.error(JSON.stringify(result.error))
   process.exit(1)
 }
+// 首次安装（下载解释器/venv/pip）只在 Gateway 起来后后台跑：不阻塞监听，也不影响其他工具。
+void (app.engine.vision?.ensureInstalled?.() ?? Promise.resolve()).catch((e: unknown) => {
+  console.error(
+    '[dsh-blender-gateway] vision install failed: ' +
+      String(e && (e as Error).message ? (e as Error).message : e),
+  )
+})
 console.log(
   '[dsh-blender-gateway] http://' +
     app.host +

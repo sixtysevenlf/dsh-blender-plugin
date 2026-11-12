@@ -20,9 +20,9 @@ with open(os.path.join(PY, "modules.json"), encoding="utf-8") as _fh:
 
 def test_schema_and_domains():
     assert MANIFEST["version"] == 1
-    assert MANIFEST["domains"] == ["core", "geometry", "assembly", "render", "export"]
+    assert MANIFEST["domains"] == ["core", "geometry", "assembly", "render", "export", "animation"]
     modules = MANIFEST["modules"]
-    assert isinstance(modules, dict) and len(modules) == 41
+    assert isinstance(modules, dict) and len(modules) == 42
     for name, dom in modules.items():
         assert name.isidentifier(), name
         assert dom in MANIFEST["domains"], (name, dom)

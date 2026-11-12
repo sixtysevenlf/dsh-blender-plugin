@@ -1,6 +1,6 @@
 {
-  "families_count": 34,
-  "ops_count": 228,
+  "families_count": 36,
+  "ops_count": 239,
   "tools_count": 6,
   "tools": [
     "blender_inspect",
@@ -11,6 +11,10 @@
     "blender_session"
   ],
   "families": [
+    {
+      "f": "animation",
+      "ops": 3
+    },
     {
       "f": "assembly",
       "ops": 8
@@ -142,6 +146,10 @@
     {
       "f": "vehicle",
       "ops": 10
+    },
+    {
+      "f": "vision",
+      "ops": 8
     },
     {
       "f": "visualreport",

@@ -40,7 +40,7 @@ catalog 必须（SHALL）新增 `animation` 家族，prefix 为 `animation_`，�
 
 ### Requirement: Sampling uses effective fps and a bounded frame budget
 
-`animation_report` 必须（SHALL）使用 `effective_fps = scene.render.fps / scene.render.fps_base`；`frame_start`/`frame_end` 是闭区间。未给 `frame_step` 时，必须选择最小整数步长使采样数不超过 240；显式步长导致采样数超过 240 时返回 `animation_sampling_invalid`，不得静默改步长。回执必须返回 `effective_fps`、请求与实际帧范围、实际最后采样帧、步长和采样数。
+`animation_report` 必须（SHALL）使用 `effective_fps = scene.render.fps / scene.render.fps_base`；`frame_start`/`frame_end` 是闭区间。未给 `frame_step` 时，必须选择最小整数步长使采样数不超过 240；显式步长导致采样数超过 240 时返回 `animation_sampling_invalid`，不得静默改步长。回执必须返回 `effective_fps`、请求与实际帧范围、实际最后采样帧、步长和采样数。所有由帧差得到的位移、速度、加速度与角速度必须用 `dt = frame_step / effective_fps` 换算，`frame_step>1` 不得把速度按步长倍数放大。
 
 #### Scenario: Fractional fps is honored
 - **WHEN** `scene.render.fps=24`、`fps_base=1.001`，调用 `animation_report`
@@ -49,6 +49,10 @@ catalog 必须（SHALL）新增 `animation` 家族，prefix 为 `animation_`，�
 #### Scenario: Default sampling fits the budget
 - **WHEN** 场景帧范围为 1–480，调用方没有给 `frame_step`
 - **THEN** 回执使用 `frame_step=2`，采样 240 帧，实际最后采样帧为 479，并返回请求范围与实际范围
+
+#### Scenario: Step does not scale speeds
+- **WHEN** 同一段动画分别以 `frame_step=1` 与 `frame_step=2` 采样，位移相同
+- **THEN** `max_speed_m_s` 与 `max_accel_m_s2` 在两种步长下一致（误差在浮点范围内），不出现 step=2 时速度翻倍
 
 #### Scenario: Explicit step over budget is rejected
 - **WHEN** `frame_start=1`、`frame_end=480`、`frame_step=1`
@@ -112,7 +116,7 @@ catalog 必须（SHALL）新增 `animation` 家族，prefix 为 `animation_`，�
 
 ### Requirement: Contact and foot slide use a signed sampled approximation
 
-当提供 `contact_bones` 时，`animation_report` 必须（SHALL）用 `contact_point`（`head`/`tail`/`center`，默认 `tail`）的世界坐标与地平面判断接触。判定必须是有符号条件 `z <= ground_z + contact_epsilon`，穿透也算接触；返回接触区间、`contact_samples`、水平位移、最大滑动速度与 `max_penetration_m`。该结果是采样点近似，不是物理接触求解；最多 16 根 contact 骨、64 个区间。
+当提供 `contact_bones` 时，`animation_report` 必须（SHALL）用 `contact_point`（`head`/`tail`/`center`，默认 `tail`）的世界坐标与地平面判断接触。判定必须是有符号条件 `z <= ground_z + contact_epsilon`，穿透也算接触；返回接触区间、`contact_samples`、水平位移、最大滑动速度与 `max_penetration_m`。该结果是采样点近似，不是物理接触求解；最多 16 根 contact 骨、64 个区间，超过时按时间顺序截断并返回 `contact_intervals_total`/`contact_intervals_truncated`，不得静默丢弃。
 
 #### Scenario: Penetration still counts as contact
 - **WHEN** 脚骨采样点低于 `ground_z` 超过 `contact_epsilon`
@@ -128,7 +132,7 @@ catalog 必须（SHALL）新增 `animation` 家族，prefix 为 `animation_`，�
 
 ### Requirement: Intersections are world-space surface overlap with per-frame budgets
 
-当提供两个或更多 `intersection_objects` 时，`animation_report` 必须（SHALL）把参与对象的 evaluated mesh 顶点变换到同一世界空间，做 BVH 表面三角形重叠；只报告表面相交，不承诺实体包含、穿透深度或布尔结果。三角形预算为每采样帧所有参与对象总计 20 万，超预算跳过该帧并记 `skipped_frames`；最多 64 个对象对，按输入顺序确定性截断。
+当提供两个或更多 `intersection_objects` 时，`animation_report` 必须（SHALL）把参与对象的 evaluated mesh 顶点变换到同一世界空间，做 BVH 表面三角形重叠；只报告表面相交，不承诺实体包含、穿透深度或布尔结果。三角形预算为每采样帧所有参与对象总计 20 万，超预算跳过该帧并记 `skipped_frames`；最多 64 个对象对，按输入顺序确定性截断，截断时回执带 `pairs_total`/`pairs_truncated`。无法解析为 evaluated mesh 的对象必须跳过并在聚合里标为 `skipped`，报告 verdict 至少 degraded，不得当成“无重叠”而给出 pass。
 
 #### Scenario: Overlapping meshes are reported
 - **WHEN** 两个物体在若干采样帧发生表面三角形重叠
@@ -140,7 +144,7 @@ catalog 必须（SHALL）新增 `animation` 家族，prefix 为 `animation_`，�
 
 #### Scenario: Non-mesh object is skipped with warning
 - **WHEN** `intersection_objects` 中包含非 mesh 对象
-- **THEN** 该对象被跳过并带 warning，不静默当作空 mesh
+- **THEN** 该对象被跳过、聚合状态为 `skipped` 且 verdict 为 degraded，不静默当作空 mesh 或“无穿插”
 
 ### Requirement: Reference trajectory is strictly validated
 
@@ -172,7 +176,7 @@ catalog 必须（SHALL）新增 `animation` 家族，prefix 为 `animation_`，�
 
 ### Requirement: Animation inputs are validated before sampling
 
-`bones`、`bone_chains`、`contact_bones`、`bone_collections` 或 `root_bone` 必须（SHALL）同时提供 `armature`；`intersection_objects` 至少 2 个；`frame_start` 不得大于 `frame_end`；`frame_step` 与 `contact_epsilon` 必须为正；`ground_z` 必须是有限数；`bone_filter` 只接受 `deform`/`all`，`contact_point` 只接受 `head`/`tail`/`center`。未知骨、collection 或对象名返回 `animation_target_missing`；非法参数组合返回 `animation_input_invalid`。校验必须在采样和方法分发之前完成。
+`bones`、`bone_chains`、`contact_bones`、`bone_collections` 或 `root_bone` 必须（SHALL）同时提供 `armature`；`intersection_objects` 至少 2 个；`frame_start` 不得大于 `frame_end`；`frame_step` 与 `contact_epsilon` 必须为正；`ground_z` 必须是有限数；`bone_filter` 只接受 `deform`/`all`，`contact_point` 只接受 `head`/`tail`/`center`。未知骨、collection 或对象名返回 `animation_target_missing`；非法参数组合返回 `animation_input_invalid`；`armature` 指向非 armature 对象时同样返回 `stage=input`、`animation_input_invalid`，不得当作空骨架继续采样。校验必须在采样和方法分发之前完成。
 
 #### Scenario: Bones without an armature are rejected
 - **WHEN** 调用方给了 `bones` 或 `bone_chains`，但没有给 `armature`
@@ -186,6 +190,10 @@ catalog 必须（SHALL）新增 `animation` 家族，prefix 为 `animation_`，�
 - **WHEN** 调用方给了 `root_bone` 或 `bone_collections`，但没有给 `armature`
 - **THEN** 回执为 `stage=input`、`code=animation_input_invalid`
 
+#### Scenario: Non-armature object is rejected
+- **WHEN** 调用方把 mesh 对象名传给 `armature`
+- **THEN** 回执为 `stage=input`、`code=animation_input_invalid`，不启动采样、不返回 `animation_unsupported`
+
 #### Scenario: Intersection needs at least two objects
 - **WHEN** `intersection_objects` 只包含一个对象
 - **THEN** 回执为 `animation_input_invalid`，不把单对象当作无穿插
@@ -196,7 +204,7 @@ catalog 必须（SHALL）新增 `animation` 家族，prefix 为 `animation_`，�
 
 ### Requirement: Animation failures are explicit and bounded
 
-`animation_report` 必须（SHALL）在目标不存在、输入非法、采样预算超限、参考非法、预算不足或没有动画数据时返回结构化失败或降级，不得返回空指标冒充成功。`animation_no_data` 只在所有目标都没有 animation_data 且采样变换无变化时返回；部分目标静态时给零指标与 `static` warning。错误必须带 `stage`（input/scene/animation）、`code`、`root_cause`、`fix` 与 `fallback`。
+`animation_report` 必须（SHALL）在目标不存在、输入非法、采样预算超限、参考非法、预算不足或没有动画数据时返回结构化失败或降级，不得返回空指标冒充成功。`animation_no_data` 只在所有目标都没有 animation_data 且采样变换无变化时返回；部分目标静态时给零指标与 `static` warning。错误必须带 `stage`（`input`/`animation`）、`code`、`root_cause`、`fix` 与 `fallback`；输入校验与类型错误统一用 `stage=input`，不得使用 `stage=scene`。
 
 #### Scenario: Missing target is input failure
 - **WHEN** `objects` 中包含不存在的对象名

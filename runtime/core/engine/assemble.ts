@@ -21,6 +21,12 @@ import { createPlanDispatch } from '../plan-dispatch.js'
 import { createHeadlessRun } from '../../execution/headless/index.js'
 import type { EngineMetrics, EngineOptions, EngineSurface } from './index.js'
 import { createEngineMetrics, installAddonSend } from './lifecycle.js'
+import { getHome } from '../../home.js'
+import { FILE_CONFIG, pluginSettingsFromEnv } from '../../config.js'
+import { createRuntimeConfigStore } from '../../vision/runtime-config.js'
+import { createVisionManager } from '../../vision/manager.js'
+import { createVisionDispatch } from '../../vision/dispatch.js'
+import { DEFAULT_INSTALL_TIMEOUTS, createVisionInstaller } from '../../vision/installer.js'
 
 const RUNTIME_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 
@@ -83,6 +89,49 @@ export function assembleEngine(ctx: EngineContext): {
   const engineApi = createEngineApi(E as unknown as Parameters<typeof createEngineApi>[0])
   const dispatchApi = createPlanCallInner(E as unknown as Parameters<typeof createPlanCallInner>[0])
   E.planCallInner = dispatchApi.planCallInner
+  // vision：host-local worker 的配置 store + manager + dispatcher（vision 设计）。
+  // 只在这里装配一次；plan-dispatch 的 vision_* 短路经 E.visionOp 进来。
+  const visionHome = getHome()
+  const pluginLayer = pluginSettingsFromEnv(process.env.DSH_BLENDER_PLUGIN_CONFIG).cfg
+  const visionStore = createRuntimeConfigStore({
+    homeDir: visionHome,
+    fileConfig: FILE_CONFIG,
+    pluginConfig: pluginLayer,
+  })
+  const visionManager = createVisionManager({ homeDir: visionHome, store: visionStore })
+  // 安装器只在 Gateway 启动后由入口后台触发（见 runtime/gateway.ts），不在装配期动 pip。
+  const visionInstaller = createVisionInstaller({
+    homeDir: visionHome,
+    // 安装阶段的子进程预算必须显式给：默认 15 s 只够探针，装不下一个 43 MB wheel。
+    timeouts: DEFAULT_INSTALL_TIMEOUTS,
+    values: () => {
+      const active = visionStore.getState().active?.values
+      return {
+        python: active?.python ?? '',
+        venv: active?.venv ?? '',
+        backend: active?.backend ?? 'opencv',
+      }
+    },
+  })
+  const visionDispatch = createVisionDispatch({
+    homeDir: visionHome,
+    store: visionStore,
+    manager: visionManager,
+    installStatus: () => visionInstaller.status() as unknown as Record<string, unknown>,
+  })
+  E.visionOp = (op: string, payload?: unknown) => visionDispatch.handle(op, payload)
+  E.vision = {
+    workerStatus: () => visionManager.status(),
+    dnnStatus: () => visionManager.dnnStatus(),
+    reconcile: () => visionManager.reconcile(),
+    statusReport: () => visionDispatch.handle('vision_status'),
+    ensureInstalled: () => visionInstaller.ensureInstalled(),
+    installStatus: () => visionInstaller.status(),
+    dispose: async () => {
+      visionInstaller.dispose()
+      await visionManager.dispose()
+    },
+  }
   const planDispatch = createPlanDispatch(E as unknown as Parameters<typeof createPlanDispatch>[0])
   E.perfCall = planDispatch.perfCall
   const perfCall = E.perfCall as (op: string, payload?: unknown) => Promise<unknown>
@@ -128,6 +177,7 @@ export function assembleEngine(ctx: EngineContext): {
     headless: headlessApi.headless,
     start: engineApi.start,
     stop: engineApi.stop,
+    vision: E.vision as import('../engine-api/index.js').EngineVisionDeps,
   }
   return { surface: surface as EngineSurface, trajectory }
 }

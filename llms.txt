@@ -2,7 +2,7 @@
 
 > DSH（DeepSeek Harness）插件：让 AI 模型通过一条 TCP 直连通道驱动 **GUI Blender** —— 看视口 / 改场景 / 连续观察 / 内环搜索 / 渲染性能 / 对象精简 / 无头跑重活 / 事务回滚 / 契约层与规划器，共 6 个模型工具（`blender_session` / `blender_op` / `blender_py` / `blender_see` / `blender_run` / `blender_inspect`；v2.3 已删除视口面板与 pick 工具）。
 > 本包**附带且只支持** Blender addon 包 `extension/dsh_blender_bridge.zip`（v2.0.0 / protocol 12）；旧单文件 `dsh_blender_bridge.py` 与旧 `MCP for Blender` 均不再支持（迁移见 MIGRATIONS.md）。
-> 当前版本 **v3.1.0-alpha.1**：6 model tools / 34 family / 228 op / addon 25 command（+ping=26 wire）/ protocol 12；addon v2.0.0（Blender 4.2 extension）；runtime TypeScript；src + runtime 显式 any = 0。
+> 当前版本 **v3.1.0-alpha.1**：6 model tools / 36 family / 239 op / addon 25 command（+ping=26 wire）/ protocol 12；addon v2.0.0（Blender 4.2 extension）；runtime TypeScript；src + runtime 显式 any = 0。
 
 ## Blender 原生选中 → DSH（v2.3）
 

@@ -30,7 +30,7 @@ DSH × Blender connects DeepSeek Harness to Blender so an agent can build, inspe
 
 ## Quick start
 
-**Before anything else: install the bundled addon first.** Use the addon shipped in this repository: **extension/dsh_blender_bridge.zip**. It must be your only Blender-side *agent bridge*: do not install or run `MCP for Blender`, `blender_mcp`, or any other addon that serves Blender over its own socket. The 3.1 addon dials the Gateway and opens no inbound port, but a legacy MCP bridge still listens on 127.0.0.1:9876; two Blender-side agent bridges confuse the host. Unrelated addons (modeling, materials, rendering, asset libraries) are fine and are neither checked nor blocked. Install and enable this addon in Blender before the other steps. If the installation below does not work, first check that this exact addon is installed, enabled, and connected.
+**Before anything else: install the bundled addon first.** Use the addon shipped in this repository: **extension/dsh_blender_bridge.zip**. It must be your only Blender-side _agent bridge_: do not install or run `MCP for Blender`, `blender_mcp`, or any other addon that serves Blender over its own socket. The 3.1 addon dials the Gateway and opens no inbound port, but a legacy MCP bridge still listens on 127.0.0.1:9876; two Blender-side agent bridges confuse the host. Unrelated addons (modeling, materials, rendering, asset libraries) are fine and are neither checked nor blocked. Install and enable this addon in Blender before the other steps. If the installation below does not work, first check that this exact addon is installed, enabled, and connected.
 
 ### Requirements
 
@@ -112,7 +112,7 @@ Install the standalone modeling skill (only needed for hosts that do not load th
 
         ln -s /absolute/path/to/dsh-blender-plugin <profile>/node_modules/dsh-blender-plugin
 
-    Profile package.json:
+   Profile package.json:
 
         {
           "dependencies": {
@@ -125,40 +125,40 @@ Install the standalone modeling skill (only needed for hosts that do not load th
           }
         }
 
-    Validate the profile and restart DSH:
+   Validate the profile and restart DSH:
 
         dsh --profile <profile> --dump-config
 
 4. Verify the installation.
 
-    GUI route:
+   GUI route:
 
         curl -sS http://127.0.0.1:39877/health
         curl -sS http://127.0.0.1:39877/doctor
 
-    The only acceptance criterion for the GUI route is doctor returning kind equal to ok. If it does not, the plugin is not installed correctly.
+   The only acceptance criterion for the GUI route is doctor returning kind equal to ok. If it does not, the plugin is not installed correctly.
 
-    Blender and the Gateway are started by the host: open Blender yourself, enable the addon, and click Connect. There is no model-facing launch tool in 3.1.
+   Blender and the Gateway are started by the host: open Blender yourself, enable the addon, and click Connect. There is no model-facing launch tool in 3.1.
 
-    Headless-only route (no addon):
+   Headless-only route (no addon):
 
         blender_run(action="submit", kind="headless", script="print('ok')")
         blender_run(action="wait", id="<jobId>")
 
-    A returned job whose outputs include the script log means the headless path is working. The doctor bpy round-trip is expected to be unreachable in this mode.
+   A returned job whose outputs include the script log means the headless path is working. The doctor bpy round-trip is expected to be unreachable in this mode.
 
 ## Tools
 
-The plugin exposes exactly 6 model-facing tools; all planning, audit, assembly, export, and evaluation operations live behind `blender_op` (34 families / 228 ops), so the surface stays small.
+The plugin exposes exactly 6 model-facing tools; all planning, audit, assembly, export, and evaluation operations live behind `blender_op` (36 families / 239 ops), so the surface stays small.
 
-| Tool | What it gives you |
-|---|---|
+| Tool            | What it gives you                                                                                                                                                                                                          |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | blender_session | GUI session lifecycle and ownership: list/status/doctor, attach, claim/release, grant/revoke write scopes, pause state, presence, and `action=txn` snapshots/marks for rollback. Blender and the Gateway are host-managed. |
-| blender_op | The capability catalog (`op="catalog"`, 34 families / 228 ops) and the execution surface for modeling, audit, assembly, delivery, and evaluation; also `action=loop|opt|preset`. Executing ops needs a ready GUI session. |
-| blender_py | Runs Python in the attached GUI session with a persistent kernel; `see=true` returns a frame. GUI-only: there is no headless fallback. |
-| blender_see | GUI capture only: `viewpoint=viewport|camera|custom`, `mode=frame|sequence`, fixed aspect/size tiers. Camera animation and batch renders go to `blender_run(kind="render")`. |
-| blender_run | The only job entry point: `action=submit` with `kind=render|headless` returns a job id immediately; `status/wait/collect/cancel/list` manage it; `action=tune` covers render performance. |
-| blender_inspect | Lists the addon's executable read-only commands and runs one with `command=` + `args=`; removed write commands return a `wrong_tool` hint. |
+| blender_op      | The capability catalog (`op="catalog"`, 36 families / 239 ops) and the execution surface for modeling, audit, assembly, delivery, and evaluation; also `action=loop                                                        | opt                                                                                                                       | preset`. Executing ops needs a ready GUI session. |
+| blender_py      | Runs Python in the attached GUI session with a persistent kernel; `see=true` returns a frame. GUI-only: there is no headless fallback.                                                                                     |
+| blender_see     | GUI capture only: `viewpoint=viewport                                                                                                                                                                                      | camera                                                                                                                    | custom`, `mode=frame                              | sequence`, fixed aspect/size tiers. Camera animation and batch renders go to `blender_run(kind="render")`. |
+| blender_run     | The only job entry point: `action=submit` with `kind=render                                                                                                                                                                | headless`returns a job id immediately;`status/wait/collect/cancel/list`manage it;`action=tune` covers render performance. |
+| blender_inspect | Lists the addon's executable read-only commands and runs one with `command=` + `args=`; removed write commands return a `wrong_tool` hint.                                                                                 |
 
 Old 3.0 tool names are no longer registered; the migration table is in [MIGRATIONS.md](MIGRATIONS.md) §0.3.
 
@@ -187,14 +187,14 @@ On Windows and Linux the Gateway can launch an isolated Blender GUI for the agen
 
 ## Troubleshooting
 
-| Symptom | What to do |
-|---|---|
-| doctor does not return kind equal to ok | Check that Blender is running and the addon is connected. For the GUI route this is the only valid acceptance check. |
-| No GUI is available | Live interaction needs a GUI session. Submit background work with `blender_run(kind="headless")` and collect it with `action="wait"`/`collect`; rendered frames come from the job outputs. |
-| Another session is writing to the same scene | Claim a write scope with `blender_session(action="grant", scopes=...)`, or attach a separate GUI session; parallel jobs are fine through `blender_run`. |
+| Symptom                                                     | What to do                                                                                                                                                                                                                            |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| doctor does not return kind equal to ok                     | Check that Blender is running and the addon is connected. For the GUI route this is the only valid acceptance check.                                                                                                                  |
+| No GUI is available                                         | Live interaction needs a GUI session. Submit background work with `blender_run(kind="headless")` and collect it with `action="wait"`/`collect`; rendered frames come from the job outputs.                                            |
+| Another session is writing to the same scene                | Claim a write scope with `blender_session(action="grant", scopes=...)`, or attach a separate GUI session; parallel jobs are fine through `blender_run`.                                                                               |
 | An old MCP for Blender / blender_mcp addon is still enabled | Disable it (uninstalling is not required) and use the bundled DSH Blender Bridge addon; the 3.1 bridge dials the Gateway, but two Blender-side agent bridges still confuse the host; the legacy MCP bridge listens on 127.0.0.1:9876. |
-| Images are generated but not attached | Update to the latest build; the Windows path fix is included. If it persists, open the returned path directly. |
-| Followed the steps and it still does not work | Check the bundled addon first: only extension/dsh_blender_bridge.zip is supported, and it must be enabled and connected. |
+| Images are generated but not attached                       | Update to the latest build; the Windows path fix is included. If it persists, open the returned path directly.                                                                                                                        |
+| Followed the steps and it still does not work               | Check the bundled addon first: only extension/dsh_blender_bridge.zip is supported, and it must be enabled and connected.                                                                                                              |
 
 ## Development
 

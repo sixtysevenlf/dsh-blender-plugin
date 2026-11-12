@@ -159,6 +159,7 @@ const TARGET_FILES = [
   'src/tools/op/index.ts',
   'src/tools/op/execute.ts',
   'src/tools/op/read-only.ts',
+  'src/tools/op/session-read.ts',
   'src/tools/op/plan.ts',
   'src/tools/op/plan-response.ts',
   'src/tools/op/loop.ts',

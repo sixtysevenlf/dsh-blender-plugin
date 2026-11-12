@@ -157,8 +157,13 @@ describe('archive and lease security boundaries', () => {
     expect(serverSource).toContain(
       "const gate = isReadOnly('/loop', op) ? null : leaseGate(payload)",
     )
+    // 3.1 session-read: /plan animates its gate by catalog list
+    // (read-only bypass, session-read = read gate, everything else = write gate).
     expect(serverSource).toContain(
-      "const gate = isReadOnly('/plan', op) ? null : leaseGate(payload)",
+      'const sessionRead = !readOnly && PLAN_SESSION_READ_OPS.includes(op)',
+    )
+    expect(serverSource).toMatch(
+      /const gate = readOnly\s*\?\s*null\s*:\s*leaseGate\(payload, sessionRead \? \{ readOnly: true \} : undefined\)/,
     )
     expect(serverSource).toContain("'/plan': PLAN_READ_ONLY_OPS")
   })

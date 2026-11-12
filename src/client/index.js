@@ -824,7 +824,7 @@ window.__ModuleLoader__.load({
       return React.createElement(
         'div',
         { style: { fontSize: 12, color: 'var(--dsh-text-secondary, #888)' } },
-        '管理 virtual-gui 的运行依赖与 agent 启动许可。',
+        '管理 virtual-gui 的运行依赖与 agent 启动许可，配置实验性 DNN 视觉检测。',
       )
     }
 
@@ -1487,8 +1487,1267 @@ window.__ModuleLoader__.load({
           onRecheck: core.loadStatus,
         }),
       )
+      // 3.4：DNN 分组独立加载状态，不依赖 virtual-gui core。
+      children.push(React.createElement(DnnConfigSection, { key: 'dnn' }))
       return React.createElement('div', null, children)
     }
+
+    //#region DNN 视觉检测（实验性，features.dnn）
+    /** 固定文档地址；配置卡与 GPU-DIY.md 都指向它。 */
+    var DNN_DOCS_URL =
+      'https://github.com/sixtysevenlf/dsh-blender-plugin/blob/main/docs/vision-custom-backend.md'
+    /** 实验性影响说明：必须点明 GPL-3.0、默认 CPU、结果不稳定、GPU 自备。 */
+    var DNN_EXPERIMENTAL_TEXT =
+      '实验性功能：YOLOv5 预训练模型（GPL-3.0），默认仅 CPU 推理；检测结果可能不稳定，GPU 需要自备 ONNX Runtime 环境。插件不自动安装依赖，也不在运行时联网。'
+    /** 与 src/host/dnn-pins.ts 的预设顺序一致。 */
+    var DNN_MODEL_IDS = ['yolov5n', 'yolov5s', 'yolov5m', 'yolov5l', 'yolov5x']
+    var DNN_MODEL_LABELS = {
+      yolov5n: 'yolov5n（nano，最小，默认）',
+      yolov5s: 'yolov5s（small）',
+      yolov5m: 'yolov5m（medium）',
+      yolov5l: 'yolov5l（large）',
+      yolov5x: 'yolov5x（xlarge，最大）',
+    }
+    var DNN_MODEL_NOTES = {
+      yolov5n: '最快、精度最低，适合 CPU 冒烟',
+      yolov5s: 'CPU 上较慢，精度更高',
+      yolov5m: '建议 GPU / 自备 onnxruntime',
+      yolov5l: '建议 GPU / 自备 onnxruntime',
+      yolov5x: '建议 GPU / 自备 onnxruntime',
+    }
+    /** pending / switching 时的状态轮询间隔。 */
+    var DNN_STATUS_POLL_MS = 1500
+
+    function dnnModelOptions() {
+      var out = []
+      for (var i = 0; i < DNN_MODEL_IDS.length; i++) {
+        out.push({
+          id: DNN_MODEL_IDS[i],
+          label: DNN_MODEL_LABELS[DNN_MODEL_IDS[i]] || DNN_MODEL_IDS[i],
+          note: DNN_MODEL_NOTES[DNN_MODEL_IDS[i]] || '',
+        })
+      }
+      return out
+    }
+
+    function dnnDefaultSelection() {
+      return ['yolov5n']
+    }
+
+    /** /dsh-blender dnn 端点（owner-only）；未挂载连接服务时返回结构化失败，不抛。 */
+    function dnnRpc(payload) {
+      if (!presenceRpc) {
+        return Promise.resolve({
+          ok: false,
+          error: { code: 'rpc_unavailable', message: 'DSH 连接服务不可用' },
+        })
+      }
+      return presenceRpc('/dsh-blender', 'dnn', payload)
+    }
+
+    function dnnRpcPayload(op, extra) {
+      var out = { op: op }
+      if (extra) {
+        for (var key in extra) {
+          if (Object.prototype.hasOwnProperty.call(extra, key)) out[key] = extra[key]
+        }
+      }
+      return out
+    }
+
+    /** 把 status 的 active（扁平）或 saved（嵌套快照）还原成配置卡表单。 */
+    /** /doctor 的 active/previous 是 {revision,values}；旧/回退 payload 可能是扁平值。 */
+    function dnnUnwrapValues(raw) {
+      if (!raw || typeof raw !== 'object') return null
+      return raw.values && typeof raw.values === 'object' ? raw.values : raw
+    }
+
+    function dnnCandidateFromStatus(status) {
+      var flat = dnnUnwrapValues(status && status.config && status.config.active)
+      if (!flat || typeof flat !== 'object') {
+        var saved = status && status.saved
+        if (saved && saved.vision && typeof saved.vision === 'object') {
+          var savedDnn =
+            saved.vision.dnn && typeof saved.vision.dnn === 'object' ? saved.vision.dnn : {}
+          flat = {
+            dnn: !!(saved.features && saved.features.dnn === true),
+            python: saved.vision.python,
+            venv: saved.vision.venv,
+            model: saved.vision.model,
+            backend: savedDnn.backend,
+            device: savedDnn.device,
+          }
+        }
+      }
+      flat = flat && typeof flat === 'object' ? flat : {}
+      var backend = flat.backend === 'onnxruntime' ? 'onnxruntime' : 'opencv'
+      var device = flat.device === 'auto' || flat.device === 'gpu' ? flat.device : 'cpu'
+      if (backend === 'opencv') device = 'cpu'
+      var model =
+        typeof flat.model === 'string' && flat.model.trim() !== '' ? flat.model : 'yolov5n'
+      var effectiveEnabled =
+        status && status.features && typeof status.features.dnn === 'boolean'
+          ? status.features.dnn
+          : null
+      var enabled = effectiveEnabled !== null ? effectiveEnabled : flat.dnn === true
+      return {
+        features: { dnn: enabled },
+        vision: {
+          python: typeof flat.python === 'string' ? flat.python : '',
+          venv: typeof flat.venv === 'string' ? flat.venv : '',
+          model: model,
+          dnn: { backend: backend, device: device },
+        },
+      }
+    }
+
+    /** 表单身份串：用来判断“下载完成后是否需要顺带 apply 待保存的表单”。 */
+    function dnnCandidateSignature(candidate) {
+      var vision = (candidate && candidate.vision) || {}
+      var dnn = vision.dnn || {}
+      return JSON.stringify([
+        !!(candidate && candidate.features && candidate.features.dnn),
+        String(vision.python || ''),
+        String(vision.venv || ''),
+        String(vision.model || ''),
+        String(dnn.backend || 'opencv'),
+        String(dnn.device || 'cpu'),
+      ])
+    }
+
+    /**
+     * 打开下载弹窗只说明“开关将被开启”，并不等于已保存。下载成功后若表单与
+     * 生效配置仍有差异（典型：刚把开关打开就下载），必须顺手 apply，否则
+     * “下一次 vision_detect 自动使用新模型”的文案不成立。
+     */
+    function dnnShouldApplyAfterDownload(form, status) {
+      if (!form || dnnCandidateInvalidReason(form)) return false
+      return dnnCandidateSignature(form) !== dnnCandidateSignature(dnnCandidateFromStatus(status))
+    }
+
+    /** 提交前校验；返回 null 表示合法，否则返回给用户看的原因。 */
+    function dnnCandidateInvalidReason(candidate) {
+      if (!candidate || !candidate.vision || typeof candidate.vision !== 'object')
+        return 'DNN 配置缺失'
+      var vision = candidate.vision
+      var dnn = vision.dnn && typeof vision.dnn === 'object' ? vision.dnn : {}
+      var backend = dnn.backend === undefined || dnn.backend === null ? 'opencv' : dnn.backend
+      var device = dnn.device === undefined || dnn.device === null ? 'cpu' : dnn.device
+      if (backend !== 'opencv' && backend !== 'onnxruntime')
+        return 'backend 只能是 opencv 或 onnxruntime'
+      if (device !== 'cpu' && device !== 'auto' && device !== 'gpu')
+        return 'device 只能是 cpu / auto / gpu'
+      if (backend === 'opencv' && device !== 'cpu')
+        return 'backend=opencv 只支持 device=cpu；GPU 需要自备 vision.venv + backend=onnxruntime'
+      var model = String(vision.model || '')
+      if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(model))
+        return '模型 id 非法（只能是字母/数字/._-，不允许路径或 URL）'
+      return null
+    }
+
+    function dnnApplyPayload(candidate) {
+      return { op: 'apply', candidate: candidate }
+    }
+
+    /** 把一次编辑合并进表单（patch 是扁平的 dnn/python/venv/model/backend/device）。 */
+    function dnnFormUpdate(form, patch) {
+      var base = form || dnnCandidateFromStatus(null)
+      patch = patch || {}
+      var vision = base.vision || {}
+      var baseDnn = vision.dnn || { backend: 'opencv', device: 'cpu' }
+      var nextDnn = {
+        backend: patch.backend !== undefined ? patch.backend : baseDnn.backend,
+        device: patch.device !== undefined ? patch.device : baseDnn.device,
+      }
+      if (nextDnn.backend === 'opencv') nextDnn.device = 'cpu'
+      var enabled =
+        patch.dnn !== undefined ? patch.dnn === true : base.features && base.features.dnn === true
+      return {
+        features: { dnn: enabled },
+        vision: {
+          python: patch.python !== undefined ? String(patch.python) : String(vision.python || ''),
+          venv: patch.venv !== undefined ? String(patch.venv) : String(vision.venv || ''),
+          model:
+            patch.model !== undefined ? String(patch.model) : String(vision.model || 'yolov5n'),
+          dnn: nextDnn,
+        },
+      }
+    }
+
+    /** 状态行文案：idle / pending / switching / failed / env 锁定。 */
+    /** env 锁定只冻结 features.dnn 开关；DIY 字段仍可编辑并保存。 */
+    function dnnControlState(status, busy, connected) {
+      return {
+        switchDisabled: !!(status && status.envLocked) || !!busy || !connected,
+        fieldDisabled: !!busy,
+      }
+    }
+
+    function dnnStatusText(status) {
+      if (!status) return '正在读取 DNN 状态…'
+      var config = status.config && typeof status.config === 'object' ? status.config : {}
+      var activeRevision = config.activeRevision
+      var pendingRevision = config.pendingRevision
+      if (status.envLocked)
+        return 'features.dnn 已由 DSH_BLENDER_DNN 环境变量锁定；配置卡不能改写该开关。'
+      if (config.phase === 'failed') {
+        var err = config.lastSwitchError || {}
+        var tail =
+          '上次切换失败：' +
+          String(err.code || 'dnn_config_switch_failed') +
+          (err.message ? '（' + String(err.message) + '）' : '')
+        if (pendingRevision !== null && pendingRevision !== undefined)
+          tail += '；pending revision ' + String(pendingRevision) + ' 仍保留，可回滚上一版。'
+        return tail
+      }
+      if (config.phase === 'switching') {
+        var waiting =
+          config.waitingFor && config.waitingFor.op
+            ? '（' + String(config.waitingFor.op) + '）'
+            : ''
+        return (
+          '切换中：active revision ' +
+          String(activeRevision) +
+          ' → pending revision ' +
+          String(pendingRevision) +
+          '，等待在途请求结束' +
+          waiting +
+          '…'
+        )
+      }
+      if (config.phase === 'pending')
+        return (
+          '待应用：active revision ' +
+          String(activeRevision) +
+          ' → pending revision ' +
+          String(pendingRevision) +
+          '；Gateway 下一次 /doctor 或 vision_* 请求时切换。'
+        )
+      if (activeRevision !== null && activeRevision !== undefined)
+        return (
+          '已生效：revision ' +
+          String(activeRevision) +
+          (pendingRevision !== null && pendingRevision !== undefined
+            ? '（pending ' + String(pendingRevision) + '）'
+            : '') +
+          '。'
+        )
+      return '尚未保存 DNN 运行时配置。'
+    }
+
+    function dnnDownloadPromptVisible(status) {
+      if (!status || !status.features || status.features.dnn !== true) return false
+      var models = status.models && typeof status.models === 'object' ? status.models : {}
+      return Number(models.onnxCount) === 0
+    }
+
+    function dnnProbeSummary(result) {
+      var summary =
+        result && result.summary && typeof result.summary === 'object' ? result.summary : {}
+      return {
+        pass: Number(summary.pass) || 0,
+        warn: Number(summary.warn) || 0,
+        fail: Number(summary.fail) || 0,
+        ok: !!(result && result.ok === true),
+      }
+    }
+
+    function dnnProbeText(result) {
+      if (!result) return '尚未检测'
+      if (result.error) return '检测失败：' + String(result.error)
+      var summary = dnnProbeSummary(result)
+      if (summary.fail > 0)
+        return (
+          '不可用：' +
+          summary.fail +
+          ' 项失败' +
+          (summary.warn > 0 ? '，' + summary.warn + ' 项警告' : '')
+        )
+      if (summary.warn > 0) return '可用，但有 ' + summary.warn + ' 项警告'
+      return '可用（全部通过）'
+    }
+
+    function dnnProbeChecksText(result) {
+      var checks = result && Array.isArray(result.checks) ? result.checks : []
+      var lines = []
+      for (var i = 0; i < checks.length; i++) {
+        var check = checks[i] || {}
+        var status = String(check.status || '')
+        var label = status === 'pass' ? '通过' : status === 'warn' ? '警告' : '失败'
+        lines.push(
+          '[' +
+            label +
+            '] ' +
+            String(check.label || check.id || '') +
+            '：' +
+            String(check.detail || '') +
+            (check.fix ? '（修复：' + String(check.fix) + '）' : ''),
+        )
+      }
+      return lines.join('\n')
+    }
+
+    function dnnCanRollback(status) {
+      var config = status && status.config && typeof status.config === 'object' ? status.config : {}
+      var revision = config.previousRevision
+      if (revision === null || revision === undefined) {
+        revision =
+          config.previous && typeof config.previous === 'object' ? config.previous.revision : null
+      }
+      return Number.isSafeInteger(Number(revision)) && Number(revision) > 0
+    }
+
+    function dnnCanCancelPending(status) {
+      var config = status && status.config && typeof status.config === 'object' ? status.config : {}
+      return config.pendingRevision !== null && config.pendingRevision !== undefined
+    }
+
+    function dnnFormatBytes(bytes) {
+      var value = Number(bytes)
+      if (!Number.isFinite(value) || value <= 0) return ''
+      if (value >= 1024 * 1024 * 1024) return (value / (1024 * 1024 * 1024)).toFixed(1) + ' GiB'
+      if (value >= 1024 * 1024) return (value / (1024 * 1024)).toFixed(1) + ' MiB'
+      if (value >= 1024) return (value / 1024).toFixed(0) + ' KiB'
+      return value + ' B'
+    }
+
+    function dnnDownloadSelectionText(selection) {
+      if (!selection || !selection.length) return '请至少选择一个模型'
+      return '已选 ' + selection.length + ' 个模型：' + selection.join('、')
+    }
+
+    function dnnErrorText(res) {
+      var error = res && res.error && typeof res.error === 'object' ? res.error : {}
+      var text = error.message
+        ? String(error.message)
+        : error.code
+          ? String(error.code)
+          : 'DNN 请求失败'
+      var details = error.details && typeof error.details === 'object' ? error.details : null
+      if (details) {
+        if (details.savedForNextStart === true) text += '（配置已保存，下次启动生效）'
+        else if (details.applied === false && details.revision !== undefined)
+          text += '（revision ' + String(details.revision) + ' 尚未生效）'
+      }
+      return text
+    }
+
+    function DnnStatusDetails(props) {
+      var status = props.status
+      var config = status && status.config && typeof status.config === 'object' ? status.config : {}
+      var parts = []
+      if (config.activeRevision !== null && config.activeRevision !== undefined)
+        parts.push('active revision ' + config.activeRevision)
+      if (config.pendingRevision !== null && config.pendingRevision !== undefined)
+        parts.push('pending revision ' + config.pendingRevision)
+      var previous = config.previousRevision
+      if (
+        (previous === null || previous === undefined) &&
+        config.previous &&
+        config.previous.revision
+      )
+        previous = config.previous.revision
+      if (previous !== null && previous !== undefined) parts.push('上一版 revision ' + previous)
+      if (config.waitingFor && config.waitingFor.op) parts.push('等待 ' + config.waitingFor.op)
+      if (status && status.gateway && status.gateway.reachable === false)
+        parts.push('Gateway 未运行')
+      if (status && status.models && status.models.modelsDir)
+        parts.push(
+          '模型目录 ' +
+            status.models.modelsDir +
+            '（onnx ' +
+            Number(status.models.onnxCount || 0) +
+            '）',
+        )
+      if (!parts.length) return null
+      return React.createElement(
+        'div',
+        {
+          style: {
+            marginTop: 4,
+            fontSize: 11,
+            lineHeight: 1.6,
+            color: 'var(--dsh-text-secondary, #888)',
+            wordBreak: 'break-all',
+          },
+        },
+        parts.join(' · '),
+      )
+    }
+
+    function DnnFeedback(props) {
+      var feedback = props.feedback
+      if (!feedback) return null
+      var kind = feedback.kind
+      var color = kind === 'error' ? '#d33' : kind === 'ok' ? '#2da44e' : '#9a6700'
+      var bg =
+        kind === 'error'
+          ? 'rgba(221,51,51,.1)'
+          : kind === 'ok'
+            ? 'rgba(45,164,78,.1)'
+            : 'rgba(210,153,34,.12)'
+      return React.createElement(
+        'div',
+        {
+          style: {
+            margin: '8px 0',
+            padding: '8px 10px',
+            borderRadius: 6,
+            fontSize: 12,
+            lineHeight: 1.5,
+            color: color,
+            background: bg,
+          },
+        },
+        String(feedback.text || ''),
+      )
+    }
+
+    function DnnProbeModal(props) {
+      var result = props.result || {}
+      var checks = Array.isArray(result.checks) ? result.checks : []
+      var rows = []
+      for (var i = 0; i < checks.length; i++) {
+        var check = checks[i] || {}
+        var status = String(check.status || '')
+        var color = status === 'pass' ? '#2da44e' : status === 'warn' ? '#9a6700' : '#d33'
+        var label = status === 'pass' ? '通过' : status === 'warn' ? '警告' : '失败'
+        rows.push(
+          React.createElement(
+            'div',
+            {
+              key: 'probe-' + String(check.id || i),
+              style: {
+                padding: '7px 0',
+                borderTop: '1px solid var(--dsh-border, rgba(127,127,127,.14))',
+                fontSize: 12,
+              },
+            },
+            React.createElement(
+              'div',
+              { style: { display: 'flex', gap: 8, alignItems: 'baseline' } },
+              React.createElement('span', { style: { color: color, fontWeight: 600 } }, label),
+              React.createElement(
+                'span',
+                { style: { fontWeight: 500 } },
+                String(check.label || check.id || ''),
+              ),
+              React.createElement(
+                'span',
+                { style: { color: 'var(--dsh-text-secondary, #888)' } },
+                String(check.detail || ''),
+              ),
+            ),
+            check.fix
+              ? React.createElement(
+                  'div',
+                  { style: { marginTop: 2, color: '#9a6700' } },
+                  '修复：' + String(check.fix),
+                )
+              : null,
+          ),
+        )
+      }
+      return React.createElement(
+        ConfigModalShell,
+        null,
+        React.createElement(
+          'div',
+          { style: { fontWeight: 600, marginBottom: 8 } },
+          'DNN 可用性检测',
+        ),
+        React.createElement(
+          'div',
+          { style: { fontSize: 12, marginBottom: 6 } },
+          dnnProbeText(result),
+        ),
+        result.error
+          ? React.createElement(
+              'div',
+              { style: { color: '#d33', fontSize: 12 } },
+              String(result.error),
+            )
+          : null,
+        rows,
+        React.createElement(
+          'div',
+          { style: { display: 'flex', justifyContent: 'flex-end', marginTop: 12 } },
+          React.createElement(ConfigButton, { onClick: props.onClose }, '关闭'),
+        ),
+      )
+    }
+
+    function DnnDownloadModal(props) {
+      var rows = []
+      var downloadable = Array.isArray(props.downloadable) ? props.downloadable : []
+      for (var i = 0; i < DNN_MODEL_IDS.length; i++) {
+        var id = DNN_MODEL_IDS[i]
+        var pin = null
+        for (var p = 0; p < downloadable.length; p++) {
+          if (downloadable[p] && downloadable[p].id === id) {
+            pin = downloadable[p]
+            break
+          }
+        }
+        var size = pin ? dnnFormatBytes(pin.bytes) : ''
+        var sizeText = size ? ' · ' + size : ' · 大小未采集'
+        var installed = pin && pin.installed === true ? '（已存在）' : ''
+        rows.push(
+          React.createElement(
+            'label',
+            {
+              key: 'model-' + id,
+              style: {
+                display: 'flex',
+                gap: 8,
+                alignItems: 'center',
+                padding: '6px 0',
+                fontSize: 12,
+              },
+            },
+            React.createElement('input', {
+              type: 'checkbox',
+              checked: props.selection.indexOf(id) >= 0,
+              disabled: !!props.busy,
+              onChange: (function (modelId) {
+                return function () {
+                  props.onToggle(modelId)
+                }
+              })(id),
+            }),
+            React.createElement(
+              'span',
+              null,
+              (DNN_MODEL_LABELS[id] || id) +
+                ' — ' +
+                (DNN_MODEL_NOTES[id] || '') +
+                sizeText +
+                installed,
+            ),
+          ),
+        )
+      }
+      return React.createElement(
+        ConfigModalShell,
+        null,
+        React.createElement(
+          'div',
+          { style: { fontWeight: 600, marginBottom: 8 } },
+          '下载 YOLOv5 预设模型',
+        ),
+        React.createElement(
+          'div',
+          { style: { fontSize: 12, lineHeight: 1.6, color: 'var(--dsh-text-secondary, #888)' } },
+          '来源：ultralytics/yolov5 v7.0 GitHub Release；许可：GPL-3.0。下载写入模型目录，并补齐 coco80.txt 与 models.yml（已有同名条目不会被覆盖）。下载完成后无需重启 Gateway，下一次 vision_detect 自动使用。',
+        ),
+        React.createElement('div', { style: { marginTop: 8 } }, rows),
+        props.error
+          ? React.createElement(
+              'div',
+              { style: { color: '#d33', fontSize: 12, marginTop: 6 } },
+              String(props.error),
+            )
+          : null,
+        React.createElement(
+          'div',
+          { style: { fontSize: 11, color: 'var(--dsh-text-secondary, #888)', marginTop: 6 } },
+          '取消只会关闭本弹窗：features.dnn 保持开启，警告和下载入口仍会保留。',
+        ),
+        React.createElement(
+          'div',
+          { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 } },
+          React.createElement(
+            ConfigButton,
+            { disabled: !!props.busy, onClick: props.onCancel },
+            '取消',
+          ),
+          React.createElement(
+            ConfigButton,
+            {
+              primary: true,
+              disabled: !!props.busy || !props.selection.length,
+              onClick: props.onConfirm,
+            },
+            props.busy ? '下载中…' : '开始下载',
+          ),
+        ),
+      )
+    }
+
+    function useDnnConfigCore() {
+      var state = React.useState({ loading: true, error: null, status: null, busy: false })
+      var view = state[0]
+      var setView = state[1]
+      var aliveRef = React.useRef(true)
+
+      function loadStatus(showLoading) {
+        if (showLoading) {
+          setView(function (prev) {
+            return Object.assign({}, prev, { loading: true, error: null })
+          })
+        }
+        return dnnRpc(dnnRpcPayload('status'))
+          .then(function (res) {
+            if (!aliveRef.current) return
+            if (!res || !res.ok || !res.value) {
+              setView(function (prev) {
+                return Object.assign({}, prev, {
+                  loading: false,
+                  error: dnnErrorText(res),
+                })
+              })
+              return
+            }
+            setView(function (prev) {
+              return Object.assign({}, prev, { loading: false, error: null, status: res.value })
+            })
+          })
+          .catch(function (e) {
+            if (!aliveRef.current) return
+            setView(function (prev) {
+              return Object.assign({}, prev, { loading: false, error: errText(e) })
+            })
+          })
+      }
+
+      React.useEffect(function () {
+        aliveRef.current = true
+        loadStatus(true)
+        return function () {
+          aliveRef.current = false
+        }
+      }, [])
+
+      var phase =
+        view.status && view.status.config && view.status.config.phase
+          ? String(view.status.config.phase)
+          : ''
+      React.useEffect(
+        function () {
+          if (phase !== 'pending' && phase !== 'switching') return
+          var timer = window.setInterval(function () {
+            loadStatus(false)
+          }, DNN_STATUS_POLL_MS)
+          return function () {
+            window.clearInterval(timer)
+          }
+        },
+        [phase],
+      )
+
+      return { view: view, setView: setView, aliveRef: aliveRef, loadStatus: loadStatus }
+    }
+
+    function setDnnBusy(core, busy) {
+      core.setView(function (prev) {
+        return Object.assign({}, prev, { busy: busy })
+      })
+    }
+
+    /** 统一 RPC 流程：busy 包围、取消后不更新、失败返回结构化 error。 */
+    function runDnnRequest(core, payload, done) {
+      if (!presenceRpc) {
+        done({ ok: false, error: { code: 'rpc_unavailable', message: 'DSH 连接服务不可用' } })
+        return
+      }
+      setDnnBusy(core, true)
+      dnnRpc(payload)
+        .then(function (res) {
+          if (!core.aliveRef.current) return
+          setDnnBusy(core, false)
+          done(res)
+        })
+        .catch(function (e) {
+          if (!core.aliveRef.current) return
+          setDnnBusy(core, false)
+          done({ ok: false, error: { code: 'rpc_failed', message: errText(e) } })
+        })
+    }
+
+    function DnnConfigSection() {
+      var core = useDnnConfigCore()
+      var status = core.view.status
+      var formState = React.useState(null)
+      var form = formState[0]
+      var setForm = formState[1]
+      var modalState = React.useState(null)
+      var modal = modalState[0]
+      var setModal = modalState[1]
+      var selectionState = React.useState(dnnDefaultSelection())
+      var selection = selectionState[0]
+      var setSelection = selectionState[1]
+      var probeState = React.useState(null)
+      var probe = probeState[0]
+      var setProbe = probeState[1]
+      var feedbackState = React.useState(null)
+      var feedback = feedbackState[0]
+      var setFeedback = feedbackState[1]
+      var downloadErrorState = React.useState(null)
+      var downloadError = downloadErrorState[0]
+      var setDownloadError = downloadErrorState[1]
+
+      var effective = form || dnnCandidateFromStatus(status)
+      var envLocked = !!(status && status.envLocked)
+      var busy = core.view.busy
+      var controls = dnnControlState(status, busy, !!presenceRpc)
+      var enabled = effective.features.dnn === true
+
+      function patch(patchValue) {
+        setForm(dnnFormUpdate(effective, patchValue))
+        setFeedback(null)
+      }
+
+      function toggleEnabled(next) {
+        setForm(dnnFormUpdate(effective, { dnn: next }))
+        setFeedback(null)
+        if (next && dnnDownloadPromptVisible(status)) {
+          setSelection(dnnDefaultSelection())
+          setDownloadError(null)
+          setModal('download')
+        }
+      }
+
+      function toggleSelection(id) {
+        var next = []
+        for (var i = 0; i < selection.length; i++) if (selection[i] !== id) next.push(selection[i])
+        if (next.length === selection.length) next.push(id)
+        if (!next.length) setDownloadError('请至少选择一个模型')
+        else setDownloadError(null)
+        setSelection(next)
+      }
+
+      function runAction(payload) {
+        var reason =
+          payload.op === 'apply' || payload.op === 'probe'
+            ? dnnCandidateInvalidReason(payload.candidate)
+            : null
+        if (reason) {
+          setFeedback({ kind: 'error', text: reason })
+          return
+        }
+        runDnnRequest(core, payload, function (res) {
+          if (payload.op === 'probe') {
+            if (!res || !res.ok || !res.value) setProbe({ error: dnnErrorText(res) })
+            else setProbe(res.value)
+            setModal('probe')
+            return
+          }
+          if (payload.op === 'download') {
+            var outcome = res && res.ok && res.value ? res.value : null
+            if (!outcome || outcome.ok === false) {
+              var message = outcome && outcome.message ? String(outcome.message) : dnnErrorText(res)
+              if (outcome && outcome.code === 'dnn_pin_unavailable')
+                message =
+                  '预设校验值尚未采集，下载被拒绝（dnn_pin_unavailable）。' +
+                  (outcome.message ? ' ' + String(outcome.message) : '')
+              setDownloadError(message)
+              setFeedback({ kind: 'error', text: message })
+              core.loadStatus(false)
+              return
+            }
+            var downloaded = 0
+            var items = Array.isArray(outcome.items) ? outcome.items : []
+            for (var i = 0; i < items.length; i++)
+              if (items[i] && items[i].state === 'downloaded') downloaded++
+            setModal(null)
+            setDownloadError(null)
+            core.loadStatus(false)
+            // 仅关掉弹窗不改配置：开关刚打开时表单还没落盘，下载成功后补一次 apply。
+            if (dnnShouldApplyAfterDownload(effective, status)) {
+              runAction(dnnApplyPayload(effective))
+              return
+            }
+            setFeedback({
+              kind: 'ok',
+              text:
+                '下载完成：新下载 ' +
+                downloaded +
+                ' 个模型。无需重启 Gateway，下一次 vision_detect 自动使用新模型。',
+            })
+            return
+          }
+          if (!res || !res.ok || !res.value) {
+            setFeedback({ kind: 'error', text: dnnErrorText(res) })
+            return
+          }
+          var value = res.value
+          if (payload.op === 'apply') {
+            var text
+            if (value.applied) text = '已保存并生效（revision ' + value.revision + '）。'
+            else if (value.savedForNextStart)
+              text = 'Gateway 未运行：配置已保存，下次启动生效（revision ' + value.revision + '）。'
+            else
+              text =
+                '配置已保存（revision ' +
+                value.revision +
+                '），当前 phase=' +
+                String(value.phase || 'unknown') +
+                '；等待在途请求结束后生效。'
+            setFeedback({ kind: value.applied ? 'ok' : 'warning', text: text })
+            // 保存后让表单重新跟随状态，避免继续显示已被 env 锁定或热切换改写的旧值。
+            setForm(null)
+            core.loadStatus(false)
+            // 3.4：保存并应用后自动跑一次 probe（候选配置一次性进程）。
+            runAction(dnnRpcPayload('probe', { candidate: effective }))
+            return
+          } else if (payload.op === 'cancel-pending') {
+            setFeedback({ kind: 'ok', text: '已取消等待：待应用配置已用当前生效配置覆盖。' })
+            setForm(null)
+          } else if (payload.op === 'rollback') {
+            setFeedback({
+              kind: 'ok',
+              text: '已回滚上一版配置（revision ' + value.revision + '）。',
+            })
+            setForm(null)
+          }
+          core.loadStatus(false)
+        })
+      }
+
+      var children = []
+      children.push(
+        React.createElement(
+          'div',
+          {
+            key: 'dnn-head',
+            style: { display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' },
+          },
+          React.createElement(
+            'div',
+            { style: { fontSize: 14, fontWeight: 600 } },
+            '视觉检测（DNN）',
+          ),
+          React.createElement(
+            'span',
+            {
+              style: {
+                padding: '1px 7px',
+                borderRadius: 999,
+                fontSize: 11,
+                color: '#fff',
+                background: '#bf8700',
+              },
+            },
+            '实验性',
+          ),
+        ),
+      )
+      children.push(
+        React.createElement(
+          'div',
+          {
+            key: 'dnn-desc',
+            style: {
+              marginTop: 4,
+              fontSize: 12,
+              lineHeight: 1.6,
+              color: 'var(--dsh-text-secondary, #888)',
+            },
+          },
+          DNN_EXPERIMENTAL_TEXT,
+        ),
+      )
+      children.push(
+        React.createElement(
+          'div',
+          { key: 'dnn-doc', style: { marginTop: 4, fontSize: 12 } },
+          React.createElement(
+            'a',
+            { href: DNN_DOCS_URL, target: '_blank', rel: 'noreferrer' },
+            '自定义后端与 GPU DIY 文档',
+          ),
+        ),
+      )
+
+      var statusText = dnnStatusText(status)
+      var statusColor =
+        status && status.config && status.config.phase === 'failed'
+          ? '#d33'
+          : status &&
+              status.config &&
+              (status.config.phase === 'pending' || status.config.phase === 'switching')
+            ? '#9a6700'
+            : 'var(--dsh-text-secondary, #888)'
+      children.push(
+        React.createElement(
+          'div',
+          {
+            key: 'dnn-status',
+            style: { marginTop: 8, fontSize: 12, lineHeight: 1.6, color: statusColor },
+          },
+          statusText,
+        ),
+      )
+      children.push(React.createElement(DnnStatusDetails, { key: 'dnn-details', status: status }))
+      if (core.view.error) {
+        children.push(
+          React.createElement(
+            'div',
+            { key: 'dnn-error', style: { color: '#d33', fontSize: 12, marginTop: 6 } },
+            core.view.error,
+          ),
+        )
+      }
+      if (envLocked) {
+        children.push(
+          React.createElement(
+            ConfigNotice,
+            { key: 'dnn-env-lock', kind: 'warning' },
+            'features.dnn 由 DSH_BLENDER_DNN 环境变量锁定，开关不可用；其他 DNN 字段仍可保存并热应用。移除该环境变量并重启 Gateway 后才能在配置卡修改开关。',
+          ),
+        )
+      }
+
+      children.push(
+        React.createElement(
+          'label',
+          {
+            key: 'dnn-switch',
+            style: {
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '10px 0 4px',
+              fontSize: 13,
+              cursor: controls.switchDisabled ? 'default' : 'pointer',
+            },
+          },
+          React.createElement('input', {
+            type: 'checkbox',
+            checked: enabled,
+            disabled: controls.switchDisabled,
+            onChange: function (e) {
+              toggleEnabled(!!(e && e.target && e.target.checked))
+            },
+          }),
+          React.createElement('span', null, '启用 features.dnn（YOLOv5 目标检测）'),
+        ),
+      )
+
+      if (enabled) {
+        if (dnnDownloadPromptVisible(status)) {
+          children.push(
+            React.createElement(
+              ConfigNotice,
+              { key: 'dnn-no-model', kind: 'warning' },
+              React.createElement(
+                'div',
+                null,
+                '模型目录里没有 .onnx 模型：现在保存后，vision_detect 会以 dnn_no_model 失败。请下载预设模型，或按文档自行放置模型与 models.yml。',
+              ),
+              React.createElement(
+                'div',
+                { style: { display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' } },
+                React.createElement(
+                  ConfigButton,
+                  {
+                    primary: true,
+                    disabled: controls.fieldDisabled,
+                    onClick: function () {
+                      setSelection(dnnDefaultSelection())
+                      setDownloadError(null)
+                      setModal('download')
+                    },
+                  },
+                  '下载预设模型',
+                ),
+                React.createElement(
+                  'a',
+                  {
+                    href: DNN_DOCS_URL,
+                    target: '_blank',
+                    rel: 'noreferrer',
+                    style: { fontSize: 12, alignSelf: 'center' },
+                  },
+                  '查看文档',
+                ),
+              ),
+            ),
+          )
+        }
+
+        children.push(
+          React.createElement(
+            'div',
+            { key: 'dnn-diy-head', style: { marginTop: 10, fontSize: 12, fontWeight: 600 } },
+            '自定义后端（可选；默认 OpenCV + CPU）',
+          ),
+        )
+        children.push(
+          React.createElement(
+            'div',
+            {
+              key: 'dnn-fields',
+              style: { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 },
+            },
+            React.createElement(DnnField, {
+              label: '解释器 python',
+              hint: '留空自动探测；可填绝对路径',
+              value: effective.vision.python,
+              disabled: controls.fieldDisabled,
+              placeholder: '例如 C:\\Python311\\python.exe',
+              onChange: function (v) {
+                patch({ python: v })
+              },
+            }),
+            React.createElement(DnnField, {
+              label: '自定义 venv（vision.venv）',
+              hint: '留空使用托管 venv；GPU 需在此 venv 自行安装 onnxruntime',
+              value: effective.vision.venv,
+              disabled: controls.fieldDisabled,
+              placeholder: '例如 C:\\venvs\\blender-onnx',
+              onChange: function (v) {
+                patch({ venv: v })
+              },
+            }),
+            React.createElement(DnnSelect, {
+              label: 'DNN 后端（vision.dnn.backend）',
+              hint: 'opencv 默认 CPU；onnxruntime 需要自备 venv',
+              value: effective.vision.dnn.backend,
+              disabled: controls.fieldDisabled,
+              options: [
+                { value: 'opencv', label: 'opencv（默认，CPU）' },
+                { value: 'onnxruntime', label: 'onnxruntime（自备 venv）' },
+              ],
+              onChange: function (v) {
+                patch(v === 'opencv' ? { backend: v, device: 'cpu' } : { backend: v })
+              },
+            }),
+            React.createElement(DnnSelect, {
+              label: '设备（vision.dnn.device）',
+              hint: 'opencv 只能 cpu；auto/gpu 需要 onnxruntime',
+              value: effective.vision.dnn.device,
+              disabled: controls.fieldDisabled || effective.vision.dnn.backend === 'opencv',
+              options: [
+                { value: 'cpu', label: 'cpu' },
+                { value: 'auto', label: 'auto（优先 GPU，可回退 CPU）' },
+                { value: 'gpu', label: 'gpu（无可用 provider 时报错）' },
+              ],
+              onChange: function (v) {
+                patch({ device: v })
+              },
+            }),
+            React.createElement(DnnField, {
+              key: 'dnn-model',
+              label: '模型（vision.model）',
+              hint: '预设：yolov5n / yolov5s / yolov5m / yolov5l / yolov5x；也可填 models.yml 里的任意 key',
+              value: effective.vision.model,
+              disabled: controls.fieldDisabled,
+              placeholder: 'yolov5n',
+              onChange: function (v) {
+                patch({ model: v })
+              },
+            }),
+          ),
+        )
+
+        children.push(
+          React.createElement(
+            'div',
+            {
+              key: 'dnn-actions',
+              style: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' },
+            },
+            React.createElement(
+              ConfigButton,
+              {
+                primary: true,
+                disabled: controls.fieldDisabled,
+                onClick: function () {
+                  runAction(dnnApplyPayload(effective))
+                },
+              },
+              busy ? '处理中…' : '保存并应用',
+            ),
+            React.createElement(
+              ConfigButton,
+              {
+                disabled: controls.fieldDisabled,
+                onClick: function () {
+                  runAction(dnnRpcPayload('probe', { candidate: effective }))
+                },
+              },
+              '检测可用性',
+            ),
+            React.createElement(
+              ConfigButton,
+              {
+                disabled: controls.fieldDisabled || !dnnCanCancelPending(status),
+                onClick: function () {
+                  runAction(dnnRpcPayload('cancel-pending'))
+                },
+              },
+              '取消等待',
+            ),
+            React.createElement(
+              ConfigButton,
+              {
+                disabled: controls.fieldDisabled || !dnnCanRollback(status),
+                onClick: function () {
+                  runAction(dnnRpcPayload('rollback'))
+                },
+              },
+              '回滚上一版',
+            ),
+            React.createElement(
+              ConfigButton,
+              {
+                disabled: controls.fieldDisabled,
+                onClick: function () {
+                  setSelection(dnnDefaultSelection())
+                  setDownloadError(null)
+                  setModal('download')
+                },
+              },
+              '下载预设模型…',
+            ),
+            React.createElement(
+              ConfigButton,
+              {
+                disabled: controls.fieldDisabled,
+                onClick: function () {
+                  core.loadStatus(false)
+                },
+              },
+              '刷新状态',
+            ),
+          ),
+        )
+        children.push(React.createElement(DnnFeedback, { key: 'dnn-feedback', feedback: feedback }))
+      } else {
+        children.push(
+          React.createElement(
+            'div',
+            {
+              key: 'dnn-off-hint',
+              style: { fontSize: 11, color: 'var(--dsh-text-secondary, #888)', marginTop: 4 },
+            },
+            'DNN 关闭时，vision_detect 会在启动 worker 之前返回 stage=config、code=dnn_disabled，不会自动下载模型。',
+          ),
+        )
+      }
+
+      if (modal === 'download') {
+        children.push(
+          React.createElement(DnnDownloadModal, {
+            key: 'dnn-download-modal',
+            selection: selection,
+            busy: busy,
+            error: downloadError,
+            downloadable: status && Array.isArray(status.downloadable) ? status.downloadable : [],
+            onToggle: toggleSelection,
+            onCancel: function () {
+              setModal(null)
+              setDownloadError(null)
+            },
+            onConfirm: function () {
+              runAction(dnnRpcPayload('download', { ids: selection.slice() }))
+            },
+          }),
+        )
+      }
+      if (modal === 'probe') {
+        children.push(
+          React.createElement(DnnProbeModal, {
+            key: 'dnn-probe-modal',
+            result: probe,
+            onClose: function () {
+              setModal(null)
+            },
+          }),
+        )
+      }
+
+      return React.createElement(
+        'div',
+        {
+          style: {
+            marginTop: 18,
+            paddingTop: 14,
+            borderTop: '1px solid var(--dsh-border, rgba(127,127,127,.22))',
+          },
+        },
+        children,
+      )
+    }
+
+    function DnnField(props) {
+      return React.createElement(
+        'label',
+        { style: { display: 'flex', flexDirection: 'column', gap: 3, fontSize: 12 } },
+        React.createElement('span', { style: { fontWeight: 500 } }, props.label),
+        React.createElement('input', {
+          type: 'text',
+          value: props.value,
+          disabled: !!props.disabled,
+          placeholder: props.placeholder || '',
+          onChange: function (e) {
+            props.onChange(String((e && e.target && e.target.value) || ''))
+          },
+          style: {
+            padding: '5px 8px',
+            borderRadius: 6,
+            border: '1px solid var(--dsh-border, rgba(127,127,127,.3))',
+            background: 'transparent',
+            color: 'inherit',
+            fontSize: 12,
+          },
+        }),
+        props.hint
+          ? React.createElement(
+              'span',
+              { style: { fontSize: 11, color: 'var(--dsh-text-secondary, #888)' } },
+              props.hint,
+            )
+          : null,
+      )
+    }
+
+    function DnnSelect(props) {
+      var options = []
+      for (var i = 0; i < props.options.length; i++) {
+        var option = props.options[i]
+        options.push(
+          React.createElement(
+            'option',
+            { key: String(option.value), value: option.value },
+            String(option.label || option.value),
+          ),
+        )
+      }
+      return React.createElement(
+        'label',
+        { style: { display: 'flex', flexDirection: 'column', gap: 3, fontSize: 12 } },
+        React.createElement('span', { style: { fontWeight: 500 } }, props.label),
+        React.createElement(
+          'select',
+          {
+            value: props.value,
+            disabled: !!props.disabled,
+            onChange: function (e) {
+              props.onChange(String((e && e.target && e.target.value) || ''))
+            },
+            style: {
+              padding: '5px 8px',
+              borderRadius: 6,
+              border: '1px solid var(--dsh-border, rgba(127,127,127,.3))',
+              background: 'transparent',
+              color: 'inherit',
+              fontSize: 12,
+            },
+          },
+          options,
+        ),
+        props.hint
+          ? React.createElement(
+              'span',
+              { style: { fontSize: 11, color: 'var(--dsh-text-secondary, #888)' } },
+              props.hint,
+            )
+          : null,
+      )
+    }
+    //#endregion
 
     function ConfigModalShell(props) {
       return React.createElement(
@@ -2289,6 +3548,30 @@ window.__ModuleLoader__.load({
       formatPresenceTime: formatPresenceTime,
       missingVirtualGuiPlans: missingVirtualGuiPlans,
       virtualGuiCounts: virtualGuiCounts,
+      // 3.4（DNN 配置卡纯函数；供离线 vm 测试）
+      DNN_DOCS_URL: DNN_DOCS_URL,
+      DNN_EXPERIMENTAL_TEXT: DNN_EXPERIMENTAL_TEXT,
+      DNN_MODEL_IDS: DNN_MODEL_IDS,
+      DNN_STATUS_POLL_MS: DNN_STATUS_POLL_MS,
+      dnnModelOptions: dnnModelOptions,
+      dnnDefaultSelection: dnnDefaultSelection,
+      dnnCandidateFromStatus: dnnCandidateFromStatus,
+      dnnCandidateInvalidReason: dnnCandidateInvalidReason,
+      dnnShouldApplyAfterDownload: dnnShouldApplyAfterDownload,
+      dnnApplyPayload: dnnApplyPayload,
+      dnnRpcPayload: dnnRpcPayload,
+      dnnFormUpdate: dnnFormUpdate,
+      dnnControlState: dnnControlState,
+      dnnStatusText: dnnStatusText,
+      dnnDownloadPromptVisible: dnnDownloadPromptVisible,
+      dnnProbeSummary: dnnProbeSummary,
+      dnnProbeText: dnnProbeText,
+      dnnProbeChecksText: dnnProbeChecksText,
+      dnnCanRollback: dnnCanRollback,
+      dnnFormatBytes: dnnFormatBytes,
+      dnnCanCancelPending: dnnCanCancelPending,
+      dnnDownloadSelectionText: dnnDownloadSelectionText,
+      dnnErrorText: dnnErrorText,
     }
     return module.exports
   },

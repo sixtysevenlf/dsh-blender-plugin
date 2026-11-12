@@ -11,11 +11,12 @@ import { startBackend, type Backend } from '../../helpers/backend'
 // warning and heartbeat cases need Blender and moved to the E2E layer.
 
 let backend: Backend
-const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-ledger-'))
+const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-ledger-work-'))
+const home = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-ledger-home-'))
 const startedAt = Date.now() - 60000
 
 function seed(id: string, files: Record<string, string>) {
-  const dir = path.join(workDir, 'jobs', id)
+  const dir = path.join(home, 'jobs', id)
   fs.mkdirSync(dir, { recursive: true })
   for (const [name, content] of Object.entries(files))
     fs.writeFileSync(path.join(dir, name), content)
@@ -35,10 +36,10 @@ const records = [
 
 beforeAll(async () => {
   fs.writeFileSync(
-    path.join(workDir, 'jobs', 'index.jsonl'),
+    path.join(home, 'jobs', 'index.jsonl'),
     records.map((record) => JSON.stringify(record)).join('\n') + '\n',
   )
-  backend = await startBackend({ workDir })
+  backend = await startBackend({ workDir, home })
 })
 afterAll(async () => {
   await backend.stop()

@@ -30,6 +30,7 @@ const PYTHON =
 
 export const PYTHON_ROOTS = [
   'runtime/py',
+  'runtime/vision/worker',
   'tests',
   'extension/dsh_blender_bridge',
   'scripts',

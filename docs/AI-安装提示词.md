@@ -3,7 +3,7 @@
 **为什么需要这一页**：直接把仓库地址丢给 AI，常见翻车姿势是 —— 跳过 §2 前置条件直接构建；自己编 `blenderExe` / 端口 / 配置项；把"命令跑完了"当成"装好了"；不跑 `doctor` 就宣布成功。
 下面这段提示词把「**先读 → 再装 → 按判据验收**」写成硬要求，复制粘贴即可。
 
-> **当前版本口径（2026-11-08）**：插件 **v3.1.0-alpha.1** · **6 个模型工具** · plan catalog **34 family / 228 op** ·
+> **当前版本口径（2026-11-08）**：插件 **v3.1.0-alpha.1** · **6 个模型工具** · plan catalog **36 family / 239 op** ·
 > Blender 侧 addon **v2.0.0**（protocol **12**）· Gateway `127.0.0.1:39877` · addon 主动连接 Gateway（无入站端口）。
 > **验收判据**：GUI 路线 = `doctor` 回 `kind=ok`；纯无头路线（不装 addon）= `blender_run(action="submit", kind="headless")` + `wait`/`collect` 拿到产物
 > （doctor 的 bpy 往返不可达属预期）。**GUI 不再是唯一门**：后台无头作业可独立建模。
@@ -18,14 +18,14 @@
 动手前的要求（必须遵守）：
 1. 先完整阅读仓库里的 docs/zh/README.md：前置条件、Quick start 的 npm 安装、常见故障，以及 AGENTS.md。
 2. 逐条核对 5 条前置条件；缺哪条先告诉我，不要跳过，也不要替我决定。
-   当前版本：插件 v3.1.0-alpha.1 / 6 个模型工具 / plan catalog 34 family 228 op / addon v2.0.0（protocol 12）。
+   当前版本：插件 v3.1.0-alpha.1 / 6 个模型工具 / plan catalog 36 family 239 op / addon v2.0.0（protocol 12）。
    注意：普通安装不需要 clone 或构建；npm 包自带 lib/。只有从源码开发才需要 npm ci --legacy-peer-deps && npm run build。
 3. 严格按 §3 的 5 步执行；配置项只从 docs/配置参考.md 里取，不要自己编路径 / 端口 / 配置名。
 4. 验收判据（按路线二选一，另一条不适用时说明原因）：
    · GUI 路线：curl -sS http://127.0.0.1:39877/doctor → kind=ok，且 blender_see(max_size=560) 回一帧图；
    · 纯无头路线（不装 addon）：blender_run(action="submit", kind="headless", script="print('ok')") →
      blender_run(action="wait", id="<jobId>") 回产物（doctor 的 bpy 往返不可达属预期，不是没装好）；
-   两条路线都要：blender_op(op="catalog") 能列出 34 family / 228 op。
+   两条路线都要：blender_op(op="catalog") 能列出 36 family / 239 op。
    没到对应判据不许说"安装成功"；失败就按 §8 的表逐条排查。
 5. 每一步都把原始回执贴给我，不要只给结论。
 6. 装完并验收通过后，必须主动告诉我当前版本能力（照 §③.5，用你自己的话复述，不要漏）：
@@ -59,7 +59,7 @@
 
 ~~~text
 blender_session(action="doctor")          # kind=ok ？（真跑一次 bpy 往返）
-blender_op(op="catalog")                  # 34 family / 228 op 能列出来？
+blender_op(op="catalog")                  # 36 family / 239 op 能列出来？
 skill(name="blender-modeling")            # 随包 skill 能加载？（v2.2.0 起自动注册，无需另装）
 blender_inspect(command="get_addon_info")     # addon_version=[2,0,0] + protocol 12？
 blender_inspect(command="get_activity_state") # 选中/activity 命令在不在？
@@ -75,7 +75,7 @@ blender_run(action="wait", id="<jobId>")                               # 收日�
 > 这一节是给**安装插件的 AI** 看的硬要求：验收通过后，用你自己的话（中文优先）把下面几点告诉用户，不要省略。
 > 用户装插件通常只关心"能干什么"，不会去翻 CHANGELOG —— 所以由你转达。
 
-1. **版本口径**：插件 v3.1.0-alpha.1、6 个模型工具、plan catalog 34 family / 228 op、addon v2.0.0（protocol 12）；
+1. **版本口径**：插件 v3.1.0-alpha.1、6 个模型工具、plan catalog 36 family / 239 op、addon v2.0.0（protocol 12）；
    装完/升级后必须**重启 DSH**（插件是启动时装载的模块）。
 2. **GUI 交互 + 后台作业**：`blender_py` / `blender_see` 在已 attach 的 GUI 会话里做「改一步看一眼」；
    `blender_run` 是唯一作业提交面（render / headless，submit 立即回 jobId，`wait`/`collect` 收产物与日志）。

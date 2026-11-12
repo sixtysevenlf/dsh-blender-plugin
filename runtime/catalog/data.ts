@@ -398,6 +398,28 @@ export const PLAN_CATALOG: PlanFamily[] = [
     key: '渲染开始/结束由 bpy handler 写/删磁盘标记；**渲染中主线程写命令秒回 BUSY_RENDER**（不再排队到超时）；陈标记 15 min 自动放行',
   },
   {
+    f: 'vision',
+    requires_session: false,
+    write_scope: 'none',
+    prefix: 'vision_',
+    when: '图片本身要出数字：尺寸/颜色/清晰度/曝光、参考图配准与差异、目标检测、序列跟踪、render pass 的 depth/normal/object_index 统计',
+    not: '场景里的几何问题（audit_*）；需要 Blender 的比对/出图（qc_*）；**别靠肉眼描述图片** —— 全走 vision_* 的 host-local worker，不启动 Blender',
+    sk: 'op="vision_analyze", args={path:"D:/in/shot.png"} → "vision_compare"(ref=..., candidate=...)；pass 用 "vision_pass", args={manifests:["D:/out/passes/frame_0001/manifest.json"]}',
+    ops: ['status', 'analyze', 'compare', 'detect', 'track', 'pass', 'selftest', 'help'],
+    key: '返回数字不返回像素；坐标左上原点、bbox=[x0,y0,x1,y1) 0-based、深度单位米；单图 ≤64MP；DNN 默认关闭（features.dnn），关闭时 detect/track 的 DNN 段返回 dnn_disabled 或 skipped；模型走 models.yml，不打包 ONNX',
+  },
+  {
+    f: 'animation',
+    requires_session: true,
+    write_scope: 'exclusive',
+    prefix: 'animation_',
+    when: '骨骼动画要量化验收：根运动轨迹、关节角曲线、脚底接触/滑步、蒙皮自交、参考序列对比',
+    not: '只看单帧姿态（blender_py 就够）；不是动画编辑器（不改 fcurve、不写关键帧）；**别用截图判断滑步** —— animation_report 给数字',
+    sk: 'op="animation_report", args={armature:"Rig", objects:["Body"], frame_start:1, frame_end:120, contact_bones:["foot.L","foot.R"]}',
+    ops: ['report', 'selftest', 'help'],
+    key: 'report/help 走 session-read（不取写租约），selftest 走写门；矩阵从 evaluated depsgraph 取，不读 Action.fcurves；采样 ≤240 帧，超限报 animation_sampling_invalid 不静默改步长；finally 恢复 frame_current/frame_subframe',
+  },
+  {
     f: 'render',
     requires_session: true,
     write_scope: 'exclusive',
@@ -651,3 +673,26 @@ export const PLAN_READ_ONLY_OPS: string[] = [
   'blockout_selftest',
 ]
 export const PLAN_READ_ONLY = new Set<string>(PLAN_READ_ONLY_OPS)
+
+/**
+ * host-local plan op：在 Gateway 进程内执行、不碰 Blender GUI 的视觉 op。
+ * 它们不需要会话、也不取写租约——/plan 的读判定是 PLAN_READ_ONLY_OPS ∪ 本表。
+ * 单独登记而不并入 PLAN_READ_ONLY_OPS：后者的长度被契约测试钉死（98）。
+ */
+export const PLAN_HOST_LOCAL_OPS: string[] = [
+  'vision_status',
+  'vision_analyze',
+  'vision_compare',
+  'vision_detect',
+  'vision_track',
+  'vision_pass',
+  'vision_selftest',
+  'vision_help',
+]
+
+/**
+ * 3.2：需要活跃会话、但不取写租约的只读 plan op（session-read）。
+ * 它们读取会话状态并返回数据；不得写场景，也不阻塞其他写者。
+ */
+export const PLAN_SESSION_READ_OPS: string[] = ['animation_report', 'animation_help']
+export const PLAN_SESSION_READ = new Set<string>(PLAN_SESSION_READ_OPS)

@@ -57,7 +57,7 @@ def test_catalog_and_lock_agree_on_surface_ops():
     lock = json.loads(LOCK.read_text(encoding="utf-8"))
     surface = next(f for f in lock["families"] if f["f"] == "surface")
     assert surface["ops"] == 11
-    assert lock["ops_count"] == 228
+    assert lock["ops_count"] == 239
 
 
 def _surface_fit_function():

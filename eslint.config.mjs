@@ -217,6 +217,7 @@ export default defineConfig([
         { type: 'runtime-http', pattern: 'runtime/http' },
         { type: 'runtime-launch', pattern: 'runtime/launch' },
         { type: 'runtime-transport', pattern: 'runtime/transport' },
+        { type: 'runtime-vision', pattern: 'runtime/vision' },
       ],
       'boundaries/files': [{ pattern: 'runtime/*.ts', category: 'runtime-root' }],
       'boundaries/ignore': ['lib/**'],
@@ -242,6 +243,7 @@ export default defineConfig([
                       'runtime-http',
                       'runtime-launch',
                       'runtime-transport',
+                      'runtime-vision',
                     ],
                   },
                 },
@@ -270,6 +272,7 @@ export default defineConfig([
                       'runtime-execution',
                       'runtime-launch',
                       'runtime-transport',
+                      'runtime-vision',
                     ],
                   },
                 },
@@ -319,6 +322,14 @@ export default defineConfig([
             },
             {
               from: { element: { type: 'runtime-transport' } },
+              allow: { to: { file: { categories: 'runtime-root' } } },
+            },
+            {
+              from: { element: { type: 'runtime-vision' } },
+              allow: { to: { element: { types: ['runtime-core'] } } },
+            },
+            {
+              from: { element: { type: 'runtime-vision' } },
               allow: { to: { file: { categories: 'runtime-root' } } },
             },
           ],

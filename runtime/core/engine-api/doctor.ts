@@ -8,7 +8,11 @@ import type { AddonHandshakeError, AddonInstanceView } from '../../transport/add
 import { FLAGS_CODE, REGION_CODE } from '../flags.js'
 import { jsonFromStdout } from '../output/index.js'
 import { PLUGIN_VERSION, RUNTIME_DIR, engineProvenance, runtimeFingerprint } from '../evidence.js'
-import { wslToWin } from '../../config.js'
+import { CFG, wslToWin } from '../../config.js'
+import { normalizeRenderCacheLimits } from '../queue/render-cache-key.js'
+import type { RenderCacheLimitIssue, RenderCacheLimits } from '../queue/render-cache-key.js'
+import { listConfiguredModelIds } from '../../vision/models.js'
+import { getHome } from '../../home.js'
 import { COMMAND_CATALOG } from '../../catalog/index.js'
 import { errorMessage } from '../json.js'
 import type { EngineApiDeps } from './index.js'
@@ -374,6 +378,104 @@ function virtualGuiView(): Record<string, unknown> {
   return { ...capabilities, installPlans: buildInstallPlans(capabilities) }
 }
 
+/**
+ * vision / DNN 的 doctor 块（vision/DNN 设计）：配置来源、生效 revision、worker、模型目录、
+ * 安装/许可状态（由 vision_status 提供）与 render cache 的非法值，都在这里可见。
+ * 只读：reconcile 不会启动 worker，也不会写入 runtime.json。
+ */
+async function visionDoctorView(E: EngineApiDeps): Promise<Record<string, unknown>> {
+  const vision = E.vision
+  let reconcileError: string | null = null
+  if (vision) {
+    try {
+      await vision.reconcile()
+    } catch (e) {
+      reconcileError = errorMessage(e).slice(0, 300)
+    }
+  }
+  let report: unknown = null
+  if (vision) {
+    try {
+      report = await vision.statusReport()
+    } catch (e) {
+      report = { ok: false, error: errorMessage(e).slice(0, 300) }
+    }
+  }
+  let dnn: Record<string, unknown> | null
+  try {
+    dnn = vision ? vision.dnnStatus() : null
+  } catch (e) {
+    dnn = { error: errorMessage(e).slice(0, 300) }
+  }
+  let worker: Record<string, unknown> | null
+  try {
+    worker = vision ? vision.workerStatus() : null
+  } catch (e) {
+    worker = { error: errorMessage(e).slice(0, 300) }
+  }
+  const cacheRender = renderCacheDoctorView(
+    (CFG as unknown as { cache?: { render?: unknown } }).cache?.render,
+  )
+  const sources = Object.fromEntries(
+    Object.entries(CFG.source.configSources).filter(
+      ([key]) => key === 'features.dnn' || key.startsWith('vision.'),
+    ),
+  )
+  return {
+    experimental: true,
+    docs: ['docs/vision-custom-backend.md', '<home>/vision/models/GPU-DIY.md'],
+    features: {
+      dnn: CFG.features.dnn,
+      source: CFG.features.dnnSource,
+      /** DSH_BLENDER_DNN 存在时锁死 features.dnn（host apply 返回 dnn_env_locked）。 */
+      locked: CFG.features.dnnLocked,
+    },
+    config: {
+      home: CFG.source.home,
+      layers: CFG.source.configLayers.map((layer) => ({
+        id: layer.id,
+        label: layer.label,
+        path: layer.path,
+      })),
+      sources,
+      warnings: CFG.source.warnings,
+    },
+    runtime: dnn,
+    // 宿主配置卡从 /doctor.dnn 读 envLocked / configuredModels / config 状态；
+    // runtime 保留 manager 的原始 dnnStatus（vision_status 也用它）。
+    dnn: dnn
+      ? {
+          features: dnn.features ?? null,
+          envLocked: dnn.envLocked === true,
+          configuredModels: listConfiguredModelIds(getHome()),
+          config: {
+            activeRevision: dnn.activeRevision ?? null,
+            pendingRevision: dnn.pendingRevision ?? null,
+            phase: dnn.phase ?? null,
+            waitingFor: dnn.waitingFor ?? null,
+            lastSwitchError: dnn.lastSwitchError ?? null,
+            previous: dnn.previous ?? null,
+            active: dnn.active ?? null,
+            pending: dnn.pending ?? null,
+          },
+        }
+      : null,
+    worker,
+    reconcileError,
+    vision: report,
+    cache: { render: cacheRender },
+  }
+}
+
+/** doctor 的 cache.render 视图：非法值按默认值生效，但字段/范围/原值都报出来，且不抛。 */
+export function renderCacheDoctorView(raw: unknown): {
+  limits: RenderCacheLimits
+  issues: RenderCacheLimitIssue[]
+} {
+  const parsed = normalizeRenderCacheLimits(raw)
+  return { limits: parsed.limits, issues: parsed.issues }
+}
+
 export function createDoctorApi(E: EngineApiDeps) {
   const { addon } = E
   return {
@@ -386,6 +488,8 @@ export function createDoctorApi(E: EngineApiDeps) {
     /** 现场体检：真跑一次 Gateway → addon → bpy 往返（status），通了才算 ok。 */
     async doctor() {
       const gateway = gatewayInstances(E.addon)
+      // vision/DNN 是 host-local 能力：无论 addon 是否在线都要报告（vision/DNN 设计）。
+      const vision = await visionDoctorView(E)
       if (!gateway) {
         return {
           ok: false,
@@ -396,12 +500,15 @@ export function createDoctorApi(E: EngineApiDeps) {
             fix: '用 lib/runtime/gateway.js 启动 Gateway，并让 host/tools 只连 Gateway。',
           },
           virtualGui: virtualGuiView(),
+          vision,
+          // 顶层别名：设计/配置卡按 /doctor.dnn 读；真实数据仍在 vision.dnn。
+          dnn: vision.dnn,
           metrics: metricsView(E),
           error: 'gateway addon client required',
         }
       }
       const result = await gatewayDoctor(E, gateway)
-      return { ...result, virtualGui: virtualGuiView() }
+      return { ...result, virtualGui: virtualGuiView(), vision, dnn: vision.dnn }
     },
     /** 3D 视口区域 rect / 窗口尺寸 / 着色模式 */
     status() {

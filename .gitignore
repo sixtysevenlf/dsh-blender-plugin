@@ -30,11 +30,16 @@ node_modules
 coverage/
 .coverage
 
+#openspec skill
+.agents/
+
 # Local-only working notes and evidence: never commit
 /docs/refactor/
 /.dsh/
+
 # Agent-local working directory (never committed)
 /local-workspace/
+/tmp/
 # Local PR-review workspace (never committed or shipped)
 /.review-tmp/
 .vscode/
@@ -44,10 +49,3 @@ coverage/
 
 # Windows hidden-desktop helper staged for the npm tarball (release pipeline only)
 /vendor/
-
-# Local agent workspace (never committed or shipped)
-.dsh-ops/
-# pytest keeps its basetemp here when the environment points TMP inside the workspace
-pytest-of-*/
-pytest-*/
-

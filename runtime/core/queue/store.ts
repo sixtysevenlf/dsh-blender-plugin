@@ -1,14 +1,41 @@
 // Queue persistence: one JSON file, atomic replacement, corrupt-file quarantine.
 import fs from 'node:fs'
 import path from 'node:path'
-import { CFG, IS_WIN } from '../../config.js'
+import { legacyWorkDirs } from '../../config.js'
+import { homePath } from '../../home.js'
+import type { LegacyMigration } from '../../home.js'
+import { migrateLegacyFile } from '../../home.js'
 import type { JobRecord, JobStore } from './types.js'
 
+/**
+ * v3.2: queue state lives in the plug-in home, not in the legacy workDir.
+ * DSH_QUEUE_STATE still overrides the file (tests / embedded hosts).
+ */
 export function defaultQueueFile(): string {
   const override = process.env.DSH_QUEUE_STATE
   if (override) return override
-  const workdir = IS_WIN ? CFG.workDirWin : CFG.workDirWsl
-  return path.join(workdir, 'state', 'queue.json')
+  const target = homePath('queue', 'queue.json')
+  migrateLegacyQueueState(target)
+  return target
+}
+
+/**
+ * Copy the legacy workDir state file once when the home queue is still
+ * missing. The legacy file is read-only input: it is never modified or
+ * deleted, so an old Gateway version can still start from it.
+ */
+export function migrateLegacyQueueState(target: string): LegacyMigration[] {
+  const out: LegacyMigration[] = []
+  if (fs.existsSync(target)) return out
+  for (const dir of legacyWorkDirs()) {
+    const from = path.join(dir, 'state', 'queue.json')
+    if (path.resolve(from) === path.resolve(target)) continue
+    const migration = migrateLegacyFile(from, target)
+    if (migration.result === 'missing') continue
+    out.push(migration)
+    if (migration.result === 'copied') break
+  }
+  return out
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

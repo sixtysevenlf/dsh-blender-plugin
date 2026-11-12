@@ -180,8 +180,8 @@ def test_python_import_graph_has_no_cycles_or_cross_domain_edges():
 def test_modules_manifest_is_single_source():
     """modules.json 唯一清单，paths.ts / offline_bootstrap.py 都读它。"""
     assert MANIFEST["version"] >= 1
-    assert MANIFEST["domains"] == ["core", "geometry", "assembly", "render", "export"]
-    assert len(MANIFEST["modules"]) == len(set(MANIFEST["modules"])) == 41
+    assert MANIFEST["domains"] == ["core", "geometry", "assembly", "render", "export", "animation"]
+    assert len(MANIFEST["modules"]) == len(set(MANIFEST["modules"])) == 42
     for name, dom in MANIFEST["modules"].items():
         assert dom in MANIFEST["domains"], (name, dom)
         p = os.path.join(PY, dom, name + ".py")

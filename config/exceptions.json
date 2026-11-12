@@ -5,7 +5,7 @@
       "id": "EXC-FILE-BUDGET-CATALOG-DATA",
       "kind": "file-budget",
       "path": "runtime/catalog/data.ts",
-      "reason": "Plan catalog data table (34 families / 228 ops) is pure data, not logic: it keeps the when/not/sk metadata and op lists human-readable in one file, so it carries the documented 600-line budget exemption. This replaces the removed runtime/catalog.ts ghost entry; the budget gate reads this registry instead of an inline allowlist.",
+      "reason": "Plan catalog data table (36 families / 239 ops) is pure data, not logic: it keeps the when/not/sk metadata and op lists human-readable in one file, so it carries the documented 600-line budget exemption. This replaces the removed runtime/catalog.ts ghost entry; the budget gate reads this registry instead of an inline allowlist.",
       "owner": "catalog",
       "reviewBy": "2027-06-30"
     },
@@ -103,6 +103,78 @@
       "detail": "from ...integrations.polypizza_client import _polypizza_cdn_error",
       "reason": "Cross-package reuse of private helpers from integrations/*_client.py predates the addon package split. The names stay private until those modules are next touched; the pytest private-import contract ties this registry entry to the real import graph so the entry cannot go stale.",
       "owner": "addon-integrations",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "id": "EXC-FILE-BUDGET-RUNTIME-CONFIG",
+      "kind": "file-budget",
+      "path": "runtime/config.ts",
+      "reason": "Layered configuration (built-in default -> package -> home -> DSH_BLENDER_CONFIG -> DSH_BLENDER_PLUGIN_CONFIG -> per-item env -> auto-detection) keeps every layer, source label, warning and derived CFG field in one module so the resolution order is auditable in a single place. Splitting would scatter the precedence chain that doctor and tests assert on.",
+      "owner": "vision",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "id": "EXC-FILE-BUDGET-QUEUE-MANAGER",
+      "kind": "file-budget",
+      "path": "runtime/core/queue/manager.ts",
+      "reason": "The queue manager owns submission, lease/slot accounting, cache hit handling, staging promotion and job lifecycle in one state machine; the render-pass cache additions need the same state transitions, and a split would duplicate that transaction boundary.",
+      "owner": "vision",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "id": "EXC-FILE-BUDGET-VISION-DISPATCH",
+      "kind": "file-budget",
+      "path": "runtime/vision/dispatch.ts",
+      "reason": "Host-local vision dispatch keeps the eight op validators, the DNN gate order, model checks and structured error mapping together so the error precedence is readable and testable as one table.",
+      "owner": "vision",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "id": "EXC-FILE-BUDGET-VISION-INSTALLER",
+      "kind": "file-budget",
+      "path": "runtime/vision/installer.ts",
+      "reason": "The managed Python/OpenCV installer is one state machine (discover -> create venv -> lock -> pip -> verify -> state.json) and a split would spread the lock/retry/atomic-rename invariants across files.",
+      "owner": "vision",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "id": "EXC-FILE-BUDGET-VISION-MANAGER",
+      "kind": "file-budget",
+      "path": "runtime/vision/manager.ts",
+      "reason": "The vision worker manager keeps protocol framing, idle reaping, crash restart and the two-phase DNN hot-apply switch in one owner; the in-flight/pending revision bookkeeping must stay atomic in one module.",
+      "owner": "vision",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "id": "EXC-FILE-BUDGET-VISION-PASS",
+      "kind": "file-budget",
+      "path": "runtime/vision/pass.ts",
+      "reason": "vision_pass is a self-contained manifest reader/decoder (depth/normal/object_index/alpha, per-frame and aggregate metrics, bounded outputs); keeping the decode and aggregation rules together keeps the units and formulas reviewable against render-pass-script.ts.",
+      "owner": "vision",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "id": "EXC-FILE-BUDGET-VISION-RUNTIME-CONFIG",
+      "kind": "file-budget",
+      "path": "runtime/vision/runtime-config.ts",
+      "reason": "The runtime.json snapshot schema, revision monotonicity, env lock and runtime-state.json transition writer form one config state machine consumed by both the host RPC and the Gateway reconciler; splitting would separate the schema from the atomic write.",
+      "owner": "vision",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "id": "EXC-FILE-BUDGET-DNN-CONFIG",
+      "kind": "file-budget",
+      "path": "src/host/dnn-config.ts",
+      "reason": "The owner-only /dsh-blender dnn RPC keeps apply/status/cancel-pending/rollback/download/probe in one handler so the runtime.json write, monotonic revision, forced reconcile and gateway_unreachable fallback share one transaction boundary; splitting would duplicate the write ordering the integration tests assert on.",
+      "owner": "vision",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "id": "EXC-FILE-BUDGET-DNN-PROBE",
+      "kind": "file-budget",
+      "path": "src/host/dnn-probe.ts",
+      "reason": "DNN probe is a one-shot availability probe whose lifecycle (candidate normalization, interpreter resolution, spawn/timer/stdio/close handling, result assembly) stays in one module so the 10 s timeout, 1 MiB stdout cap, exit-code handling and check merging share one transaction boundary; splitting the probe process state machine from candidate/interpreter resolution would duplicate the invariants the probe tests assert on.",
+      "owner": "vision",
       "reviewBy": "2027-06-30"
     }
   ]

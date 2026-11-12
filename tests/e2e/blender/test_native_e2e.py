@@ -68,7 +68,9 @@ def test_native_report_is_explicit_and_repo_clean(native_run):
     assert report["module"] == module["id"], _dump(native_run)
     assert report["module_path"].replace("\\", "/").endswith(module["path"]), _dump(native_run)
     assert report["preloads"] == list(module.get("preloads") or ()), _dump(native_run)
-    assert report["blender_version"].startswith("4.2."), _dump(native_run)
+    # The suite supports every shipped LTS line (4.2 / 4.5 / 5.x); only pin what the report promises.
+    version = report["blender_version"]
+    assert version.startswith(("4.2.", "4.5.", "5.")), _dump(native_run)
     out_dir = Path(report["out_dir"]).resolve()
     assert out_dir.is_dir(), _dump(native_run)
     assert Path(native_run["out_dir"]).resolve() == out_dir, _dump(native_run)

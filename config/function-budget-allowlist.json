@@ -1,7 +1,7 @@
 {
   "version": 1,
   "description": "Function-level budget registry (two-level exception model): every 80-120 line function is registered with a real classification, reason, class owner and future reviewBy; unregistered, unclassified, expired and stale entries fail. Functions over 120 lines always fail. Path-level file-budget exceptions live in config/exceptions.json.",
-  "generatedAt": "2026-11-11T12:13:57.000Z",
+  "generatedAt": "2026-11-12T14:23:34.763Z",
   "functions": [
     {
       "file": "extension/dsh_blender_bridge/commands/core/bpy_lookup.py",
@@ -24,7 +24,7 @@
     {
       "file": "extension/dsh_blender_bridge/commands/core/screenshot.py",
       "name": "get_viewport_screenshot",
-      "lines": 92,
+      "lines": 102,
       "classification": "integration-io",
       "reason": "Viewport screenshot adapter: context/area juggling plus image encoding for the host.",
       "owner": "addon",
@@ -78,10 +78,19 @@
     {
       "file": "runtime/core/engine-api/doctor.ts",
       "name": "createDoctorApi",
-      "lines": 87,
+      "lines": 96,
       "classification": "dispatch-table",
       "reason": "Gateway doctor/status API factory: one branch per reported surface (readiness, addon, bpy, virtualGui, sessions, diagnostics).",
       "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/core/engine-api/doctor.ts",
+      "name": "visionDoctorView",
+      "lines": 83,
+      "classification": "formatting",
+      "reason": "Doctor vision view assembles the status/install/model report fields in a fixed order.",
+      "owner": "host",
       "reviewBy": "2027-06-30"
     },
     {
@@ -90,6 +99,15 @@
       "lines": 83,
       "classification": "dispatch-table",
       "reason": "Engine API factory: one handler per loop start/status/board/export op.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/core/engine/assemble.ts",
+      "name": "assembleEngine",
+      "lines": 114,
+      "classification": "orchestration",
+      "reason": "Engine assembly wires every api/route/queue piece together; length is the wiring surface.",
       "owner": "runtime",
       "reviewBy": "2027-06-30"
     },
@@ -105,7 +123,7 @@
     {
       "file": "runtime/core/plan-dispatch.ts",
       "name": "createPlanDispatch",
-      "lines": 113,
+      "lines": 94,
       "classification": "dispatch-table",
       "reason": "Op dispatch table: one branch per planning op; length tracks the planning surface.",
       "owner": "runtime",
@@ -130,9 +148,18 @@
       "reviewBy": "2027-06-30"
     },
     {
+      "file": "runtime/core/queue/manager.ts",
+      "name": "submit",
+      "lines": 111,
+      "classification": "orchestration",
+      "reason": "Queue admission orchestration: kind/script validation, render-cache lookup, job record construction and queue push/pump span one submission; the cache-hit branch is an ordered stage.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
       "file": "runtime/core/queue/spawn-executor.ts",
       "name": "start",
-      "lines": 82,
+      "lines": 91,
       "classification": "orchestration",
       "reason": "Queue executor start: process spawn, log capture, timeout and settle lifecycle kept in one closure.",
       "owner": "runtime",
@@ -186,7 +213,7 @@
     {
       "file": "runtime/execution/ledger/state.ts",
       "name": "createLedgerStore",
-      "lines": 87,
+      "lines": 94,
       "classification": "orchestration",
       "reason": "Ledger store factory: JSONL IO, writable-workdir probing and metrics state in one closure.",
       "owner": "runtime",
@@ -204,7 +231,7 @@
     {
       "file": "runtime/gateway/app.ts",
       "name": "createGatewayApp",
-      "lines": 86,
+      "lines": 97,
       "classification": "dispatch-table",
       "reason": "Gateway app factory: wires the HTTP dependency surface and route table for the whole process.",
       "owner": "runtime",
@@ -222,7 +249,7 @@
     {
       "file": "runtime/http/routes/act.ts",
       "name": "createActRoutes",
-      "lines": 81,
+      "lines": 82,
       "classification": "dispatch-table",
       "reason": "Act route: parse body, run the session write + py lock gate, then one engine call and one response shape.",
       "owner": "runtime",
@@ -240,7 +267,7 @@
     {
       "file": "runtime/http/routes/session/api.ts",
       "name": "runSessionAction",
-      "lines": 88,
+      "lines": 87,
       "classification": "dispatch-table",
       "reason": "Session action dispatcher: one case per wire action (attach, grant, presence, human-edit readback, host permission, virtual-gui start).",
       "owner": "runtime",
@@ -262,6 +289,33 @@
       "classification": "dispatch-table",
       "reason": "Worker route handler: payload parse, lease gate and op dispatch; length tracks the wire protocol surface.",
       "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/animation/animation_impl/plan.py",
+      "name": "validate_report_args",
+      "lines": 90,
+      "classification": "validation",
+      "reason": "animation_report argument validation: ranges, units, bone filters and contact bounds.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/animation/animation_impl/report.py",
+      "name": "animation_report",
+      "lines": 100,
+      "classification": "linear-pipeline",
+      "reason": "Ordered report pipeline: validate -> sample frames -> detect animation -> root/joint/contact/intersection/trajectory reports -> build result dict; length is the sequence of contract-ordered stages, not nested branching.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/animation/animation_impl/selftest.py",
+      "name": "animation_selftest",
+      "lines": 92,
+      "classification": "validation",
+      "reason": "Animation module self-test builds a temporary scene and verifies sampling invariants.",
+      "owner": "qa",
       "reviewBy": "2027-06-30"
     },
     {
@@ -850,24 +904,6 @@
       "reviewBy": "2027-06-30"
     },
     {
-      "file": "runtime/py/render/qc_render_impl/views.py",
-      "name": "_qv_setup",
-      "lines": 120,
-      "classification": "linear-pipeline",
-      "reason": "QC view setup phase: parts, engine and scene configuration (band edge at 120 lines).",
-      "owner": "runtime",
-      "reviewBy": "2027-06-30"
-    },
-    {
-      "file": "runtime/py/render/qc_render_impl/views.py",
-      "name": "_qv_vlist",
-      "lines": 89,
-      "classification": "parsing",
-      "reason": "QC view list normalization: dedupe, canonical order and ortho resolution.",
-      "owner": "host",
-      "reviewBy": "2027-06-30"
-    },
-    {
       "file": "runtime/py/render/qc_render_impl/views_render.py",
       "name": "_qv_finish_out",
       "lines": 82,
@@ -904,12 +940,21 @@
       "reviewBy": "2027-06-30"
     },
     {
-      "file": "runtime/py/render/view.py",
-      "name": "capture",
-      "lines": 90,
-      "classification": "dispatch-table",
-      "reason": "View capture entry: one branch per mode (viewport/current/camera/render) around a shared PNG/diagnostics tail.",
+      "file": "runtime/py/render/qc_render_impl/views.py",
+      "name": "_qv_setup",
+      "lines": 120,
+      "classification": "linear-pipeline",
+      "reason": "QC view setup phase: parts, engine and scene configuration (band edge at 120 lines).",
       "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/qc_render_impl/views.py",
+      "name": "_qv_vlist",
+      "lines": 89,
+      "classification": "parsing",
+      "reason": "QC view list normalization: dedupe, canonical order and ortho resolution.",
+      "owner": "host",
       "reviewBy": "2027-06-30"
     },
     {
@@ -919,6 +964,15 @@
       "classification": "integration-io",
       "reason": "Viewport raycast adapter: click deprojection plus bpy ray_cast and object fallback.",
       "owner": "addon",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/py/render/view.py",
+      "name": "capture",
+      "lines": 92,
+      "classification": "dispatch-table",
+      "reason": "View capture entry: one branch per mode (viewport/current/camera/render) around a shared PNG/diagnostics tail.",
+      "owner": "runtime",
       "reviewBy": "2027-06-30"
     },
     {
@@ -936,6 +990,69 @@
       "lines": 92,
       "classification": "formatting",
       "reason": "Visual report phase 2: defect rows and verdict formatting.",
+      "owner": "host",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/vision/dispatch.ts",
+      "name": "handleStatus",
+      "lines": 94,
+      "classification": "dispatch-table",
+      "reason": "vision_status handler projects install/worker/dnn state into one status payload.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/vision/installer.ts",
+      "name": "downloadManagedPython",
+      "lines": 98,
+      "classification": "orchestration",
+      "reason": "Managed Python fetch: fixed release URL, sha256 check, tar extract and import venv.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/vision/manager.ts",
+      "name": "startWorker",
+      "lines": 113,
+      "classification": "orchestration",
+      "reason": "Vision worker startup spans spawn, handshake, self-test and failure classification.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/vision/pass.ts",
+      "name": "analyzeObjects",
+      "lines": 99,
+      "classification": "validation",
+      "reason": "Pass object analysis computes per-object coverage, bbox and depth order statistics.",
+      "owner": "qa",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/vision/pass.ts",
+      "name": "loadPassImage",
+      "lines": 108,
+      "classification": "linear-pipeline",
+      "reason": "Linear stat→size-cap→read→PNG-decode pipeline for one pass frame; the length is the fixed decode sequence, not nested branching.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/vision/png.ts",
+      "name": "decodePng",
+      "lines": 95,
+      "classification": "parsing",
+      "reason": "PNG decode normalizes bit depth/channels into a bounded pixel buffer for the worker.",
+      "owner": "host",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "runtime/vision/runtime-config.ts",
+      "name": "parseRuntimeSnapshot",
+      "lines": 86,
+      "classification": "parsing",
+      "reason": "Parses and normalizes the vision runtime.json snapshot (cleared/explicit-null semantics) into a validated config slice.",
       "owner": "host",
       "reviewBy": "2027-06-30"
     },
@@ -958,9 +1075,27 @@
       "reviewBy": "2027-06-30"
     },
     {
+      "file": "src/host/dnn-probe.ts",
+      "name": "probeDnn",
+      "lines": 114,
+      "classification": "orchestration",
+      "reason": "DNN probe lifecycle: candidate normalization, feature/backend/interpreter/script checks, payload assembly and process hand-off span one probe operation; each check is an ordered stage, not nested branching.",
+      "owner": "runtime",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "file": "src/host/dnn-probe.ts",
+      "name": "runProbeProcess",
+      "lines": 81,
+      "classification": "integration-io",
+      "reason": "Runs the DNN probe child process: spawn, stdin write, JSON-line read, timeout and kill handling.",
+      "owner": "addon",
+      "reviewBy": "2027-06-30"
+    },
+    {
       "file": "src/tui/commands.ts",
       "name": "blenderCommand",
-      "lines": 83,
+      "lines": 94,
       "classification": "formatting",
       "reason": "TUI command-string formatter: one branch per command shape and argument.",
       "owner": "host",

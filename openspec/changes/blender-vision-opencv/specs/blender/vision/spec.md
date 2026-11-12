@@ -34,9 +34,21 @@ Gateway 必须（SHALL）拥有至多一个视觉 worker 子进程，通过 stdi
 - **WHEN** 安装过程中网络中断或进程被杀
 - **THEN** 下次启动从上次阶段继续或重试，已完成的 venv/轮子不重复下载，失败不会留下半可用的 ready 状态
 
+#### Scenario: Install steps get their own budgets
+- **WHEN** 托管安装需要下载解释器、创建 venv、解压并安装约 40 MB 的 OpenCV 轮子
+- **THEN** 每个子进程按自身预算运行（下载 900 s、venv 300 s、解压 300 s、pip 1800 s、probe 60 s），不会在第 15 秒被探测默认超时杀掉
+
+#### Scenario: Failed install keeps the previous venv
+- **WHEN** pip 安装失败或最终换入失败
+- **THEN** 旧 venv 仍在原位可继续使用，`venv.tmp-*`/`.old-*` 被清理，回执说明失败阶段
+
+#### Scenario: Relative custom venv is rejected
+- **WHEN** `vision.venv` 是相对路径
+- **THEN** 返回 `vision_custom_env_invalid`（`details.reason="relative_path"`），不相对 home 猜测
+
 ### Requirement: Vision ops are host-local and session-free
 
-`blender_op` 必须（SHALL）暴露 `vision_status`、`vision_analyze`、`vision_compare`、`vision_detect`、`vision_track`、`vision_pass`、`vision_selftest` 和 `vision_help` 八个 op。它们全部是 host-local、read-only，不需要 GUI 会话，不得触发 Blender 启动、lease 或虚拟显示。
+`blender_op` 必须（SHALL）暴露 `vision_status`、`vision_analyze`、`vision_compare`、`vision_detect`、`vision_track`、`vision_pass`、`vision_selftest` 和 `vision_help` 八个 op。它们全部是 host-local、read-only，不需要 GUI 会话，不得触发 Blender 启动、lease 或虚拟显示。Gateway 的 `/plan` 路由必须把 `PLAN_HOST_LOCAL_OPS`（这八个 op）与 `PLAN_READ_ONLY_OPS` 合并判定为 read-only：不取写租约、不需要会话，宿主也不得为它们写 `write_scope`。
 
 #### Scenario: Vision works without Blender
 - **WHEN** Gateway 在线、Blender 未连接，调用 `blender_op(op="vision_analyze", args={path:"ref.png"})`
@@ -45,6 +57,10 @@ Gateway 必须（SHALL）拥有至多一个视觉 worker 子进程，通过 stdi
 #### Scenario: Catalog lists the family
 - **WHEN** 调用 `blender_op(op="catalog")`
 - **THEN** catalog 包含 `vision` 家族与上述八个 op，且该家族的会话要求为 host-local
+
+#### Scenario: Plan route skips the lease gate
+- **WHEN** 带 `x-dsh-*` caller headers 的 `POST /plan {op:"vision_status"}` 在没有 GUI 会话时到达
+- **THEN** 返回 200 的视觉结果而不是 `session_unavailable`；同一路由上的非 host-local 写 op 仍然返回 `session_unavailable`
 
 ### Requirement: Analysis returns bounded numbers, never raw arrays
 
@@ -72,11 +88,15 @@ Gateway 必须（SHALL）拥有至多一个视觉 worker 子进程，通过 stdi
 
 ### Requirement: Pass analysis consumes render manifests
 
-`vision_pass` 必须（SHALL）读取 1–240 个 `manifest.json`，按 manifest 声明的 dtype、值域、颜色空间与解码公式处理 `depth`、`normal`、`object_index` 和 `alpha`，不得按文件名、颜色分布或固定 8-bit 假设猜测格式。depth 必须以米返回范围与分位数；normal 必须以相机空间单位向量返回均值/角分布；object_index 必须按 manifest 的 index→对象名映射返回每对象可见像素、占画面比例、bbox 与前后顺序，并明确前后顺序不是隐藏面重建。
+`vision_pass` 必须（SHALL）读取 1–240 个 `manifest.json`，按 manifest 声明的 dtype、值域、颜色空间与解码公式处理 `depth`、`normal`、`object_index` 和 `alpha`，不得按文件名、颜色分布或固定 8-bit 假设猜测格式。depth 必须以米返回范围与分位数，并用 `noGeometryValue`（默认 0）判定无几何、用 `clampedAt` 标明截断端（near 映射到 1/65535，原始 0 只表示无几何）；normal 必须以相机空间单位向量返回均值/角分布；object_index 必须按 manifest 的 index→对象名映射返回每对象可见像素、占画面比例、bbox 与前后顺序，并明确前后顺序不是隐藏面重建；使用 stride 时必须标 `sampled`，未映射的 index 像素计入 `unmapped_pixels` 并告警。
 
 #### Scenario: Depth is decoded to meters
 - **WHEN** manifest 声明 16-bit depth PNG、near/far 与解码公式
 - **THEN** `vision_pass` 用该公式返回米制 min/max/分位数与 ROI 统计，不把 0–65535 原值当米
+
+#### Scenario: Near-plane and no-geometry pixels are distinct
+- **WHEN** manifest 声明 `noGeometryValue: 0`、`clampedAt:"far"`，一帧里同时有近平面像素（原始 1）与无几何像素（原始 0）
+- **THEN** 近平面像素计入有效深度，0 只计入 invalid_ratio，两者不被混为一谈
 
 #### Scenario: Object coverage is visible-only
 - **WHEN** manifest 的 object_index 包含多个对象
@@ -84,15 +104,23 @@ Gateway 必须（SHALL）拥有至多一个视觉 worker 子进程，通过 stdi
 
 ### Requirement: Pass analysis is bounded and fails explicitly
 
-回执必须（SHALL）逐帧有界并给出跨帧聚合、缺帧/越界警告；不得返回原始深度、法线、索引图或逐帧大数组。manifest 缺 pass、字段不完整、尺寸不一致或文件损坏时返回 `stage=input`、`code=vision_pass_manifest_invalid`；请求的 pass 不在 manifest 中返回 `vision_pass_unsupported`；单次最多 240 个 manifest、64 个对象，超限截断并 warning。
+回执必须（SHALL）逐帧有界并给出跨帧聚合、缺帧/越界警告；不得返回原始深度、法线、索引图或逐帧大数组。manifest 缺 pass、字段不完整、尺寸不一致或文件损坏时返回 `stage=input`、`code=vision_pass_manifest_invalid`；声明的 `dtype`/`encoding`/`range` 必须与 PNG 实际位深/通道一致，不一致同样按 manifest 无效处理，不做位深猜测；请求的 pass 不在 manifest 中返回 `vision_pass_unsupported`；单次最多 240 个 manifest、64 个对象，超限截断并 warning。单文件上限 PNG ≤ 256 MiB、manifest ≤ 8 MiB，且必须是普通文件（目录/FIFO/设备拒绝）；每个请求有 4×10^8 像素与 60 秒预算，超限返回 `vision_pass_budget_exceeded`；意外读取/解码异常返回 `vision_pass_failed`，不得以异常形式逃出错误信封。
 
 #### Scenario: Invalid manifest fails explicitly
 - **WHEN** manifest 缺少 depth 的 near/far 或 normal 编码
 - **THEN** 回执为 `stage=input`、`code=vision_pass_manifest_invalid`，不猜格式、不跳过该帧后返回成功
 
+#### Scenario: Declared dtype must match the PNG
+- **WHEN** manifest 声明 16-bit depth，但文件实际是 8-bit PNG
+- **THEN** 返回 `stage=input`、`code=vision_pass_manifest_invalid`
+
+#### Scenario: Oversized pass set is rejected before decoding
+- **WHEN** 240 帧的总像素超过每请求预算
+- **THEN** 返回 `vision_pass_budget_exceeded`，fix 写明像素与时间上限，且不静默截断帧
+
 ### Requirement: DNN detection is an opt-in feature flag
 
-`features.dnn` 必须（SHALL）是插件配置中的布尔开关，默认 `false`，并在 DSH 插件设置中可见；Gateway 可以读取 `DSH_BLENDER_DNN=off/on` 覆盖，`vision_status` 必须报告生效值与来源。该开关关闭时，`vision_detect` 必须在启动 worker 之前返回 `stage=config`、`code=dnn_disabled`、`retryable=false`，并给出启用步骤；不得自动启用、不得下载模型、不得改用其他检测路径。关闭开关不得删除已下载模型，也不得影响 `vision_analyze`、`vision_compare`、`vision_track` 等不依赖 DNN 的 op。
+`features.dnn` 必须（SHALL）是插件配置中的布尔开关，默认 `false`，并在 DSH 插件设置中可见；Gateway 可以读取 `DSH_BLENDER_DNN` 覆盖（只接受 `on|true|1` / `off|false|0`，大小写不敏感；其他非空值被忽略、保留配置值并报 `dnn_env_invalid`），`vision_status` 必须报告生效值与来源。该开关关闭时，`vision_detect` 必须在启动 worker 之前返回 `stage=config`、`code=dnn_disabled`、`retryable=false`，并给出启用步骤；不得自动启用、不得下载模型、不得改用其他检测路径。关闭开关不得删除已下载模型，也不得影响 `vision_analyze`、`vision_compare`、`vision_track` 等不依赖 DNN 的 op。
 
 #### Scenario: Detection is off by default
 - **WHEN** 全新安装后未改设置，调用 `vision_detect`
@@ -113,6 +141,18 @@ DNN 相关配置（`features.dnn`、`vision.python`、`vision.venv`、`vision.mo
 #### Scenario: Idle save applies without restart
 - **WHEN** 没有视觉请求在途，用户修改 `vision.venv` 并保存
 - **THEN** 宿主写快照并触发 Gateway reconcile；下一次 `vision_detect` 使用新 venv，`vision_status.dnn.config.activeRevision` 等于新 revision，全程未重启 Gateway
+
+#### Scenario: Model-only change reaches the worker
+- **WHEN** 用户只改 `vision.model`，随后调用 `vision_detect`
+- **THEN** 不重启 worker、不出现 `dnn_config_switching`，下一个 worker-backed 请求携带 `config:{revision, model}` 并覆盖上下文，回执 `configRevision` 等于新 revision
+
+#### Scenario: Null clears a lower layer
+- **WHEN** runtime.json 的 `vision.venv` 为 `null`，而插件设置里有值
+- **THEN** 生效值回落到插件设置中的值，`vision_status` 的 source 与之匹配；缺失该键时同样继承，空字符串不作“清除”
+
+#### Scenario: Apply during the handshake still switches
+- **WHEN** worker 正在握手（`state=starting`）时用户把 `vision.venv` 改成另一个 venv
+- **THEN** 变更登记为 pending，握手完成后旧 worker 退出、新配置生效；不会“提交了但 worker 一直用旧 venv”
 
 #### Scenario: Env lock wins
 - **WHEN** 进程环境设置 `DSH_BLENDER_DNN=on`，用户在配置卡保存 `features.dnn=false`
@@ -153,6 +193,10 @@ DNN 相关配置（`features.dnn`、`vision.python`、`vision.venv`、`vision.mo
 #### Scenario: Invalid config is not committed
 - **WHEN** 保存的候选配置字段非法或类型错误
 - **THEN** 快照不被接受，`phase=failed`、`code=dnn_config_invalid`，active 不变
+
+#### Scenario: Invalid snapshot does not disable detection
+- **WHEN** runtime.json 损坏（`dnn_config_invalid`），上一份 active 仍有效
+- **THEN** `vision_detect` 继续用上一份 active 执行，`vision_status` 报告 lastSwitchError，不返回 `dnn_config_invalid`；只有 `dnn_config_switching`/`dnn_config_switch_failed` 才会阻塞 worker-backed op
 
 ### Requirement: DNN availability probe is non-mutating
 
@@ -218,6 +262,10 @@ backend/device 配置错误、provider 不可用或 session 创建失败必须�
 
 `vision_detect` 必须（SHALL）从 `$DSH_HOME/dsh-blender/vision/models/models.yml` 读取模型条目，key 是模型 id；条目字段遵循 OpenCV 5 `samples/dnn/models.yml` 语义：`model`、可选 `mean`/`scale`/`rgb`、`width`、`height`、可选 `labels`、`postprocessing`、可选 `background_label_id`。`model`、`width`、`height`、`postprocessing` 必填；`mean`/`scale`/`rgb` 省略时使用 OpenCV DNN 默认值（mean 0、scale 1、rgb false）；`postprocessing` 本期只接受 `yolov5`。`labels` 可选，省略时只返回数字 class id；存在时必须一行一个类名、UTF-8、无表头、行号即 class id，忽略文件末尾的单个换行。
 
+#### Scenario: Boolean fields follow FileStorage spelling
+- **WHEN** models.yml 写 `rgb: true`
+- **THEN** worker 接受该条目（不报 `rgb must be 0/1`）并按 RGB 预处理；`rgb: 0` 同样可读
+
 #### Scenario: OpenCV-style entry is used directly
 - **WHEN** models.yml 的 `yolov5n` 条目写有 `model`、`width`、`height`、`rgb`、`mean`、`scale`、`labels` 与 `postprocessing: yolov5`
 - **THEN** worker 用 `cv.FileStorage` 读取这些字段并按它们预处理，不按模型名猜 mean/scale/layout
@@ -228,11 +276,15 @@ backend/device 配置错误、provider 不可用或 session 创建失败必须�
 
 ### Requirement: Users can extend the model directory
 
-模型目录必须（SHALL）允许用户扩展：用户把 `.onnx` 放入 models 目录并添加一条 models.yml 条目后，无需改代码即可通过模型 id 使用；`vision_status` 必须同时列出已配置模型与未配置的 `.onnx`。`vision_detect` 的 `model` 参数只接受 id，不接受路径或 URL；models.yml 中的 `model` 字段与可选的 `labels` 字段必须是 models 目录内的相对路径，解析后必须仍在目录内，拒绝绝对路径、`..`、URL 与逃出目录的 symlink。宿主不得解析 YAML；worker 使用 `cv.FileStorage` 读取。
+模型目录必须（SHALL）允许用户扩展：用户把 `.onnx` 放入 models 目录并添加一条 models.yml 条目后，无需改代码即可通过模型 id 使用；`vision_status` 必须同时列出已配置模型与未配置的 `.onnx`，扫描必须递归 `models/**/*.onnx`（仍受 200 条上限），子目录中的模型同样可用。`vision_detect` 的 `model` 参数只接受 id，不接受路径或 URL；models.yml 中的 `model` 字段与可选的 `labels` 字段必须是 models 目录内的相对路径，解析后必须仍在目录内，拒绝绝对路径、`..`、URL 与逃出目录的 symlink。宿主不得解析 YAML；worker 使用 `cv.FileStorage` 读取。
 
 #### Scenario: User adds a model without code changes
 - **WHEN** 用户把 `my-detector.onnx` 与 `my-detector.txt` 放入 models 目录，并在 models.yml 增加 `my-detector` 条目
 - **THEN** `vision_status` 列出该模型，`vision_detect(args={path:"frame.png", model:"my-detector"})` 按条目中的 width/height/mean/scale/labels 推理并返回带 label 的检测
+
+#### Scenario: Nested model directory is listed
+- **WHEN** 用户把 `yolo.onnx` 放在 `models/deep/nested/`
+- **THEN** `vision_status` 递归列出它，配置对应条目后 `vision_detect` 可用
 
 #### Scenario: Model id is not a path
 - **WHEN** 调用方传入 `../outside.onnx`、绝对路径或 URL 作为 `model`
@@ -245,6 +297,14 @@ backend/device 配置错误、provider 不可用或 session 创建失败必须�
 #### Scenario: Unconfigured ONNX is explicit
 - **WHEN** models 目录有 `my-detector.onnx`，但 models.yml 没有对应条目
 - **THEN** 回执为 `vision_model_unconfigured`，列出缺失字段与可复制示例，不加载该文件、不猜预处理
+
+#### Scenario: Model id shape is enforced
+- **WHEN** `vision.model` 或单次 `model` 参数包含 `/`、`\`、`:` 或超过 64 个字符
+- **THEN** 返回 `vision_model_unsupported`，不读取文件、不启动 worker
+
+#### Scenario: Labels count mismatch is unconfigured
+- **WHEN** models.yml 的 `labels` 有 79 行，但模型输出 80 类
+- **THEN** 返回 `vision_model_unconfigured`，details 带 attributes/labels/model
 
 #### Scenario: Missing models are distinguishable
 - **WHEN** `features.dnn=true`，models 目录完全为空
@@ -276,7 +336,7 @@ backend/device 配置错误、provider 不可用或 session 创建失败必须�
 
 ### Requirement: Vision failures are actionable
 
-所有视觉失败必须（SHALL）返回 `stage`、`code`、`root_cause`、`fix`、`fallback` 与 `evidence`。`stage` 至少区分 `config`（home/Python/设置）、`vision`（worker 协议/崩溃）与 `input`（图片/参数）；不得把安装失败、图片解码失败或模型缺失折叠成 `backend_error` 或空结果。
+所有视觉失败必须（SHALL）返回 `stage`、`code`、`root_cause`、`fix`、`fallback` 与 `evidence`。`stage` 至少区分 `config`（home/Python/设置）、`vision`（worker 协议/崩溃）与 `input`（图片/参数）；视觉安装/分析新增的错误码（`vision_pass_budget_exceeded`、`vision_pass_failed`、`vision_model_unsupported`、`vision_custom_env_invalid`）都必须带这五个字段；不得把安装失败、图片解码失败或模型缺失折叠成 `backend_error` 或空结果。
 
 #### Scenario: Corrupt image is input failure
 - **WHEN** 图片路径存在但不是可解码图片

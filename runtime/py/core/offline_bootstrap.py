@@ -25,7 +25,7 @@ import sys
 import types
 
 # 领域包布局（与 runtime/py/<domain>/ 一致）
-_DOMAINS = ("core", "geometry", "assembly", "render", "export")
+_DOMAINS = ("core", "geometry", "assembly", "render", "export", "animation")
 
 
 def _find_rt():

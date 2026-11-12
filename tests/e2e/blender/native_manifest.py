@@ -159,6 +159,12 @@ HEADLESS_MODULES = (
         "timeout": 600,
     },
     {
+        "id": "animation",
+        "path": "tests/e2e/blender/native/animation.py",
+        "preloads": ("animation",),
+        "timeout": 600,
+    },
+    {
         "id": "qc_render_api",
         "path": "tests/e2e/blender/native/qc_render_api.py",
         "preloads": ("qc", "qc_render"),

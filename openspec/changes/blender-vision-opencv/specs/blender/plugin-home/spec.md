@@ -20,7 +20,7 @@
 
 ### Requirement: Home is created idempotently
 
-插件激活或首次启动 Gateway 时，系统必须（SHALL）幂等创建 home 及其子目录 `logs/`、`state/`、`jobs/`、`sessions/`、`queue/`、`cache/`、`vision/`；已存在目录不得被清空或覆盖。创建失败必须返回结构化错误，不能静默降级到包目录或系统临时区。
+插件激活或首次启动 Gateway 时，系统必须（SHALL）幂等创建 home 及其子目录 `logs/`、`state/`、`jobs/`、`sessions/`、`queue/`、`cache/`、`vision/`；已存在目录不得被清空或覆盖。创建发生在插件 `apply()` 与 Gateway 启动时，导入配置本身不得创建目录。创建失败必须返回结构化错误（`doctor.config.home.layout = {code:"home_unwritable", path, reason, fix}`），不能静默降级到包目录或系统临时区；只读 op 继续可用，各写入方跳过自己的目录。
 
 #### Scenario: Fresh install creates the layout
 - **WHEN** 插件第一次在干净机器上激活
@@ -28,7 +28,7 @@
 
 #### Scenario: Unwritable home is explicit
 - **WHEN** home 所在磁盘只读或权限不足
-- **THEN** 插件返回 `home_unwritable`，包含路径、原因与修复建议，不把数据写到包目录
+- **THEN** 插件返回 `home_unwritable`，包含路径、原因与修复建议，不把数据写到包目录；`doctor` 原样转出该结构，`vision_status` 等只读 op 仍可调用
 
 ### Requirement: Persistent data lives under home
 
@@ -44,15 +44,19 @@
 
 ### Requirement: Settings are edited through the DSH config schema
 
-插件必须（SHALL）在 DSH 插件配置 schema 中暴露 `features.dnn`、`cache.render.maxEntries`、`cache.render.maxBytes`、`cache.render.ttlDays`、`vision.python`、`vision.venv`、`vision.model`、`vision.dnn.backend` 与 `vision.dnn.device`，使 DSH 插件设置 UI 可以编辑并校验它们；未设置时使用文档默认值。`features.dnn` 默认 `false`，是 DNN 检测的唯一开关；DNN 字段保存后必须经 `$DSH_HOME/dsh-blender/vision/runtime.json` 热应用，不要求重启 Gateway；`cache.render.*` 仍在下一次 Gateway 启动生效。`DSH_BLENDER_DNN=off/on` 可覆盖并锁定生效值，`doctor` 与 `vision_status` 必须报告生效值和来源。
+插件必须（SHALL）在 DSH 插件配置 schema 中暴露 `features.dnn`、`cache.render.maxEntries`、`cache.render.maxBytes`、`cache.render.ttlDays`、`vision.python`、`vision.venv`、`vision.model`、`vision.dnn.backend` 与 `vision.dnn.device`，使 DSH 插件设置 UI 可以编辑并校验它们；未设置时使用文档默认值。`features.dnn` 默认 `false`，是 DNN 检测的唯一开关；DNN 字段保存后必须经 `$DSH_HOME/dsh-blender/vision/runtime.json` 热应用，不要求重启 Gateway；`cache.render.*` 仍在下一次 Gateway 启动生效。`doctor` 与 `vision_status` 必须报告生效值和来源。
 
 #### Scenario: Cache limit is editable
 - **WHEN** 用户在 DSH 插件设置中把 `cache.render.maxEntries` 改为 4 并保存
 - **THEN** 下一次 Gateway 启动使用 4 作为缓存条数上限，`doctor` 报告该值和配置来源
 
-#### Scenario: Invalid setting is rejected
+#### Scenario: Invalid cache limit is reported, not clamped
 - **WHEN** 用户把 `cache.render.maxEntries` 设为 0 或 99
-- **THEN** 设置校验失败并指出字段与允许范围，Gateway 不使用该值
+- **THEN** 生效值回落到文档默认值，`doctor` 的 `cache.render.issues` 报出字段、原值与允许范围；宿主不把非法值悄悄改成默认值后当合法值传递
+
+#### Scenario: Invalid env value is ignored
+- **WHEN** 进程环境设置 `DSH_BLENDER_DNN=maybe`
+- **THEN** 该值被忽略，生效值来自配置/默认，`doctor` 报 `dnn_env_invalid` 并带原值
 
 #### Scenario: DNN is off by default
 - **WHEN** 插件全新安装且用户未修改设置
@@ -116,7 +120,11 @@ DSH 插件设置必须（SHALL）把 `features.dnn` 标为“实验性”，显�
 
 ### Requirement: Effective config has one documented precedence
 
-系统必须（SHALL）按 `DSH_BLENDER_CONFIG` 显式文件 → home 内 `dsh-blender.config.json` → 包内默认配置 的顺序合并配置，DSH 插件设置中的值优先于文件值；DNN 字段保存并应用后，`$DSH_HOME/dsh-blender/vision/runtime.json` 的当前 revision 优先于启动时写入的 `DSH_BLENDER_PLUGIN_CONFIG`，但 `DSH_BLENDER_DNN=off/on` 始终最高并锁定 `features.dnn`。`doctor` 必须报告最终生效值及其来源，且不得回显密钥。
+系统必须（SHALL）按“内置默认 → 包内默认 → 旧用户配置 `~/.dsh/dsh-blender.config.json` → home 内 `dsh-blender.config.json` → `DSH_BLENDER_CONFIG` 显式文件 → DSH 插件设置 → 单项环境变量”的顺序合并配置，并记录每个生效值的来源；DSH 插件设置中的值优先于文件值，插件设置只序列化与默认值不同的键，未改动的字段不得遮蔽 home 配置文件。DNN 字段保存并应用后，`$DSH_HOME/dsh-blender/vision/runtime.json` 的当前 revision 优先于启动时写入的 `DSH_BLENDER_PLUGIN_CONFIG`，但 `DSH_BLENDER_DNN=off/on` 始终最高并锁定 `features.dnn`。`doctor` 必须报告最终生效值及其来源，且不得回显密钥。
+
+#### Scenario: Untouched plugin setting does not shadow home
+- **WHEN** home 配置写 `features.dnn=true`、`vision.model=mymodel`，用户从未改过插件设置
+- **THEN** 生效值来自 home，`doctor` 的来源为 `home`（或未写时为 `default`），不是 `plugin`
 
 #### Scenario: Settings override file
 - **WHEN** home 配置文件写 `cache.render.maxEntries=8`，DSH 设置写 4

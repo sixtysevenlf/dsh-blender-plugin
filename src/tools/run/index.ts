@@ -13,7 +13,7 @@ function buildRunTool(ctx: HostContext, port: number) {
     name: 'blender_run',
     description:
       '【作业 / 渲染】唯一作业入口：submit 立即返回 jobId（无同步模式），之后 status/wait/collect/cancel/list/perf。' +
-      'kind=render 是声明式最终渲染（相机、帧区间、分辨率、采样、引擎、输出文件；不接受 script；支持相机动画）；kind=headless 是 fresh blender -b 跑脚本（script/script_file/file/outdir/timeout_ms/preload/args/env...）。' +
+      'kind=render 是声明式最终渲染（相机、帧区间、分辨率、采样、引擎、输出文件；不接受 script；支持相机动画；可选 passes 输出多 pass 与每帧 manifest）；kind=headless 是 fresh blender -b 跑脚本（script/script_file/file/outdir/timeout_ms/preload/args/env...）。' +
       '队列有界：pending 64、GPU 1、CPU 2；满队列返回 QUEUE_FULL。wait 默认 120s、上限 600s，超时不取消作业。' +
       'collect 取日志与产物；cancel 幂等并清进程树。action=tune 保留旧 Cycles 渲染分析（status/analyze/apply/revert）。' +
       '旧工具迁移：blender_rt_headless / blender_rt_job → action=submit（kind=headless / render）；blender_rt_perf → action=tune。',
@@ -57,6 +57,11 @@ function buildRunTool(ctx: HostContext, port: number) {
       },
       format: { type: 'string', description: 'render：图片格式（PNG/JPEG/OPEN_EXR…）' },
       camera: { type: 'string', description: 'render：camera=true 用场景相机，或相机对象名' },
+      passes: {
+        type: 'json',
+        description:
+          'render：可选 pass 数组（beauty/depth/normal/object_index/alpha，非空不重复）；给出时每帧写 manifest 并启用缓存，不给时保持旧行为',
+      },
       script: { type: 'string', description: 'headless：Python 脚本内容（--python 临时文件）' },
       script_file: { type: 'string', description: 'headless：磁盘上的 .py 脚本路径' },
       preload: { type: 'string', description: 'headless：预载模块（逗号分隔）' },

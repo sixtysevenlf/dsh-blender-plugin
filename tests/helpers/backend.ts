@@ -25,6 +25,7 @@ export interface Backend {
   base: string
   port: number
   workDir: string
+  home: string
   child: ChildProcessWithoutNullStreams
   log: () => string
   post: (
@@ -40,12 +41,14 @@ export async function startBackend(
   options: {
     env?: Record<string, string>
     workDir?: string
+    home?: string
     addonPort?: number
   } = {},
   _attempt = 0,
 ): Promise<Backend> {
   const port = await freePort()
   const workDir = options.workDir || fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-it-'))
+  const home = options.home || fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-it-home-'))
   let log = ''
   const child = spawn(
     process.execPath,
@@ -60,6 +63,7 @@ export async function startBackend(
           // hostIdentity(); the spawned Gateway must report the same value.
           DSH_HOST_ID: hostIdentity(),
           DSH_BLENDER_WORKDIR: workDir,
+          DSH_BLENDER_HOME: home,
           DSH_BLENDER_GATEWAY_PORT: String(port),
           DSH_BLENDER_HTTP_PORT: String(port),
           DSH_BLENDER_ADDON_HOST: '127.0.0.1',
@@ -131,6 +135,7 @@ export async function startBackend(
     base,
     port,
     workDir,
+    home,
     child,
     log: () => log,
     post,
@@ -144,10 +149,12 @@ export async function startBackend(
         ])
         if (child.exitCode === null) child.kill('SIGKILL')
       }
-      try {
-        fs.rmSync(workDir, { recursive: true, force: true })
-      } catch {
-        /* ignore */
+      for (const dir of [workDir, home]) {
+        try {
+          fs.rmSync(dir, { recursive: true, force: true })
+        } catch {
+          /* ignore */
+        }
       }
     },
   }

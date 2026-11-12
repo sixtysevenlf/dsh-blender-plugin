@@ -90,7 +90,7 @@ describe('AGENTS.md contract', () => {
   })
 
   it('describes the current architecture by layer', () => {
-    expect(AGENTS).toContain('| Layer | Path')
+    expect(AGENTS).toMatch(/^\|\s*Layer\s*\|\s*Path/m)
     for (const marker of [
       'src/index.ts',
       'src/tools/*',
@@ -152,8 +152,8 @@ describe('architecture guide', () => {
     }
     for (const fact of [
       '6 tools',
-      '34 planning families',
-      '228 operations',
+      '36 planning families',
+      '239 operations',
       '25 addon commands',
       '29 HTTP routes',
       'protocol 12',

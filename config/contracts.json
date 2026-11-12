@@ -172,11 +172,12 @@
       "kind": "api-dict",
       "file": "runtime/py/render/montage.py",
       "api": "dsh_montage_api",
-      "ignore": [
-        "version",
-        "dispatch",
-        "selftest"
-      ]
+      "ignore": ["version", "dispatch", "selftest"]
+    },
+    "animation": {
+      "kind": "register-ops",
+      "file": "runtime/py/animation/animation_impl/api.py",
+      "name": "animation"
     }
   },
   "families": {
@@ -324,6 +325,10 @@
       "host": "runtime/core/plan-dispatch.ts",
       "hostReason": "Host-side family: renderGuardOp handles render_state / render_wait / render_reset / render_guard_install / render_guard_selftest before the dispatcher; there is no python dispatch table."
     },
+    "vision": {
+      "host": "runtime/vision/dispatch.ts",
+      "hostReason": "Host-local family: plan-dispatch short-circuits every vision_* op to runtime/vision/dispatch.ts before the addon dispatcher; the OpenCV worker is a plain Python subprocess, not a bpy module, so there is no python dispatch table."
+    },
     "render": {
       "api": "dsh_qc_render_api",
       "table": "qc_render",
@@ -353,9 +358,7 @@
     "contract": {
       "api": "dsh_contract_api",
       "table": "contract",
-      "pythonExtras": [
-        "fingerprint"
-      ]
+      "pythonExtras": ["fingerprint"]
     },
     "gui": {
       "api": "dsh_view_api",
@@ -364,6 +367,10 @@
     "montage": {
       "api": "dsh_montage_api",
       "table": "montage"
+    },
+    "animation": {
+      "api": "dsh_animation_api",
+      "table": "animation"
     }
   }
 }

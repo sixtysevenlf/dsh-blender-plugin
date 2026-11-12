@@ -18,8 +18,8 @@ const DOMAINS: Record<string, string[]> = Object.fromEntries(
 const ALL = Object.values(DOMAINS).flat()
 
 describe('runtime domain package layout', () => {
-  it('keeps the five plan domain packages and their exact module sets', () => {
-    expect(PY_DOMAINS).toEqual(['core', 'geometry', 'assembly', 'render', 'export'])
+  it('keeps the plan domain packages and their exact module sets', () => {
+    expect(PY_DOMAINS).toEqual(['core', 'geometry', 'assembly', 'render', 'export', 'animation'])
     for (const [dom, names] of Object.entries(DOMAINS)) {
       const dir = pkgPath('runtime', 'py', dom)
       expect(fs.existsSync(pkgPath('runtime', 'py', dom, '__init__.py'))).toBe(true)
@@ -35,7 +35,7 @@ describe('runtime domain package layout', () => {
   })
 
   it('maps every module name to a real file inside its domain package', () => {
-    expect(pyModuleNames().length).toBe(41)
+    expect(pyModuleNames().length).toBe(42)
     expect(pyModuleNames().sort()).toEqual(ALL.sort())
     for (const n of ALL) expect(fs.existsSync(pyModuleFile(n))).toBe(true)
     expect(pyModuleFile('generator')).toBe(pkgPath('runtime', 'py', 'geometry', 'generator.py'))
@@ -68,7 +68,14 @@ describe('runtime domain package layout', () => {
 
   it('reads the Python module registry from modules.json only', () => {
     expect(manifest.version).toBeGreaterThanOrEqual(1)
-    expect(manifest.domains).toEqual(['core', 'geometry', 'assembly', 'render', 'export'])
+    expect(manifest.domains).toEqual([
+      'core',
+      'geometry',
+      'assembly',
+      'render',
+      'export',
+      'animation',
+    ])
     expect(PY_DOMAINS).toEqual(manifest.domains)
     expect(pyModuleNames().sort()).toEqual(Object.keys(manifest.modules).sort())
     for (const [n, dom] of Object.entries(manifest.modules)) {

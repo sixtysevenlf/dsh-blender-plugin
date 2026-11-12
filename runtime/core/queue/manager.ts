@@ -7,8 +7,17 @@ import type { CallerIdentity } from '../sessions/types.js'
 import { canManageJob, jobOwnerFromCaller, jobPermissionFailure } from '../sessions/job-owner.js'
 import type { JobManageAction } from '../sessions/job-owner.js'
 import { JsonJobStore } from './store.js'
+import { planRenderCacheWithReason } from './render-cache.js'
+import { RENDER_PASSES_MANIFEST_VERSION } from './render-passes-script.js'
+import type {
+  PromoteFrame,
+  RenderCache,
+  RenderCacheEntry,
+  RenderCachePlan,
+} from './render-cache.js'
 import { DEFAULT_CAPACITY, TERMINAL_STATES } from './types.js'
 import type {
+  JobCacheState,
   JobExecutor,
   JobHandle,
   JobRecord,
@@ -30,6 +39,8 @@ export interface QueueOptions {
   reservedGpu?: () => number
   now?: () => number
   id?: () => string
+  /** Render-pass cache; null/absent keeps every submission on the old path. */
+  renderCache?: RenderCache | null
 }
 
 export class QueueError extends Error {
@@ -41,8 +52,70 @@ export class QueueError extends Error {
   }
 }
 
+/**
+ * After promotion the manifests moved: point the executor's PASSES_DONE summary
+ * at the cache/user-outdir copies so receipts never quote dead staging paths.
+ */
+function rewriteParsedFramePaths(parsed: unknown, frames: PromoteFrame[]): void {
+  if (parsed === null || typeof parsed !== 'object') return
+  const list = (parsed as { frames?: unknown }).frames
+  if (!Array.isArray(list)) return
+  const byFrame = new Map<number, PromoteFrame>()
+  for (const frame of frames) byFrame.set(frame.frame, frame)
+  for (const item of list) {
+    if (item === null || typeof item !== 'object') continue
+    const record = item as Record<string, unknown>
+    const target = byFrame.get(Number(record.frame))
+    if (!target) continue
+    record.manifest = target.manifest
+    const passes = record.passes
+    if (passes === null || typeof passes !== 'object' || Array.isArray(passes)) continue
+    for (const [name, meta] of Object.entries(passes as Record<string, unknown>)) {
+      const finalPath = target.passes[name]
+      if (!finalPath || meta === null || typeof meta !== 'object') continue
+      ;(meta as Record<string, unknown>).path = finalPath
+    }
+  }
+}
+
 function terminalOf(state: JobState): boolean {
   return (TERMINAL_STATES as readonly string[]).includes(state)
+}
+
+function fileSize(file: string): number {
+  try {
+    return fs.statSync(file).size
+  } catch {
+    return 0
+  }
+}
+
+/**
+ * A cache hit skips the render, so the executor's PASSES_DONE summary never exists.
+ * Build the same shape from the materialized frames to keep receipts identical.
+ */
+function hitSummary(frames: PromoteFrame[], plan: RenderCachePlan, outdir: string | null): unknown {
+  const passSet = plan.inputs[0]?.passSet ?? []
+  return {
+    ok: true,
+    manifestVersion: RENDER_PASSES_MANIFEST_VERSION,
+    passes: passSet,
+    frames: frames.map((frame) => ({
+      frame: frame.frame,
+      manifest: frame.manifest,
+      passes: Object.fromEntries(
+        Object.entries(frame.passes).map(([name, file]) => [
+          name,
+          { path: file, bytes: fileSize(file) },
+        ]),
+      ),
+      bytes: frame.artifacts.reduce((sum, file) => sum + fileSize(file), 0),
+      degraded: [],
+      requestedPasses: passSet,
+    })),
+    degradedFrames: [],
+    outdir,
+  }
 }
 
 function queueFailure(
@@ -90,8 +163,11 @@ export class JobQueue {
   private readonly reservedGpu: () => number
   private readonly now: () => number
   private readonly newId: () => string
+  private readonly renderCache: RenderCache | null
   private readonly jobs: JobRecord[] = []
   private readonly handles = new Map<string, JobHandle>()
+  /** Why a pass render bypassed the cache (too many frames); reported on finish. */
+  private readonly cacheSkips = new Map<string, string>()
   private closed = false
 
   constructor(opts: QueueOptions) {
@@ -101,6 +177,15 @@ export class JobQueue {
     this.reservedGpu = opts.reservedGpu || (() => 0)
     this.now = opts.now || (() => Date.now())
     this.newId = opts.id || (() => 'job-' + randomUUID())
+    this.renderCache = opts.renderCache ?? null
+    if (this.renderCache) {
+      // Settings only take effect at Gateway start; stale staging is orphaned work.
+      try {
+        this.renderCache.startupCleanup()
+      } catch {
+        /* a broken cache must never block the queue */
+      }
+    }
     this.restore()
   }
 
@@ -111,6 +196,7 @@ export class JobQueue {
         // The old process is gone: drop its temp dir and clear the slot/pid so a
         // restored record can never look live or keep a GPU slot occupied.
         this.discardTempDir(job)
+        this.discardCacheStaging(job)
         job.slot = null
         job.pid = null
         job.tempDir = null
@@ -150,6 +236,45 @@ export class JobQueue {
           'Use kind=headless for a script.',
         ),
       )
+    // The cache lookup runs before admission: a hit needs neither a GPU slot nor
+    // a pending slot. A miss records its staging dir and continues normally.
+    const id = this.newId()
+    let cachePlan: RenderCachePlan | null = null
+    let cacheSkip: string | null = null
+    if (this.renderCache && kind === 'render') {
+      const planned = planRenderCacheWithReason({ ...input })
+      cachePlan = planned.plan
+      if (!cachePlan) cacheSkip = planned.skipped
+    }
+    let cacheState: JobCacheState | null = null
+    if (cachePlan && this.renderCache) {
+      const cached = this.renderCache.lookupAll(cachePlan.inputs)
+      if (cached.hit) {
+        const hitJob = this.buildCacheHitJob(
+          id,
+          kind,
+          input,
+          cachePlan,
+          cached.entries,
+          caller,
+          this.renderCache,
+        )
+        this.events(hitJob, null, 'completed', 'render cache hit')
+        this.jobs.push(hitJob)
+        this.persist()
+        return this.snapshot(hitJob)
+      }
+      cacheState = {
+        keys: cachePlan.keys,
+        frames: cachePlan.frames,
+        scene: cachePlan.scene,
+        stagingDir: this.renderCache.stagingDir(id),
+        userOutdir:
+          typeof input.outdir === 'string' && input.outdir.trim() ? String(input.outdir) : null,
+        hit: false,
+        corrupt: cached.corrupt,
+      }
+    }
     if (pendingCount(this.jobs) >= this.capacity.pending) {
       throw new QueueError(
         queueFailure(
@@ -161,7 +286,7 @@ export class JobQueue {
       )
     }
     const job: JobRecord = {
-      id: this.newId(),
+      id,
       kind,
       params: { ...input },
       state: 'queued',
@@ -183,11 +308,85 @@ export class JobQueue {
     }
     delete job.params.kind
     job.params.kind = kind
+    if (cacheState) {
+      // Pass output is written to staging first; promotion decides its final home.
+      job.cache = cacheState
+      job.params.outdir = cacheState.stagingDir
+    } else if (cacheSkip) {
+      this.cacheSkips.set(job.id, cacheSkip)
+    }
     this.events(job, null, 'queued', 'submitted')
     this.jobs.push(job)
     this.persist()
     this.pump()
     return this.snapshot(job)
+  }
+
+  private buildCacheHitJob(
+    id: string,
+    kind: 'render' | 'headless',
+    input: SubmitInput,
+    cachePlan: RenderCachePlan,
+    entries: RenderCacheEntry[],
+    caller: CallerIdentity,
+    cache: RenderCache,
+  ): JobRecord {
+    const now = this.now()
+    const userOutdir =
+      typeof input.outdir === 'string' && input.outdir.trim() ? String(input.outdir) : null
+    // A hit must still deliver the frames where the caller asked for them: the
+    // cache directory is an implementation detail, not the receipt location.
+    const artifacts: string[] = []
+    const frames: PromoteFrame[] = []
+    for (const entry of entries) {
+      const copied = userOutdir ? cache.materialize(entry, userOutdir) : null
+      if (copied) {
+        frames.push(copied)
+        artifacts.push(...copied.artifacts)
+      } else {
+        artifacts.push(...entry.artifacts)
+      }
+    }
+    const hitJob: JobRecord = {
+      id,
+      kind,
+      params: { ...input, kind },
+      state: 'completed',
+      priority: clampPriority(input.priority),
+      slot: null,
+      owner: jobOwnerFromCaller(caller),
+      createdAt: now,
+      updatedAt: now,
+      assignedAt: null,
+      startedAt: null,
+      finishedAt: now,
+      pid: null,
+      decision: null,
+      result: {
+        exitCode: 0,
+        signal: null,
+        ms: 0,
+        ...(frames.length > 0 ? { parsed: hitSummary(frames, cachePlan, userOutdir) } : {}),
+        cache: { hit: true, keys: cachePlan.keys, entries: entries.length },
+      },
+      artifacts,
+      logs: { stdout: '', stderr: '' },
+      error: null,
+      events: [],
+      cache: {
+        keys: cachePlan.keys,
+        frames: cachePlan.frames,
+        scene: cachePlan.scene,
+        stagingDir: '',
+        userOutdir,
+        hit: true,
+        corrupt: false,
+      },
+    }
+    hitJob.params.kind = kind
+    if (!userOutdir && frames.length === 0)
+      hitJob.artifacts = entries.flatMap((entry) => entry.artifacts)
+    return hitJob
   }
 
   status(id: string): JobRecord | null
@@ -265,6 +464,7 @@ export class JobQueue {
     job.pid = null
     job.slot = null
     this.discardTempDir(job)
+    this.discardCacheStaging(job)
     job.tempDir = null
     this.handles.delete(job.id)
     if (handle) {
@@ -407,9 +607,11 @@ export class JobQueue {
     if (result.error) {
       job.error = result.error
       this.transition(job, 'failed', result.error.code)
-    } else if (result.exitCode === 0) {
-      this.transition(job, 'completed', 'process exited 0')
-    } else {
+      this.attachCacheFailure(job)
+      this.afterFinish(job)
+      return
+    }
+    if (result.exitCode !== 0) {
       job.error = availabilityFailure({
         stage: job.kind === 'render' ? 'render' : 'spawn',
         code: 'job_exit_nonzero',
@@ -419,10 +621,101 @@ export class JobQueue {
         evidence: { exitCode: result.exitCode, signal: result.signal },
       })
       this.transition(job, 'failed', 'process exited nonzero')
+      this.attachCacheFailure(job)
+      this.afterFinish(job)
+      return
     }
+    this.attachCacheSkip(job)
+    const cache = this.renderCache
+    if (!cache || !job.cache) {
+      this.transition(job, 'completed', 'process exited 0')
+      this.afterFinish(job)
+      return
+    }
+    // Promotion is asynchronous (it yields to the event loop); the terminal
+    // transition waits for it so a waiter that sees `completed` also sees the
+    // real artifact locations and the cache verdict.
+    void this.promote(job).then(
+      () => {
+        this.transition(job, 'completed', 'process exited 0')
+        this.afterFinish(job)
+      },
+      () => {
+        // A cache failure never turns a successful render into a failed job.
+        if (job.result)
+          job.result.cache = {
+            hit: false,
+            keys: job.cache?.keys || [],
+            skipped: 'promote_failed',
+            corrupt: false,
+          }
+        this.transition(job, 'completed', 'process exited 0')
+        this.afterFinish(job)
+      },
+    )
+  }
+
+  /** Shared tail of every terminal path: stamp the finish time and let the queue move. */
+  private afterFinish(job: JobRecord): void {
+    this.cacheSkips.delete(job.id)
     job.finishedAt = this.now()
     this.persist()
     this.pump()
+  }
+
+  /** A pass render the cache refused still says why on the receipt. */
+  private attachCacheSkip(job: JobRecord): void {
+    const skipped = this.cacheSkips.get(job.id)
+    if (!skipped || job.cache || !job.result) return
+    job.result.cache = { hit: false, keys: [], skipped, corrupt: false }
+  }
+
+  /** A failed/canceled render drops its staging and never touches an entry. */
+  private attachCacheFailure(job: JobRecord): void {
+    const cache = this.renderCache
+    const state = job.cache
+    if (!cache || !state) return
+    cache.discardStaging(job.id)
+    if (job.result) job.result.cache = { hit: false, keys: state.keys, corrupt: state.corrupt }
+  }
+
+  /**
+   * Promote a completed render into the cache: only a clean, complete manifest
+   * set may enter it, and the artifacts move to their final home either way.
+   */
+  private async promote(job: JobRecord): Promise<void> {
+    const cache = this.renderCache
+    const state = job.cache
+    if (!cache || !state) return
+    const promoted = await cache.promoteJob({
+      jobId: job.id,
+      keys: state.keys,
+      frames: state.frames,
+      scene: state.scene,
+      userOutdir: state.userOutdir,
+    })
+    if (promoted.artifacts.length > 0) job.artifacts = promoted.artifacts
+    else
+      job.artifacts = job.artifacts.filter(
+        (file) => !file.startsWith(state.stagingDir) || fs.existsSync(file),
+      )
+    if (job.result && promoted.frames.length > 0)
+      rewriteParsedFramePaths(job.result.parsed, promoted.frames)
+    if (job.result)
+      job.result.cache = {
+        hit: false,
+        keys: state.keys,
+        entries: promoted.entries,
+        ...(promoted.skipped ? { skipped: promoted.skipped } : {}),
+        corrupt: state.corrupt,
+      }
+  }
+
+  private discardCacheStaging(job: JobRecord): void {
+    if (!this.renderCache || !job.cache) return
+    // A cache hit has no staging dir; an empty id would resolve to the root.
+    if (!job.cache.stagingDir) return
+    this.renderCache.discardStaging(job.id)
   }
 
   private fail(job: JobRecord, failure: AvailabilityFailure): void {
@@ -432,6 +725,7 @@ export class JobQueue {
     job.pid = null
     job.slot = null
     this.discardTempDir(job)
+    this.discardCacheStaging(job)
     job.tempDir = null
     this.transition(job, 'failed', failure.code)
     job.finishedAt = this.now()
@@ -458,6 +752,7 @@ export class JobQueue {
       job.slot = null
       job.pid = null
       this.discardTempDir(job)
+      this.discardCacheStaging(job)
       job.tempDir = null
       job.error = failureForShutdown()
       this.transition(job, 'failed', 'gateway_shutdown')

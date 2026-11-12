@@ -146,12 +146,12 @@ addon 仍然是唯一支持的 Blender 侧 agent 桥。其他 Blender 侧 agent 
 
 ## 工具
 
-插件提供 6 个模型工具；plan、审计、装配、导出、评估等操作都收在 `blender_op`（34 family / 228 op）里，所以工具面保持很小。
+插件提供 6 个模型工具；plan、审计、装配、导出、评估等操作都收在 `blender_op`（36 family / 239 op）里，所以工具面保持很小。
 
 | 工具 | 它能给你什么 |
 |---|---|
 | blender_session | GUI 会话生命周期与归属：list/status/doctor、attach、claim/release、写作用域 grant/revoke、暂停状态、presence，以及 `action=txn` 快照/标记回滚。Blender 与 Gateway 由宿主管理。 |
-| blender_op | 能力目录（`op="catalog"`，34 family / 228 op）与执行入口，覆盖建模、审计、装配、交付、评估；另有 `action=loop|opt|preset`。执行 op 需要 ready 的 GUI 会话。 |
+| blender_op | 能力目录（`op="catalog"`，36 family / 239 op）与执行入口，覆盖建模、审计、装配、交付、评估；另有 `action=loop|opt|preset`。执行 op 需要 ready 的 GUI 会话。 |
 | blender_py | 在已 attach 的 GUI 会话里执行 Python，内核跨调用保留；`see=true` 顺带回一帧。仅 GUI，没有无头回退。 |
 | blender_see | 仅用于 GUI 取帧：`viewpoint=viewport|camera|custom`、`mode=frame|sequence`，固定宽高比分档。相机动画与批量渲染走 `blender_run(kind="render")`。 |
 | blender_run | 唯一作业入口：`action=submit` 配 `kind=render|headless` 立即返回 job id；`status/wait/collect/cancel/list` 管理作业；`action=tune` 管渲染性能。 |

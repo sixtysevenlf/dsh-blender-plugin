@@ -130,7 +130,7 @@ describe('backend HTTP routes against a fake addon', () => {
     expect(catalog.status).toBe(200)
     const cj = (await catalog.json()) as any
     expect(cj.ok).toBe(true)
-    expect(cj.result.ops_count).toBe(228)
+    expect(cj.result.ops_count).toBe(239)
 
     const ok = await post('/cmd', { holder, name: 'ping', params: {} })
     expect(ok.status).toBe(200)

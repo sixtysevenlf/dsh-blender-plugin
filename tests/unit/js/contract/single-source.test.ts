@@ -43,7 +43,7 @@ describe('single source of truth', () => {
   it('keeps the repository AGENTS.md counts equal to the catalog', () => {
     // this used to resolve pkgPath('..', 'AGENTS.md') (the parent directory,
     // where no AGENTS.md exists) and silently return. Assert existence and match
-    // the real "34 families / 228 ops" wording used in the repo guide.
+    // the real "36 families / 239 ops" wording used in the repo guide.
     const agents = pkgPath('AGENTS.md')
     expect(fs.existsSync(agents)).toBe(true)
     const text = fs.readFileSync(agents, 'utf8')

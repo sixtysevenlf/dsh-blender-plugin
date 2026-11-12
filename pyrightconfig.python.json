@@ -14,10 +14,31 @@
     "runtime/py/render/imgtools_impl/digest/verdict.py",
     "runtime/py/render/imgtools_impl/digest/visual.py",
     "runtime/py/render/qc_render_impl/main.py",
-    "runtime/py/render/qc_render_impl/parts.py"
+    "runtime/py/render/qc_render_impl/parts.py",
+    "runtime/vision/worker/main.py",
+    "runtime/vision/worker/protocol.py",
+    "runtime/vision/worker/models.py",
+    "runtime/vision/worker/selftest.py",
+    "runtime/vision/worker/analyze.py",
+    "runtime/vision/worker/compare.py",
+    "runtime/vision/worker/detect.py",
+    "runtime/vision/worker/track.py",
+    "runtime/vision/worker/common.py",
+    "runtime/vision/worker/probe.py",
+    "runtime/vision/worker/inference/opencv.py",
+    "runtime/vision/worker/inference/onnxruntime.py",
+    "runtime/vision/worker/inference/select.py"
   ],
   "exclude": ["**/__pycache__"],
   "typeCheckingMode": "basic",
   "reportMissingModuleSource": "none",
-  "reportMissingTypeStubs": false
+  "reportMissingTypeStubs": false,
+  "extraPaths": [".", "runtime/vision/worker"],
+  "executionEnvironments": [
+    {
+      "root": "runtime/vision/worker",
+      "extraPaths": ["runtime/vision/worker"],
+      "reportMissingImports": "none"
+    }
+  ]
 }

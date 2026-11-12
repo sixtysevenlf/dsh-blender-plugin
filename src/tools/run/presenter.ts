@@ -19,6 +19,52 @@ function clip(s: string, n = 3000): string {
   return s.length > n ? s.slice(0, n) + ' …' : s
 }
 
+function sizeText(bytes: unknown): string {
+  const n = Number(bytes)
+  if (!(n >= 0)) return '?'
+  if (n < 1024) return String(n) + 'B'
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KiB'
+  if (n < 1024 * 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + ' MiB'
+  return (n / 1024 / 1024 / 1024).toFixed(2) + ' GiB'
+}
+
+/**
+ * Pass receipts carry manifest paths plus per-pass size/digest metadata only —
+ * never pixels. Returns null for a headless summary so the legacy line survives.
+ */
+function passesReceipt(parsed: unknown): string[] | null {
+  const summary = asRecord(parsed)
+  if (summary.manifestVersion === undefined || !Array.isArray(summary.frames)) return null
+  const frames = summary.frames as Array<Record<string, unknown>>
+  const requested = Array.isArray(summary.passes) ? summary.passes.map(String) : []
+  const lines = ['passes  ' + String(frames.length) + ' 帧 · 请求 ' + (requested.join('/') || '-')]
+  for (const frame of frames.slice(0, 8)) {
+    const files = asRecord(frame.passes)
+    const parts = Object.keys(files).map(
+      (name) => name + ' ' + sizeText(asRecord(files[name]).bytes),
+    )
+    lines.push(
+      '  frame ' +
+        text(frame.frame) +
+        ' · manifest ' +
+        text(frame.manifest || '-') +
+        (parts.length ? ' · ' + parts.join(' · ') : ''),
+    )
+    const degraded = Array.isArray(frame.degraded) ? frame.degraded.map(String) : []
+    if (degraded.length)
+      lines.push('    degraded · 缺 ' + degraded.join('/') + '（该帧不是干净成功）')
+  }
+  if (frames.length > 8) lines.push('  …另有 ' + String(frames.length - 8) + ' 帧')
+  const degradedFrames = Array.isArray(summary.degradedFrames)
+    ? summary.degradedFrames.map(String)
+    : []
+  if (degradedFrames.length)
+    lines.push(
+      'warning  degraded frames: ' + degradedFrames.join(',') + '（交给 vision_pass 前先处理）',
+    )
+  return lines
+}
+
 export function formatJob(job: Record<string, unknown>): string[] {
   const result = asRecord(job.result)
   const decision = asRecord(job.decision)
@@ -51,6 +97,7 @@ export function formatJob(job: Record<string, unknown>): string[] {
         text(decision.reason) +
         (decision.detail ? ' · ' + text(decision.detail) : ''),
     )
+  const passLines = job.result ? passesReceipt(result.parsed) : null
   if (job.result)
     lines.push(
       'result  exit=' +
@@ -58,10 +105,27 @@ export function formatJob(job: Record<string, unknown>): string[] {
           result.exitCode === null || result.exitCode === undefined ? 'signal' : result.exitCode,
         ) +
         (result.signal ? ' · signal=' + text(result.signal) : '') +
-        (result.parsed !== undefined
+        (result.parsed !== undefined && !passLines
           ? ' · parsed=' + clip(JSON.stringify(result.parsed), 1200)
           : ''),
     )
+  if (passLines) lines.push(...passLines)
+  const cache = asRecord(result.cache)
+  if (job.result && result.cache) {
+    if (cache.hit === true)
+      lines.push(
+        'cache   hit · ' +
+          text(cache.entries || (Array.isArray(cache.keys) ? cache.keys.length : 0)) +
+          ' 条 entry · key=' +
+          text(cache.key || (Array.isArray(cache.keys) ? cache.keys[0] : '-')),
+      )
+    else
+      lines.push(
+        'cache   miss' +
+          (cache.skipped ? ' · skipped=' + text(cache.skipped) : '') +
+          (cache.corrupt ? ' · corrupt（已删除损坏 entry，按 miss 重渲染）' : ''),
+      )
+  }
   const artifacts = Array.isArray(job.artifacts) ? job.artifacts : []
   if (artifacts.length) {
     lines.push('artifacts ' + String(artifacts.length) + ' 个')
@@ -174,7 +238,8 @@ export function runHelp(): string {
   return [
     'blender_run 动作（唯一作业入口：submit → jobId → status/wait/collect/cancel；无同步模式）：',
     '  action=submit kind=render|headless + 参数',
-    '    render（声明式，不接受 script）：file/output/outdir/frames/resolution/samples/engine/format/camera/priority',
+    '    render（声明式，不接受 script）：file/output/outdir/frames/resolution/samples/engine/format/camera/passes/priority',
+    '      passes：beauty/depth/normal/object_index/alpha 的非空子集；给出时每帧写 manifest.json，可交给 vision_pass 解码',
     '    headless（跑脚本）：script/script_file/file/outdir/timeout_ms/engine/preload/factory_startup/bootstrap/workdir/include_noise/out_json/args/env/priority',
     '  action=status|wait|collect|cancel id=<jobId>；wait 默认 120s、上限 600s，超时不取消',
     '  action=list [state=kind=owner=] | action=perf（队列容量与槽位）',

@@ -2,6 +2,7 @@
 export interface PlanCallDeps {
   SESSION_NAME: string
   addon: import('../../transport/probes.js').AddonClient
+  ensureAnimation: () => Promise<unknown>
   ensureAssembly: () => Promise<unknown>
   ensureAudit: () => Promise<unknown>
   ensureBlockout: () => Promise<unknown>

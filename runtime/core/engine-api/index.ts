@@ -15,6 +15,18 @@ export interface EngineApiMetrics {
   views: number
 }
 
+/** vision worker 的装配面（assemble.ts 注入；测试构造 deps 时可省略）。 */
+export interface EngineVisionDeps {
+  workerStatus: () => Record<string, unknown>
+  dnnStatus: () => Record<string, unknown>
+  reconcile: () => Promise<unknown>
+  statusReport: () => Promise<unknown>
+  /** Gateway 启动后后台触发一次；并发调用共享同一个 promise。 */
+  ensureInstalled: () => Promise<unknown>
+  installStatus: () => unknown
+  dispose: () => Promise<void>
+}
+
 export interface EngineApiDeps {
   LEDGER: string
   RESULTS_DIR: string
@@ -35,6 +47,8 @@ export interface EngineApiDeps {
   perfCall: (op: string, payload?: unknown) => Promise<unknown>
   runSnapshot: (r: Record<string, unknown>) => Record<string, unknown>
   runs: Map<string, unknown>
+  /** vision manager/dispatcher（可选：纯 addon 测试不装配）。 */
+  vision?: EngineVisionDeps
 }
 
 export function createEngineApi(E: EngineApiDeps) {

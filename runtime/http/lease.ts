@@ -1,7 +1,7 @@
 // 写权限租约：多 agent / 多会话同时驱动一个 Blender 时，靠它避免互相踩。
 // 语义与拆分前逐字一致：不持租约不拦；显式持租约后别人的写操作 409；TTL 过期自动失效。
 import { CFG } from '../config.js'
-import { PLAN_READ_ONLY_OPS } from '../catalog/index.js'
+import { PLAN_HOST_LOCAL_OPS, PLAN_READ_ONLY_OPS } from '../catalog/index.js'
 import { stats } from './config.js'
 import { errorCode } from '../core/json.js'
 import { gateResponse, sessionReadGate, sessionWriteGate } from './session-gate.js'
@@ -167,9 +167,16 @@ const READ_ONLY_OPS: Record<string, string[]> = {
   // 它们不该被别的会话的写租约挡住（否则"我的作业我收不回来"）。
   '/job': ['status', 'collect', 'list', 'wait', 'kill'],
 }
+/** host-local op（vision_*）：在 Gateway 进程内执行，没有会话可等，读判定同样放行。 */
+const HOST_LOCAL_OPS: Record<string, string[]> = {
+  '/plan': PLAN_HOST_LOCAL_OPS,
+}
 function isReadOnly(path: string, op: unknown): boolean {
+  const name = String(op)
   const list = READ_ONLY_OPS[path]
-  return !!(list && list.indexOf(String(op)) >= 0)
+  if (list && list.indexOf(name) >= 0) return true
+  const local = HOST_LOCAL_OPS[path]
+  return !!(local && local.indexOf(name) >= 0)
 }
 
 /** 请求带上 holder/force 时的门禁；返回 null = 放行 */

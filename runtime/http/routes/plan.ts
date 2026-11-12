@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { HttpRouteDeps } from './deps.js'
 import { errorMessage, errorField } from '../../core/json.js'
+import { PLAN_SESSION_READ_OPS } from '../../catalog/index.js'
 // HTTP 路由 /plan：契约层/规划器/catalog
 export function createPlanRoutes(E: HttpRouteDeps) {
   const { engine, isReadOnly, json, leaseGate, pushRtt, readBody, stats } = E
@@ -15,7 +16,14 @@ export function createPlanRoutes(E: HttpRouteDeps) {
         payload = {}
       }
       const op = String(payload.op || 'status')
-      const gate = isReadOnly('/plan', op) ? null : leaseGate(payload)
+      // Catalog reads skip the gate. Session-read ops (animation_report/help)
+      // need a visible/owned session but never a write grant, so they take the
+      // read gate; everything else keeps the write gate.
+      const readOnly = isReadOnly('/plan', op)
+      const sessionRead = !readOnly && PLAN_SESSION_READ_OPS.includes(op)
+      const gate = readOnly
+        ? null
+        : leaseGate(payload, sessionRead ? { readOnly: true } : undefined)
       if (gate) {
         json(res, 409, gate)
         return

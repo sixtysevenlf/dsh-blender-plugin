@@ -100,9 +100,12 @@ export interface EngineSurface {
   frame: (maxSize?: number, instanceId?: string) => Promise<unknown>
   view: (spec?: Record<string, unknown>, instanceId?: string) => Promise<unknown>
   hostSceneItems: (spec?: Record<string, unknown>) => Promise<unknown>
+  /** vision worker / DNN 配置 / Python 安装器（assemble.ts 注入）。 */
+  vision?: EngineVisionDeps
 }
 
 import { assembleEngine, createEngineContext } from './assemble.js'
+import type { EngineVisionDeps } from '../engine-api/index.js'
 
 /**
  * 装配引擎。参数只有 opts.address（addon 地址覆盖）。

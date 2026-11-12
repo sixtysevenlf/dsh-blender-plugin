@@ -11,6 +11,7 @@
 import type { HostContext } from './context.js'
 import { asRecord, isRecord, text } from '../contracts/dynamic.js'
 import { handleVirtualGuiPanel, resetVirtualGuiInstall } from './virtual-gui-panel.js'
+import { handleDnnRpc } from './dnn-config.js'
 
 export type VirtualGuiPermissionSource = 'config' | 'runtime'
 
@@ -112,7 +113,14 @@ function connectionOf(ctx: unknown): ConnectionService | null {
   return service as unknown as ConnectionService
 }
 
-function dispatchVirtualGuiRpc(port: number | undefined) {
+/** 0/undefined/NaN 都不是可用端口：0 在这里会被误报成 gateway_unreachable。 */
+function usablePort(port: number | undefined): number | null {
+  return typeof port === 'number' && Number.isFinite(port) && port > 0 ? port : null
+}
+
+/** Exported for unit tests; the returned handler is the owner-only RPC surface. */
+export function dispatchVirtualGuiRpc(port: number | undefined) {
+  const gatewayPort = usablePort(port)
   return async (
     endpoint: string,
     payload: unknown,
@@ -120,7 +128,22 @@ function dispatchVirtualGuiRpc(port: number | undefined) {
     peer?: unknown,
   ): Promise<unknown> => {
     if (endpoint === 'virtual-gui')
-      return handleVirtualGuiPanel(payload, peer, port || 0, virtualGuiPermissionView())
+      return handleVirtualGuiPanel(payload, peer, gatewayPort ?? 0, virtualGuiPermissionView())
+    // DNN 配置端点（apply/status/cancel-pending/rollback/download/probe）：
+    // 与 virtual-gui 复用同一个 owner-only 通道，不新增 HTTP 路由。
+    if (endpoint === 'dnn') {
+      if (gatewayPort === null) {
+        // 插件没拿到端口时不能伪装成“网关不可达”：那是两种不同的修复路径。
+        return {
+          ok: false,
+          error: {
+            code: 'gateway_not_configured',
+            message: '插件未配置 Gateway 端口（可能尚未完成 apply 或插件重载中）；重启插件后重试',
+          },
+        }
+      }
+      return handleDnnRpc(payload, peer, gatewayPort)
+    }
     return handleVirtualGuiPermission(endpoint, payload, signal, peer)
   }
 }

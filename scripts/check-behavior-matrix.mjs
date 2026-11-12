@@ -4,11 +4,11 @@
  * Behavior coverage matrix checker.
  *
  * Two matrices, one source of truth:
- *   tests/BEHAVIOR_MATRIX.md   human-readable behavior rows (346 rows: model tools,
+ *   tests/BEHAVIOR_MATRIX.md   human-readable behavior rows (335 rows: model tools,
  *                              model-facing addon commands, plan ops, HTTP routes and
  *                              fixed protocol/lifecycle/config/install/security/env rows).
  *   tests/BEHAVIOR_MATRIX.json machine-readable aspect matrices generated from the
- *                              executable gates: tool matrix (15 tools x 7 aspects),
+ *                              executable gates: tool matrix (6 tools x 7 aspects),
  *                              route matrix (29 routes x 5 aspects) and the addon
  *                              command matrix (25 registered commands + ping = 26 wire).
  *
@@ -154,7 +154,7 @@ function loadMatrix(matrixPath = MATRIX) {
     return []
   }
   const lines = readFileSync(matrixPath, 'utf8').replace(/\r\n/g, '\n').split('\n')
-  const headerIndex = lines.findIndex((line) => line.trim().startsWith('| id |'))
+  const headerIndex = lines.findIndex((line) => /^\|\s*id\s*\|/.test(line.trim()))
   if (headerIndex < 0) {
     fail('matrix has no "| id |" table header')
     return []

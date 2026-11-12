@@ -3,7 +3,7 @@
 > 触发场景：DSH 升级（`npm i -g @deepseek-ai/dsh@<版本>`）之后，本插件的 6 个工具是否还在、行为是否变了。
 > 结论依据：2026-09-23 对宿主 0.1.6-alpha.1 ↔ 0.1.7-alpha.2 的逐包 diff + 版本矩阵实测（**历史快照**）。
 >
-> **当前口径（2026-11-08）**：插件 **v3.1.0-alpha.1** · **6 个模型工具** · plan catalog **34 family / 228 op** ·
+> **当前口径（2026-11-08）**：插件 **v3.1.0-alpha.1** · **6 个模型工具** · plan catalog **36 family / 239 op** ·
 > addon **v2.0.0 / protocol 12**；验收仍以 `doctor` 回 `kind=ok` 为准。DSH 升级适配结论（§0–§4）不变，
 > 具体工具数 / 目录数以当前仓库与 `blender_op(op="catalog")` 为准。
 

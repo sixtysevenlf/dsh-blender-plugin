@@ -1,7 +1,7 @@
 // 运行台账（内存 runs + 磁盘 JSONL + 可写性自证）
 import path from 'node:path'
-import { winToWsl } from '../../config.js'
-import { WIN_TMP, WSL_TMP } from '../../paths.js'
+import { legacyWorkDirs, wslToWin } from '../../config.js'
+import { homePath, migrateLegacyFile } from '../../home.js'
 import fs from 'node:fs'
 import { errorCode, errorMessage } from '../../core/json.js'
 import { PLUGIN_VERSION } from '../../core/evidence.js'
@@ -28,20 +28,38 @@ export interface LedgerApi {
   reconcileLedger: (rec: Record<string, unknown> | null) => Record<string, unknown> | null
 }
 
+/** 3.2：jobs 台账属于持久数据，固定落在 home；旧 workDir 台账仅在目标缺失时复制。 */
+function migrateLegacyLedger(target: string): void {
+  if (fs.existsSync(target)) return
+  for (const dir of legacyWorkDirs()) {
+    const from = path.join(dir, 'jobs', 'index.jsonl')
+    if (path.resolve(from) === path.resolve(target)) continue
+    const migrated = migrateLegacyFile(from, target)
+    if (migrated.result === 'copied') return
+  }
+}
+
 export function createLedgerStore() {
   const runs = new Map<string, unknown>()
-  const LEDGER = path.join(winToWsl(WIN_TMP), 'jobs', 'index.jsonl')
+  const LEDGER = homePath('jobs', 'index.jsonl')
+  migrateLegacyLedger(LEDGER)
+  const LEDGER_DIR = path.dirname(LEDGER)
 
-  // ---- v0.9.3（同源）：workDir 可写性 —— 旧版台账/日志写失败是**静默**的
-  // （实测：workDir 落在只读挂载上时，磁盘台账一条都写不进去，而 op=list/status 只会说"没有记录"）。
+  // ---- v0.9.3（同源）：持久目录可写性 —— 旧版台账/日志写失败是**静默**的
+  // （实测：目录落在只读挂载上时，磁盘台账一条都写不进去，而 op=list/status 只会说"没有记录"）。
   let ledgerWarn: LedgerWarn | null = null
   let workdirProbeCache: WorkdirProbe | null = null
   function workdirProbe(): WorkdirProbe {
     if (workdirProbeCache) return workdirProbeCache
-    const out: WorkdirProbe = { wsl: WSL_TMP, win: WIN_TMP, writable: false, error: null }
+    const out: WorkdirProbe = {
+      wsl: LEDGER_DIR,
+      win: wslToWin(LEDGER_DIR),
+      writable: false,
+      error: null,
+    }
     try {
-      fs.mkdirSync(WSL_TMP, { recursive: true })
-      const probe = path.join(WSL_TMP, '.dsh_write_probe_' + process.pid)
+      fs.mkdirSync(LEDGER_DIR, { recursive: true })
+      const probe = path.join(LEDGER_DIR, '.dsh_write_probe_' + process.pid)
       fs.writeFileSync(probe, 'ok', 'utf8')
       fs.unlinkSync(probe)
       out.writable = true

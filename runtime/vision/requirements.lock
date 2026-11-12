@@ -1,0 +1,69 @@
+{
+  "format": "dsh-vision-lock/1",
+  "generatedAt": "2026-11-12T00:00:00.000Z",
+  "python": ">=3.11,<3.14",
+  "installer": {"onlyBinary":true,"requireHashes":true,"noInput":true},
+  "packages": [
+    {
+      "name": "opencv-python-headless",
+      "version": "5.0.0.93",
+      "requirement": "opencv-python-headless==5.0.0.93",
+      "license": "Apache-2.0",
+      "source": "https://pypi.org/project/opencv-python-headless/5.0.0.93/",
+      "files": [
+        {"filename":"opencv_python_headless-5.0.0.93-cp37-abi3-macosx_13_0_arm64.whl","sha256":"030ca5e0837a2963ab36ef896baa9767eb8d2b83353fb28af5a521e40dd8756f","size":48322581,"kind":"wheel","pythonTag":"cp37","abiTag":"abi3","platforms":["darwin-arm64"]},
+        {"filename":"opencv_python_headless-5.0.0.93-cp37-abi3-macosx_14_0_x86_64.whl","sha256":"1e55af3abfb462eeeabe5c775f12bdb36216d8a93a3583d69e6bd6e1d6ba7d00","size":34782894,"kind":"wheel","pythonTag":"cp37","abiTag":"abi3","platforms":["darwin-x64"]},
+        {"filename":"opencv_python_headless-5.0.0.93-cp37-abi3-manylinux_2_28_aarch64.whl","sha256":"840bd717c21e5c11cadadc022a823315ea417f961213d06b4df010e019eb16f4","size":39648433,"kind":"wheel","pythonTag":"cp37","abiTag":"abi3","platforms":["linux-arm64"]},
+        {"filename":"opencv_python_headless-5.0.0.93-cp37-abi3-manylinux_2_28_x86_64.whl","sha256":"ed709fdf9aa0bd1f2ed8549e71d19449b03a675bb581eb292285f6861953be37","size":61204038,"kind":"wheel","pythonTag":"cp37","abiTag":"abi3","platforms":["linux-x64"]},
+        {"filename":"opencv_python_headless-5.0.0.93-cp37-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl","sha256":"10818d91510e05c04568ae12b5cd120779c70c01bf897b001a6221fe430df80f","size":36521085,"kind":"wheel","pythonTag":"cp37","abiTag":"abi3","platforms":["linux-arm64"]},
+        {"filename":"opencv_python_headless-5.0.0.93-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl","sha256":"09a872a157c1376ab922a69bbf22f9a95bcc7b658a9d8b436a60212b02b2eeb4","size":56563598,"kind":"wheel","pythonTag":"cp37","abiTag":"abi3","platforms":["linux-x64"]},
+        {"filename":"opencv_python_headless-5.0.0.93-cp37-abi3-win_amd64.whl","sha256":"829717b6a95554f273e49e357cee3b3a2a26b6f4842fbc1bed2b45bdd8f87e0e","size":43825962,"kind":"wheel","pythonTag":"cp37","abiTag":"abi3","platforms":["win32-x64"]},
+        {"filename":"opencv_python_headless-5.0.0.93-cp37-abi3-win32.whl","sha256":"c6bcd96b185975ea240d22cfdb15a1f6d080cc95264cfbe2621f21bb144d89b9","size":35411237,"kind":"wheel","pythonTag":"cp37","abiTag":"abi3","platforms":["win32-ia32"]}
+      ]
+    },
+    {
+      "name": "numpy",
+      "version": "2.4.6",
+      "requirement": "numpy==2.4.6",
+      "license": "BSD-3-Clause",
+      "source": "https://pypi.org/project/numpy/2.4.6/",
+      "files": [
+        {"filename":"numpy-2.4.6-cp311-cp311-macosx_10_9_x86_64.whl","sha256":"0280e0356c0829a18d9de1cb7eee50ec22ca639878d7240307ca0943d73cd2c4","size":16969194,"kind":"wheel","pythonTag":"cp311","abiTag":"cp311","platforms":["darwin-x64"]},
+        {"filename":"numpy-2.4.6-cp311-cp311-macosx_11_0_arm64.whl","sha256":"110f8b71aacb688ec69062bb7f6938a0f8acb01b7c1c4beb453c65b6d234584d","size":14964111,"kind":"wheel","pythonTag":"cp311","abiTag":"cp311","platforms":["darwin-arm64"]},
+        {"filename":"numpy-2.4.6-cp311-cp311-macosx_14_0_arm64.whl","sha256":"4cfe66903cc32a9921a6733d96b19bb6abf310397581bbad89c228f5abaf0ee8","size":5469159,"kind":"wheel","pythonTag":"cp311","abiTag":"cp311","platforms":["darwin-arm64"]},
+        {"filename":"numpy-2.4.6-cp311-cp311-macosx_14_0_x86_64.whl","sha256":"8155154c7c691289fe18f510b5d4657c68c67989f293f0535a91360392ff6538","size":6798936,"kind":"wheel","pythonTag":"cp311","abiTag":"cp311","platforms":["darwin-x64"]},
+        {"filename":"numpy-2.4.6-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl","sha256":"0ab0a9c4ffb1a6d95ef519fe4247dba8eb6b18ad93999f76b7f657039acabd47","size":15966692,"kind":"wheel","pythonTag":"cp311","abiTag":"cp311","platforms":["linux-arm64"]},
+        {"filename":"numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl","sha256":"89cd468399cfd2504718f0ba50e410dca55a170b61a02ad92bb18c8a65186e93","size":16918164,"kind":"wheel","pythonTag":"cp311","abiTag":"cp311","platforms":["linux-x64"]},
+        {"filename":"numpy-2.4.6-cp311-cp311-win_amd64.whl","sha256":"1e254a00cdf42b1e4d5b3d68d33af63268d41340d8885df2ab6470f2e1500147","size":12608406,"kind":"wheel","pythonTag":"cp311","abiTag":"cp311","platforms":["win32-x64"]},
+        {"filename":"numpy-2.4.6-cp311-cp311-win_arm64.whl","sha256":"ed9749eef4cbd126da3dc1d6bcb3a57f5eb7ac6a6484146bdbf743f552dfc577","size":10479528,"kind":"wheel","pythonTag":"cp311","abiTag":"cp311","platforms":["win32-arm64"]},
+        {"filename":"numpy-2.4.6-cp311-cp311-win32.whl","sha256":"ddea102b48f9e339f3948bf22040944184627a30fdf7f858667673b9c5f033c8","size":6233945,"kind":"wheel","pythonTag":"cp311","abiTag":"cp311","platforms":["win32-ia32"]},
+        {"filename":"numpy-2.4.6-cp312-cp312-macosx_10_13_x86_64.whl","sha256":"001fbb8e08d942dd57599e781f2472269ee7f2755fae407b4f67b2f0b17da3f1","size":16689119,"kind":"wheel","pythonTag":"cp312","abiTag":"cp312","platforms":["darwin-x64"]},
+        {"filename":"numpy-2.4.6-cp312-cp312-macosx_11_0_arm64.whl","sha256":"ebfb099f8dcf083deef3ac1ca4c1503f387cf76296fcb3816b66f5ecb5f54fdb","size":14699246,"kind":"wheel","pythonTag":"cp312","abiTag":"cp312","platforms":["darwin-arm64"]},
+        {"filename":"numpy-2.4.6-cp312-cp312-macosx_14_0_arm64.whl","sha256":"3213d622a0283a39a93d188f3cf72b26862df52fbb4ca3697f51705016523d41","size":5204410,"kind":"wheel","pythonTag":"cp312","abiTag":"cp312","platforms":["darwin-arm64"]},
+        {"filename":"numpy-2.4.6-cp312-cp312-macosx_14_0_x86_64.whl","sha256":"357cc07a6d7b0b182ff02249616a03742827ebb1277546b5c7cd7f7620a45698","size":6551240,"kind":"wheel","pythonTag":"cp312","abiTag":"cp312","platforms":["darwin-x64"]},
+        {"filename":"numpy-2.4.6-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl","sha256":"5f9fb9157b4ce2971008323afe46053787b526ef624fea915b261468a8421a0f","size":15671012,"kind":"wheel","pythonTag":"cp312","abiTag":"cp312","platforms":["linux-arm64"]},
+        {"filename":"numpy-2.4.6-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl","sha256":"90f9849678c75fe7afa2d348ac842c168b0a4d3d61919687216dfc547976d853","size":16645538,"kind":"wheel","pythonTag":"cp312","abiTag":"cp312","platforms":["linux-x64"]},
+        {"filename":"numpy-2.4.6-cp312-cp312-win_amd64.whl","sha256":"d8e8286dd7cea7895157318d1b91cdacac64c479f3cbc8dce548331728484751","size":12321687,"kind":"wheel","pythonTag":"cp312","abiTag":"cp312","platforms":["win32-x64"]},
+        {"filename":"numpy-2.4.6-cp312-cp312-win_arm64.whl","sha256":"4081eb135ac24158bd51cdfbef16f1c64df7063b1143f24731387137c092bec8","size":10221482,"kind":"wheel","pythonTag":"cp312","abiTag":"cp312","platforms":["win32-arm64"]},
+        {"filename":"numpy-2.4.6-cp312-cp312-win32.whl","sha256":"e3eeb0aabd6bd5ce64faae67e9935203a6991b4bc2a485a767fbafb2c5125f45","size":5962825,"kind":"wheel","pythonTag":"cp312","abiTag":"cp312","platforms":["win32-ia32"]},
+        {"filename":"numpy-2.4.6-cp313-cp313-macosx_10_13_x86_64.whl","sha256":"511dbaf848decaaaf4b4ca48032619fb3138710c4bf7da7617765edad1ef96b0","size":16684648,"kind":"wheel","pythonTag":"cp313","abiTag":"cp313","platforms":["darwin-x64"]},
+        {"filename":"numpy-2.4.6-cp313-cp313-macosx_11_0_arm64.whl","sha256":"bf162abab1c1a736333192707cef898e735a5ca00f38f27eeedf44b39d9e85eb","size":14693902,"kind":"wheel","pythonTag":"cp313","abiTag":"cp313","platforms":["darwin-arm64"]},
+        {"filename":"numpy-2.4.6-cp313-cp313-macosx_14_0_arm64.whl","sha256":"043191bfa8eab18c776647b62723ac9dddece59743b13f49b2016094129c2b3f","size":5198992,"kind":"wheel","pythonTag":"cp313","abiTag":"cp313","platforms":["darwin-arm64"]},
+        {"filename":"numpy-2.4.6-cp313-cp313-macosx_14_0_x86_64.whl","sha256":"6180d8b35af935aed8ece3a85e0a43f87393ae0ac87c8d2c8bd2c993f7270ef3","size":6546944,"kind":"wheel","pythonTag":"cp313","abiTag":"cp313","platforms":["darwin-x64"]},
+        {"filename":"numpy-2.4.6-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl","sha256":"72fbe16c6fac95aedf5937fa873445cec2110be35d8a4e9433d7501fd98dae6b","size":15669392,"kind":"wheel","pythonTag":"cp313","abiTag":"cp313","platforms":["linux-arm64"]},
+        {"filename":"numpy-2.4.6-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl","sha256":"a7830bab239b79cda9c08c2da014761cafb48da6150e1da17ac06283f43b6089","size":16633220,"kind":"wheel","pythonTag":"cp313","abiTag":"cp313","platforms":["linux-x64"]},
+        {"filename":"numpy-2.4.6-cp313-cp313-win_amd64.whl","sha256":"c4fc99836233ea196540b17ab0983aff60ed07941751930f5f4d05bc3b3b7359","size":12318598,"kind":"wheel","pythonTag":"cp313","abiTag":"cp313","platforms":["win32-x64"]},
+        {"filename":"numpy-2.4.6-cp313-cp313-win_arm64.whl","sha256":"a7c711e21628b52034bb5ab8d1bce291f752fcc5e92accc615778acee1ff4778","size":10222272,"kind":"wheel","pythonTag":"cp313","abiTag":"cp313","platforms":["win32-arm64"]},
+        {"filename":"numpy-2.4.6-cp313-cp313-win32.whl","sha256":"56b39e5e0622a09a25bf5baf62f4bcf0cb8a41ae6e2819cf49bbc5a74c083f91","size":5961134,"kind":"wheel","pythonTag":"cp313","abiTag":"cp313","platforms":["win32-ia32"]},
+        {"filename":"numpy-2.4.6-cp313-cp313t-macosx_11_0_arm64.whl","sha256":"112b06a867b235ef466ed3508ddf0238050df9c727cafb5301ac385b899189a1","size":14821197,"kind":"wheel","pythonTag":"cp313","abiTag":"cp313t","platforms":["darwin-arm64"]},
+        {"filename":"numpy-2.4.6-cp313-cp313t-macosx_14_0_arm64.whl","sha256":"eaf7fa2de5c0be8ae6ff8e9bea2ccd725e980541244521d8d4b5f3354a27babe","size":5326287,"kind":"wheel","pythonTag":"cp313","abiTag":"cp313t","platforms":["darwin-arm64"]},
+        {"filename":"numpy-2.4.6-cp313-cp313t-macosx_14_0_x86_64.whl","sha256":"7265a2f3d436e54ef9f2b52b5c937e6be778781bd97a590319d7348f1c1ca997","size":6646763,"kind":"wheel","pythonTag":"cp313","abiTag":"cp313t","platforms":["darwin-x64"]},
+        {"filename":"numpy-2.4.6-cp313-cp313t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl","sha256":"f74a575920ab21fe304421a3fc28793d82e299cae9eccb37084e9fc7f3617c20","size":15728070,"kind":"wheel","pythonTag":"cp313","abiTag":"cp313t","platforms":["linux-arm64"]},
+        {"filename":"numpy-2.4.6-cp313-cp313t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl","sha256":"ede83e07a75dd06bc501566c1eca2afc0d61677c1472ac9ad93fdee6e638a48d","size":16681752,"kind":"wheel","pythonTag":"cp313","abiTag":"cp313t","platforms":["linux-x64"]},
+        {"filename":"numpy-2.4.6-cp313-cp313t-win_amd64.whl","sha256":"25c692919ac5a01f170a3bfcd62d745b24fd095c353d50812637d6fcab442e75","size":12458532,"kind":"wheel","pythonTag":"cp313","abiTag":"cp313t","platforms":["win32-x64"]},
+        {"filename":"numpy-2.4.6-cp313-cp313t-win_arm64.whl","sha256":"1e978ec1e8bd0e0e4de6bb75de9d30cbb74db6b6a2bb727618613703ca0167dd","size":10291881,"kind":"wheel","pythonTag":"cp313","abiTag":"cp313t","platforms":["win32-arm64"]},
+        {"filename":"numpy-2.4.6-cp313-cp313t-win32.whl","sha256":"29a287e0cf63ff528da061de6b9f64a4618da591ca1046aafc54062e40ca7eab","size":6084971,"kind":"wheel","pythonTag":"cp313","abiTag":"cp313t","platforms":["win32-ia32"]}
+      ]
+    }
+  ]
+}

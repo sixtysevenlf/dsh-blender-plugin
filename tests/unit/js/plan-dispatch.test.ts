@@ -259,6 +259,54 @@ describe('render guard ops', () => {
   })
 })
 
+describe('vision ops', () => {
+  it('routes all 8 vision ops to the injected dispatcher without a Blender round-trip', async () => {
+    const visionOp = vi.fn(async (op: string) => ({ ok: true, op }))
+    const { deps, addonSend, dispatch } = makeDeps({ visionOp })
+    for (const op of [
+      'vision_status',
+      'vision_analyze',
+      'vision_compare',
+      'vision_detect',
+      'vision_track',
+      'vision_pass',
+      'vision_selftest',
+      'vision_help',
+    ]) {
+      const out = rec(await dispatch.planCall(op, { probe: true }))
+      expect(out).toEqual({ ok: true, op })
+    }
+    expect(visionOp).toHaveBeenCalledTimes(8)
+    expect(deps.planCallInner).not.toHaveBeenCalled()
+    expect(addonSend).not.toHaveBeenCalled()
+  })
+
+  it('returns a structured vision_unavailable when no dispatcher is wired', async () => {
+    const { deps, addonSend, dispatch } = makeDeps()
+    const out = rec(await dispatch.planCall('vision_analyze', { path: 'D:/shots/a.png' }))
+    expect(out).toMatchObject({
+      ok: false,
+      op: 'vision_analyze',
+      stage: 'vision',
+      code: 'vision_unavailable',
+      retryable: true,
+    })
+    expect(String(out.fix)).toContain('Gateway')
+    expect(rec(out.fallback)).toMatchObject({ kind: 'unavailable' })
+    expect(deps.planCallInner).not.toHaveBeenCalled()
+    expect(addonSend).not.toHaveBeenCalled()
+  })
+
+  it('leaves unknown vision_-prefixed names on the normal addon path', async () => {
+    const { deps, addonSend, dispatch } = makeDeps()
+    vi.mocked(deps.planCallInner).mockResolvedValue({ ok: false, error: 'unknown op: vision_nope' })
+    const out = rec(await dispatch.planCall('vision_nope'))
+    expect(deps.planCallInner).toHaveBeenCalledWith('vision_nope', undefined)
+    expect(addonSend).not.toHaveBeenCalled()
+    expect(out.ok).toBe(false)
+  })
+})
+
 describe('perf delegation', () => {
   it('sends a kernel perf dispatch and parses the LOOP marker', async () => {
     const { deps, addonSend, dispatch } = makeDeps()

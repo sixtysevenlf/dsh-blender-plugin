@@ -48,11 +48,11 @@ function opsLine(family: string): string[] {
 }
 
 describe('plan op catalog contract', () => {
-  it('keeps 34 families and 228 op entries with one documented duplicate', () => {
-    expect(PLAN_CATALOG).toHaveLength(34)
+  it('keeps 36 families and 239 op entries with one documented duplicate', () => {
+    expect(PLAN_CATALOG).toHaveLength(36)
     const names = planOpNames()
-    expect(names).toHaveLength(228)
-    expect(new Set(names).size).toBe(227)
+    expect(names).toHaveLength(239)
+    expect(new Set(names).size).toBe(238)
     const dup = names.filter((n: any) => n === 'help')
     expect(dup).toHaveLength(2)
     expect(
@@ -74,10 +74,10 @@ describe('plan op catalog contract', () => {
 
   it('marks every family as a G (session) or L (host-local) target with a write scope', () => {
     const local = PLAN_CATALOG.filter((f: any) => !f.requires_session)
-    expect(local.map((f: any) => f.f).sort()).toEqual(['ext', 'render_guard'])
+    expect(local.map((f: any) => f.f).sort()).toEqual(['ext', 'render_guard', 'vision'])
     expect(local.every((f: any) => f.write_scope === 'none')).toBe(true)
     const gui = PLAN_CATALOG.filter((f: any) => f.requires_session)
-    expect(gui).toHaveLength(32)
+    expect(gui).toHaveLength(33)
     expect(gui.every((f: any) => f.write_scope === 'exclusive')).toBe(true)
     expect(PLAN_CATALOG.every((f: any) => f.requires_session === (f.write_scope !== 'none'))).toBe(
       true,
@@ -103,13 +103,13 @@ describe('plan op catalog contract', () => {
     }
   })
 
-  it('freezes the 98-name read-only whitelist and gates 137 write entries', () => {
+  it('freezes the 98-name read-only whitelist and gates 148 write entries', () => {
     expect([...PLAN_READ_ONLY_OPS].sort()).toEqual([...baseline].sort())
     expect(PLAN_READ_ONLY_OPS).toHaveLength(98)
     const names = planOpNames()
     expect(names.filter((name: any) => PLAN_READ_ONLY.has(name))).toHaveLength(91)
     const writes = names.filter((name: any) => !PLAN_READ_ONLY.has(name))
-    expect(writes).toHaveLength(137)
+    expect(writes).toHaveLength(148)
     expect(PLAN_READ_ONLY.has('catalog')).toBe(true)
     expect(PLAN_READ_ONLY.has('execute_code')).toBe(false)
   })
@@ -130,8 +130,8 @@ describe('plan op catalog contract', () => {
 
   it('reports one coherent fingerprint for the same catalog', () => {
     const fp = catalogFingerprint()
-    expect(fp.families).toBe(34)
-    expect(fp.opsCount).toBe(228)
+    expect(fp.families).toBe(36)
+    expect(fp.opsCount).toBe(239)
     expect(fp.commandCatalogKeys).toBe(25)
     expect(fp.catalogHash).toMatch(/^[0-9a-f]{12}$/)
   })

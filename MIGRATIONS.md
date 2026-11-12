@@ -1,6 +1,6 @@
 # MIGRATIONS —— 从旧版本迁到 v3.1
 
-> **当前版本（2026-11-08）**：插件 **v3.1.0-alpha.1** · **6 个模型工具** · plan catalog **34 family / 228 op** ·
+> **当前版本（2026-11-08）**：插件 **v3.1.0-alpha.1** · **6 个模型工具** · plan catalog **36 family / 239 op** ·
 > addon command **25**（+ping = 26 wire）· addon **v2.0.0**（protocol **12**）· Gateway `127.0.0.1:39877` · addon 主动连接 Gateway（无入站监听）。
 > **旧 `MCP for Blender` 自 v2.3 起不再支持**；v3.0 是工程重构 + addon 安装方式 breaking，按下文 §0/§1 迁。
 
@@ -17,7 +17,7 @@
 2. Blender 里停用并移除旧 addon（含旧的单文件 `dsh_blender_bridge.py`）→ 安装本仓 `extension/dsh_blender_bridge.zip`（**v2.0.0**）→ 启用 → N → Connect。
 3. `blender_inspect(command="get_addon_info")` → `addon_version=[2,0,0]`、`protocol=12`；
    GUI 路线 `curl http://127.0.0.1:39877/doctor` → `kind=ok`（纯无头路线用 `blender_run(action="submit", kind="headless", …)` + `wait`/`collect` 取产物自证）；
-   `blender_op(op="catalog")` → **34 family / 228 op**。
+   `blender_op(op="catalog")` → **36 family / 239 op**。
 4. 选中入口：Blender 原生选中 → `N` →「Selection → DSH」→ 发送（多选 / 集合）；编辑模式选点/面、姿态选骨骼也会一起发。
 5. 新能力（交互式无头、`img_*`、`asm_*`、`blockout`、`visualreport`、`shapesolve`、`eval_run`、强制门等）用
    `blender_op(op="catalog")` 查骨架；除 v3.0 明确移除的 Premium/Tripo 通道外，旧 op 不删除、只增不改。
@@ -44,22 +44,22 @@
 
 3.1 模型面从 15 个工具收口为 6 个：`blender_session`（会话/归属/权限/事务）、`blender_op`（catalog 与 loop/opt/preset）、`blender_py`（GUI 会话内执行 Python）、`blender_see`（GUI 视点截图与序列帧）、`blender_run`（唯一作业入口：render / headless）、`blender_inspect`（只读 addon 命令目录与执行）。旧名不再注册，调用旧名会得到迁移提示。
 
-| 3.1 之前 | 3.1 模型面 |
-|---|---|
-| `blender_rt_see` | `blender_see` |
-| `blender_rt_watch` | `blender_see(mode="sequence")`（`code=` 改由 `blender_py` 执行） |
-| `blender_rt_do` | `blender_py`（`session` / `preload` / `auto` / `view_size` 参数删除） |
-| `blender_rt_plan` | `blender_op`（`action` 默认 `plan`；`op` / `args` / `path` / `attach_images` 不变） |
-| `blender_rt_loop` | `blender_op(action="loop", …)` |
-| `blender_rt_opt` | `blender_op(action="opt", …)` |
-| `blender_rt_preset` | `blender_op(action="preset", …)` |
-| `blender_rt_perf` | `blender_run(action="tune", …)` |
-| `blender_rt_headless` | `blender_run(action="submit", kind="headless", …)`（异步提交；`wait` / `collect` 收取） |
-| `blender_rt_job` | `blender_run(action="submit" \| "status" \| "wait" \| "collect" \| "cancel" \| "list")` |
-| `blender_rt_cmd(name=X, params=Y)` | `blender_inspect(command=X, args=Y)` |
-| `blender_rt_commands` | `blender_inspect`（默认 help） |
-| `blender_rt_txn(op=O, …)` | `blender_session(action="txn", op=O, …)` |
-| `blender_viewport` | `blender_session`（status/doctor/presence；lease/launch/restart 改由宿主管理，不再是模型工具） |
+| 3.1 之前                           | 3.1 模型面                                                                                     |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `blender_rt_see`                   | `blender_see`                                                                                  |
+| `blender_rt_watch`                 | `blender_see(mode="sequence")`（`code=` 改由 `blender_py` 执行）                               |
+| `blender_rt_do`                    | `blender_py`（`session` / `preload` / `auto` / `view_size` 参数删除）                          |
+| `blender_rt_plan`                  | `blender_op`（`action` 默认 `plan`；`op` / `args` / `path` / `attach_images` 不变）            |
+| `blender_rt_loop`                  | `blender_op(action="loop", …)`                                                                 |
+| `blender_rt_opt`                   | `blender_op(action="opt", …)`                                                                  |
+| `blender_rt_preset`                | `blender_op(action="preset", …)`                                                               |
+| `blender_rt_perf`                  | `blender_run(action="tune", …)`                                                                |
+| `blender_rt_headless`              | `blender_run(action="submit", kind="headless", …)`（异步提交；`wait` / `collect` 收取）        |
+| `blender_rt_job`                   | `blender_run(action="submit" \| "status" \| "wait" \| "collect" \| "cancel" \| "list")`        |
+| `blender_rt_cmd(name=X, params=Y)` | `blender_inspect(command=X, args=Y)`                                                           |
+| `blender_rt_commands`              | `blender_inspect`（默认 help）                                                                 |
+| `blender_rt_txn(op=O, …)`          | `blender_session(action="txn", op=O, …)`                                                       |
+| `blender_viewport`                 | `blender_session`（status/doctor/presence；lease/launch/restart 改由宿主管理，不再是模型工具） |
 
 `blender_rt_worker` 不再属于模型面：交互式「改一步看一眼」用 `blender_py` + `blender_see`（需要 ready 的 GUI 会话）；没有 GUI 时的脚本/渲染改用 `blender_run(action="submit", kind="headless")`，再 `wait`/`collect` 取产物。`session="auto"`、`preload="…worker…"`、worker see/watch 不再是对用户暴露的能力。
 
@@ -135,4 +135,3 @@ v2.3 的原生选中 / 集合 / activity 依赖本仓 addon 的 5 条命令与 N
 3. **重启 DSH**；回滚后的 v2.6.2 是 15 工具面，按 §0.3 对照表换名调用；`addon_version` 应回到 v1.10 / protocol 11，catalog 应回到 34 family / 228 op。
 4. v2.6.2 tag 自带 `lib/` 与旧 `runtime/*.mjs`，不需要构建；v3.0.0 的 `lib/runtime` 与 `.ts` 不要混用。
 5. 回滚演练记录保存在本地重构工作区，不随仓库发布。
-

@@ -1,11 +1,27 @@
 /**
  * Host-side copy of the catalog's read-only op list.
  *
- * The Gateway /plan route skips the lease gate for these ops (they may run
- * without a GUI session), so blender_op must make the same decision before it
+ * The Gateway /plan route skips the lease gate for READ_ONLY_OPS and for the
+ * host-local vision ops (runtime/catalog/data.ts: PLAN_READ_ONLY_OPS ∪
+ * PLAN_HOST_LOCAL_OPS), so blender_op must make the same decision before it
  * asks for a session. runtime/catalog/data.ts is the source of truth; the
- * contract test op-read-only-parity.test.ts fails when the two lists drift.
+ * contract test op-read-only-parity.test.ts fails when the lists drift.
  */
+/**
+ * host-local 视觉 op：Gateway 进程内执行，不需要 GUI 会话、不需要 lease，
+ * 因此调用时也不该声明 write_scope。
+ */
+export const HOST_LOCAL_OPS: string[] = [
+  'vision_status',
+  'vision_analyze',
+  'vision_compare',
+  'vision_detect',
+  'vision_track',
+  'vision_pass',
+  'vision_selftest',
+  'vision_help',
+]
+
 export const READ_ONLY_OPS: string[] = [
   'status',
   'help',
@@ -105,6 +121,13 @@ export const READ_ONLY_OPS: string[] = [
   'fix_interference',
   'blockout_help',
   'blockout_selftest',
+  ...HOST_LOCAL_OPS,
 ]
 
 export const READ_ONLY = new Set<string>(READ_ONLY_OPS)
+export const HOST_LOCAL = new Set<string>(HOST_LOCAL_OPS)
+
+/** true = host-local op（Gateway 不让它碰会话，也不需要写作用域）。 */
+export function isHostLocalOp(op: unknown): boolean {
+  return HOST_LOCAL.has(String(op))
+}

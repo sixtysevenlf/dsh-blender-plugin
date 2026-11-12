@@ -232,6 +232,9 @@ const skipFileSet = new Set(scan.skipFiles)
 const files = []
 
 function isSkippedDir(relPath, name) {
+  // pytest keeps its basetemp here when the environment points TMP inside the
+  // workspace (see .gitignore); those dirs are transient test output.
+  if (name.startsWith('pytest-of-') || name.startsWith('pytest-')) return true
   for (const skip of skipDirSet) {
     if (skip.includes('/')) {
       if (relPath === skip || relPath.startsWith(skip + '/')) return true

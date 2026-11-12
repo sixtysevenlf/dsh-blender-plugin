@@ -40,6 +40,11 @@ export function createHostApi(E: EngineApiDeps) {
       clearWorkerReaper()
       addon.close()
       killWorkers()
+      // vision worker 是 Gateway 的私有子进程：关后端时一并回收（失败只记日志，不阻塞关闭）。
+      const vision = E.vision
+      if (vision) {
+        void vision.dispose().catch(() => undefined)
+      }
     },
   }
 }

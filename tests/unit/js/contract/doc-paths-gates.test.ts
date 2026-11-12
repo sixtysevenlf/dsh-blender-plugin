@@ -70,7 +70,7 @@ describe('check-doc-paths', () => {
     expect(report).not.toBeNull()
     expect(report!.mode).toBe('warn')
     expect(report!.legacy.failures).toEqual([])
-    expect(report!.docs.extendedCount).toBe(22)
+    expect(report!.docs.extendedCount).toBe(25)
     expect(report!.findings.orphanDocs).toHaveLength(0)
     expect(report!.findings.missingRefs).toHaveLength(7)
     expect(report!.baseline.present).toBe(true)

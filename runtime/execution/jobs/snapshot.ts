@@ -1,12 +1,14 @@
 import path from 'node:path'
 import fs from 'node:fs'
 import { winToWsl, wslToWin } from '../../config.js'
+import { homePath } from '../../home.js'
 import { WIN_TMP } from '../../paths.js'
 import { pidAlive } from '../../core/evidence.js'
 import type { JobRecord } from './types.js'
 
 export function jobDir(id: string, outdir: string | null | undefined): string {
-  const base = outdir ? winToWsl(String(outdir)) : winToWsl(WIN_TMP)
+  // 3.2：未指定 outdir 的作业目录固定落在 home/jobs（持久数据）；显式 outdir 保持旧语义。
+  const base = outdir ? winToWsl(String(outdir)) : homePath()
   const d = path.join(base, 'jobs', id)
   fs.mkdirSync(d, { recursive: true })
   return d
@@ -45,7 +47,7 @@ export function jobSnapshot(j: JobRecord): Record<string, unknown> {
   // v0.8.9：作业结束后 ms 必须冻结（旧版用 Date.now()，done 的作业放一会儿再看会显示成分钟级）
   const now = Date.now()
   const running = j.status === 'running'
-  const outWsl = j.outdirWsl || (j.outdir ? winToWsl(String(j.outdir)) : winToWsl(WIN_TMP))
+  const outWsl = j.outdirWsl || (j.outdir ? winToWsl(String(j.outdir)) : homePath())
   let logBytes = j.logBytes || 0
   if (running) {
     try {

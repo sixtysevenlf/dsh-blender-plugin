@@ -21,7 +21,7 @@ FACADES = sorted(p for p in PY.glob("*/*.py") if "runtime.py._facade" in p.read_
 
 
 def test_all_domain_facades_use_the_shared_helper():
-    assert len(FACADES) == 13, [str(p.relative_to(ROOT)) for p in FACADES]
+    assert len(FACADES) == 14, [str(p.relative_to(ROOT)) for p in FACADES]
     for path in FACADES:
         source = path.read_text(encoding="utf-8")
         assert "_dsh_root" not in source, path

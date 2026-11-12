@@ -7,8 +7,11 @@ import { spawn } from 'node:child_process'
 import type { ChildProcess } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import { CFG, IS_WIN } from '../../config.js'
+import { IS_WIN } from '../../config.js'
+import type { AvailabilityFailure } from '../availability.js'
+import { homePath } from '../../home.js'
 import { BLENDER_EXE } from '../../paths.js'
+import { RENDER_PASSES_MANIFEST_VERSION, RENDER_PASSES_PY } from './render-passes-script.js'
 import type { JobExecutionResult, JobExecutor, JobHandle, JobRecord } from './types.js'
 
 export interface SpawnExecutorOptions {
@@ -21,9 +24,12 @@ export interface SpawnExecutorOptions {
 const MAX_LOG = 262144
 const DEFAULT_TIMEOUT_MS = 60 * 60 * 1000
 
-/** The Gateway workDir is probed writable at startup; never rely on %TEMP% for job files. */
+/**
+ * Job temp files live under the plug-in home (queue/staging). The home layout is
+ * created at activation; never rely on %TEMP% for job files.
+ */
 function workRoot(): string {
-  return IS_WIN ? CFG.workDirWin : CFG.workDirWsl
+  return homePath('queue', 'staging')
 }
 
 function ensureDir(dir: string): void {
@@ -89,6 +95,80 @@ function renderPrelude(params: Record<string, unknown>): string {
   return lines.join('\n')
 }
 
+/**
+ * Declarative pass list from submitted params. Passes are opt-in: an absent
+ * field keeps the legacy render path, while a present-but-empty or malformed
+ * list is a rejected submission, not a silent fallback.
+ */
+export class PassConfigError extends Error {
+  readonly code = 'render_config_invalid'
+  constructor(message: string) {
+    super(message)
+    this.name = 'PassConfigError'
+  }
+}
+
+function renderPasses(params: Record<string, unknown>): string[] {
+  const raw = params.passes
+  if (raw === undefined || raw === null) return []
+  if (!Array.isArray(raw))
+    throw new PassConfigError('passes must be an array of pass names, got ' + typeof raw + '.')
+  if (raw.length === 0)
+    throw new PassConfigError(
+      'passes is empty: name at least one pass, or omit the field to render without a cache.',
+    )
+  const passes: string[] = []
+  for (const item of raw) {
+    if (typeof item !== 'string')
+      throw new PassConfigError('passes must contain only pass names, got a non-string entry.')
+    const name = item.trim()
+    if (!name) throw new PassConfigError('passes must contain only non-empty pass names.')
+    passes.push(name)
+  }
+  return passes
+}
+
+interface PassEntry {
+  scriptPath: string
+  configPath: string
+}
+
+/**
+ * Write the two fixed files of the pass entry into the job temp directory.
+ * render-config.json carries only declarative values copied from the submitted
+ * params; nothing a caller wrote is ever executed.
+ */
+function writePassEntry(
+  params: Record<string, unknown>,
+  tempDir: string,
+  outdir: string,
+): PassEntry {
+  const scriptPath = path.join(tempDir, 'render_passes.py')
+  fs.writeFileSync(scriptPath, RENDER_PASSES_PY, 'utf8')
+  const frames = frameRange(params)
+  const resolution =
+    Array.isArray(params.resolution) && params.resolution.length === 2
+      ? [Number(params.resolution[0]), Number(params.resolution[1])]
+      : null
+  const camera = params.camera === true ? true : asString(params.camera) || null
+  const config = {
+    version: 1,
+    manifestVersion: RENDER_PASSES_MANIFEST_VERSION,
+    passes: renderPasses(params),
+    frames: frames ? [frames.start, frames.end] : null,
+    outdir,
+    camera,
+    resolution,
+    samples:
+      params.samples === undefined || params.samples === null ? null : Number(params.samples),
+    engine: asString(params.engine) || null,
+    format: asString(params.format) || 'PNG',
+  }
+  const configPath = path.join(tempDir, 'render-config.json')
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf8')
+  return { scriptPath, configPath }
+}
+
 /** Exported for contract tests: render and headless use one fixed internal entry. */
 export function buildJobArgs(
   job: JobRecord,
@@ -99,6 +179,21 @@ export function buildJobArgs(
   if (outdir) ensureDir(outdir)
   if (job.kind === 'render') {
     const file = asString(params.file)
+    const passes = renderPasses(params)
+    if (passes.length > 0) {
+      // The pass entry owns the frame loop (one manifest per frame), so the
+      // legacy -s/-e/-a animation flags must not be appended here.
+      const passOutdir = outdir || path.join(workRoot(), 'renders', job.id)
+      ensureDir(passOutdir)
+      const entry = writePassEntry(params, tempDir, passOutdir)
+      const passArgs: string[] = ['-b', '--factory-startup']
+      if (file) passArgs.push(file)
+      // --python-exit-code: an uncaught Python error must fail the job instead of
+      // exiting 0. --disable-autoexec: only the bundled entry may run.
+      passArgs.push('--python-exit-code', '2', '--disable-autoexec')
+      passArgs.push('--python', entry.scriptPath, '--', entry.configPath)
+      return { args: passArgs, outdir: passOutdir }
+    }
     const args: string[] = []
     if (file) args.push(file)
     let output = asString(params.output)
@@ -172,6 +267,26 @@ function prepareFailure(e: unknown, blenderExe: string | null): JobExecutionResu
       fix: 'Set DSH_BLENDER_EXE or write dsh-blender.config.json with blenderExe.',
       fallback: { kind: 'unavailable', summary: 'install Blender or set DSH_BLENDER_EXE' },
       evidence: { blenderExe },
+    },
+  }
+}
+
+/** A rejected pass configuration happens before Blender starts. */
+function configFailure(e: unknown): JobExecutionResult {
+  const message = e instanceof Error ? e.message : String(e)
+  return {
+    exitCode: null,
+    signal: null,
+    stdout: '',
+    stderr: message,
+    error: {
+      ok: false,
+      code: 'render_config_invalid',
+      stage: 'config',
+      root_cause: message,
+      fix: 'Pass passes=["beauty", …] with at least one known pass, or drop the field to render without the pass cache.',
+      fallback: { kind: 'unavailable', summary: 'resubmit a valid pass list' },
+      evidence: { stage: 'config' },
     },
   }
 }
@@ -261,14 +376,49 @@ function armTimeout(child: ChildProcess, timeoutMs: number, onTimeout: () => voi
   return timer
 }
 
-function parseHeadless(text: string): unknown {
-  const matches = text.match(/^HEADLESS (\{.*\})$/gm)
+function markerJson(text: string, marker: string): unknown {
+  const matches = text.match(new RegExp('^' + marker + ' (\\{.*\\})$', 'gm'))
   if (!matches || matches.length === 0) return undefined
-  const last = matches[matches.length - 1].slice('HEADLESS '.length)
+  const last = matches[matches.length - 1].slice(marker.length + 1)
   try {
     return JSON.parse(last)
   } catch {
     return undefined
+  }
+}
+
+function parseHeadless(text: string): unknown {
+  return markerJson(text, 'HEADLESS')
+}
+
+/** The pass entry prints PASSES_DONE on success and PASSES_ERROR on a fatal failure. */
+function parsePassesDone(text: string): unknown {
+  return markerJson(text, 'PASSES_DONE')
+}
+
+function passesFailure(stdout: string): AvailabilityFailure | null {
+  const marker = markerJson(stdout, 'PASSES_ERROR') as Record<string, unknown> | undefined
+  if (!marker || marker.ok === true) return null
+  const code = String(marker.code || 'render_passes_failed')
+  const passName = String(marker.passName || '')
+  const format = typeof marker.format === 'string' ? marker.format : ''
+  return {
+    ok: false,
+    code,
+    stage: 'render',
+    root_cause: String(marker.error || 'The render-pass entry failed.'),
+    fix:
+      code !== 'pass_unsupported'
+        ? 'Read the job logs, fix the reported render error, then resubmit.'
+        : format
+          ? 'The render-pass path writes 8-bit PNG beauty only; set format=PNG (or drop passes and use the legacy render path) instead of ' +
+            format +
+            '.'
+          : passName === 'object_index'
+            ? 'object_index needs engine=CYCLES on every supported Blender (4.2 / 4.5 / 5.x expose Object Index only under Cycles); switch the engine to CYCLES or drop the pass.'
+            : 'Pick another pass, update Blender, or render without that pass; the report names the unavailable pass.',
+    fallback: { kind: 'unavailable', summary: 'inspect the render pass logs and retry' },
+    evidence: marker,
   }
 }
 
@@ -283,6 +433,8 @@ export class SpawnJobExecutor implements JobExecutor {
     try {
       prepared = prepare(job, this.opts)
     } catch (e) {
+      if (e instanceof PassConfigError)
+        return { pid: null, cancel: () => {}, done: Promise.resolve(configFailure(e)) }
       return {
         pid: null,
         cancel: () => {},
@@ -320,7 +472,13 @@ export class SpawnJobExecutor implements JobExecutor {
             /* temp cleanup is best effort */
           }
         }
-        const parsed = job.kind === 'headless' ? parseHeadless(logs.stdout) : undefined
+        const parsed =
+          job.kind === 'headless'
+            ? parseHeadless(logs.stdout)
+            : job.kind === 'render'
+              ? parsePassesDone(logs.stdout)
+              : undefined
+        const failed = job.kind === 'render' ? passesFailure(logs.stdout) : null
         resolve({
           exitCode,
           signal,
@@ -328,6 +486,7 @@ export class SpawnJobExecutor implements JobExecutor {
           stderr: logs.stderr,
           artifacts: artifactsIn(prepared.outdir, started),
           ...(parsed === undefined ? {} : { parsed }),
+          ...(failed && exitCode !== 0 ? { error: failed } : {}),
           ...(timedOut
             ? {
                 error: {

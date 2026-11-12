@@ -31,7 +31,9 @@ describe('python import boundary governance', () => {
     expect(runtime).toBeTruthy()
     expect(runtime).toContain('type = "layers"')
     expect(runtime).toContain('containers = ["runtime.py"]')
-    expect(runtime).toContain('layers = ["core | geometry | assembly | render | export"]')
+    expect(runtime).toContain(
+      'layers = ["core | geometry | assembly | render | export | animation"]',
+    )
     expect(runtime).toContain('exhaustive = true')
     expect(runtime).toContain('exhaustive_ignores = ["_facade"]')
 
@@ -112,6 +114,7 @@ describe('typescript boundary governance', () => {
       'http',
       'launch',
       'transport',
+      'vision',
     ]) {
       expect(text).toContain(`type: 'runtime-${directory}'`)
       expect(text).toContain(`pattern: 'runtime/${directory}'`)

@@ -16,6 +16,8 @@ export interface GatewayStartResult {
   ok: boolean
   port: number
   owner?: GatewayOwner
+  /** App startup's home layout probe; carry it so the caller can log/fail explicitly. */
+  homeLayout?: GatewayApp['homeLayout']
   error?: Record<string, unknown>
 }
 
@@ -114,7 +116,12 @@ export async function startGateway(
     const existing = readGatewayOwner(app.port)
     const probe = ownerProbe(app.port)
     if (probe.pid !== null) {
-      return { ok: false, port: app.port, error: conflictError(app, existing, probe) }
+      return {
+        ok: false,
+        port: app.port,
+        homeLayout: app.homeLayout,
+        error: conflictError(app, existing, probe),
+      }
     }
   }
   const owner = ownerOf(app)
@@ -124,7 +131,7 @@ export async function startGateway(
     const fail = (error: Record<string, unknown>): void => {
       if (settled) return
       settled = true
-      resolve({ ok: false, port: app.port, error })
+      resolve({ ok: false, port: app.port, homeLayout: app.homeLayout, error })
     }
     app.server.once('error', (e: NodeJS.ErrnoException) => {
       const code = String(e && e.code ? e.code : '')
@@ -161,7 +168,7 @@ export async function startGateway(
         process.once('SIGINT', shutdown)
         process.once('SIGTERM', shutdown)
       }
-      resolve({ ok: true, port: app.port, owner: actualOwner })
+      resolve({ ok: true, port: app.port, owner: actualOwner, homeLayout: app.homeLayout })
     })
   })
 }

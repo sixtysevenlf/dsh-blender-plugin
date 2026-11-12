@@ -3,6 +3,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { CFG } from '../config.js'
+import { homePath } from '../home.js'
 
 export interface GatewayOwner {
   gatewayId: string
@@ -14,7 +15,9 @@ export interface GatewayOwner {
 }
 
 export function gatewayStatePath(port: number): string {
-  return path.join(CFG.workDirWsl, 'gateway-' + String(port) + '.json')
+  // v3.2: diagnostic state lives under the plug-in home (state/), never in the
+  // package directory or the OS temp dir.
+  return homePath('state', 'gateway-' + String(port) + '.json')
 }
 
 export function writeGatewayOwner(owner: GatewayOwner): void {
