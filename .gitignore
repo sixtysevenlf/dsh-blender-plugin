@@ -39,7 +39,6 @@ coverage/
 
 # Agent-local working directory (never committed)
 /local-workspace/
-/tmp/
 # Local PR-review workspace (never committed or shipped)
 /.review-tmp/
 .vscode/
