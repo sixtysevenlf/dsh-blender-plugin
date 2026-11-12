@@ -486,7 +486,7 @@ The addon bridge serializes requests: `AddonClient` sends one request at a time 
 behind it, so an unawaited background request at the queue head delays every foreground caller by up
 to its full timeout. Two places used to pay that tax: the host startup probe (an unawaited
 `get_addon_info` with a 3s timeout issued right after connect) and a failed-call diagnose in
-`lifecycle.installAddonSend` (about 2.5s, reused by /doctor instead of diagnosing twice).
+`lifecycle.installAddonSend` (about 2.0s, reused by /doctor instead of diagnosing twice).
 
 Current rules: startup only awaits the socket connect (`addon.ensure()`); no informational request is
 queued before the first real call. A failed request may attach one diagnosis, and /doctor reuses the
