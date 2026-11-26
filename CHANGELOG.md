@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 行为修复（自定义视角离屏读回 / #98）：`blender_see` 的 `viewport`、`current`、`camera` 三种模式此前在 `GPUOffScreen.texture_color.read()` 之后直接 `bytes(memoryview(buf))`，**没有钉 `buf.dimensions`**。该 Buffer 自带的是纹理自身布局步长，而下游 `write_png()` 期望 `w*h*4` 紧密排列 ⇒ 每行错位，整帧退化成斜条纹彩色噪声；`len(buf)` 仍等于 `w*h*4`，所以不抛异常、只静默出花图（现场因此在 #98 被当成驱动/FBO 故障）。现抽出 `read_offscreen_rgba()` 统一钉长，三处调用点（`_capture_viewport` / `host_capture` / `selftest`）一次收口；并给 `selftest()` 补「纯色清屏 ⇒ 全帧一致」断言 —— 旧判据只比对 `first_px`，而**行错位时首像素恰好仍是对的**，检不出该缺陷。实测 Blender 4.2.22 / RTX 3050 / NVIDIA 546.92：修复前相邻列差 97.6、纯红 `clear()` 读回 `[[0,0,0],[255,255,255]]`；修复后 1.1 与 `[[255,0,0]]`（与 #98 报告逐字一致）。addon 侧 `get_viewport_screenshot()` 一直正常，正是因为它本来就设了 `buf.dimensions`。回归：`tests/unit/python/test_view_readback.py`（7 例，修复前全失败、修复后全过；`tests/unit/python` 合计 256 例通过）。
 - 行为修复（EEVEE 引擎标识）：无头 worker、perf 助手与 GPU 前导不再硬编码 `BLENDER_EEVEE`。Blender 4.2–4.9 该标识改为 `BLENDER_EEVEE_NEXT`（旧名赋值抛 `TypeError`），而 5.0 起又改回 `BLENDER_EEVEE`。现按 `(4, 2, 0) <= bpy.app.version < (5, 0, 0)` 选择标识（4.2–4.9 用 `BLENDER_EEVEE_NEXT`，5.0+ 用 `BLENDER_EEVEE`）；回归 `tests/unit/python/test_engine_compat.py`（修复前基线 2 例失败，修复后 Python 单测 249 例全过），并以 Blender 4.5.2 `-b` 实测：旧赋值报 enum 错误、新表达式落到 `BLENDER_EEVEE_NEXT`。
 
 ## v3.1.0-alpha.1（2026-11-09）

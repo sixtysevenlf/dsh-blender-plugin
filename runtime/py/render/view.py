@@ -95,6 +95,29 @@ def make_proj_matrix(w, h, lens=50.0, sensor=36.0, clip_start=0.1, clip_end=1000
 
 # ---------------------------------------------------------------- PNG 直写
 
+def read_offscreen_rgba(off, width, height):
+    """把 GPUOffScreen 的颜色附着读成紧密排布的 RGBA8 字节（len == width*height*4）。
+
+    为什么必须钉 `dimensions`：`texture_color.read()` 返回的 Buffer 自带**纹理自身的布局
+    步长**，`bytes(memoryview(buf))` 会按那个步长拷贝；而下游 `write_png()` 期望的是
+    width*height*4 的紧密排布。两者不一致时每行都会错位，整帧退化成斜条纹噪声
+    （实测：相邻列差 ~97；钉好 dimensions 后 ~1）。
+
+    `len(buf)` 始终等于 width*height*4 —— 长度对、内容错，所以不会抛异常，
+    只会静默出花图。与 bind/clear、draw_background、view/projection 矩阵、分辨率、
+    GPU 驱动版本均无关；只跟这一行有关。
+
+    背景：addon 侧 `get_viewport_screenshot()` 一直是对的，因为它本来就设了
+    `buf.dimensions = width * height * 4`；runtime 这三处此前漏了这一行。
+    """
+    buf = off.texture_color.read()
+    try:
+        buf.dimensions = width * height * 4
+    except Exception:
+        pass  # 非 Buffer（例如测试桩返回 bytes）时保持原样，交给调用方
+    return bytes(memoryview(buf))
+
+
 def write_png(path, w, h, rgba, flip=True):
     """rgba: 顶层→底层顺序的 RGBA8 字节流（len = w*h*4）。
 
@@ -251,8 +274,7 @@ def _capture_viewport(s, vm=None, pm=None, width=None, height=None):
                 off.draw_view3d(scene, vl, space, reg, vm, pm,
                                 do_color_management=bool(s["color_management"]),
                                 draw_background=bool(s["background"]))
-                buf = off.texture_color.read()
-                rgba = bytes(memoryview(buf))
+                rgba = read_offscreen_rgba(off, w, h)
         finally:
             try:
                 off.free()
@@ -636,7 +658,7 @@ def host_capture(spec_json):
             # 画的就是用户视口的样子（do_color_management=True → write_png 直写字节，不做二次 gamma）
             off.draw_view3d(bpy.context.scene, bpy.context.view_layer, space, reg, vm, pm,
                             do_color_management=True, draw_background=True)
-            rgba = bytes(memoryview(off.texture_color.read()))
+            rgba = read_offscreen_rgba(off, w, h)
     finally:
         try:
             off.free()
@@ -901,20 +923,34 @@ def selftest():
         bpy.data.objects.remove(cam, do_unlink=True)
         bpy.data.cameras.remove(cam_data)
     W, H = 96, 54
+    clear_rgba = bytes((25, 153, 51, 255))
     off = gpu.types.GPUOffScreen(W, H)
     try:
         with off.bind():
             fb = gpu.state.active_framebuffer_get()
             fb.clear(color=(25 / 255.0, 153 / 255.0, 51 / 255.0, 1.0), depth=1.0)
-            rgba = bytes(memoryview(off.texture_color.read()))
+            rgba = read_offscreen_rgba(off, W, H)
     finally:
         off.free()
     p = os.path.join(os.path.dirname(WIN_DEFAULT), "dsh_view_selftest.png")
     out["png_bytes"] = write_png(p, W, H, rgba)
     out["png_path"] = p
     out["first_px"] = list(rgba[:4])
+    # 全帧一致性：纯色清屏必须整帧同色。旧判据只看 first_px，而**首像素在错位时
+    # 恰好仍是对的**，所以它检不出"行步长错位 → 斜条纹"这类读回缺陷（见 #98）。
+    distinct = set()
+    non_uniform = 0
+    for i in range(0, len(rgba) - 3, 4):
+        px = rgba[i:i + 4]
+        distinct.add(px)
+        if px != clear_rgba:
+            non_uniform += 1
+    out["distinct_px"] = len(distinct)
+    out["non_uniform_px"] = non_uniform
+    out["uniform"] = (len(distinct) == 1 and non_uniform == 0)
     out["ok"] = (out.get("proj_max_delta", 9) < 1e-5 and out.get("view_max_delta", 9) < 1e-5
-                 and out.get("ortho_max_delta", 9) < 1e-5 and out["first_px"] == [25, 153, 51, 255])
+                 and out.get("ortho_max_delta", 9) < 1e-5 and out["first_px"] == [25, 153, 51, 255]
+                 and out["uniform"])
     return _j(out)
 
 
